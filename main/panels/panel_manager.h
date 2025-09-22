@@ -8,14 +8,28 @@
 #include "song_timeline.h"
 #include "tempo_tapper.h"
 
+struct UphAudioMixer mixer_data;
+struct UphChannelRack channel_data;
+struct UphFileExplorer explorer_data;
+struct UphMenuBar menu_bar_data;
+struct UphMidiEditor midi_data;
+struct UphSettings settings_data;
+struct UphSongTimeline timeline_data;
+struct UphTempoTapper tapper_data;
+
+void uph_panel_init(void)
+{
+
+}
+
 void uph_panel_renderer(void)
 {
-    /*uph_audio_mixer_render();
-    uph_channel_rack_render();
-    uph_file_explorer_render();
-    uph_menu_bar_render();
-    uph_midi_editor_render();
-    uph_settings_render();
-    uph_song_timeline_render();
-    uph_tempo_tapper_render();*/
+    uph_audio_mixer_render(mixer_data);
+    uph_channel_rack_render(channel_data);
+    uph_file_explorer_render(explorer_data);
+    uph_menu_bar_render(menu_bar_data);
+    uph_midi_editor_render(midi_data);
+    uph_settings_render(settings_data);
+    uph_song_timeline_render(timeline_data);
+    uph_tempo_tapper_render(tapper_data);
 }
