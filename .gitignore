@@ -1,7 +1,6 @@
 *.sln
 *.vcxproj
 *.filters
-*.vcxproj.filters
 *.pdb
 bin/*.exe
 obj/
