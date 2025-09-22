@@ -61,6 +61,7 @@
     <ClInclude Include="main\panels\file_explorer.h" />
     <ClInclude Include="main\panels\menu_bar.h" />
     <ClInclude Include="main\panels\midi_editor.h" />
+    <ClInclude Include="main\panels\panel_manager.h" />
     <ClInclude Include="main\panels\settings.h" />
     <ClInclude Include="main\panels\song_timeline.h" />
     <ClInclude Include="main\panels\tempo_tapper.h" />

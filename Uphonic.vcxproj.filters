@@ -42,6 +42,9 @@
     <ClInclude Include="main\panels\midi_editor.h">
       <Filter>main\panels</Filter>
     </ClInclude>
+    <ClInclude Include="main\panels\panel_manager.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
     <ClInclude Include="main\panels\settings.h">
       <Filter>main\panels</Filter>
     </ClInclude>
