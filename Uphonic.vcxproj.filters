@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="main">
+      <UniqueIdentifier>{6A7F9A7C-56B6-9B0D-FFA2-8110EBB8170F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="main\panels">
+      <UniqueIdentifier>{9C0884B5-08BE-FCAA-91B2-F681FD66F3AE}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="main\platform">
+      <UniqueIdentifier>{1E4F2258-8A0F-9E8E-534A-E70BBFC9E26A}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="main\utils">
+      <UniqueIdentifier>{6AF80382-56B0-45CF-BFB7-1E2BAB8EE0BF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor">
+      <UniqueIdentifier>{B3738122-9F15-ACF8-88D0-BF4C74113349}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor\imgui">
+      <UniqueIdentifier>{5D3BD0F0-499E-5F95-F223-984BDE652B18}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="main\base.h">
+      <Filter>main</Filter>
+    </ClInclude>
+    <ClInclude Include="main\defines.h">
+      <Filter>main</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\audio_mixer.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\channel_rack.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\file_explorer.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\menu_bar.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\midi_editor.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\settings.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\song_timeline.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\panels\tempo_tapper.h">
+      <Filter>main\panels</Filter>
+    </ClInclude>
+    <ClInclude Include="main\platform\event.h">
+      <Filter>main\platform</Filter>
+    </ClInclude>
+    <ClInclude Include="main\platform\event_types.h">
+      <Filter>main\platform</Filter>
+    </ClInclude>
+    <ClInclude Include="main\platform\platform.h">
+      <Filter>main\platform</Filter>
+    </ClInclude>
+    <ClInclude Include="main\utils\shortcut.h">
+      <Filter>main\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imconfig.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui_impl_dx11.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui_impl_opengl3.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui_impl_opengl3_loader.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui_impl_win32.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imgui_internal.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imstb_rectpack.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imstb_textedit.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\imstb_truetype.h">
+      <Filter>vendor\imgui</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main\main.cpp">
+      <Filter>main</Filter>
+    </ClCompile>
+    <ClCompile Include="main\platform\event.cpp">
+      <Filter>main\platform</Filter>
+    </ClCompile>
+    <ClCompile Include="main\platform\platform_linux.cpp">
+      <Filter>main\platform</Filter>
+    </ClCompile>
+    <ClCompile Include="main\platform\platform_win32.cpp">
+      <Filter>main\platform</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_demo.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_draw.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_impl_dx11.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_impl_opengl3.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_impl_win32.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_tables.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\imgui_widgets.cpp">
+      <Filter>vendor\imgui</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,12 @@
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\main\main.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\main.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\main\platform\event.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\event.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\main\platform\platform_linux.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\platform_linux.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\main\platform\platform_win32.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\platform_win32.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_demo.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_demo.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_draw.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_draw.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_impl_dx11.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_impl_dx11.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_impl_opengl3.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_impl_opengl3.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_impl_win32.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_impl_win32.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_tables.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_tables.obj
+C:\Users\Kiril Abadjiev\Downloads\Uphonic\vendor\imgui\imgui_widgets.cpp;C:\Users\Kiril Abadjiev\Downloads\Uphonic\obj\imgui_widgets.obj
