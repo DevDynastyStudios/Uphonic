@@ -1,35 +1,31 @@
 #pragma once
-#include "audio_mixer.h"
-#include "channel_rack.h"
-#include "file_explorer.h"
-#include "menu_bar.h"
-#include "midi_editor.h"
-#include "settings.h"
-#include "song_timeline.h"
-#include "tempo_tapper.h"
+#include <imgui.h>
+#include <vector>
 
-struct UphAudioMixer mixer_data;
-struct UphChannelRack channel_data;
-struct UphFileExplorer explorer_data;
-struct UphMenuBar menu_bar_data;
-struct UphMidiEditor midi_data;
-struct UphSettings settings_data;
-struct UphSongTimeline timeline_data;
-struct UphTempoTapper tapper_data;
+typedef void (*UphPanelRenderCallback)(struct UphPanel* panel);
 
-void uph_panel_init(void)
+struct UphPanel
 {
+    const char* title;
+    bool is_visible;
+    void* panel_data;
+    ImGuiWindowFlags flags;
+    UphPanelRenderCallback render_callback;
+};
 
-}
+std::vector<UphPanel>& panels();
 
-void uph_panel_renderer(void)
-{
-    uph_audio_mixer_render(mixer_data);
-    uph_channel_rack_render(channel_data);
-    uph_file_explorer_render(explorer_data);
-    uph_menu_bar_render(menu_bar_data);
-    uph_midi_editor_render(midi_data);
-    uph_settings_render(settings_data);
-    uph_song_timeline_render(timeline_data);
-    uph_tempo_tapper_render(tapper_data);
-}
+void uph_panel_register(const char* title, void* panel_data, ImGuiWindowFlags window_flags, UphPanelRenderCallback render_callback);
+void uph_panel_render_all();
+UphPanel* uph_panel_get(int id);
+
+// Registers a panel at static initialization time.
+// Usage: UPH_REGISTER_PANEL("Title", &panel_data, panel_render_function);
+#define UPH_REGISTER_PANEL(TITLE, PANEL_DATA, WINDOW_FLAGS, RENDER_FUNC)            \
+    static void __uph_register_##RENDER_FUNC(void) {                                \
+        uph_panel_register(TITLE, PANEL_DATA, WINDOW_FLAGS, RENDER_FUNC);           \
+    }                                                                               \
+    struct __UphPanelRegistrar_##RENDER_FUNC {                                      \
+        __UphPanelRegistrar_##RENDER_FUNC() { __uph_register_##RENDER_FUNC(); }     \
+    };                                                                              \
+    static __UphPanelRegistrar_##RENDER_FUNC __uph_panel_registrar_##RENDER_FUNC;

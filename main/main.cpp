@@ -5,6 +5,11 @@
 #include <imgui.h>
 #include "panels/panel_manager.h"
 
+void uph_create_panel_menus()
+{
+    
+}
+
 int main(const int argc, const char **argv)
 {
     UphPlatformCreateInfo create_info = {.width = 1920, .height = 1080, .title = "Uphonic"};
@@ -12,6 +17,7 @@ int main(const int argc, const char **argv)
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.IniFilename = nullptr;
 
     uph_platform_initialize(&create_info);
 
@@ -23,8 +29,7 @@ int main(const int argc, const char **argv)
         uph_platform_begin();
         ImGui::NewFrame();
         ImGui::DockSpaceOverViewport();
-        ImGui::ShowDemoWindow();
-        uph_panel_renderer();
+        uph_panel_render_all();
         ImGui::Render();
         uph_platform_end();
     }

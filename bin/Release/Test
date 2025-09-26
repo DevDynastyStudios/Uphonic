@@ -1,0 +1,72 @@
+[Window][WindowOverViewport_11111111]
+Pos=0,0
+Size=1920,1080
+Collapsed=0
+
+[Window][File Explorer]
+Pos=0,107
+Size=199,781
+Collapsed=0
+DockId=0x00000005,0
+
+[Window][Menu Bar]
+Pos=0,0
+Size=1790,105
+Collapsed=0
+DockId=0x00000003,0
+
+[Window][Midi Editor]
+Pos=201,503
+Size=1464,385
+Collapsed=0
+DockId=0x00000008,0
+
+[Window][Settings]
+Pos=276,69
+Size=1355,866
+Collapsed=0
+
+[Window][Debug##Default]
+Pos=60,60
+Size=400,400
+Collapsed=0
+
+[Window][Channel Rack]
+Pos=1667,107
+Size=253,781
+Collapsed=0
+DockId=0x0000000C,0
+
+[Window][Mixer Track]
+Pos=0,890
+Size=1920,190
+Collapsed=0
+DockId=0x0000000A,0
+
+[Window][Song Timeline]
+Pos=201,107
+Size=1464,394
+Collapsed=0
+DockId=0x00000007,0
+
+[Window][Tempo Tapper]
+Pos=1792,0
+Size=128,105
+Collapsed=0
+DockId=0x00000004,0
+
+[Docking][Data]
+DockSpace           ID=0x08BD597D Window=0x1BBC0F80 Pos=0,0 Size=1920,1080 Split=Y
+  DockNode          ID=0x00000009 Parent=0x08BD597D SizeRef=1920,888 Split=Y
+    DockNode        ID=0x00000001 Parent=0x00000009 SizeRef=1920,105 Split=X Selected=0x4DC1D873
+      DockNode      ID=0x00000003 Parent=0x00000001 SizeRef=1790,105 Selected=0x4DC1D873
+      DockNode      ID=0x00000004 Parent=0x00000001 SizeRef=128,105 Selected=0x163E32A4
+    DockNode        ID=0x00000002 Parent=0x00000009 SizeRef=1920,741 Split=X Selected=0xBB377699
+      DockNode      ID=0x00000005 Parent=0x00000002 SizeRef=199,940 Selected=0x9C2B5678
+      DockNode      ID=0x00000006 Parent=0x00000002 SizeRef=1719,940 Split=X Selected=0x5A3A6CF5
+        DockNode    ID=0x0000000B Parent=0x00000006 SizeRef=1464,394 Split=Y Selected=0x5A3A6CF5
+          DockNode  ID=0x00000007 Parent=0x0000000B SizeRef=1521,394 CentralNode=1 Selected=0x5A3A6CF5
+          DockNode  ID=0x00000008 Parent=0x0000000B SizeRef=1521,385 Selected=0xBB377699
+        DockNode    ID=0x0000000C Parent=0x00000006 SizeRef=253,394 Selected=0xC4C3C6AC
+  DockNode          ID=0x0000000A Parent=0x08BD597D SizeRef=1920,190 Selected=0x0E38794F
+
