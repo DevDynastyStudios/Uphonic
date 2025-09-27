@@ -4,7 +4,8 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/vendor/imgui"
+                "${workspaceFolder}/vendor/imgui",
+                "${workspaceFolder}/vendor/mINI"
             ],
             "defines": [
                 "_DEBUG",

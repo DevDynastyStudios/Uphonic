@@ -15,7 +15,8 @@ project "Uphonic"
 
     includedirs {
         "main",
-        "vendor/imgui"
+        "vendor/imgui",
+        "vendor/mINI"
     }
 
     filter { "configurations:Release" }

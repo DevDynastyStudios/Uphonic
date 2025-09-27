@@ -5,9 +5,9 @@ std::vector<UphPanel>& panels() {
     return instance;
 }
 
-void uph_panel_register(const char* title, void* panel_data, ImGuiItemFlags window_flags, UphPanelRenderCallback render_callback)
+void uph_panel_register(const char* title, ImGuiItemFlags window_flags, UphPanelRenderCallback render_callback, bool hidden_on_boot)
 {
-    UphPanel panel { title, true, panel_data, window_flags, render_callback };
+    UphPanel panel { title, !hidden_on_boot, window_flags, render_callback };
     panels().push_back(panel);
 }
 
@@ -18,7 +18,7 @@ void uph_panel_render_all()
         if(!panel.is_visible)
             continue;
 
-        if(ImGui::Begin(panel.title, &panel.is_visible))
+        if(ImGui::Begin(panel.title, &panel.is_visible, panel.flags))
             if(panel.render_callback)
                 panel.render_callback(&panel);
 

@@ -4,11 +4,7 @@
 
 #include <imgui.h>
 #include "panels/panel_manager.h"
-
-void uph_create_panel_menus()
-{
-    
-}
+#include "settings/layout_manager.h"
 
 int main(const int argc, const char **argv)
 {
@@ -20,6 +16,7 @@ int main(const int argc, const char **argv)
     io.IniFilename = nullptr;
 
     uph_platform_initialize(&create_info);
+    uph_load_layout("Default");
 
     bool is_running = true;
     uph_event_connect(UphSystemEventCode::Quit, [&](void *data) { is_running = false; });

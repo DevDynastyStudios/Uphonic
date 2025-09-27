@@ -12,4 +12,4 @@ static void uph_song_timeline_render(UphPanel* panel)
 
 }
 
-UPH_REGISTER_PANEL("Song Timeline", &timeline_data, ImGuiWindowFlags_None, uph_song_timeline_render);
+UPH_REGISTER_PANEL("Song Timeline", ImGuiWindowFlags_None, uph_song_timeline_render, false);
