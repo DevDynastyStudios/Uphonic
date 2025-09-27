@@ -5,9 +5,9 @@ std::vector<UphPanel>& panels() {
     return instance;
 }
 
-void uph_panel_register(const char* title, ImGuiItemFlags window_flags, UphPanelRenderCallback render_callback, bool hidden_on_boot)
+void uph_panel_register(const char* title, ImGuiItemFlags window_flags, UphPanelRenderCallback render_callback)
 {
-    UphPanel panel { title, !hidden_on_boot, window_flags, render_callback };
+    UphPanel panel { title, false, window_flags, render_callback };
     panels().push_back(panel);
 }
 

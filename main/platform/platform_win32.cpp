@@ -238,6 +238,8 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
         default:
             return DefWindowProc(hwnd, msg, w_param, l_param);
     }
+
+    return false;
 }
 
 #endif

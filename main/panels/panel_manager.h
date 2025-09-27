@@ -14,15 +14,15 @@ struct UphPanel
 
 std::vector<UphPanel>& panels();
 
-void uph_panel_register(const char* title, ImGuiWindowFlags window_flags, UphPanelRenderCallback render_callback, bool hidden_on_boot);
+void uph_panel_register(const char* title, ImGuiWindowFlags window_flags, UphPanelRenderCallback render_callback);
 void uph_panel_render_all();
 UphPanel* uph_panel_get(int id);
 
 // Registers a panel at static initialization time.
 // Usage: UPH_REGISTER_PANEL("Title", &panel_data, panel_render_function);
-#define UPH_REGISTER_PANEL(TITLE, WINDOW_FLAGS, RENDER_FUNC, HIDDEN_ON_BOOT)        \
+#define UPH_REGISTER_PANEL(TITLE, WINDOW_FLAGS, RENDER_FUNC)                        \
     static void __uph_register_##RENDER_FUNC(void) {                                \
-        uph_panel_register(TITLE, WINDOW_FLAGS, RENDER_FUNC, HIDDEN_ON_BOOT);       \
+        uph_panel_register(TITLE, WINDOW_FLAGS, RENDER_FUNC);                       \
     }                                                                               \
     struct __UphPanelRegistrar_##RENDER_FUNC {                                      \
         __UphPanelRegistrar_##RENDER_FUNC() { __uph_register_##RENDER_FUNC(); }     \

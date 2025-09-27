@@ -8,13 +8,17 @@
 #define LAYOUT_IDENTIFIER "UphPanels"
 #define INI_EXTENSION ".ini"
 
+// Yes, I know about the flag bug with already existing ini files
 void uph_save_layout(const char* name) {
     std::string filename = std::string(name) + INI_EXTENSION;
     ImGui::SaveIniSettingsToDisk(filename.c_str());
-
     std::ofstream out(filename, std::ios::app);
     out << "\n[" << LAYOUT_IDENTIFIER << "]\n";
+
     for (auto& panel : panels()) {
+        if (panel.flags & ImGuiWindowFlags_NoSavedSettings)
+            continue;
+
         out << panel.title << "=" << (panel.is_visible ? "1" : "0") << "\n";
     }
 }

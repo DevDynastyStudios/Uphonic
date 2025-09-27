@@ -13,4 +13,4 @@ static void uph_pattern_rack_render(UphPanel* panel)
     ImGui::SliderFloat("Fader", &pattern_data.fader, 0.0f, 1.0f);
 }
 
-UPH_REGISTER_PANEL("Pattern Rack", ImGuiWindowFlags_None, uph_pattern_rack_render, false);
+UPH_REGISTER_PANEL("Pattern Rack", ImGuiWindowFlags_None, uph_pattern_rack_render);

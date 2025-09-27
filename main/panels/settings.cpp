@@ -12,4 +12,4 @@ static void uph_settings_render(UphPanel* panel)
 
 }
 
-UPH_REGISTER_PANEL("Settings", ImGuiWindowFlags_NoSavedSettings, uph_settings_render, false);
+UPH_REGISTER_PANEL("Settings", ImGuiWindowFlags_NoSavedSettings, uph_settings_render);
