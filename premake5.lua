@@ -16,9 +16,9 @@ project "Uphonic"
 
     includedirs {
         "main",
+        "vendor",
         "vendor/imgui",
-        "vendor/mINI",
-        "vendor/nlohmann"
+        "vendor/mINI"
     }
 
     filter { "configurations:Release" }
