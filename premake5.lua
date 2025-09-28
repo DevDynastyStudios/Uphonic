@@ -11,14 +11,17 @@ project "Uphonic"
         "main/**.cpp",
         "vendor/imgui/**.h",
         "vendor/imgui/**.cpp",
-        "vendor/nlohmann/**.hpp"
+        "vendor/imgui-knobs/**.h",
+        "vendor/imgui-knobs/**.cpp"
     }
 
     includedirs {
         "main",
         "vendor/imgui",
+        "vendor/imgui-knobs",
         "vendor/mINI",
-        "vendor/nlohmann"
+        "vendor/nlohmann",
+        "vendor/vst2"
     }
 
     filter { "configurations:Release" }

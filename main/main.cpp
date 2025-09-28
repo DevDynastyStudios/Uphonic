@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include "panels/panel_manager.h"
 #include "settings/layout_manager.h"
+#include "types.h"
 
 void uph_create_palette()
 {
@@ -116,6 +117,7 @@ int main(const int argc, const char **argv)
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     io.IniFilename = nullptr;
 
     uph_create_palette();
@@ -125,6 +127,8 @@ int main(const int argc, const char **argv)
     bool is_running = true;
     uph_event_connect(UphSystemEventCode::Quit, [&](void *data) { is_running = false; });
 
+    app = new UphApplication;
+
     while (is_running)
     {
         uph_platform_begin();
@@ -133,6 +137,11 @@ int main(const int argc, const char **argv)
         ImGui::ShowStyleEditor();
         uph_panel_render_all();
         ImGui::Render();
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
         uph_platform_end();
     }
 

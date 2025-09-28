@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-#include <vst2/pluginterfaces/vst2.x/aeffectx.h>
+#include <pluginterfaces/vst2.x/aeffectx.h>
 
 struct UphMixerEffect
 {
@@ -26,7 +26,7 @@ struct UphInstrument
 
 struct UphNote
 {
-    float time, length;
+    float start, length;
     uint8_t key;
     uint8_t velocity;
 };
@@ -56,6 +56,9 @@ enum class UphTrackType : uint8_t
 
 struct UphTrack
 {
+    char name[64];
+    float volume = 1.0f, pan = 0.5f;
+    bool mute = false;
     UphTrackType track_type;
     UphMidiTrack midi_track;
     UphSampleTrack sample_track;
@@ -63,7 +66,7 @@ struct UphTrack
 
 struct UphProject
 {
-    float volume, bpm;
+    float volume = 0.5f, bpm = 120.0f;
     std::vector<UphMidiPattern> patterns;
     std::vector<UphTrack> tracks;
 };
@@ -72,3 +75,5 @@ struct UphApplication
 {
     UphProject project;
 };
+
+inline UphApplication *app = nullptr;

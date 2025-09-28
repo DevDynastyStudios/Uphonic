@@ -2,5 +2,6 @@
 *.vcxproj
 *.filters
 *.pdb
-bin/*.exe
+.vscode/
+bin/Release/*.exe
 obj/
