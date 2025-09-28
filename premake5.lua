@@ -17,11 +17,10 @@ project "Uphonic"
 
     includedirs {
         "main",
+        "vendor",
         "vendor/imgui",
-        "vendor/imgui-knobs",
         "vendor/mINI",
-        "vendor/nlohmann",
-        "vendor/vst2"
+        "vendor/nlohmann"
     }
 
     filter { "configurations:Release" }
