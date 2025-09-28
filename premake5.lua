@@ -20,7 +20,8 @@ project "Uphonic"
         "vendor",
         "vendor/imgui",
         "vendor/mINI",
-        "vendor/nlohmann"
+        "vendor/nlohmann",
+        "vendor/vst2"
     }
 
     filter { "configurations:Release" }
