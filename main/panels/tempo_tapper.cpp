@@ -21,4 +21,4 @@ static void uph_tempo_tapper_render(UphPanel* panel)
     }
 }
 
-UPH_REGISTER_PANEL("Tempo Tapper", ImGuiWindowFlags_None, uph_tempo_tapper_render);
+UPH_REGISTER_PANEL("Tempo Tapper", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_tempo_tapper_render);

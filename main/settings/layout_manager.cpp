@@ -16,7 +16,7 @@ void uph_save_layout(const char* name) {
     out << "\n[" << LAYOUT_IDENTIFIER << "]\n";
 
     for (auto& panel : panels()) {
-        if (panel.flags & ImGuiWindowFlags_NoSavedSettings)
+        if (panel.window_flags & ImGuiWindowFlags_NoSavedSettings)
             continue;
 
         out << panel.title << "=" << (panel.is_visible ? "1" : "0") << "\n";

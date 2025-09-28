@@ -12,4 +12,4 @@ static void uph_file_explorer_render(UphPanel* panel)
     ImGui::Text("File Explorer");
 }
 
-UPH_REGISTER_PANEL("File Explorer", ImGuiWindowFlags_None, uph_file_explorer_render);
+UPH_REGISTER_PANEL("File Explorer", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_file_explorer_render);
