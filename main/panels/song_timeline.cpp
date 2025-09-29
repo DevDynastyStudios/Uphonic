@@ -45,6 +45,7 @@ static float quantizeToBeat(float time, float beatSize)
 
 static void uph_song_timeline_handle_pattern_interaction(
     UphTrack& track,
+    int trackIndex,
     UphMidiPatternInstance& pattern,
     ImVec2 canvasPos,
     float timelineX,
@@ -90,6 +91,11 @@ static void uph_song_timeline_handle_pattern_interaction(
         }
         else if (isHovered)
         {
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                app->current_pattern_index = pattern.pattern_index;
+                app->current_track_index = trackIndex;
+            }
             if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
             {
                 timeline_data.dragging = true;
@@ -344,7 +350,7 @@ static void uph_song_timeline_render(UphPanel* panel)
                 ImVec2 rectMin(px, y);
                 ImVec2 rectMax(px + pw, y + h);
 
-                uph_song_timeline_handle_pattern_interaction(track, pattern, canvasPos, timelineX, canvasSize, rectMin, rectMax);
+                uph_song_timeline_handle_pattern_interaction(track, i, pattern, canvasPos, timelineX, canvasSize, rectMin, rectMax);
             }
         }
     
