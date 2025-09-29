@@ -33,6 +33,7 @@ struct UphNote
 
 struct UphMidiPattern
 {
+    char name[64];
     std::vector<UphNote> notes;
 };
 
@@ -74,9 +75,8 @@ struct UphProject
 struct UphApplication
 {
     UphProject project;
-
-    UphMidiPattern* current_pattern = nullptr;
-    AEffect* current_effect = nullptr;
+    uint32_t current_pattern_index = 0;
+    uint32_t current_track_index = 0;
 };
 
 inline UphApplication *app = nullptr;

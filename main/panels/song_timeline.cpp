@@ -88,13 +88,24 @@ static void uph_song_timeline_handle_pattern_interaction(
             timeline_data.draggedTrack = &track;
             ImGui::SetActiveID(ImGui::GetID(&pattern), ImGui::GetCurrentWindow());
         }
-        else if (isHovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+        else if (isHovered)
         {
-            timeline_data.dragging = true;
-            timeline_data.draggedPattern = &pattern;
-            timeline_data.draggedTrack = &track;
-            timeline_data.dragOffset = (io.MousePos.x - px) / timeline_data.zoomX;
-            ImGui::SetActiveID(ImGui::GetID(&pattern), ImGui::GetCurrentWindow());
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                timeline_data.dragging = true;
+                timeline_data.draggedPattern = &pattern;
+                timeline_data.draggedTrack = &track;
+                timeline_data.dragOffset = (io.MousePos.x - px) / timeline_data.zoomX;
+                ImGui::SetActiveID(ImGui::GetID(&pattern), ImGui::GetCurrentWindow());
+            }
+            else if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+            {
+                track.midi_track.pattern_instances.erase(
+                    std::remove_if(track.midi_track.pattern_instances.begin(),
+                        track.midi_track.pattern_instances.end(),
+                        [&](UphMidiPatternInstance &p){ return &p == &pattern; }),
+                    track.midi_track.pattern_instances.end());
+            }
         }
     }
 
@@ -155,13 +166,19 @@ static void uph_song_timeline_handle_pattern_interaction(
                 if (&targetTrack != timeline_data.draggedTrack && targetTrack.track_type == UphTrackType::Midi)
                 {
                     auto& src = timeline_data.draggedTrack->midi_track.pattern_instances;
-                    src.erase(std::remove_if(src.begin(), src.end(),
-                        [&](UphMidiPatternInstance &p){ return &p == timeline_data.draggedPattern; }), src.end());
 
-                    targetTrack.midi_track.pattern_instances.push_back(pattern);
+                    auto it = std::find_if(src.begin(), src.end(),
+                        [&](UphMidiPatternInstance &p){ return &p == timeline_data.draggedPattern; });
 
-                    timeline_data.draggedTrack   = &targetTrack;
-                    timeline_data.draggedPattern = &targetTrack.midi_track.pattern_instances.back();
+                    if (it != src.end())
+                    {
+                        UphMidiPatternInstance moved = std::move(*it);
+                        src.erase(it);
+
+                        targetTrack.midi_track.pattern_instances.push_back(std::move(moved));
+                        timeline_data.draggedTrack   = &targetTrack;
+                        timeline_data.draggedPattern = &targetTrack.midi_track.pattern_instances.back();
+                    }
                 }
             }
         }
@@ -175,6 +192,8 @@ static void uph_song_timeline_handle_pattern_interaction(
 
     if (hoverLeft || hoverRight || timeline_data.resizing)
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+    else if (isHovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 }
 
 static void uph_song_timeline_draw_pattern_block(
@@ -264,7 +283,7 @@ static void uph_song_timeline_render(UphPanel* panel)
 
     ImVec2 fullSize = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
-    if (ImGui::Button("Play"))
+    if (ImGui::Button(timeline_data.is_playing ? "Stop" : "Play"))
     {
         timeline_data.is_playing = !timeline_data.is_playing;
         timeline_data.song_position = 0.0f;
@@ -287,7 +306,6 @@ static void uph_song_timeline_render(UphPanel* panel)
     ImVec2 canvasSize = ImGui::GetContentRegionAvail();
     const float titleHeight = ImGui::GetTextLineHeight();
 
-    // Scroll/pan input
     if (ImGui::IsWindowHovered())
     {
         if (io.KeyCtrl)
@@ -328,6 +346,36 @@ static void uph_song_timeline_render(UphPanel* panel)
 
                 uph_song_timeline_handle_pattern_interaction(track, pattern, canvasPos, timelineX, canvasSize, rectMin, rectMax);
             }
+        }
+    
+        ImVec2 trackMin(canvasPos.x + k_track_menu_width + 4, y);
+        ImVec2 trackMax(canvasPos.x + canvasSize.x, y + h);
+
+        char buf[64];
+        snprintf(buf, sizeof(buf), "Track %zu Drop Zone", i);
+        ImGui::SetCursorScreenPos(trackMin);
+        ImGui::InvisibleButton(buf, ImVec2(canvasSize.x, h));
+
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN"))
+            {
+                size_t src_index = *(const size_t*)payload->Data;
+                if (track.track_type == UphTrackType::Midi)
+                {
+                    UphMidiPatternInstance newInstance;
+                    newInstance.pattern_index = (uint16_t)src_index;
+
+                    float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scrollX;
+                    newInstance.start_time = quantizeToBeat(localX / timeline_data.zoomX, k_beat_size);
+
+                    newInstance.start_offset = 0.0f;
+                    newInstance.length = 8.0f;
+
+                    track.midi_track.pattern_instances.push_back(newInstance);
+                }
+            }
+            ImGui::EndDragDropTarget();
         }
     }
 

@@ -52,7 +52,7 @@ static void midi_editor_draw_transport(void)
         else
         {
             editor_data.is_playing = true;
-            editor_data.is_playing = 0.0f;
+            editor_data.song_position = 0.0f;
         }
     }
     ImGui::SameLine();
@@ -74,14 +74,7 @@ static void uph_midi_editor_render(UphPanel* panel)
     ImVec2 child_size = ImGui::GetContentRegionAvail();
     ImGui::BeginChild("MidiEditorCanvas", child_size);
 
-    if (!app->current_pattern)
-    {
-        ImGui::Text("No pattern loaded.");
-        ImGui::EndChild();
-        return;
-    }
-
-    std::vector<UphNote>& notes = app->current_pattern->notes;
+    std::vector<UphNote>& notes = app->project.patterns[app->current_pattern_index].notes;
 
     ImGuiStyle &style = ImGui::GetStyle();
     ImGuiIO& io = ImGui::GetIO();
@@ -260,7 +253,8 @@ static void uph_midi_editor_render(UphPanel* panel)
             std::sort(remove_index.rbegin(), remove_index.rend());
             for (size_t idx : remove_index) notes.erase(notes.begin() + idx);
 
-            if (editor_data.is_playing && app->current_effect)
+            AEffect *effect = app->project.tracks[app->current_track_index].midi_track.instrument.effect;
+            if (editor_data.is_playing && effect)
             {
                 for (int pitch : removed_pitches)
                 {
@@ -281,7 +275,7 @@ static void uph_midi_editor_render(UphPanel* panel)
                         ev.type = kVstMidiType; ev.byteSize = sizeof(ev);
                         ev.midiData[0] = 0x80; ev.midiData[1] = pitch; ev.midiData[2] = 0;
                         VstEvents events{}; events.numEvents = 1; events.events[0] = (VstEvent*)&ev;
-                        app->current_effect->dispatcher(app->current_effect, effProcessEvents, 0, 0, &events, 0.0f);
+                        effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
                     }
                 }
             }
@@ -326,7 +320,8 @@ static void uph_midi_editor_render(UphPanel* panel)
             draw_list->AddText(ImVec2(text_x, text_y), IM_COL32(0,0,0,255), buf);
     }
 
-    midi_editor_draw_and_handle_playhead(draw_list, canvas_pos, canvas_size, key_width);
+    if (editor_data.is_playing)
+        midi_editor_draw_and_handle_playhead(draw_list, canvas_pos, canvas_size, key_width);
 
     for (int i = 0; i < 128; ++i)
     {
@@ -352,6 +347,15 @@ static void uph_midi_editor_render(UphPanel* panel)
     }
 
     ImGui::InvisibleButton("canvas", canvas_size);
+    if (ImGui::BeginDragDropTarget())
+    {
+        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN"))
+        {
+            size_t src_index = *(const size_t*)payload->Data;
+            app->current_pattern_index = (int)src_index;                
+        }
+        ImGui::EndDragDropTarget();
+    }
     ImGui::EndChild();
 }
 
