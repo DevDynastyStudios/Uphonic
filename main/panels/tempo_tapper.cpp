@@ -12,12 +12,12 @@ static void uph_tempo_tapper_render(UphPanel* panel)
 {
     if(ImGui::Button("Save Layout"))
     {
-        uph_save_layout("Default");
+        uph_save_layout("layouts/Default");
     }
 
     if(ImGui::Button("Load Layout"))
     {
-        uph_load_layout("Default");
+        uph_load_layout("layouts/Default");
     }
 }
 
