@@ -33,6 +33,7 @@ struct UphNote
 
 struct UphMidiPattern
 {
+    char name[64];
     std::vector<UphNote> notes;
 };
 
@@ -58,7 +59,7 @@ struct UphTrack
 {
     char name[64];
     float volume = 1.0f, pan = 0.5f;
-    bool mute = false;
+    bool muted = false;
     UphTrackType track_type;
     UphMidiTrack midi_track;
     UphSampleTrack sample_track;
@@ -68,12 +69,15 @@ struct UphProject
 {
     float volume = 0.5f, bpm = 120.0f;
     std::vector<UphMidiPattern> patterns;
-    std::vector<UphTrack> tracks;
+    std::vector<UphTrack> tracks = std::vector<UphTrack>(32);
 };
 
 struct UphApplication
 {
     UphProject project;
+
+    UphMidiPattern* current_pattern = nullptr;
+    AEffect* current_effect = nullptr;
 };
 
 inline UphApplication *app = nullptr;

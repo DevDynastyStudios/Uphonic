@@ -27,6 +27,10 @@ int main(const int argc, const char **argv)
     uph_event_connect(UphSystemEventCode::Quit, [&](void *data) { is_running = false; });
 
     app = new UphApplication;
+    app->project.patterns.push_back(UphMidiPattern{ "Pattern 1" });
+    app->current_pattern = &app->project.patterns.back();
+    app->project.tracks[0].track_type = UphTrackType::Midi;
+    app->project.tracks[0].midi_track.pattern_instances.push_back(UphMidiPatternInstance{ 0, 16.0f });
 
     while (is_running)
     {

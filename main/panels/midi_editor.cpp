@@ -25,9 +25,6 @@ struct UphMidiEditor
     float drag_start_note_start = 0.0f;
     float drag_start_note_length = 0.0f;
     int   drag_start_note_pitch = 0;
-
-    UphMidiPattern *pattern = nullptr;
-    AEffect *effect = nullptr;
 };
 
 static UphMidiEditor editor_data {};
@@ -77,14 +74,14 @@ static void uph_midi_editor_render(UphPanel* panel)
     ImVec2 child_size = ImGui::GetContentRegionAvail();
     ImGui::BeginChild("MidiEditorCanvas", child_size);
 
-    if (!editor_data.pattern)
+    if (!app->current_pattern)
     {
         ImGui::Text("No pattern loaded.");
         ImGui::EndChild();
         return;
     }
 
-    std::vector<UphNote>& notes = editor_data.pattern->notes;
+    std::vector<UphNote>& notes = app->current_pattern->notes;
 
     ImGuiStyle &style = ImGui::GetStyle();
     ImGuiIO& io = ImGui::GetIO();
@@ -103,7 +100,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             float mouse_x_in_canvas = io.MousePos.x - canvas_pos.x - key_width;
             float prev_zoom_x = editor_data.zoom_x;
             editor_data.zoom_x *= (io.MouseWheel > 0) ? 1.1f : 0.9f;
-            editor_data.zoom_x = std::clamp(editor_data.zoom_x, 0.5f, 10.0f);
+            editor_data.zoom_x = std::clamp(editor_data.zoom_x, 10.0f, 60.0f);
             editor_data.scroll_x += mouse_x_in_canvas * (editor_data.zoom_x - prev_zoom_x);
         }
         if (io.MouseWheel != 0 && !io.KeyCtrl) editor_data.scroll_y -= io.MouseWheel * 10.0f;
@@ -124,8 +121,10 @@ static void uph_midi_editor_render(UphPanel* panel)
             }
         }
         editor_data.scroll_x = std::max(0.0f, editor_data.scroll_x);
-        editor_data.scroll_y = std::max(0.0f, editor_data.scroll_y);
     }
+
+    const float max_scroll_y = 128 * key_height - canvas_size.y;
+    editor_data.scroll_y = std::clamp(editor_data.scroll_y, 0.0f, max_scroll_y);
 
     for (int i = 0; i < 128; ++i)
     {
@@ -141,7 +140,7 @@ static void uph_midi_editor_render(UphPanel* panel)
     }
 
     {
-        float spacing = 20.0f * editor_data.zoom_x;
+        float spacing = editor_data.zoom_x;
         int start = (int)((editor_data.scroll_x - key_width) / spacing) - 1;
         int end = (int)((editor_data.scroll_x + canvas_size.x) / spacing) + 1;
 
@@ -210,7 +209,8 @@ static void uph_midi_editor_render(UphPanel* panel)
                     editor_data.drag_start_note_length = note.length;
                     editor_data.drag_start_note_pitch = note.key;
                     if (on_right_edge) editor_data.resizing_note = true;
-                    else {
+                    else
+                    {
                         editor_data.dragging_note = true;
                         editor_data.prev_length = note.length;
                     }
@@ -222,7 +222,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             {
                 UphNote n;
                 n.key = std::clamp(127 - int((mouse_pos.y - canvas_pos.y + editor_data.scroll_y)/key_height), 0, 127);
-                float raw_start = (mouse_pos.x - canvas_pos.x - key_width + editor_data.scroll_x) / (20.0f*editor_data.zoom_x);
+                float raw_start = (mouse_pos.x - canvas_pos.x - key_width + editor_data.scroll_x) / (editor_data.zoom_x);
                 n.start = std::clamp<float>(round(raw_start / editor_data.grid_size) * editor_data.grid_size, 0.0f, (float)INT32_MAX);
                 n.length = editor_data.prev_length;
                 notes.push_back(n);
@@ -260,7 +260,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             std::sort(remove_index.rbegin(), remove_index.rend());
             for (size_t idx : remove_index) notes.erase(notes.begin() + idx);
 
-            if (editor_data.is_playing && editor_data.effect)
+            if (editor_data.is_playing && app->current_effect)
             {
                 for (int pitch : removed_pitches)
                 {
@@ -281,7 +281,7 @@ static void uph_midi_editor_render(UphPanel* panel)
                         ev.type = kVstMidiType; ev.byteSize = sizeof(ev);
                         ev.midiData[0] = 0x80; ev.midiData[1] = pitch; ev.midiData[2] = 0;
                         VstEvents events{}; events.numEvents = 1; events.events[0] = (VstEvent*)&ev;
-                        editor_data.effect->dispatcher(editor_data.effect, effProcessEvents, 0, 0, &events, 0.0f);
+                        app->current_effect->dispatcher(app->current_effect, effProcessEvents, 0, 0, &events, 0.0f);
                     }
                 }
             }
@@ -291,7 +291,7 @@ static void uph_midi_editor_render(UphPanel* panel)
     if (editor_data.dragging_note && editor_data.selected_note_index >= 0 && editor_data.selected_note_index < (int)notes.size() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         UphNote &sel = notes[editor_data.selected_note_index];
-        float delta_x = (mouse_pos.x - editor_data.drag_start_mouse.x) / (20.0f * editor_data.zoom_x);
+        float delta_x = (mouse_pos.x - editor_data.drag_start_mouse.x) / (editor_data.zoom_x);
         float delta_y = (mouse_pos.y - editor_data.drag_start_mouse.y) / key_height;
         sel.start = std::clamp<float>(round((editor_data.drag_start_note_start + delta_x)/editor_data.grid_size) * editor_data.grid_size, 0.0f, (float)INT32_MAX);
         sel.key = std::clamp(editor_data.drag_start_note_pitch - int(delta_y), 0, 127);
@@ -299,7 +299,7 @@ static void uph_midi_editor_render(UphPanel* panel)
     if (editor_data.resizing_note && editor_data.selected_note_index >= 0 && editor_data.selected_note_index < (int)notes.size() && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         UphNote &sel = notes[editor_data.selected_note_index];
-        float delta_x = (mouse_pos.x - editor_data.drag_start_mouse.x) / (20.0f * editor_data.zoom_x);
+        float delta_x = (mouse_pos.x - editor_data.drag_start_mouse.x) / (editor_data.zoom_x);
         sel.length = std::max<float>(0.1f, round((editor_data.drag_start_note_length + delta_x)/editor_data.grid_size) * editor_data.grid_size);
         editor_data.prev_length = sel.length;
     }
@@ -316,14 +316,14 @@ static void uph_midi_editor_render(UphPanel* panel)
         ImVec2 note_pos(canvas_pos.x + key_width + note.start*editor_data.zoom_x - editor_data.scroll_x,
             canvas_pos.y + (127 - note.key) * key_height - editor_data.scroll_y);
         ImVec2 note_end(note_pos.x + note.length*editor_data.zoom_x, note_pos.y + key_height);
-        draw_list->AddRectFilled(note_pos, note_end, IM_COL32(200,100,100,255));
+        draw_list->AddRectFilled(note_pos, note_end, IM_COL32(240,117,138,255));
 
         char buf[8]; uph_key_to_name(note.key, buf, sizeof(buf));
         ImVec2 text_size = ImGui::CalcTextSize(buf);
         float text_x = note_pos.x + (note_end.x - note_pos.x - text_size.x) * 0.5f;
         float text_y = note_pos.y + (key_height - text_size.y) * 0.5f;
         if (note_end.x - note_pos.x > 16)
-            draw_list->AddText(ImVec2(text_x, text_y), IM_COL32(255,255,255,255), buf);
+            draw_list->AddText(ImVec2(text_x, text_y), IM_COL32(0,0,0,255), buf);
     }
 
     midi_editor_draw_and_handle_playhead(draw_list, canvas_pos, canvas_size, key_width);
