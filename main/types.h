@@ -33,7 +33,6 @@ struct UphNote
 
 struct UphMidiPattern
 {
-    char name[64];
     std::vector<UphNote> notes;
 };
 
