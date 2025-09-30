@@ -6,6 +6,7 @@
 #include <ini.h>
 
 #define LAYOUT_IDENTIFIER "UphPanels"
+#define IMMUTABLE_IDENTIFIER "Immutable"
 #define INI_EXTENSION ".ini"
 
 // Yes, I know about the flag bug with already existing ini files
@@ -19,7 +20,8 @@ void uph_save_layout(const char* name) {
         if (panel.window_flags & ImGuiWindowFlags_NoSavedSettings)
             continue;
 
-        out << panel.title << "=" << (panel.is_visible ? "1" : "0") << "\n";
+		if(panel.is_visible)
+			out << panel.title << "=1\n";
     }
 }
 
@@ -38,7 +40,10 @@ bool uph_load_layout(const char* name) {
     for(UphPanel& panel : panels())
     {
         if(!section.has(panel.title))
+		{
+			panel.is_visible = false;
             continue;
+		}
 
         panel.is_visible = (section[panel.title] == "1");
     }
@@ -46,10 +51,38 @@ bool uph_load_layout(const char* name) {
     return true;
 }
 
-void uph_remove_layout(const char* name) 
+bool uph_remove_layout(const char* name) 
+{
+    if (uph_layout_has_header(name, IMMUTABLE_IDENTIFIER))
+        return false;
+
+    std::string filename = std::string(name) + INI_EXTENSION;
+	if (std::filesystem::exists(filename))
+    {
+        std::filesystem::remove(filename);
+        return true;
+    }
+	
+    return false;
+}
+
+bool uph_layout_has_header(const char* name, const char* header)
 {
     std::string filename = std::string(name) + INI_EXTENSION;
-    std::remove(filename.c_str());
+    if (!std::filesystem::exists(filename))
+        return false;
+
+    mINI::INIFile file(filename);
+    mINI::INIStructure ini;
+    if (!file.read(ini))
+        return false;
+
+    return ini.has(header);
+}
+
+bool uph_layout_is_immutable(const char* name)
+{
+	return uph_layout_has_header(name, IMMUTABLE_IDENTIFIER);
 }
 
 std::vector<std::string> uph_list_layouts(const char* directory) 
