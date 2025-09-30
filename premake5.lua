@@ -4,6 +4,7 @@ workspace "Uphonic"
 
 project "Uphonic"
     kind "ConsoleApp"
+    architecture "x64"
     language "C++"
 	cppdialect "C++20"
     files {
@@ -12,7 +13,9 @@ project "Uphonic"
         "vendor/imgui/**.h",
         "vendor/imgui/**.cpp",
         "vendor/imgui-knobs/**.h",
-        "vendor/imgui-knobs/**.cpp"
+        "vendor/imgui-knobs/**.cpp",
+        "vendor/miniaudio/**.h",
+        "vendor/miniaudio/**.c"
     }
 
     includedirs {
@@ -21,6 +24,8 @@ project "Uphonic"
         "vendor/imgui",
         "vendor/mINI",
         "vendor/nlohmann",
+        "vendor/imgui-knobs",
+        "vendor/miniaudio",
         "vendor/vst2"
     }
 

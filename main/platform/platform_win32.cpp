@@ -155,6 +155,12 @@ void uph_platform_initialize(const UphPlatformCreateInfo *create_info)
 
     ImGui_ImplWin32_Init(platform->hwnd);
     ImGui_ImplDX11_Init(platform->device, platform->device_context);
+
+    wc = {0};
+    wc.lpfnWndProc = DefWindowProc;
+    wc.hInstance = platform->h_instance;
+    wc.lpszClassName = "uph_child_window_class";
+    RegisterClassA(&wc);
 }
 
 void uph_platform_shutdown(void)
@@ -165,6 +171,7 @@ void uph_platform_shutdown(void)
     cleanup_device_d3d();
     DestroyWindow(platform->hwnd);
     UnregisterClassA("uph_window_class", platform->h_instance);
+    UnregisterClassA("uph_child_window_class", platform->h_instance);
 
     free(platform);
 }
@@ -199,21 +206,59 @@ double uph_get_time(void)
     return (double)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
 }
 
-std::tm uph_localtime(std::time_t t)
+UphChildWindow uph_create_child_window(const UphChildWindowCreateInfo *create_info)
 {
-    std::tm tm{};
-    localtime_s(&tm, &t);
-    return tm;
-}
+    UphChildWindow window;
 
-std::tm uph_localtime(const std::filesystem::file_time_type& ftime)
-{
-    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-        ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now()
+    WCHAR wide_title[128];
+    create_wide_string_from_utf8(create_info->title, wide_title);
+
+    HWND hwndPlugin = CreateWindowExA(
+        0,
+        "uph_child_window_class",
+        (LPCSTR)wide_title,
+        WS_OVERLAPPED | WS_MINIMIZEBOX | WS_SYSMENU,
+        CW_USEDEFAULT, CW_USEDEFAULT,
+        create_info->width, create_info->height + 32,
+        platform->hwnd,
+        NULL,
+        platform->h_instance,
+        NULL
     );
 
-    std::time_t tt = std::chrono::system_clock::to_time_t(sctp);
-    return uph_localtime(tt);
+    LONG style = GetWindowLong(hwndPlugin, GWL_STYLE);
+    style &= ~WS_MAXIMIZEBOX;
+    style &= ~WS_SIZEBOX;
+    SetWindowLong(hwndPlugin, GWL_STYLE, style);
+
+    HMENU hSysMenu = GetSystemMenu(hwndPlugin, FALSE);
+    if (hSysMenu)
+        DeleteMenu(hSysMenu, SC_CLOSE, MF_BYCOMMAND);
+
+    LONG exStyle = GetWindowLong(hwndPlugin, GWL_EXSTYLE);
+    SetWindowLong(hwndPlugin, GWL_EXSTYLE, exStyle);
+
+    ShowWindow(hwndPlugin, SW_SHOWDEFAULT);
+    UpdateWindow(hwndPlugin);
+
+    window.handle = hwndPlugin;
+
+    return window;
+}
+
+void uph_destroy_child_window(const UphChildWindow *window)
+{
+    DestroyWindow((HWND)window->handle);
+}
+
+UphLibrary uph_load_library(const char *path)
+{
+    return (UphLibrary)LoadLibraryA(path);
+}
+
+UphProcAddress uph_get_proc_address(UphLibrary library, const char *name)
+{
+    return (UphProcAddress)GetProcAddress((HMODULE)library, name);
 }
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -255,8 +300,6 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
         default:
             return DefWindowProc(hwnd, msg, w_param, l_param);
     }
-
-    return false;
 }
 
 #endif

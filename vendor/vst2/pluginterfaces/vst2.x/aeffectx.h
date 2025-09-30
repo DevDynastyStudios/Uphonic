@@ -1,47 +1,23 @@
-//------------------------------------------------------------------------
-// Project     : VST SDK
-// Version     : 2.4
+//-------------------------------------------------------------------------------------------------------
+// VST Plug-Ins SDK
+// Version 2.4		$Date: 2006/01/12 09:04:56 $
 //
-// Category    : VST 2.x Interfaces
-// Filename    : pluginterfaces/vst2.x/aeffectx.h
-// Created by  : Steinberg, 01/2004
-// Description : Definition of auxiliary structures, extensions from VST 1.0 to VST 2.4
-// 
-//-----------------------------------------------------------------------------
-// LICENSE
-// (c) 2016, Steinberg Media Technologies GmbH, All Rights Reserved
-//-----------------------------------------------------------------------------
-// This Software Development Kit may not be distributed in parts or its entirety  
-// without prior written agreement by Steinberg Media Technologies GmbH. 
-// This SDK must not be used to re-engineer or manipulate any technology used  
-// in any Steinberg or Third-party application or software module, 
-// unless permitted by law.
-// Neither the name of the Steinberg Media Technologies nor the names of its
-// contributors may be used to endorse or promote products derived from this 
-// software without specific prior written permission.
-// 
-// THIS SDK IS PROVIDED BY STEINBERG MEDIA TECHNOLOGIES GMBH "AS IS" AND
-// ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
-// WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL STEINBERG MEDIA TECHNOLOGIES GMBH BE LIABLE FOR ANY DIRECT, 
-// INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-// BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF 
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE 
-// OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
-// OF THE POSSIBILITY OF SUCH DAMAGE.
-//----------------------------------------------------------------------------------
+// Category     : VST 2.x Interfaces
+// Filename     : aeffectx.h
+// Created by   : Steinberg Media Technologies
+// Description  : Definition of auxiliary structures, extensions from VST 1.0 to VST 2.4
+//
+// © 2006, Steinberg Media Technologies, All Rights Reserved
+//-------------------------------------------------------------------------------------------------------
 
 #ifndef __aeffectx__
 #define __aeffectx__
 
-// VST 1.0 is included
 #ifndef __aeffect__
 #include "aeffect.h"
 #endif
 
 //-------------------------------------------------------------------------------------------------------
-// Define some compiler flags
 #if TARGET_API_MAC_CARBON
 	#ifdef __LP64__
 	#pragma options align=power
@@ -50,9 +26,6 @@
 	#endif
 #elif defined __BORLANDC__
 	#pragma -a8
-	#pragma options push -a8
-#elif defined(__GNUC__)
-    #pragma pack(push,8)
 #elif defined(WIN32) || defined(__FLAT__)
 	#pragma pack(push)
 	#pragma pack(8)
@@ -78,7 +51,7 @@ enum Vst2StringConstants
 //-------------------------------------------------------------------------------------------------------
 /** A generic timestamped event. */
 //-------------------------------------------------------------------------------------------------------
-typedef struct VstEvent
+struct VstEvent
 {
 //-------------------------------------------------------------------------------------------------------
 	VstInt32 type;			///< @see VstEventTypes
@@ -88,7 +61,7 @@ typedef struct VstEvent
 
 	char data[16];			///< data size may vary, depending on event type
 //-------------------------------------------------------------------------------------------------------
-} VstEvent;
+};
 
 //-------------------------------------------------------------------------------------------------------
 /** VstEvent Types used by #VstEvent. */
@@ -128,7 +101,7 @@ struct VstMidiEvent
 	VstInt32 deltaFrames;	///< sample frames related to the current block start sample position
 	VstInt32 flags;			///< @see VstMidiEventFlags
 	VstInt32 noteLength;	///< (in sample frames) of entire note, if available, else 0
-	VstInt32 noteOffset;	///< offset (in sample frames) into note from note start if available, else 0
+	VstInt32 noteOffset;	///< offset into note from note start if available, else 0
 	char midiData[4];		///< 1 to 3 MIDI bytes; midiData[3] is reserved (zero)
 	char detune;			///< -64 to +63 cents; for scales other than 'well-tempered' ('microtuning')
 	char noteOffVelocity;	///< Note Off Velocity [0, 127]
@@ -143,7 +116,7 @@ struct VstMidiEvent
 enum VstMidiEventFlags
 {
 //-------------------------------------------------------------------------------------------------------
-	kVstMidiEventIsRealtime = 1 << 0	///< means that this event is played life (not in playback from a sequencer track).\n This allows the Plug-In to handle these flagged events with higher priority, especially when the Plug-In has a big latency (AEffect::initialDelay)
+	kVstMidiEventIsRealtime = 1 << 0	///< means that this event is played life (not in playback)
 //-------------------------------------------------------------------------------------------------------
 };
 
@@ -154,7 +127,7 @@ struct VstMidiSysexEvent
 {
 //-------------------------------------------------------------------------------------------------------
 	VstInt32 type;			///< #kVstSysexType
-	VstInt32 byteSize;		///< sizeof (VstMidiSysexEvent)
+	VstInt32 byteSize;		///< sizeof(VstMidiSysexEvent)
 	VstInt32 deltaFrames;	///< sample frames related to the current block start sample position
 	VstInt32 flags;			///< none defined yet (should be zero)
 	VstInt32 dumpBytes;		///< byte size of sysexDump
@@ -278,7 +251,7 @@ enum VstHostLanguage
 enum AudioMasterOpcodesX
 {
 //-------------------------------------------------------------------------------------------------------
-	DECLARE_VST_DEPRECATED (audioMasterWantMidi) = DECLARE_VST_DEPRECATED (audioMasterPinConnected) + 2,	///< \deprecated deprecated in VST 2.4
+	DECLARE_VST_DEPRECATED (audioMasterWantMidi) = audioMasterPinConnected + 2,	///< \deprecated deprecated in VST 2.4
 
 	audioMasterGetTime,				///< [return value]: #VstTimeInfo* or null if not supported [value]: request mask  @see VstTimeInfoFlags @see AudioEffectX::getTimeInfo
 	audioMasterProcessEvents,		///< [ptr]: pointer to #VstEvents  @see VstEvents @see AudioEffectX::sendVstEventsToHost
@@ -336,7 +309,7 @@ enum AudioMasterOpcodesX
 	
 	DECLARE_VST_DEPRECATED (audioMasterEditFile),		///< \deprecated deprecated in VST 2.4
 	
-	DECLARE_VST_DEPRECATED (audioMasterGetChunkFile),	///< \deprecated deprecated in VST 2.4 [ptr]: char[2048] or sizeof (FSSpec) [return value]: 1 if supported  @see AudioEffectX::getChunkFile
+	DECLARE_VST_DEPRECATED (audioMasterGetChunkFile),	///< \deprecated deprecated in VST 2.4 [ptr]: char[2048] or sizeof(FSSpec) [return value]: 1 if supported  @see AudioEffectX::getChunkFile
 
 	DECLARE_VST_DEPRECATED (audioMasterGetInputSpeakerArrangement)	///< \deprecated deprecated in VST 2.4
 };
@@ -439,8 +412,8 @@ enum AEffectXOpcodes
 //-------------------------------------------------------------------------------------------------------
 enum VstProcessPrecision
 {
-	kVstProcessPrecision32 = 0,		///< single precision float (32bits)
-	kVstProcessPrecision64			///< double precision (64bits)
+	kVstProcessPrecision32 = 0,		///< single precision float
+	kVstProcessPrecision64			///< double precision
 };
 
 //-------------------------------------------------------------------------------------------------------
@@ -619,7 +592,7 @@ struct MidiKeyName
 	For user interface representation, grads are more likely to be used, and the
 	origins will obviously 'shift' accordingly. */
 //-------------------------------------------------------------------------------------------------------
-typedef struct VstSpeakerProperties
+struct VstSpeakerProperties
 {
 //-------------------------------------------------------------------------------------------------------
 	float azimuth;		///< unit: rad, range: -PI...PI, exception: 10.f for LFE channel
@@ -631,7 +604,7 @@ typedef struct VstSpeakerProperties
 
 	char future[28];	///< reserved for future use
 //-------------------------------------------------------------------------------------------------------
-} VstSpeakerProperties;
+};
 
 //-------------------------------------------------------------------------------------------------------
 /** Speaker Arrangement. */
@@ -1032,7 +1005,7 @@ enum VstModifierKey
 //-------------------------------------------------------------------------------------------------------
 /** File filter used in #VstFileSelect. */
 //-------------------------------------------------------------------------------------------------------
-typedef struct VstFileType
+struct VstFileType
 {
 //-------------------------------------------------------------------------------------------------------
 	char name[128];				///< display name
@@ -1042,7 +1015,6 @@ typedef struct VstFileType
 	char mimeType1[128];		///< MIME type
 	char mimeType2[128];		///< additional MIME type
 
-#ifdef  __cplusplus
 	VstFileType (const char* _name = 0, const char* _macType = 0, const char* _dosType = 0,
 				 const char* _unixType = 0, const char* _mimeType1 = 0, const char* _mimeType2 = 0)
 	{
@@ -1053,9 +1025,8 @@ typedef struct VstFileType
 		vst_strncpy (mimeType1, _mimeType1 ? _mimeType1 : "", 127);
 		vst_strncpy (mimeType2, _mimeType2 ? _mimeType2 : "", 127);
 	}
-#endif // __cplusplus
 //-------------------------------------------------------------------------------------------------------
-} VstFileType;
+};
 
 //-------------------------------------------------------------------------------------------------------
 /** File Selector Description used in #audioMasterOpenFileSelector. */
@@ -1160,7 +1131,7 @@ enum VstAutomationStates
 //-------------------------------------------------------------------------------------------------------
 #if TARGET_API_MAC_CARBON
 	#pragma options align=reset
-#elif defined(WIN32) || defined(__FLAT__) || defined(__GNUC__)
+#elif defined(WIN32) || defined(__FLAT__)
 	#pragma pack(pop)
 #elif defined __BORLANDC__
 	#pragma -a-

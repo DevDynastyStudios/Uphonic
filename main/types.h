@@ -77,6 +77,10 @@ struct UphApplication
     UphProject project;
     uint32_t current_pattern_index = 0;
     uint32_t current_track_index = 0;
+    float midi_editor_song_position = 0.0f;
+    float song_timeline_song_position = 0.0f;
+    bool is_midi_editor_playing = false;
+    bool is_song_timeline_playing = false;
 };
 
 inline UphApplication *app = nullptr;

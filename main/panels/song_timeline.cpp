@@ -1,6 +1,8 @@
 #include "panel_manager.h"
-#include "imgui_internal.h"
+#include "sound_device.h"
 #include "types.h"
+
+#include <imgui_internal.h>
 
 #include <algorithm>
 #include <cmath>
@@ -18,12 +20,9 @@ struct UphSongTimeline
     float zoomX  = 16.0f;
     float zoomY  = 1.0f;
 
-    float song_position = 0.0f;
-
     // Drag state
     bool dragging = false;
     bool resizing = false;
-    bool is_playing = false;
     ResizeSide resizeSide;
     UphMidiPatternInstance* draggedPattern = nullptr;
     UphTrack* draggedTrack = nullptr;
@@ -198,7 +197,7 @@ static void uph_song_timeline_handle_pattern_interaction(
 
     if (hoverLeft || hoverRight || timeline_data.resizing)
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-    else if (isHovered)
+    else if (isActive || isHovered)
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 }
 
@@ -210,14 +209,11 @@ static void uph_song_timeline_draw_pattern_block(
     float titleHeight, float zoomX, float zoomY
 )
 {
-    bool active = false;
-
-    ImU32 borderCol = active ? IM_COL32(200, 200, 50, 255) : IM_COL32(0, 0, 0, 255);
     ImU32 fillCol   = IM_COL32(240, 117, 138, 255);
     ImU32 textCol   = IM_COL32(0, 0, 0, 255);
 
-    drawList->AddRect(rectMin, rectMax, borderCol);
     drawList->AddRectFilled(rectMin, rectMax, fillCol);
+    //drawList->AddRect(rectMin, rectMax, borderCol);
 
     drawList->PushClipRect(ImVec2(rectMin.x, rectMin.y), ImVec2(rectMax.x, rectMin.y + titleHeight), true);
     drawList->AddText(rectMin, textCol, patternData.name);
@@ -278,7 +274,7 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
 
 static void uph_song_timeline_draw_and_handle_playhead(ImDrawList* drawList, ImVec2 canvasPos, ImVec2 canvasSize, float keyWidth)
 {
-    const float x = canvasPos.x + keyWidth + timeline_data.song_position * timeline_data.zoomX - timeline_data.scrollX;
+    const float x = canvasPos.x + keyWidth + app->song_timeline_song_position * timeline_data.zoomX - timeline_data.scrollX;
     drawList->AddLine(ImVec2(x, canvasPos.y), ImVec2(x, canvasPos.y + canvasSize.y),
         IM_COL32(0, 255, 0, 255), 2.0f);
 }
@@ -289,18 +285,14 @@ static void uph_song_timeline_render(UphPanel* panel)
 
     ImVec2 fullSize = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
-    if (ImGui::Button(timeline_data.is_playing ? "Stop" : "Play"))
+    if (ImGui::Button(app->is_song_timeline_playing ? "Stop" : "Play"))
     {
-        timeline_data.is_playing = !timeline_data.is_playing;
-        timeline_data.song_position = 0.0f;
-        /*if (!timeline_data.is_playing)
-            for (auto &track : tracks)
-            {
-                if (track.track_type == UphTrackType::Midi && track.midi_track.instrument.effect)
-                    effect_all_notes_off(track.midi_track.instrument.effect);
-            }*/
+        app->is_song_timeline_playing = !app->is_song_timeline_playing;
+        app->song_timeline_song_position = 0.0f;
+        app->is_midi_editor_playing = false;
+        uph_sound_device_all_notes_off();
     }
-    ImGui::LabelText("Song Position", "%f", timeline_data.song_position);
+    ImGui::LabelText("Song Position", "%f", app->song_timeline_song_position);
 
     ImGui::BeginChild("SongTimelineCanvas", fullSize, 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
@@ -413,7 +405,7 @@ static void uph_song_timeline_render(UphPanel* panel)
         uph_song_timeline_draw_track_menu(track, i, y, h, canvasPos);
     }
 
-    if (timeline_data.is_playing)
+    if (app->is_song_timeline_playing)
         uph_song_timeline_draw_and_handle_playhead(drawList, canvasPos, canvasSize, k_track_menu_width);
 
     ImGui::EndChild();

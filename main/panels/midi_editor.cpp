@@ -1,4 +1,5 @@
 #include "panel_manager.h"
+#include "sound_device.h"
 #include "types.h"
 
 #include <algorithm>
@@ -13,9 +14,6 @@ struct UphMidiEditor
     float zoom_y  = 2.0f;
     int   grid_size = 1;
     float prev_length = 1.0f;
-
-    bool is_playing = false;
-    float song_position = 0.0f;
 
     bool dragging_playhead = false;
     int  selected_note_index = -1;
@@ -42,26 +40,28 @@ static inline void uph_key_to_name(int key, char* out, size_t out_size)
 
 static void midi_editor_draw_transport(void)
 {
-    if (ImGui::Button(editor_data.is_playing ? "Stop" : "Play"))
+    if (ImGui::Button(app->is_midi_editor_playing ? "Stop" : "Play"))
     {
-        if (editor_data.is_playing)
+        if (app->is_midi_editor_playing)
         {
-            editor_data.is_playing = false;
-            //effect_all_notes_off(effect);
+            app->is_midi_editor_playing = false;
+            uph_sound_device_instrument_notes_off(
+                &app->project.tracks[app->current_track_index].midi_track.instrument);
         }
         else
         {
-            editor_data.is_playing = true;
-            editor_data.song_position = 0.0f;
+            app->is_midi_editor_playing = true;
+            app->is_song_timeline_playing = false;
+            app->midi_editor_song_position = 0.0f;
         }
     }
     ImGui::SameLine();
-    ImGui::Text("Pos: %.2f beats", editor_data.song_position);
+    ImGui::Text("Pos: %.2f beats", app->midi_editor_song_position);
 }
 
 void midi_editor_draw_and_handle_playhead(ImDrawList* draw_list, ImVec2 canvas_pos, ImVec2 canvas_size, float key_width)
 {
-    float x = canvas_pos.x + key_width + editor_data.song_position * editor_data.zoom_x - editor_data.scroll_x;
+    float x = canvas_pos.x + key_width + app->midi_editor_song_position * editor_data.zoom_x - editor_data.scroll_x;
     draw_list->AddLine(ImVec2(x, canvas_pos.y), ImVec2(x, canvas_pos.y + canvas_size.y),
         IM_COL32(0, 255, 0, 255), 2.0f);
 }
@@ -254,7 +254,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             for (size_t idx : remove_index) notes.erase(notes.begin() + idx);
 
             AEffect *effect = app->project.tracks[app->current_track_index].midi_track.instrument.effect;
-            if (editor_data.is_playing && effect)
+            if (app->is_midi_editor_playing && effect)
             {
                 for (int pitch : removed_pitches)
                 {
@@ -263,7 +263,7 @@ static void uph_midi_editor_render(UphPanel* panel)
                         if (n.key != pitch) continue;
                         float note_on_beat = n.start;
                         float note_off_beat = n.start + n.length;
-                        if (note_on_beat <= editor_data.song_position && editor_data.song_position < note_off_beat)
+                        if (note_on_beat <= app->midi_editor_song_position && app->midi_editor_song_position < note_off_beat)
                         {
                             still_playing_somewhere = true;
                             break;
@@ -320,7 +320,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             draw_list->AddText(ImVec2(text_x, text_y), IM_COL32(0,0,0,255), buf);
     }
 
-    if (editor_data.is_playing)
+    if (app->is_midi_editor_playing)
         midi_editor_draw_and_handle_playhead(draw_list, canvas_pos, canvas_size, key_width);
 
     for (int i = 0; i < 128; ++i)

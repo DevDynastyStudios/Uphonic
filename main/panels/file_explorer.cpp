@@ -49,6 +49,23 @@ static std::string format_size(uintmax_t size)
     return out;
 }
 
+static std::tm uph_localtime(std::time_t t)
+{
+    std::tm tm{};
+    localtime_s(&tm, &t);
+    return tm;
+}
+
+static std::tm uph_localtime(const std::filesystem::file_time_type& ftime)
+{
+    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        ftime - std::filesystem::file_time_type::clock::now() + std::chrono::system_clock::now()
+    );
+
+    std::time_t tt = std::chrono::system_clock::to_time_t(sctp);
+    return uph_localtime(tt);
+}
+
 std::string format_time(const fs::file_time_type& ftime)
 {
     std::tm tm = uph_localtime(ftime);
