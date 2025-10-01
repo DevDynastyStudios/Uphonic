@@ -297,6 +297,25 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
             }
         }
         break;
+        case WM_KEYDOWN:
+        case WM_SYSKEYDOWN:
+        case WM_KEYUP:
+        case WM_SYSKEYUP:
+        {
+            bool pressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
+
+            UphKeyEvent data;
+            data.key = (UphKey)w_param;
+            uph_event_call(pressed ? UphSystemEventCode::KeyPressed : UphSystemEventCode::KeyReleased, (void*)&data);
+        }
+        break;
+        case WM_CHAR:
+        {
+            UphCharEvent data;
+            data.ch = (char)w_param;
+            uph_event_call(UphSystemEventCode::Char, (void*)&data);
+        }
+        break;
         default:
             return DefWindowProc(hwnd, msg, w_param, l_param);
     }

@@ -9,6 +9,9 @@ typedef std::function<void(void *data)> UphEvent;
 enum class UphSystemEventCode : uint8_t
 {
     Quit,
+    KeyPressed,
+    KeyReleased,
+    Char,
     MAX
 };
 
