@@ -290,7 +290,8 @@ static void uph_song_timeline_render(UphPanel* panel)
         app->is_song_timeline_playing = !app->is_song_timeline_playing;
         app->song_timeline_song_position = 0.0f;
         app->is_midi_editor_playing = false;
-        uph_sound_device_all_notes_off();
+        if (!app->is_song_timeline_playing)
+            uph_sound_device_all_notes_off();
     }
     ImGui::LabelText("Song Position", "%f", app->song_timeline_song_position);
 

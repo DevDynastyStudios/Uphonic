@@ -45,8 +45,7 @@ static void midi_editor_draw_transport(void)
         if (app->is_midi_editor_playing)
         {
             app->is_midi_editor_playing = false;
-            uph_sound_device_instrument_notes_off(
-                &app->project.tracks[app->current_track_index].midi_track.instrument);
+            uph_sound_device_all_notes_off();
         }
         else
         {

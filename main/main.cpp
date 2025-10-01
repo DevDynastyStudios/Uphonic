@@ -47,6 +47,8 @@ VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
     }
 }
 
+#include <iostream>
+
 int main(const int argc, const char **argv)
 {
     UphPlatformCreateInfo create_info = { 1920, 1080, "Uphonic" };
@@ -72,7 +74,7 @@ int main(const int argc, const char **argv)
     for (int i = 0; i < 2; ++i)
     {
         typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
-        UphLibrary vst_module = uph_load_library("E:\\VSTPlugins\\Vital.dll");
+        UphLibrary vst_module = uph_load_library("E:\\VSTPlugins\\Bitsonic\\Keyzone Classic.dll");
         VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
         if (!entry)
             entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");

@@ -12,6 +12,14 @@ constexpr float HALF_PI = PI * 0.5f;
 struct UphSoundDevice
 {
     ma_device device;
+    uint32_t block_size = 512;
+
+    struct UphSoundDeviceIO
+    {
+        float inputs[64][512];
+        float outputs[64][512];
+    }
+    *io;
 };
 
 static UphSoundDevice sound_device;
@@ -25,8 +33,8 @@ static void uph_midi_pattern_process_playback_for_block(
     float length = INT32_MAX
 )
 {
-    constexpr int maxEvents = 1024;
-    VstMidiEvent midiEvents[maxEvents];
+    constexpr int maxEvents = 256;
+    VstMidiEvent midiEvents[maxEvents]{};
     uint32_t midiEventCount = 0;
 
     int microOffset = 0;
@@ -70,7 +78,6 @@ static void uph_midi_pattern_process_playback_for_block(
         }
 
         VstMidiEvent &ev = midiEvents[midiEventCount++];
-        memset(&ev, 0, sizeof(ev));
         ev.type = kVstMidiType;
         ev.byteSize = sizeof(ev);
         ev.midiData[0] = (unsigned char)status;
@@ -82,7 +89,7 @@ static void uph_midi_pattern_process_playback_for_block(
     for (auto &note : pattern->notes)
     {
         const float original_start = note.start + start_time;
-        const float original_end   = original_start + note.length;
+        const float original_end   = original_start + note.length - 0.001f;
 
         const float note_start = std::clamp<float>(
             original_start - start_offset,
@@ -103,7 +110,7 @@ static void uph_midi_pattern_process_playback_for_block(
             queue_event(0x80, note.key, 0, note_end);
 
         if (note_start >= prev_beat && note_start < new_beat)
-            queue_event(0x90, note.key, 100, note_start);
+            queue_event(0x90, note.key, note.velocity, note_start);
     }
 
     if (midiEventCount > 0)
@@ -170,68 +177,86 @@ void uph_song_timeline_process_playback_for_block(float sample_rate, float frame
     app->song_timeline_song_position = new_beat;
 }
 
+static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
+{
+    for (auto &track : tracks)
+    {
+        if (track.track_type == UphTrackType::Midi)
+        {
+            AEffect *effect = track.midi_track.instrument.effect;
+            if (!effect)
+                continue;
+
+            VstEvents events{};
+            VstMidiEvent midiEvents[16]{};
+            
+            events.numEvents = 16;
+            events.reserved = 0;
+            
+            for (int channel = 0; channel < 16; channel++)
+            {
+                midiEvents[channel].type = kVstMidiType;
+                midiEvents[channel].byteSize = sizeof(VstMidiEvent);
+                midiEvents[channel].midiData[0] = 0xB0 | channel;
+                midiEvents[channel].midiData[1] = 123;
+                midiEvents[channel].midiData[2] = 0;
+
+                events.events[channel] = (VstEvent*)&midiEvents[channel];
+            }
+            
+            effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
+        }
+    }
+}
+
 static void uph_audio_callback(ma_device* p_device, void* p_output, const void* p_input, ma_uint32 frame_count)
 {
-    float* out = (float*)p_output;
-    memset(out, 0, frame_count * 2 * sizeof(float));
+    float* output = (float*)p_output;
+    const std::vector<UphTrack> &tracks = app->project.tracks;
 
-    if (app->is_midi_editor_playing)
+    if (app->should_stop_all_notes.load())
+    {
+        uph_audio_stop_all_notes(tracks);
+        app->should_stop_all_notes.store(false);
+    }
+    else if (app->is_midi_editor_playing)
         uph_midi_editor_process_playback_for_block(p_device->sampleRate, frame_count);
     else if (app->is_song_timeline_playing)
         uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
 
-    int remaining = frame_count;
-    float* mix_ptr = out;
-    constexpr VstInt32 block_size = 512;
-    float inL[block_size], inR[block_size];
-    float outL[block_size], outR[block_size];
-    float* inputs[2]  = { inL, inR };
-    float* outputs[2] = { outL, outR };
-    const std::vector<UphTrack> &tracks = app->project.tracks;
-    const float master_volume = app->project.volume;
-
-    while (remaining > 0)
+    float *inputs[64] = { 0 };
+    float *outputs[64] = { 0 };
+    for (int i = 0; i < 64; ++i)
     {
-        VstInt32 chunk = remaining > block_size ? block_size : remaining;
-        memset(inL, 0, sizeof(float) * chunk);
-        memset(inR, 0, sizeof(float) * chunk);
-        
-        for (auto &track : tracks)
+        inputs[i] = sound_device.io->inputs[i];
+        outputs[i] = sound_device.io->outputs[i];
+    }
+
+    for (auto &track : tracks)
+    {
+        if (track.track_type == UphTrackType::Midi)
         {
-            if (track.track_type == UphTrackType::Midi)
+            AEffect *effect = track.midi_track.instrument.effect;
+            if (!effect)
+                continue;
+
+            if (effect->flags & effFlagsCanReplacing)
+                effect->processReplacing(effect, inputs, outputs, frame_count);
+            
+            const float track_volume = track.volume;
+            for (ma_uint32 i = 0; i < frame_count; i++)
             {
-                AEffect *effect = track.midi_track.instrument.effect;
-                if (!effect)
-                    continue;
-                
-                memset(outL, 0, sizeof(float) * chunk);
-                memset(outR, 0, sizeof(float) * chunk);
-                
-                if (effect->flags & effFlagsCanReplacing)
-                    effect->processReplacing(effect, inputs, outputs, chunk);
-                
-                const float track_volume = track.volume;
-                for (VstInt32 i = 0; i < chunk; ++i)
-                {
-                    mix_ptr[i * 2 + 0] += outputs[0][i] * track_volume;
-                    mix_ptr[i * 2 + 1] += outputs[1][i] * track_volume;
-                }
+                output[i * 2 + 0] += sound_device.io->outputs[0][i] * track_volume;
+                output[i * 2 + 1] += sound_device.io->outputs[1][i] * track_volume;
             }
         }
-        
-        for (VstInt32 i = 0; i < chunk; ++i)
-        {
-            mix_ptr[i * 2 + 0] *= master_volume;
-            mix_ptr[i * 2 + 1] *= master_volume;
-        }
-
-        mix_ptr   += chunk * 2;
-        remaining -= chunk;
     }
 }
 
 void uph_sound_device_initialize(void)
 {
+    sound_device.io = new UphSoundDevice::UphSoundDeviceIO;
+
     ma_device_config device_config = ma_device_config_init(ma_device_type_playback);
     device_config.playback.format   = ma_format_f32;
     device_config.playback.channels = 2;
@@ -255,50 +280,12 @@ void uph_sound_device_initialize(void)
 void uph_sound_device_shutdown(void)
 {
     ma_device_uninit(&sound_device.device);
-}
-
-static void uph_sound_device_single_instrument_notes_off(UphInstrument *instrument)
-{
-    VstMidiEvent ev{};
-    ev.type = kVstMidiType;
-    ev.byteSize = sizeof(ev);
-
-    VstEvents events{};
-    events.numEvents = 1;
-    events.events[0] = (VstEvent*)&ev;
-
-    for (int pitch = 0; pitch < 128; ++pitch)
-    {
-        ev.midiData[0] = 0x80;
-        ev.midiData[1] = pitch;
-        ev.midiData[2] = 0;
-        ev.deltaFrames = 0;
-        instrument->effect->dispatcher(instrument->effect, effProcessEvents, 0, 0, &events, 0.0f);
-    }
-}
-
-void uph_sound_device_instrument_notes_off(UphInstrument *instrument)
-{
-    if (!instrument || !instrument->effect)
-        return;
-
-    ma_device_stop(&sound_device.device);
-    uph_sound_device_single_instrument_notes_off(instrument);
-    ma_device_start(&sound_device.device);
+    delete sound_device.io;
 }
 
 void uph_sound_device_all_notes_off(void)
 {
-    ma_device_stop(&sound_device.device);
-    std::vector<UphTrack> &tracks = app->project.tracks;
-    for (auto &track : tracks)
-        if (track.track_type == UphTrackType::Midi)
-        {
-            if (!track.midi_track.instrument.effect)
-                continue;
-            uph_sound_device_single_instrument_notes_off(&track.midi_track.instrument);
-        }
-    ma_device_start(&sound_device.device);
+    app->should_stop_all_notes.store(true);
 }
 
 float uph_get_song_length_sec(void)

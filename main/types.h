@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>
 #include <vector>
+#include <atomic>
+#include <cstdint>
 
 #include <pluginterfaces/vst2.x/aeffectx.h>
 
@@ -28,7 +29,7 @@ struct UphNote
 {
     float start, length;
     uint8_t key;
-    uint8_t velocity;
+    uint8_t velocity = 100;
 };
 
 struct UphMidiPattern
@@ -74,13 +75,14 @@ struct UphProject
 
 struct UphApplication
 {
-    UphProject project;
+    UphProject project{};
     uint32_t current_pattern_index = 0;
     uint32_t current_track_index = 0;
     float midi_editor_song_position = 0.0f;
     float song_timeline_song_position = 0.0f;
     bool is_midi_editor_playing = false;
     bool is_song_timeline_playing = false;
+    std::atomic<bool> should_stop_all_notes = false;
 };
 
 inline UphApplication *app = nullptr;

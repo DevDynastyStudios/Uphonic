@@ -64,7 +64,9 @@ static void uph_tempo_tapper_render(UphPanel* panel)
             ImGui::EndMenu();
         }
 
-    if(ImGui::Button("Load Layout"))
+        ImGui::EndCombo();
+    }
+    if (ImGui::Button("Load Layout"))
     {
         uph_load_layout("layouts/Default");
     }
