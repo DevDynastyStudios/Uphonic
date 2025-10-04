@@ -118,6 +118,13 @@ int main(const int argc, const char **argv)
 
     bool is_running = true;
     uph_event_connect(UphSystemEventCode::Quit, [&](void *data) { is_running = false; });
+    uph_event_connect(UphSystemEventCode::FileDropped, [&](void *data) {
+        UphFileDropEvent *event = (UphFileDropEvent*)data;
+        UphSample sample = uph_create_sample_from_file(event->path);
+        if (!sample.frames)
+            return;
+        app->project.samples.push_back(sample);
+    });
 
     app = new UphApplication;
     app->project.patterns.push_back(UphMidiPattern{ "Pattern 1" });
@@ -132,7 +139,7 @@ int main(const int argc, const char **argv)
     uph_load_vst2("/usr/local/lib/vst/DragonflyHallReverb-vst.so");
 #endif
 
-    UphSample sample = uph_sample_create_from_file("C:\\Users\\Kiril Abadjiev\\Downloads\\clock ticking sound effect.mp3");
+    UphSample sample = uph_create_sample_from_file("C:\\Users\\Kiril Abadjiev\\Downloads\\clock ticking sound effect.mp3");
     app->project.samples.push_back(sample);
 
     app->project.tracks[1].timeline_blocks.push_back({ UphTrackType_Sample, 0, 0.0, 0.0f, 5.0f, 1.0f });

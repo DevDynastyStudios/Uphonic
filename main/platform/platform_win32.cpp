@@ -148,6 +148,8 @@ void uph_platform_initialize(const UphPlatformCreateInfo *create_info)
     ShowWindow(platform->hwnd, SW_SHOWDEFAULT);
     UpdateWindow(platform->hwnd);
 
+    DragAcceptFiles(platform->hwnd, TRUE);
+
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
     clock_frequency = 1.0 / (double)frequency.QuadPart;
@@ -319,6 +321,24 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
             UphCharEvent data;
             data.ch = (char)w_param;
             uph_event_call(UphSystemEventCode::Char, (void*)&data);
+        }
+        break;
+        case WM_DROPFILES:
+        {
+            HDROP h_drop = (HDROP)w_param;
+            UINT file_count = DragQueryFileA(h_drop, 0xFFFFFFFF, NULL, 0);
+
+            for (UINT i = 0; i < file_count; ++i)
+            {
+                char file_path[MAX_PATH];
+                DragQueryFileA(h_drop, i, file_path, MAX_PATH);
+
+                UphFileDropEvent data;
+                data.path = file_path;
+                uph_event_call(UphSystemEventCode::FileDropped, (void*)&data);
+            }
+
+            DragFinish(h_drop);
         }
         break;
         default:

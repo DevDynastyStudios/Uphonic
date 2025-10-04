@@ -10,6 +10,7 @@ static UphPatternRack pattern_data { };
 
 #include <imgui.h>
 #include <vector>
+#include <algorithm>
 #include <cstdio> // snprintf
 
 // Forward-declared global application (from your data model)
@@ -113,6 +114,19 @@ static void uph_pattern_rack_render(UphPanel* panel)
 
                 if (ImGui::MenuItem("Delete"))
                 {
+                    for (auto &track : app->project.tracks)
+                    {
+                        auto &blocks = track.timeline_blocks;
+                        blocks.erase(
+                            std::remove_if(blocks.begin(), blocks.end(),
+                                [i](const auto &block)
+                                {
+                                    return block.track_type == UphTrackType_Midi && block.sample_index == i;
+                                }),
+                            blocks.end());
+                        for (auto &block : blocks)
+                            if (block.track_type == UphTrackType_Midi && block.sample_index > i) block.sample_index--;
+                    }
                     app->project.patterns.erase(app->project.patterns.begin() + i);
                     if (pattern_data.renaming_index == (int)i) pattern_data.renaming_index = -1;
                     else if (pattern_data.renaming_index > (int)i) pattern_data.renaming_index--;
@@ -131,8 +145,8 @@ static void uph_pattern_rack_render(UphPanel* panel)
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 6));
 
             bool commit = ImGui::InputText("##rename", pat.name, sizeof(pat.name),
-                                           ImGuiInputTextFlags_EnterReturnsTrue |
-                                           ImGuiInputTextFlags_AutoSelectAll);
+                ImGuiInputTextFlags_EnterReturnsTrue |
+                ImGuiInputTextFlags_AutoSelectAll);
 
             ImGui::PopStyleVar();
             ImGui::PopItemWidth();

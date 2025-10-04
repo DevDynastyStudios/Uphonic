@@ -1,7 +1,10 @@
 #include "panel_manager.h"
+#include "../sound_device.h"
 #include "../types.h"
+
 #include <imgui.h>
 #include <vector>
+#include <algorithm>
 #include <cstdio> // snprintf
 
 struct UphPatternRack 
@@ -112,6 +115,21 @@ static void uph_sample_rack_render(UphPanel* panel)
 
                 if (ImGui::MenuItem("Delete"))
                 {
+                    uph_destroy_sample(&pat);
+                    for (auto &track : app->project.tracks)
+                    {
+                        auto &blocks = track.timeline_blocks;
+                        blocks.erase(
+                            std::remove_if(blocks.begin(), blocks.end(),
+                                [i](const auto &block)
+                                {
+                                    return block.track_type == UphTrackType_Sample && block.sample_index == i;
+                                }),
+                            blocks.end());
+                        for (auto &block : blocks)
+                            if (block.track_type == UphTrackType_Sample && block.sample_index > i) block.sample_index--;
+                    }
+
                     app->project.samples.erase(app->project.samples.begin() + i);
                     if (pattern_data.renaming_index == (int)i) pattern_data.renaming_index = -1;
                     else if (pattern_data.renaming_index > (int)i) pattern_data.renaming_index--;

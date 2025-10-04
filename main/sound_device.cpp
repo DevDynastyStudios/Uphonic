@@ -447,7 +447,7 @@ float uph_get_song_length_sec(void)
 }
 
 
-UphSample uph_sample_create_from_file(const char *path)
+UphSample uph_create_sample_from_file(const char *path)
 {
     namespace fs = std::filesystem;
     ma_decoder decoder;
@@ -477,4 +477,9 @@ UphSample uph_sample_create_from_file(const char *path)
     ma_decoder_uninit(&decoder);
 
     return sample;
+}
+
+void uph_destroy_sample(const UphSample *sample)
+{
+    free(sample->frames);
 }
