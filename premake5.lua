@@ -26,6 +26,7 @@ project "Uphonic"
         "vendor/nlohmann",
         "vendor/imgui-knobs",
         "vendor/miniaudio",
+        "vendor/FontAwesome",
         "vendor/vst2"
     }
 

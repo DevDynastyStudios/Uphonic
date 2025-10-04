@@ -11,12 +11,32 @@ struct UphMixerEffect
 
 };
 
-struct UphMidiPatternInstance
+enum class UphTrackType : uint8_t
 {
-    uint16_t pattern_index;
-    double start_time;
-    float start_offset;
-    float length;
+    Midi,
+    Sample
+};
+
+union UphTimelineBlock
+{
+    struct
+    {
+        UphTrackType track_type;
+        uint16_t pattern_index;
+        double start_time;
+        float start_offset;
+        float length;
+        float reserved;
+    };
+    struct
+    {
+        UphTrackType track_type;
+        uint16_t sample_index;
+        double start_time;
+        float start_offset;
+        float length;
+        float stretch_scale;
+    };
 };
 
 struct UphInstrument
@@ -38,22 +58,19 @@ struct UphMidiPattern
     std::vector<UphNote> notes;
 };
 
-struct UphMidiTrack
+enum class UphSampleType : uint8_t
 {
-    UphInstrument instrument;
-    std::vector<UphMidiPatternInstance> pattern_instances;
+    Mono,
+    Stereo
 };
 
-struct UphSampleTrack
+struct UphSample
 {
-    // UphSample sample;
-    // std::vector<UphSampleInstance> sample_instances;
-};
+    char name[64];
+    UphSampleType type;
 
-enum class UphTrackType : uint8_t
-{
-    Midi,
-    Sample
+    float *frames;
+    uint64_t frame_count;
 };
 
 struct UphTrack
@@ -62,14 +79,15 @@ struct UphTrack
     float volume = 1.0f, pan = 0.5f;
     bool muted = false;
     UphTrackType track_type;
-    UphMidiTrack midi_track;
-    UphSampleTrack sample_track;
+    UphInstrument instrument;
+    std::vector<UphTimelineBlock> timeline_blocks;
 };
 
 struct UphProject
 {
-    float volume = 0.5f, bpm = 120.0f;
+    float volume = 0.5f, bpm = 300.0f;
     std::vector<UphMidiPattern> patterns;
+    std::vector<UphSample> samples;
     std::vector<UphTrack> tracks = std::vector<UphTrack>(32);
 };
 

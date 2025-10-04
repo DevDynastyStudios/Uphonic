@@ -3,6 +3,8 @@
 #include "platform/event_types.h"
 
 #include <imgui.h>
+#include <font_awesome.h>
+#include <font_awesome.cpp>
 
 #include "sound_device.h"
 
@@ -48,6 +50,7 @@ VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
 }
 
 #include <iostream>
+#include <imgui-knobs.h>
 
 int main(const int argc, const char **argv)
 {
@@ -63,18 +66,28 @@ int main(const int argc, const char **argv)
     uph_platform_initialize(&create_info);
     uph_load_layout("layouts/Default");
 
+    static const ImWchar icon_ranges[]{0xf000, 0xf3ff, 0};
+    ImFontConfig icons_config;
+    icons_config.MergeMode = true;
+    icons_config.PixelSnapH = true;
+    icons_config.OversampleH = 3;
+    icons_config.OversampleV = 3;
+    io.Fonts->AddFontDefault();
+    ImFont *icon_font = io.Fonts->AddFontFromMemoryCompressedTTF((void*)font_awesome_data, font_awesome_size, 16.0f, &icons_config, icon_ranges);
+
     bool is_running = true;
     uph_event_connect(UphSystemEventCode::Quit, [&](void *data) { is_running = false; });
 
     app = new UphApplication;
     app->project.patterns.push_back(UphMidiPattern{ "Pattern 1" });
+    app->project.tracks[1].track_type = UphTrackType::Sample;
 
     uph_sound_device_initialize();
 
-    for (int i = 0; i < 2; ++i)
+    for (int i = 0; i < 1; ++i)
     {
         typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
-        UphLibrary vst_module = uph_load_library("E:\\VSTPlugins\\Bitsonic\\Keyzone Classic.dll");
+        UphLibrary vst_module = uph_load_library("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
         VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
         if (!entry)
             entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");
@@ -98,8 +111,14 @@ int main(const int argc, const char **argv)
             effect->dispatcher(effect, effEditOpen, 0, 0, child_window.handle, 0);
         }
 
-        app->project.tracks[i].midi_track.instrument.effect = effect;
+        app->project.tracks[i].instrument.effect = effect;
     }
+
+    UphSample sample = uph_sample_create_from_file("C:\\Users\\Kiril Abadjiev\\Downloads\\Project_131.mp3");
+    strcpy(sample.name, "Sample 1");
+    app->project.samples.push_back(sample);
+
+    app->project.tracks[1].timeline_blocks.push_back({ UphTrackType::Sample, 0, 0.0, 0.0f, 5.0f, 1.0f });
 
     while (is_running)
     {
@@ -107,6 +126,13 @@ int main(const int argc, const char **argv)
         ImGui::NewFrame();
         ImGui::DockSpaceOverViewport();
         uph_panel_render_all();
+        ImGui::Begin("Options");
+        ImGuiKnobs::Knob("Volume", &app->project.volume, 0.0f, 1.0f);
+        ImGuiKnobs::Knob("Bpm", &app->project.bpm, 10.0f, 1000, 1.0f);
+        ImGui::PushFont(icon_font);
+        ImGui::Button(ICON_FA_PENCIL);
+        ImGui::PopFont();
+        ImGui::End();
         ImGui::Render();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
@@ -116,6 +142,7 @@ int main(const int argc, const char **argv)
         uph_platform_end();
     }
 
+    free(sample.frames);
     uph_sound_device_shutdown();
     uph_platform_shutdown();
     ImGui::DestroyContext();

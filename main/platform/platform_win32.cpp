@@ -256,6 +256,11 @@ UphLibrary uph_load_library(const char *path)
     return (UphLibrary)LoadLibraryA(path);
 }
 
+void uph_unload_library(UphLibrary library)
+{
+    FreeLibrary((HMODULE)library);
+}
+
 UphProcAddress uph_get_proc_address(UphLibrary library, const char *name)
 {
     return (UphProcAddress)GetProcAddress((HMODULE)library, name);

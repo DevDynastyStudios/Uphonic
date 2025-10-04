@@ -125,7 +125,7 @@ static void uph_midi_pattern_process_playback_for_block(
 
 static void uph_midi_editor_process_playback_for_block(float sample_rate, float frame_count)
 {
-    AEffect *effect = app->project.tracks[app->current_track_index].midi_track.instrument.effect;
+    AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
     if (!effect)
         return;
 
@@ -143,7 +143,7 @@ static void uph_midi_editor_process_playback_for_block(float sample_rate, float 
     app->midi_editor_song_position = new_beat;
 }
 
-void uph_song_timeline_process_playback_for_block(float sample_rate, float frame_count)
+static void uph_song_timeline_process_playback_for_block(float sample_rate, float frame_count)
 {
     const float prev_beat = app->song_timeline_song_position;
 
@@ -155,10 +155,10 @@ void uph_song_timeline_process_playback_for_block(float sample_rate, float frame
     {
         if (track.track_type == UphTrackType::Midi)
         {
-            AEffect *effect = track.midi_track.instrument.effect;
+            AEffect *effect = track.instrument.effect;
             if (!effect)
                 continue;
-            for (auto &pattern_instance : track.midi_track.pattern_instances)
+            for (auto &pattern_instance : track.timeline_blocks)
             {
                 UphMidiPattern &pattern = app->project.patterns[pattern_instance.pattern_index];
                 uph_midi_pattern_process_playback_for_block(
@@ -183,7 +183,7 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
     {
         if (track.track_type == UphTrackType::Midi)
         {
-            AEffect *effect = track.midi_track.instrument.effect;
+            AEffect *effect = track.instrument.effect;
             if (!effect)
                 continue;
 
@@ -214,6 +214,17 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
     float* output = (float*)p_output;
     const std::vector<UphTrack> &tracks = app->project.tracks;
 
+    static float *inputs[64] = { 0 };
+    static float *outputs[64] = { 0 };
+
+    for (int i = 0; i < 64; ++i)
+    {
+        inputs[i] = sound_device.io->inputs[i];
+        outputs[i] = sound_device.io->outputs[i];
+        memset(inputs[i], 0, sizeof(float) * 512);
+        memset(outputs[i], 0, sizeof(float) * 512);
+    }
+
     if (app->should_stop_all_notes.load())
     {
         uph_audio_stop_all_notes(tracks);
@@ -224,34 +235,129 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
     else if (app->is_song_timeline_playing)
         uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
 
-    float *inputs[64] = { 0 };
-    float *outputs[64] = { 0 };
-    for (int i = 0; i < 64; ++i)
-    {
-        inputs[i] = sound_device.io->inputs[i];
-        outputs[i] = sound_device.io->outputs[i];
-    }
-
     for (auto &track : tracks)
     {
         if (track.track_type == UphTrackType::Midi)
         {
-            AEffect *effect = track.midi_track.instrument.effect;
+            AEffect *effect = track.instrument.effect;
             if (!effect)
                 continue;
 
             if (effect->flags & effFlagsCanReplacing)
                 effect->processReplacing(effect, inputs, outputs, frame_count);
-            
-            const float track_volume = track.volume;
-            for (ma_uint32 i = 0; i < frame_count; i++)
+        }
+        else if (app->is_song_timeline_playing && track.track_type == UphTrackType::Sample)
+        {
+            for (auto &sample_instance : track.timeline_blocks)
             {
-                output[i * 2 + 0] += sound_device.io->outputs[0][i] * track_volume;
-                output[i * 2 + 1] += sound_device.io->outputs[1][i] * track_volume;
+                if (sample_instance.sample_index < 0 || sample_instance.sample_index >= (int)app->project.samples.size())
+                    continue;
+
+                const UphSample &sample = app->project.samples[sample_instance.sample_index];
+                if (!sample.frames || sample.frame_count == 0)
+                    continue;
+
+                const float sec_per_beat = 60.0f / app->project.bpm;
+
+                float playback_speed = 1.0f / sample_instance.stretch_scale;
+                // --- NEW: playback speed multiplier ---
+                float playback_rate = (playback_speed > 0.0f) ? playback_speed : 1.0f;
+
+                float instance_start_beat = sample_instance.start_time;
+
+                // FIX: adjust length to account for playback speed
+                float instance_length_beats = (sample_instance.length > 0.0f)
+                    ? sample_instance.length
+                    : (sample.frame_count / (float)p_device->sampleRate / sec_per_beat) / playback_rate;
+
+                float instance_end_beat = instance_start_beat + instance_length_beats;
+
+                const float prev_beat = app->song_timeline_song_position;
+                if (instance_end_beat <= prev_beat || instance_start_beat >= app->song_timeline_song_position)
+                    continue;
+
+                int block_start_sample = int(std::round((instance_start_beat - prev_beat) * sec_per_beat * p_device->sampleRate));
+                int sample_read_start  = int(std::round(sample_instance.start_offset * sec_per_beat * p_device->sampleRate * playback_rate));
+                if (sample_read_start < 0) sample_read_start = 0;
+
+                int write_i = std::max(0, block_start_sample);
+
+                // read_index is now floating-point so we can step at playback_rate
+                double read_index = (double)sample_read_start + (double)(write_i - block_start_sample) * playback_rate;
+
+                ma_uint64 available_in_sample = (sample.frame_count > (ma_uint64)read_index) ? sample.frame_count - (ma_uint64)read_index : 0;
+                int available_in_block = (int)frame_count - write_i;
+                int frames_to_copy = (int)std::min<ma_uint64>(available_in_sample, (ma_uint64)available_in_block);
+                if (frames_to_copy <= 0) continue;
+
+                const int sample_channels = (sample.type == UphSampleType::Mono) ? 1 : 2;
+                const float *src = sample.frames;
+                const float track_volume = track.volume;
+
+                for (int i = 0; i < frames_to_copy; ++i)
+                {
+                    // float index to handle speed change
+                    double sample_frame_idx_f = read_index + (double)i * playback_rate;
+                    ma_uint64 base = (ma_uint64)sample_frame_idx_f;
+
+                    float left_sample = 0.0f;
+                    float right_sample = 0.0f;
+
+                    // linear interpolation to reduce aliasing
+                    float frac = (float)(sample_frame_idx_f - (double)base);
+
+                    if (sample_channels == 1)
+                    {
+                        float s1 = src[base];
+                        float s2 = (base + 1 < sample.frame_count) ? src[base + 1] : 0.0f;
+                        float sample_val = s1 + (s2 - s1) * frac;
+
+                        left_sample = sample_val;
+                        right_sample = sample_val;
+                    }
+                    else
+                    {
+                        ma_uint64 base2 = base * 2;
+                        float l1 = src[base2];
+                        float l2 = (base2 + 2 < sample.frame_count * 2) ? src[base2 + 2] : 0.0f;
+                        float r1 = src[base2 + 1];
+                        float r2 = (base2 + 3 < sample.frame_count * 2) ? src[base2 + 3] : 0.0f;
+
+                        left_sample  = l1 + (l2 - l1) * frac;
+                        right_sample = r1 + (r2 - r1) * frac;
+                    }
+
+                    int out_idx = write_i + i;
+                    
+                    sound_device.io->outputs[0][out_idx] += left_sample;
+                    sound_device.io->outputs[1][out_idx] += right_sample;
+                }
             }
+        }
+        const float final_volume = track.volume * app->project.volume;
+        for (ma_uint32 i = 0; i < frame_count; i++)
+        {
+            output[i * 2] += sound_device.io->outputs[0][i] * final_volume;
+            output[i * 2 + 1] += sound_device.io->outputs[1][i] * final_volume;
         }
     }
 }
+
+// TODO: Add Samples
+/*
+if (track.track_type == UphTrackType::Sample)
+{
+    for (auto &sample_instance : track.timeline_blocks)
+    {
+        UphSample &sample = app->project.samples[sample_instance.sample_index];
+        if (!sample.frames)
+            continue;
+        // sample.frames
+        // sample.frame_count
+        // sample.channel_count
+    }
+}
+*/
 
 void uph_sound_device_initialize(void)
 {
@@ -279,6 +385,7 @@ void uph_sound_device_initialize(void)
 
 void uph_sound_device_shutdown(void)
 {
+    ma_device_stop(&sound_device.device);
     ma_device_uninit(&sound_device.device);
     delete sound_device.io;
 }
@@ -296,15 +403,44 @@ float uph_get_song_length_sec(void)
 
     for (auto &track : tracks)
     {
-        if (track.track_type == UphTrackType::Midi)
-            for (auto &pattern_instance : track.midi_track.pattern_instances)
-            {
-                float pattern_end_beat = pattern_instance.start_time + pattern_instance.length;
-                float pattern_end_sec = pattern_end_beat * sec_per_beat;
-                if (pattern_end_sec > max_length)
-                    max_length = pattern_end_sec;
-            }
+        for (auto &pattern_instance : track.timeline_blocks)
+        {
+            float pattern_end_beat = pattern_instance.start_time + pattern_instance.length;
+            float pattern_end_sec = pattern_end_beat * sec_per_beat;
+            if (pattern_end_sec > max_length)
+                max_length = pattern_end_sec;
+        }
     }
 
     return max_length;
+}
+
+
+UphSample uph_sample_create_from_file(const char *path)
+{
+    ma_decoder decoder;
+    if (ma_decoder_init_file(path, NULL, &decoder) != MA_SUCCESS)
+    {
+        printf("Failed to load sample %s\n", path);
+        return {};
+    }
+
+    ma_uint64 frameCount;
+    ma_decoder_get_length_in_pcm_frames(&decoder, &frameCount);
+
+    float* pFrames = (float*)malloc((size_t)(frameCount * decoder.outputChannels * sizeof(float)));
+
+    ma_uint64 readFrames = 0;
+    ma_decoder_read_pcm_frames(&decoder, pFrames, frameCount, &readFrames);
+
+    UphSample sample;
+    sample.type = decoder.outputChannels == 1 ?
+        UphSampleType::Mono :
+        UphSampleType::Stereo;
+    sample.frames = pFrames;
+    sample.frame_count = frameCount;
+
+    ma_decoder_uninit(&decoder);
+
+    return sample;
 }
