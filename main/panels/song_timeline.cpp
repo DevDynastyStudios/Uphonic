@@ -447,7 +447,22 @@ static void uph_song_timeline_render(UphPanel* panel)
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SAMPLE"))
                 {
+                    size_t src_index = *(const size_t*)payload->Data;
+                    if (track.track_type == UphTrackType::Sample)
+                    {
+                        UphTimelineBlock newInstance;
 
+                        newInstance.sample_index = (uint16_t)src_index;
+
+                        float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
+                        newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
+
+                        newInstance.start_offset = 0.0f;
+                        newInstance.length = 8.0f;
+                        newInstance.stretch_scale = 1.0f;
+
+                        track.timeline_blocks.push_back(newInstance);
+                    }
                 }
             }
             ImGui::EndDragDropTarget();
