@@ -7,9 +7,14 @@ struct UphSettings
 
 static UphSettings settings_data {};
 
+static void uph_settings_init(UphPanel* panel)
+{
+	panel->window_flags = ImGuiWindowFlags_NoSavedSettings;
+}
+
 static void uph_settings_render(UphPanel* panel)
 {
 
 }
 
-UPH_REGISTER_PANEL("Settings", ImGuiWindowFlags_NoSavedSettings, ImGuiDockNodeFlags_None, uph_settings_render);
+UPH_REGISTER_PANEL("Settings", UphPanelFlags::Popup, uph_settings_render, uph_settings_init);

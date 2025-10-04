@@ -6,11 +6,6 @@
 
 #include <pluginterfaces/vst2.x/aeffectx.h>
 
-struct UphMixerEffect
-{
-
-};
-
 enum class UphTrackType : uint8_t
 {
     Midi,
@@ -69,6 +64,8 @@ struct UphSample
     char name[64];
     UphSampleType type;
 
+    float sample_rate;
+
     float *frames;
     uint64_t frame_count;
 };
@@ -76,7 +73,8 @@ struct UphSample
 struct UphTrack
 {
     char name[64];
-    float volume = 1.0f, pan = 0.5f;
+    float volume = 1.0f, pan = 0.0f;
+    float peak_left = 0.0f, peak_right = 0.0f;
     bool muted = false;
     UphTrackType track_type;
     UphInstrument instrument;

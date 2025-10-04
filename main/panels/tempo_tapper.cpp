@@ -66,10 +66,59 @@ static void uph_tempo_tapper_render(UphPanel* panel)
 
         ImGui::EndCombo();
     }
-    if (ImGui::Button("Load Layout"))
+
+    if (tapper_data.open_save_as_popup)
     {
-        uph_load_layout("layouts/Default");
+        ImGui::OpenPopup("SaveLayoutAsPopup");
+        tapper_data.open_save_as_popup = false;
     }
+
+	// --- Save Layout As popup ---
+	if (ImGui::BeginPopup("SaveLayoutAsPopup"))
+	{
+	    ImGui::Text("Enter new layout name:");
+	
+	    if (tapper_data.popup_focus_request)
+	    {
+	        ImGui::SetKeyboardFocusHere();
+	        tapper_data.popup_focus_request = false;
+	    }
+	
+	    // InputText returns true when Enter is pressed if we set the flag
+	    if (ImGui::InputText("##newlayout",
+	                         tapper_data.new_layout_name,
+	                         sizeof(tapper_data.new_layout_name),
+	                         ImGuiInputTextFlags_EnterReturnsTrue))
+	    {
+	        // Treat Enter as Save
+	        std::string filename = std::string("layouts/") + tapper_data.new_layout_name;
+	        uph_save_layout(filename.c_str());
+	        tapper_data.current_layout = tapper_data.new_layout_name;
+	        ImGui::CloseCurrentPopup();
+	    }
+	
+	    // Explicit Save/Cancel buttons
+	    if (ImGui::Button("Save"))
+	    {
+	        std::string filename = std::string("layouts/") + tapper_data.new_layout_name;
+	        uph_save_layout(filename.c_str());
+	        tapper_data.current_layout = tapper_data.new_layout_name;
+	        ImGui::CloseCurrentPopup();
+	    }
+	    ImGui::SameLine();
+	    if (ImGui::Button("Cancel"))
+	    {
+	        ImGui::CloseCurrentPopup();
+	    }
+	
+	    // Global key shortcuts while popup is open
+	    if (ImGui::IsKeyPressed(ImGuiKey_Escape))
+	    {
+	        ImGui::CloseCurrentPopup();
+	    }
+	
+	    ImGui::EndPopup();
+	}
 }
 
-UPH_REGISTER_PANEL("Tempo Tapper", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_tempo_tapper_render);
+UPH_REGISTER_PANEL("Tempo Tapper", UphPanelFlags::Panel, uph_tempo_tapper_render, nullptr);

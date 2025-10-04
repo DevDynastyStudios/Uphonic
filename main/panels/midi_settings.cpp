@@ -1,3 +1,8 @@
 #include "panel_manager.h"
 
-UPH_REGISTER_PANEL("Midi Settings", ImGuiWindowFlags_NoSavedSettings, ImGuiDockNodeFlags_None, nullptr);
+static void uph_midi_settings_init(UphPanel* panel)
+{
+	panel->window_flags = ImGuiWindowFlags_NoSavedSettings;
+}
+
+UPH_REGISTER_PANEL("Midi Settings", UphPanelFlags::Panel, nullptr, uph_midi_settings_init);

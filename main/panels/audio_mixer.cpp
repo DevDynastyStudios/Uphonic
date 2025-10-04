@@ -323,4 +323,4 @@ static void uph_mixer_set_levels(int channel, float leftLevel, float rightLevel)
     }
 }
 
-UPH_REGISTER_PANEL("Mixer Track", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_mixer_render);
+UPH_REGISTER_PANEL("Mixer Track", UphPanelFlags::Panel, uph_mixer_render, nullptr);

@@ -209,10 +209,13 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
     }
 }
 
+static inline float db_to_lin(float db) { return pow(10.0f, db / 20.0f); }
+static inline float lin_to_db(float lin) { return 20.0f * log10(lin); }
+
 static void uph_audio_callback(ma_device* p_device, void* p_output, const void* p_input, ma_uint32 frame_count)
 {
     float* output = (float*)p_output;
-    const std::vector<UphTrack> &tracks = app->project.tracks;
+    std::vector<UphTrack> &tracks = app->project.tracks;
 
     static float *inputs[64] = { 0 };
     static float *outputs[64] = { 0 };
@@ -221,8 +224,6 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
     {
         inputs[i] = sound_device.io->inputs[i];
         outputs[i] = sound_device.io->outputs[i];
-        memset(inputs[i], 0, sizeof(float) * 512);
-        memset(outputs[i], 0, sizeof(float) * 512);
     }
 
     if (app->should_stop_all_notes.load())
@@ -237,6 +238,9 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
     for (auto &track : tracks)
     {
+        memset(sound_device.io->inputs, 0, sizeof(float) * 512 * 64);
+        memset(sound_device.io->outputs, 0, sizeof(float) * 512 * 64);
+
         if (track.track_type == UphTrackType::Midi)
         {
             AEffect *effect = track.instrument.effect;
@@ -259,7 +263,8 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
                 const float sec_per_beat = 60.0f / app->project.bpm;
 
-                float playback_speed = 1.0f / sample_instance.stretch_scale;
+                float sample_rate_ratio = (float)sample.sample_rate / (float)p_device->sampleRate;
+                float playback_speed = sample_rate_ratio / sample_instance.stretch_scale;
                 // --- NEW: playback speed multiplier ---
                 float playback_rate = (playback_speed > 0.0f) ? playback_speed : 1.0f;
 
@@ -280,7 +285,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
                 int sample_read_start  = int(std::round(sample_instance.start_offset * sec_per_beat * p_device->sampleRate * playback_rate));
                 if (sample_read_start < 0) sample_read_start = 0;
 
-                int write_i = std::max(0, block_start_sample);
+                int write_i = std::max<int>(0, block_start_sample);
 
                 // read_index is now floating-point so we can step at playback_rate
                 double read_index = (double)sample_read_start + (double)(write_i - block_start_sample) * playback_rate;
@@ -334,12 +339,30 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
                 }
             }
         }
-        const float final_volume = track.volume * app->project.volume;
+
+        float peakL = 0.0f;
+        float peakR = 0.0f;
+
+        float panNorm = (track.pan + 1.0f) * 0.5f;
+        float gainL = cosf(panNorm * HALF_PI);
+        float gainR = sinf(panNorm * HALF_PI);
+        
+        const float final_volume = app->project.volume;
+
         for (ma_uint32 i = 0; i < frame_count; i++)
         {
-            output[i * 2] += sound_device.io->outputs[0][i] * final_volume;
-            output[i * 2 + 1] += sound_device.io->outputs[1][i] * final_volume;
+            const float l = sound_device.io->outputs[0][i] * track.volume * gainL;
+            const float r = sound_device.io->outputs[1][i] * track.volume * gainR;
+
+            peakL = std::max<float>(peakL, fabsf(l));
+            peakR = std::max<float>(peakR, fabsf(r));
+
+            output[i * 2]     += l * final_volume;
+            output[i * 2 + 1] += r * final_volume;
         }
+
+        track.peak_left = peakL;
+        track.peak_right = peakR;
     }
 }
 
@@ -439,6 +462,7 @@ UphSample uph_sample_create_from_file(const char *path)
         UphSampleType::Stereo;
     sample.frames = pFrames;
     sample.frame_count = frameCount;
+    sample.sample_rate = decoder.outputSampleRate;
 
     ma_decoder_uninit(&decoder);
 
