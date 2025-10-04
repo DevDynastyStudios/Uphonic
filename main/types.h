@@ -6,10 +6,10 @@
 
 #include <pluginterfaces/vst2.x/aeffectx.h>
 
-enum class UphTrackType : uint8_t
+enum UphTrackType : uint8_t
 {
-    Midi,
-    Sample
+    UphTrackType_Midi,
+    UphTrackType_Sample
 };
 
 union UphTimelineBlock
@@ -53,10 +53,10 @@ struct UphMidiPattern
     std::vector<UphNote> notes;
 };
 
-enum class UphSampleType : uint8_t
+enum UphSampleType : uint8_t
 {
-    Mono,
-    Stereo
+    UphSampleType_Mono,
+    UphSampleType_Stereo
 };
 
 struct UphSample
@@ -76,6 +76,7 @@ struct UphTrack
     float volume = 1.0f, pan = 0.0f;
     float peak_left = 0.0f, peak_right = 0.0f;
     bool muted = false;
+    uint32_t color = 0xFFFFFFFF;
     UphTrackType track_type;
     UphInstrument instrument;
     std::vector<UphTimelineBlock> timeline_blocks;

@@ -37,4 +37,4 @@ static void uph_recovery_prompt_render(UphPanel* panel)
 
 }
 
-UPH_REGISTER_PANEL("Recover Project", UphPanelFlags::Modal, uph_recovery_prompt_render, uph_recovery_prompt_init);
+UPH_REGISTER_PANEL("Recover Project", UphPanelFlags_Modal, uph_recovery_prompt_render, uph_recovery_prompt_init);

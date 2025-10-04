@@ -121,4 +121,4 @@ static void uph_tempo_tapper_render(UphPanel* panel)
 	}
 }
 
-UPH_REGISTER_PANEL("Tempo Tapper", UphPanelFlags::Panel, uph_tempo_tapper_render, nullptr);
+UPH_REGISTER_PANEL("Tempo Tapper", UphPanelFlags_Panel, uph_tempo_tapper_render, nullptr);

@@ -4,14 +4,14 @@
 
 typedef void (*UphPanelCallback)(struct UphPanel* panel);
 
-enum class UphPanelFlags
+enum UphPanelFlags
 {
-	None 			= 0,
-	Panel			= 1 << 1,
-	MenuBar			= 1 << 2,
-	Popup			= 1 << 3,
-	Modal			= 1 << 4,
-	HiddenFromMenu 	= 1 << 5
+	UphPanelFlags_None 			    = 0,
+	UphPanelFlags_Panel			    = 1 << 1,
+	UphPanelFlags_MenuBar           = 1 << 2,
+	UphPanelFlags_Popup			    = 1 << 3,
+	UphPanelFlags_Modal             = 1 << 4,
+	UphPanelFlags_HiddenFromMenu    = 1 << 5
 };
 
 struct UphPanel

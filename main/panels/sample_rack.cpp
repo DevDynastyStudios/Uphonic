@@ -152,4 +152,4 @@ static void uph_sample_rack_render(UphPanel* panel)
     ImGui::PopStyleVar(2);
 }
 
-UPH_REGISTER_PANEL("Sample Rack", UphPanelFlags::Panel, uph_sample_rack_render, nullptr);
+UPH_REGISTER_PANEL("Sample Rack", UphPanelFlags_Panel, uph_sample_rack_render, nullptr);

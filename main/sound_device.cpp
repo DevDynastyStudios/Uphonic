@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <algorithm>
+#include <filesystem>
 #include <cmath>
 
 constexpr float PI = 3.14159265358979323846f;
@@ -153,7 +154,7 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
     const std::vector<UphTrack> &tracks = app->project.tracks;
     for (auto &track : tracks)
     {
-        if (track.track_type == UphTrackType::Midi)
+        if (track.track_type == UphTrackType_Midi)
         {
             AEffect *effect = track.instrument.effect;
             if (!effect)
@@ -181,7 +182,7 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
 {
     for (auto &track : tracks)
     {
-        if (track.track_type == UphTrackType::Midi)
+        if (track.track_type == UphTrackType_Midi)
         {
             AEffect *effect = track.instrument.effect;
             if (!effect)
@@ -241,7 +242,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
         memset(sound_device.io->inputs, 0, sizeof(float) * 512 * 64);
         memset(sound_device.io->outputs, 0, sizeof(float) * 512 * 64);
 
-        if (track.track_type == UphTrackType::Midi)
+        if (track.track_type == UphTrackType_Midi)
         {
             AEffect *effect = track.instrument.effect;
             if (!effect)
@@ -250,7 +251,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
             if (effect->flags & effFlagsCanReplacing)
                 effect->processReplacing(effect, inputs, outputs, frame_count);
         }
-        else if (app->is_song_timeline_playing && track.track_type == UphTrackType::Sample)
+        else if (app->is_song_timeline_playing && track.track_type == UphTrackType_Sample)
         {
             for (auto &sample_instance : track.timeline_blocks)
             {
@@ -295,7 +296,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
                 int frames_to_copy = (int)std::min<ma_uint64>(available_in_sample, (ma_uint64)available_in_block);
                 if (frames_to_copy <= 0) continue;
 
-                const int sample_channels = (sample.type == UphSampleType::Mono) ? 1 : 2;
+                const int sample_channels = (sample.type == UphSampleType_Mono) ? 1 : 2;
                 const float *src = sample.frames;
                 const float track_volume = track.volume;
 
@@ -368,7 +369,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
 // TODO: Add Samples
 /*
-if (track.track_type == UphTrackType::Sample)
+if (track.track_type == UphTrackType_Sample)
 {
     for (auto &sample_instance : track.timeline_blocks)
     {
@@ -441,6 +442,7 @@ float uph_get_song_length_sec(void)
 
 UphSample uph_sample_create_from_file(const char *path)
 {
+    namespace fs = std::filesystem;
     ma_decoder decoder;
     if (ma_decoder_init_file(path, NULL, &decoder) != MA_SUCCESS)
     {
@@ -458,11 +460,12 @@ UphSample uph_sample_create_from_file(const char *path)
 
     UphSample sample;
     sample.type = decoder.outputChannels == 1 ?
-        UphSampleType::Mono :
-        UphSampleType::Stereo;
+        UphSampleType_Mono :
+        UphSampleType_Stereo;
     sample.frames = pFrames;
     sample.frame_count = frameCount;
     sample.sample_rate = decoder.outputSampleRate;
+    strcpy(sample.name, fs::path(path).stem().string().c_str());
 
     ma_decoder_uninit(&decoder);
 

@@ -14,4 +14,4 @@ static void uph_secondary_menu_render(UphPanel* panel)
 
 }
 
-UPH_REGISTER_PANEL("Secondary Panel", UphPanelFlags::Panel, uph_secondary_menu_render, uph_secondary_menu_init);
+UPH_REGISTER_PANEL("Secondary Panel", UphPanelFlags_Panel, uph_secondary_menu_render, uph_secondary_menu_init);

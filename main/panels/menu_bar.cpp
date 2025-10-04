@@ -203,4 +203,4 @@ static void uph_menu_bar_render(UphPanel* panel)
     }
 }
 
-UPH_REGISTER_PANEL("Menu Bar", UphPanelFlags::MenuBar, uph_menu_bar_render, uph_menu_bar_init);
+UPH_REGISTER_PANEL("Menu Bar", UphPanelFlags_MenuBar, uph_menu_bar_render, uph_menu_bar_init);

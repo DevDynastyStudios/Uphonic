@@ -153,4 +153,4 @@ static void uph_pattern_rack_render(UphPanel* panel)
     ImGui::PopStyleVar(2);
 }
 
-UPH_REGISTER_PANEL("Pattern Rack", UphPanelFlags::Panel, uph_pattern_rack_render, nullptr);
+UPH_REGISTER_PANEL("Pattern Rack", UphPanelFlags_Panel, uph_pattern_rack_render, nullptr);

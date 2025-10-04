@@ -209,12 +209,11 @@ static void uph_song_timeline_handle_pattern_interaction(
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
 }
 
-static void uph_song_timeline_draw_block(ImDrawList* drawList, ImVec2 rectMin, ImVec2 rectMax, float py, const char *name)
+static void uph_song_timeline_draw_block(ImDrawList* drawList, ImVec2 rectMin, ImVec2 rectMax, float py, ImU32 fill_color, const char *name)
 {
-    constexpr ImU32 fillCol = IM_COL32(240, 117, 138, 255);
     constexpr ImU32 textCol = IM_COL32(0, 0, 0, 255);
 
-    drawList->AddRectFilled(rectMin, rectMax, fillCol);
+    drawList->AddRectFilled(rectMin, rectMax, fill_color);
     //drawList->AddRect(rectMin, rectMax, borderCol);
 
     drawList->PushClipRect(ImVec2(rectMin.x, rectMin.y), ImVec2(rectMax.x, py), true);
@@ -229,13 +228,14 @@ static void uph_song_timeline_draw_pattern_block(
     const UphTimelineBlock& block,
     const UphMidiPattern& patternData,
     ImVec2 rectMin, ImVec2 rectMax,
+    ImU32 fill_color,
     float title_height, float zoomX, float zoomY
 )
 {
     constexpr ImU32 textCol = IM_COL32(0, 0, 0, 255);
 
     const float py = rectMin.y + title_height;
-    uph_song_timeline_draw_block(drawList, rectMin, rectMax, py, patternData.name);
+    uph_song_timeline_draw_block(drawList, rectMin, rectMax, py, fill_color, patternData.name);
 
     auto& notes = patternData.notes;
     if (notes.empty()) return;
@@ -273,20 +273,23 @@ static void uph_song_timeline_draw_sample_block(
     const UphTimelineBlock& sample,
     const UphSample& sample_data,
     ImVec2 rectMin, ImVec2 rectMax,
+    ImU32 fill_color,
     float title_height, float zoomX, float zoomY
 )
 {
     const float py = rectMin.y + title_height;
-    uph_song_timeline_draw_block(drawList, rectMin, rectMax, py, sample_data.name);
+    uph_song_timeline_draw_block(drawList, rectMin, rectMax, py, fill_color, sample_data.name);
 
     if (!sample_data.frames || sample_data.frame_count == 0) return;
 
-    const uint8_t stride = sample_data.type == UphSampleType::Stereo ? 2 : 1;
+    const uint8_t stride = sample_data.type == UphSampleType_Stereo ? 2 : 1;
 
     const float scale_x = 1.0f / (60.0f * sample_data.sample_rate) * zoomX * sample.stretch_scale * app->project.bpm;
     const float frames_per_pixel = 1.0f / scale_x;
 
     ImGui::PushClipRect(ImVec2(rectMin.x, py + 1), rectMax, true);
+
+    drawList->AddLine(ImVec2(rectMin.x, rectMin.y + (title_height + k_track_height * zoomY) * 0.5f), ImVec2(rectMax.x, rectMin.y + (title_height + k_track_height * zoomY) * 0.5f), IM_COL32(0, 0, 0, 255));
 
     for (float px = rectMin.x; px < rectMax.x; px += 1.0f)
     {
@@ -346,7 +349,6 @@ static void uph_song_timeline_render(UphPanel* panel)
 {
     auto& tracks = app->project.tracks;
 
-    ImVec2 fullSize = ImGui::GetContentRegionAvail();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
     if (ImGui::Button(app->is_song_timeline_playing ? "Stop" : "Play"))
     {
@@ -357,7 +359,9 @@ static void uph_song_timeline_render(UphPanel* panel)
             uph_sound_device_all_notes_off();
     }
 
-    ImGui::BeginChild("SongTimelineCanvas", fullSize, 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImVec2 fullSize = ImGui::GetContentRegionAvail();
+
+    ImGui::BeginChild("SongTimelineCanvas", fullSize, ImGuiChildFlags_AlwaysAutoResize);
 
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
@@ -423,12 +427,12 @@ static void uph_song_timeline_render(UphPanel* panel)
             
         if (ImGui::BeginDragDropTarget())
         {
-            if (track.track_type == UphTrackType::Midi)
+            if (track.track_type == UphTrackType_Midi)
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN"))
                 {
                     size_t src_index = *(const size_t*)payload->Data;
-                    if (track.track_type == UphTrackType::Midi)
+                    if (track.track_type == UphTrackType_Midi)
                     {
                         UphTimelineBlock newInstance;
                         newInstance.pattern_index = (uint16_t)src_index;
@@ -443,12 +447,12 @@ static void uph_song_timeline_render(UphPanel* panel)
                     }
                 }
             }
-            else if (track.track_type == UphTrackType::Sample)
+            else if (track.track_type == UphTrackType_Sample)
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SAMPLE"))
                 {
                     size_t src_index = *(const size_t*)payload->Data;
-                    if (track.track_type == UphTrackType::Sample)
+                    if (track.track_type == UphTrackType_Sample)
                     {
                         UphTimelineBlock newInstance;
 
@@ -488,12 +492,12 @@ static void uph_song_timeline_render(UphPanel* panel)
             ImVec2 rectMin(px, y);
             ImVec2 rectMax(px + pw, y + h);
 
-            if (track.track_type == UphTrackType::Midi)
+            if (track.track_type == UphTrackType_Midi)
                 uph_song_timeline_draw_pattern_block(drawList, pattern, app->project.patterns[pattern.pattern_index], rectMin, rectMax,
-                    titleHeight, timeline_data.zoom_x, timeline_data.zoom_y);
-            else if (track.track_type == UphTrackType::Sample)
+                    track.color, titleHeight, timeline_data.zoom_x, timeline_data.zoom_y);
+            else if (track.track_type == UphTrackType_Sample)
                 uph_song_timeline_draw_sample_block(drawList, pattern, app->project.samples[pattern.sample_index], rectMin, rectMax,
-                    titleHeight, timeline_data.zoom_x, timeline_data.zoom_y);
+                    track.color, titleHeight, timeline_data.zoom_x, timeline_data.zoom_y);
         }
 
         uph_song_timeline_draw_track_menu(track, i, y, h, canvasPos);
@@ -506,4 +510,4 @@ static void uph_song_timeline_render(UphPanel* panel)
     ImGui::PopStyleVar();
 }
 
-UPH_REGISTER_PANEL("Song Timeline", UphPanelFlags::Panel, uph_song_timeline_render, uph_song_timeline_init);
+UPH_REGISTER_PANEL("Song Timeline", UphPanelFlags_Panel, uph_song_timeline_render, uph_song_timeline_init);

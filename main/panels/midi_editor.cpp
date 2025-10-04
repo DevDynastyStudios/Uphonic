@@ -375,4 +375,4 @@ static void uph_midi_editor_render(UphPanel* panel)
     ImGui::EndChild();
 }
 
-UPH_REGISTER_PANEL("Midi Editor", UphPanelFlags::Panel, uph_midi_editor_render, uph_midi_editor_init);
+UPH_REGISTER_PANEL("Midi Editor", UphPanelFlags_Panel, uph_midi_editor_render, uph_midi_editor_init);

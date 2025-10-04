@@ -475,4 +475,4 @@ static void uph_file_explorer_render(UphPanel* panel)
     }
 }
 
-UPH_REGISTER_PANEL("File Explorer", UphPanelFlags::Panel, uph_file_explorer_render, nullptr);
+UPH_REGISTER_PANEL("File Explorer", UphPanelFlags_Panel, uph_file_explorer_render, nullptr);

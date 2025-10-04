@@ -17,4 +17,4 @@ static void uph_settings_render(UphPanel* panel)
 
 }
 
-UPH_REGISTER_PANEL("Settings", UphPanelFlags::Popup, uph_settings_render, uph_settings_init);
+UPH_REGISTER_PANEL("Settings", UphPanelFlags_Popup, uph_settings_render, uph_settings_init);

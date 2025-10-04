@@ -27,7 +27,7 @@ void uph_panel_render_all()
         if(!panel.is_visible)
             continue;
 
-        if((int) panel.panel_flags & (int) UphPanelFlags::MenuBar)
+        if((int) panel.panel_flags & (int) UphPanelFlags_MenuBar)
         {
             if(ImGui::BeginMainMenuBar())
                 if(panel.render_callback)
@@ -35,7 +35,7 @@ void uph_panel_render_all()
                 
             ImGui::EndMainMenuBar();
 
-        } else if((int) panel.panel_flags & (int) UphPanelFlags::Modal)
+        } else if((int) panel.panel_flags & (int) UphPanelFlags_Modal)
 		{
 			ImGui::OpenPopup(panel.title);
 
