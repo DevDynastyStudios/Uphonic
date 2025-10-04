@@ -14,4 +14,4 @@ static void uph_mixer_render(UphPanel* panel)
     ImGui::SliderFloat("Fader", &mixer_data.fader, 0.0f, 1.0f);
 }
 
-UPH_REGISTER_PANEL("Mixer Track", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_mixer_render);
+UPH_REGISTER_PANEL("Mixer Track", UphPanelFlags::Panel, uph_mixer_render, nullptr);

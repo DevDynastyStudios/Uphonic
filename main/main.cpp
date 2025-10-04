@@ -11,6 +11,7 @@
 #include "panels/panel_manager.h"
 #include "settings/layout_manager.h"
 #include "settings/theme_loader.h"
+#include "project_manager.h"
 #include "types.h"
 
 VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
@@ -49,8 +50,42 @@ VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
     }
 }
 
+void uph_load_vst2(const char* path)
+{
+	    for (int i = 0; i < 1; ++i)
+    {
+        typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
+        UphLibrary vst_module = uph_load_library(path);
+        VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
+        if (!entry)
+            entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");
+
+        if (!entry)
+            printf("Not a valid VST 2.x plugin.\n");
+
+        AEffect* effect = entry(audioMasterCallbackFunction);
+        effect->dispatcher(effect, effSetSampleRate, 0, 0, nullptr, 44100.0f);
+        effect->dispatcher(effect, effSetBlockSize, 0, 512, nullptr, 0);
+        effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
+
+        UphChildWindow child_window;
+        if (effect->flags & effFlagsHasEditor) {
+            ERect* rect = nullptr;
+            effect->dispatcher(effect, effEditGetRect, 0, 0, &rect, 0);
+            uint32_t width  = rect ? rect->right - rect->left : 400;
+            uint32_t height = rect ? rect->bottom - rect->top : 300;
+            const UphChildWindowCreateInfo child_window_create_info = {width, height, "VstHost"};
+            child_window = uph_create_child_window(&child_window_create_info);
+            effect->dispatcher(effect, effEditOpen, 0, 0, child_window.handle, 0);
+        }
+
+        app->project.tracks[i].instrument.effect = effect;
+    }
+}
+
 #include <iostream>
 #include <imgui-knobs.h>
+#include <filesystem>
 
 int main(const int argc, const char **argv)
 {
@@ -65,6 +100,12 @@ int main(const int argc, const char **argv)
     uph_json_load_theme("themes/Default.json");
     uph_platform_initialize(&create_info);
     uph_load_layout("layouts/Default");
+
+	std::vector<std::filesystem::path> recovery_candidates = uph_project_check_recovery();
+	if(!recovery_candidates.empty())
+	{
+		uph_panel_show("Recover Project");
+	}
 
     static const ImWchar icon_ranges[]{0xf000, 0xf3ff, 0};
     ImFontConfig icons_config;
@@ -84,37 +125,13 @@ int main(const int argc, const char **argv)
 
     uph_sound_device_initialize();
 
-    for (int i = 0; i < 1; ++i)
-    {
-        typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
-        UphLibrary vst_module = uph_load_library("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
-        VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
-        if (!entry)
-            entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");
+#if UPH_PLATFORM_WINDOWS					// <--------------------------------------------------------------------- Only doing this for Big Smoke to test
+	uph_load_vst2("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
+#elif UPH_PLATFORM_LINUX
+    uph_load_vst2("/usr/local/lib/vst/DragonflyHallReverb-vst.so");
+#endif
 
-        if (!entry)
-            printf("Not a valid VST 2.x plugin.\n");
-
-        AEffect* effect = entry(audioMasterCallbackFunction);
-        effect->dispatcher(effect, effSetSampleRate, 0, 0, nullptr, 44100.0f);
-        effect->dispatcher(effect, effSetBlockSize, 0, 512, nullptr, 0);
-        effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
-
-        UphChildWindow child_window;
-        if (effect->flags & effFlagsHasEditor) {
-            ERect* rect = nullptr;
-            effect->dispatcher(effect, effEditGetRect, 0, 0, &rect, 0);
-            uint32_t width  = rect ? rect->right - rect->left : 400;
-            uint32_t height = rect ? rect->bottom - rect->top : 300;
-            const UphChildWindowCreateInfo child_window_create_info = {.width = width, .height = height, .title = "VstHost"};
-            child_window = uph_create_child_window(&child_window_create_info);
-            effect->dispatcher(effect, effEditOpen, 0, 0, child_window.handle, 0);
-        }
-
-        app->project.tracks[i].instrument.effect = effect;
-    }
-
-    UphSample sample = uph_sample_create_from_file("C:\\Users\\Kiril Abadjiev\\Downloads\\Project_131.mp3");
+    UphSample sample = uph_sample_create_from_file("C:\\Users\\champ\\Music\\Star Overhead.mp3");
     strcpy(sample.name, "Sample 1");
     app->project.samples.push_back(sample);
 

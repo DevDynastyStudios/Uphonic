@@ -40,6 +40,11 @@ static constexpr float k_track_menu_width       = 150.0f;
 static constexpr float k_resize_handle_width    = 8.0f;
 static constexpr float k_min_pattern_length     = 1.0f;
 
+static void uph_song_timeline_init(UphPanel* panel)
+{
+	panel->window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+}
+
 static float quantizeToBeat(float time, float beatSize)
 {
     return std::round(time / beatSize) * beatSize;
@@ -275,10 +280,10 @@ static void uph_song_timeline_draw_sample_block(
     uph_song_timeline_draw_block(drawList, rectMin, rectMax, py, sample_data.name);
 
     if (!sample_data.frames || sample_data.frame_count == 0) return;
-    constexpr float sample_rate = 44100.0f;
+
     const uint8_t stride = sample_data.type == UphSampleType::Stereo ? 2 : 1;
 
-    const float scale_x = 1.0f / (60.0f * sample_rate) * zoomX * sample.stretch_scale * app->project.bpm;
+    const float scale_x = 1.0f / (60.0f * sample_data.sample_rate) * zoomX * sample.stretch_scale * app->project.bpm;
     const float frames_per_pixel = 1.0f / scale_x;
 
     ImGui::PushClipRect(ImVec2(rectMin.x, py + 1), rectMax, true);
@@ -486,4 +491,4 @@ static void uph_song_timeline_render(UphPanel* panel)
     ImGui::PopStyleVar();
 }
 
-UPH_REGISTER_PANEL("Song Timeline", ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse, ImGuiDockNodeFlags_None, uph_song_timeline_render);
+UPH_REGISTER_PANEL("Song Timeline", UphPanelFlags::Panel, uph_song_timeline_render, uph_song_timeline_init);

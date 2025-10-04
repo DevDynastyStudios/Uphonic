@@ -34,6 +34,11 @@ struct UphMidiEditor
 
 static UphMidiEditor editor_data {};
 
+static void uph_midi_editor_init(UphPanel* panel)
+{
+	panel->category = "Editor";
+}
+
 static inline void uph_key_to_name(int key, char* out, size_t out_size)
 {
     static const char* names[12] = {
@@ -370,4 +375,4 @@ static void uph_midi_editor_render(UphPanel* panel)
     ImGui::EndChild();
 }
 
-UPH_REGISTER_PANEL("Midi Editor", ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, uph_midi_editor_render);
+UPH_REGISTER_PANEL("Midi Editor", UphPanelFlags::Panel, uph_midi_editor_render, uph_midi_editor_init);
