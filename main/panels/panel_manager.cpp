@@ -7,7 +7,7 @@ std::vector<UphPanel>& panels() {
 
 void uph_panel_register(const char* title, UphPanelFlags panel_flags, UphPanelCallback render_callback, UphPanelCallback init_callback)
 {
-    UphPanel panel { title, "Uncategorized", false, panel_flags, ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, render_callback, init_callback };
+    UphPanel panel { title, nullptr, false, panel_flags, ImGuiWindowFlags_None, ImGuiDockNodeFlags_None, render_callback, init_callback };
     panels().push_back(panel);
 }
 

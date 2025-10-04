@@ -14,6 +14,11 @@ static UphPatternRack pattern_data { };
 // Forward-declared global application (from your data model)
 extern UphApplication* app;
 
+static void uph_sample_rack_init(UphPanel* panel)
+{
+	panel->category = UPH_CATEGORY_EDITOR;
+}
+
 static void uph_sample_rack_render(UphPanel* panel)
 {
     // Create a new empty pattern
@@ -152,4 +157,4 @@ static void uph_sample_rack_render(UphPanel* panel)
     ImGui::PopStyleVar(2);
 }
 
-UPH_REGISTER_PANEL("Sample Rack", UphPanelFlags_Panel, uph_sample_rack_render, nullptr);
+UPH_REGISTER_PANEL("Sample Rack", UphPanelFlags_Panel, uph_sample_rack_render, uph_sample_rack_init);

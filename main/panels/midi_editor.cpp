@@ -36,7 +36,8 @@ static UphMidiEditor editor_data {};
 
 static void uph_midi_editor_init(UphPanel* panel)
 {
-	panel->category = "Editor";
+	panel->category = UPH_CATEGORY_EDITOR;
+	panel->window_flags = ImGuiWindowFlags_NoScrollbar;
 }
 
 static inline void uph_key_to_name(int key, char* out, size_t out_size)

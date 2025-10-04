@@ -12,6 +12,11 @@ struct UphAudioMixer
 
 static UphAudioMixer mixer_data;
 
+static void uph_audio_mixer_init(UphPanel* panel)
+{
+	panel->category = UPH_CATEGORY_EDITOR;
+}
+
 static void DrawVUMeterWithFader(float vuLevelLeft, float vuLevelRight, float& volume, float width, float height, uint32_t channelColor)
 {
     ImDrawList* draw = ImGui::GetWindowDrawList();
@@ -242,4 +247,4 @@ static void uph_mixer_render(UphPanel* panel)
     ImGui::EndChild();
 }
 
-UPH_REGISTER_PANEL("Mixer Track", UphPanelFlags_Panel, uph_mixer_render, nullptr);
+UPH_REGISTER_PANEL("Mixer Track", UphPanelFlags_Panel, uph_mixer_render, uph_audio_mixer_init);
