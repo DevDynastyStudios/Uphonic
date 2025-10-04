@@ -1,5 +1,6 @@
 #pragma once
 #include <imgui.h>
+#include <imgui-knobs.h>
 #include <vector>
 
 #define UPH_CATEGORY_EDITOR     "Editors"

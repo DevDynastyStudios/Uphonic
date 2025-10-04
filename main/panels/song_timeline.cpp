@@ -437,7 +437,6 @@ static void uph_song_timeline_render(UphPanel* panel)
                     {
                         UphTimelineBlock newInstance;
                         newInstance.pattern_index = (uint16_t)src_index;
-                        newInstance.track_type = track.track_type;
 
                         float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
                         newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
@@ -459,7 +458,6 @@ static void uph_song_timeline_render(UphPanel* panel)
                         UphTimelineBlock newInstance;
 
                         newInstance.sample_index = (uint16_t)src_index;
-                        newInstance.track_type = track.track_type;
 
                         float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
                         newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);

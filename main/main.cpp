@@ -6,6 +6,9 @@
 #include <font_awesome.h>
 #include <font_awesome.cpp>
 
+#include <iostream>
+#include <filesystem>
+
 #include "sound_device.h"
 
 #include "panels/panel_manager.h"
@@ -83,10 +86,6 @@ void uph_load_vst2(const char* path)
     }
 }
 
-#include <iostream>
-#include <imgui-knobs.h>
-#include <filesystem>
-
 int main(const int argc, const char **argv)
 {
     UphPlatformCreateInfo create_info = { 1920, 1080, "Uphonic" };
@@ -139,24 +138,12 @@ int main(const int argc, const char **argv)
     uph_load_vst2("/usr/local/lib/vst/DragonflyHallReverb-vst.so");
 #endif
 
-    UphSample sample = uph_create_sample_from_file("C:\\Users\\Kiril Abadjiev\\Downloads\\clock ticking sound effect.mp3");
-    app->project.samples.push_back(sample);
-
-    app->project.tracks[1].timeline_blocks.push_back({ UphTrackType_Sample, 0, 0.0, 0.0f, 5.0f, 1.0f });
-
     while (is_running)
     {
         uph_platform_begin();
         ImGui::NewFrame();
         ImGui::DockSpaceOverViewport();
         uph_panel_render_all();
-        ImGui::Begin("Options");
-        ImGuiKnobs::Knob("Volume", &app->project.volume, 0.0f, 1.0f);
-        ImGuiKnobs::Knob("Bpm", &app->project.bpm, 10.0f, 1000, 1.0f);
-        ImGui::PushFont(icon_font);
-        ImGui::Button(ICON_FA_PENCIL);
-        ImGui::PopFont();
-        ImGui::End();
         ImGui::Render();
         if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
@@ -166,7 +153,6 @@ int main(const int argc, const char **argv)
         uph_platform_end();
     }
 
-    free(sample.frames);
     uph_sound_device_shutdown();
     uph_platform_shutdown();
     ImGui::DestroyContext();
