@@ -239,6 +239,13 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
     for (auto &track : tracks)
     {
+        if (track.muted)
+        {
+            track.peak_left = 0.0f;
+            track.peak_right = 0.0f;
+            continue;
+        }
+
         memset(sound_device.io->inputs, 0, sizeof(float) * 512 * 64);
         memset(sound_device.io->outputs, 0, sizeof(float) * 512 * 64);
 
