@@ -126,20 +126,18 @@ static void uph_midi_pattern_process_playback_for_block(
 
 static void uph_midi_editor_process_playback_for_block(float sample_rate, float frame_count)
 {
-    AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
-    if (!effect)
-        return;
-
     const float sec_per_beat = 60.0f / app->project.bpm;
     float prev_beat = app->midi_editor_song_position;
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
-    uph_midi_pattern_process_playback_for_block(
-        effect,
-        &app->project.patterns[app->current_pattern_index],
-        sec_per_beat, prev_beat, new_beat,
-        sample_rate, frame_count
-    );
+    AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
+    if (!effect)
+        uph_midi_pattern_process_playback_for_block(
+            effect,
+            &app->project.patterns[app->current_pattern_index],
+            sec_per_beat, prev_beat, new_beat,
+            sample_rate, frame_count
+        );
 
     app->midi_editor_song_position = new_beat;
 }

@@ -80,6 +80,12 @@ void midi_editor_draw_and_handle_playhead(ImDrawList* draw_list, ImVec2 canvas_p
 
 static void uph_midi_editor_render(UphPanel* panel)
 {
+    if (app->project.patterns.empty())
+    {
+        ImGui::Text("No pattern selected!");
+        return;
+    }
+
     ImGuiStyle &style = ImGui::GetStyle();
     ImGuiIO& io = ImGui::GetIO();
 
