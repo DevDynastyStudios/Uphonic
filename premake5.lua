@@ -33,3 +33,14 @@ project "Uphonic"
     filter { "configurations:Release" }
         defines { "NDEBUG" }
         optimize "On"
+
+    filter "system:windows"
+
+    filter "system:linux"
+        removefiles {
+            "vendor/imgui/imgui_impl_win32.cpp",
+            "vendor/imgui/imgui_impl_win32.h",
+            "vendor/imgui/imgui_impl_dx11.cpp",
+            "vendor/imgui/imgui_impl_dx11.h"
+        }
+        links { "SDL2", }
