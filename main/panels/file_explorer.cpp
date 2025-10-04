@@ -25,6 +25,11 @@ struct UphFileExplorer
 
 static UphFileExplorer explorer_data {};
 
+static void uph_file_explorer_init(UphPanel* panel)
+{
+	panel->category = UPH_CATEGORY_BROWSER;
+}
+
 static std::string format_size(uintmax_t size)
 {
     static constexpr const char* units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};		// It's only overkill if you can prove no one used it
@@ -475,4 +480,4 @@ static void uph_file_explorer_render(UphPanel* panel)
     }
 }
 
-UPH_REGISTER_PANEL("File Explorer", UphPanelFlags_Panel, uph_file_explorer_render, nullptr);
+UPH_REGISTER_PANEL("File Explorer", UphPanelFlags_Panel, uph_file_explorer_render, uph_file_explorer_init);

@@ -8,6 +8,7 @@ static ImGuiDockNodeFlags dock_flags = ImGuiDockNodeFlags_AutoHideTabBar;
 
 static void uph_menu_bar_init(UphPanel* panel)
 {
+	panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
 	panel->window_flags = window_flags;
 	panel->dock_flags = dock_flags;
 }
@@ -156,44 +157,53 @@ static void uph_menu_bar_render(UphPanel* panel)
         ImGui::EndMenu();
     }
 
-	if (ImGui::BeginMenu("Window")) 
-	{
-	    if (ImGui::MenuItem("Show All"))
+	if (ImGui::BeginMenu("Window")) {
+	    // Bulk actions
+	    if (ImGui::MenuItem("Show All")) {
 	        for (auto& panel : panels()) panel.is_visible = true;
-
-	    if (ImGui::MenuItem("Hide All")) 
+	    }
+	    if (ImGui::MenuItem("Hide All")) {
 	        for (auto& panel : panels()) panel.is_visible = false;
+	    }
 
 	    ImGui::Separator();
 
+	    // --- Build category map and uncategorized list ---
 	    std::map<std::string, std::vector<UphPanel*>> grouped;
-	    for (auto& panel : panels()) 
-		{
-	        grouped[panel.category].push_back(&panel);
+	    std::vector<UphPanel*> uncategorized;
+
+	    for (auto& panel : panels()) {
+	        if (panel.panel_flags & UphPanelFlags_HiddenFromMenu)
+	            continue;
+
+	        if (panel.category && panel.category[0] != '\0') {
+	            grouped[std::string(panel.category)].push_back(&panel);
+	        } else {
+	            uncategorized.push_back(&panel);
+	        }
 	    }
 
-	    for (auto& [category, plist] : grouped) 
-		{
-	        if (ImGui::BeginMenu(category.c_str())) 
-			{
-	            std::sort(plist.begin(), plist.end(), [](UphPanel* a, UphPanel* b) 
-				{ 
-					return a->title < b->title; 
-				});
-
-	            for (auto* panel : plist) 
-				{
-	                if(ImGui::MenuItem(panel->title, nullptr, panel->is_visible))
-					{
-						uph_panel_show(panel->title, !panel->is_visible);
-					}
+	    // --- Categorized panels first ---
+	    for (auto& [category, plist] : grouped) {
+	        if (ImGui::BeginMenu(category.c_str())) {
+	            for (auto* panel : plist) {
+	                ImGui::MenuItem(panel->title, nullptr, &panel->is_visible);
 	            }
-
 	            ImGui::EndMenu();
 	        }
 	    }
 
-    	ImGui::EndMenu();
+	    // --- Separator before uncategorized (only if they exist) ---
+	    if (!uncategorized.empty() && !grouped.empty()) {
+	        ImGui::Separator();
+	    }
+
+	    // --- Uncategorized panels at the bottom ---
+	    for (auto* panel : uncategorized) {
+	        ImGui::MenuItem(panel->title, nullptr, &panel->is_visible);
+	    }
+
+	    ImGui::EndMenu();
 	}
 
     if(ImGui::BeginMenu("Help"))

@@ -11,6 +11,11 @@ struct UphTempoTapper
 
 static UphTempoTapper tapper_data {};
 
+static void uph_tempo_tapper_init(UphPanel* panel)
+{
+	panel->category = UPH_CATEGORY_EDITOR;
+}
+
 static void uph_tempo_tapper_render(UphPanel* panel)
 {
     float dropdownWidth = 100.0f;
@@ -121,4 +126,4 @@ static void uph_tempo_tapper_render(UphPanel* panel)
 	}
 }
 
-UPH_REGISTER_PANEL("Tempo Tapper", UphPanelFlags_Panel, uph_tempo_tapper_render, nullptr);
+UPH_REGISTER_PANEL("Tempo Tapper", UphPanelFlags_Panel, uph_tempo_tapper_render, uph_tempo_tapper_init);

@@ -2,9 +2,14 @@
 #include <imgui.h>
 #include <vector>
 
+#define UPH_CATEGORY_EDITOR     "Editors"
+#define UPH_CATEGORY_EFFECT     "Effects"
+#define UPH_CATEGORY_METER      "Meters"
+#define UPH_CATEGORY_BROWSER     "Browsers"
+
 typedef void (*UphPanelCallback)(struct UphPanel* panel);
 
-enum UphPanelFlags
+enum UphPanelFlags : uint32_t
 {
 	UphPanelFlags_None 			    = 0,
 	UphPanelFlags_Panel			    = 1 << 1,
@@ -19,7 +24,7 @@ struct UphPanel
     const char* title;
 	const char* category;
     bool is_visible;
-	UphPanelFlags panel_flags;
+	uint32_t panel_flags;
     ImGuiWindowFlags window_flags;
     ImGuiDockNodeFlags dock_flags;
     UphPanelCallback render_callback;
@@ -35,12 +40,11 @@ void uph_panel_show(const char* title, bool visible = true);
 UphPanel* uph_panel_get(const char* title);
 
 // Registers a panel at static initialization time.
-// Usage: UPH_REGISTER_PANEL("Title", &panel_data, panel_render_function);
-#define UPH_REGISTER_PANEL(TITLE, PANEL_FLAGS, RENDER_FUNC, INIT_FUNC)            \
-    static void __uph_register_##RENDER_FUNC(void) {                   	           \
-        uph_panel_register(TITLE, PANEL_FLAGS, RENDER_FUNC, INIT_FUNC);	           \
-    }                                                                               \
-    struct __UphPanelRegistrar_##RENDER_FUNC {                                      \
-        __UphPanelRegistrar_##RENDER_FUNC() { __uph_register_##RENDER_FUNC(); }     \
-    };                                                                              \
+#define UPH_REGISTER_PANEL(TITLE, PANEL_FLAGS, RENDER_FUNC, INIT_FUNC) \
+    static void __uph_register_##RENDER_FUNC(void) { \
+        uph_panel_register(TITLE, PANEL_FLAGS, RENDER_FUNC, INIT_FUNC); \
+    } \
+    struct __UphPanelRegistrar_##RENDER_FUNC { \
+        __UphPanelRegistrar_##RENDER_FUNC() { __uph_register_##RENDER_FUNC(); } \
+    }; \
     static __UphPanelRegistrar_##RENDER_FUNC __uph_panel_registrar_##RENDER_FUNC;

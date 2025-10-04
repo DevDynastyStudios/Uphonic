@@ -11,6 +11,7 @@ static ImGuiWindowFlags window_flags =
 
 static void uph_recovery_prompt_init(UphPanel* panel)
 {
+	panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
 	panel->window_flags = window_flags;
 }
 

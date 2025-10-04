@@ -9,6 +9,7 @@ static UphSettings settings_data {};
 
 static void uph_settings_init(UphPanel* panel)
 {
+	panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
 	panel->window_flags = ImGuiWindowFlags_NoSavedSettings;
 }
 

@@ -124,9 +124,10 @@ int main(const int argc, const char **argv)
     app->project.tracks[1].track_type = UphTrackType_Sample;
 
     uph_sound_device_initialize();
+	uph_panel_init_all();
 
 #if UPH_PLATFORM_WINDOWS					// <--------------------------------------------------------------------- Only doing this for Big Smoke to test
-	uph_load_vst2("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
+	//uph_load_vst2("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
 #elif UPH_PLATFORM_LINUX
     uph_load_vst2("/usr/local/lib/vst/DragonflyHallReverb-vst.so");
 #endif

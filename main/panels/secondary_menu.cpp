@@ -5,6 +5,7 @@ static ImGuiDockNodeFlags dock_flags = ImGuiDockNodeFlags_NoSplit | ImGuiDockNod
 
 static void uph_secondary_menu_init(UphPanel* panel)
 {
+	panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
 	panel->window_flags = window_flags;
 	panel->dock_flags = dock_flags;
 }

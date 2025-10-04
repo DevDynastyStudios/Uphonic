@@ -42,6 +42,7 @@ static constexpr float k_min_pattern_length     = 1.0f;
 
 static void uph_song_timeline_init(UphPanel* panel)
 {
+	panel->category = UPH_CATEGORY_EDITOR;
 	panel->window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 }
 
