@@ -34,4 +34,5 @@ void uph_destroy_child_window(const UphChildWindow *window);
 double uph_get_time(void);
 
 UphLibrary uph_load_library(const char *path);
+void uph_unload_library(UphLibrary library);
 UphProcAddress uph_get_proc_address(UphLibrary library, const char *name);

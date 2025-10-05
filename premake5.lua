@@ -2,6 +2,16 @@ workspace "Uphonic"
     configurations { "Release" }
     startproject "Uphonic"
 
+project "UVI"
+    kind "StaticLib"
+    architecture "x64"
+    language "C++"
+    cppdialect "C++20"
+    files {
+        "uvi/**.h",
+        "uvi/**.cpp"
+    }
+
 project "Uphonic"
     kind "ConsoleApp"
     architecture "x64"
@@ -20,6 +30,7 @@ project "Uphonic"
 
     includedirs {
         "main",
+        "uvi",
         "vendor",
         "vendor/imgui",
         "vendor/mINI",
@@ -29,6 +40,8 @@ project "Uphonic"
         "vendor/FontAwesome",
         "vendor/vst2"
     }
+
+    links { "UVI" }
 
     filter { "configurations:Release" }
         defines { "NDEBUG" }

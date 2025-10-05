@@ -1,4 +1,6 @@
 #include "panel_manager.h"
+#include "plugin_loader.h"
+#include "types.h"
 
 #include <string>
 #include <filesystem>
@@ -14,11 +16,12 @@ static UphPluginPicker plugin_picker;
 
 static void uph_plugin_picker_init(UphPanel* panel)
 {
-    //panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
-	panel->window_flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoDocking;
+    panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
+	panel->window_flags = ImGuiWindowFlags_NoSavedSettings;
 
     const std::unordered_set<std::filesystem::path> default_directories = {
-        "C:\\Program Files\\Steinberg\\VstPlugins"
+        "C:\\Program Files\\Steinberg\\VstPlugins",
+        "C:\\Program Files\\VstPlugins"
     };
 
     for (const auto& directory : default_directories)
@@ -44,9 +47,16 @@ static void uph_plugin_picker_render(UphPanel* panel)
     {
         if (ImGui::Selectable(path.filename().string().c_str()))
         {
-            
+            UphInstrument *instrument = &app->project.tracks[app->current_instrument_track_index].instrument;
+            if (instrument->plugin.effect)
+                uph_queue_plugin_unload(&instrument->plugin);
+            uph_queue_plugin_load(path.string().c_str(), &app->project.tracks[app->current_instrument_track_index]);
+            panel->is_visible = false;
         }
     }
+
+    if (!ImGui::IsAnyItemHovered() && ImGui::IsAnyMouseDown() || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        panel->is_visible = false;
 }
 
-UPH_REGISTER_PANEL("Select Plugin", UphPanelFlags_Panel, uph_plugin_picker_render, uph_plugin_picker_init);
+UPH_REGISTER_PANEL("Select Plugin", UphPanelFlags_Modal, uph_plugin_picker_render, uph_plugin_picker_init);

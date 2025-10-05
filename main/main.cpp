@@ -10,6 +10,7 @@
 #include <filesystem>
 
 #include "sound_device.h"
+#include "plugin_loader.h"
 
 #include "panels/panel_manager.h"
 #include "settings/layout_manager.h"
@@ -17,74 +18,7 @@
 #include "project_manager.h"
 #include "types.h"
 
-VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
-    AEffect* effect, VstInt32 opcode, VstInt32 index,
-    VstIntPtr value, void* ptr, float opt
-)
-{
-    switch (opcode)
-    {
-        case audioMasterVersion: return 2400;
-        case audioMasterIdle:    return 0;
-        case audioMasterGetSampleRate: return (VstIntPtr)44100;
-        case audioMasterGetBlockSize:  return (VstIntPtr)512;
-        case audioMasterCanDo:
-        {
-            const char* canDo = (const char*)ptr;
-            if (!canDo) return 0;
-            if (strcmp(canDo, "sendVstEvents") == 0) return 1;
-            if (strcmp(canDo, "sendVstMidiEvent") == 0) return 1;
-            if (strcmp(canDo, "receiveVstEvents") == 0) return 1;
-            if (strcmp(canDo, "receiveVstMidiEvent") == 0) return 1;
-            return 0;
-        }
-        case audioMasterGetTime:
-        {
-            VstTimeInfo* timeInfo = (VstTimeInfo*)ptr;
-            if (!timeInfo) return 0;
-
-            timeInfo->samplePos = 0.0;
-            timeInfo->tempo = app->project.bpm;
-            timeInfo->flags = kVstTempoValid;
-
-            return (VstIntPtr)timeInfo;
-        }
-        default: return 0;
-    }
-}
-
-void uph_load_vst2(const char* path)
-{
-	    for (int i = 0; i < 1; ++i)
-    {
-        typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
-        UphLibrary vst_module = uph_load_library(path);
-        VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
-        if (!entry)
-            entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");
-
-        if (!entry)
-            printf("Not a valid VST 2.x plugin.\n");
-
-        AEffect* effect = entry(audioMasterCallbackFunction);
-        effect->dispatcher(effect, effSetSampleRate, 0, 0, nullptr, 44100.0f);
-        effect->dispatcher(effect, effSetBlockSize, 0, 512, nullptr, 0);
-        effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
-
-        UphChildWindow child_window;
-        if (effect->flags & effFlagsHasEditor) {
-            ERect* rect = nullptr;
-            effect->dispatcher(effect, effEditGetRect, 0, 0, &rect, 0);
-            uint32_t width  = rect ? rect->right - rect->left : 400;
-            uint32_t height = rect ? rect->bottom - rect->top : 300;
-            const UphChildWindowCreateInfo child_window_create_info = {width, height, "VstHost"};
-            child_window = uph_create_child_window(&child_window_create_info);
-            effect->dispatcher(effect, effEditOpen, 0, 0, child_window.handle, 0);
-        }
-
-        app->project.tracks[i].instrument.effect = effect;
-    }
-}
+#include "../uvi/uvi_loader.h"
 
 int main(const int argc, const char **argv)
 {
@@ -152,6 +86,7 @@ int main(const int argc, const char **argv)
         }
         uph_platform_end();
 		uph_layout_process_requests();
+        uph_process_plugins();
     }
 
     uph_sound_device_shutdown();

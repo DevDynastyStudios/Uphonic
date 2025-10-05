@@ -130,7 +130,7 @@ static void uph_midi_editor_process_playback_for_block(float sample_rate, float 
     float prev_beat = app->midi_editor_song_position;
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
-    AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
+    AEffect *effect = app->project.tracks[app->current_track_index].instrument.plugin.effect;
     if (effect)
         uph_midi_pattern_process_playback_for_block(
             effect,
@@ -154,7 +154,7 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.effect;
+            AEffect *effect = track.instrument.plugin.effect;
             if (!effect)
                 continue;
             for (auto &pattern_instance : track.timeline_blocks)
@@ -182,7 +182,7 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.effect;
+            AEffect *effect = track.instrument.plugin.effect;
             if (!effect)
                 continue;
 
@@ -207,9 +207,6 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
         }
     }
 }
-
-static inline float db_to_lin(float db) { return pow(10.0f, db / 20.0f); }
-static inline float lin_to_db(float lin) { return 20.0f * log10(lin); }
 
 static void uph_audio_callback(ma_device* p_device, void* p_output, const void* p_input, ma_uint32 frame_count)
 {
@@ -249,7 +246,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.effect;
+            AEffect *effect = track.instrument.plugin.effect;
             if (!effect)
                 continue;
 
@@ -371,22 +368,6 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
         track.peak_right = peakR;
     }
 }
-
-// TODO: Add Samples
-/*
-if (track.track_type == UphTrackType_Sample)
-{
-    for (auto &sample_instance : track.timeline_blocks)
-    {
-        UphSample &sample = app->project.samples[sample_instance.sample_index];
-        if (!sample.frames)
-            continue;
-        // sample.frames
-        // sample.frame_count
-        // sample.channel_count
-    }
-}
-*/
 
 void uph_sound_device_initialize(void)
 {

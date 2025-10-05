@@ -1,5 +1,6 @@
 #include "panel_manager.h"
 #include "sound_device.h"
+#include "plugin_loader.h"
 #include "types.h"
 
 #include "utils/lerp.h"
@@ -151,7 +152,7 @@ static void uph_song_timeline_handle_pattern_interaction(
             else
             {
                 float start  = pattern.start_time;
-                float newLen = std::max(k_min_pattern_length, qMouseTime - start);
+                float newLen = std::max<float>(k_min_pattern_length, qMouseTime - start);
                 pattern.length = newLen;
             }
         }
@@ -169,7 +170,7 @@ static void uph_song_timeline_handle_pattern_interaction(
         {
             float newStart = (io.MousePos.x - timelineX + timeline_data.scroll_x) / timeline_data.zoom_x - timeline_data.dragOffset;
             newStart = quantizeToBeat(newStart, k_beat_size);
-            newStart = std::max(0.0f, newStart);
+            newStart = std::max<float>(0.0f, newStart);
             pattern.start_time = newStart;
 
             int targetTrackIdx = (int)((io.MousePos.y + timeline_data.smooth_scroll_y - canvasPos.y) / (k_track_height * timeline_data.zoom_y));
@@ -248,7 +249,7 @@ static void uph_song_timeline_draw_pattern_block(
         maxKey = std::max<int>(maxKey, note.key);
     }
 
-    int keyRange = std::max(1, maxKey - minKey + 1);
+    int keyRange = std::max<int>(1, maxKey - minKey + 1);
     float ph = (rectMax.y - rectMin.y) - title_height;
     float note_h = ph / (float)keyRange;
 
@@ -305,8 +306,8 @@ static void uph_song_timeline_draw_sample_block(
         for (uint64_t i = start_frame; i < end_frame; i += stride)
         {
             float v = sample_data.frames[i * stride] * 0.5f;
-            min_val = std::min(min_val, v);
-            max_val = std::max(max_val, v);
+            min_val = std::min<float>(min_val, v);
+            max_val = std::max<float>(max_val, v);
         }
 
         drawList->AddLine(
@@ -335,10 +336,20 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
     ImGui::Checkbox("Mute", &track.muted);
 
     if (track.track_type == UphTrackType_Midi)
+    {
         if (ImGui::Button("..."))
         {
-
+            app->current_instrument_track_index = trackIndex;
+            uph_panel_show("Select Plugin", true);
         }
+
+        if (track.instrument.plugin.effect)
+        {
+            ImGui::SameLine();
+            if (ImGui::Button("X"))
+                uph_queue_plugin_unload(&track.instrument.plugin);
+        }
+    }
 
     ImGui::EndChild();
     ImGui::PopStyleVar();
@@ -438,6 +449,7 @@ static void uph_song_timeline_render(UphPanel* panel)
                     {
                         UphTimelineBlock newInstance;
                         newInstance.pattern_index = (uint16_t)src_index;
+                        newInstance.track_type = UphTrackType_Midi;
 
                         float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
                         newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
@@ -459,6 +471,7 @@ static void uph_song_timeline_render(UphPanel* panel)
                         UphTimelineBlock newInstance;
 
                         newInstance.sample_index = (uint16_t)src_index;
+                        newInstance.track_type = UphTrackType_Sample;
 
                         float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
                         newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
@@ -472,6 +485,23 @@ static void uph_song_timeline_render(UphPanel* panel)
                 }
             }
             ImGui::EndDragDropTarget();
+        }
+    }
+
+    {
+        float spacing = timeline_data.zoom_x;
+        int start = (int)((timeline_data.scroll_x - 1) / spacing) - 1;
+        int end = (int)((timeline_data.scroll_x + canvasSize.x) / spacing) + 1;
+
+        for (int i = start; i <= end; i++)
+        {
+            float x = canvasPos.x + k_track_menu_width + 1 + (i * spacing - timeline_data.scroll_x);
+
+            drawList->AddLine(
+                ImVec2(x, canvasPos.y),
+                ImVec2(x, canvasPos.y + canvasSize.y),
+                (i % 16 == 0) ? IM_COL32(100,100,100,255) : IM_COL32(60,60,60,255)
+            );
         }
     }
 

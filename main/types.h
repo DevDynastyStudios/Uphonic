@@ -1,10 +1,13 @@
 #pragma once
 
+#include "platform/platform.h"
+
 #include <vector>
 #include <atomic>
 #include <cstdint>
 
 #include <pluginterfaces/vst2.x/aeffectx.h>
+#include <uvi_loader.h>
 
 enum UphTrackType : uint8_t
 {
@@ -34,9 +37,16 @@ union UphTimelineBlock
     };
 };
 
+struct UphPluginInstance
+{
+    UphChildWindow window;
+    UphLibrary library = nullptr;
+    AEffect* effect = nullptr;
+};
+
 struct UphInstrument
 {
-    AEffect *effect;
+    UphPluginInstance plugin;
     float volume, pan, pitch;
 };
 
@@ -95,6 +105,7 @@ struct UphApplication
     UphProject project{};
     uint32_t current_pattern_index = 0;
     uint32_t current_track_index = 0;
+    uint32_t current_instrument_track_index = 0;
     float midi_editor_song_position = 0.0f;
     float song_timeline_song_position = 0.0f;
     bool is_midi_editor_playing = false;

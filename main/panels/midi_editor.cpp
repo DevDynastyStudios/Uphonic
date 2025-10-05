@@ -136,11 +136,11 @@ static void uph_midi_editor_render(UphPanel* panel)
                 editor_data.target_scroll_y -= io.MouseDelta.y;
             }
         }
-        editor_data.target_scroll_x = std::max(0.0f, editor_data.target_scroll_x);
+        editor_data.target_scroll_x = std::max<float>(0.0f, editor_data.target_scroll_x);
     }
 
     const float max_scroll_y = 128 * key_height - canvas_size.y;
-    editor_data.target_scroll_y = std::clamp(editor_data.target_scroll_y, 0.0f, max_scroll_y);
+    editor_data.target_scroll_y = std::clamp<float>(editor_data.target_scroll_y, 0.0f, max_scroll_y);
 
     for (int i = 0; i < 128; ++i)
     {
@@ -276,7 +276,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             std::sort(remove_index.rbegin(), remove_index.rend());
             for (size_t idx : remove_index) notes.erase(notes.begin() + idx);
 
-            AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
+            AEffect *effect = app->project.tracks[app->current_track_index].instrument.plugin.effect;
             if (app->is_midi_editor_playing && effect)
             {
                 for (int pitch : removed_pitches)

@@ -2,6 +2,7 @@
 *.vcxproj
 *.filters
 *.pdb
+*.lib
 bin/Release/*.exe
 .vscode/
 obj/
