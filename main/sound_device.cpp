@@ -1,9 +1,10 @@
+#define NOMINMAX			//(Chimpchi) Define this before windows.h to use std::min or std::max
 #include "sound_device.h"
 
 #include <miniaudio.h>
 
-#include <iostream>
 #include <algorithm>
+#include <iostream>
 #include <filesystem>
 #include <cmath>
 
@@ -118,7 +119,7 @@ static void uph_midi_pattern_process_playback_for_block(
     {
         VstEvents events{};
         events.numEvents = midiEventCount;
-        for (int i = 0; i < midiEventCount; ++i)
+        for (uint32_t i = 0; i < midiEventCount; ++i)
             events.events[i] = (VstEvent*)&midiEvents[i];
         effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
     }
@@ -165,7 +166,7 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
                     &pattern,
                     sec_per_beat, prev_beat, new_beat,
                     sample_rate, frame_count,
-                    pattern_instance.start_time,
+                    (float) pattern_instance.start_time,	// <----------- Possibly change this to be a float
                     pattern_instance.start_offset,
                     pattern_instance.length
                 );
@@ -186,24 +187,27 @@ static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
             if (!effect)
                 continue;
 
-            VstEvents events{};
-            VstMidiEvent midiEvents[16]{};
-            
-            events.numEvents = 16;
-            events.reserved = 0;
-            
-            for (int channel = 0; channel < 16; channel++)
-            {
-                midiEvents[channel].type = kVstMidiType;
-                midiEvents[channel].byteSize = sizeof(VstMidiEvent);
-                midiEvents[channel].midiData[0] = 0xB0 | channel;
-                midiEvents[channel].midiData[1] = 123;
-                midiEvents[channel].midiData[2] = 0;
+			const int num = 16;
+			size_t size = sizeof(VstEvents) + (num - 2) * sizeof(VstEvent*); 	// allocate enough memory for num event pointers
+			VstEvents* events = (VstEvents*) std::malloc(size);
 
-                events.events[channel] = (VstEvent*)&midiEvents[channel];
-            }
-            
-            effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
+			events->numEvents = num;
+			events->reserved = 0;
+
+			VstMidiEvent midiEvents[16]{};
+
+			for (int channel = 0; channel < num; channel++) {
+			    midiEvents[channel].type = kVstMidiType;
+			    midiEvents[channel].byteSize = sizeof(VstMidiEvent);
+			    midiEvents[channel].midiData[0] = 0xB0 | channel;
+			    midiEvents[channel].midiData[1] = 123;
+			    midiEvents[channel].midiData[2] = 0;
+			
+			    events->events[channel] = (VstEvent*)&midiEvents[channel];
+			}
+
+			effect->dispatcher(effect, effProcessEvents, 0, 0, events, 0.0f);
+			std::free(events);
         }
     }
 }
@@ -228,9 +232,9 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
         app->should_stop_all_notes.store(false);
     }
     else if (app->is_midi_editor_playing)
-        uph_midi_editor_process_playback_for_block(p_device->sampleRate, frame_count);
+        uph_midi_editor_process_playback_for_block((float) p_device->sampleRate, (float) frame_count);
     else if (app->is_song_timeline_playing)
-        uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
+        uph_song_timeline_process_playback_for_block((float) p_device->sampleRate, (float) frame_count);
 
     for (auto &track : tracks)
     {
@@ -271,7 +275,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
                 // --- NEW: playback speed multiplier ---
                 float playback_rate = (playback_speed > 0.0f) ? playback_speed : 1.0f;
 
-                float instance_start_beat = sample_instance.start_time;
+                float instance_start_beat = (float) sample_instance.start_time;
 
                 // FIX: adjust length to account for playback speed
                 float instance_length_beats = (sample_instance.length > 0.0f)
@@ -415,7 +419,7 @@ float uph_get_song_length_sec(void)
     {
         for (auto &pattern_instance : track.timeline_blocks)
         {
-            float pattern_end_beat = pattern_instance.start_time + pattern_instance.length;
+            float pattern_end_beat = (float) pattern_instance.start_time + pattern_instance.length;
             float pattern_end_sec = pattern_end_beat * sec_per_beat;
             if (pattern_end_sec > max_length)
                 max_length = pattern_end_sec;
@@ -445,13 +449,15 @@ UphSample uph_create_sample_from_file(const char *path)
     ma_decoder_read_pcm_frames(&decoder, pFrames, frameCount, &readFrames);
 
     UphSample sample;
-    sample.type = decoder.outputChannels == 1 ?
-        UphSampleType_Mono :
-        UphSampleType_Stereo;
+    sample.type = decoder.outputChannels == 1 ? UphSampleType_Mono : UphSampleType_Stereo;
     sample.frames = pFrames;
     sample.frame_count = frameCount;
-    sample.sample_rate = decoder.outputSampleRate;
-    strcpy(sample.name, fs::path(path).stem().string().c_str());
+    sample.sample_rate = (float) decoder.outputSampleRate;
+
+	auto stem = fs::path(path).stem().string();
+	std::size_t len = std::min(stem.size(), sizeof(sample.name) - 1);
+	std::copy_n(stem.c_str(), len, sample.name);
+	sample.name[len] = '\0';	// guarantee null-termination
 
     ma_decoder_uninit(&decoder);
 
