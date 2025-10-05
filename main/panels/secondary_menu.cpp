@@ -13,9 +13,9 @@ static void uph_secondary_menu_init(UphPanel* panel)
 
 static void uph_secondary_menu_render(UphPanel* panel)
 {
-    ImGuiKnobs::Knob("Volume", &app->project.volume, 0.0f, 1.0f);
+    ImGuiKnobs::Knob("Volume", &app->project.volume, 0.0f, 1.0f, 0.0f, "%.2f", ImGuiKnobVariant_Stepped, 42.0f);
 	ImGui::SameLine();
-    ImGuiKnobs::Knob("Bpm", &app->project.bpm, 10.0f, 1000, 1.0f);
+    ImGuiKnobs::Knob("Bpm", &app->project.bpm, 10.0f, 1000, 1.0f, "%.2f", ImGuiKnobVariant_Stepped, 42.0f);
 }
 
 UPH_REGISTER_PANEL("Secondary Panel", UphPanelFlags_Panel, uph_secondary_menu_render, uph_secondary_menu_init);
