@@ -28,6 +28,7 @@ static UphFileExplorer explorer_data {};
 static void uph_file_explorer_init(UphPanel* panel)
 {
 	panel->category = UPH_CATEGORY_BROWSER;
+	panel->window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 }
 
 static std::string format_size(uintmax_t size)
@@ -428,13 +429,13 @@ static void uph_file_explorer_render(UphPanel* panel)
 
     // Layout with persistent pixel sizes
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float splitter_thickness = 4.0f;
+    const float splitter_thickness = 8.0f;
 
     if (explorer_data.details_dock_bottom) {
         // Top/Bottom layout (works in both simplified and advanced modes)
-        float top_h    = explorer_data.bottom_top_height;
-        float bottom_h = std::max(50.0f, avail.y - top_h - splitter_thickness);
-        top_h          = std::max(50.0f, avail.y - bottom_h - splitter_thickness);
+        float bottom_h    = explorer_data.bottom_top_height;
+        float top_h = std::max(100.0f, avail.y - bottom_h - splitter_thickness);
+        bottom_h          = std::max(200.0f, avail.y - top_h - splitter_thickness);
 
         ImGui::BeginChild("Tree_Bottom", ImVec2(avail.x, top_h), true);
         if (explorer_data.simplified_view)
@@ -447,7 +448,7 @@ static void uph_file_explorer_render(UphPanel* panel)
 
         // Splitter (horizontal)
         Splitter(false, splitter_thickness, &top_h, &bottom_h, 50.0f, 50.0f);
-        explorer_data.bottom_top_height = top_h; // persist pixel height
+        explorer_data.bottom_top_height = bottom_h; // persist pixel height
 
         ImGui::BeginChild("FileList_Bottom", ImVec2(avail.x, bottom_h), true);
         render_file_list(explorer_data.selected_dir, explorer_data.search_buf);
