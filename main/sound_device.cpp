@@ -1,4 +1,3 @@
-#define NOMINMAX			//(Chimpchi) Define this before windows.h to use std::min or std::max
 #include "sound_device.h"
 
 #include <miniaudio.h>
