@@ -59,7 +59,7 @@ static void uvi_v2_plugin_process(UviPlugin *plugin, float **inputs, float **out
     UviV2Plugin *p = plugin->v2.plugin;
     if (p->flags & UviV2PluginFlags_CanReplacing)
         p->processReplacing(p, inputs, outputs, sample_frames);
-    else p->process(p, inputs, outputs, sample_frames);
+    //else p->process(p, inputs, outputs, sample_frames);
 }
 
 struct UviV2Events
@@ -146,7 +146,7 @@ static void uvi_v2_plugin_close_editor(UviPlugin *plugin)
     p->dispatcher(p, UviV2PluginOpcodes_EditClose, 0, 0, nullptr, 0);
 }
 
-static void uvi_v2_plugin_get_editor_size(UviPlugin *plugin, int32_t *width, int32_t *height)
+static void uvi_v2_plugin_get_editor_size(UviPlugin *plugin, uint32_t *width, uint32_t *height)
 {
     struct UviV2Rect
     {
@@ -200,6 +200,7 @@ static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, 
     plugin->process_events = uvi_v2_plugin_process_events;
 
     plugin->v2.plugin = p;
+    plugin->is_loaded = true;
 }
 
 UviPlugin uvi_plugin_load(const char *path)
@@ -219,6 +220,7 @@ UviPlugin uvi_plugin_load(const char *path)
         return {};
         
     plugin.library = uvi_library_load(path);
+    strncpy(plugin.name, p.stem().string().c_str(), sizeof(plugin.name));
 
     switch (plugin.type)
     {
@@ -231,6 +233,7 @@ UviPlugin uvi_plugin_load(const char *path)
 void uvi_plugin_unload(UviPlugin *plugin)
 {
     UviV2Plugin *p = plugin->v2.plugin;
+    plugin->is_loaded = false;
     p->dispatcher(p, UviV2PluginOpcodes_StopProcess, 0, 0, nullptr, 0.0f);
     
     if (p->flags & UviV2PluginFlags_HasEditor)

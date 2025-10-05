@@ -48,7 +48,7 @@ static void uph_plugin_picker_render(UphPanel* panel)
         if (ImGui::Selectable(path.filename().string().c_str()))
         {
             UphInstrument *instrument = &app->project.tracks[app->current_instrument_track_index].instrument;
-            if (instrument->plugin.effect)
+            if (instrument->plugin.handle.is_loaded)
                 uph_queue_plugin_unload(&instrument->plugin);
             uph_queue_plugin_load(path.string().c_str(), &app->project.tracks[app->current_instrument_track_index]);
             panel->is_visible = false;

@@ -109,7 +109,10 @@ struct UviV2MidiEvent
 struct UviPlugin
 {
     UviPluginType type;
-    UviLibrary library;
+    UviLibrary library = nullptr;
+
+	char name[64];
+	bool is_loaded = false;
 
     union
     {
@@ -136,7 +139,7 @@ struct UviPlugin
 
 	void (*open_editor)(UviPlugin *plugin, void *handle);
 	void (*close_editor)(UviPlugin *plugin);
-	void (*get_editor_size)(UviPlugin *plugin, int *width, int *height);
+	void (*get_editor_size)(UviPlugin *plugin, uint32_t *width, uint32_t *height);
 	void (*process)(UviPlugin *plugin, float **inputs, float **outputs, int32_t sample_frames);
 	
 	void (*play_note)(UviPlugin *plugin, int32_t key, int32_t velocity, int32_t sample_offset);

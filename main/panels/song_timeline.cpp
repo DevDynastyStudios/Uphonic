@@ -343,7 +343,7 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
             uph_panel_show("Select Plugin", true);
         }
 
-        if (track.instrument.plugin.effect)
+        if (track.instrument.plugin.handle.is_loaded)
         {
             ImGui::SameLine();
             if (ImGui::Button("X"))

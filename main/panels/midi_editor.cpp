@@ -276,8 +276,8 @@ static void uph_midi_editor_render(UphPanel* panel)
             std::sort(remove_index.rbegin(), remove_index.rend());
             for (size_t idx : remove_index) notes.erase(notes.begin() + idx);
 
-            AEffect *effect = app->project.tracks[app->current_track_index].instrument.plugin.effect;
-            if (app->is_midi_editor_playing && effect)
+            UviPlugin &plugin = app->project.tracks[app->current_track_index].instrument.plugin.handle;
+            if (app->is_midi_editor_playing && plugin.is_loaded)
             {
                 for (int pitch : removed_pitches)
                 {
@@ -294,11 +294,13 @@ static void uph_midi_editor_render(UphPanel* panel)
                     }
                     if (!still_playing_somewhere)
                     {
-                        VstMidiEvent ev; memset(&ev, 0, sizeof(ev));
+                        /*VstMidiEvent ev; memset(&ev, 0, sizeof(ev));
                         ev.type = kVstMidiType; ev.byteSize = sizeof(ev);
                         ev.midiData[0] = 0x80; ev.midiData[1] = pitch; ev.midiData[2] = 0;
                         VstEvents events{}; events.numEvents = 1; events.events[0] = (VstEvent*)&ev;
-                        effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
+                        effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);*/
+                        plugin.stop_note(&plugin, pitch, 0);
+                        plugin.process_events(&plugin);
                     }
                 }
             }

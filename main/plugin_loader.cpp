@@ -14,7 +14,7 @@ struct UphPluginLoadRequest
 static std::queue<UphPluginLoadRequest> queued_plugin_loads;
 static std::queue<UphPluginInstance> queued_plugin_unloads;
 
-static VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
+/*static VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
     AEffect* effect, VstInt32 opcode, VstInt32 index,
     VstIntPtr value, void* ptr, float opt
 )
@@ -46,61 +46,24 @@ static VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
         }
         default: return 0;
     }
-}
+}*/
 
 static UphPluginInstance uph_load_vst2_internal(const char* path)
 {
-    typedef AEffect* (*VSTPluginMain)(audioMasterCallback audioMaster);
-    
-    UphLibrary vst_module = uph_load_library(path);
-    if (!vst_module)
-    {
-        printf("Failed to load library: %s\n", path);
-        return {0};
-    }
-    
-    VSTPluginMain entry = (VSTPluginMain)uph_get_proc_address(vst_module, "VSTPluginMain");
-    if (!entry)
-        entry = (VSTPluginMain)uph_get_proc_address(vst_module, "main");
-    
-    if (!entry)
-    {
-        printf("Not a valid VST 2.x plugin.\n");
-        uph_unload_library(vst_module);
-        return {0};
-    }
-    
-    AEffect* effect = entry(audioMasterCallbackFunction);
-    if (!effect)
-    {
-        printf("VST plugin failed to instantiate.\n");
-        uph_unload_library(vst_module);
-        return {0};
-    }
-    
-    effect->dispatcher(effect, effSetSampleRate, 0, 0, nullptr, 44100.0f);
-    effect->dispatcher(effect, effSetBlockSize, 0, 512, nullptr, 0);
-    effect->dispatcher(effect, effMainsChanged, 0, 1, nullptr, 0);
-    
+    UviPlugin plugin = uvi_plugin_load(path);
     UphChildWindow child_window = {0};
-    if (effect->flags & effFlagsHasEditor)
-    {
-        ERect* rect = nullptr;
-        effect->dispatcher(effect, effEditGetRect, 0, 0, &rect, 0);
-        uint32_t width  = rect ? rect->right - rect->left : 400;
-        uint32_t height = rect ? rect->bottom - rect->top : 300;
-        
-        const UphChildWindowCreateInfo child_window_create_info = {width, height, "VstHost"};
-        child_window = uph_create_child_window(&child_window_create_info);
-        effect->dispatcher(effect, effEditOpen, 0, 0, child_window.handle, 0);
-    }
+    uint32_t width = 0, height = 0;
+    plugin.get_editor_size(&plugin, &width, &height);
+
+    const UphChildWindowCreateInfo child_window_create_info = {width, height, plugin.name};
+    child_window = uph_create_child_window(&child_window_create_info);
+    plugin.open_editor(&plugin, child_window.handle);
     
-    UphPluginInstance plugin = {0};
-    plugin.library = vst_module;
-    plugin.effect = effect;
-    plugin.window = child_window;
+    UphPluginInstance instance = {0};
+    instance.handle = plugin;
+    instance.window = child_window;
     
-    return plugin;
+    return instance;
 }
 
 void uph_queue_plugin_load(const char *path, UphTrack *track)
@@ -117,25 +80,12 @@ void uph_queue_plugin_unload(UphPluginInstance* plugin)
 {
     if (!plugin) return;
     queued_plugin_unloads.push(*plugin);
-    plugin->effect = nullptr;
-    plugin->library = nullptr;
+    plugin->handle.is_loaded = false;
 }
 
 static void uph_unload_vst2_internal(UphPluginInstance* plugin)
 {
-    if (!plugin || !plugin->effect) return;
-    
-    AEffect* effect = plugin->effect;
-    
-    effect->dispatcher(effect, effStopProcess, 0, 0, nullptr, 0.0f);
-    
-    if (effect->flags & effFlagsHasEditor)
-    {
-        effect->dispatcher(effect, effEditClose, 0, 0, nullptr, 0.0f);
-    }
-    
-    effect->dispatcher(effect, effMainsChanged, 0, 0, nullptr, 0.0f);
-    effect->dispatcher(effect, effClose, 0, 0, nullptr, 0.0f);
+    uvi_plugin_unload(&plugin->handle);
 }
 
 void uph_process_plugin_loads(void)

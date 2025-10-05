@@ -40,8 +40,7 @@ union UphTimelineBlock
 struct UphPluginInstance
 {
     UphChildWindow window;
-    UphLibrary library = nullptr;
-    AEffect* effect = nullptr;
+    UviPlugin handle;
 };
 
 struct UphInstrument

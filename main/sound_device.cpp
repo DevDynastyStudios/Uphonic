@@ -26,7 +26,7 @@ struct UphSoundDevice
 static UphSoundDevice sound_device;
 
 static void uph_midi_pattern_process_playback_for_block(
-    AEffect *effect, UphMidiPattern *pattern,
+    UviPlugin *plugin, UphMidiPattern *pattern,
     float sec_per_beat, float prev_beat, float new_beat,
     float sample_rate, float frame_count,
     float start_time = 0.0f,
@@ -65,6 +65,7 @@ static void uph_midi_pattern_process_playback_for_block(
                 noteOnMicroOffset = 0;
                 lastNoteOnSample = sample_offset;
             }
+            plugin->play_note(plugin, pitch, velocity, sample_offset);
         }
         else if (status == 0x80) // Note off
         {
@@ -76,15 +77,8 @@ static void uph_midi_pattern_process_playback_for_block(
                 noteOffMicroOffset = 0;
                 lastNoteOffSample = sample_offset;
             }
+            plugin->stop_note(plugin, pitch, sample_offset);
         }
-
-        VstMidiEvent &ev = midiEvents[midiEventCount++];
-        ev.type = kVstMidiType;
-        ev.byteSize = sizeof(ev);
-        ev.midiData[0] = (unsigned char)status;
-        ev.midiData[1] = (unsigned char)pitch;
-        ev.midiData[2] = (unsigned char)velocity;
-        ev.deltaFrames = sample_offset;
     };
 
     for (auto &note : pattern->notes)
@@ -114,14 +108,7 @@ static void uph_midi_pattern_process_playback_for_block(
             queue_event(0x90, note.key, note.velocity, note_start);
     }
 
-    if (midiEventCount > 0)
-    {
-        VstEvents events{};
-        events.numEvents = midiEventCount;
-        for (int i = 0; i < midiEventCount; ++i)
-            events.events[i] = (VstEvent*)&midiEvents[i];
-        effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
-    }
+    plugin->process_events(plugin);
 }
 
 static void uph_midi_editor_process_playback_for_block(float sample_rate, float frame_count)
@@ -130,10 +117,10 @@ static void uph_midi_editor_process_playback_for_block(float sample_rate, float 
     float prev_beat = app->midi_editor_song_position;
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
-    AEffect *effect = app->project.tracks[app->current_track_index].instrument.plugin.effect;
-    if (effect)
+    UviPlugin *plugin = &app->project.tracks[app->current_track_index].instrument.plugin.handle;
+    if (plugin->is_loaded)
         uph_midi_pattern_process_playback_for_block(
-            effect,
+            plugin,
             &app->project.patterns[app->current_pattern_index],
             sec_per_beat, prev_beat, new_beat,
             sample_rate, frame_count
@@ -149,19 +136,19 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
     const float sec_per_beat = 60.0f / app->project.bpm;
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
-    const std::vector<UphTrack> &tracks = app->project.tracks;
+    std::vector<UphTrack> &tracks = app->project.tracks;
     for (auto &track : tracks)
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.plugin.effect;
-            if (!effect)
+            UviPlugin *plugin = &track.instrument.plugin.handle;
+            if (!plugin->is_loaded)
                 continue;
             for (auto &pattern_instance : track.timeline_blocks)
             {
                 UphMidiPattern &pattern = app->project.patterns[pattern_instance.pattern_index];
                 uph_midi_pattern_process_playback_for_block(
-                    effect,
+                    plugin,
                     &pattern,
                     sec_per_beat, prev_beat, new_beat,
                     sample_rate, frame_count,
@@ -176,34 +163,17 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
     app->song_timeline_song_position = new_beat;
 }
 
-static inline void uph_audio_stop_all_notes(const std::vector<UphTrack> &tracks)
+static inline void uph_audio_stop_all_notes(std::vector<UphTrack> &tracks)
 {
     for (auto &track : tracks)
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.plugin.effect;
-            if (!effect)
+            UviPlugin *plugin = &track.instrument.plugin.handle;
+            if (!plugin->is_loaded)
                 continue;
 
-            VstEvents events{};
-            VstMidiEvent midiEvents[16]{};
-            
-            events.numEvents = 16;
-            events.reserved = 0;
-            
-            for (int channel = 0; channel < 16; channel++)
-            {
-                midiEvents[channel].type = kVstMidiType;
-                midiEvents[channel].byteSize = sizeof(VstMidiEvent);
-                midiEvents[channel].midiData[0] = 0xB0 | channel;
-                midiEvents[channel].midiData[1] = 123;
-                midiEvents[channel].midiData[2] = 0;
-
-                events.events[channel] = (VstEvent*)&midiEvents[channel];
-            }
-            
-            effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
+            plugin->stop_all_notes(plugin);
         }
     }
 }
@@ -246,12 +216,11 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
         if (track.track_type == UphTrackType_Midi)
         {
-            AEffect *effect = track.instrument.plugin.effect;
-            if (!effect)
+            UviPlugin *plugin = &track.instrument.plugin.handle;
+            if (!plugin->is_loaded)
                 continue;
 
-            if (effect->flags & effFlagsCanReplacing)
-                effect->processReplacing(effect, inputs, outputs, frame_count);
+            plugin->process(plugin, inputs, outputs, frame_count);
         }
         else if (app->is_song_timeline_playing && track.track_type == UphTrackType_Sample)
         {
