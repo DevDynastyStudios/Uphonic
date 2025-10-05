@@ -151,6 +151,7 @@ int main(const int argc, const char **argv)
             ImGui::RenderPlatformWindowsDefault();
         }
         uph_platform_end();
+		uph_layout_process_requests();
     }
 
     uph_sound_device_shutdown();
