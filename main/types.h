@@ -72,7 +72,7 @@ struct UphSample
 
 struct UphTrack
 {
-    char name[64];
+    char name[64] = "Untitled Track";
     float volume = 1.0f, pan = 0.0f;
     float peak_left = 0.0f, peak_right = 0.0f;
     bool muted = false;
