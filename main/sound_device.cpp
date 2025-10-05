@@ -131,7 +131,7 @@ static void uph_midi_editor_process_playback_for_block(float sample_rate, float 
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
     AEffect *effect = app->project.tracks[app->current_track_index].instrument.effect;
-    if (!effect)
+    if (effect)
         uph_midi_pattern_process_playback_for_block(
             effect,
             &app->project.patterns[app->current_pattern_index],

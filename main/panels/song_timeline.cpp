@@ -360,15 +360,13 @@ static void uph_song_timeline_render(UphPanel* panel)
             uph_sound_device_all_notes_off();
     }
 
-    ImVec2 fullSize = ImGui::GetContentRegionAvail();
-
-    ImGui::BeginChild("SongTimelineCanvas", fullSize, ImGuiChildFlags_AlwaysAutoResize);
+    ImGui::BeginChild("SongTimelineCanvas", ImVec2(0, 0), 0);
 
     ImGuiIO& io = ImGui::GetIO();
     ImGuiStyle& style = ImGui::GetStyle();
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    ImVec2 canvasPos = ImGui::GetWindowPos() + ImGui::GetCursorPos();
     ImVec2 canvasSize = ImGui::GetContentRegionAvail();
     const float titleHeight = ImGui::GetTextLineHeight();
 
@@ -380,24 +378,20 @@ static void uph_song_timeline_render(UphPanel* panel)
             timeline_data.zoom_x = std::clamp(timeline_data.zoom_x, 4.0f, 128.0f);
 
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
-            {
                 timeline_data.zoom_y *= (1.0f - io.MouseDelta.y * 0.03f);
-            }
         }
         else
         {
-            timeline_data.scroll_y -= io.MouseWheel * 30.0f;
             if (ImGui::IsMouseDown(ImGuiMouseButton_Middle))
             {
-                timeline_data.scroll_x -= io.MouseDelta.x;
-                timeline_data.scroll_y -= io.MouseDelta.y;
+                ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseDelta.x);
+                ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
             }
         }
-
-        timeline_data.scroll_x = std::max(0.0f, timeline_data.scroll_x);
-        timeline_data.scroll_y = std::max(0.0f, timeline_data.scroll_y);
     }
 
+    timeline_data.scroll_x = ImGui::GetScrollX();
+    timeline_data.scroll_y = ImGui::GetScrollY();
     timeline_data.smooth_scroll_y = uph_smooth_lerp(timeline_data.smooth_scroll_y, timeline_data.scroll_y, 15.0f, io.DeltaTime);
 
     for (size_t i = 0; i < tracks.size(); ++i)
