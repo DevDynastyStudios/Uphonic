@@ -86,7 +86,7 @@ int main(const int argc, const char **argv)
         }
         uph_platform_end();
 		uph_layout_process_requests();
-        uph_process_plugins();
+        uph_process_plugin_loader();
     }
 
     uph_sound_device_shutdown();

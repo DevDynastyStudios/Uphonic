@@ -8,114 +8,75 @@
 struct UphPluginLoadRequest
 {
     std::string path;
-    UphTrack* track;
+    uint32_t track_index;
 };
 
 static std::queue<UphPluginLoadRequest> queued_plugin_loads;
-static std::queue<UphPluginInstance> queued_plugin_unloads;
+static std::queue<uint32_t> queued_plugin_unloads;
 
-/*static VstIntPtr VSTCALLBACK audioMasterCallbackFunction(
-    AEffect* effect, VstInt32 opcode, VstInt32 index,
-    VstIntPtr value, void* ptr, float opt
-)
-{
-    switch (opcode)
-    {
-        case audioMasterVersion: return 2400;
-        case audioMasterIdle:    return 0;
-        case audioMasterGetSampleRate: return (VstIntPtr)44100;
-        case audioMasterGetBlockSize:  return (VstIntPtr)512;
-        case audioMasterCanDo:
-        {
-            const char* canDo = (const char*)ptr;
-            if (!canDo) return 0;
-            if (strcmp(canDo, "sendVstEvents") == 0) return 1;
-            if (strcmp(canDo, "sendVstMidiEvent") == 0) return 1;
-            if (strcmp(canDo, "receiveVstEvents") == 0) return 1;
-            if (strcmp(canDo, "receiveVstMidiEvent") == 0) return 1;
-            return 0;
-        }
-        case audioMasterGetTime:
-        {
-            VstTimeInfo* timeInfo = (VstTimeInfo*)ptr;
-            if (!timeInfo) return 0;
-            timeInfo->samplePos = 0.0;
-            timeInfo->tempo = app->project.bpm;
-            timeInfo->flags = kVstTempoValid;
-            return (VstIntPtr)timeInfo;
-        }
-        default: return 0;
-    }
-}*/
-
-static UphPluginInstance uph_load_vst2_internal(const char* path)
+static UphInstrument uph_load_vst2_internal(const char* path)
 {
     UviPlugin plugin = uvi_plugin_load(path);
     UphChildWindow child_window = {0};
-    uint32_t width = 0, height = 0;
+    uint32_t width, height;
     plugin.get_editor_size(&plugin, &width, &height);
-
-    const UphChildWindowCreateInfo child_window_create_info = {width, height, plugin.name};
+    
+    const UphChildWindowCreateInfo child_window_create_info = {width, height, "VstHost"};
     child_window = uph_create_child_window(&child_window_create_info);
     plugin.open_editor(&plugin, child_window.handle);
+
+    UphInstrument instrument;
+    instrument.plugin = plugin;
+    instrument.window = child_window;
     
-    UphPluginInstance instance = {0};
-    instance.handle = plugin;
-    instance.window = child_window;
-    
-    return instance;
+    return instrument;
 }
 
-void uph_queue_plugin_load(const char *path, UphTrack *track)
+void uph_queue_instrument_load(const char *path, uint32_t track_index)
 {
-    if (!path || !track) return;
+    if (!path) return;
     
     UphPluginLoadRequest request;
     request.path = path;
-    request.track = track;
+    request.track_index = track_index;
     queued_plugin_loads.push(request);
 }
 
-void uph_queue_plugin_unload(UphPluginInstance* plugin)
+void uph_queue_instrument_unload(uint32_t track_index)
 {
-    if (!plugin) return;
-    queued_plugin_unloads.push(*plugin);
-    plugin->handle.is_loaded = false;
+    queued_plugin_unloads.push(track_index);
+    app->project.tracks[track_index].instrument.plugin.is_loaded = false;
 }
 
-static void uph_unload_vst2_internal(UphPluginInstance* plugin)
-{
-    uvi_plugin_unload(&plugin->handle);
-}
-
-void uph_process_plugin_loads(void)
+void uph_process_instrument_loads(void)
 {
     while (!queued_plugin_loads.empty())
     {
         UphPluginLoadRequest request = queued_plugin_loads.front();
         queued_plugin_loads.pop();
         
-        UphPluginInstance plugin = request.track->instrument.plugin;
-        request.track->instrument.plugin = uph_load_vst2_internal(request.path.c_str());
+        UphInstrument &instrument = app->project.tracks[request.track_index].instrument;
+        instrument = uph_load_vst2_internal(request.path.c_str());
     }
 }
 
-void uph_process_plugin_unloads(void)
+void uph_process_instrument_unloads(void)
 {
     while (!queued_plugin_unloads.empty())
     {
-        UphPluginInstance plugin = queued_plugin_unloads.front();
+        uint32_t track_index = queued_plugin_unloads.front();
         queued_plugin_unloads.pop();
-            
-        uph_unload_vst2_internal(&plugin);
+
+        UphInstrument &instrument = app->project.tracks[track_index].instrument;
+        uvi_plugin_unload(&instrument.plugin);
         
-        if (plugin.window.handle)
-            uph_destroy_child_window(&plugin.window);
+        if (instrument.window.handle)
+            uph_destroy_child_window(&instrument.window);
     }
 }
 
-void uph_process_plugins(void)
+void uph_process_plugin_loader(void)
 {
-    uph_process_plugin_unloads();
-    uph_process_plugin_loads();
+    uph_process_instrument_unloads();
+    uph_process_instrument_loads();
 }

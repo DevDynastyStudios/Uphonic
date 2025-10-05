@@ -21,7 +21,8 @@ static void uph_plugin_picker_init(UphPanel* panel)
 
     const std::unordered_set<std::filesystem::path> default_directories = {
         "C:\\Program Files\\Steinberg\\VstPlugins",
-        "C:\\Program Files\\VstPlugins"
+        "C:\\Program Files\\VstPlugins",
+        "F:\\Native Access"
     };
 
     for (const auto& directory : default_directories)
@@ -48,9 +49,9 @@ static void uph_plugin_picker_render(UphPanel* panel)
         if (ImGui::Selectable(path.filename().string().c_str()))
         {
             UphInstrument *instrument = &app->project.tracks[app->current_instrument_track_index].instrument;
-            if (instrument->plugin.handle.is_loaded)
-                uph_queue_plugin_unload(&instrument->plugin);
-            uph_queue_plugin_load(path.string().c_str(), &app->project.tracks[app->current_instrument_track_index]);
+            if (instrument->plugin.is_loaded)
+                uph_queue_instrument_unload(app->current_instrument_track_index);
+            uph_queue_instrument_load(path.string().c_str(), app->current_instrument_track_index);
             panel->is_visible = false;
         }
     }

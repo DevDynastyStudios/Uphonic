@@ -11,6 +11,9 @@ project "UVI"
         "uvi/**.h",
         "uvi/**.cpp"
     }
+    filter { "configurations:Release" }
+        defines { "NDEBUG" }
+        optimize "On"
 
 project "Uphonic"
     kind "ConsoleApp"

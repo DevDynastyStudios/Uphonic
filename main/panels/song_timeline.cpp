@@ -343,11 +343,11 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
             uph_panel_show("Select Plugin", true);
         }
 
-        if (track.instrument.plugin.handle.is_loaded)
+        if (track.instrument.plugin.is_loaded)
         {
             ImGui::SameLine();
             if (ImGui::Button("X"))
-                uph_queue_plugin_unload(&track.instrument.plugin);
+                uph_queue_instrument_unload(trackIndex);
         }
     }
 
@@ -429,7 +429,24 @@ static void uph_song_timeline_render(UphPanel* panel)
 
             uph_song_timeline_handle_pattern_interaction(track, i, pattern, canvasPos, timelineX, canvasSize, rectMin, rectMax);
         }
-    
+
+        {
+            float spacing = timeline_data.zoom_x;
+            int start = (int)((timeline_data.scroll_x - 1) / spacing) - 1;
+            int end = (int)((timeline_data.scroll_x + canvasSize.x) / spacing) + 1;
+
+            for (int i = start; i <= end; i++)
+            {
+                float x = canvasPos.x + k_track_menu_width + 1 + (i * spacing - timeline_data.scroll_x);
+
+                drawList->AddLine(
+                    ImVec2(x, canvasPos.y),
+                    ImVec2(x, canvasPos.y + canvasSize.y),
+                    (i % 16 == 0) ? IM_COL32(100,100,100,100) : IM_COL32(60,60,60,100)
+                );
+            }
+        }
+
         ImVec2 trackMin(canvasPos.x + k_track_menu_width + 4, y);
         ImVec2 trackMax(canvasPos.x + canvasSize.x, y + h);
 
@@ -437,7 +454,7 @@ static void uph_song_timeline_render(UphPanel* panel)
         snprintf(buf, sizeof(buf), "Track %zu Drop Zone", i);
         ImGui::SetCursorScreenPos(trackMin);
         ImGui::InvisibleButton(buf, ImVec2(canvasSize.x, h));
-            
+
         if (ImGui::BeginDragDropTarget())
         {
             if (track.track_type == UphTrackType_Midi)
@@ -485,23 +502,6 @@ static void uph_song_timeline_render(UphPanel* panel)
                 }
             }
             ImGui::EndDragDropTarget();
-        }
-    }
-
-    {
-        float spacing = timeline_data.zoom_x;
-        int start = (int)((timeline_data.scroll_x - 1) / spacing) - 1;
-        int end = (int)((timeline_data.scroll_x + canvasSize.x) / spacing) + 1;
-
-        for (int i = start; i <= end; i++)
-        {
-            float x = canvasPos.x + k_track_menu_width + 1 + (i * spacing - timeline_data.scroll_x);
-
-            drawList->AddLine(
-                ImVec2(x, canvasPos.y),
-                ImVec2(x, canvasPos.y + canvasSize.y),
-                (i % 16 == 0) ? IM_COL32(100,100,100,255) : IM_COL32(60,60,60,255)
-            );
         }
     }
 

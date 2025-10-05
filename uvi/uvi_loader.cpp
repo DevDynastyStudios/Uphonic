@@ -39,7 +39,12 @@ enum UviV2AudioMasterOpcodes
 	UviV2AudioMasterOpcodes_Version,
 	UviV2AudioMasterOpcodes_CurrentId,
 	UviV2AudioMasterOpcodes_Idle,
-	UviV2AudioMasterOpcodes_PinConnected
+	UviV2AudioMasterOpcodes_PinConnected,
+
+    UviV2AudioMasterOpcodes_GetSampleRate = 16,
+    UviV2AudioMasterOpcodes_GetBlockSize = 17,
+
+    UviV2AudioMasterOpcodes_CanDo = 37
 };
 
 static intptr_t uvi_v2_audio_master_callback_function(
@@ -51,37 +56,60 @@ static intptr_t uvi_v2_audio_master_callback_function(
     {
         case UviV2AudioMasterOpcodes_Version: return 2400;
         case UviV2AudioMasterOpcodes_Idle:    return 0;
+        case UviV2AudioMasterOpcodes_GetSampleRate: return (intptr_t)44100;
+        case UviV2AudioMasterOpcodes_GetBlockSize:  return 512;
+        case UviV2AudioMasterOpcodes_CanDo:
+        {
+            const char* canDo = (const char*)ptr;
+            if (!canDo) return 0;
+            if (strcmp(canDo, "sendVstEvents") == 0) return 1;
+            if (strcmp(canDo, "sendVstMidiEvent") == 0) return 1;
+            if (strcmp(canDo, "receiveVstEvents") == 0) return 1;
+            if (strcmp(canDo, "receiveVstMidiEvent") == 0) return 1;
+            return 0;
+        }
     }
 }
 
-static void uvi_v2_plugin_process(UviPlugin *plugin, float **inputs, float **outputs, int32_t sample_frames)
+struct UviV2Event
 {
-    UviV2Plugin *p = plugin->v2.plugin;
-    if (p->flags & UviV2PluginFlags_CanReplacing)
-        p->processReplacing(p, inputs, outputs, sample_frames);
-    //else p->process(p, inputs, outputs, sample_frames);
-}
+	int32_t type;
+	int32_t byteSize;
+	int32_t deltaFrames;
+	int32_t flags;
+	char data[16];
+};
 
 struct UviV2Events
 {
 	int32_t numEvents;
 	intptr_t reserved;
-	void* events[2];
+	UviV2Event* events[256];
 };
 
 static void uvi_v2_plugin_process_events(UviPlugin *plugin)
 {
     const uint32_t midi_event_count = plugin->v2.midi_event_count;
-    if (midi_event_count > 0)
-    {
-        UviV2Plugin *p = plugin->v2.plugin;
-        UviV2Events events{};
-        events.numEvents = midi_event_count;
-        for (int i = 0; i < midi_event_count; ++i)
-            events.events[i] = (void*)&plugin->v2.midi_events[i];
-        p->dispatcher(p, UviV2PluginOpcodes_ProcessEvents, 0, 0, &events, 0.0f);
-        plugin->v2.midi_event_count = 0;
-    }
+    if (midi_event_count == 0)
+        return;
+
+    UviV2Plugin *p = plugin->v2.plugin;
+    UviV2Events events{};
+    events.numEvents = midi_event_count;
+
+    for (uint32_t i = 0; i < midi_event_count; ++i)
+        events.events[i] = (UviV2Event*)&plugin->v2.midi_events[i];
+
+    p->dispatcher(p, UviV2PluginOpcodes_ProcessEvents, 0, 0, &events, 0.0f);
+    plugin->v2.midi_event_count = 0;
+}
+
+static void uvi_v2_plugin_process(UviPlugin *plugin, float **inputs, float **outputs, int32_t sample_frames)
+{
+    uvi_v2_plugin_process_events(plugin);
+    UviV2Plugin *p = plugin->v2.plugin;
+    if (p->flags & UviV2PluginFlags_CanReplacing)
+        p->processReplacing(p, inputs, outputs, sample_frames);
 }
 
 static void uvi_v2_plugin_apply_note_event(UviPlugin *plugin, int32_t status, int32_t key, int32_t velocity, int32_t sample_offset)
@@ -110,28 +138,28 @@ static void uvi_v2_plugin_stop_note(UviPlugin *plugin, int32_t key, int32_t samp
 
 static void uvi_v2_stop_all_notes(UviPlugin *plugin)
 {
-    UviV2Plugin *p = plugin->v2.plugin;
-    if (!p)
-        return;
-
-    UviV2Events events{};
-    UviV2MidiEvent midiEvents[16]{};
-    
-    events.numEvents = 16;
-    events.reserved = 0;
-    
-    for (uint8_t channel = 0; channel < 16; channel++)
+    /*for (int32_t channel = 0; channel < 16; channel++)
     {
-        midiEvents[channel].type = 1;
-        midiEvents[channel].byteSize = sizeof(UviV2MidiEvent);
-        midiEvents[channel].midiData[0] = 0xB0 | channel;
-        midiEvents[channel].midiData[1] = 123;
-        midiEvents[channel].midiData[2] = 0;
+        UviV2MidiEvent &ev = plugin->v2.midi_events[plugin->v2.midi_event_count++];
+        ev.type = 1;
+        ev.byteSize = sizeof(ev);
+        ev.midiData[0] = 0xB0 | channel;
+        ev.midiData[1] = 123;
+        ev.midiData[2] = 0;
+        ev.deltaFrames = 0;
+    }*/
 
-        events.events[channel] = (void*)&midiEvents[channel];
+    plugin->v2.midi_event_count = 0;
+    for (int32_t i = 0; i < 128; i++)
+    {
+        UviV2MidiEvent &ev = plugin->v2.midi_events[plugin->v2.midi_event_count++];
+        ev.type = 1;
+        ev.byteSize = sizeof(ev);
+        ev.midiData[0] = 0x90;
+        ev.midiData[1] = i;
+        ev.midiData[2] = 0;
+        ev.deltaFrames = 0;
     }
-    
-    p->dispatcher(p, UviV2PluginOpcodes_ProcessEvents, 0, 0, &events, 0.0f);
 }
 
 static void uvi_v2_plugin_open_editor(UviPlugin *plugin, void *handle)
@@ -187,7 +215,7 @@ static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, 
     }
     
     p->dispatcher(p, UviV2PluginOpcodes_SetSampleRate, 0, 0, nullptr, sample_rate);
-    p->dispatcher(p, UviV2PluginOpcodes_SetBlockSize, 0, block_size, nullptr, 0);
+    p->dispatcher(p, UviV2PluginOpcodes_SetBlockSize, 0, (intptr_t)block_size, nullptr, 0);
     p->dispatcher(p, UviV2PluginOpcodes_MainsChanged, 0, 1, nullptr, 0);
 
     plugin->open_editor = uvi_v2_plugin_open_editor;
@@ -197,15 +225,15 @@ static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, 
     plugin->play_note = uvi_v2_plugin_play_note;
     plugin->stop_note = uvi_v2_plugin_stop_note;
     plugin->stop_all_notes = uvi_v2_stop_all_notes;
-    plugin->process_events = uvi_v2_plugin_process_events;
-
+    
+    memset(&plugin->v2, 0, sizeof(plugin->v2));
     plugin->v2.plugin = p;
     plugin->is_loaded = true;
 }
 
 UviPlugin uvi_plugin_load(const char *path)
 {
-    UviPlugin plugin;
+    UviPlugin plugin{};
 
     std::filesystem::path p(path);
     std::filesystem::path extension = p.extension();

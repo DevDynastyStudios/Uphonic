@@ -2,10 +2,12 @@
 
 #include <miniaudio.h>
 
-#include <algorithm>
 #include <iostream>
+#include <algorithm>
 #include <filesystem>
 #include <cmath>
+
+#include <pluginterfaces/vst2.x/aeffect.h>
 
 constexpr float PI = 3.14159265358979323846f;
 constexpr float HALF_PI = PI * 0.5f;
@@ -34,10 +36,6 @@ static void uph_midi_pattern_process_playback_for_block(
     float length = INT32_MAX
 )
 {
-    constexpr int maxEvents = 256;
-    VstMidiEvent midiEvents[maxEvents]{};
-    uint32_t midiEventCount = 0;
-
     int microOffset = 0;
     int lastSampleOffset = -1;
 
@@ -48,8 +46,6 @@ static void uph_midi_pattern_process_playback_for_block(
 
     auto queue_event = [&](int status, int pitch, int velocity, float event_beat)
     {
-        if (midiEventCount >= maxEvents) return;
-
         float noteTimeSec = event_beat * sec_per_beat;
         float prevTimeSec = prev_beat * sec_per_beat;
         int sample_offset = int((noteTimeSec - prevTimeSec) * sample_rate);
@@ -84,7 +80,7 @@ static void uph_midi_pattern_process_playback_for_block(
     for (auto &note : pattern->notes)
     {
         const float original_start = note.start + start_time;
-        const float original_end   = original_start + note.length - 0.001f;
+        const float original_end   = original_start + note.length - 0.01f;
 
         const float note_start = std::clamp<float>(
             original_start - start_offset,
@@ -107,8 +103,6 @@ static void uph_midi_pattern_process_playback_for_block(
         if (note_start >= prev_beat && note_start < new_beat)
             queue_event(0x90, note.key, note.velocity, note_start);
     }
-
-    plugin->process_events(plugin);
 }
 
 static void uph_midi_editor_process_playback_for_block(float sample_rate, float frame_count)
@@ -117,7 +111,7 @@ static void uph_midi_editor_process_playback_for_block(float sample_rate, float 
     float prev_beat = app->midi_editor_song_position;
     float new_beat = prev_beat + frame_count / sample_rate / sec_per_beat;
 
-    UviPlugin *plugin = &app->project.tracks[app->current_track_index].instrument.plugin.handle;
+    UviPlugin *plugin = &app->project.tracks[app->current_track_index].instrument.plugin;
     if (plugin->is_loaded)
         uph_midi_pattern_process_playback_for_block(
             plugin,
@@ -141,7 +135,7 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            UviPlugin *plugin = &track.instrument.plugin.handle;
+            UviPlugin *plugin = &track.instrument.plugin;
             if (!plugin->is_loaded)
                 continue;
             for (auto &pattern_instance : track.timeline_blocks)
@@ -152,7 +146,7 @@ static void uph_song_timeline_process_playback_for_block(float sample_rate, floa
                     &pattern,
                     sec_per_beat, prev_beat, new_beat,
                     sample_rate, frame_count,
-                    (float) pattern_instance.start_time,	// <----------- Possibly change this to be a float
+                    pattern_instance.start_time,
                     pattern_instance.start_offset,
                     pattern_instance.length
                 );
@@ -169,10 +163,9 @@ static inline void uph_audio_stop_all_notes(std::vector<UphTrack> &tracks)
     {
         if (track.track_type == UphTrackType_Midi)
         {
-            UviPlugin *plugin = &track.instrument.plugin.handle;
+            UviPlugin *plugin = &track.instrument.plugin;
             if (!plugin->is_loaded)
                 continue;
-
             plugin->stop_all_notes(plugin);
         }
     }
@@ -198,9 +191,9 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
         app->should_stop_all_notes.store(false);
     }
     else if (app->is_midi_editor_playing)
-        uph_midi_editor_process_playback_for_block((float) p_device->sampleRate, (float) frame_count);
+        uph_midi_editor_process_playback_for_block(p_device->sampleRate, frame_count);
     else if (app->is_song_timeline_playing)
-        uph_song_timeline_process_playback_for_block((float) p_device->sampleRate, (float) frame_count);
+        uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
 
     for (auto &track : tracks)
     {
@@ -216,10 +209,9 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
         if (track.track_type == UphTrackType_Midi)
         {
-            UviPlugin *plugin = &track.instrument.plugin.handle;
+            UviPlugin *plugin = &track.instrument.plugin;
             if (!plugin->is_loaded)
                 continue;
-
             plugin->process(plugin, inputs, outputs, frame_count);
         }
         else if (app->is_song_timeline_playing && track.track_type == UphTrackType_Sample)
@@ -237,12 +229,11 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
                 float sample_rate_ratio = (float)sample.sample_rate / (float)p_device->sampleRate;
                 float playback_speed = sample_rate_ratio / sample_instance.stretch_scale;
-                // --- NEW: playback speed multiplier ---
+
                 float playback_rate = (playback_speed > 0.0f) ? playback_speed : 1.0f;
 
-                float instance_start_beat = (float) sample_instance.start_time;
+                float instance_start_beat = sample_instance.start_time;
 
-                // FIX: adjust length to account for playback speed
                 float instance_length_beats = (sample_instance.length > 0.0f)
                     ? sample_instance.length
                     : (sample.frame_count / (float)p_device->sampleRate / sec_per_beat) / playback_rate;
@@ -259,7 +250,6 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
                 int write_i = std::max<int>(0, block_start_sample);
 
-                // read_index is now floating-point so we can step at playback_rate
                 double read_index = (double)sample_read_start + (double)(write_i - block_start_sample) * playback_rate;
 
                 ma_uint64 available_in_sample = (sample.frame_count > (ma_uint64)read_index) ? sample.frame_count - (ma_uint64)read_index : 0;
@@ -273,14 +263,12 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
                 for (int i = 0; i < frames_to_copy; ++i)
                 {
-                    // float index to handle speed change
                     double sample_frame_idx_f = read_index + (double)i * playback_rate;
                     ma_uint64 base = (ma_uint64)sample_frame_idx_f;
 
                     float left_sample = 0.0f;
                     float right_sample = 0.0f;
 
-                    // linear interpolation to reduce aliasing
                     float frac = (float)(sample_frame_idx_f - (double)base);
 
                     if (sample_channels == 1)
@@ -384,7 +372,7 @@ float uph_get_song_length_sec(void)
     {
         for (auto &pattern_instance : track.timeline_blocks)
         {
-            float pattern_end_beat = (float) pattern_instance.start_time + pattern_instance.length;
+            float pattern_end_beat = pattern_instance.start_time + pattern_instance.length;
             float pattern_end_sec = pattern_end_beat * sec_per_beat;
             if (pattern_end_sec > max_length)
                 max_length = pattern_end_sec;
@@ -414,15 +402,13 @@ UphSample uph_create_sample_from_file(const char *path)
     ma_decoder_read_pcm_frames(&decoder, pFrames, frameCount, &readFrames);
 
     UphSample sample;
-    sample.type = decoder.outputChannels == 1 ? UphSampleType_Mono : UphSampleType_Stereo;
+    sample.type = decoder.outputChannels == 1 ?
+        UphSampleType_Mono :
+        UphSampleType_Stereo;
     sample.frames = pFrames;
     sample.frame_count = frameCount;
-    sample.sample_rate = (float) decoder.outputSampleRate;
-
-	auto stem = fs::path(path).stem().string();
-	std::size_t len = std::min(stem.size(), sizeof(sample.name) - 1);
-	std::copy_n(stem.c_str(), len, sample.name);
-	sample.name[len] = '\0';	// guarantee null-termination
+    sample.sample_rate = decoder.outputSampleRate;
+    strncpy_s(sample.name, fs::path(path).stem().string().c_str(), sizeof(sample.name));
 
     ma_decoder_uninit(&decoder);
 

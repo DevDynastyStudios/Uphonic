@@ -6,7 +6,6 @@
 #include <atomic>
 #include <cstdint>
 
-#include <pluginterfaces/vst2.x/aeffectx.h>
 #include <uvi_loader.h>
 
 enum UphTrackType : uint8_t
@@ -37,15 +36,10 @@ union UphTimelineBlock
     };
 };
 
-struct UphPluginInstance
-{
-    UphChildWindow window;
-    UviPlugin handle;
-};
-
 struct UphInstrument
 {
-    UphPluginInstance plugin;
+    UviPlugin plugin;
+    UphChildWindow window;
     float volume, pan, pitch;
 };
 

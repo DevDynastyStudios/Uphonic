@@ -60,11 +60,13 @@ typedef void (*V2PluginProcessDoubleProc) (UviV2Plugin* plugin, double** inputs,
 typedef void (*V2PluginSetParameterProc) (UviV2Plugin* plugin, int32_t index, float parameter);
 typedef float (*V2PluginGetParameterProc) (UviV2Plugin* plugin, int32_t index);
 
+#define UVI_DEPRECATED(identifier) __##identifier##Deprecated
+
 struct UviV2Plugin
 {
 	int32_t magic;
 	V2PluginDispatcherProc dispatcher;
-	V2PluginProcessProc process;
+	V2PluginProcessProc UVI_DEPRECATED(process);
 	V2PluginSetParameterProc setParameter;
 	V2PluginGetParameterProc getParameter;
 	int32_t numPrograms;
@@ -79,9 +81,9 @@ struct UviV2Plugin
 	
 	int32_t initialDelay;
 	
-	int32_t realQualities;
-	int32_t offQualities;
-	float ioRatio;
+	int32_t UVI_DEPRECATED(realQualities);
+	int32_t UVI_DEPRECATED(offQualities);
+	float UVI_DEPRECATED(ioRatio);
 	void* object;
 	void* user;
 	int32_t uid;
@@ -145,7 +147,6 @@ struct UviPlugin
 	void (*play_note)(UviPlugin *plugin, int32_t key, int32_t velocity, int32_t sample_offset);
 	void (*stop_note)(UviPlugin *plugin, int32_t key, int32_t sample_offset);
 	void (*stop_all_notes)(UviPlugin *plugin);
-	void (*process_events)(UviPlugin *plugin);
 };
 
 UviPlugin uvi_plugin_load(const char *path);
