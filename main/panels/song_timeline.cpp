@@ -328,10 +328,17 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
     ImGui::BeginChild("TrackMenuRow", ImVec2(k_track_menu_width, h + 1), true, ImGuiWindowFlags_NoScrollbar);
 
-    ImGui::Text("Track %d", (int)trackIndex); // replace with track.name if available
+    ImGui::Text("%s", track.name);
+    ImGui::SameLine();
+    ImGui::Text(track.track_type == UphTrackType_Midi ? "MIDI" : "SAMPLE");
 
     ImGui::Checkbox("Mute", &track.muted);
-    ImGui::Button("...");
+
+    if (track.track_type == UphTrackType_Midi)
+        if (ImGui::Button("..."))
+        {
+
+        }
 
     ImGui::EndChild();
     ImGui::PopStyleVar();
