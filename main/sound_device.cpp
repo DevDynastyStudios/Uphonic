@@ -44,14 +44,14 @@ static void uph_midi_pattern_process_playback_for_block(
     int lastNoteOnSample = -1;
     int lastNoteOffSample = -1;
 
-    auto queue_event = [&](int status, int pitch, int velocity, float event_beat)
+    auto queue_event = [&](bool note_on, int pitch, int velocity, float event_beat)
     {
         float noteTimeSec = event_beat * sec_per_beat;
         float prevTimeSec = prev_beat * sec_per_beat;
         int sample_offset = int((noteTimeSec - prevTimeSec) * sample_rate);
         sample_offset = std::clamp(sample_offset, 0, (int)frame_count - 1);
 
-        if (status == 0x90) // Note on
+        if (note_on) // Note on
         {
             if (sample_offset == lastNoteOnSample)
             {
@@ -63,7 +63,7 @@ static void uph_midi_pattern_process_playback_for_block(
             }
             plugin->play_note(plugin, pitch, velocity, sample_offset);
         }
-        else if (status == 0x80) // Note off
+        else
         {
             if (sample_offset == lastNoteOffSample)
             {
@@ -98,10 +98,10 @@ static void uph_midi_pattern_process_playback_for_block(
             continue;
 
         if (note_end >= prev_beat && note_end < new_beat)
-            queue_event(0x80, note.key, 0, note_end);
+            queue_event(false, note.key, 0, note_end);
 
         if (note_start >= prev_beat && note_start < new_beat)
-            queue_event(0x90, note.key, note.velocity, note_start);
+            queue_event(true, note.key, note.velocity, note_start);
     }
 }
 
