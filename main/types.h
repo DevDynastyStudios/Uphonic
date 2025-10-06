@@ -40,7 +40,6 @@ struct UphInstrument
 {
     UviPlugin plugin;
     UphChildWindow window;
-    float volume, pan, pitch;
 };
 
 struct UphNote
@@ -76,7 +75,7 @@ struct UphSample
 struct UphTrack
 {
     char name[64] = "Untitled Track";
-    float volume = 1.0f, pan = 0.0f;
+    float volume = 1.0f, pan = 0.0f, pitch = 1.0f;
     float peak_left = 0.0f, peak_right = 0.0f;
     bool muted = false;
     uint32_t color = 0xFFFFFFFF;

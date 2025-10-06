@@ -204,8 +204,8 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
             continue;
         }
 
-        memset(sound_device.io->inputs, 0, sizeof(float) * 512 * 64);
-        memset(sound_device.io->outputs, 0, sizeof(float) * 512 * 64);
+        memset(sound_device.io->inputs, 0, sizeof(sound_device.io->inputs));
+        memset(sound_device.io->outputs, 0, sizeof(sound_device.io->outputs));
 
         if (track.track_type == UphTrackType_Midi)
         {
