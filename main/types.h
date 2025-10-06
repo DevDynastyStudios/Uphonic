@@ -10,6 +10,7 @@
 
 enum UphTrackType : uint8_t
 {
+    UphTrackType_None,
     UphTrackType_Midi,
     UphTrackType_Sample
 };
@@ -38,6 +39,7 @@ union UphTimelineBlock
 
 struct UphInstrument
 {
+    char path[260];
     UviPlugin plugin;
     UphChildWindow window;
 };

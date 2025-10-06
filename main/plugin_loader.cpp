@@ -28,7 +28,8 @@ static UphInstrument uph_load_vst2_internal(const char* path)
     UphInstrument instrument;
     instrument.plugin = plugin;
     instrument.window = child_window;
-    
+    strncpy_s(instrument.path, path, sizeof(instrument.path));
+
     return instrument;
 }
 

@@ -120,6 +120,8 @@ static void uph_song_timeline_handle_pattern_interaction(
                         track.timeline_blocks.end(),
                         [&](UphTimelineBlock &p){ return &p == &pattern; }),
                     track.timeline_blocks.end());
+                if (track.timeline_blocks.empty() && !track.instrument.plugin.is_loaded)
+                    track.track_type = UphTrackType_None;
             }
         }
     }
@@ -330,10 +332,12 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
     ImGui::BeginChild("TrackMenuRow", ImVec2(k_track_menu_width, h + 1), true, ImGuiWindowFlags_NoScrollbar);
 
     ImGui::Text("%s", track.name);
-    ImGui::SameLine();
-    ImGui::Text(track.track_type == UphTrackType_Midi ? "MIDI" : "SAMPLE");
-
-    ImGui::Checkbox("Mute", &track.muted);
+    
+    if (track.track_type != UphTrackType_None)
+    {
+        ImGui::SameLine();
+        ImGui::Text(track.track_type == UphTrackType_Midi ? "MIDI" : "SAMPLE");
+    }
 
     if (track.track_type == UphTrackType_Midi)
     {
@@ -347,7 +351,11 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
         {
             ImGui::SameLine();
             if (ImGui::Button("X"))
+            {
                 uph_queue_instrument_unload(trackIndex);
+                if (track.timeline_blocks.empty())
+                    track.track_type = UphTrackType_None;
+            }
         }
     }
 
@@ -364,6 +372,23 @@ static void uph_song_timeline_draw_and_handle_playhead(ImDrawList* drawList, ImV
         IM_COL32(0, 255, 0, 255), 2.0f);
 }
 
+static UphTimelineBlock uph_create_timeline_block(ImVec2 &canvasPos, size_t src_index, UphTrackType trackType)
+{
+    const ImGuiIO &io = ImGui::GetIO();
+    UphTimelineBlock newInstance;
+
+    newInstance.sample_index = (uint16_t)src_index;
+    newInstance.track_type = trackType;
+
+    float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
+    newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
+
+    newInstance.start_offset = 0.0f;
+    newInstance.length = 8.0f;
+    newInstance.stretch_scale = 1.0f;
+
+    return newInstance;
+}
 static void uph_song_timeline_render(UphPanel* panel)
 {
     auto& tracks = app->project.tracks;
@@ -457,25 +482,28 @@ static void uph_song_timeline_render(UphPanel* panel)
 
         if (ImGui::BeginDragDropTarget())
         {
-            if (track.track_type == UphTrackType_Midi)
+            if (track.track_type == UphTrackType_None)
+            {
+                if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN"))
+                {
+                    size_t src_index = *(const size_t*)payload->Data;
+                    track.track_type = UphTrackType_Midi;
+                    track.timeline_blocks.push_back(uph_create_timeline_block(canvasPos, src_index, UphTrackType_Midi));
+                }
+                else if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SAMPLE"))
+                {
+                    size_t src_index = *(const size_t*)payload->Data;
+                    track.track_type = UphTrackType_Sample;
+                    track.timeline_blocks.push_back(uph_create_timeline_block(canvasPos, src_index, UphTrackType_Sample));
+                }
+            }
+            else if (track.track_type == UphTrackType_Midi)
             {
                 if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN"))
                 {
                     size_t src_index = *(const size_t*)payload->Data;
                     if (track.track_type == UphTrackType_Midi)
-                    {
-                        UphTimelineBlock newInstance;
-                        newInstance.pattern_index = (uint16_t)src_index;
-                        newInstance.track_type = UphTrackType_Midi;
-
-                        float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
-                        newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
-
-                        newInstance.start_offset = 0.0f;
-                        newInstance.length = 8.0f;
-
-                        track.timeline_blocks.push_back(newInstance);
-                    }
+                        track.timeline_blocks.push_back(uph_create_timeline_block(canvasPos, src_index, UphTrackType_Midi));
                 }
             }
             else if (track.track_type == UphTrackType_Sample)
@@ -484,21 +512,7 @@ static void uph_song_timeline_render(UphPanel* panel)
                 {
                     size_t src_index = *(const size_t*)payload->Data;
                     if (track.track_type == UphTrackType_Sample)
-                    {
-                        UphTimelineBlock newInstance;
-
-                        newInstance.sample_index = (uint16_t)src_index;
-                        newInstance.track_type = UphTrackType_Sample;
-
-                        float localX = io.MousePos.x - canvasPos.x - k_track_menu_width + timeline_data.scroll_x;
-                        newInstance.start_time = quantizeToBeat(localX / timeline_data.zoom_x, k_beat_size);
-
-                        newInstance.start_offset = 0.0f;
-                        newInstance.length = 8.0f;
-                        newInstance.stretch_scale = 1.0f;
-
-                        track.timeline_blocks.push_back(newInstance);
-                    }
+                        track.timeline_blocks.push_back(uph_create_timeline_block(canvasPos, src_index, UphTrackType_Sample));
                 }
             }
             ImGui::EndDragDropTarget();

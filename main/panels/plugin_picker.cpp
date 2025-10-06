@@ -27,6 +27,8 @@ static void uph_plugin_picker_init(UphPanel* panel)
 
     for (const auto& directory : default_directories)
     {
+        if (!std::filesystem::exists(directory))
+            continue;
         for (const auto& entry : std::filesystem::recursive_directory_iterator(directory))
         {
             if (!entry.is_regular_file())

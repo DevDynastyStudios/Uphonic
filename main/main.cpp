@@ -61,7 +61,6 @@ int main(const int argc, const char **argv)
 
     app = new UphApplication;
     app->project.patterns.push_back(UphMidiPattern{ "Pattern 1" });
-    app->project.tracks[1].track_type = UphTrackType_Sample;
 
     uph_sound_device_initialize();
 	uph_panel_init_all();
