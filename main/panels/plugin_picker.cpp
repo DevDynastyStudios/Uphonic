@@ -21,8 +21,7 @@ static void uph_plugin_picker_init(UphPanel* panel)
 
     const std::unordered_set<std::filesystem::path> default_directories = {
         "C:\\Program Files\\Steinberg\\VstPlugins",
-        "C:\\Program Files\\VstPlugins",
-        "F:\\Native Access"
+        "C:\\Program Files\\VstPlugins"
     };
 
     for (const auto& directory : default_directories)

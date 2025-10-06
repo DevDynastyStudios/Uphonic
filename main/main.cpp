@@ -13,9 +13,9 @@
 #include "plugin_loader.h"
 
 #include "panels/panel_manager.h"
-#include "settings/layout_manager.h"
-#include "settings/theme_loader.h"
-#include "project_manager.h"
+#include "io/layout_manager.h"
+#include "io/theme_loader.h"
+#include "io/project_manager.h"
 #include "types.h"
 
 #include "../uvi/uvi_loader.h"
@@ -33,6 +33,7 @@ int main(const int argc, const char **argv)
     uph_json_load_theme("themes/Default.json");
     uph_platform_initialize(&create_info);
     uph_load_layout("layouts/Default");
+	uph_project_init();
 
 	std::vector<std::filesystem::path> recovery_candidates = uph_project_check_recovery();
 	if(!recovery_candidates.empty())
@@ -65,12 +66,6 @@ int main(const int argc, const char **argv)
     uph_sound_device_initialize();
 	uph_panel_init_all();
 
-#if UPH_PLATFORM_WINDOWS					// <--------------------------------------------------------------------- Only doing this for Big Smoke to test
-	//uph_load_vst2("C:\\Program Files\\VstPlugins\\Pianoteq 6 (64-bit).dll");
-#elif UPH_PLATFORM_LINUX
-    uph_load_vst2("/usr/local/lib/vst/DragonflyHallReverb-vst.so");
-#endif
-
     while (is_running)
     {
         uph_platform_begin();
@@ -89,6 +84,7 @@ int main(const int argc, const char **argv)
     }
 
     uph_sound_device_shutdown();
+	uph_project_shutdown();
     uph_platform_shutdown();
     ImGui::DestroyContext();
     delete app;

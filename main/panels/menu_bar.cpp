@@ -1,10 +1,36 @@
 #include "panel_manager.h"
+#include "../io/project_manager.h"
+#include "../io/record_manager.h"
+#include "../io/layout_manager.h"
 #include "../settings/layout_manager.h"
 #include "../sound_device.h"
 #include <map>
 #include <string>
 #include <algorithm>
 #include <vector>
+
+#include <windows.h>
+#include <commdlg.h>
+#include <string>
+
+std::wstring open_project_file_dialog() {									//<--------------------- DON'T KEEP THIS!
+    OPENFILENAMEW ofn;
+    wchar_t szFile[MAX_PATH] = {0};
+
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner   = nullptr; // or your window handle
+    ofn.lpstrFile   = szFile;
+    ofn.nMaxFile    = MAX_PATH;
+    ofn.lpstrFilter = L"Project Files\0*.json\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    if (GetOpenFileNameW(&ofn) == TRUE) {
+        return std::wstring(ofn.lpstrFile);
+    }
+    return L""; // cancelled
+}
 
 struct UphMenuBarData
 {
@@ -19,10 +45,8 @@ static UphMenuBarData menu_bar_data {};
 static void uph_menu_bar_init(UphPanel* panel)
 {
     panel->panel_flags |= UphPanelFlags_HiddenFromMenu;
-    panel->window_flags = ImGuiWindowFlags_NoDecoration
-                        | ImGuiWindowFlags_NoTitleBar
-                        | ImGuiWindowFlags_NoDocking;
-    panel->dock_flags   = ImGuiDockNodeFlags_AutoHideTabBar;
+    panel->window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDocking;
+    panel->dock_flags = ImGuiDockNodeFlags_AutoHideTabBar;
 }
 
 static void uph_menu_bar_set_panel_visibility(bool visible)
@@ -172,11 +196,19 @@ static void uph_menu_bar_layout_popup()
 static void uph_menu_bar_file_menu()
 {
     if (ImGui::MenuItem("New Project")) {}
-    if (ImGui::MenuItem("Open")) {}
+    if (ImGui::MenuItem("Open")) 
+	{
+		auto path = open_project_file_dialog();
+		uph_project_load(path);
+	}
 
     ImGui::Separator();
 
-    if (ImGui::MenuItem("Save")) {}
+    if (ImGui::MenuItem("Save")) 
+	{
+		//uph_record_mark(UphRecordType_Project_Property, "Tempo", nullptr, "128");
+		uph_project_save_as(g_project_context.root);
+	}
     if (ImGui::MenuItem("Save As")) {}
 
     ImGui::Separator();

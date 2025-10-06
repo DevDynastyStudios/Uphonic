@@ -13,11 +13,11 @@ typedef void (*UphPanelCallback)(struct UphPanel* panel);
 enum UphPanelFlags : uint32_t
 {
 	UphPanelFlags_None 			    = 0,
-	UphPanelFlags_Panel			    = 1 << 1,
-	UphPanelFlags_MenuBar           = 1 << 2,
-	UphPanelFlags_Popup			    = 1 << 3,
-	UphPanelFlags_Modal             = 1 << 4,
-	UphPanelFlags_HiddenFromMenu    = 1 << 5
+	UphPanelFlags_Panel			    = 1 << 0,
+	UphPanelFlags_MenuBar           = 1 << 1,
+	UphPanelFlags_Popup			    = 1 << 2,
+	UphPanelFlags_Modal             = 1 << 3,
+	UphPanelFlags_HiddenFromMenu    = 1 << 4
 };
 
 struct UphPanel
