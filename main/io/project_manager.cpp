@@ -1,4 +1,5 @@
 #include "project_manager.h"
+#include "project_serializer.h"
 #include <chrono>
 #include <string>
 #include <fstream>
@@ -26,9 +27,11 @@ void uph_project_init()
 
     auto unique = uph_generate_unique_name();
     g_project_context.root = scratch_base / unique;
+	std::filesystem::path work_dir = g_project_context.root / "workspace";
     std::filesystem::create_directories(g_project_context.root);
-    std::filesystem::create_directories(g_project_context.root / "samples");
-	std::filesystem::create_directories(g_project_context.root / "shrek porn");
+    std::filesystem::create_directories(work_dir);
+	std::filesystem::create_directories(work_dir / "samples");
+	std::filesystem::create_directories(work_dir / "mixers");
 	
     g_project_context.is_scratch = true;
 	g_project_context.is_dirty = false;
@@ -50,27 +53,40 @@ void uph_project_save_as(const std::filesystem::path& dest)
 
     g_project_context.root = dest;
     g_project_context.is_scratch = false;
+	uph_project_serializer_save_json(dest, "project-data.json");
 }
 
 void uph_project_load(const std::filesystem::path& path) 
 {
+	if (path.empty()) 
+		return;
+
+	uph_project_serializer_load_json(path);
     g_project_context.root = path;
     g_project_context.is_scratch = false;
 }
 
 void uph_project_set_dirty(bool dirty)
 {
+	if(g_project_context.is_dirty == dirty)
+		return;
+
+	auto marker = g_project_context.root / UPH_DIRTY_FOLDER;
 	g_project_context.is_dirty = dirty;
-    auto marker = g_project_context.root / UPH_DIRTY_FOLDER;
 
     if (dirty)
-        std::ofstream(marker).close();
+		std::ofstream(marker).close();
     else 
 	{
-        std::error_code error_code;
-        std::filesystem::remove(marker, error_code);
+		std::error_code error_code;
+        std::filesystem::remove(marker, error_code);	// Possibly set the is dirty flag to false if we can't write the marker folder
     }
+	
+}
 
+bool uph_project_is_dirty()
+{
+	return g_project_context.is_dirty;
 }
 
 std::vector<std::filesystem::path> uph_project_check_recovery() {

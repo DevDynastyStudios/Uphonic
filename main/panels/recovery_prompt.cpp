@@ -1,5 +1,5 @@
 #include "panel_manager.h"
-#include "../project_manager.h"
+#include "../io/project_manager.h"
 
 static ImGuiWindowFlags window_flags = 
     ImGuiWindowFlags_NoResize |
