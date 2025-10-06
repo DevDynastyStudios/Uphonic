@@ -51,7 +51,7 @@ static void uph_midi_pattern_process_playback_for_block(
         int sample_offset = int((noteTimeSec - prevTimeSec) * sample_rate);
         sample_offset = std::clamp(sample_offset, 0, (int)frame_count - 1);
 
-        if (note_on) // Note on
+        if (note_on)
         {
             if (sample_offset == lastNoteOnSample)
             {

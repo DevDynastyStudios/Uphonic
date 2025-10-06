@@ -21,7 +21,7 @@ static UphInstrument uph_load_vst2_internal(const char* path)
     uint32_t width, height;
     plugin.get_editor_size(&plugin, &width, &height);
     
-    const UphChildWindowCreateInfo child_window_create_info = {width, height, "VstHost"};
+    const UphChildWindowCreateInfo child_window_create_info = {width, height, plugin.name};
     child_window = uph_create_child_window(&child_window_create_info);
     plugin.open_editor(&plugin, child_window.handle);
 
