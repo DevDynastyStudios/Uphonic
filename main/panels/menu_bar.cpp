@@ -2,7 +2,6 @@
 #include "../io/project_manager.h"
 #include "../io/record_manager.h"
 #include "../io/layout_manager.h"
-#include "../settings/layout_manager.h"
 #include "../sound_device.h"
 #include <map>
 #include <string>
