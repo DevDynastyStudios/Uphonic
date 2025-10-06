@@ -104,6 +104,7 @@ struct UphApplication
     float song_timeline_song_position = 0.0f;
     bool is_midi_editor_playing = false;
     bool is_song_timeline_playing = false;
+    bool is_exporting = false;
     std::atomic<bool> should_stop_all_notes = false;
 };
 

@@ -3,6 +3,7 @@
 *.filters
 *.pdb
 *.lib
+*.wav
 bin/Release/*.exe
 .vscode/
 obj/

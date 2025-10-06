@@ -1,5 +1,8 @@
 #include "uvi_loader.h"
+
 #include <filesystem>
+#include <queue>
+#include <thread>
 
 #if defined(_WIN32)
 static UviLibrary uvi_library_load(const char *path)
@@ -246,7 +249,7 @@ UviPlugin uvi_plugin_load(const char *path)
         plugin.type = UviPluginType_Uvi;
     else
         return {};
-        
+
     plugin.library = uvi_library_load(path);
     strncpy(plugin.name, p.stem().string().c_str(), sizeof(plugin.name));
 
@@ -262,6 +265,7 @@ void uvi_plugin_unload(UviPlugin *plugin)
 {
     UviV2Plugin *p = plugin->v2.plugin;
     plugin->is_loaded = false;
+
     p->dispatcher(p, UviV2PluginOpcodes_StopProcess, 0, 0, nullptr, 0.0f);
     
     if (p->flags & UviV2PluginFlags_HasEditor)
@@ -269,4 +273,9 @@ void uvi_plugin_unload(UviPlugin *plugin)
     
     p->dispatcher(p, UviV2PluginOpcodes_MainsChanged, 0, 0, nullptr, 0.0f);
     p->dispatcher(p, UviV2PluginOpcodes_Close, 0, 0, nullptr, 0.0f);
+
+    std::thread([library = plugin->library]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        uvi_library_unload(library);
+    }).detach();
 }

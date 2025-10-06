@@ -1,5 +1,6 @@
 #include "panel_manager.h"
 #include "../settings/layout_manager.h"
+#include "../sound_device.h"
 #include <map>
 #include <string>
 #include <algorithm>
@@ -188,12 +189,12 @@ static void uph_menu_bar_file_menu()
 
     if (ImGui::BeginMenu("Export"))
     {
-        if (ImGui::MenuItem("Wave file...")) {}
-        if (ImGui::MenuItem("Ogg file...")) {}
-        if (ImGui::MenuItem("Mp3 file...")) {}
-        if (ImGui::MenuItem("FLAC file...")) {}
-        if (ImGui::MenuItem("M4A file...")) {}
-        if (ImGui::MenuItem("MIDI file...")) {}
+        if (ImGui::MenuItem("Wave file...")) { uph_export_song_to_wav("output.wav"); }
+        if (ImGui::MenuItem("Ogg file...", nullptr, nullptr, false)) {}
+        if (ImGui::MenuItem("Mp3 file...", nullptr, nullptr, false)) {}
+        if (ImGui::MenuItem("FLAC file...", nullptr, nullptr, false)) {}
+        if (ImGui::MenuItem("M4A file...", nullptr, nullptr, false)) {}
+        if (ImGui::MenuItem("MIDI file...", nullptr, nullptr, false)) {}
         ImGui::EndMenu();
     }
 

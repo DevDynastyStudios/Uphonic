@@ -185,15 +185,19 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
         outputs[i] = sound_device.io->outputs[i];
     }
 
-    if (app->should_stop_all_notes.load())
+    if (!app->is_exporting)
     {
-        uph_audio_stop_all_notes(tracks);
-        app->should_stop_all_notes.store(false);
+        if (app->should_stop_all_notes.load())
+        {
+            uph_audio_stop_all_notes(tracks);
+            app->should_stop_all_notes.store(false);
+        }
+        else if (app->is_midi_editor_playing)
+            uph_midi_editor_process_playback_for_block(p_device->sampleRate, frame_count);
+        else if (app->is_song_timeline_playing)
+            uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
     }
-    else if (app->is_midi_editor_playing)
-        uph_midi_editor_process_playback_for_block(p_device->sampleRate, frame_count);
-    else if (app->is_song_timeline_playing)
-        uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
+    else uph_song_timeline_process_playback_for_block(p_device->sampleRate, frame_count);
 
     for (auto &track : tracks)
     {
@@ -214,7 +218,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
                 continue;
             plugin->process(plugin, inputs, outputs, frame_count);
         }
-        else if (app->is_song_timeline_playing && track.track_type == UphTrackType_Sample)
+        else if ((app->is_song_timeline_playing || app->is_exporting) && track.track_type == UphTrackType_Sample)
         {
             for (auto &sample_instance : track.timeline_blocks)
             {
@@ -418,4 +422,53 @@ UphSample uph_create_sample_from_file(const char *path)
 void uph_destroy_sample(const UphSample *sample)
 {
     free(sample->frames);
+}
+
+void uph_export_song_to_wav(const char* output_path)
+{
+    ma_device *device = &sound_device.device;
+    const float sample_rate = device->sampleRate;
+    const ma_uint32 block_size = sound_device.block_size;
+
+    ma_device_stop(device);
+
+    app->is_exporting = true;
+    app->is_midi_editor_playing = false;
+    app->is_song_timeline_playing = false;
+
+    float total_length_sec = uph_get_song_length_sec();
+    ma_uint64 total_frames = (ma_uint64)(total_length_sec * sample_rate);
+
+    ma_encoder_config config = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 2, (ma_uint32)sample_rate);
+    ma_encoder encoder;
+    if (ma_encoder_init_file(output_path, &config, &encoder) != MA_SUCCESS)
+    {
+        std::cerr << "Failed to open encoder for " << output_path << "\n";
+        return;
+    }
+
+    std::cout << "Exporting song to " << output_path << " (" << total_length_sec << " sec)...\n";
+
+    float* mix_buffer = new float[block_size * 2];
+
+    float saved_pos = app->song_timeline_song_position;
+    app->song_timeline_song_position = 0.0f;
+
+    for (ma_uint64 frame = 0; frame < total_frames; frame += block_size)
+    {
+        ma_uint32 frames_this_block = (ma_uint32)std::min<ma_uint64>(block_size, total_frames - frame);
+        memset(mix_buffer, 0, frames_this_block * 2 * sizeof(float));
+        uph_audio_callback(device, mix_buffer, NULL, frames_this_block);
+        ma_encoder_write_pcm_frames(&encoder, mix_buffer, frames_this_block, NULL);
+    }
+
+    app->song_timeline_song_position = saved_pos;
+    delete[] mix_buffer;
+    ma_encoder_uninit(&encoder);
+
+    app->is_exporting = false;
+
+    ma_device_start(device);
+
+    std::cout << "Export complete!\n";
 }
