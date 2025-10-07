@@ -6,7 +6,6 @@
 #include "utils/lerp.h"
 
 #include <imgui_internal.h>
-#include <font_awesome.h>
 
 #include <algorithm>
 #include <cmath>

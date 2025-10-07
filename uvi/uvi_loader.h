@@ -65,43 +65,43 @@ struct UviV2Plugin
 	int32_t magic;
 	V2PluginDispatcherProc dispatcher;
 	V2PluginProcessProc process;
-	V2PluginSetParameterProc setParameter;
-	V2PluginGetParameterProc getParameter;
-	int32_t numPrograms;
-	int32_t numParams;
-	int32_t numInputs;
-	int32_t numOutputs;
+	V2PluginSetParameterProc set_parameter;
+	V2PluginGetParameterProc get_parameter;
+	int32_t num_programs;
+	int32_t num_params;
+	int32_t num_inputs;
+	int32_t num_outputs;
 
 	int32_t flags;
 	
 	intptr_t resvd1;
 	intptr_t resvd2;
 	
-	int32_t initialDelay;
+	int32_t initial_delay;
 	
-	int32_t realQualities;
-	int32_t offQualities;
-	float ioRatio;
+	int32_t real_qualities;
+	int32_t off_qualities;
+	float io_ratio;
 	void* object;
 	void* user;
 	int32_t uid;
 	int32_t version;
-	V2PluginProcessProc processReplacing;
-	V2PluginProcessDoubleProc processDoubleReplacing;
+	V2PluginProcessProc process_replacing;
+	V2PluginProcessDoubleProc process_double_replacing;
 	char future[56];
 };
 
 struct UviV2MidiEvent
 {
 	int32_t type;
-	int32_t byteSize;
-	int32_t deltaFrames;
+	int32_t byte_size;
+	int32_t delta_frames;
 	int32_t flags;
-	int32_t noteLength;
-	int32_t noteOffset;
-	char midiData[4];
+	int32_t note_length;
+	int32_t note_offset;
+	char midi_data[4];
 	char detune;
-	char noteOffVelocity;
+	char note_off_velocity;
 	char reserved1;
 	char reserved2;
 };

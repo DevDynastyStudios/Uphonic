@@ -113,30 +113,21 @@ static void DrawVUMeterWithFader(float vuLevelLeft, float vuLevelRight, float& v
 static void DrawChannelStrip(int idx, bool isSelected)
 {
     ImGui::PushID(idx);
-    
+
     float stripWidth = 80.0f;
-    
-    // Highlight selected channel
+
     if (isSelected)
-    {
         ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.25f, 0.25f, 0.3f, 1.0f));
-    }
-    
-    ImGui::BeginChild("Strip", 
-        ImVec2(stripWidth, 0), true, 
-        ImGuiWindowFlags_NoScrollbar);
-    
+
+    ImGui::BeginChild("Strip", ImVec2(stripWidth, 0), 0, ImGuiWindowFlags_NoScrollbar);
+
     if (isSelected)
-    {
         ImGui::PopStyleColor();
-    }
-    
-    // Make channel selectable
+
+    // selection logic
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0))
-    {
         mixer_data.selected_track = idx;
-    }
-    
+
     UphTrack &track = app->project.tracks[idx];
 
     // Channel color bar
@@ -210,26 +201,9 @@ static void DrawChannelStrip(int idx, bool isSelected)
         track.muted = !track.muted;
     }
     ImGui::PopStyleColor(2);
-    
-    // Arm button
-    /*if (track.arm)
-    {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.9f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.3f, 0.3f, 1.0f));
-    }
-    else
-    {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
-    }
-    
-    if (ImGui::Button("R", ImVec2(55, 25)))
-    {
-        track.arm = !track.arm;
-    }
-    ImGui::PopStyleColor(2);*/
-    
+
     ImGui::EndChild();
+
     ImGui::PopID();
 }
 

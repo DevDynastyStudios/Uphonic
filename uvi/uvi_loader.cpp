@@ -77,15 +77,15 @@ static intptr_t uvi_v2_audio_master_callback_function(
 struct UviV2Event
 {
 	int32_t type;
-	int32_t byteSize;
-	int32_t deltaFrames;
+	int32_t byte_size;
+	int32_t delta_frames;
 	int32_t flags;
 	char data[16];
 };
 
 struct UviV2Events
 {
-	int32_t numEvents;
+	int32_t num_events;
 	intptr_t reserved;
 	UviV2Event* events[256];
 };
@@ -98,7 +98,7 @@ static void uvi_v2_plugin_process_events(UviPlugin *plugin)
 
     UviV2Plugin *p = plugin->v2.plugin;
     UviV2Events events{};
-    events.numEvents = midi_event_count;
+    events.num_events = midi_event_count;
 
     for (uint32_t i = 0; i < midi_event_count; ++i)
         events.events[i] = (UviV2Event*)&plugin->v2.midi_events[i];
@@ -112,7 +112,7 @@ static void uvi_v2_plugin_process(UviPlugin *plugin, float **inputs, float **out
     uvi_v2_plugin_process_events(plugin);
     UviV2Plugin *p = plugin->v2.plugin;
     if (p->flags & UviV2PluginFlags_CanReplacing)
-        p->processReplacing(p, inputs, outputs, sample_frames);
+        p->process_replacing(p, inputs, outputs, sample_frames);
 }
 
 static void uvi_v2_plugin_apply_note_event(UviPlugin *plugin, int32_t status, int32_t key, int32_t velocity, int32_t sample_offset)
@@ -122,11 +122,11 @@ static void uvi_v2_plugin_apply_note_event(UviPlugin *plugin, int32_t status, in
 
     UviV2MidiEvent &ev = plugin->v2.midi_events[plugin->v2.midi_event_count++];
     ev.type = 1;
-    ev.byteSize = sizeof(ev);
-    ev.midiData[0] = (unsigned char)status;
-    ev.midiData[1] = (unsigned char)key;
-    ev.midiData[2] = (unsigned char)velocity;
-    ev.deltaFrames = sample_offset;
+    ev.byte_size = sizeof(ev);
+    ev.midi_data[0] = (unsigned char)status;
+    ev.midi_data[1] = (unsigned char)key;
+    ev.midi_data[2] = (unsigned char)velocity;
+    ev.delta_frames = sample_offset;
 }
 
 static void uvi_v2_plugin_play_note(UviPlugin *plugin, int32_t key, int32_t velocity, int32_t sample_offset)
@@ -145,11 +145,11 @@ static void uvi_v2_stop_all_notes(UviPlugin *plugin)
     {
         UviV2MidiEvent &ev = plugin->v2.midi_events[plugin->v2.midi_event_count++];
         ev.type = 1;
-        ev.byteSize = sizeof(ev);
+        ev.byte_size = sizeof(ev);
         ev.midiData[0] = 0xB0 | channel;
         ev.midiData[1] = 123;
         ev.midiData[2] = 0;
-        ev.deltaFrames = 0;
+        ev.delta_frames = 0;
     }*/
 
     plugin->v2.midi_event_count = 0;
@@ -157,11 +157,11 @@ static void uvi_v2_stop_all_notes(UviPlugin *plugin)
     {
         UviV2MidiEvent &ev = plugin->v2.midi_events[plugin->v2.midi_event_count++];
         ev.type = 1;
-        ev.byteSize = sizeof(ev);
-        ev.midiData[0] = 0x90;
-        ev.midiData[1] = i;
-        ev.midiData[2] = 0;
-        ev.deltaFrames = 0;
+        ev.byte_size = sizeof(ev);
+        ev.midi_data[0] = 0x90;
+        ev.midi_data[1] = i;
+        ev.midi_data[2] = 0;
+        ev.delta_frames = 0;
     }
 }
 
@@ -234,6 +234,25 @@ static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, 
     plugin->is_loaded = true;
 }
 
+static void uvi_v2_plguin_unload(UviPlugin *plugin)
+{
+    UviV2Plugin *p = plugin->v2.plugin;
+    plugin->is_loaded = false;
+
+    p->dispatcher(p, UviV2PluginOpcodes_StopProcess, 0, 0, nullptr, 0.0f);
+    
+    if (p->flags & UviV2PluginFlags_HasEditor)
+        p->dispatcher(p, UviV2PluginOpcodes_EditClose, 0, 0, nullptr, 0.0f);
+    
+    p->dispatcher(p, UviV2PluginOpcodes_MainsChanged, 0, 0, nullptr, 0.0f);
+    p->dispatcher(p, UviV2PluginOpcodes_Close, 0, 0, nullptr, 0.0f);
+
+    std::thread([library = plugin->library]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        uvi_library_unload(library);
+    }).detach();
+}
+
 UviPlugin uvi_plugin_load(const char *path)
 {
     UviPlugin plugin{};
@@ -263,19 +282,8 @@ UviPlugin uvi_plugin_load(const char *path)
 
 void uvi_plugin_unload(UviPlugin *plugin)
 {
-    UviV2Plugin *p = plugin->v2.plugin;
-    plugin->is_loaded = false;
-
-    p->dispatcher(p, UviV2PluginOpcodes_StopProcess, 0, 0, nullptr, 0.0f);
-    
-    if (p->flags & UviV2PluginFlags_HasEditor)
-        p->dispatcher(p, UviV2PluginOpcodes_EditClose, 0, 0, nullptr, 0.0f);
-    
-    p->dispatcher(p, UviV2PluginOpcodes_MainsChanged, 0, 0, nullptr, 0.0f);
-    p->dispatcher(p, UviV2PluginOpcodes_Close, 0, 0, nullptr, 0.0f);
-
-    std::thread([library = plugin->library]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        uvi_library_unload(library);
-    }).detach();
+    switch (plugin->type)
+    {
+    case UviPluginType_V2: uvi_v2_plguin_unload(plugin); break;
+    }
 }

@@ -68,7 +68,7 @@ static void midi_editor_draw_transport(void)
         }
     }
     ImGui::SameLine();
-    ImGui::Text("Pos: %.2f beats", app->midi_editor_song_position);
+    ImGui::Text("%s", app->project.patterns[app->current_pattern_index].name);
 }
 
 void midi_editor_draw_and_handle_playhead(ImDrawList* draw_list, ImVec2 canvas_pos, ImVec2 canvas_size, float key_width)
@@ -97,6 +97,7 @@ static void uph_midi_editor_render(UphPanel* panel)
     ImVec2 child_size = ImGui::GetContentRegionAvail();
     ImGui::BeginChild("MidiEditorCanvas", child_size);
 
+    const UphTrack &track = app->project.tracks[app->current_track_index];
     std::vector<UphNote>& notes = app->project.patterns[app->current_pattern_index].notes;
 
     ImVec2 canvas_size = ImGui::GetContentRegionAvail();
@@ -296,7 +297,7 @@ static void uph_midi_editor_render(UphPanel* panel)
                     {
                         VstMidiEvent ev; memset(&ev, 0, sizeof(ev));
                         ev.type = kVstMidiType; ev.byteSize = sizeof(ev);
-                        ev.midiData[0] = 0x80; ev.midiData[1] = pitch; ev.midiData[2] = 0;
+                        ev.midi_data[0] = 0x80; ev.midi_data[1] = pitch; ev.midi_data[2] = 0;
                         VstEvents events{}; events.numEvents = 1; events.events[0] = (VstEvent*)&ev;
                         effect->dispatcher(effect, effProcessEvents, 0, 0, &events, 0.0f);
                     }
@@ -333,7 +334,7 @@ static void uph_midi_editor_render(UphPanel* panel)
         ImVec2 note_pos(canvas_pos.x + key_width + note.start*editor_data.smooth_zoom_x - editor_data.smooth_scroll_x,
             canvas_pos.y + (127 - note.key) * key_height - editor_data.smooth_scroll_y);
         ImVec2 note_end(note_pos.x + note.length*editor_data.smooth_zoom_x, note_pos.y + key_height);
-        draw_list->AddRectFilled(note_pos, note_end, IM_COL32(240,117,138,255));
+        draw_list->AddRectFilled(note_pos, note_end, track.color);
 
         char buf[8]; uph_key_to_name(note.key, buf, sizeof(buf));
         ImVec2 text_size = ImGui::CalcTextSize(buf);
