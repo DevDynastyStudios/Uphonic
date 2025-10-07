@@ -7,8 +7,6 @@
 #include <filesystem>
 #include <cmath>
 
-#include <pluginterfaces/vst2.x/aeffect.h>
-
 constexpr float PI = 3.14159265358979323846f;
 constexpr float HALF_PI = PI * 0.5f;
 
