@@ -1,4 +1,5 @@
 #include "panel_manager.h"
+#include "../platform/platform.h"
 #include "../io/project_manager.h"
 #include "../io/record_manager.h"
 #include "../io/layout_manager.h"
@@ -11,25 +12,6 @@
 #include <windows.h>
 #include <commdlg.h>
 #include <string>
-
-std::wstring open_project_file_dialog() {									//<--------------------- DON'T KEEP THIS!
-    OPENFILENAMEW ofn;
-    wchar_t szFile[MAX_PATH] = {0};
-
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner   = nullptr; // or your window handle
-    ofn.lpstrFile   = szFile;
-    ofn.nMaxFile    = MAX_PATH;
-    ofn.lpstrFilter = L"Project Files\0*.json\0All Files\0*.*\0";
-    ofn.nFilterIndex = 1;
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-
-    if (GetOpenFileNameW(&ofn) == TRUE) {
-        return std::wstring(ofn.lpstrFile);
-    }
-    return L""; // cancelled
-}
 
 struct UphMenuBarData
 {
@@ -194,10 +176,14 @@ static void uph_menu_bar_layout_popup()
 
 static void uph_menu_bar_file_menu()
 {
-    if (ImGui::MenuItem("New Project")) {}
+    if (ImGui::MenuItem("New Project"))
+	{
+		uph_project_new();
+	}
+
     if (ImGui::MenuItem("Open")) 
 	{
-		auto path = open_project_file_dialog();
+		auto path = uph_open_file_dialog(L"JSON Files\0*.json\0All Files\0*.*\0", L"Open Project");
 		uph_project_load(path);
 	}
 
@@ -205,10 +191,18 @@ static void uph_menu_bar_file_menu()
 
     if (ImGui::MenuItem("Save")) 
 	{
-		//uph_record_mark(UphRecordType_Project_Property, "Tempo", nullptr, "128");
-		uph_project_save_as(g_project_context.root);
+		if(g_project_context.is_loaded_project)
+		{
+			//uph_record_mark(UphRecordType_Project_Property, "Tempo", nullptr, "128");
+			uph_project_save_as(g_project_context.root.parent_path());
+		}
 	}
-    if (ImGui::MenuItem("Save As")) {}
+    if (ImGui::MenuItem("Save As")) 
+	{
+		uph_project_save_as_via_dialog();
+		//auto save_path = uph_select_folder_dialog(L"Save To");
+		//uph_project_save_as(save_path);
+	}
 
     ImGui::Separator();
 

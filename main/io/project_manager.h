@@ -5,17 +5,22 @@
 struct UphProjectContext 
 {
     std::filesystem::path root;
+	bool is_loaded_project = false;
     bool is_scratch;
 	bool is_dirty;
 };
 
 extern UphProjectContext g_project_context;
 
+std::wstring uph_project_name();
+void uph_project_new();
 void uph_project_init();
 void uph_project_shutdown();
 
 void uph_project_save_as(const std::filesystem::path& dest);
 void uph_project_load(const std::filesystem::path& path);
+void uph_project_save_as_via_dialog();
+std::filesystem::path uph_create_project_folders(const std::filesystem::path& parent);
 void uph_project_set_dirty(bool dirty);
 bool uph_project_is_dirty();
 std::vector<std::filesystem::path> uph_project_check_recovery();

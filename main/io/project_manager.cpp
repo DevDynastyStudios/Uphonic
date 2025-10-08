@@ -20,6 +20,19 @@ static std::string uph_generate_unique_name()
     return "untitled-" + std::to_string(ts);
 }
 
+std::wstring uph_project_name() 
+{
+    if (g_project_context.root.empty())
+        return L""; // scratch project, no name yet
+
+    return g_project_context.root.filename().wstring();
+}
+
+void uph_project_new()
+{
+	uph_project_clear();
+}
+
 void uph_project_init() 
 {
     auto scratch_base = uph_temp_file_path();
@@ -46,14 +59,28 @@ void uph_project_shutdown()
     std::filesystem::remove_all(g_project_context.root, error_code);
 }
 
+// (Chimpchi) Fix the duplication later, and refactor whole file.
 void uph_project_save_as(const std::filesystem::path& dest) 
 {
-    std::filesystem::create_directories(dest.parent_path());
-    std::filesystem::rename(g_project_context.root, dest);
+    if (dest.empty())
+        return;
 
-    g_project_context.root = dest;
+    auto parent = dest.parent_path();
+    auto name   = dest.stem();
+    if (name.empty())
+        return;
+
+    auto project_root = parent / name;
+
+    std::filesystem::create_directories(project_root / "workspace" / "samples");
+    std::filesystem::create_directories(project_root / "workspace" / "mixers");
+
+    auto manifest = project_root / "project-data.json";
+    uph_project_serializer_save_json(project_root, manifest.filename().string().c_str());
+
+    g_project_context.root = project_root;
     g_project_context.is_scratch = false;
-	uph_project_serializer_save_json(dest, "project-data.json");
+
 }
 
 void uph_project_load(const std::filesystem::path& path) 
@@ -64,6 +91,35 @@ void uph_project_load(const std::filesystem::path& path)
 	uph_project_serializer_load_json(path);
     g_project_context.root = path;
     g_project_context.is_scratch = false;
+	g_project_context.is_loaded_project = true;
+}
+
+void uph_project_save_as_via_dialog() {
+	const wchar_t* default_name = uph_project_name().c_str();
+    auto filePath = uph_save_file_dialog(L"Uphonic Project\0*.uphproj\0All Files\0*.*\0", L"Save Project As", default_name);
+    if (filePath.empty())
+        return;
+
+    auto parent = filePath.parent_path();
+    auto name   = filePath.stem();
+    if (name.empty())
+        return;
+
+    auto project_root = uph_create_project_folders(parent / name);
+
+    auto manifest = project_root / "project-data.json";
+    uph_project_serializer_save_json(project_root, manifest.filename().string().c_str());
+
+    g_project_context.root = project_root;
+    g_project_context.is_scratch = false;
+
+}
+
+std::filesystem::path uph_create_project_folders(const std::filesystem::path& path)
+{
+    std::filesystem::create_directories(path / "workspace" / "samples");
+    std::filesystem::create_directories(path / "workspace" / "mixers");
+    return path;
 }
 
 void uph_project_set_dirty(bool dirty)
