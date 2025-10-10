@@ -338,4 +338,96 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
     return DefWindowProc(hwnd, msg, w_param, l_param);
 }
 
+std::filesystem::path uph_open_file_dialog(const wchar_t* filter, const wchar_t* title) 
+{
+    OPENFILENAMEW ofn{};
+    wchar_t szFile[MAX_PATH] = {0};
+
+    ofn.lStructSize  = sizeof(ofn);
+    ofn.lpstrFile    = szFile;
+    ofn.nMaxFile     = MAX_PATH;
+    ofn.lpstrFilter  = filter;
+    ofn.lpstrTitle   = title;
+    ofn.Flags        = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    if (GetOpenFileNameW(&ofn))
+        return std::filesystem::path(ofn.lpstrFile);
+
+    return {};
+}
+
+std::filesystem::path uph_save_file_dialog(const wchar_t* filter, const wchar_t* title, const wchar_t* default_name)
+{
+    OPENFILENAMEW ofn{};
+    wchar_t szFile[MAX_PATH] = {0};
+
+    if (default_name && *default_name)
+        wcsncpy_s(szFile, default_name, _TRUNCATE);
+
+    ofn.lStructSize  = sizeof(ofn);
+    ofn.lpstrFile    = szFile;
+    ofn.nMaxFile     = MAX_PATH;
+    ofn.lpstrFilter  = filter;
+    ofn.lpstrTitle   = title;
+    ofn.Flags        = OFN_OVERWRITEPROMPT;
+
+    if (GetSaveFileNameW(&ofn))
+        return std::filesystem::path(ofn.lpstrFile);
+
+    return {};
+}
+
+#include <shobjidl.h>	//(Chimpchi) Microsoft, I hate your piss poor naming so much...
+std::filesystem::path uph_select_folder_dialog(const wchar_t* title) {
+    IFileDialog* pfd = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&pfd));
+    if (FAILED(hr)) 
+		return {};
+
+    DWORD options = 0;
+    hr = pfd->GetOptions(&options);
+    if (FAILED(hr)) 
+	{ 
+		pfd->Release(); 
+		return {}; 
+	}
+
+    pfd->SetOptions(options | FOS_PICKFOLDERS | FOS_FORCEFILESYSTEM);
+
+    if (title)
+        pfd->SetTitle(title);
+
+    hr = pfd->Show(nullptr);
+    if (FAILED(hr)) 
+	{ 
+		pfd->Release(); 
+		return {}; 
+	}
+
+    IShellItem* psi = nullptr;
+    hr = pfd->GetResult(&psi);
+    if (FAILED(hr)) 
+	{ 
+		pfd->Release(); 
+		return {}; 
+	}
+
+    PWSTR pszFilePath = nullptr;
+    hr = psi->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+    if (FAILED(hr)) 
+	{ 
+		psi->Release(); 
+		pfd->Release(); 
+		return {}; 
+	}
+
+    std::filesystem::path result(pszFilePath);
+    CoTaskMemFree(pszFilePath);
+
+    psi->Release();
+    pfd->Release();
+    return result;
+}
+
+
 #endif

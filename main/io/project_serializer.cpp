@@ -165,6 +165,10 @@ static UphProject deserialize_project(const json& j)
     p.volume = j.value("volume", 0.5f);
     p.bpm    = j.value("bpm", 120.0f);
 
+	p.tracks.clear();
+	p.patterns.clear();
+	p.samples.clear();
+
     if (j.contains("patterns")) 
 	{
         for (auto& jp : j["patterns"])
@@ -224,4 +228,11 @@ void uph_project_serializer_load_json(const std::filesystem::path& path) {
     in >> j;
 
     app->project = deserialize_project(j);
+}
+
+
+void uph_project_clear()
+{
+	UphProject p{};
+	app->project = p;
 }
