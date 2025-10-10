@@ -88,7 +88,11 @@ struct UphTrack
 
 struct UphProject
 {
-    float volume = 0.5f, bpm = 300.0f;
+	int time_sig_numerator = 4;
+	int time_sig_denominator = 4;
+	int steps_per_beat = 4;
+	int pulse_per_quarter = 480;
+    float volume = 0.5f, bpm = 120.0f;
     std::vector<UphMidiPattern> patterns;
     std::vector<UphSample> samples;
     std::vector<UphTrack> tracks = std::vector<UphTrack>(32);
