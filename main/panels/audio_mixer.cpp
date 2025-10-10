@@ -165,12 +165,12 @@ static void DrawChannelStrip(int idx, bool isSelected)
     ImGui::Spacing();
     
     // Solo button
-    /*if (track.solo)
+    if (track.solo)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0f, 0.7f, 0.0f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.0f, 0.8f, 0.2f, 1.0f));
     }
-    else*/
+    else
     {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.4f, 0.4f, 1.0f));
@@ -178,7 +178,16 @@ static void DrawChannelStrip(int idx, bool isSelected)
     
     if (ImGui::Button("S", ImVec2(25, 25)))
     {
-        //track.solo = !track.solo;
+        track.solo = !track.solo;
+        if (track.solo)
+        {
+            for (UphTrack &track : app->project.tracks)
+                track.solo = false;
+            track.solo = true;
+            app->solo_track_index = idx;
+        }
+        else
+            app->solo_track_index = -1;
     }
     ImGui::PopStyleColor(2);
     

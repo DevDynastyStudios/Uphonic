@@ -1,6 +1,7 @@
 #include "uvi_loader.h"
 
 #include <filesystem>
+#include <fstream>
 #include <queue>
 #include <thread>
 
@@ -195,6 +196,53 @@ static void uvi_v2_plugin_get_editor_size(UviPlugin *plugin, uint32_t *width, ui
     *height = (uint32_t)(rect->bottom - rect->top);
 }
 
+static void uvi_v2_plugin_serialize(UviPlugin *plugin, const char *file_path)
+{
+    UviV2Plugin *p = plugin->v2.plugin;
+    void* data = nullptr;
+
+    uint32_t size = p->dispatcher(p, UviV2PluginOpcodes_GetChunk, 0, 0, &data, 0.0f);
+
+    if (size <= 0 || !data)
+    {
+        fprintf(stderr, "[UVI Loader] Failed to get chunk.\n");
+        return;
+    }
+
+    std::ofstream out(file_path, std::ios::binary);
+    if (!out)
+    {
+        fprintf(stderr, "[UVI Loader] Failed to open state file.\n");
+        return;
+    }
+
+    out.write(reinterpret_cast<char*>(data), size);
+}
+
+static void uvi_v2_plugin_deserialize(UviPlugin *plugin, const char *file_path)
+{
+    UviV2Plugin *p = plugin->v2.plugin;
+
+    std::ifstream in(file_path, std::ios::binary);
+    if (!in)
+    {
+        fprintf(stderr, "[UVI Loader] Failed to open state file.\n");
+        return;
+    }
+
+    std::vector<char> buffer((std::istreambuf_iterator<char>(in)),
+        std::istreambuf_iterator<char>());
+
+    if (buffer.empty())
+    {
+        fprintf(stderr, "[UVI Loader] Empty state file.\n");
+        return;
+    }
+
+    p->dispatcher(p, UviV2PluginOpcodes_SetChunk, 0,
+        static_cast<intptr_t>(buffer.size()), buffer.data(), 0.0f);
+}
+
 static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, int32_t block_size = 512)
 {
     typedef UviV2Plugin* (*PluginMain)(V2AudioMasterCallback audioMaster);
@@ -228,6 +276,8 @@ static void uvi_v2_plugin_load(UviPlugin *plugin, float sample_rate = 44100.0f, 
     plugin->play_note = uvi_v2_plugin_play_note;
     plugin->stop_note = uvi_v2_plugin_stop_note;
     plugin->stop_all_notes = uvi_v2_stop_all_notes;
+    plugin->serialize = uvi_v2_plugin_serialize;
+    plugin->deserialize = uvi_v2_plugin_deserialize;
     
     memset(&plugin->v2, 0, sizeof(plugin->v2));
     plugin->v2.plugin = p;
@@ -270,7 +320,7 @@ UviPlugin uvi_plugin_load(const char *path)
         return {};
 
     plugin.library = uvi_library_load(path);
-    strncpy(plugin.name, p.stem().string().c_str(), sizeof(plugin.name));
+    strncpy_s(plugin.name, p.stem().string().c_str(), sizeof(plugin.name));
 
     switch (plugin.type)
     {

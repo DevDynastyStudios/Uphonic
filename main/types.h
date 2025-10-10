@@ -79,7 +79,7 @@ struct UphTrack
     char name[64] = "Untitled Track";
     float volume = 1.0f, pan = 0.0f, pitch = 1.0f;
     float peak_left = 0.0f, peak_right = 0.0f;
-    bool muted = false;
+    bool solo = false, muted = false;
     uint32_t color = 0xFFFFFFFF;
     UphTrackType track_type;
     UphInstrument instrument;
@@ -91,7 +91,7 @@ struct UphProject
     float volume = 0.5f, bpm = 300.0f;
     std::vector<UphMidiPattern> patterns;
     std::vector<UphSample> samples;
-    std::vector<UphTrack> tracks = std::vector<UphTrack>(32);
+    std::vector<UphTrack> tracks = std::vector<UphTrack>(8);
 };
 
 struct UphApplication
@@ -100,6 +100,7 @@ struct UphApplication
     uint32_t current_pattern_index = 0;
     uint32_t current_track_index = 0;
     uint32_t current_instrument_track_index = 0;
+    int32_t solo_track_index = -1;
     float midi_editor_song_position = 0.0f;
     float song_timeline_song_position = 0.0f;
     bool is_midi_editor_playing = false;

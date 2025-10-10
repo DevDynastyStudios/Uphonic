@@ -35,8 +35,6 @@ typedef struct UphWin32Platform
 UphWin32Platform;
 
 static UphWin32Platform *platform;
-static double clock_frequency;
-static LARGE_INTEGER start_time;
 
 LRESULT CALLBACK win32_process_message(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
@@ -150,11 +148,6 @@ void uph_platform_initialize(const UphPlatformCreateInfo *create_info)
 
     DragAcceptFiles(platform->hwnd, TRUE);
 
-    LARGE_INTEGER frequency;
-    QueryPerformanceFrequency(&frequency);
-    clock_frequency = 1.0 / (double)frequency.QuadPart;
-    QueryPerformanceCounter(&start_time);
-
     ImGui_ImplWin32_Init(platform->hwnd);
     ImGui_ImplDX11_Init(platform->device, platform->device_context);
 
@@ -193,19 +186,12 @@ void uph_platform_begin(void)
 
 void uph_platform_end(void)
 {
-    const float clear_color[4] = { 0.1f, 0.1f, 0.1f, 1.0f };
+    const float clear_color[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
     platform->device_context->OMSetRenderTargets(1, &platform->render_target_view, NULL);
     platform->device_context->ClearRenderTargetView(platform->render_target_view, clear_color);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
     platform->swap_chain->Present(1, 0);
-}
-
-double uph_get_time(void)
-{
-    LARGE_INTEGER now_time;
-    QueryPerformanceCounter(&now_time);
-    return (double)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
 }
 
 UphChildWindow uph_create_child_window(const UphChildWindowCreateInfo *create_info)
@@ -296,7 +282,12 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
             platform->window_width = r.right - r.left; 
             platform->window_height = r.bottom - r.top; 
 
-            if (platform && platform->device != NULL && w_param != SIZE_MINIMIZED)
+            UphResizeEvent data;
+            data.width = platform->window_width;
+            data.height = platform->window_height;
+            uph_event_call(UphSystemEventCode::Resize, (void*)&data);
+
+            if (platform->device != NULL && w_param != SIZE_MINIMIZED)
             {
                 cleanup_render_target();
                 platform->swap_chain->ResizeBuffers(0, (UINT)LOWORD(l_param), (UINT)HIWORD(l_param), DXGI_FORMAT_UNKNOWN, 0);
@@ -344,6 +335,7 @@ LRESULT CALLBACK win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, 
         default:
             return DefWindowProc(hwnd, msg, w_param, l_param);
     }
+    return DefWindowProc(hwnd, msg, w_param, l_param);
 }
 
 #endif

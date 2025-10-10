@@ -13,6 +13,7 @@ enum class UphSystemEventCode : uint8_t
     KeyReleased,
     Char,
     FileDropped,
+    Resize,
     MAX
 };
 

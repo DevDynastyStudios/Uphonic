@@ -18,6 +18,21 @@
 
 #include "../uvi/uvi_loader.h"
 
+static void uph_render(void)
+{
+    uph_platform_begin();
+    ImGui::NewFrame();
+    ImGui::DockSpaceOverViewport();
+    uph_panel_render_all();
+    ImGui::Render();
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
+    uph_platform_end();
+}
+
 int main(const int argc, const char **argv)
 {
     UphPlatformCreateInfo create_info = { 1920, 1080, "Uphonic" };
@@ -29,6 +44,8 @@ int main(const int argc, const char **argv)
     io.IniFilename = nullptr;
 
     uph_platform_initialize(&create_info);
+
+    //io.Fonts->AddFontFromFileTTF("fonts/WorkSans-Regular.ttf", 13.5f);
 
     uph_json_load_theme("themes/Default.json");
     uph_load_layout("layouts/Default");
@@ -56,21 +73,27 @@ int main(const int argc, const char **argv)
     uph_sound_device_initialize();
 	uph_panel_init_all();
 
+    uph_event_connect(UphSystemEventCode::Resize, [&](void *data) {
+        uph_render();
+    });
+
     while (is_running)
     {
-        uph_platform_begin();
-        ImGui::NewFrame();
-        ImGui::DockSpaceOverViewport();
-        uph_panel_render_all();
-        ImGui::Render();
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
-        uph_platform_end();
+        uph_render();
 		uph_layout_process_requests();
         uph_process_plugin_loader();
+    }
+
+    for (auto &track : app->project.tracks)
+    {
+        if (track.track_type == UphTrackType_Midi)
+        {
+            if (!track.instrument.plugin.is_loaded)
+                continue;
+            UviPlugin *plugin = &track.instrument.plugin;
+            uvi_plugin_unload(plugin);
+            uph_destroy_child_window(&track.instrument.window);
+        }
     }
 
     uph_sound_device_shutdown();

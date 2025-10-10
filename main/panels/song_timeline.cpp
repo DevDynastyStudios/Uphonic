@@ -99,7 +99,7 @@ static void uph_song_timeline_handle_pattern_interaction(
         }
         else if (isHovered)
         {
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && pattern.track_type == UphTrackType_Midi)
             {
                 app->current_pattern_index = pattern.pattern_index;
                 app->current_track_index = trackIndex;
@@ -179,7 +179,7 @@ static void uph_song_timeline_handle_pattern_interaction(
             if (targetTrackIdx >= 0 && targetTrackIdx < (int)tracks.size())
             {
                 UphTrack &targetTrack = tracks[targetTrackIdx];
-                if (&targetTrack != timeline_data.draggedTrack && targetTrack.track_type == timeline_data.draggedBlock->track_type)
+                if (&targetTrack != timeline_data.draggedTrack && (targetTrack.track_type == timeline_data.draggedBlock->track_type || targetTrack.track_type == UphTrackType_None))
                 {
                     auto& src = timeline_data.draggedTrack->timeline_blocks;
 
@@ -190,6 +190,13 @@ static void uph_song_timeline_handle_pattern_interaction(
                     {
                         UphTimelineBlock moved = std::move(*it);
                         src.erase(it);
+
+                        targetTrack.track_type = moved.track_type;
+                        if (src.empty())
+                        {
+                            if (!timeline_data.draggedTrack->instrument.plugin.is_loaded)
+                                timeline_data.draggedTrack->track_type = UphTrackType_None;
+                        }
 
                         targetTrack.timeline_blocks.push_back(std::move(moved));
                         timeline_data.draggedTrack   = &targetTrack;
@@ -215,15 +222,20 @@ static void uph_song_timeline_handle_pattern_interaction(
 static void uph_song_timeline_draw_block(ImDrawList* drawList, ImVec2 rectMin, ImVec2 rectMax, float py, ImU32 fill_color, const char *name)
 {
     constexpr ImU32 textCol = IM_COL32(0, 0, 0, 255);
+    constexpr ImU32 borderCol = IM_COL32(0, 0, 0, 255);
 
-    drawList->AddRectFilled(rectMin, rectMax, fill_color);
-    //drawList->AddRect(rectMin, rectMax, borderCol);
+    const ImVec4 baseColor = ImGui::ColorConvertU32ToFloat4(fill_color);
+    const ImU32 bgColor = ImGui::ColorConvertFloat4ToU32(ImVec4(powf(baseColor.x, 0.7f), powf(baseColor.y, 0.7f), powf(baseColor.z, 0.7f), 1.0f));
 
+    drawList->AddRect(rectMin, rectMax, ImColor(baseColor), 2.0f);
+    drawList->AddRectFilled(rectMin, rectMax, bgColor, 2.0f);
+    drawList->AddRectFilled(rectMin, ImVec2(rectMax.x, py), fill_color, 2.0f, ImDrawFlags_RoundCornersTop);
+    
     drawList->PushClipRect(ImVec2(rectMin.x, rectMin.y), ImVec2(rectMax.x, py), true);
     drawList->AddText(rectMin, textCol, name);
     drawList->PopClipRect();
 
-    drawList->AddLine(ImVec2(rectMin.x, py), ImVec2(rectMax.x, py), IM_COL32(0, 0, 0, 255));
+    //drawList->AddLine(ImVec2(rectMin.x, py), ImVec2(rectMax.x, py), IM_COL32(0, 0, 0, 255));
 }
 
 static void uph_song_timeline_draw_pattern_block(
@@ -314,7 +326,7 @@ static void uph_song_timeline_draw_sample_block(
         drawList->AddLine(
             ImVec2(px, rectMax.y - k_track_height * zoomY * max_val - zoomY * k_track_height * 0.5f + title_height * 0.5f),
             ImVec2(px, rectMax.y - k_track_height * zoomY * min_val - zoomY * k_track_height * 0.5f + title_height * 0.5f),
-            IM_COL32(0, 0, max_val * 255, 255)
+            IM_COL32(0, 0, 0, 255)
         );
     }
 
@@ -358,6 +370,10 @@ static void uph_song_timeline_draw_track_menu(UphTrack& track, size_t trackIndex
         }
     }
 
+    ImVec4 color =  ImColor(track.color);
+    ImGui::ColorEdit3("Color", &color.x, ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+    track.color = ImColor(color);
+
     ImGui::EndChild();
     ImGui::PopStyleVar();
     ImGui::PopID();
@@ -398,8 +414,7 @@ static void uph_song_timeline_render(UphPanel* panel)
         app->is_song_timeline_playing = !app->is_song_timeline_playing;
         app->song_timeline_song_position = 0.0f;
         app->is_midi_editor_playing = false;
-        if (!app->is_song_timeline_playing)
-            uph_sound_device_all_notes_off();
+        uph_sound_device_all_notes_off();
     }
 
     ImGui::BeginChild("SongTimelineCanvas", ImVec2(0, 0), 0);
@@ -410,7 +425,7 @@ static void uph_song_timeline_render(UphPanel* panel)
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 canvasPos = ImGui::GetWindowPos() + ImGui::GetCursorPos();
     ImVec2 canvasSize = ImGui::GetContentRegionAvail();
-    const float titleHeight = ImGui::GetTextLineHeight();
+    const float titleHeight = ImGui::GetTextLineHeight() + style.FramePadding.y * 2.0f;
 
     if (ImGui::IsWindowHovered())
     {
@@ -466,7 +481,7 @@ static void uph_song_timeline_render(UphPanel* panel)
                 drawList->AddLine(
                     ImVec2(x, canvasPos.y),
                     ImVec2(x, canvasPos.y + canvasSize.y),
-                    (i % 16 == 0) ? IM_COL32(100,100,100,100) : IM_COL32(60,60,60,100)
+                    (i % 16 == 0) ? IM_COL32(0,0,0,40) : IM_COL32(0,0,0,10)
                 );
             }
         }
@@ -518,6 +533,9 @@ static void uph_song_timeline_render(UphPanel* panel)
         }
     }
 
+    drawList->Flags |= ImDrawListFlags_AntiAliasedLinesUseTex;
+    drawList->Flags &= ~ImDrawListFlags_AntiAliasedLines;
+
     for (size_t i = 0; i < tracks.size(); ++i)
     {
         UphTrack& track = tracks[i];
@@ -525,7 +543,7 @@ static void uph_song_timeline_render(UphPanel* panel)
         float h = k_track_height * timeline_data.zoom_y;
 
         drawList->AddLine(ImVec2(canvasPos.x, y), ImVec2(canvasPos.x + canvasSize.x, y),
-            IM_COL32(100, 100, 100, 255));
+            IM_COL32(0, 0, 0, 150));
 
         float timelineX = canvasPos.x + k_track_menu_width;
 

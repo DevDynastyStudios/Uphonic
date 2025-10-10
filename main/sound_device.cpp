@@ -199,7 +199,7 @@ static void uph_audio_callback(ma_device* p_device, void* p_output, const void* 
 
     for (auto &track : tracks)
     {
-        if (track.muted)
+        if (track.muted || (app->solo_track_index != -1 && !track.solo))
         {
             track.peak_left = 0.0f;
             track.peak_right = 0.0f;

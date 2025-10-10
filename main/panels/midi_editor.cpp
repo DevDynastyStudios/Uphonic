@@ -58,7 +58,6 @@ static void midi_editor_draw_transport(void)
         if (app->is_midi_editor_playing)
         {
             app->is_midi_editor_playing = false;
-            uph_sound_device_all_notes_off();
         }
         else
         {
@@ -66,6 +65,7 @@ static void midi_editor_draw_transport(void)
             app->is_song_timeline_playing = false;
             app->midi_editor_song_position = 0.0f;
         }
+        uph_sound_device_all_notes_off();
     }
     ImGui::SameLine();
     ImGui::Text("%s", app->project.patterns[app->current_pattern_index].name);
@@ -147,13 +147,15 @@ static void uph_midi_editor_render(UphPanel* panel)
     {
         float y = canvas_pos.y + (127 - i) * key_height - editor_data.smooth_scroll_y;
         bool is_black = (i % 12 == 1 || i % 12 == 3 || i % 12 == 6 || i % 12 == 8 || i % 12 == 10);
-        ImU32 row_color = is_black ? IM_COL32(60,60,60,50) : IM_COL32(80,80,80,50);
-        draw_list->AddRectFilled(ImVec2(canvas_pos.x+key_width, y),
-            ImVec2(canvas_pos.x+canvas_size.x, y+key_height),
-            row_color);
+        if (!is_black)
+        {
+            draw_list->AddRectFilled(ImVec2(canvas_pos.x+key_width, y),
+                ImVec2(canvas_pos.x+canvas_size.x, y+key_height),
+                IM_COL32(80,80,80,20));
+        }
         draw_list->AddLine(ImVec2(canvas_pos.x+key_width, y),
             ImVec2(canvas_pos.x+canvas_size.x, y),
-            IM_COL32(60,60,60,255));
+            IM_COL32(0,0,0,20));
     }
 
     {
@@ -168,7 +170,7 @@ static void uph_midi_editor_render(UphPanel* panel)
             draw_list->AddLine(
                 ImVec2(x, canvas_pos.y),
                 ImVec2(x, canvas_pos.y + canvas_size.y),
-                (i % 16 == 0) ? IM_COL32(100,100,100,255) : IM_COL32(60,60,60,255)
+                (i % 16 == 0) ? IM_COL32(0,0,0,100) : IM_COL32(0,0,0,60)
             );
         }
     }
@@ -334,7 +336,7 @@ static void uph_midi_editor_render(UphPanel* panel)
         ImVec2 note_pos(canvas_pos.x + key_width + note.start*editor_data.smooth_zoom_x - editor_data.smooth_scroll_x,
             canvas_pos.y + (127 - note.key) * key_height - editor_data.smooth_scroll_y);
         ImVec2 note_end(note_pos.x + note.length*editor_data.smooth_zoom_x, note_pos.y + key_height);
-        draw_list->AddRectFilled(note_pos, note_end, track.color);
+        draw_list->AddRectFilled(note_pos, note_end, track.color, 2.0f);
 
         char buf[8]; uph_key_to_name(note.key, buf, sizeof(buf));
         ImVec2 text_size = ImGui::CalcTextSize(buf);

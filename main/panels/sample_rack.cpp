@@ -24,15 +24,11 @@ static void uph_sample_rack_init(UphPanel* panel)
 
 static void uph_sample_rack_render(UphPanel* panel)
 {
-    // Create a new empty pattern
-    if (ImGui::Button("+ New Sample"))
+    /*if (ImGui::Button("+ Import Sample"))
     {
-        UphSample pattern{};
-        snprintf(pattern.name, sizeof(pattern.name), "Sample %zu", app->project.samples.size() + 1);
-        app->project.samples.push_back(pattern);
         // Optionally start renaming immediately:
         // pattern_data.renaming_index = (int)app->project.samples.size() - 1;
-    }
+    }*/
 
     ImGui::Separator();
 
@@ -98,7 +94,7 @@ static void uph_sample_rack_render(UphPanel* panel)
             // Context menu: Rename / Duplicate / Delete
             if (ImGui::BeginPopupContextItem("SampleContext"))
             {
-                if (ImGui::MenuItem("Rename", "F2"))
+                if (ImGui::MenuItem("Rename"))
                     pattern_data.renaming_index = (int)i;
 
                 if (ImGui::MenuItem("Duplicate"))

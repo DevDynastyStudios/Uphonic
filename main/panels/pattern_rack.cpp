@@ -97,7 +97,7 @@ static void uph_pattern_rack_render(UphPanel* panel)
             // Context menu: Rename / Duplicate / Delete
             if (ImGui::BeginPopupContextItem("PatternContext"))
             {
-                if (ImGui::MenuItem("Rename", "F2"))
+                if (ImGui::MenuItem("Rename"))
                     pattern_data.renaming_index = (int)i;
 
                 if (ImGui::MenuItem("Duplicate"))

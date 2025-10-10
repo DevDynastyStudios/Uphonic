@@ -145,6 +145,9 @@ struct UviPlugin
 	void (*play_note)(UviPlugin *plugin, int32_t key, int32_t velocity, int32_t sample_offset);
 	void (*stop_note)(UviPlugin *plugin, int32_t key, int32_t sample_offset);
 	void (*stop_all_notes)(UviPlugin *plugin);
+
+	void (*serialize)(UviPlugin *plugin, const char *file_path);
+	void (*deserialize)(UviPlugin *plugin, const char *file_path);
 };
 
 UviPlugin uvi_plugin_load(const char *path);
