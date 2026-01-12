@@ -1,1 +1,1 @@
-MsBuild Uphonic.sln
+MsBuild Naui.sln -property:Configuration=Release

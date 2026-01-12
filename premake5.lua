@@ -1,69 +1,67 @@
-workspace "Uphonic"
+workspace "Naui"
     configurations { "Release" }
     startproject "Uphonic"
 
-project "UVI"
-    kind "StaticLib"
-    architecture "x64"
-    language "C++"
-    cppdialect "C++20"
-    files {
-        "uvi/**.h",
-        "uvi/**.cpp"
-    }
-    filter { "configurations:Release" }
-        defines { "NDEBUG" }
-        optimize "On"
-
-project "Uphonic"
-    kind "ConsoleApp"
-    architecture "x64"
+project "Naui"
+    kind "SharedLib"
     language "C++"
 	cppdialect "C++20"
+	targetdir "bin/%{cfg.buildcfg}"
+
+    architecture "x64"
+    staticruntime "Off"
+    conformancemode "On"
+
     files {
-        "main/**.h",
-        "main/**.cpp",
-        "vendor/imgui/**.h",
-        "vendor/imgui/**.cpp",
-        "vendor/imgui-knobs/**.h",
-        "vendor/imgui-knobs/**.cpp",
-        "vendor/miniaudio/**.h",
-        "vendor/miniaudio/**.c"
+        "Naui/**.h",
+        "Naui/**.c",
+        "Naui/**.cpp",
+        "Naui/**.hpp",
     }
 
     includedirs {
-        "main",
-        "uvi",
-        "vendor",
-        "vendor/imgui",
-        "vendor/mINI",
-        "vendor/nlohmann",
-        "vendor/imgui-knobs",
-        "vendor/miniaudio",
-        "vendor/FontAwesome",
-        "vendor/vst2"
+        "Naui",
+        "Naui/Vendor",
+        "Naui/Vendor/imgui",
+        "Naui/Vendor/miniz",
+        "Naui/Vendor/nlohmann",
+        "Naui/Vendor/stb"
     }
 
-    links { "UVI" }
+    defines { "NDEBUG", "NAUI_EXPORT" }
+    optimize "On"
+
+project "Uphonic"
+    kind "ConsoleApp"
+    language "C++"
+    cppdialect "C++20"
+	targetdir "bin/%{cfg.buildcfg}"
+
+    architecture "x64"
+    staticruntime "Off"
+    conformancemode "On"
+
+    files {
+        "Uphonic/**.h",
+        "Uphonic/**.c",
+        "Uphonic/**.cpp",
+        "UVI/**.cpp"
+    }
+
+    includedirs {
+        ".",
+        "Naui",
+        "Naui/Vendor",
+        "Naui/Vendor/imgui",
+        "Uphonic",
+        "Uphonic/Vendor/miniaudio",
+        "Uphonic/Vendor/imgui-knobs",
+        "UVI"
+    }
+
+    links { "Naui" }
+
+    optimize "On"
 
     filter { "configurations:Release" }
         defines { "NDEBUG" }
-        optimize "On"
-
-    filter "system:windows"
-        removefiles {
-            "vendor/imgui/imgui_impl_sdl2.cpp",
-            "vendor/imgui/imgui_impl_sdl2.h",
-            "vendor/imgui/imgui_impl_opengl3_loader.cpp",
-            "vendor/imgui/imgui_impl_opengl3.h",
-            "vendor/imgui/imgui_impl_opengl3.cpp"
-        }
-
-    filter "system:linux"
-        removefiles {
-            "vendor/imgui/imgui_impl_win32.cpp",
-            "vendor/imgui/imgui_impl_win32.h",
-            "vendor/imgui/imgui_impl_dx11.cpp",
-            "vendor/imgui/imgui_impl_dx11.h"
-        }
-        links { "SDL2", "GL", "dl", "m" }
