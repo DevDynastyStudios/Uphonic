@@ -535,6 +535,12 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
         }
     }
     
+    if (state.masterTrack.muted)
+    {
+        memset(outputBuffer, 0, frameCount * s_config.channels * sizeof(float));
+        return;
+    }
+
     float leftGain, rightGain;
     CalculatePanGains(state.masterTrack.pan, leftGain, rightGain);
     const float masterVolume = state.masterTrack.volume;
