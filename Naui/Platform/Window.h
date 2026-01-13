@@ -2,6 +2,7 @@
 
 #include "Base.h"
 
+#include <cstdint>
 #include <functional>
 
 namespace Naui
@@ -18,8 +19,8 @@ public:
 
     virtual void PollEvents(void) = 0;
 
-    virtual int GetWidth(void) const = 0;
-    virtual int GetHeight(void) const = 0;
+    virtual uint32_t GetWidth(void) const = 0;
+    virtual uint32_t GetHeight(void) const = 0;
 
     virtual void Show(bool value) = 0;
     virtual void SetResizeEvent(std::function<void(uint32_t, uint32_t)> callback) = 0;

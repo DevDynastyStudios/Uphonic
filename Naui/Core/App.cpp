@@ -4,6 +4,8 @@
 #include "AssetManager.h"
 #include "Defer.h"
 
+#include <cstdint>
+
 namespace Naui
 {
 
