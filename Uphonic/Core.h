@@ -25,19 +25,17 @@ struct MidiPattern
 
 union TimelineBlock
 {
+    double start;
+    double startOffset;
+    double length;
+
     struct 
     {
-        double start;
-        double startOffset;
-        double length;
         double reserved0;
         uint16_t patternIndex;
     };
     struct 
     {
-        double start;
-        double startOffset;
-        double length;
         double stretchScale;
         uint16_t sampleIndex;
     };
@@ -108,9 +106,14 @@ struct MasterTrack
 struct Settings
 {
     std::vector<std::string> pluginPaths = {
+#if NAUI_PLATFORM_WINDOWS
         "C:\\Program Files\\VSTPlugins",
         "C:\\Program Files\\Steinberg\\VSTPlugins",
-        "E:\\VST2"
+        "E:\\VST2",
+#endif
+#if NAUI_PLATFORM_LINUX
+        "~/.vst",
+#endif
     };
     uint32_t sampleRate = 44100;
 };

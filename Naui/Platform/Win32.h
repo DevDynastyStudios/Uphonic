@@ -28,8 +28,8 @@ public:
     bool IsOpen(void) const override { return m_isOpen; }
     void Close(void) override { m_isOpen = false; }
 
-    int GetWidth(void) const override { return m_width; }
-    int GetHeight(void) const override { return m_height; }
+    uint32_t GetWidth(void) const override { return m_width; }
+    uint32_t GetHeight(void) const override { return m_height; }
 
     void PollEvents(void) override;
     void Show(bool value) override;

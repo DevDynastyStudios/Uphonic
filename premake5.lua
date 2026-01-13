@@ -31,6 +31,20 @@ project "Naui"
     defines { "NDEBUG", "NAUI_EXPORT" }
     optimize "On"
 
+    filter "system:windows"
+        removefiles {
+            "Naui/Vendor/imgui/imgui_impl_opengl3.*",
+            "Naui/Vendor/imgui/imgui_impl_opengl3_loader.h",
+            "Naui/Vendor/imgui/imgui_impl_xlib.*",
+        }
+
+    filter "system:linux"
+        removefiles {
+            "Naui/Vendor/imgui/imgui_impl_dx11.*",
+            "Naui/Vendor/imgui/imgui_impl_win32.*"
+        }
+        links { "X11", "Xi", "EGL" }
+
 project "Uphonic"
     kind "ConsoleApp"
     language "C++"

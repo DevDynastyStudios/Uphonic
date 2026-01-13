@@ -9,3 +9,7 @@
 bin/Release/*.exe
 .vscode/
 obj/
+# loonix
+*.make
+bin/Release/*.so
+bin/Release/Uphonic

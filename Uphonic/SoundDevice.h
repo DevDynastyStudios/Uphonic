@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Core.h"
-#include "UVILoader.h"
+#include "UviLoader.h"
 
 #include <miniaudio.h>
 #include <cstdint>
