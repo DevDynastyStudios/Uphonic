@@ -13,6 +13,7 @@ void PluginManager::LoadEffect(PluginEffect& effect, const std::filesystem::path
     plugin->OpenEditor(effect.window->GetNativeHandle());
 
     effect.plugin = plugin;
+    effect.pluginPath = path.string();
     effect.window->Show(true);
 }
 

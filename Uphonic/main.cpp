@@ -1,5 +1,6 @@
 #include "Naui.h"
 #include "Core/ProjectState.h"
+#include "Core/ProjectSerializer.h"
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
 #include "Config/EditorConfig.h"
@@ -58,6 +59,19 @@ private:
         BeginMainMenuBar();
         if (BeginMenu("File"))
         {
+            if (MenuItem("Save Project"))
+            {
+                ProjectState& state = ProjectState::GetInstance();
+                std::filesystem::path projectPath = "Projects/MyProject";
+                ProjectSerializer::Save(projectPath);
+            }
+            if (MenuItem("Load Project"))
+            {
+                ProjectState& state = ProjectState::GetInstance();
+                std::filesystem::path projectPath = "Projects/MyProject";
+                ProjectSerializer::Load(projectPath);
+            }
+            Separator();
             if (MenuItem("Export to WAV"))
             {
                 ProjectState& state = ProjectState::GetInstance();

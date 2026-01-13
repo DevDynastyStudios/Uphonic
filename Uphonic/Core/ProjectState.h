@@ -59,6 +59,7 @@ union TimelineBlock
 struct AudioSample
 {
     std::string name;
+    std::string filePath;  // for saving/loading
     SampleChannelType channelType;
     float* frameData;
     uint64_t frameCount;
@@ -71,6 +72,7 @@ struct PluginEffect
 {
     Uvi::Plugin* plugin;
     Naui::PlatformWindow* window;
+    std::string pluginPath;  // for saving/loading
     
     PluginEffect() : plugin(nullptr), window(nullptr) {}
 };

@@ -136,6 +136,7 @@ AudioSample AudioEngine::LoadSample(const char* filepath)
     }
     
     sample.name = filename;
+    sample.filePath = filepath;
     sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
     sample.frameData = frames;
     sample.frameCount = framesRead;
