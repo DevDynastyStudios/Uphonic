@@ -33,3 +33,20 @@ void PluginManager::UnloadEffect(PluginEffect& effect)
     delete effect.window;
 }
 
+void PluginManager::UnloadAllEffects()
+{
+	ProjectState& state = ProjectState::GetInstance();
+
+	for(PluginEffect plugin : state.masterTrack.effects)
+	{
+		UnloadEffect(plugin);
+	}
+
+	for(AudioTrack track : state.tracks)
+	{
+		for(PluginEffect plugin : track.effects)
+		{
+			UnloadEffect(plugin);
+		}
+	}
+}

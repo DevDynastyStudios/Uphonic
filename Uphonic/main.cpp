@@ -1,10 +1,10 @@
 #include "Naui.h"
 #include "Core/ProjectState.h"
-#include "Core/ProjectSerializer.h"
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
 #include "Config/EditorConfig.h"
 
+#include "UI/MainMenuBar.h"
 #include "UI/MidiEditor.h"
 #include "UI/PatternRack.h"
 #include "UI/SampleRack.h"
@@ -40,7 +40,6 @@ private:
         Naui::AddPanel<SampleRack>();
         Naui::AddPanel<SongTimeline>();
         Naui::AddPanel<MixerRack>();
-        Naui::AddPanel<FileExplorer>();
     }
     
     void OnExit() override
@@ -56,65 +55,13 @@ private:
     
     void OnRender() override
     {
-        BeginMainMenuBar();
-        if (BeginMenu("File"))
-        {
-            if (MenuItem("Save Project"))
-            {
-                ProjectState& state = ProjectState::GetInstance();
-                std::filesystem::path projectPath = "Projects/MyProject";
-                ProjectSerializer::Save(projectPath);
-            }
-            if (MenuItem("Load Project"))
-            {
-                ProjectState& state = ProjectState::GetInstance();
-                std::filesystem::path projectPath = "Projects/MyProject";
-                ProjectSerializer::Load(projectPath);
-            }
-            Separator();
-            if (MenuItem("Export to WAV"))
-            {
-                ProjectState& state = ProjectState::GetInstance();
-                double endBeat = 0.0;
-                for (const auto& track : state.tracks)
-                {
-                    for (const auto& block : track.blocks)
-                    {
-                        double blockEnd = 0.0;
-                        if (track.type == TrackType::Midi)
-                        {
-                            blockEnd = block.midiBlock.startBeat + block.midiBlock.lengthBeats;
-                        }
-                        else
-                        {
-                            blockEnd = block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
-                        }
-                        if (blockEnd > endBeat)
-                        {
-                            endBeat = blockEnd;
-                        }
-                    }
-                }
-                AudioEngine::ExportToWav("test.wav", 0, endBeat);
-            }
-            if (MenuItem("Exit"))
-                exit(0);
-            EndMenu();
-        }
-        
-        if (BeginMenu("View"))
-        {
-            for (auto& [id, panelPtr] : Naui::GetAllPanels())
-            {
-                Naui::Panel& panel = *panelPtr;
-                PushID(id);
-                if (MenuItem(panel.GetTitle().c_str(), nullptr, panel.IsOpen()))
-                    panel.SetOpen(!panel.IsOpen());
-                PopID();
-            }
-            EndMenu();
-        }
-        EndMainMenuBar();
+        ImGui::BeginMainMenuBar();        
+		MainMenuBar::FileMenu();
+		MainMenuBar::EditMenu();
+		MainMenuBar::ViewMenu();
+		MainMenuBar::LayoutMenu();
+		MainMenuBar::HelpMenu();
+        ImGui::EndMainMenuBar();
         
         ProjectState& state = ProjectState::GetInstance();
         for (PluginEffect& effect : state.masterTrack.effects)
@@ -139,4 +86,3 @@ int main()
     app.Run();
     return 0;
 }
-

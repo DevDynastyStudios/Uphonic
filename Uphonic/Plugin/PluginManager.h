@@ -10,5 +10,6 @@ public:
     static void LoadEffect(PluginEffect& effect, const std::filesystem::path& path);
     static void OpenEffect(PluginEffect& effect);
     static void UnloadEffect(PluginEffect& effect);
+	static void UnloadAllEffects();
 };
 
