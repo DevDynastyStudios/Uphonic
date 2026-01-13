@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Core/ProjectState.h"
-#include "../UVI/UVILoader.h"
+#include "../UVI/UviLoader.h"
 #include <filesystem>
 
 class PluginManager

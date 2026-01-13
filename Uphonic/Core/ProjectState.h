@@ -2,7 +2,7 @@
 
 #include "Naui.h"
 #include "Naui/Platform/Window.h"
-#include "../UVI/UVILoader.h"
+#include "../UVI/UviLoader.h"
 #include <string>
 #include <vector>
 #include <cstdint>
