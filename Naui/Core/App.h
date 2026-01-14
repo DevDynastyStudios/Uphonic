@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include "Base.h"
 #include "Platform/Window.h"
 #include "Renderer/Renderer.h"
@@ -13,7 +15,7 @@ public:
     virtual ~App(void) = default;
 	virtual void OnMenuBar() { }
 
-    void Run(void);
+    void Run(std::string title, int width = 1280, int height = 720);
 
     PlatformWindow *GetPlatformWindow(void) const { return m_window; }
 

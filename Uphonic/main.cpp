@@ -83,6 +83,6 @@ private:
 int main()
 {
     UphonicApp app;
-    app.Run();
+    app.Run("Uphonic");
     return 0;
 }
