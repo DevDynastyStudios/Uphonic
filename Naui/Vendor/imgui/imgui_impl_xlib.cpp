@@ -40,6 +40,7 @@
 #include <time.h> // clock_gettime()
 #include <limits.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #ifdef X_HAVE_UTF8_STRING
 #include <locale.h>
@@ -334,8 +335,8 @@ bool ImGui_ImplXlib_ProcessEvent(XEvent* event)
                         {
                             int mouse_button = -1;
                             if (dev->detail == Button1) { mouse_button = 0; }
-                            if (dev->detail == Button2) { mouse_button = 1; }
-                            if (dev->detail == Button3) { mouse_button = 2; }
+                            if (dev->detail == Button3) { mouse_button = 1; }
+                            if (dev->detail == Button2) { mouse_button = 2; }
                             
                             io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
                             io.AddMouseButtonEvent(mouse_button, (cookie->evtype == XI_ButtonPress));
