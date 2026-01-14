@@ -27,10 +27,9 @@
 
   "Font": {
     "File": "Fonts/Nunito.ttf",
-    "BoldFile": "Fonts/Nunito-Bold.ttf",
     "Size": 18,
     "OversampleH": 3,
     "OversampleV": 3,
-    "RasterizerMultiply": 1.15
+    "RasterizerMultiply": 1.75
   }
 }
