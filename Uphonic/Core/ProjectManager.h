@@ -6,19 +6,6 @@
 class ProjectManager
 {
 	public:
-	static void NewProject()
-	{
-    	ProjectState& state = ProjectState::GetInstance();
-		PluginManager::UnloadAllEffects();
-		state.samples.clear();
-		state.patterns.clear();
-		state.tracks.clear();
-		state.currentMidiPatternIndex = 0;
-		state.timelinePositionBeats = 0;
-	}
-
-	static void OpenProject()
-	{
-
-	}
+	static void NewProject();
+	static void OpenProject(std::filesystem::path path);
 };

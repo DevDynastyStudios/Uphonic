@@ -1,6 +1,7 @@
 #include "MainMenuBar.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
+#include "Core/FileDialog.h"
 #include "Audio/AudioEngine.h"
 
 double MainMenuBar::GetTimelineDuration()	// (Chimpchi): Move this into a more appropriate file
@@ -27,6 +28,11 @@ double MainMenuBar::GetTimelineDuration()	// (Chimpchi): Move this into a more a
 
 void MainMenuBar::FileMenu()
 {
+	FileDialog::Display("menubar_open_project", [](const std::filesystem::path& path)
+	{
+		ProjectManager::OpenProject(path);
+	});
+
 	if(!ImGui::BeginMenu("File"))
 		return;
 
@@ -34,7 +40,9 @@ void MainMenuBar::FileMenu()
 		ProjectManager::NewProject();
 
     if (ImGui::MenuItem("Open"))
-		ProjectManager::OpenProject();
+	{
+		FileDialog::OpenFile("menubar_open_project", "Open Project", ".uph");
+	}
 
 	ImGui::Separator();
 

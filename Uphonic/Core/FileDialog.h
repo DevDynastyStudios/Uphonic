@@ -5,9 +5,32 @@
 
 class FileDialog
 {
-public:
-    static void OpenFile(const char* title, const char* filters);
-    static void OpenFolder(const char* title, const char* filters);
+	struct DialogState {
+		bool open = false;
+		bool folderMode = false;
+		bool editingPath = false;
+		bool editingJustActivated = false;
+		bool hasPendingDir = false;
+		std::filesystem::path pendingDir;
+		std::string key;
+		std::string title;
+		std::string filters;
+		std::filesystem::path currentDir;
+		std::filesystem::path selected;
+		std::string searchText;
+		std::function<void(const std::filesystem::path&)> callback;
+	};
 
-    static void Display(const char* title, const std::function<void(const std::filesystem::path& path)>& callback);
+public:
+	static void OpenFile(const char* key, const char* title, const char* filters);
+	static void OpenFolder(const char* key, const char* filters);
+
+	static void Display(const char* key, const std::function<void(const std::filesystem::path& path)>& callback);
+
+private:
+	static void DrawBreadcrumb();
+	static void DrawFileTable();
+	static void PrintTime(const std::filesystem::file_time_type& ft);
+
+	static inline DialogState state;
 };
