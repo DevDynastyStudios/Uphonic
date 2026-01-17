@@ -1046,6 +1046,14 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
     {
         return;
     }
+    // TEMPORARILY
+    if (ImGui::IsKeyPressed(ImGuiKey_Space))
+    {
+        ProjectState& state = ProjectState::GetInstance();
+        state.isPlaying = !state.isPlaying;
+        AudioEngine::StopAllNotes();
+        return true;
+    }
     
     if (ImGui::IsMouseClicked(0))
     {
@@ -1181,14 +1189,6 @@ bool SongTimeline::HandleKeyboardShortcuts()
     if (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_A))
     {
         SelectAllInstances();
-        return true;
-    }
-    
-    if (ImGui::IsKeyPressed(ImGuiKey_Space))
-    {
-        ProjectState& state = ProjectState::GetInstance();
-        state.isPlaying = !state.isPlaying;
-        AudioEngine::StopAllNotes();
         return true;
     }
     

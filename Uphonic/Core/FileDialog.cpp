@@ -2,6 +2,8 @@
 #include <imgui.h>
 #include <string.h>
 #include <filesystem>
+#include <algorithm>
+#include <chrono>
 
 static bool MatchesFilter(const std::filesystem::path& p, const std::string& filters)
 {

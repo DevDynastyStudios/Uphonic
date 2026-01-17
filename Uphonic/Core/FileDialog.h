@@ -3,23 +3,24 @@
 #include <functional>
 #include <filesystem>
 
+struct DialogState {
+    bool open = false;
+    bool folderMode = false;
+    bool editingPath = false;
+    bool editingJustActivated = false;
+    bool hasPendingDir = false;
+    std::filesystem::path pendingDir;
+    std::string key;
+    std::string title;
+    std::string filters;
+    std::filesystem::path currentDir;
+    std::filesystem::path selected;
+    std::string searchText;
+    std::function<void(const std::filesystem::path&)> callback;
+};
+
 class FileDialog
 {
-	struct DialogState {
-		bool open = false;
-		bool folderMode = false;
-		bool editingPath = false;
-		bool editingJustActivated = false;
-		bool hasPendingDir = false;
-		std::filesystem::path pendingDir;
-		std::string key;
-		std::string title;
-		std::string filters;
-		std::filesystem::path currentDir;
-		std::filesystem::path selected;
-		std::string searchText;
-		std::function<void(const std::filesystem::path&)> callback;
-	};
 
 public:
 	static void OpenFile(const char* key, const char* title, const char* filters);
