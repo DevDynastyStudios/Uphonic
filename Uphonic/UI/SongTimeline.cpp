@@ -1173,7 +1173,7 @@ void SongTimeline::UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx,
 
 bool SongTimeline::HandleKeyboardShortcuts()
 {
-	if (ImGui::IsKeyPressed(ImGuiKey_Delete) || ImGui::IsKeyPressed(ImGuiKey_Backspace))
+	if (ImGui::IsKeyPressed(ImGuiKey_Delete))
 	{
 		DeleteSelectedInstances();
 		return true;
