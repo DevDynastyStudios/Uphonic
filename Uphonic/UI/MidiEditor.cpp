@@ -54,7 +54,7 @@ void MidiEditor::RenderToolbar()
     {
         state.patterns.push_back(MidiPattern());
         state.patterns.back().name = "Pattern " + std::to_string(state.patterns.size());
-        state.currentMidiPatternIndex = state.patterns.size() - 1;
+        state.currentMidiPatternIndex = (uint16_t)(state.patterns.size() - 1);
     }
     
     ImGui::SameLine();
@@ -299,8 +299,8 @@ void MidiEditor::RenderNotes(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSi
         bool selected = std::find(m_selection.selectedNoteIndices.begin(), m_selection.selectedNoteIndices.end(), i) != m_selection.selectedNoteIndices.end();
         
         float noteY = canvasPos.y + (m_config.totalKeys - 1 - note.keyNumber - m_scrollY) * noteHeight;
-        float noteX = gridStartX + note.startBeat * beatWidth - m_scrollX;
-        float noteW = note.lengthBeats * beatWidth;
+        float noteX = gridStartX + (float)note.startBeat * beatWidth - m_scrollX;
+        float noteW = (float)note.lengthBeats * beatWidth;
         
         if (noteX + noteW < gridStartX || noteX > canvasPos.x + canvasSize.x) continue;
         if (noteY + noteHeight < canvasPos.y || noteY > canvasPos.y + canvasSize.y) continue;
@@ -414,7 +414,7 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
             {
                 ClearSelection();
                 CreateNote(beatPos, noteNum);
-                m_selection.selectedNoteIndices.push_back(GetCurrentPattern().notes.size() - 1);
+                m_selection.selectedNoteIndices.push_back((int)(GetCurrentPattern().notes.size() - 1));
                 m_selection.isDragging = true;
                 m_selection.draggedNoteIndex = m_selection.selectedNoteIndices[0];
                 m_selection.dragStartPosition = mousePos;
@@ -423,7 +423,7 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
             else
             {
                 MidiPattern& pattern = GetCurrentPattern();
-                float noteEnd = pattern.notes[clicked].startBeat + pattern.notes[clicked].lengthBeats;
+                float noteEnd = (float)(pattern.notes[clicked].startBeat + pattern.notes[clicked].lengthBeats);
                 float endX = gridStartX + noteEnd * beatWidth - m_scrollX;
                 
                 if (mousePos.x > endX - 6 && mousePos.x < endX + 2)
@@ -450,7 +450,7 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
             if (clicked != -1)
             {
                 MidiPattern& pattern = GetCurrentPattern();
-                float noteEnd = pattern.notes[clicked].startBeat + pattern.notes[clicked].lengthBeats;
+                float noteEnd = (float)(pattern.notes[clicked].startBeat + pattern.notes[clicked].lengthBeats);
                 float endX = gridStartX + noteEnd * beatWidth - m_scrollX;
                 
                 if (mousePos.x > endX - 6 && mousePos.x < endX + 2)
@@ -539,7 +539,7 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
             snappedLength = std::max(minLength, snappedLength);
             
             pattern.notes[m_selection.draggedNoteIndex].lengthBeats = snappedLength;
-            m_lastNoteLength = snappedLength;
+            m_lastNoteLength = (float)snappedLength;
         }
     }
     
@@ -553,11 +553,11 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
         ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x),
                     std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
         
-        for (size_t i = 0; i < pattern.notes.size(); i++)
+        for (int i = 0; i < pattern.notes.size(); i++)
         {
             const auto& note = pattern.notes[i];
-            float noteX1 = gridStartX + note.startBeat * beatWidth - m_scrollX;
-            float noteX2 = noteX1 + note.lengthBeats * beatWidth;
+            float noteX1 = gridStartX + (float)note.startBeat * beatWidth - m_scrollX;
+            float noteX2 = noteX1 + (float)note.lengthBeats * beatWidth;
             float noteY = canvasPos.y + (m_config.totalKeys - 1 - note.keyNumber - m_scrollY) * noteHeight;
             
             bool inBox = noteX2 >= boxMin.x && noteX1 <= boxMax.x &&
@@ -620,7 +620,7 @@ void MidiEditor::UpdateCursor(ImVec2 canvasPos, ImVec2 canvasSize, float beatWid
     if (hoveredNote != -1)
     {
         MidiPattern& pattern = GetCurrentPattern();
-        float noteEnd = pattern.notes[hoveredNote].startBeat + pattern.notes[hoveredNote].lengthBeats;
+        float noteEnd = (float)(pattern.notes[hoveredNote].startBeat + pattern.notes[hoveredNote].lengthBeats);
         float endX = gridStartX + noteEnd * beatWidth - m_scrollX;
         
         if (mousePos.x > endX - 6 && mousePos.x < endX + 2)
@@ -650,7 +650,7 @@ void MidiEditor::CreateNote(double beatPos, int noteNum)
 int MidiEditor::FindNoteAt(double beatPos, int noteNum)
 {
     MidiPattern& pattern = GetCurrentPattern();
-    for (int i = pattern.notes.size() - 1; i >= 0; i--)
+    for (int i = (int)pattern.notes.size() - 1; i >= 0; i--)
     {
         const auto& note = pattern.notes[i];
         if (note.keyNumber == noteNum &&
@@ -689,7 +689,7 @@ void MidiEditor::SelectAllNotes()
 {
     MidiPattern& pattern = GetCurrentPattern();
     m_selection.selectedNoteIndices.clear();
-    for (size_t i = 0; i < pattern.notes.size(); i++)
+    for (int i = 0; i < pattern.notes.size(); i++)
     {
         m_selection.selectedNoteIndices.push_back(i);
     }

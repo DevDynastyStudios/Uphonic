@@ -70,7 +70,6 @@ project "Uphonic"
         "Uphonic",
         "Uphonic/Vendor/miniaudio",
         "Uphonic/Vendor/imgui-knobs",
-        "Uphonic/Vendor/ImGuiFileDialog",
         "UVI"
     }
 
