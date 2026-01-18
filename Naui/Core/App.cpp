@@ -14,7 +14,6 @@ class PanelRenderer
 {
 private:
     static void Render(void);
-    static void RenderMenuBar(void);
     friend class App;
 };
 
@@ -57,11 +56,9 @@ void App::Render(void)
     m_window->PollEvents();
     m_renderer->Begin();
     ImGui::NewFrame();
-
     ImGui::DockSpaceOverViewport();
 
 	OnRender();
-
     PanelRenderer::Render();
 
     ImGui::EndFrame();

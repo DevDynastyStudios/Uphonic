@@ -4,35 +4,31 @@
 
 #include <functional>
 #include <vector>
+#include <utility>
 
 namespace Naui
 {
 
-class Defer
+class NAUI_API Defer
 {
 public:
     template<typename Fn, typename... Args>
     static void Add(Fn&& fn, Args&&... args)
     {
-        callbacks.push_back([=]() {
-            fn(args...);
-        });
+        callbacks.emplace_back(
+            [fn = std::forward<Fn>(fn),
+             ...args = std::forward<Args>(args)]() mutable
+            {
+                fn(args...);
+            }
+        );
     }
 
-    static void Process(void)
-    {
-        for (auto& cb : callbacks)
-            cb();
-        callbacks.clear();
-    }
-
-    static void Flush(void)
-    {
-        callbacks.clear();
-    }
+    static void Process();
+    static void Flush();
 
 private:
-    inline static std::vector<std::function<void()>> callbacks;
+    static std::vector<std::function<void()>> callbacks;
 };
 
 }

@@ -11,6 +11,9 @@ public:
 	static void ViewMenu();
 	static void LayoutMenu();
 	static void HelpMenu();
+	static void ShowSaveAsPopup();
+	static void ShowOverridePopup();
+	static void RenderPopups();
 
 private:
 	static double GetTimelineDuration();
