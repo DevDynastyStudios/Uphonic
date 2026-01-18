@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <imgui.h>
+#include <nlohmann/json.hpp>
 
 #include <iostream>
 
@@ -21,14 +22,14 @@ static bool layoutCacheDirty = true;
 std::string Layout::SystemPath(const std::string& name)
 {
 	fs::path base = Naui::Directory::BinDirectory();
-	fs::path rel  = fs::path(SYSTEM_DIR) / (name + ".ini");
+	fs::path rel  = fs::path(SYSTEM_DIR) / (name + ".json");
 	return (base / rel).string();
 }
 
 std::string Layout::UserPath(const std::string& name)
 {
 	fs::path base = Naui::Directory::BinDirectory();
-	fs::path rel  = fs::path(USER_DIR) / (name + ".ini");
+	fs::path rel  = fs::path(USER_DIR) / (name + ".json");
 	return (base / rel).string();
 }
 
@@ -55,38 +56,17 @@ bool Layout::Load(const std::string& name)
 	else 
 		return false;
 
-	ImGui::LoadIniSettingsFromDisk(path.c_str());
-	std::ifstream in(path);
-	if (!in)
-		return true;
+	nlohmann::json j;
+	std::ifstream file(path);
+	file >> j;
 
-	std::string ini((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-	for (auto& [id, panelPtr] : Naui::GetAllPanels())
+	for (auto& [id, panel] : Naui::GetAllPanels())
 	{
-		const std::string& title = panelPtr->GetTitle();
-		std::string tag = "[Window][" + title + "]";
-
-		size_t pos = ini.find(tag);
-		if (pos == std::string::npos)
-		{
-			panelPtr->SetOpen(false);
-			continue;
-		}
-
-		size_t nextSection = ini.find("[Window][", pos + tag.length());
-		if (nextSection == std::string::npos)
-			nextSection = ini.length();
-
-		size_t collapsedPos = ini.find("Collapsed=", pos);
-		if (collapsedPos == std::string::npos || collapsedPos >= nextSection)
-		{
-			panelPtr->SetOpen(true);
-			continue;
-		}
-
-		char value = ini[collapsedPos + strlen("Collapsed=")];
-		panelPtr->SetOpen(value == '0');
+		panel->SetOpen(j["panels"][panel->GetTitle()]["isOpen"].get<bool>());
 	}
+
+    std::string iniData = j["data"].get<std::string>();
+    ImGui::LoadIniSettingsFromMemory(iniData.c_str());
 
 	return true;
 }
@@ -101,103 +81,23 @@ bool Layout::Save(const std::string& name, bool overwrite)
     fs::path base = Naui::Directory::BinDirectory();
     fs::path dir  = base / USER_DIR;
     fs::create_directories(dir);
-    fs::path path = dir / (name + ".ini");
+    fs::path path = dir / (name + ".json");
 
     if (!overwrite && fs::exists(path))
         return false;
 
-    // 1. Let ImGui write the ini normally
-    ImGui::SaveIniSettingsToDisk(path.string().c_str());
+    const char *data = ImGui::SaveIniSettingsToMemory();
 
-    // 2. Load the ini text
-    std::ifstream in(path);
-    if (!in)
-        return false;
+	nlohmann::json j;
+	for (auto &[id, panel] : Naui::GetAllPanels())
+	{
+		j["panels"][panel->GetTitle()]["isOpen"] = panel->IsOpen();
+	}
+	j["data"] = data;
 
-    std::string ini((std::istreambuf_iterator<char>(in)),
-                    std::istreambuf_iterator<char>());
-    in.close();
+	std::ofstream file(path);
+	file << j.dump(4);
 
-    // 3. Build a map: window title -> panel*
-    std::unordered_map<std::string, Naui::Panel*> panelMap;
-    panelMap.reserve(Naui::GetAllPanels().size());
-    for (auto& [id, panelPtr] : Naui::GetAllPanels())
-        panelMap.emplace(panelPtr->GetTitle(), panelPtr);
-
-    // 4. Rewrite ini with panel-driven Collapsed flags
-    std::ostringstream outIni;
-    std::istringstream iss(ini);
-    std::string line;
-    std::string currentName;
-    Naui::Panel* currentPanel = nullptr;
-    bool inWindow     = false;
-    bool sawCollapsed = false;
-
-    auto flush_missing_collapsed = [&]()
-    {
-        if (inWindow && currentPanel && !sawCollapsed)
-        {
-            bool open = currentPanel->IsOpen();
-            outIni << "Collapsed=" << (open ? "0" : "1") << "\n";
-        }
-    };
-
-    while (std::getline(iss, line))
-    {
-        // Start of a new window block
-        if (line.rfind("[Window][", 0) == 0)
-        {
-            // Finish previous window block if needed
-            flush_missing_collapsed();
-
-            inWindow     = true;
-            sawCollapsed = false;
-
-            size_t close = line.find(']', 8);
-            currentName  = line.substr(8, close - 8);
-
-            auto it = panelMap.find(currentName);
-            currentPanel = (it != panelMap.end()) ? it->second : nullptr;
-
-            outIni << line << "\n";
-            continue;
-        }
-
-        // Inside a window block, Collapsed= line
-        if (inWindow && line.rfind("Collapsed=", 0) == 0)
-        {
-            sawCollapsed = true;
-
-            if (currentPanel)
-            {
-                bool open = currentPanel->IsOpen();
-                outIni << "Collapsed=" << (open ? "0" : "1") << "\n";
-            }
-            else
-            {
-                // Not one of our panels → leave as ImGui wrote it
-                outIni << line << "\n";
-            }
-
-            continue;
-        }
-
-        // Any other line
-        outIni << line << "\n";
-    }
-
-    // End of file: flush last window block if needed
-    flush_missing_collapsed();
-
-    // 5. Write modified ini back to disk
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    if (!out)
-        return false;
-
-    std::string finalIni = outIni.str();
-    out.write(finalIni.data(), finalIni.size());
-
-    layoutCacheDirty = true;
     return true;
 }
 
@@ -258,7 +158,7 @@ std::vector<std::string> Layout::ListLayoutsIn(const char* folder)
 		if (!entry.is_regular_file())
 			continue;
 
-		if (entry.path().extension() == ".ini")
+		if (entry.path().extension() == ".json")
 			result.push_back(entry.path().stem().string());
 	}
 
