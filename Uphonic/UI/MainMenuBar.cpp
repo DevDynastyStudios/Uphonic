@@ -6,8 +6,6 @@
 #include "Audio/AudioEngine.h"
 #include "Layout.h"
 
-#include <iostream>
-
 static char newLayoutName[64] = {};
 static bool popupFocusRequest = false;
 
@@ -45,12 +43,6 @@ void MainMenuBar::FileMenu()
 		ProjectManager::OpenProject(path);
 	});
 
-	FileDialog::Display("menubar_import_wav", [](const std::filesystem::path& path)
-	{
-		ProjectState& state = ProjectState::GetInstance();
-		state.samples.push_back(AudioEngine::LoadSample(path.string().c_str()));
-	});
-
 	if (!ImGui::BeginMenu("File"))
 		return;
 
@@ -69,9 +61,6 @@ void MainMenuBar::FileMenu()
 
 	if (ImGui::BeginMenu("Import"))
 	{
-		if (ImGui::MenuItem("Wave file"))
-			FileDialog::OpenFile("menubar_import_wav", "Import Wave file", ".wav");
-
 		ImGui::MenuItem("MIDI");
 		ImGui::EndMenu();
 	}
