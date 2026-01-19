@@ -1,122 +1,274 @@
 #include "SampleRack.h"
-#include "../Core/ProjectState.h"
-#include "../Audio/AudioEngine.h"
+#include "Core/FileDialog.h"
+#include "Core/ProjectState.h"
+#include "Audio/AudioEngine.h"
 #include <algorithm>
 #include <cstring>
+#include <imgui_internal.h>
+
+static float SAMPLE_PANEL_MIN_WIDTH		= 120.0f;
+static float SAMPLE_PANEL_MIN_HEIGHT	= 120.0f;
+
+static const float IMPORT_BUTTON_WIDTH	= 90.0f;
+static const float IMPORT_BUTTON_HEIGHT	= 26.0f;
+
+static float SAMPLE_ITEM_MIN_WIDTH	= 60.0f;
+static float SAMPLE_ITEM_MAX_WIDTH	= 120.0f;
+static float SAMPLE_ITEM_HEIGHT		= 22.0f;
+static float SAMPLE_ITEM_PADDING	= 8.0f;
+
+static float SAMPLE_COLOR_STRIP_WIDTH	= 16.0f;
+
+static float SAMPLE_BUTTON_ROUNDING	= 5.0f;
+static float SAMPLE_BUTTON_OUTLINE	= 1.0f;
+
+static ImVec4 SAMPLE_BG_COLOR		= ImVec4(0.18f, 0.18f, 0.18f, 1.0f);
+static ImVec4 SAMPLE_BG_HOVER_COLOR	= ImVec4(0.24f, 0.24f, 0.24f, 1.0f);
+static ImVec4 SAMPLE_OUTLINE_COLOR	= ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
+static ImVec4 SAMPLE_OUTLINE_ACTIVE	= ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
 
 SampleRack::SampleRack() : Naui::Panel("Sample Rack")
 {
-    m_renamingIndex = -1;
-    memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
+	m_renamingIndex = -1;
+	memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
+	SetMinSize(SAMPLE_PANEL_MIN_WIDTH, SAMPLE_PANEL_MIN_HEIGHT);
+}
+
+bool SampleRack::DrawSampleItem(AudioSample& sample, float width, float height, bool& colorClicked)
+{
+	ImGui::PushID(&sample);
+	ImVec2 pos  = ImGui::GetCursorScreenPos();
+	ImVec2 size(width, height);
+	ImRect bb(pos, pos + size);
+
+	ImGui::InvisibleButton("##hitbox", size);
+
+	bool hovered = ImGui::IsItemHovered();
+	bool held	= ImGui::IsItemActive();
+	bool pressed = ImGui::IsItemClicked();
+
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	ImU32 bg = ImGui::ColorConvertFloat4ToU32(hovered ? SAMPLE_BG_HOVER_COLOR : SAMPLE_BG_COLOR);
+	dl->AddRectFilled(bb.Min, bb.Max, bg, SAMPLE_BUTTON_ROUNDING);
+
+	ImU32 outline = ImGui::ColorConvertFloat4ToU32(held ? SAMPLE_OUTLINE_ACTIVE : SAMPLE_OUTLINE_COLOR);
+	dl->AddRect(bb.Min, bb.Max, outline, SAMPLE_BUTTON_ROUNDING, 0, SAMPLE_BUTTON_OUTLINE);
+
+	ImRect strip(bb.Min, ImVec2(bb.Min.x + SAMPLE_COLOR_STRIP_WIDTH, bb.Max.y));
+	dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32(sample.color), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
+
+	if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+	{
+		ImVec2 mouse = ImGui::GetIO().MousePos;
+		if (mouse.x >= strip.Min.x && mouse.x <= strip.Max.x && mouse.y >= strip.Min.y && mouse.y <= strip.Max.y)
+		{
+			colorClicked = true;
+		}
+	}
+
+	float textX = bb.Min.x + SAMPLE_COLOR_STRIP_WIDTH + 6.0f;
+	float textY = bb.Min.y + (height - ImGui::GetFontSize()) * 0.5f;
+	ImVec2 textPos(textX, textY);
+	ImVec2 textMax(bb.Max.x - 4.0f, bb.Max.y);
+	float ellipsisMaxX = bb.Max.x - 4.0f;
+
+	ImGui::RenderTextEllipsis(dl, textPos, textMax, ellipsisMaxX, sample.name.c_str(), nullptr, nullptr);
+	ImGui::PopID();
+	return pressed;
 }
 
 void SampleRack::OnRender()
 {
-    ProjectState& state = ProjectState::GetInstance();
-    for (uint16_t i = 0; i < state.samples.size(); i++)
-    {
-        AudioSample& sample = state.samples[i];
+	FileDialog::Display("sample_audio_import", [this](const std::filesystem::path& path)
+	{
+		ImportSample(path);
+	});
 
-        ImGui::PushID(i);
-        
-        if (m_renamingIndex == (int)i)
-        {
-            ImGui::SetNextItemWidth(-60.0f);
-            if (ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), 
-                                ImGuiInputTextFlags_EnterReturnsTrue))
-            {
-                sample.name = m_renameBuffer;
-                m_renamingIndex = -1;
-            }
-            
-            if (ImGui::IsItemDeactivated() && !ImGui::IsItemActive())
-            {
-                m_renamingIndex = -1;
-            }
-            
-            ImGui::SameLine();
-            if (ImGui::Button("OK", ImVec2(50, 0)))
-            {
-                sample.name = m_renameBuffer;
-                m_renamingIndex = -1;
-            }
-        }
-        else
-        {
-            if (ImGui::Selectable(sample.name.c_str()))
-            {
-            }
-            
-            if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None))
-            {
-                ImGui::SetDragDropPayload("SAMPLE_INDEX", &i, sizeof(uint16_t));
-                ImGui::Text("%s", sample.name.c_str());
-                ImGui::EndDragDropSource();
-            }
-            
-            if (ImGui::BeginPopupContextItem())
-            {
-                if (ImGui::MenuItem("Rename"))
-                {
-                    m_renamingIndex = i;
-                    strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer) - 1);
-                    m_renameBuffer[sizeof(m_renameBuffer) - 1] = '\0';
-                }
-                
-                if (ImGui::MenuItem("Delete"))
-                {
-                    DeleteSample(i);
-                    ImGui::EndPopup();
-                    ImGui::PopID();
-                    break;
-                }
-                
-                ImGui::Separator();
-                
-                ImGui::TextDisabled("Sample Rate: %d Hz", sample.sampleRate);
-                ImGui::TextDisabled("Channels: %s", 
-                                   sample.channelType == SampleChannelType::Mono ? "Mono" : "Stereo");
-                ImGui::TextDisabled("Frames: %llu", sample.frameCount);
-                
-                ImGui::EndPopup();
-            }
-        }
-        
-        ImGui::PopID();
-    }
+	ProjectState& state = ProjectState::GetInstance();
+	ImVec2 pos = ImGui::GetCursorScreenPos();
+	ImGui::InvisibleButton("##import_hitbox", ImVec2(IMPORT_BUTTON_WIDTH, IMPORT_BUTTON_HEIGHT));
+
+	bool hovered = ImGui::IsItemHovered();
+	bool pressed = ImGui::IsItemClicked();
+
+	ImDrawList* dl = ImGui::GetWindowDrawList();
+	ImRect bb(pos, pos + ImVec2(IMPORT_BUTTON_WIDTH, IMPORT_BUTTON_HEIGHT));
+
+	ImGuiStyle& style = ImGui::GetStyle();
+	ImU32 bg = 	ImGui::IsItemActive()   ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) :
+				ImGui::IsItemHovered()  ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
+	dl->AddRectFilled(bb.Min, bb.Max, bg, 4.0f);
+
+	const char* label = "Import";
+	ImVec2 ts = ImGui::CalcTextSize(label);
+	float tx = bb.Min.x + (IMPORT_BUTTON_WIDTH - ts.x) * 0.5f;
+	float ty = bb.Min.y + (IMPORT_BUTTON_HEIGHT - ts.y) * 0.5f;
+
+	ImGui::SetCursorScreenPos(ImVec2(tx, ty));
+	ImGui::TextUnformatted(label);
+
+	if (pressed)
+	{
+		FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac");	//(Chimpchi): Change this to use OpenFiles once it's written, and add all audio formats
+	}
+
+	ImGui::Separator();
+
+	if (state.samples.empty())
+	{
+		ImVec2 avail = ImGui::GetContentRegionAvail();
+		ImGui::BeginChild("empty", avail, true);
+
+		const char* msg = "Drag & drop audio files here to import them into your project.";
+		float wrap = avail.x * 0.75f;
+
+		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
+		ImVec2 ts = ImGui::CalcTextSize(msg, nullptr, false, wrap);
+
+		ImGui::SetCursorPosX((avail.x - ts.x) * 0.5f);
+		ImGui::SetCursorPosY((avail.y - ts.y) * 0.5f);
+		ImGui::TextUnformatted(msg);
+
+		ImGui::PopTextWrapPos();
+		ImGui::EndChild();
+		return;
+	}
+
+	float panelWidth = ImGui::GetContentRegionAvail().x;
+	panelWidth = std::max(panelWidth, SAMPLE_PANEL_MIN_WIDTH);
+
+	int itemsPerRow = (int)((panelWidth + SAMPLE_ITEM_PADDING) / (SAMPLE_ITEM_MAX_WIDTH + SAMPLE_ITEM_PADDING));
+	itemsPerRow = std::max(1, itemsPerRow);
+
+	float maxCellWidth = (panelWidth - SAMPLE_ITEM_PADDING * (itemsPerRow - 1)) / itemsPerRow;
+	maxCellWidth = std::max(maxCellWidth, SAMPLE_ITEM_MIN_WIDTH);
+
+	for (int i = 0; i < (int)state.samples.size(); i++)
+	{
+		AudioSample& sample = state.samples[i];
+		ImGui::PushID(i);
+
+		int col = i % itemsPerRow;
+		if (col > 0)
+			ImGui::SameLine(0.0f, SAMPLE_ITEM_PADDING);
+
+		float textWidth = ImGui::CalcTextSize(sample.name.c_str()).x;
+		float naturalWidth = SAMPLE_COLOR_STRIP_WIDTH + 6.0f + textWidth + 4.0f;
+		float finalWidth = ImClamp(naturalWidth, SAMPLE_ITEM_MIN_WIDTH, maxCellWidth);
+
+		if (m_renamingIndex == i)
+		{
+			ImGui::SetNextItemWidth(finalWidth - 60);
+			if (ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+			{
+				sample.name = m_renameBuffer;
+				m_renamingIndex = -1;
+			}
+
+			if (ImGui::IsItemDeactivated() && !ImGui::IsItemActive())
+				m_renamingIndex = -1;
+
+			ImGui::SameLine();
+			if (ImGui::Button("OK", ImVec2(50, SAMPLE_ITEM_HEIGHT)))
+			{
+				sample.name = m_renameBuffer;
+				m_renamingIndex = -1;
+			}
+
+			ImGui::PopID();
+			continue;
+		}
+
+		bool colorClicked = false;
+		bool pressed = DrawSampleItem(sample, finalWidth, SAMPLE_ITEM_HEIGHT, colorClicked);
+		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+		{
+			m_renamingIndex = i;
+			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+		}
+
+		if (ImGui::IsItemHovered() && ImGui::IsKeyPressed(ImGuiKey_F2))
+		{
+			m_renamingIndex = i;
+			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+		}
+
+		if (colorClicked)
+			ImGui::OpenPopup("ColorPicker");
+
+		if (ImGui::BeginPopup("ColorPicker"))
+		{
+			ImGui::ColorPicker4("##picker", (float*)&sample.color);
+			ImGui::EndPopup();
+		}
+
+		if (ImGui::BeginDragDropSource())
+		{
+			uint16_t idx = (uint16_t)i;
+			ImGui::SetDragDropPayload("SAMPLE_INDEX", &idx, sizeof(uint16_t));
+			ImGui::Text("%s", sample.name.c_str());
+			ImGui::EndDragDropSource();
+		}
+
+		if (ImGui::BeginPopupContextItem())
+		{
+			if (ImGui::MenuItem("Rename"))
+			{
+				m_renamingIndex = i;
+				strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+			}
+
+			if (ImGui::MenuItem("Delete"))
+			{
+				DeleteSample(i);
+				ImGui::EndPopup();
+				ImGui::PopID();
+				break;
+			}
+
+			ImGui::Separator();
+			ImGui::TextDisabled("Sample Rate: %d Hz", sample.sampleRate);
+			ImGui::TextDisabled("Channels: %s", sample.channelType == SampleChannelType::Mono ? "Mono" : "Stereo");
+			ImGui::TextDisabled("Frames: %llu", sample.frameCount);
+			ImGui::EndPopup();
+		}
+
+		ImGui::PopID();
+	}
 }
 
 void SampleRack::DeleteSample(uint16_t index)
 {
-    ProjectState& state = ProjectState::GetInstance();
-    if (index >= state.samples.size()) return;
-    
-    AudioSample& sample = state.samples[index];
-    if (sample.frameData)
-        AudioEngine::UnloadSample(sample);
-    
-    state.samples.erase(state.samples.begin() + index);
-    
-    for (auto& track : state.tracks)
-    {
-        if (track.type == TrackType::Audio)
-        {
-            track.blocks.erase(
-                std::remove_if(track.blocks.begin(), track.blocks.end(),
-                    [index](const TimelineBlock& block) {
-                        return block.sampleBlock.sampleIndex == index;
-                    }),
-                track.blocks.end()
-            );
-            
-            for (auto& block : track.blocks)
-            {
-                if (block.sampleBlock.sampleIndex > index)
-                {
-                    block.sampleBlock.sampleIndex--;
-                }
-            }
-        }
-    }
+	ProjectState& state = ProjectState::GetInstance();
+	if (index >= state.samples.size()) 
+		return;
+
+	AudioSample& sample = state.samples[index];
+	if (sample.frameData)
+		AudioEngine::UnloadSample(sample);
+
+	state.samples.erase(state.samples.begin() + index);
+
+	for (auto& track : state.tracks)
+	{
+		if (track.type == TrackType::Audio)
+		{
+			track.blocks.erase(std::remove_if(track.blocks.begin(), track.blocks.end(), [index](const TimelineBlock& block) {return block.sampleBlock.sampleIndex == index;}), track.blocks.end());
+			for (auto& block : track.blocks)
+			{
+				if (block.sampleBlock.sampleIndex > index)
+					block.sampleBlock.sampleIndex--;
+			}
+		}
+	}
 }
 
+void SampleRack::ImportSample(const std::filesystem::path& path)
+{
+    ProjectState& state = ProjectState::GetInstance();
+    AudioSample sample = AudioEngine::LoadSample(path.string().c_str());
+    if (!sample.frameData)
+        return;
+
+    state.samples.push_back(std::move(sample));
+}

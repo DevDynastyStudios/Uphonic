@@ -6,8 +6,6 @@
 #include "Audio/AudioEngine.h"
 #include "Layout.h"
 
-#include <iostream>
-
 static char newLayoutName[64] = {};
 static bool popupFocusRequest = false;
 
@@ -69,9 +67,6 @@ void MainMenuBar::FileMenu()
 
 	if (ImGui::BeginMenu("Import"))
 	{
-		if (ImGui::MenuItem("Wave file"))
-			FileDialog::OpenFile("menubar_import_wav", "Import Wave file", ".wav");
-
 		ImGui::MenuItem("MIDI");
 		ImGui::EndMenu();
 	}

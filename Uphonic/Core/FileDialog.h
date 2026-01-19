@@ -32,6 +32,7 @@ private:
 	static void DrawBreadcrumb();
 	static void DrawFileTable();
 	static void PrintTime(const std::filesystem::file_time_type& ft);
+	static std::string FormatBytes(uint64_t bytes);
 
 	static inline DialogState state;
 };

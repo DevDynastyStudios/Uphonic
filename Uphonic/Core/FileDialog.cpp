@@ -331,7 +331,11 @@ void FileDialog::DrawFileTable()
 			if (isDir)
 				ImGui::TextUnformatted("-");
 			else
-				ImGui::Text("%llu", (unsigned long long)std::filesystem::file_size(path));
+			{
+				uint64_t size = std::filesystem::file_size(path);
+				std::string pretty = FormatBytes(size);
+				ImGui::TextUnformatted(pretty.c_str());
+			}
 
 			ImGui::TableSetColumnIndex(2);	// Created
 			auto created = std::filesystem::last_write_time(path);
@@ -362,4 +366,27 @@ void FileDialog::PrintTime(const std::filesystem::file_time_type& ft)
 		tm->tm_mday,
 		tm->tm_hour,
 		tm->tm_min);
+}
+
+
+std::string FileDialog::FormatBytes(uint64_t bytes)
+{
+	static const char* units[] = {"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"};
+	static const size_t unitCount = sizeof(units) / sizeof(units[0]);
+	double size = static_cast<double>(bytes);
+	size_t unitIndex = 0;
+
+	while (size >= 1024.0 && unitIndex < unitCount - 1)
+	{
+		size /= 1024.0;
+		unitIndex++;
+	}
+
+	char buf[64];
+	if (unitIndex == 0)
+		snprintf(buf, sizeof(buf), "%llu %s", (unsigned long long)bytes, units[unitIndex]);
+	else
+		snprintf(buf, sizeof(buf), "%.1f %s", size, units[unitIndex]);
+
+	return std::string(buf);
 }

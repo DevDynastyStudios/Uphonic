@@ -9,8 +9,10 @@
 bin/Release/*.exe
 bin/Release/Projects
 .vscode/
+.cache/
 obj/
 # loonix
 *.make
 bin/Release/*.so
 bin/Release/Uphonic
+compile_commands.json
