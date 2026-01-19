@@ -49,8 +49,7 @@ private:
 	
 	void OnFileDrop(const char* path) override
 	{
-		ProjectState& state = ProjectState::GetInstance();
-		state.samples.push_back(AudioEngine::LoadSample(path));
+		AudioEngine::AddSample(path);
 	}
 	
 	void OnRender() override

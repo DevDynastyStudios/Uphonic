@@ -372,7 +372,7 @@ void FileExplorer::OnFileSelected(const fs::path& filePath)
     
     if (IsAudioFile(ext))
     {
-        state.samples.push_back(AudioEngine::LoadSample(filePath.string().c_str()));
+        AudioEngine::AddSample(filePath.string().c_str());
     }
 }
 

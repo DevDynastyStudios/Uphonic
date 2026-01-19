@@ -87,26 +87,31 @@ void AudioEngine::StopAllNotes()
     }
 }
 
-AudioSample AudioEngine::LoadSample(const char* filepath)
+void AudioEngine::AddSample(const char* filepath)
 {
-    AudioSample sample;
-    
+	ProjectState &state = ProjectState::GetInstance();
+    if (AudioSample sample; AudioEngine::LoadSample(filepath, sample))
+        state.samples.push_back(sample);
+}
+
+bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
+{    
     ma_decoder decoder;
     ma_decoder_config decoderConfig = ma_decoder_config_init(ma_format_f32, 0, 0);
     
     if (ma_decoder_init_file(filepath, &decoderConfig, &decoder) != MA_SUCCESS)
     {
-        std::cerr << "Failed to initialize decoder for: " << filepath << "\n";
-        return sample;
+        Naui::Debug::Error("Failed to initialize decoder for: %s", filepath);
+        return false;
     }
     
     ma_uint64 frameCount;
     ma_result result = ma_decoder_get_length_in_pcm_frames(&decoder, &frameCount);
     if (result != MA_SUCCESS)
     {
-        std::cerr << "Failed to get frame count for: " << filepath << "\n";
+        Naui::Debug::Error("Failed to get frame count for: %s", filepath);
         ma_decoder_uninit(&decoder);
-        return sample;
+        return false;
     }
     
     const ma_uint32 channels = decoder.outputChannels;
@@ -122,9 +127,9 @@ AudioSample AudioEngine::LoadSample(const char* filepath)
     
     if (result != MA_SUCCESS || framesRead == 0)
     {
-        std::cerr << "Failed to decode audio from: " << filepath << "\n";
+        Naui::Debug::Error("Failed to decode audio from: %s", filepath);
         delete[] frames;
-        return sample;
+        return false;
     }
     
     const char* filename = filepath;
@@ -147,7 +152,7 @@ AudioSample AudioEngine::LoadSample(const char* filepath)
               << channels << " channels, " 
               << sampleRate << " Hz)\n";
     
-    return sample;
+    return true;
 }
 
 void AudioEngine::UnloadSample(AudioSample& sample)

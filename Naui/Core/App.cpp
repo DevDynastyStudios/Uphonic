@@ -4,6 +4,7 @@
 #include "Style.h"
 #include "AssetManager.h"
 #include "Defer.h"
+#include "Debug.h"
 
 #include <cstdint>
 
@@ -60,6 +61,7 @@ void App::Render(void)
 
 	OnRender();
     PanelRenderer::Render();
+    Debug::Render();
 
     ImGui::EndFrame();
     ImGui::Render();

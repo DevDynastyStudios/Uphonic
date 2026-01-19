@@ -375,8 +375,7 @@ void ProjectSerializer::DeserializeFromJson(ProjectState& state, const nlohmann:
                 
                 if (std::filesystem::exists(filePath))
                 {
-                    AudioSample sample = AudioEngine::LoadSample(filePath.string().c_str());
-                    state.samples.push_back(sample);
+                    AudioEngine::AddSample(filePath.string().c_str());
                 }
             }
         }

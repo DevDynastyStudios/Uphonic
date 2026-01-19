@@ -48,7 +48,7 @@ void MainMenuBar::FileMenu()
 	FileDialog::Display("menubar_import_wav", [](const std::filesystem::path& path)
 	{
 		ProjectState& state = ProjectState::GetInstance();
-		state.samples.push_back(AudioEngine::LoadSample(path.string().c_str()));
+		AudioEngine::AddSample(path.string().c_str());
 	});
 
 	if (!ImGui::BeginMenu("File"))
