@@ -136,6 +136,7 @@ AudioSample AudioEngine::LoadSample(const char* filepath)
     }
     
     sample.name = filename;
+	sample.color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
     sample.filePath = filepath;
     sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
     sample.frameData = frames;

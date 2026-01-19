@@ -25,7 +25,8 @@ struct MidiPattern
 {
     std::string name;
     std::vector<MidiNote> notes;
-    
+	ImVec4 color;
+
     MidiPattern() = default;
     MidiPattern(const char *name) : name(name) {}
 };
@@ -61,6 +62,7 @@ struct AudioSample
     std::string name;
     std::string filePath;  // for saving/loading
     SampleChannelType channelType;
+	ImVec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
     float* frameData;
     uint64_t frameCount;
     uint32_t sampleRate;

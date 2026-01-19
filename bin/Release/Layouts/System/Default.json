@@ -1,0 +1,20 @@
+{
+    "data": "[Window][WindowOverViewport_11111111]\nPos=0,34\nSize=2560,1335\nCollapsed=0\n\n[Window][Song Timeline]\nPos=0,34\nSize=2145,711\nCollapsed=0\nDockId=0x00000007,0\n\n[Window][Midi Editor]\nPos=0,747\nSize=1857,622\nCollapsed=0\nDockId=0x00000003,0\n\n[Window][Pattern Rack]\nPos=2147,34\nSize=204,711\nCollapsed=0\nDockId=0x00000008,0\n\n[Window][Sample Rack]\nPos=2353,34\nSize=207,711\nCollapsed=0\nDockId=0x00000006,0\n\n[Window][Mixer Rack]\nPos=1859,747\nSize=701,622\nCollapsed=0\nDockId=0x00000004,0\n\n[Window][Debug##Default]\nPos=60,60\nSize=400,400\nCollapsed=0\n\n[Docking][Data]\nDockSpace       ID=0x08BD597D Window=0x1BBC0F80 Pos=0,57 Size=2560,1335 Split=Y\n  DockNode      ID=0x00000001 Parent=0x08BD597D SizeRef=1280,711 Split=X Selected=0x5A3A6CF5\n    DockNode    ID=0x00000005 Parent=0x00000001 SizeRef=2351,711 Split=X Selected=0x5A3A6CF5\n      DockNode  ID=0x00000007 Parent=0x00000005 SizeRef=2145,711 CentralNode=1 Selected=0x5A3A6CF5\n      DockNode  ID=0x00000008 Parent=0x00000005 SizeRef=204,711 Selected=0xDF819CF7\n    DockNode    ID=0x00000006 Parent=0x00000001 SizeRef=207,711 Selected=0x7E5CA9D0\n  DockNode      ID=0x00000002 Parent=0x08BD597D SizeRef=1280,622 Split=X Selected=0xBB377699\n    DockNode    ID=0x00000003 Parent=0x00000002 SizeRef=1857,622 Selected=0xBB377699\n    DockNode    ID=0x00000004 Parent=0x00000002 SizeRef=701,622 Selected=0xDA322ED1\n\n",
+    "panels": {
+        "Midi Editor": {
+            "isOpen": true
+        },
+        "Mixer Rack": {
+            "isOpen": true
+        },
+        "Pattern Rack": {
+            "isOpen": true
+        },
+        "Sample Rack": {
+            "isOpen": true
+        },
+        "Song Timeline": {
+            "isOpen": true
+        }
+    }
+}
