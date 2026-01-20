@@ -1,7 +1,7 @@
 #include "FileDialog.h"
+#include "Naui/FileSystem/File.h"
 #include <imgui.h>
 #include <string.h>
-#include <filesystem>
 #include <algorithm>
 #include <chrono>
 
@@ -114,9 +114,11 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		ImGui::TextUnformatted("File Name:");
 		ImGui::SameLine();
 
-		std::string displayName = state.folderMode ? state.selected.string() : state.selected.filename().string();
+		std::u8string displayName = state.folderMode ? state.selected.u8string() : state.selected.filename().u8string();
 		char selectedBuf[512];
-		strncpy(selectedBuf, displayName.c_str(), sizeof(selectedBuf));
+		const char* utf8 = reinterpret_cast<const char*>(displayName.c_str());
+		strncpy(selectedBuf, utf8, sizeof(selectedBuf));
+		selectedBuf[sizeof(selectedBuf) - 1] = '\0';	// Safety termination
 
 		ImGui::PushItemWidth(-1);
 		ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly);
@@ -264,7 +266,7 @@ void FileDialog::DrawFileTable()
 			[&](const auto& entry)
 			{
 				const bool isDir = entry.is_directory();
-				const std::string name = entry.path().filename().string();
+				const std::string name = Naui::Directory::ToUTF8(entry.path().filename());
 
 				if (!state.searchText.empty() &&
 					name.find(state.searchText) == std::string::npos)
@@ -309,7 +311,7 @@ void FileDialog::DrawFileTable()
 		{
 			const bool isDir = entry.is_directory();
 			const auto path = entry.path();
-			const std::string name = path.filename().string();
+			const std::string name = Naui::Directory::ToUTF8(path.filename());
 
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);

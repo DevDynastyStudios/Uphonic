@@ -188,6 +188,13 @@ std::vector<DirEntry> Directory::Filter(const std::filesystem::path& path, std::
 
 	return entries;
 }
+
+inline std::string Directory::ToUTF8(const std::filesystem::path& p)
+{
+	auto u8 = p.u8string();
+	return std::string(reinterpret_cast<const char*>(u8.c_str()));
+}
+
 #pragma endregion
 
 #pragma region PathUtils

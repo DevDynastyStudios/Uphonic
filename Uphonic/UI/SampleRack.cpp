@@ -81,7 +81,7 @@ void SampleRack::OnRender()
 {
 	FileDialog::Display("sample_audio_import", [this](const std::filesystem::path& path)
 	{
-		ImportSample(path);
+		AudioEngine::AddSample(path.string().c_str());
 	});
 
 	ProjectState& state = ProjectState::GetInstance();
@@ -95,8 +95,7 @@ void SampleRack::OnRender()
 	ImRect bb(pos, pos + ImVec2(IMPORT_BUTTON_WIDTH, IMPORT_BUTTON_HEIGHT));
 
 	ImGuiStyle& style = ImGui::GetStyle();
-	ImU32 bg = 	ImGui::IsItemActive()   ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) :
-				ImGui::IsItemHovered()  ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
+	ImU32 bg = 	ImGui::IsItemActive()   ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) : ImGui::IsItemHovered()  ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
 	dl->AddRectFilled(bb.Min, bb.Max, bg, 4.0f);
 
 	const char* label = "Import";
@@ -109,7 +108,7 @@ void SampleRack::OnRender()
 
 	if (pressed)
 	{
-		FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac");	//(Chimpchi): Change this to use OpenFiles once it's written, and add all audio formats
+		FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac");
 	}
 
 	ImGui::Separator();
@@ -158,39 +157,75 @@ void SampleRack::OnRender()
 
 		if (m_renamingIndex == i)
 		{
-			ImGui::SetNextItemWidth(finalWidth - 60);
-			if (ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
+			float renameTextWidth = ImGui::CalcTextSize(m_renameBuffer).x;
+			float naturalWidth = SAMPLE_COLOR_STRIP_WIDTH + 6.0f + renameTextWidth + 2.0f;
+			float renameWidth = ImClamp(naturalWidth, SAMPLE_ITEM_MIN_WIDTH, maxCellWidth);
+			bool exceeded = naturalWidth > maxCellWidth;
+		
+			ImVec2 pos  = ImGui::GetCursorScreenPos();
+			ImVec2 size(renameWidth, SAMPLE_ITEM_HEIGHT);
+			ImRect bb(pos, pos + size);
+			ImGuiID id = ImGui::GetID("##rename_item");
+			ImGui::ItemAdd(bb, id);
+		
+			ImDrawList* dl = ImGui::GetWindowDrawList();
+			dl->AddRectFilled(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(SAMPLE_BG_COLOR), SAMPLE_BUTTON_ROUNDING);
+			dl->AddRect(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(SAMPLE_OUTLINE_COLOR), SAMPLE_BUTTON_ROUNDING, 0, SAMPLE_BUTTON_OUTLINE);
+			ImRect strip(bb.Min, ImVec2(bb.Min.x + SAMPLE_COLOR_STRIP_WIDTH, bb.Max.y));
+			dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32(sample.color), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
+			
+			float textX = pos.x + SAMPLE_COLOR_STRIP_WIDTH + 6.0f;
+			float textWidth = renameWidth - SAMPLE_COLOR_STRIP_WIDTH - 10.0f;
+			
+			ImGui::SetCursorScreenPos(ImVec2(textX, pos.y));
+			
+			float padY = (SAMPLE_ITEM_HEIGHT - ImGui::GetFontSize()) * 0.5f;
+			ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, padY));
+			ImGui::SetNextItemWidth(textWidth);
+			
+			if (m_justStartedRenaming)
+			{
+				ImGui::SetKeyboardFocusHere();
+				m_justStartedRenaming = false;
+			}
+
+			ImGuiInputTextFlags flags = exceeded ? ImGuiInputTextFlags_EnterReturnsTrue : (ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_NoHorizontalScroll);
+			bool enter = ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), flags);
+			ImGui::PopStyleVar();
+			bool clickedOutside = ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !ImGui::IsItemHovered() && !ImGui::IsMouseHoveringRect(bb.Min, bb.Max);
+		
+			if (enter)
 			{
 				sample.name = m_renameBuffer;
 				m_renamingIndex = -1;
 			}
-
-			if (ImGui::IsItemDeactivated() && !ImGui::IsItemActive())
-				m_renamingIndex = -1;
-
-			ImGui::SameLine();
-			if (ImGui::Button("OK", ImVec2(50, SAMPLE_ITEM_HEIGHT)))
+			else if (clickedOutside)
 			{
-				sample.name = m_renameBuffer;
 				m_renamingIndex = -1;
 			}
-
+		
+			ImGui::Dummy(size);
 			ImGui::PopID();
 			continue;
 		}
 
 		bool colorClicked = false;
 		bool pressed = DrawSampleItem(sample, finalWidth, SAMPLE_ITEM_HEIGHT, colorClicked);
+		
 		if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
 		{
 			m_renamingIndex = i;
-			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer) - 1);
+			m_renameBuffer[sizeof(m_renameBuffer) - 1] = '\0';
+			m_justStartedRenaming = true;
 		}
 
 		if (ImGui::IsItemHovered() && ImGui::IsKeyPressed(ImGuiKey_F2))
 		{
 			m_renamingIndex = i;
-			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+			strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer) - 1);
+			m_renameBuffer[sizeof(m_renameBuffer) - 1] = '\0';
+			m_justStartedRenaming = true;
 		}
 
 		if (colorClicked)
@@ -215,7 +250,9 @@ void SampleRack::OnRender()
 			if (ImGui::MenuItem("Rename"))
 			{
 				m_renamingIndex = i;
-				strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer)-1);
+				strncpy(m_renameBuffer, sample.name.c_str(), sizeof(m_renameBuffer) - 1);
+				m_renameBuffer[sizeof(m_renameBuffer) - 1] = '\0';
+				m_justStartedRenaming = true;
 			}
 
 			if (ImGui::MenuItem("Delete"))
@@ -261,14 +298,4 @@ void SampleRack::DeleteSample(uint16_t index)
 			}
 		}
 	}
-}
-
-void SampleRack::ImportSample(const std::filesystem::path& path)
-{
-    ProjectState& state = ProjectState::GetInstance();
-    AudioSample sample = AudioEngine::LoadSample(path.string().c_str());
-    if (!sample.frameData)
-        return;
-
-    state.samples.push_back(std::move(sample));
 }
