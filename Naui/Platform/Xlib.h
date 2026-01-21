@@ -8,7 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_xlib.h>
 
-Display *dpy = nullptr;
+static Display *dpy = nullptr;
 
 namespace Naui
 {

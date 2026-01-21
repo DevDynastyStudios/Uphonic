@@ -14,7 +14,7 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_opengl3_loader.h>
 
-extern Display *dpy;
+static Display *dpy = nullptr;
 
 namespace Naui
 {
@@ -70,6 +70,12 @@ private:
 
 OpenGLRenderer::OpenGLRenderer(const PlatformWindow &window)
 {
+    dpy = XOpenDisplay(nullptr);
+    if (!dpy)
+    {
+        fprintf(stderr, "failed to open X11 display\n");
+        return;
+    }
     Window *win = (Window*)window.GetNativeHandle();
     if (!CreateEGLContext(dpy, *win))
     {
@@ -85,6 +91,7 @@ OpenGLRenderer::~OpenGLRenderer(void)
 {
     ImGui_ImplOpenGL3_Shutdown();
     CleanupEGLContext();
+    XCloseDisplay(dpy);
 }
 
 bool OpenGLRenderer::CreateEGLContext(Display *dpy, Window win)
