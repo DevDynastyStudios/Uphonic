@@ -313,48 +313,35 @@ bool ImGui_ImplXlib_ProcessEvent(XEvent* event)
     
     switch (event->type)
     {
-        case GenericEvent:
+        case MotionNotify:
         {
-            XGenericEventCookie *cookie = (XGenericEventCookie*)&event->xcookie;
-            if (cookie->extension == bd->Xi2Opcode && XGetEventData(event->xcookie.display, cookie))
+            printf("lmao\n");
+            ImVec2 mouse_pos((float)event->xmotion.x, (float)event->xmotion.y);
+            io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
+            io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
+            return true;
+        }
+        case ButtonPress:
+        case ButtonRelease:
+        {
+            if (event->xbutton.button >= Button1 && event->xbutton.button <= Button3)
             {
-                XIDeviceEvent *dev = (XIDeviceEvent*)cookie->data;                
-                switch (cookie->evtype)
-                {
-                    case XI_Motion:
-                    {
-                        ImVec2 mouse_pos((float)dev->event_x, (float)dev->event_y);
-                        io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
-                        io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
-                        return true;
-                    }
-                    case XI_ButtonPress:
-                    case XI_ButtonRelease:
-                    {
-                        if (dev->detail >= Button1 && dev->detail <= Button3)
-                        {
-                            int mouse_button = -1;
-                            if (dev->detail == Button1) { mouse_button = 0; }
-                            if (dev->detail == Button3) { mouse_button = 1; }
-                            if (dev->detail == Button2) { mouse_button = 2; }
-                            
-                            io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
-                            io.AddMouseButtonEvent(mouse_button, (cookie->evtype == XI_ButtonPress));
-                            bd->MouseButtonsDown = (cookie->evtype == XI_ButtonPress) ? (bd->MouseButtonsDown | (1 << mouse_button)) : (bd->MouseButtonsDown & ~(1 << mouse_button));
-                            return true;
-                        }
-                        else if (dev->detail == Button4 || dev->detail == Button5)
-                        {
-                            float wheel_y = (dev->detail == Button4) ? 1.0f : -1.0f;
-                            io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
-                            io.AddMouseWheelEvent(0, wheel_y);
-                            return true;
-                        }
-                    }
-                }
+                int mouse_button = -1;
+                if (event->xbutton.button == Button1) { mouse_button = 0; }
+                if (event->xbutton.button == Button3) { mouse_button = 1; }
+                if (event->xbutton.button == Button2) { mouse_button = 2; }
+
+                io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
+                io.AddMouseButtonEvent(mouse_button, (event->type == ButtonPress));
+                bd->MouseButtonsDown = (event->type == ButtonPress) ? (bd->MouseButtonsDown | (1 << mouse_button)) : (bd->MouseButtonsDown & ~(1 << mouse_button));
             }
-            XFreeEventData(event->xcookie.display, cookie);
-            return false;
+            else if (event->xbutton.button == Button4 || event->xbutton.button == Button5)
+            {
+                float wheel_y = (event->xbutton.button == Button4) ? 1.0f : -1.0f;
+                io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
+                io.AddMouseWheelEvent(0.0f, wheel_y);
+            }
+            return true;
         }
         case KeyPress:
         case KeyRelease:
