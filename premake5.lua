@@ -43,7 +43,7 @@ project "Naui"
             "Naui/Vendor/imgui/imgui_impl_dx11.*",
             "Naui/Vendor/imgui/imgui_impl_win32.*"
         }
-        links { "X11", "Xi", "EGL" }
+        links { "X11", "EGL" }
 
 project "Uphonic"
     kind "ConsoleApp"

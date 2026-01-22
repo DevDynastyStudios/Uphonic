@@ -315,7 +315,6 @@ bool ImGui_ImplXlib_ProcessEvent(XEvent* event)
     {
         case MotionNotify:
         {
-            printf("lmao\n");
             ImVec2 mouse_pos((float)event->xmotion.x, (float)event->xmotion.y);
             io.AddMouseSourceEvent(ImGuiMouseSource_Mouse);
             io.AddMousePosEvent(mouse_pos.x, mouse_pos.y);
@@ -477,28 +476,7 @@ bool ImGui_ImplXlib_Init(Display* display, Window window)
     }
 
     // Select keyboard/focus events
-    XSelectInput(display, window, KeyPressMask | KeyReleaseMask | FocusChangeMask);
-
-    // Setup XInput for mouse inputs
-    int xi2_opcode, xi2_event, xi2_error;
-    Bool ret = XQueryExtension(display, "XInputExtension", &xi2_opcode, &xi2_event, &xi2_error);
-
-    IM_ASSERT(ret == True && "Could not load XInputExtension!");
-
-    bd->Xi2Opcode = xi2_opcode;
-
-    XIEventMask xi2_eventmask = {};
-    static unsigned char xi2_mask[XIMaskLen(XI_LASTEVENT)] = {};
-
-    XISetMask(xi2_mask, XI_Motion);
-    XISetMask(xi2_mask, XI_ButtonPress);
-    XISetMask(xi2_mask, XI_ButtonRelease);
-
-    xi2_eventmask.deviceid = XIAllMasterDevices;
-    xi2_eventmask.mask_len = sizeof(xi2_mask);
-    xi2_eventmask.mask = xi2_mask;
-
-    XISelectEvents(display, window, &xi2_eventmask, 1);
+    XSelectInput(display, window, KeyPressMask | KeyReleaseMask | FocusChangeMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
 
     // Setup XIM
 #ifdef X_HAVE_UTF8_STRING

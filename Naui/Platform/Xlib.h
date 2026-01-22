@@ -8,7 +8,7 @@
 #include <imgui.h>
 #include <imgui_impl_xlib.h>
 
-static Display *dpy = nullptr;
+Display *dpy = nullptr;
 
 namespace Naui
 {
@@ -81,6 +81,8 @@ PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title,
 
     XMapWindow(dpy, m_window);
     XFlush(dpy);
+
+    ImGui_ImplXlib_Init(dpy, m_window);
 
     m_width = width, m_height = height;
 }

@@ -14,7 +14,7 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_opengl3_loader.h>
 
-static Display *dpy = nullptr;
+extern Display *dpy;
 
 namespace Naui
 {
@@ -70,32 +70,28 @@ private:
 
 OpenGLRenderer::OpenGLRenderer(const PlatformWindow &window)
 {
-    dpy = XOpenDisplay(nullptr);
-    if (!dpy)
-    {
-        fprintf(stderr, "failed to open X11 display\n");
-        return;
-    }
     Window *win = (Window*)window.GetNativeHandle();
     if (!CreateEGLContext(dpy, *win))
     {
         CleanupEGLContext();
         return;
     }
-    ImGui_ImplXlib_Init(dpy, *win);
     ImGui_ImplOpenGL3_Init("#version 130");
-
 }
 
 OpenGLRenderer::~OpenGLRenderer(void)
 {
     ImGui_ImplOpenGL3_Shutdown();
     CleanupEGLContext();
-    XCloseDisplay(dpy);
 }
 
 bool OpenGLRenderer::CreateEGLContext(Display *dpy, Window win)
 {
+    if (!dpy)
+    {
+        fprintf(stderr, "invalid X11 display\n");
+        return false;
+    }
     m_dpy = eglGetDisplay((EGLNativeDisplayType)dpy);
     eglInitialize(m_dpy, nullptr, nullptr);
 
@@ -115,15 +111,25 @@ bool OpenGLRenderer::CreateEGLContext(Display *dpy, Window win)
     eglChooseConfig(m_dpy, configAttribs, &config, 1, &numConfigs);
 
     m_surface = eglCreateWindowSurface(m_dpy, config, (EGLNativeWindowType)win, NULL);
+    if (!m_surface)
+    {
+        fprintf(stderr, "failed to create EGL surface\n");
+        return false;
+    }
     
     EGLint contextAttribs[] = {
         EGL_CONTEXT_CLIENT_VERSION, 3,
-		EGL_CONTEXT_MINOR_VERSION, 3,
+		EGL_CONTEXT_MINOR_VERSION, 0,
         EGL_NONE
     };
 
     eglBindAPI(EGL_OPENGL_API);
     m_glContext = eglCreateContext(m_dpy, config, EGL_NO_CONTEXT, contextAttribs);
+    if (!m_glContext)
+    {
+        fprintf(stderr, "failed to create EGL context\n");
+        return false;
+    }
     eglMakeCurrent(m_dpy, m_surface, m_surface, m_glContext);
 
     eglSwapInterval(m_dpy, 1); // vsync
