@@ -8,10 +8,12 @@
 class ProjectSerializer
 {
 public:
-    static bool Save(const std::filesystem::path& projectPath);
-    static bool Load(const std::filesystem::path& projectPath);
+	static bool Save(const std::filesystem::path& projectPath, bool overwrite = false);
+	static bool Load(ProjectState& state, const std::filesystem::path& projectPath);
 
 private:
-    static void SerializeToJson(const ProjectState& state, nlohmann::json& json, const std::filesystem::path& projectDir);
-    static void DeserializeFromJson(ProjectState& state, const nlohmann::json& json, const std::filesystem::path& projectDir);
+	static void SerializeToJson(const ProjectState& state, nlohmann::json& json, const std::filesystem::path& projectDir);
+	static void DeserializeFromJson(ProjectState& state, const nlohmann::json& json, const std::filesystem::path& projectDir);
+
+	static void DeserializeSamplesFromJson(ProjectState& state, const nlohmann::json& json, const std::filesystem::path& projectDir);
 };

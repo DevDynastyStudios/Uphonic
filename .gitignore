@@ -15,4 +15,5 @@ obj/
 *.make
 bin/Release/*.so
 bin/Release/Uphonic
+bin/Release/workspace
 compile_commands.json

@@ -1,4 +1,6 @@
 #include "Naui.h"
+#include "Naui/FileSystem/File.h"
+#include "Core/ProjectManager.h"
 #include "Core/ProjectState.h"
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
@@ -22,11 +24,11 @@ class UphonicApp : public Naui::App
 private:
 	void OnEnter() override
 	{
+		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::WorkingDirectory() / "workspace", true);
+		ProjectManager::NewProject(true);
 		Layout::LoadDefault();
 		ProjectState& state = ProjectState::GetInstance();
 		state.mainWindow = GetPlatformWindow();
-		
-		state.patterns.push_back(MidiPattern("Pattern 1"));
 		
 		AudioConfig audioConfig;
 		audioConfig.sampleRate = state.settings.audioSampleRate;
@@ -49,7 +51,7 @@ private:
 	
 	void OnFileDrop(const char* path) override
 	{
-		AudioEngine::AddSample(path);
+		ProjectManager::ImportSample(path);
 	}
 	
 	void OnRender() override

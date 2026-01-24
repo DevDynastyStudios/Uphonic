@@ -45,7 +45,7 @@ public:
 	static std::filesystem::path BinDirectory();
 	static std::filesystem::path WorkingDirectory();
 	static std::filesystem::path WorkspaceDirectory();
-	static void SetWorkspaceDirectory(const std::filesystem::path& path);
+	static void SetWorkspaceDirectory(const std::filesystem::path& path, bool hidden = false);
 	static std::string GetEnv(const char* name);
 	static std::vector<DirEntry> Filter(const std::filesystem::path& path, std::string_view nameFilter, const std::vector<std::string_view>& allowedExtensions);
 	static std::string ToUTF8(const std::filesystem::path& p);

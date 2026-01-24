@@ -10,6 +10,10 @@
 #include <cerrno>
 #include <filesystem>
 
+#if NAUI_PLATFORM_WINDOWS
+#include <Windows.h>
+#endif
+
 namespace Naui {
 
 #if NAUI_PLATFORM_WINDOWS
@@ -114,11 +118,31 @@ std::filesystem::path Directory::WorkspaceDirectory() {
 	return workspaceDirectory;
 }
 
-void Directory::SetWorkspaceDirectory(const std::filesystem::path& path) {
-	if (path.empty())
+void Directory::SetWorkspaceDirectory(const std::filesystem::path& path, bool hidden) {
+	if (path.empty() || path.has_extension())
 		return;
 
-	workspaceDirectory = path;
+	std::filesystem::path finalPath = path;
+
+	if(hidden)
+	{
+		std::filesystem::path parent = path.parent_path();
+		std::string name = path.filename().string();
+
+#ifndef NAUI_PLATFORM_WINDOWS
+		if(!name.empty() && name[0] != '.')
+			name = '.' + name;
+#endif
+		finalPath = parent / name;
+	}
+	
+	std::filesystem::create_directories(finalPath);
+#if NAUI_PLATFORM_WINDOWS
+	if(hidden)
+		SetFileAttributesA(finalPath.string().c_str(), FILE_ATTRIBUTE_HIDDEN);
+#endif
+
+	workspaceDirectory = finalPath;
 }
 
 std::string Directory::GetEnv(const char* name) {

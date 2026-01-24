@@ -114,15 +114,20 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		ImGui::TextUnformatted("File Name:");
 		ImGui::SameLine();
 
-		std::u8string displayName = state.folderMode ? state.selected.u8string() : state.selected.filename().u8string();
+		std::string displayName = Naui::Directory::ToUTF8(state.folderMode ? state.selected.u8string() : state.selected.filename().u8string());
 		char selectedBuf[512];
-		const char* utf8 = reinterpret_cast<const char*>(displayName.c_str());
-		strncpy(selectedBuf, utf8, sizeof(selectedBuf));
-		selectedBuf[sizeof(selectedBuf) - 1] = '\0';	// Safety termination
+		if (displayName.size() < sizeof(selectedBuf))
+		{
+		    std::memcpy(selectedBuf, displayName.data(), displayName.size());
+		    selectedBuf[displayName.size()] = '\0';
+		}
+		else
+		    selectedBuf[0] = '\0';
 
 		ImGui::PushItemWidth(-1);
-		ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly);
+		ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll);
 		ImGui::PopItemWidth();
+		
 		ImGui::Dummy(ImVec2(0, 0));
 
 		float buttonWidth = 80.0f;
@@ -132,7 +137,7 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 
 		ImGui::SetCursorPosX(avail - totalWidth);
 
-		bool canConfirm = state.folderMode || !state.selected.empty();
+		bool canConfirm = state.folderMode ? std::filesystem::exists(state.currentDir) : (!state.selected.empty() && std::filesystem::exists(state.selected));
 		if (!canConfirm) ImGui::BeginDisabled();
 
 		if (ImGui::Button("Open", ImVec2(buttonWidth, 0)))

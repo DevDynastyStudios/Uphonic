@@ -1,6 +1,7 @@
 #include "SampleRack.h"
 #include "Core/FileDialog.h"
 #include "Core/ProjectState.h"
+#include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
 #include <algorithm>
 #include <cstring>
@@ -81,7 +82,7 @@ void SampleRack::OnRender()
 {
 	FileDialog::Display("sample_audio_import", [this](const std::filesystem::path& path)
 	{
-		AudioEngine::AddSample(path.string().c_str());
+		ProjectManager::ImportSample(path);
 	});
 
 	ProjectState& state = ProjectState::GetInstance();
@@ -134,13 +135,13 @@ void SampleRack::OnRender()
 	}
 
 	float panelWidth = ImGui::GetContentRegionAvail().x;
-	panelWidth = std::max(panelWidth, SAMPLE_PANEL_MIN_WIDTH);
+	panelWidth = std::max<float>(panelWidth, SAMPLE_PANEL_MIN_WIDTH);
 
 	int itemsPerRow = (int)((panelWidth + SAMPLE_ITEM_PADDING) / (SAMPLE_ITEM_MAX_WIDTH + SAMPLE_ITEM_PADDING));
-	itemsPerRow = std::max(1, itemsPerRow);
+	itemsPerRow = std::max<int>(1, itemsPerRow);
 
 	float maxCellWidth = (panelWidth - SAMPLE_ITEM_PADDING * (itemsPerRow - 1)) / itemsPerRow;
-	maxCellWidth = std::max(maxCellWidth, SAMPLE_ITEM_MIN_WIDTH);
+	maxCellWidth = std::max<float>(maxCellWidth, SAMPLE_ITEM_MIN_WIDTH);
 
 	for (int i = 0; i < (int)state.samples.size(); i++)
 	{
@@ -196,7 +197,9 @@ void SampleRack::OnRender()
 		
 			if (enter)
 			{
-				sample.name = m_renameBuffer;
+				if(sample.name != m_renameBuffer)
+					ProjectManager::RenameSample((size_t)i, m_renameBuffer);
+
 				m_renamingIndex = -1;
 			}
 			else if (clickedOutside)
@@ -280,11 +283,7 @@ void SampleRack::DeleteSample(uint16_t index)
 	if (index >= state.samples.size()) 
 		return;
 
-	AudioSample& sample = state.samples[index];
-	if (sample.frameData)
-		AudioEngine::UnloadSample(sample);
-
-	state.samples.erase(state.samples.begin() + index);
+	ProjectManager::DeleteSample((size_t)index);
 
 	for (auto& track : state.tracks)
 	{

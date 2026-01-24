@@ -57,6 +57,53 @@ bool Archive::IsValid() const
 	return isValid_; 
 }
 
+bool Archive::AddFolder(const std::filesystem::path& folder, const std::filesystem::path& rootInArchive)
+{
+	if (!isValid_ || mode_ != ArchiveMode::Write)
+		return false;
+
+	for (auto& entry : std::filesystem::recursive_directory_iterator(folder))
+	{
+		if (entry.is_directory())
+			continue;
+
+		std::filesystem::path rel = std::filesystem::relative(entry.path(), folder);
+		std::filesystem::path dest = rootInArchive / rel;
+
+		if (!Archive::AddFile(entry.path(), dest))
+			return false;
+	}
+
+	return true;
+}
+
+bool Archive::ExtractTo(const std::filesystem::path& outputFolder)
+{
+	if(!isValid_ || mode_ != ArchiveMode::Read)
+		return false;
+
+	int count = (int)mz_zip_reader_get_num_files(&zip_);
+	for (int i = 0; i < count; ++i)
+	{
+		mz_zip_archive_file_stat st;
+		if (!mz_zip_reader_file_stat(&zip_, i, &st))
+			continue;
+
+		std::filesystem::path out = outputFolder / st.m_filename;
+		if (mz_zip_reader_is_file_a_directory(&zip_, i))
+		{
+			std::filesystem::create_directories(out);
+			continue;
+		}
+
+		std::filesystem::create_directories(out.parent_path());
+		if (!mz_zip_reader_extract_to_file(&zip_, i, out.string().c_str(), 0))
+			return false;
+	}
+
+	return true;
+}
+
 bool Archive::AddFile(const std::filesystem::path& source, const std::filesystem::path& destInArchive)
 {
 	if (!isValid_ || mode_ != ArchiveMode::Write)

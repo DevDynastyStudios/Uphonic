@@ -44,6 +44,17 @@ SongTimeline::SongTimeline() : Naui::Panel("Song Timeline")
 	}
 }
 
+AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	AudioTrack track;
+	track.type = TrackType::None;
+	track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
+	track.name = title;
+	state.tracks.push_back(track);
+	return track;
+}
+
 void SongTimeline::OnRender()
 {
 	RenderToolbar();
@@ -1023,10 +1034,10 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 	bool isInteracting = m_selection.isDragging || m_selection.isResizing || m_selection.isResizingLeft || m_selection.isSelecting;
 	if (!isInteracting)
 	{
-	    if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
+		if (!ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows))
 			return;
 
-	    if (HandleKeyboardShortcuts())
+		if (HandleKeyboardShortcuts())
 			return;
 		if (ImGui::IsKeyPressed(ImGuiKey_Space))
 		{
@@ -1188,8 +1199,7 @@ bool SongTimeline::HandleKeyboardShortcuts()
 	return false;
 }
 
-void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx,
-						 float trackStartX, float beatWidth)
+void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth)
 {
 	if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
 	{
@@ -1214,8 +1224,7 @@ void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackId
 	}
 }
 
-void SongTimeline::HandleDrawToolClick(int instTrack, int instIdx, int trackIdx, double beatPos,
-							ImVec2 mousePos, float trackStartX, float beatWidth)
+void SongTimeline::HandleDrawToolClick(int instTrack, int instIdx, int trackIdx, double beatPos, ImVec2 mousePos, float trackStartX, float beatWidth)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	if (instIdx == -1 && trackIdx >= 0)
@@ -1260,8 +1269,7 @@ void SongTimeline::HandleDrawToolClick(int instTrack, int instIdx, int trackIdx,
 	}
 }
 
-void SongTimeline::HandleSelectToolClick(int instTrack, int instIdx, int trackIdx,
-							  ImVec2 mousePos, float trackStartX, float beatWidth)
+void SongTimeline::HandleSelectToolClick(int instTrack, int instIdx, int trackIdx, ImVec2 mousePos, float trackStartX, float beatWidth)
 {
 	if (instTrack >= 0 && instIdx >= 0)
 	{
@@ -1306,8 +1314,7 @@ void SongTimeline::HandleDeleteToolClick(int instTrack, int instIdx)
 	}
 }
 
-bool SongTimeline::TryStartResize(int trackIdx, int instIdx, ImVec2 mousePos,
-					   float trackStartX, float beatWidth)
+bool SongTimeline::TryStartResize(int trackIdx, int instIdx, ImVec2 mousePos, float trackStartX, float beatWidth)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& track = state.tracks[trackIdx];
@@ -1374,8 +1381,7 @@ void SongTimeline::StartDragging(int trackIdx, int instIdx, ImVec2 mousePos)
 	}
 }
 
-void SongTimeline::HandleMouseDrag(ImVec2 mousePos, double beatPos, int trackIdx,
-						float timelineStartY, float trackStartX, float beatWidth)
+void SongTimeline::HandleMouseDrag(ImVec2 mousePos, double beatPos, int trackIdx, float timelineStartY, float trackStartX, float beatWidth)
 {
 	if (m_selection.isResizing)
 	{
@@ -1505,8 +1511,7 @@ void SongTimeline::HandleLeftResize(double beatPos)
 	}
 }
 
-void SongTimeline::HandleInstanceDrag(ImVec2 mousePos, int hoverTrack, 
-						   float timelineStartY, float beatWidth)
+void SongTimeline::HandleInstanceDrag(ImVec2 mousePos, int hoverTrack, float timelineStartY, float beatWidth)
 {
 	ImVec2 delta = ImVec2(mousePos.x - m_selection.dragStartPos.x, mousePos.y - m_selection.dragStartPos.y);
 	double deltaBeat = delta.x / beatWidth;
@@ -1656,15 +1661,12 @@ void SongTimeline::TryMoveSelectionToTrack(int hoverTrack)
 	}
 }
 
-void SongTimeline::HandleBoxSelection(ImVec2 mousePos, float timelineStartY,
-						   float trackStartX, float beatWidth)
+void SongTimeline::HandleBoxSelection(ImVec2 mousePos, float timelineStartY, float trackStartX, float beatWidth)
 {
 	m_selection.selectionEnd = mousePos;
 	
-	ImVec2 boxMin(std::min(m_selection.selectionStart.x, m_selection.selectionEnd.x),
-				  std::min(m_selection.selectionStart.y, m_selection.selectionEnd.y));
-	ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x),
-				  std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+	ImVec2 boxMin(std::min(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::min(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+	ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
 	
 	float currentY = timelineStartY - m_scrollY;
 	ProjectState& state = ProjectState::GetInstance();
@@ -1702,8 +1704,7 @@ void SongTimeline::HandleBoxSelection(ImVec2 mousePos, float timelineStartY,
 			float instY = currentY + m_config.instancePadding;
 			float instHeight = trackHeight - m_config.instancePadding * 2;
 			
-			bool inBox = instX2 >= boxMin.x && instX1 <= boxMax.x &&
-						 instY + instHeight >= boxMin.y && instY <= boxMax.y;
+			bool inBox = instX2 >= boxMin.x && instX1 <= boxMax.x && instY + instHeight >= boxMin.y && instY <= boxMax.y;
 			
 			if (inBox && !IsInstanceSelected((int)t, (int)i))
 			{

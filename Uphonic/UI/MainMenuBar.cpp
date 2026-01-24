@@ -1,4 +1,5 @@
 #include "MainMenuBar.h"
+#include "Naui/FileSystem/File.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Core/FileDialog.h"
@@ -24,9 +25,7 @@ double MainMenuBar::GetTimelineDuration()
 	{
 		for (const auto& block : track.blocks)
 		{
-			double blockEnd = (track.type == TrackType::Midi)
-				? block.midiBlock.startBeat + block.midiBlock.lengthBeats
-				: block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
+			double blockEnd = (track.type == TrackType::Midi) ? block.midiBlock.startBeat + block.midiBlock.lengthBeats : block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
 
 			if (blockEnd > endBeat)
 				endBeat = blockEnd;
@@ -43,12 +42,6 @@ void MainMenuBar::FileMenu()
 		ProjectManager::OpenProject(path);
 	});
 
-	FileDialog::Display("menubar_import_wav", [](const std::filesystem::path& path)
-	{
-		ProjectState& state = ProjectState::GetInstance();
-		AudioEngine::AddSample(path.string().c_str());
-	});
-
 	if (!ImGui::BeginMenu("File"))
 		return;
 
@@ -60,8 +53,11 @@ void MainMenuBar::FileMenu()
 
 	ImGui::Separator();
 
-	ImGui::MenuItem("Save");
-	ImGui::MenuItem("Save As");
+	if(ImGui::MenuItem("Save"))
+		ProjectManager::Save();
+
+	if(ImGui::MenuItem("Save As"))	
+		ProjectManager::SaveProject(Naui::Directory::WorkspaceDirectory(), "Test");		// (Chimpchi): Call FileDialog to choose where to save .uph to
 
 	ImGui::Separator();
 

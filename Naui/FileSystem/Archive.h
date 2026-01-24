@@ -29,6 +29,8 @@ public:
 	Archive& operator=(Archive&& other) noexcept;
 
 	bool IsValid() const;
+	bool AddFolder(const std::filesystem::path& folder, const std::filesystem::path& rootInArchive);
+	bool ExtractTo(const std::filesystem::path& outputFolder);
 	bool AddFile(const std::filesystem::path& source, const std::filesystem::path& destInArchive);
 	bool ExtractFile(const std::filesystem::path& entry, const std::filesystem::path& dest);
 
