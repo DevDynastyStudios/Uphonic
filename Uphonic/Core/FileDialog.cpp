@@ -118,7 +118,7 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		char selectedBuf[512];
 		if (displayName.size() < sizeof(selectedBuf))
 		{
-		    std::memcpy(selectedBuf, displayName.data(), displayName.size());
+		    memcpy(selectedBuf, displayName.data(), displayName.size());
 		    selectedBuf[displayName.size()] = '\0';
 		}
 		else
