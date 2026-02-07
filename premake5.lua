@@ -69,6 +69,7 @@ project "Uphonic"
         "Naui/Vendor/imgui",
 		"Naui/Vendor/miniz",
         "Uphonic",
+        "Uphonic/Vendor/stb",
         "Uphonic/Vendor/miniaudio",
         "Uphonic/Vendor/imgui-knobs",
         "UVI"
