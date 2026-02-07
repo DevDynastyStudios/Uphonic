@@ -435,16 +435,16 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		}
 		
 		for (AudioTrack& track : state.tracks)
-		{
-			if (track.muted)
-				continue;
-			
+		{			
 			if (track.type == TrackType::Midi && track.instrument.plugin)
 			{
 				ProcessMidiTrack(track, prevBeat, newBeat, beatsPerFrame, frameCount, inputs, outputs);
 			}
 			else if (track.type == TrackType::Audio)
 			{
+				if (track.muted)
+					continue;
+
 				ProcessSampleTrack(track, prevBeat, newBeat, beatsPerFrame, frameCount, trackBuffer, inputs, outputs);
 				
 				float leftGain, rightGain;
@@ -475,7 +475,7 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 	
 	for (AudioTrack& track : state.tracks)
 	{
-		if (track.instrument.plugin)
+		if (track.instrument.plugin && !track.muted)
 		{
 			memset(trackBuffer, 0, frameCount * s_config.channels * sizeof(float));
 			track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount);
