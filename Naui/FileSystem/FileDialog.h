@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Base.h"
 #include <functional>
 #include <filesystem>
 
@@ -28,7 +29,7 @@ struct DialogState {
 	std::function<void(const std::filesystem::path&)> callback;
 };
 
-class FileDialog
+class NAUI_API FileDialog
 {
 public:
 	static void SaveFile(const char* key, const char* title, const char* filters, const char* confirmLabel = "Save As");
