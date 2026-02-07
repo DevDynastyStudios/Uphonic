@@ -330,7 +330,7 @@ bool Directory::LockPath(const std::filesystem::path& path)
 		return false;
 	}
 
-	lock.fileDiscriptor = fileDiscriptor;
+	lock.fd = fileDiscriptor;
 #endif
 
 	g_lockTable[target] = lock;
@@ -349,10 +349,10 @@ void Directory::UnlockPath(const std::filesystem::path& path)
 	if(lock.handle)
 		CloseHandle(lock.handle);
 #else
-	if(lock.fileDiscriptor != -1)
+	if(lock.fd != -1)
 	{
-		flock(lock.fileDiscriptor, LOCK_UN);
-		::close(lock.fileDiscriptor);
+		flock(lock.fd, LOCK_UN);
+		::close(lock.fd);
 	}
 #endif
 

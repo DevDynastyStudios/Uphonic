@@ -3,6 +3,7 @@
 #include "Naui.h"
 #include "Naui/Platform/Window.h"
 #include "../UVI/UviLoader.h"
+#include <optional>
 #include <string>
 #include <filesystem>
 #include <vector>
