@@ -28,7 +28,7 @@ std::string Layout::SystemPath(const std::string& name)
 
 std::string Layout::UserPath(const std::string& name)
 {
-	fs::path base = Naui::Directory::BinDirectory();
+	fs::path base = Naui::Directory::AppDataDirectory() / "Uphonic/Layouts";
 	fs::path rel  = fs::path(USER_DIR) / (name + ".json");
 	return (base / rel).string();
 }
@@ -62,6 +62,8 @@ bool Layout::Load(const std::string& name)
 
 	for (auto& [id, panel] : Naui::GetAllPanels())
 	{
+		if ((panel->GetWindowFlags() & ImGuiTableFlags_NoSavedSettings) == 0)
+			continue;
 		panel->SetOpen(j["panels"][panel->GetTitle()]["isOpen"].get<bool>());
 	}
 
@@ -78,7 +80,7 @@ bool Layout::LoadDefault()
 
 bool Layout::Save(const std::string& name, bool overwrite)
 {
-    fs::path base = Naui::Directory::BinDirectory();
+    fs::path base = Naui::Directory::AppDataDirectory() / "Uphonic/Layouts";
     fs::path dir  = base / USER_DIR;
     fs::create_directories(dir);
     fs::path path = dir / (name + ".json");
@@ -91,6 +93,8 @@ bool Layout::Save(const std::string& name, bool overwrite)
 	nlohmann::json j;
 	for (auto &[id, panel] : Naui::GetAllPanels())
 	{
+		if ((panel->GetWindowFlags() & ImGuiTableFlags_NoSavedSettings) == 0)
+			continue;
 		j["panels"][panel->GetTitle()]["isOpen"] = panel->IsOpen();
 	}
 	j["data"] = data;

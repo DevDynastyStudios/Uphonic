@@ -9,6 +9,7 @@ RecoveryPrompt::RecoveryPrompt() : Naui::Panel("Recover Project")
 	SetClosable(false);
 	SetAutoResize(true);
 	SetDockable(false);
+	SetSerializable(false);
 }
 
 void RecoveryPrompt::OnRender()

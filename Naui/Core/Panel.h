@@ -25,6 +25,7 @@ public:
 	void SetAutoResize(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_AlwaysAutoResize : m_imguiFlags &= ~ImGuiWindowFlags_AlwaysAutoResize; }
 	void SetNoCollapse(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_NoCollapse : m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse; }
 	void SetDockable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoDocking : m_imguiFlags |= ImGuiWindowFlags_NoDocking; }
+	void SetSerializable(bool value) {value ? m_imguiFlags &= ~ImGuiWindowFlags_NoSavedSettings : m_imguiFlags |= ImGuiWindowFlags_NoSavedSettings; }
 
 	void SetViewportPos(const ImVec2& pos, ImGuiCond cond = ImGuiCond_Always)
 	{
@@ -38,7 +39,8 @@ public:
 	void SetMinSize(float x, float y) { m_minSize = ImVec2(x, y); }
 	void SetTitle(const char *title) { m_title = title; }
 
-	std::string GetTitle() { return m_title; }
+	std::string GetTitle(void) const { return m_title; }
+	ImGuiWindowFlags GetWindowFlags(void) const { return m_imguiFlags; }
 
 protected:
 	ImGuiWindowFlags m_imguiFlags = 0;
@@ -56,7 +58,6 @@ public:
 
 	void SetOpen(bool value) { m_open = value; m_calledClose = false; }
 	bool IsOpen(void) const { return m_open; }
-	const std::string &GetLayoutID(void) const { return m_layoutID; }
 
 protected:
 	virtual void OnRender(void) { };
@@ -64,13 +65,11 @@ protected:
 
 	void SetClosable(bool value) { m_closable = value; }
 	void SetCategory(const std::string &category);
-	void SetLayoutID(const std::string &id) { m_layoutID = id; }
 private:
 
 	bool m_closable = true;
 	bool m_open = true;
 	bool m_calledClose = false;
-	std::string m_layoutID;
 
 	friend class PanelRenderer;
 };
