@@ -105,7 +105,7 @@ struct AudioTrack
 	bool solo;
 	bool armed;
 	
-	AudioTrack() : volume(1.0f), pan(0.5f), peakLeft(0.0f), peakRight(0.0f), muted(false), solo(false), armed(false) {}
+	AudioTrack() : volume(1.0f), pan(0.5f), peakLeft(0.0f), peakRight(0.0f), smoothPeakLeft(0.0f), smoothPeakRight(0.0f), muted(false), solo(false), armed(false) {}
 };
 
 struct MasterTrack
@@ -119,7 +119,7 @@ struct MasterTrack
 	bool solo;
 	bool armed;
 	
-	MasterTrack() : volume(1.0f), pan(0.5f), peakLeft(0.0f), peakRight(0.0f), muted(false), solo(false), armed(false) {}
+	MasterTrack() : volume(1.0f), pan(0.5f), peakLeft(0.0f), peakRight(0.0f), smoothPeakLeft(0.0f), smoothPeakRight(0.0f), muted(false), solo(false), armed(false) {}
 };
 
 struct ApplicationSettings

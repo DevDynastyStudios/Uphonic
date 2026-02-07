@@ -140,22 +140,24 @@ void MainMenuBar::LayoutMenu()
 	if (!ImGui::BeginMenu("Layouts"))
 		return;
 
-	for (const auto& name : Layout::GetSystemLayouts())
+	for (const std::filesystem::path& layoutName : Layout::GetSystemLayouts())
 	{
+		std::string name = layoutName.string();
 		std::string label = name + "###System_" + name;
-		bool selected = (name == currentLayout);
+		bool selected = (label == currentLayout);
 	
 		if (ImGui::MenuItem(label.c_str(), nullptr, selected))
 		{
-			currentLayout = name;
+			currentLayout = label;
 			Naui::Defer::Add(Layout::Load, name);
 		}
 	}
 	
 	ImGui::Separator();
 	
-	for (const auto& name : Layout::GetUserLayouts())
+	for (const std::filesystem::path& layoutName : Layout::GetUserLayouts())
 	{
+		std::string name = layoutName.string();
 		std::string label = name + "###User_" + name;
 		bool selected = (name == currentLayout);
 	
@@ -178,13 +180,15 @@ void MainMenuBar::LayoutMenu()
 	auto userLayouts = Layout::GetUserLayouts();
 	if (ImGui::BeginMenu("Delete Layout", !userLayouts.empty()))
 	{
-		for (const auto& name : userLayouts)
+		for (const std::filesystem::path layoutName : userLayouts)
 		{
+			std::string name = layoutName.string();
+			std::string label = name + "###User_" + name;
 			if (ImGui::MenuItem(name.c_str()))
 			{
 				Layout::Delete(name);
-				if (currentLayout == name)
-					currentLayout = "Default";
+				if (currentLayout == label)
+					currentLayout = "Default###User_Default";
 			}
 		}
 
@@ -232,7 +236,7 @@ void MainMenuBar::RenderPopups()
 		if (ImGui::Button("Save") || ImGui::IsKeyPressed(ImGuiKey_Enter))
 		{
 			std::string name = newLayoutName;
-			if (Layout::ExistsUser(name))
+			if (Layout::Exists(name))
 			{
 				pendingOverrideName = name;
 				requestOverridePopup = true;

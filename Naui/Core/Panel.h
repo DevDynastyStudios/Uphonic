@@ -23,7 +23,6 @@ public:
 	void SetMovable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoMove : m_imguiFlags |= ImGuiWindowFlags_NoMove; }
 	void SetMinimizable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse : m_imguiFlags |= ImGuiWindowFlags_NoCollapse; }
 	void SetAutoResize(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_AlwaysAutoResize : m_imguiFlags &= ~ImGuiWindowFlags_AlwaysAutoResize; }
-	void SetNoCollapse(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_NoCollapse : m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse; }
 	void SetDockable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoDocking : m_imguiFlags |= ImGuiWindowFlags_NoDocking; }
 	void SetSerializable(bool value) {value ? m_imguiFlags &= ~ImGuiWindowFlags_NoSavedSettings : m_imguiFlags |= ImGuiWindowFlags_NoSavedSettings; }
 
