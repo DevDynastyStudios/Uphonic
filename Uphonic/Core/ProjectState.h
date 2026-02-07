@@ -99,8 +99,8 @@ struct AudioTrack
 	TrackType type;
 	float volume;
 	float pan;
-	float peakLeft;
-	float peakRight;
+	float peakLeft, peakRight;
+	float smoothPeakLeft, smoothPeakRight;
 	bool muted;
 	bool solo;
 	bool armed;
@@ -113,8 +113,8 @@ struct MasterTrack
 	std::vector<PluginEffect> effects;
 	float volume;
 	float pan;
-	float peakLeft;
-	float peakRight;
+	float peakLeft, peakRight;
+	float smoothPeakLeft, smoothPeakRight;
 	bool muted;
 	bool solo;
 	bool armed;

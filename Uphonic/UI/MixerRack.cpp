@@ -9,10 +9,13 @@
 constexpr float METER_MIN_DB = -60.0f;
 constexpr float METER_MAX_DB = 0.0f;
 
-MixerRack::MixerRack() : Naui::Panel("Mixer Rack"), m_selectedTrack(-1)
-{
-    SetMinSize(0.0f, 250.0f);
-}
+// Meter ballistics
+constexpr float PEAK_ATTACK  = 25.0f; // fast rise
+constexpr float PEAK_RELEASE = 25.0f; // slow fall
+
+// ------------------------------------------------------------
+// Utility
+// ------------------------------------------------------------
 
 static float LinearToMeter(float v)
 {
@@ -28,12 +31,32 @@ static float MeterToLinear(float norm)
     return (db <= METER_MIN_DB) ? 0.0f : powf(10.0f, db / 20.0f);
 }
 
+static float SmoothPeak(float current, float target, float dt)
+{
+    float speed = (target > current) ? PEAK_ATTACK : PEAK_RELEASE;
+    return current * (1.0f - speed * dt) + target * speed * dt;
+}
+
+// ------------------------------------------------------------
+
+MixerRack::MixerRack()
+    : Naui::Panel("Mixer Rack"), m_selectedTrack(-1)
+{
+    SetMinSize(0.0f, 250.0f);
+}
+
 void MixerRack::OnRender()
 {
-    float stripAreaWidth = ImGui::GetContentRegionAvail().x - m_config.effectsPanelWidth;
+    float stripAreaWidth =
+        ImGui::GetContentRegionAvail().x - m_config.effectsPanelWidth;
 
-    ImGui::BeginChild("##MixerStrips", ImVec2(stripAreaWidth, 0), false,
-        ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild(
+        "##MixerStrips",
+        ImVec2(stripAreaWidth, 0),
+        false,
+        ImGuiWindowFlags_HorizontalScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse
+    );
 
     RenderMasterStrip(m_selectedTrack == -1);
 
@@ -52,11 +75,18 @@ void MixerRack::OnRender()
     ImGui::EndChild();
 }
 
+// ------------------------------------------------------------
+
 void MixerRack::RenderMasterStrip(bool isSelected)
 {
     ImGui::PushID(-1);
-    ImGui::BeginChild("##MasterStrip", ImVec2(m_config.stripWidth, 0), false,
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild(
+        "##MasterStrip",
+        ImVec2(m_config.stripWidth, 0),
+        false,
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse
+    );
 
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0))
         m_selectedTrack = -1;
@@ -64,21 +94,41 @@ void MixerRack::RenderMasterStrip(bool isSelected)
     ProjectState& state = ProjectState::GetInstance();
     MasterTrack& master = state.masterTrack;
 
+    float dt = ImGui::GetIO().DeltaTime;
+
+    master.smoothPeakLeft  =
+        SmoothPeak(master.smoothPeakLeft,  master.peakLeft,  dt);
+    master.smoothPeakRight =
+        SmoothPeak(master.smoothPeakRight, master.peakRight, dt);
+
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
-    ImU32 masterColor = IM_COL32(200, 100, 50, 255);
+    ImU32 color = IM_COL32(200, 100, 50, 255);
 
-    draw->AddRectFilled(pos, ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3), masterColor);
+    draw->AddRectFilled(
+        pos,
+        ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3),
+        color
+    );
+
     ImGui::Dummy(ImVec2(0, 5));
 
-    static char masterName[] = "Master";
+    static char name[] = "Master";
     ImGui::SetNextItemWidth(-1);
-    ImGui::InputText("##name", masterName, 7, ImGuiInputTextFlags_ReadOnly);
+    ImGui::InputText("##name", name, 7, ImGuiInputTextFlags_ReadOnly);
 
     ImGui::Spacing();
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
-    ImGuiKnobs::Knob("Pan", &master.pan, 0.0f, 1.0f, 0.01f, "%.2f",
-        ImGuiKnobVariant_Tick, m_config.knobSize);
+    ImGuiKnobs::Knob(
+        "Pan",
+        &master.pan,
+        0.0f,
+        1.0f,
+        0.01f,
+        "%.2f",
+        ImGuiKnobVariant_Tick,
+        m_config.knobSize
+    );
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -86,31 +136,46 @@ void MixerRack::RenderMasterStrip(bool isSelected)
 
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.vuMeterWidth) * 0.5f);
     DrawVUMeterWithFader(
-        master.peakLeft,
-        master.peakRight,
+        master.smoothPeakLeft,
+        master.smoothPeakRight,
         master.volume,
         m_config.vuMeterWidth,
         m_config.vuMeterHeight,
-        masterColor
+        color
     );
 
     ImGui::Spacing();
 
-    float db = master.volume > 0.0f ? 20.0f * log10f(master.volume) : METER_MIN_DB;
+    float db =
+        master.volume > 0.0f ? 20.0f * log10f(master.volume) : METER_MIN_DB;
+
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::DragFloat("##masterDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
-        master.volume = std::clamp(MeterToLinear(
-            (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB)), 0.0f, 1.0f);
+    if (ImGui::DragFloat(
+        "##masterDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
+    {
+        master.volume =
+            std::clamp(MeterToLinear(
+                (db - METER_MIN_DB) /
+                (METER_MAX_DB - METER_MIN_DB)),
+                0.0f, 1.0f);
+    }
 
     ImGui::EndChild();
     ImGui::PopID();
 }
 
+// ------------------------------------------------------------
+
 void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 {
     ImGui::PushID((int)idx);
-    ImGui::BeginChild("##Strip", ImVec2(m_config.stripWidth, 0), false,
-        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild(
+        "##Strip",
+        ImVec2(m_config.stripWidth, 0),
+        false,
+        ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse
+    );
 
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0))
         m_selectedTrack = idx;
@@ -118,11 +183,23 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
     ProjectState& state = ProjectState::GetInstance();
     AudioTrack& track = state.tracks[idx];
 
+    float dt = ImGui::GetIO().DeltaTime;
+
+    track.smoothPeakLeft =
+        SmoothPeak(track.smoothPeakLeft, track.peakLeft, dt);
+    track.smoothPeakRight =
+        SmoothPeak(track.smoothPeakRight, track.peakRight, dt);
+
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
-    ImU32 trackColor = ImGui::ColorConvertFloat4ToU32(track.color);
+    ImU32 color = ImGui::ColorConvertFloat4ToU32(track.color);
 
-    draw->AddRectFilled(pos, ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3), trackColor);
+    draw->AddRectFilled(
+        pos,
+        ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3),
+        color
+    );
+
     ImGui::Dummy(ImVec2(0, 5));
 
     char nameBuffer[256];
@@ -135,8 +212,16 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 
     ImGui::Spacing();
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
-    ImGuiKnobs::Knob("Pan", &track.pan, 0.0f, 1.0f, 0.01f, "%.2f",
-        ImGuiKnobVariant_Tick, m_config.knobSize);
+    ImGuiKnobs::Knob(
+        "Pan",
+        &track.pan,
+        0.0f,
+        1.0f,
+        0.01f,
+        "%.2f",
+        ImGuiKnobVariant_Tick,
+        m_config.knobSize
+    );
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -144,25 +229,35 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.vuMeterWidth) * 0.5f);
     DrawVUMeterWithFader(
-        track.peakLeft,
-        track.peakRight,
+        track.smoothPeakLeft,
+        track.smoothPeakRight,
         track.volume,
         m_config.vuMeterWidth,
         m_config.vuMeterHeight,
-        trackColor
+        color
     );
 
     ImGui::Spacing();
 
-    float db = track.volume > 0.0f ? 20.0f * log10f(track.volume) : METER_MIN_DB;
+    float db =
+        track.volume > 0.0f ? 20.0f * log10f(track.volume) : METER_MIN_DB;
+
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::DragFloat("##trackDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
-        track.volume = std::clamp(MeterToLinear(
-            (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB)), 0.0f, 1.0f);
+    if (ImGui::DragFloat(
+        "##trackDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
+    {
+        track.volume =
+            std::clamp(MeterToLinear(
+                (db - METER_MIN_DB) /
+                (METER_MAX_DB - METER_MIN_DB)),
+                0.0f, 1.0f);
+    }
 
     ImGui::EndChild();
     ImGui::PopID();
 }
+
+// ------------------------------------------------------------
 
 void MixerRack::DrawVUMeterWithFader(
     float vuLeft,
@@ -175,10 +270,13 @@ void MixerRack::DrawVUMeterWithFader(
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
 
-    float meterWidth = width / 2.0f - 1.0f;
+    float meterWidth = width * 0.5f - 1.0f;
 
-    draw->AddRectFilled(pos, ImVec2(pos.x + width, pos.y + height),
-        IM_COL32(30, 30, 30, 255));
+    draw->AddRectFilled(
+        pos,
+        ImVec2(pos.x + width, pos.y + height),
+        IM_COL32(30, 30, 30, 255)
+    );
 
     float vuL = LinearToMeter(vuLeft);
     float vuR = LinearToMeter(vuRight);
@@ -190,16 +288,22 @@ void MixerRack::DrawVUMeterWithFader(
         float level = (float)(i + 1) / m_config.vuSegments;
         float y = pos.y + height - (i + 1) * segH;
 
-        auto drawSeg = [&](float x0, float x1)
-        {
-            ImU32 c = level > m_config.vuRedThreshold ? IM_COL32(255, 50, 50, 255) :
-                      level > m_config.vuYellowThreshold ? IM_COL32(255, 200, 50, 255) :
-                                                           IM_COL32(50, 255, 100, 255);
-            draw->AddRectFilled(ImVec2(x0, y + 1), ImVec2(x1, y + segH - 1), c);
-        };
+        ImU32 c =
+            level > m_config.vuRedThreshold    ? IM_COL32(255, 50, 50, 255) :
+            level > m_config.vuYellowThreshold ? IM_COL32(255, 200, 50, 255) :
+                                                 IM_COL32(50, 255, 100, 255);
 
-        if (level <= vuL) drawSeg(pos.x + 1, pos.x + meterWidth - 1);
-        if (level <= vuR) drawSeg(pos.x + meterWidth + 3, pos.x + width - 1);
+        if (level <= vuL)
+            draw->AddRectFilled(
+                ImVec2(pos.x + 1, y + 1),
+                ImVec2(pos.x + meterWidth - 1, y + segH - 1),
+                c);
+
+        if (level <= vuR)
+            draw->AddRectFilled(
+                ImVec2(pos.x + meterWidth + 3, y + 1),
+                ImVec2(pos.x + width - 1, y + segH - 1),
+                c);
     }
 
     float volNorm = LinearToMeter(volume);
@@ -216,8 +320,10 @@ void MixerRack::DrawVUMeterWithFader(
 
     if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0))
     {
-        float norm = 1.0f - ((ImGui::GetMousePos().y - pos.y) / height);
-        volume = std::clamp(MeterToLinear(norm), 0.0f, 1.0f);
+        float norm =
+            1.0f - ((ImGui::GetMousePos().y - pos.y) / height);
+        volume =
+            std::clamp(MeterToLinear(norm), 0.0f, 1.0f);
     }
 
     if (ImGui::IsItemHovered())
