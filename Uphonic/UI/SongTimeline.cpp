@@ -44,7 +44,7 @@ SongTimeline::SongTimeline() : Naui::Panel("Song Timeline")
 	}
 }
 
-AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
+AudioTrack SongTimeline::CreateTrack(std::string title, ImVec4 color)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack track;
