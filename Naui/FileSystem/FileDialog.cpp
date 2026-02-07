@@ -4,6 +4,22 @@
 #include <string.h>
 #include <algorithm>
 #include <chrono>
+#include <iostream>
+
+static std::string NormalizeExtension(const std::string& extension)
+{
+	if(extension.empty())
+		return {};
+
+	std::string result = extension;
+	if(!result.empty() && result[0] == '*')
+		result.erase(result.begin());
+
+	if(!result.empty() && result[0] == '.')
+		return result;
+
+	return "." + result;
+}
 
 static void ConfirmSelection(DialogState& state, std::filesystem::path path)
 {
@@ -192,7 +208,10 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 
 		bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 		if (state.canConfirm && confirmKeyPressed)
-			ConfirmSelection(state, state.selected);
+			if(state.mode == DialogMode::SaveFile)
+				ConfirmSaveFile(selectedBuf);
+			else
+				ConfirmSelection(state, state.selected);
 
 		if (ImGui::Button(state.confirmLabel.c_str(), ImVec2(buttonWidth, 0)))
 		{
@@ -205,21 +224,7 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 				state.callback(state.selected);
 
 			else
-			{
-				std::string fileName = selectedBuf;
-				if (fileName.empty())
-					return;
-
-				std::filesystem::path finalPath = state.currentDir / fileName;
-				if (!state.filters.empty())
-				{
-					std::string extension = state.filters;		// Yes, filters can hold multiple. This will be resolved during the rewrite
-					if (finalPath.extension() != extension)
-						finalPath.replace_extension(extension);
-				}
-
-				ConfirmSelection(state, finalPath);
-			}
+				ConfirmSaveFile(selectedBuf);
 		}
 
 		if (!state.canConfirm) ImGui::EndDisabled();
@@ -231,6 +236,23 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 	}
 
 	ImGui::End();
+}
+
+void FileDialog::ConfirmSaveFile(const char* typedName)
+{
+	if(!typedName || typedName[0] == '\0')
+		return;
+
+	std::filesystem::path finalPath = state.currentDir / typedName;
+	if(!state.filters.empty())
+	{
+		std::string extension = NormalizeExtension(state.filters);
+		if(finalPath.extension().empty())
+			finalPath.replace_extension(extension);
+	}
+
+	state.open = false;
+	state.callback(finalPath);
 }
 
 void FileDialog::DrawBreadcrumb()

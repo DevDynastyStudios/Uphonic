@@ -39,6 +39,7 @@ public:
 	static void Display(const char* key, const std::function<void(const std::filesystem::path& path)>& callback);
 
 private:
+	static void ConfirmSaveFile(const char* typedName);
 	static void DrawBreadcrumb();
 	static void DrawFileTable();
 	static void PrintTime(const std::filesystem::file_time_type& ft);

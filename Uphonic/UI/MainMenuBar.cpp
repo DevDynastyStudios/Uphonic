@@ -48,22 +48,22 @@ void MainMenuBar::FileMenu()
 	{
 		const char* exportText = "Export As";
 		if (ImGui::MenuItem("Wave file..."))
-			FileDialog::SaveFile("export_project", "Export To Save", ".wav", exportText);
+			FileDialog::SaveFile("export_project", "Export To Wav", "*.wav", exportText);
 
 		if(ImGui::MenuItem("Ogg file...", nullptr, nullptr, false))
-			FileDialog::SaveFile("export_project", "Export To Ogg", ".ogg", exportText);
+			FileDialog::SaveFile("export_project", "Export To Ogg", "*.ogg", exportText);
 
 		if(ImGui::MenuItem("Mp3 file...", nullptr, nullptr, false))
-			FileDialog::SaveFile("export_project", "Export To Mp3", ".mp3", exportText);
+			FileDialog::SaveFile("export_project", "Export To Mp3", "*.mp3", exportText);
 
 		if(ImGui::MenuItem("FLAC file...", nullptr, nullptr, false))
-			FileDialog::SaveFile("export_project", "Export To FLAC", ".flac", exportText);
+			FileDialog::SaveFile("export_project", "Export To FLAC", "*.flac", exportText);
 
 		if(ImGui::MenuItem("M4A file...", nullptr, nullptr, false))
-			FileDialog::SaveFile("export_project", "Export To M4A", ".m4a", exportText);
+			FileDialog::SaveFile("export_project", "Export To M4A", "*.m4a", exportText);
 
 		if(ImGui::MenuItem("MIDI file...", nullptr, nullptr, false))
-			FileDialog::SaveFile("export_project", "Export To MIDI", ".midi", exportText);
+			FileDialog::SaveFile("export_project", "Export To MIDI", "*.midi", exportText);
 
 		ImGui::EndMenu();
 	}
