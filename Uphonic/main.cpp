@@ -26,7 +26,7 @@ class UphonicApp : public Naui::App
 private:
 	void OnEnter() override
 	{
-		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/workspace", true);
+		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/.workspace", true);
 		Layout::LoadDefault();
 		ProjectState& state = ProjectState::GetInstance();
 		state.mainWindow = GetPlatformWindow();

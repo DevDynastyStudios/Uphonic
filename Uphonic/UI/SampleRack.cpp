@@ -109,7 +109,7 @@ void SampleRack::OnRender()
 
 	if (pressed)
 	{
-		FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac");
+		FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac;*.ogg");
 	}
 
 	ImGui::Separator();
