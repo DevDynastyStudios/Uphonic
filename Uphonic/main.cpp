@@ -71,6 +71,12 @@ private:
 			ProjectManager::SaveProject(path);
 		});
 
+		FileDialog::Display("export_project", [](const std::filesystem::path& path)
+		{
+			if(path.extension() == ".wav")
+				AudioEngine::ExportToWav(path.string().c_str(), 0, SongTimeline::GetTimelineDuration());
+		});
+
 		if(ImGui::BeginMainMenuBar())
 		{	
 			MainMenuBar::FileMenu();
