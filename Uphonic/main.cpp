@@ -1,11 +1,11 @@
 #include "Naui.h"
 #include "Naui/FileSystem/File.h"
+#include "Naui/FileSystem/FileDialog.h"
 #include "Core/ProjectManager.h"
 #include "Core/ProjectState.h"
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
 #include "Config/EditorConfig.h"
-#include "Core/FileDialog.h"
 
 #include "UI/Layout.h"
 #include "UI/MainMenuBar.h"

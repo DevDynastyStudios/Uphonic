@@ -1,5 +1,5 @@
 #include "SampleRack.h"
-#include "Core/FileDialog.h"
+#include "Naui/FileSystem/FileDialog.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
