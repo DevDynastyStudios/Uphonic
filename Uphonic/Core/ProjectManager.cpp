@@ -100,6 +100,7 @@ bool ProjectManager::SaveProject(std::filesystem::path path)
 	if(!ProjectSerializer::Save(projectFolder))
 		return false;
 
+	Naui::Directory::UnlockPath(projectFolder);
 	try
 	{
 		std::filesystem::copy(projectFolder, snapshot, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
@@ -126,6 +127,7 @@ bool ProjectManager::SaveProject(std::filesystem::path path)
 		return false;
 	}
 
+	Naui::Directory::LockPath(projectFolder);
 	std::filesystem::remove_all(snapshot);
 	std::cout << "Project saved to: " << saveToPath << "\n";
 	return true;
