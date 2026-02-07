@@ -30,7 +30,6 @@ struct DialogState {
 
 class FileDialog
 {
-
 public:
 	static void SaveFile(const char* key, const char* title, const char* filters, const char* confirmLabel = "Save As");
 	static void OpenFile(const char* key, const char* title, const char* filters, const char* confirmLabel = "Open");

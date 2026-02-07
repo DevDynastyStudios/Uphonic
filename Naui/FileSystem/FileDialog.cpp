@@ -1,5 +1,5 @@
 #include "FileDialog.h"
-#include "Naui/FileSystem/File.h"
+#include "File.h"
 #include <imgui.h>
 #include <string.h>
 #include <algorithm>
@@ -142,9 +142,9 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		ImGui::SameLine();
 
 		std::string displayName;
-		if(state.mode == DialogMode::SaveFile)
+		if (state.mode == DialogMode::SaveFile)
 		{
-			if(!state.selected.empty())
+			if (!state.selected.empty())
 				displayName = Naui::Directory::ToUTF8(state.selected.filename().u8string());
 		}
 		else
@@ -160,9 +160,9 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 			selectedBuf[0] = '\0';
 
 		ImGui::PushItemWidth(-1);
-		if(state.mode == DialogMode::SaveFile)
+		if (state.mode == DialogMode::SaveFile)
 		{
-			if(ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf)))
+			if (ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf)))
 				state.selected = state.currentDir / selectedBuf;
 		}
 		else
@@ -178,10 +178,10 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 
 		ImGui::SetCursorPosX(avail - totalWidth);
 
-		if(state.mode == DialogMode::OpenFolder)
+		if (state.mode == DialogMode::OpenFolder)
 			state.canConfirm = std::filesystem::exists(state.currentDir);
 
-		else if(state.mode == DialogMode::OpenFile)
+		else if (state.mode == DialogMode::OpenFile)
 			state.canConfirm = (!state.selected.empty() && std::filesystem::exists(state.selected));
 
 		else
@@ -190,31 +190,31 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		if (!state.canConfirm)
 			ImGui::BeginDisabled();
 
-		bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
-		if(state.canConfirm && confirmKeyPressed)
+		bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+		if (state.canConfirm && confirmKeyPressed)
 			ConfirmSelection(state, state.selected);
 
 		if (ImGui::Button(state.confirmLabel.c_str(), ImVec2(buttonWidth, 0)))
 		{
 			state.open = false;
 
-			if(state.mode == DialogMode::OpenFolder)
+			if (state.mode == DialogMode::OpenFolder)
 				state.callback(state.currentDir);
 
-			else if(state.mode == DialogMode::OpenFile)
+			else if (state.mode == DialogMode::OpenFile)
 				state.callback(state.selected);
 
 			else
 			{
 				std::string fileName = selectedBuf;
-				if(fileName.empty())
+				if (fileName.empty())
 					return;
 
 				std::filesystem::path finalPath = state.currentDir / fileName;
-				if(!state.filters.empty())
+				if (!state.filters.empty())
 				{
 					std::string extension = state.filters;		// Yes, filters can hold multiple. This will be resolved during the rewrite
-					if(finalPath.extension() != extension)
+					if (finalPath.extension() != extension)
 						finalPath.replace_extension(extension);
 				}
 
@@ -252,7 +252,11 @@ void FileDialog::DrawBreadcrumb()
 
 			if (first)
 			{
-				accum = partStr + "\\";
+#if defined(NAUI_PLATFORM_WINDOWS)
+				accum = partStr + "/";
+#elif defined(NAUI_PLATFORM_LINUX)
+				accum = "/" + partStr + "/";
+#endif
 				first = false;
 			}
 			else
@@ -272,6 +276,7 @@ void FileDialog::DrawBreadcrumb()
 			{
 				state.pendingDir = accum;
 				state.hasPendingDir = true;
+				printf("%s\n", accum.c_str());
 			}
 
 			ImGui::PopStyleColor(3);
