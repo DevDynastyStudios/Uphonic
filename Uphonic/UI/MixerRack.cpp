@@ -6,18 +6,35 @@
 #include <filesystem>
 #include <cstring>
 
+constexpr float METER_MIN_DB = -60.0f;
+constexpr float METER_MAX_DB = 0.0f;
+
 MixerRack::MixerRack() : Naui::Panel("Mixer Rack"), m_selectedTrack(-1)
 {
     SetMinSize(0.0f, 250.0f);
 }
 
+static float LinearToMeter(float v)
+{
+    if (v <= 0.0f) return 0.0f;
+    float db = 20.0f * log10f(v);
+    float norm = (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB);
+    return std::clamp(norm, 0.0f, 1.0f);
+}
+
+static float MeterToLinear(float norm)
+{
+    float db = METER_MIN_DB + norm * (METER_MAX_DB - METER_MIN_DB);
+    return (db <= METER_MIN_DB) ? 0.0f : powf(10.0f, db / 20.0f);
+}
+
 void MixerRack::OnRender()
 {
     float stripAreaWidth = ImGui::GetContentRegionAvail().x - m_config.effectsPanelWidth;
-    
-    ImGui::BeginChild("##MixerStrips", ImVec2(stripAreaWidth, 0), false, 
+
+    ImGui::BeginChild("##MixerStrips", ImVec2(stripAreaWidth, 0), false,
         ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    
+
     RenderMasterStrip(m_selectedTrack == -1);
 
     ProjectState& state = ProjectState::GetInstance();
@@ -26,9 +43,9 @@ void MixerRack::OnRender()
         ImGui::SameLine();
         RenderChannelStrip(i, i == m_selectedTrack);
     }
-    
+
     ImGui::EndChild();
-    
+
     ImGui::SameLine();
     ImGui::BeginChild("##EffectsPanel", ImVec2(0, 0), true);
     RenderEffectsPanel();
@@ -38,8 +55,8 @@ void MixerRack::OnRender()
 void MixerRack::RenderMasterStrip(bool isSelected)
 {
     ImGui::PushID(-1);
-
-    ImGui::BeginChild("##MasterStrip", ImVec2(m_config.stripWidth, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginChild("##MasterStrip", ImVec2(m_config.stripWidth, 0), false,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0))
         m_selectedTrack = -1;
@@ -50,59 +67,40 @@ void MixerRack::RenderMasterStrip(bool isSelected)
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
     ImU32 masterColor = IM_COL32(200, 100, 50, 255);
+
     draw->AddRectFilled(pos, ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3), masterColor);
     ImGui::Dummy(ImVec2(0, 5));
-    
-    ImGui::SetNextItemWidth(-1);
+
     static char masterName[] = "Master";
+    ImGui::SetNextItemWidth(-1);
     ImGui::InputText("##name", masterName, 7, ImGuiInputTextFlags_ReadOnly);
-    
+
+    ImGui::Spacing();
+    ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
+    ImGuiKnobs::Knob("Pan", &master.pan, 0.0f, 1.0f, 0.01f, "%.2f",
+        ImGuiKnobVariant_Tick, m_config.knobSize);
+
+    ImGui::Spacing();
+    ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
-    ImGuiKnobs::Knob("Pan", &master.pan, 0.0f, 1.0f, 0.01f, "%.2f", ImGuiKnobVariant_Tick, m_config.knobSize);
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::SetTooltip("Pan: %.2f", master.pan);
-    }
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.vuMeterWidth) * 0.5f);
-    DrawVUMeterWithFader(master.peakLeft, master.peakRight, master.volume, 
-                        m_config.vuMeterWidth, m_config.vuMeterHeight, masterColor);
-    
+    DrawVUMeterWithFader(
+        master.peakLeft,
+        master.peakRight,
+        master.volume,
+        m_config.vuMeterWidth,
+        m_config.vuMeterHeight,
+        masterColor
+    );
+
     ImGui::Spacing();
-    
-    float db = master.volume > 0.0f ? 20.0f * log10f(master.volume) : m_config.minDecibel;
+
+    float db = master.volume > 0.0f ? 20.0f * log10f(master.volume) : METER_MIN_DB;
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::DragFloat("##masterDB", &db, 0.1f, m_config.minDecibel, 0.0f, "%.1f dB"))
-    {
-        master.volume = (db <= m_config.minDecibel) ? 0.0f : powf(10.0f, db / 20.0f);
-        master.volume = std::clamp(master.volume, 0.0f, 1.0f);
-    }
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    ImVec4 muteColor = master.muted ? 
-        ImVec4(1.0f, 0.5f, 0.0f, 1.0f) : ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    ImVec4 muteHover = master.muted ? 
-        ImVec4(1.0f, 0.6f, 0.2f, 1.0f) : ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    
-    ImGui::SetCursorPosX((m_config.stripWidth - 50) * 0.5f);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, muteColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, muteHover);
-    
-    if (ImGui::Button("M", ImVec2(m_config.buttonSize, m_config.buttonSize)))
-    {
-        master.muted = !master.muted;
-    }
-    ImGui::PopStyleColor(2);
+    if (ImGui::DragFloat("##masterDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
+        master.volume = std::clamp(MeterToLinear(
+            (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB)), 0.0f, 1.0f);
 
     ImGui::EndChild();
     ImGui::PopID();
@@ -110,9 +108,9 @@ void MixerRack::RenderMasterStrip(bool isSelected)
 
 void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 {
-    ImGui::PushID(static_cast<int>(idx));
-
-    ImGui::BeginChild("##Strip", ImVec2(m_config.stripWidth, 0), false, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::PushID((int)idx);
+    ImGui::BeginChild("##Strip", ImVec2(m_config.stripWidth, 0), false,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0))
         m_selectedTrack = idx;
@@ -123,173 +121,107 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
     ImU32 trackColor = ImGui::ColorConvertFloat4ToU32(track.color);
+
     draw->AddRectFilled(pos, ImVec2(pos.x + m_config.stripWidth - 16, pos.y + 3), trackColor);
     ImGui::Dummy(ImVec2(0, 5));
-    
-    ImGui::SetNextItemWidth(-1);
+
     char nameBuffer[256];
     strncpy(nameBuffer, track.name.c_str(), sizeof(nameBuffer) - 1);
     nameBuffer[sizeof(nameBuffer) - 1] = '\0';
-    
+
+    ImGui::SetNextItemWidth(-1);
     if (ImGui::InputText("##name", nameBuffer, sizeof(nameBuffer)))
-    {
         track.name = nameBuffer;
-    }
-    
+
+    ImGui::Spacing();
+    ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
+    ImGuiKnobs::Knob("Pan", &track.pan, 0.0f, 1.0f, 0.01f, "%.2f",
+        ImGuiKnobVariant_Tick, m_config.knobSize);
+
+    ImGui::Spacing();
+    ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::SetCursorPosX((m_config.stripWidth - m_config.knobSize) * 0.5f);
-    ImGuiKnobs::Knob("Pan", &track.pan, 0.0f, 1.0f, 0.01f, "%.2f", ImGuiKnobVariant_Tick, m_config.knobSize);
-    if (ImGui::IsItemHovered())
-    {
-        ImGui::SetTooltip("Pan: %.2f", track.pan);
-    }
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
     ImGui::SetCursorPosX((m_config.stripWidth - m_config.vuMeterWidth) * 0.5f);
-    DrawVUMeterWithFader(track.peakLeft, track.peakRight, track.volume, 
-                        m_config.vuMeterWidth, m_config.vuMeterHeight, trackColor);
-    
+    DrawVUMeterWithFader(
+        track.peakLeft,
+        track.peakRight,
+        track.volume,
+        m_config.vuMeterWidth,
+        m_config.vuMeterHeight,
+        trackColor
+    );
+
     ImGui::Spacing();
-    
-    float db = track.volume > 0.0f ? 20.0f * log10f(track.volume) : m_config.minDecibel;
+
+    float db = track.volume > 0.0f ? 20.0f * log10f(track.volume) : METER_MIN_DB;
     ImGui::SetNextItemWidth(-1);
-    if (ImGui::DragFloat("##trackDB", &db, 0.1f, m_config.minDecibel, 0.0f, "%.1f dB"))
-    {
-        track.volume = (db <= m_config.minDecibel) ? 0.0f : powf(10.0f, db / 20.0f);
-        track.volume = std::clamp(track.volume, 0.0f, 1.0f);
-    }
-    
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    
-    ImVec4 soloColor = track.solo ? 
-        ImVec4(1.0f, 0.7f, 0.0f, 1.0f) : ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    ImVec4 soloHover = track.solo ? 
-        ImVec4(1.0f, 0.8f, 0.2f, 1.0f) : ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, soloColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, soloHover);
-    
-    if (ImGui::Button("S", ImVec2(m_config.buttonSize, m_config.buttonSize)))
-    {
-        track.solo = !track.solo;
-        if (track.solo)
-        {
-            ProjectState& state = ProjectState::GetInstance();
-            for (auto& t : state.tracks)
-                t.solo = false;
-            track.solo = true;
-        }
-    }
-    ImGui::PopStyleColor(2);
-    
-    ImGui::SameLine();
-    
-    ImVec4 muteColor = track.muted ? 
-        ImVec4(1.0f, 0.5f, 0.0f, 1.0f) : ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    ImVec4 muteHover = track.muted ? 
-        ImVec4(1.0f, 0.6f, 0.2f, 1.0f) : ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
-    
-    ImGui::PushStyleColor(ImGuiCol_Button, muteColor);
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, muteHover);
-    
-    if (ImGui::Button("M", ImVec2(m_config.buttonSize, m_config.buttonSize)))
-    {
-        track.muted = !track.muted;
-    }
-    ImGui::PopStyleColor(2);
+    if (ImGui::DragFloat("##trackDB", &db, 0.1f, METER_MIN_DB, 0.0f, "%.1f dB"))
+        track.volume = std::clamp(MeterToLinear(
+            (db - METER_MIN_DB) / (METER_MAX_DB - METER_MIN_DB)), 0.0f, 1.0f);
 
     ImGui::EndChild();
     ImGui::PopID();
 }
 
-void MixerRack::DrawVUMeterWithFader(float vuLevelLeft, float vuLevelRight, float& volume, 
-                             float width, float height, ImU32 channelColor)
+void MixerRack::DrawVUMeterWithFader(
+    float vuLeft,
+    float vuRight,
+    float& volume,
+    float width,
+    float height,
+    ImU32 channelColor)
 {
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 pos = ImGui::GetCursorScreenPos();
-    
+
     float meterWidth = width / 2.0f - 1.0f;
-    
-    draw->AddRectFilled(pos, ImVec2(pos.x + meterWidth, pos.y + height), 
+
+    draw->AddRectFilled(pos, ImVec2(pos.x + width, pos.y + height),
         IM_COL32(30, 30, 30, 255));
-    
-    draw->AddRectFilled(ImVec2(pos.x + meterWidth + 2, pos.y), 
-        ImVec2(pos.x + width, pos.y + height), 
-        IM_COL32(30, 30, 30, 255));
-    
-    float segHeight = height / m_config.vuSegments;
-    float segSpacing = 1.0f;
-    
+
+    float vuL = LinearToMeter(vuLeft);
+    float vuR = LinearToMeter(vuRight);
+
+    float segH = height / m_config.vuSegments;
+
     for (int i = 0; i < m_config.vuSegments; i++)
     {
-        float segLevel = static_cast<float>(i) / m_config.vuSegments;
-        if (segLevel <= vuLevelLeft)
+        float level = (float)(i + 1) / m_config.vuSegments;
+        float y = pos.y + height - (i + 1) * segH;
+
+        auto drawSeg = [&](float x0, float x1)
         {
-            ImU32 color;
-            if (segLevel > m_config.vuRedThreshold)
-                color = IM_COL32(255, 50, 50, 255);
-            else if (segLevel > m_config.vuYellowThreshold)
-                color = IM_COL32(255, 200, 50, 255);
-            else
-                color = IM_COL32(50, 255, 100, 255);
-            
-            float y = pos.y + height - (i + 1) * segHeight;
-            draw->AddRectFilled(
-                ImVec2(pos.x + 1, y + segSpacing),
-                ImVec2(pos.x + meterWidth - 1, y + segHeight - segSpacing),
-                color
-            );
-        }
+            ImU32 c = level > m_config.vuRedThreshold ? IM_COL32(255, 50, 50, 255) :
+                      level > m_config.vuYellowThreshold ? IM_COL32(255, 200, 50, 255) :
+                                                           IM_COL32(50, 255, 100, 255);
+            draw->AddRectFilled(ImVec2(x0, y + 1), ImVec2(x1, y + segH - 1), c);
+        };
+
+        if (level <= vuL) drawSeg(pos.x + 1, pos.x + meterWidth - 1);
+        if (level <= vuR) drawSeg(pos.x + meterWidth + 3, pos.x + width - 1);
     }
-    
-    for (int i = 0; i < m_config.vuSegments; i++)
-    {
-        float segLevel = static_cast<float>(i) / m_config.vuSegments;
-        if (segLevel <= vuLevelRight)
-        {
-            ImU32 color;
-            if (segLevel > m_config.vuRedThreshold)
-                color = IM_COL32(255, 50, 50, 255);
-            else if (segLevel > m_config.vuYellowThreshold)
-                color = IM_COL32(255, 200, 50, 255);
-            else
-                color = IM_COL32(50, 255, 100, 255);
-            
-            float y = pos.y + height - (i + 1) * segHeight;
-            draw->AddRectFilled(
-                ImVec2(pos.x + meterWidth + 3, y + segSpacing),
-                ImVec2(pos.x + width - 1, y + segHeight - segSpacing),
-                color
-            );
-        }
-    }
-    
-    float volumeY = pos.y + height - (volume * height);
-    
-    ImVec2 p1(pos.x + width + 2, volumeY);
-    ImVec2 p2(pos.x + width + 10, volumeY - 5);
-    ImVec2 p3(pos.x + width + 10, volumeY + 5);
-    draw->AddTriangleFilled(p1, p2, p3, channelColor);
-    
+
+    float volNorm = LinearToMeter(volume);
+    float volY = pos.y + height - volNorm * height;
+
+    draw->AddTriangleFilled(
+        ImVec2(pos.x + width + 2, volY),
+        ImVec2(pos.x + width + 10, volY - 5),
+        ImVec2(pos.x + width + 10, volY + 5),
+        channelColor
+    );
+
     ImGui::InvisibleButton("##vumeter", ImVec2(width + 12, height));
-    
-    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0, 0.0f))
+
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(0))
     {
-        ImVec2 mousePos = ImGui::GetMousePos();
-        float newVolume = 1.0f - ((mousePos.y - pos.y) / height);
-        volume = std::clamp(newVolume, 0.0f, 1.0f);
+        float norm = 1.0f - ((ImGui::GetMousePos().y - pos.y) / height);
+        volume = std::clamp(MeterToLinear(norm), 0.0f, 1.0f);
     }
-    
+
     if (ImGui::IsItemHovered())
-    {
         ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeNS);
-    }
 }
 
 void MixerRack::RenderEffectsPanel()
