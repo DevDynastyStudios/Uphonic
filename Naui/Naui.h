@@ -4,3 +4,5 @@
 #include "Core/Panel.h"
 #include "Core/Debug.h"
 #include "Core/AssetManager.h"
+#include "Util/Hash.h"
+#include "Util/UUID.h"

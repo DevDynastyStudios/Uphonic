@@ -5,12 +5,13 @@
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <iostream>
 
 using json = nlohmann::json;
 
 bool ProjectSerializer::Save(const std::filesystem::path& projectPath, bool overwrite)
 {
-	static std::string subFolders[] = {"Samples", "PluginData", "Cache"};
+	static constexpr const char* subFolders[] = { "Samples", "PluginData", "Cache" };
 
 	try
 	{
@@ -78,6 +79,7 @@ bool ProjectSerializer::Load(ProjectState& state, const std::filesystem::path& p
 void ProjectSerializer::SerializeToJson(const ProjectState& state, nlohmann::json& j, const std::filesystem::path& projectDir)
 {
 	j["version"] = "1.0";
+	j["projectName"] = state.settings.projectName;
 	j["bpm"] = state.beatsPerMinute;
 	j["masterVolume"] = state.masterVolume;
 	j["timelinePositionBeats"] = state.timelinePositionBeats;
@@ -161,9 +163,7 @@ void ProjectSerializer::SerializeToJson(const ProjectState& state, nlohmann::jso
 		}
 		
 		if (!fileName.empty())
-		{
 			sampleJson["fileName"] = fileName;
-		}
 		
 		j["samples"].push_back(sampleJson);
 	}
@@ -300,6 +300,7 @@ void ProjectSerializer::SerializeToJson(const ProjectState& state, nlohmann::jso
 
 void ProjectSerializer::DeserializeFromJson(ProjectState& state, const nlohmann::json& j, const std::filesystem::path& projectDir)
 {
+	if (j.contains("projectName")) state.settings.projectName = j["projectName"];
 	if (j.contains("bpm")) state.beatsPerMinute = j["bpm"];
 	if (j.contains("masterVolume")) state.masterVolume = j["masterVolume"];
 	if (j.contains("timelinePositionBeats")) state.timelinePositionBeats = j["timelinePositionBeats"];
@@ -353,7 +354,8 @@ void ProjectSerializer::DeserializeFromJson(ProjectState& state, const nlohmann:
 				
 				if (std::filesystem::exists(filePath))
 				{
-					AudioEngine::AddSample(filePath.string().c_str());
+					std::cout << "Added: " << filePath.string().c_str();
+					AudioEngine::AddSample(filePath.string().c_str(), state);
 				}
 			}
 		}

@@ -12,6 +12,12 @@
 
 #if NAUI_PLATFORM_WINDOWS
 #include <Windows.h>
+#include <fileapi.h>
+#include <shlobj.h>
+#else
+#include <sys/file.h>	// (Chimpchi): Smoke I don't know what I'm doing. plz help ;-;
+#include <fcntl.h>
+#include <unistd.h>
 #endif
 
 namespace Naui {
@@ -27,6 +33,7 @@ namespace Naui {
 #endif
 
 std::filesystem::path Directory::workspaceDirectory{};
+std::unordered_map<std::filesystem::path, LockHandle> Directory::g_lockTable;
 
 #pragma region File
 File::File(const std::filesystem::path& path, FileMode mode) : handle_(nullptr)
@@ -118,31 +125,78 @@ std::filesystem::path Directory::WorkspaceDirectory() {
 	return workspaceDirectory;
 }
 
+std::filesystem::path Directory::AppDataDirectory()
+{
+#if NAUI_PLATFORM_WINDOWS
+	return std::filesystem::path(GetEnv("LOCALAPPDATA"));
+#elif NAUI_PLATFORM_MACOS
+	return HomeDirectory() / "Library/Application Support/";
+#else
+	return HomeDirectory() / ".local/share/";
+#endif
+}
+
+std::filesystem::path Directory::DownloadsDirectory()
+{
+	return Directory::HomeDirectory() / "Downloads";		// (Chimpchi): This may be wrong, correct this later.
+}
+
 void Directory::SetWorkspaceDirectory(const std::filesystem::path& path, bool hidden) {
 	if (path.empty() || path.has_extension())
 		return;
 
 	std::filesystem::path finalPath = path;
+	std::filesystem::create_directories(finalPath);
+	finalPath = Directory::HideDirectory(finalPath, hidden);
+	workspaceDirectory = finalPath;
+}
 
+std::filesystem::path Directory::HideDirectory(const std::filesystem::path& path, bool hidden)
+{
+	if(path.empty())
+	{
+		std::cout << "Path does not exist.\nUnable to hide directory: " << path;
+		return path;
+	}
+
+	if(IsHidden(path) == hidden)
+		return path;
+
+	std::filesystem::path finalPath = path;
+#if NAUI_PLATFORM_WINDOWS
+	DWORD attrs = GetFileAttributesA(finalPath.string().c_str());
+	if(attrs == INVALID_FILE_ATTRIBUTES)
+		return finalPath;
+
+	attrs = hidden ? attrs | FILE_ATTRIBUTE_HIDDEN : attrs & ~FILE_ATTRIBUTE_HIDDEN;
+	SetFileAttributesA(finalPath.string().c_str(), attrs);
+	return finalPath;
+#else
+	std::string name = finalPath.filename().string();
+	std::filesystem::path parent = finalPath.parent_path();
+
+	if(name.empty())
+		return finalPath;
+
+	std::filesystem::path newPath = finalPath;
 	if(hidden)
 	{
-		std::filesystem::path parent = path.parent_path();
-		std::string name = path.filename().string();
+		if(name[0] == '.')
+			return finalPath;
 
-#ifndef NAUI_PLATFORM_WINDOWS
-		if(!name.empty() && name[0] != '.')
-			name = '.' + name;
-#endif
-		finalPath = parent / name;
+		newPath = parent / ('.' + name);
 	}
-	
-	std::filesystem::create_directories(finalPath);
-#if NAUI_PLATFORM_WINDOWS
-	if(hidden)
-		SetFileAttributesA(finalPath.string().c_str(), FILE_ATTRIBUTE_HIDDEN);
-#endif
+	else
+	{
+		if(name[0] != '.')
+			return finalPath;
+		
+		newPath = parent / name.substr(1);
+	}
 
-	workspaceDirectory = finalPath;
+	std::filesystem::rename(finalPath, newPath);
+	return newPath;
+#endif
 }
 
 std::string Directory::GetEnv(const char* name) {
@@ -217,6 +271,133 @@ std::string Directory::ToUTF8(const std::filesystem::path& p)
 {
 	auto u8 = p.u8string();
 	return std::string(reinterpret_cast<const char*>(u8.c_str()));
+}
+
+bool Directory::IsHidden(const std::filesystem::path& path)
+{
+	if(path.empty())
+		return false;
+
+#if NAUI_PLATFORM_WINDOWS
+	DWORD attrs = GetFileAttributesA(path.string().c_str());
+	if(attrs == INVALID_FILE_ATTRIBUTES)
+		return false;
+
+	return (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
+#else
+	std::string name = path.filename().string();
+	return !name.empty() && name[0] == '.';
+#endif
+}
+
+bool Directory::LockPath(const std::filesystem::path& path)
+{
+	std::filesystem::path target = Directory::ResolveLockTarget(path);
+	if(target.filename() == ".lock")
+		std::filesystem::create_directories(target.parent_path());
+
+	LockHandle lock;
+#if NAUI_PLATFORM_WINDOWS
+	HANDLE winHandle = CreateFileW(
+						target.wstring().c_str(),
+						GENERIC_READ | GENERIC_WRITE,
+						0,
+						nullptr,
+						OPEN_ALWAYS,
+						FILE_ATTRIBUTE_HIDDEN,
+						nullptr
+					);
+
+	if(winHandle == INVALID_HANDLE_VALUE)
+		return false;
+
+	OVERLAPPED overlap = {};
+	if(!LockFileEx(winHandle, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, MAXWORD, MAXWORD, &overlap))
+	{
+		CloseHandle(winHandle);
+		return false;
+	}
+
+	lock.handle = winHandle;
+#else
+	int fileDiscriptor = ::open(target.string().c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0666);
+	if(fileDiscriptor == -1)
+		return false;
+
+	if(flock(fileDiscriptor, LOCK_EX | LOCK_NB) != 0)
+	{
+		::close(fileDiscriptor);
+		return false;
+	}
+
+	lock.fileDiscriptor = fileDiscriptor;
+#endif
+
+	g_lockTable[target] = lock;
+	return true;
+}
+
+void Directory::UnlockPath(const std::filesystem::path& path)
+{
+	std::filesystem::path target = Directory::ResolveLockTarget(path);
+	auto it = g_lockTable.find(target);
+	if(it == g_lockTable.end())
+		return;
+
+	LockHandle& lock = it->second;
+#if NAUI_PLATFORM_WINDOWS
+	if(lock.handle)
+		CloseHandle(lock.handle);
+#else
+	if(lock.fileDiscriptor != -1)
+	{
+		flock(lock.fileDiscriptor, LOCK_UN);
+		::close(lock.fileDiscriptor);
+	}
+#endif
+
+	g_lockTable.erase(it);
+}
+
+bool Directory::IsLocked(const std::filesystem::path& path)
+{
+	std::filesystem::path target = Directory::ResolveLockTarget(path);
+	if(!std::filesystem::exists(target))
+		return false;
+
+#if NAUI_PLATFORM_WINDOWS
+	HANDLE winHandle = CreateFileW(
+		target.wstring().c_str(),
+		GENERIC_READ | GENERIC_WRITE,
+		0,
+		nullptr,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_HIDDEN,
+		nullptr
+	);
+
+	if(winHandle == INVALID_HANDLE_VALUE)
+		return true;
+
+	CloseHandle(winHandle);
+	return false;
+#else
+	int fileDiscriptor = ::open(target.string().c_str(), O_RDWR | O_CLOEXEC);
+	if(fileDiscriptor == -1)
+		return false;
+
+	bool locked = (flock(fileDiscriptor, LOCK_EX | LOCK_NB) != 0);
+	if(!locked)
+		flock(fileDiscriptor, LOCK_UN);
+
+	::close(fileDiscriptor);
+	return locked;
+#endif
+}
+
+std::filesystem::path Directory::ResolveLockTarget(const std::filesystem::path& path)
+{
+	return std::filesystem::is_directory(path) ? path / ".lock" : path;
 }
 
 #pragma endregion

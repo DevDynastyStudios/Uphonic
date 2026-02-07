@@ -25,7 +25,7 @@ float AudioEngine::CubicInterpolate(float y0, float y1, float y2, float y3, floa
 
 void AudioEngine::CalculatePanGains(float pan, float& leftGain, float& rightGain)
 {
-	pan = std::max(0.0f, std::min(1.0f, pan));
+	pan = std::max<float>(0.0f, std::min<float>(1.0f, pan));
 	const float panRadians = pan * PI_HALF;
 	leftGain = cosf(panRadians);
 	rightGain = sinf(panRadians);
@@ -36,8 +36,8 @@ void AudioEngine::UpdatePeaks(float& peakLeft, float& peakRight, float newLeft, 
 	newLeft = std::abs(newLeft);
 	newRight = std::abs(newRight);
 	
-	peakLeft = std::max(newLeft, peakLeft * s_config.peakDecayRate);
-	peakRight = std::max(newRight, peakRight * s_config.peakDecayRate);
+	peakLeft = std::max<float>(newLeft, peakLeft * s_config.peakDecayRate);
+	peakRight = std::max<float>(newRight, peakRight * s_config.peakDecayRate);
 }
 
 bool AudioEngine::Initialize(const AudioConfig& config)
@@ -87,9 +87,8 @@ void AudioEngine::StopAllNotes()
 	}
 }
 
-AudioSample& AudioEngine::AddSample(const char* filepath)
+AudioSample& AudioEngine::AddSample(const char* filepath, ProjectState& state)
 {
-	ProjectState& state = ProjectState::GetInstance();
 	AudioSample sample;
 
 	if(!AudioEngine::LoadSample(filepath, sample))
@@ -192,16 +191,15 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 		{
 			const double noteStart = block.midiBlock.startBeat + note.startBeat - block.midiBlock.startOffsetBeats;
 			const double noteEnd = noteStart + note.lengthBeats - s_config.blockEndEpsilon;
-			const double effectiveNoteEnd = std::min(noteEnd, blockEnd);
+			const double effectiveNoteEnd = std::min<double>(noteEnd, blockEnd);
 			
 			const bool noteCutByOffset = note.startBeat < block.midiBlock.startOffsetBeats;
-			const bool noteActiveAtBlockStart = noteCutByOffset && 
-												(note.startBeat + note.lengthBeats) > block.midiBlock.startOffsetBeats;
+			const bool noteActiveAtBlockStart = noteCutByOffset && (note.startBeat + note.lengthBeats) > block.midiBlock.startOffsetBeats;
 			
 			if (s_data.needsNoteRetrigger && noteStart < prevBeat && effectiveNoteEnd > prevBeat)
 			{
 				int32_t sampleOffset = s_config.midiKeyOffset - note.keyNumber;
-				const int32_t clampedOffset = std::max(0, std::min((int32_t)frameCount - 1, sampleOffset));
+				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
 			else if (noteActiveAtBlockStart && block.midiBlock.startBeat >= prevBeat && block.midiBlock.startBeat < newBeat)
@@ -209,7 +207,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 				const double beatsFromBufferStart = block.midiBlock.startBeat - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
 				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
-				const int32_t clampedOffset = std::max(0, std::min((int32_t)frameCount - 1, sampleOffset));
+				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
 			else if (!noteCutByOffset && noteStart >= prevBeat && noteStart < newBeat)
@@ -217,7 +215,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 				const double beatsFromBufferStart = noteStart - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
 				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
-				const int32_t clampedOffset = std::max(0, std::min((int32_t)frameCount - 1, sampleOffset));
+				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
 			
@@ -226,7 +224,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 				const double beatsFromBufferStart = effectiveNoteEnd - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
 				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
-				const int32_t clampedOffset = std::max(0, std::min((int32_t)frameCount - 1, sampleOffset));
+				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->StopNote(note.keyNumber, clampedOffset);
 			}
 		}
@@ -270,16 +268,13 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			continue;
 		
 		const AudioSample& sample = state.samples[block.sampleBlock.sampleIndex];
-		
 		if (!sample.frameData || sample.frameCount == 0)
 			continue;
 		
 		const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-		
 		for (ma_uint32 i = 0; i < frameCount; ++i)
 		{
 			const double currentBeat = prevBeat + i * beatsPerFrame;
-			
 			if (currentBeat < block.sampleBlock.startBeat || currentBeat >= blockEnd)
 				continue;
 			
@@ -310,10 +305,8 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 					}
 					else
 					{
-						left = sample.frameData[frameOffset] + 
-							(sample.frameData[frameOffset + 2] - sample.frameData[frameOffset]) * fraction;
-						right = sample.frameData[frameOffset + 1] + 
-								(sample.frameData[frameOffset + 3] - sample.frameData[frameOffset + 1]) * fraction;
+						left = sample.frameData[frameOffset] + (sample.frameData[frameOffset + 2] - sample.frameData[frameOffset]) * fraction;
+						right = sample.frameData[frameOffset + 1] + (sample.frameData[frameOffset + 3] - sample.frameData[frameOffset + 1]) * fraction;
 					}
 					
 					trackBuffer[i * 2] += left;
@@ -323,7 +316,6 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			else
 			{
 				float monoSample;
-				
 				if (sampleIndex + 1 < sample.frameCount)
 				{
 					if (sampleIndex > 0 && sampleIndex + 2 < sample.frameCount)
@@ -338,8 +330,7 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 					}
 					else
 					{
-						monoSample = sample.frameData[sampleIndex] + 
-									(sample.frameData[sampleIndex + 1] - sample.frameData[sampleIndex]) * fraction;
+						monoSample = sample.frameData[sampleIndex] + (sample.frameData[sampleIndex + 1] - sample.frameData[sampleIndex]) * fraction;
 					}
 				}
 				else
@@ -487,7 +478,6 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		if (track.instrument.plugin)
 		{
 			memset(trackBuffer, 0, frameCount * s_config.channels * sizeof(float));
-			
 			track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount);
 			
 			for (ma_uint32 i = 0; i < frameCount; i++)
@@ -617,7 +607,7 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	
 	while (framesProcessed < totalFrames)
 	{
-		const ma_uint32 framesToProcess = std::min(chunkSize, (ma_uint32)(totalFrames - framesProcessed));
+		const ma_uint32 framesToProcess = std::min<ma_uint32>(chunkSize, (ma_uint32)(totalFrames - framesProcessed));
 		
 		memset(buffer, 0, framesToProcess * channels * sizeof(float));
 		

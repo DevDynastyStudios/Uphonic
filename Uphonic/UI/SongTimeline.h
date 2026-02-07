@@ -12,6 +12,7 @@ class SongTimeline : public Naui::Panel
 public:
     SongTimeline();
 	static AudioTrack& CreateTrack(std::string title, ImVec4 color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f));
+	static double GetTimelineDuration();
 
 protected:
     void OnRender() override;

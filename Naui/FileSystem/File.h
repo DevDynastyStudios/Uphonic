@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace Naui {
 
@@ -31,6 +32,15 @@ private:
 	FILE* handle_;
 };
 
+struct LockHandle
+{
+	#if NAUI_PLATFORM_WINDOWS
+		void* handle = nullptr;
+	#else
+		int fd = -1;
+	#endif
+};
+
 struct NAUI_API DirEntry
 {
 	std::filesystem::path path;
@@ -45,13 +55,25 @@ public:
 	static std::filesystem::path BinDirectory();
 	static std::filesystem::path WorkingDirectory();
 	static std::filesystem::path WorkspaceDirectory();
+	static std::filesystem::path AppDataDirectory();
+	static std::filesystem::path DownloadsDirectory();
 	static void SetWorkspaceDirectory(const std::filesystem::path& path, bool hidden = false);
+	static std::filesystem::path HideDirectory(const std::filesystem::path& path, bool hidden = false);
 	static std::string GetEnv(const char* name);
 	static std::vector<DirEntry> Filter(const std::filesystem::path& path, std::string_view nameFilter, const std::vector<std::string_view>& allowedExtensions);
 	static std::string ToUTF8(const std::filesystem::path& p);
 
+	static bool LockPath(const std::filesystem::path& path);
+	static void UnlockPath(const std::filesystem::path& path);
+	static bool IsLocked(const std::filesystem::path& path);
+
+	static bool IsHidden(const std::filesystem::path& path);
+
 private:
+	static std::filesystem::path ResolveLockTarget(const std::filesystem::path& path);
+
 	static std::filesystem::path workspaceDirectory;
+	static std::unordered_map<std::filesystem::path, LockHandle> g_lockTable;
 };
 
 class NAUI_API PathUtils

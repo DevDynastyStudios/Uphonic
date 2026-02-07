@@ -48,11 +48,30 @@ AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack track;
-	track.type = TrackType::None;
+	track.type = TrackType::Midi;
 	track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
 	track.name = title;
 	state.tracks.push_back(track);
 	return track;
+}
+
+double SongTimeline::GetTimelineDuration()
+{
+	ProjectState& state = ProjectState::GetInstance();
+	double endBeat = 0.0;
+
+	for (const auto& track : state.tracks)
+	{
+		for (const auto& block : track.blocks)
+		{
+			double blockEnd = (track.type == TrackType::Midi) ? block.midiBlock.startBeat + block.midiBlock.lengthBeats : block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
+
+			if (blockEnd > endBeat)
+				endBeat = blockEnd;
+		}
+	}
+
+	return endBeat;
 }
 
 void SongTimeline::OnRender()
@@ -113,7 +132,7 @@ void SongTimeline::RenderToolbar()
 				const double sampleDurationSeconds = (double)sample.frameCount / sample.sampleRate;
 				const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 				const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;
-				block.sampleBlock.lengthBeats = std::min(block.sampleBlock.lengthBeats, availableDuration);
+				block.sampleBlock.lengthBeats = std::min<double>(block.sampleBlock.lengthBeats, availableDuration);
 			}
 		}
 	}
@@ -217,8 +236,8 @@ void SongTimeline::RenderTimeline()
 		{
 			m_scrollY -= wheel * m_config.verticalScrollSensitivity;
 		}
-		m_scrollX = std::max(0.0f, m_scrollX);
-		m_scrollY = std::max(0.0f, m_scrollY);
+		m_scrollX = std::max<float>(0.0f, m_scrollX);
+		m_scrollY = std::max<float>(0.0f, m_scrollY);
 	}
 
 	if (ImGui::IsWindowHovered() && ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
@@ -226,20 +245,14 @@ void SongTimeline::RenderTimeline()
 		ImVec2 delta = ImGui::GetIO().MouseDelta;
 		m_scrollX -= delta.x;
 		m_scrollY -= delta.y;
-		m_scrollX = std::max(0.0f, m_scrollX);
-		m_scrollY = std::max(0.0f, m_scrollY);
+		m_scrollX = std::max<float>(0.0f, m_scrollX);
+		m_scrollY = std::max<float>(0.0f, m_scrollY);
 	}
 	
-	draw->AddRectFilled(canvasPos, 
-					   ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
-					   IM_COL32(25, 25, 28, 255));
-	
+	draw->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), IM_COL32(25, 25, 28, 255));
+	ImGui::PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
+
 	float timelineStartY = canvasPos.y;
-	
-	ImGui::PushClipRect(canvasPos, 
-					   ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
-					   true);
-	
 	float currentY = timelineStartY - m_scrollY + m_config.rulerHeight;
 	ProjectState& state = ProjectState::GetInstance();
 	for (size_t i = 0; i < state.tracks.size(); i++)
@@ -257,9 +270,7 @@ void SongTimeline::RenderTimeline()
 
 	ImGui::PopClipRect();
 
-	ImGui::PushClipRect(ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y), 
-					   ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
-					   true);
+	ImGui::PushClipRect(ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
 	RenderRuler(draw, canvasPos, canvasSize, beatWidth);
 	RenderPlayhead(draw, canvasPos, canvasSize, beatWidth);
 	ImGui::PopClipRect();
@@ -280,17 +291,9 @@ void SongTimeline::RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 	float rulerStartX = canvasPos.x + m_config.trackHeaderWidth;
 	float rulerWidth = canvasSize.x - m_config.trackHeaderWidth;
 	
-	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y),
-					   ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight),
-					   IM_COL32(35, 35, 38, 255));
-	
-	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y),
-					   ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y + m_config.rulerHeight),
-					   IM_COL32(30, 30, 33, 255));
-	
-	draw->AddLine(ImVec2(canvasPos.x, canvasPos.y + m_config.rulerHeight),
-				 ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight),
-				 IM_COL32(60, 60, 65, 255), 1.0f);
+	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight), IM_COL32(35, 35, 38, 255));
+	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y), ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y + m_config.rulerHeight), IM_COL32(30, 30, 33, 255));
+	draw->AddLine(ImVec2(canvasPos.x, canvasPos.y + m_config.rulerHeight), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight), IM_COL32(60, 60, 65, 255), 1.0f);
 	
 	int visibleBeats = (int)((rulerWidth + m_scrollX) / beatWidth) + 2;
 	int startBeat = (int)(m_scrollX / beatWidth);
@@ -307,16 +310,13 @@ void SongTimeline::RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 		ImU32 lineCol = isMeasure ? IM_COL32(100, 100, 105, 255) : IM_COL32(60, 60, 65, 255);
 		float lineHeight = isMeasure ? m_config.rulerHeight * 0.6f : m_config.rulerHeight * 0.3f;
 		
-		draw->AddLine(ImVec2(x, canvasPos.y + m_config.rulerHeight - lineHeight),
-					 ImVec2(x, canvasPos.y + m_config.rulerHeight),
-					 lineCol, 1.0f);
+		draw->AddLine(ImVec2(x, canvasPos.y + m_config.rulerHeight - lineHeight), ImVec2(x, canvasPos.y + m_config.rulerHeight), lineCol, 1.0f);
 		
 		if (isMeasure)
 		{
 			char buf[16];
 			snprintf(buf, sizeof(buf), "%d", (beat / (int)BEATS_PER_MEASURE) + 1);
-			draw->AddText(ImVec2(x + 3, canvasPos.y + 5), 
-						 IM_COL32(180, 180, 185, 255), buf);
+			draw->AddText(ImVec2(x + 3, canvasPos.y + 5), IM_COL32(180, 180, 185, 255), buf);
 		}
 	}
 }
@@ -335,23 +335,16 @@ void SongTimeline::RenderPlayhead(ImDrawList* draw, ImVec2 canvasPos, ImVec2 can
 	draw->AddTriangleFilled(tri[0], tri[1], tri[2], IM_COL32(255, 200, 100, 255));
 }
 
-void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, 
-					float beatWidth, size_t trackIndex, float yPos)
+void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, float yPos)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& track = state.tracks[trackIndex];
 	TrackUIState& ui = m_trackUIStates[trackIndex];
 	float trackStartX = canvasPos.x + m_config.trackHeaderWidth;
 	
-	ImU32 laneColor = (trackIndex % 2 == 0) ? 
-					  IM_COL32(28, 28, 31, 255) : IM_COL32(25, 25, 28, 255);
-	draw->AddRectFilled(ImVec2(trackStartX, yPos),
-					   ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height),
-					   laneColor);
-	
-	draw->AddLine(ImVec2(trackStartX, yPos + ui.height),
-				 ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height),
-				 IM_COL32(40, 40, 45, 255), 1.0f);
+	ImU32 laneColor = (trackIndex % 2 == 0) ? IM_COL32(28, 28, 31, 255) : IM_COL32(25, 25, 28, 255);
+	draw->AddRectFilled(ImVec2(trackStartX, yPos), ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height), laneColor);
+	draw->AddLine(ImVec2(trackStartX, yPos + ui.height), ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height), IM_COL32(40, 40, 45, 255), 1.0f);
 	
 	int visibleBeats = (int)((canvasSize.x - m_config.trackHeaderWidth + m_scrollX) / beatWidth) + 2;
 	int startBeat = (int)(m_scrollX / beatWidth);
@@ -363,9 +356,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 		
 		if (beat % (int)BEATS_PER_MEASURE == 0)
 		{
-			draw->AddLine(ImVec2(x, yPos),
-						 ImVec2(x, yPos + ui.height),
-						 IM_COL32(40, 40, 45, 100), 1.0f);
+			draw->AddLine(ImVec2(x, yPos), ImVec2(x, yPos + ui.height), IM_COL32(40, 40, 45, 100), 1.0f);
 		}
 	}
 	
@@ -373,24 +364,21 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 	{
 		for (size_t i = 0; i < track.blocks.size(); i++)
 		{
-			RenderMidiInstance(draw, canvasPos, canvasSize, beatWidth, 
-							  trackIndex, i, yPos, trackStartX, ui);
+			RenderMidiInstance(draw, canvasPos, canvasSize, beatWidth, trackIndex, i, yPos, trackStartX, ui);
 		}
 	}
 	else
 	{
 		for (size_t i = 0; i < track.blocks.size(); i++)
 		{
-			RenderSampleInstance(draw, canvasPos, canvasSize, beatWidth, 
-								trackIndex, i, yPos, trackStartX, ui);
+			RenderSampleInstance(draw, canvasPos, canvasSize, beatWidth, trackIndex, i, yPos, trackStartX, ui);
 		}
 	}
 
 	if (ImGui::GetDragDropPayload())
 	{
 		ImGui::SetCursorScreenPos(ImVec2(trackStartX, yPos));
-		ImGui::InvisibleButton(("##track_drop_" + std::to_string(trackIndex)).c_str(), 
-							ImVec2(canvasSize.x - m_config.trackHeaderWidth, ui.height));
+		ImGui::InvisibleButton(("##track_drop_" + std::to_string(trackIndex)).c_str(), ImVec2(canvasSize.x - m_config.trackHeaderWidth, ui.height));
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -455,18 +443,11 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 	TrackUIState& ui = m_trackUIStates[trackIndex];
 	AudioTrack& track = state.tracks[trackIndex];
 	
-	draw->AddRectFilled(ImVec2(canvasPos.x, yPos),
-					   ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height),
-					   IM_COL32(35, 35, 38, 255));
-	
-	draw->AddLine(ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos),
-				 ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height),
-				 IM_COL32(50, 50, 55, 255), 2.0f);
+	draw->AddRectFilled(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height), IM_COL32(35, 35, 38, 255));
+	draw->AddLine(ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height), IM_COL32(50, 50, 55, 255), 2.0f);
 	
 	ImU32 trackCol = ImGui::ColorConvertFloat4ToU32(track.color);
-	draw->AddRectFilled(ImVec2(canvasPos.x + 5, yPos + 8),
-					   ImVec2(canvasPos.x + 10, yPos + ui.height - 8),
-					   trackCol);
+	draw->AddRectFilled(ImVec2(canvasPos.x + 5, yPos + 8), ImVec2(canvasPos.x + 10, yPos + ui.height - 8), trackCol);
 	
 	ImGui::PushID((int)trackIndex);
 	if (ImGui::IsMouseHoveringRect(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height)))
@@ -503,8 +484,7 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 		ImGui::SetCursorScreenPos(ImVec2(canvasPos.x + 10, buttonY));
 		ImGui::PushID((int)trackIndex * 1000);
 		
-		ImGui::PushStyleColor(ImGuiCol_Button, track.muted ? 
-							 IM_COL32(180, 100, 50, 180) : IM_COL32(60, 60, 65, 180));
+		ImGui::PushStyleColor(ImGuiCol_Button, track.muted ? IM_COL32(180, 100, 50, 180) : IM_COL32(60, 60, 65, 180));
 		if (ImGui::SmallButton("M"))
 		{
 			track.muted = !track.muted;
@@ -512,8 +492,7 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 		ImGui::PopStyleColor();
 		
 		ImGui::SameLine();
-		ImGui::PushStyleColor(ImGuiCol_Button, track.solo ? 
-							 IM_COL32(100, 180, 100, 180) : IM_COL32(60, 60, 65, 180));
+		ImGui::PushStyleColor(ImGuiCol_Button, track.solo ? IM_COL32(100, 180, 100, 180) : IM_COL32(60, 60, 65, 180));
 		if (ImGui::SmallButton("S"))
 		{
 			track.solo = !track.solo;
@@ -521,8 +500,7 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 		ImGui::PopStyleColor();
 		
 		ImGui::SameLine();
-		ImGui::PushStyleColor(ImGuiCol_Button, track.armed ? 
-							 IM_COL32(200, 80, 80, 180) : IM_COL32(60, 60, 65, 180));
+		ImGui::PushStyleColor(ImGuiCol_Button, track.armed ? IM_COL32(200, 80, 80, 180) : IM_COL32(60, 60, 65, 180));
 		if (ImGui::SmallButton("R"))
 		{
 			track.armed = !track.armed;
@@ -554,8 +532,7 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 	}
 	
 	ImGui::SetNextItemWidth(200);
-	ImGui::ColorEdit4("Color", (float*)&track.color, 
-					 ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs);
+	ImGui::ColorEdit4("Color", (float*)&track.color, ImGuiColorEditFlags_NoAlpha | ImGuiColorEditFlags_NoInputs);
 	
 	ImGui::Separator();
 	
@@ -708,22 +685,17 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 	}
 	if (selected)
 	{
-		baseColor.x = std::min(1.0f, baseColor.x * SELECTED_COLOR_MULTIPLIER);
-		baseColor.y = std::min(1.0f, baseColor.y * SELECTED_COLOR_MULTIPLIER);
-		baseColor.z = std::min(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
+		baseColor.x = std::min<float>(1.0f, baseColor.x * SELECTED_COLOR_MULTIPLIER);
+		baseColor.y = std::min<float>(1.0f, baseColor.y * SELECTED_COLOR_MULTIPLIER);
+		baseColor.z = std::min<float>(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
 	}
 	
 	ImU32 instCol = ImGui::ColorConvertFloat4ToU32(baseColor);
 	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(
 		ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
 	
-	draw->AddRectFilled(ImVec2(instX, instY),
-					   ImVec2(instX + instWidth, instY + instHeight),
-					   instCol, 3.0f);
-	
-	draw->AddRect(ImVec2(instX, instY),
-				 ImVec2(instX + instWidth, instY + instHeight),
-				 borderCol, 3.0f, 0, selected ? 2.5f : 1.5f);
+	draw->AddRectFilled(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), instCol, 3.0f);
+	draw->AddRect(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), borderCol, 3.0f, 0, selected ? 2.5f : 1.5f);
 	
 	ImGui::PushClipRect(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), true);
 	if (instWidth > 40.0f && instHeight > 20.0f)
@@ -736,17 +708,15 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 	if (instWidth > 20.0f && instHeight > 25.0f && 
 		instance.midiBlock.patternIndex < (int)state.patterns.size())
 	{
-		
 		MidiPattern& pattern = state.patterns[instance.midiBlock.patternIndex];
-		
 		if (!pattern.notes.empty())
 		{
 			int minPitch = 127;
 			int maxPitch = 0;
 			for (const auto& note : pattern.notes)
 			{
-				minPitch = std::min(minPitch, (int)note.keyNumber);
-				maxPitch = std::max(maxPitch, (int)note.keyNumber + 1);
+				minPitch = std::min<int>(minPitch, (int)note.keyNumber);
+				maxPitch = std::max<int>(maxPitch, (int)note.keyNumber + 1);
 			}
 			
 			int pitchRange = maxPitch - minPitch;
@@ -759,7 +729,7 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 			{
 				ImU32 noteCol = IM_COL32(255, 255, 255, 180);
 				
-				for (const auto& note : pattern.notes)
+				for (const MidiNote& note : pattern.notes)
 				{
 					float noteX = instX - instStartOffset + (float)(note.startBeat / instance.midiBlock.lengthBeats) * instWidth;
 					float noteW = (float)(note.lengthBeats / instance.midiBlock.lengthBeats) * instWidth;
@@ -774,10 +744,11 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 						noteW = instX + instWidth - noteX;
 					}
 					
-					if (noteW < 1.0f) continue;
+					if (noteW < 1.0f)
+						continue;
 					
 					float pitchNormalized = (float)(note.keyNumber - minPitch) / (float)pitchRange;
-					float noteHeight = std::max(2.0f, noteAreaHeight / (pitchRange + 1));
+					float noteHeight = std::max<float>(2.0f, noteAreaHeight / (pitchRange + 1));
 					float noteY = noteAreaY + noteAreaHeight - (pitchNormalized * noteAreaHeight) - noteHeight;
 					
 					if (noteY < noteAreaY) noteY = noteAreaY;
@@ -786,7 +757,8 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 						noteHeight = noteAreaY + noteAreaHeight - noteY;
 					}
 					
-					if (noteHeight < 1.0f) continue;
+					if (noteHeight < 1.0f)
+						continue;
 					
 					draw->AddRectFilled(ImVec2(noteX, noteY), ImVec2(noteX + noteW, noteY + noteHeight), noteCol, 1.0f);
 				}
@@ -796,18 +768,12 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 
 	if (selected && instHeight > 20.0f)
 	{
-		draw->AddRectFilled(ImVec2(instX, instY + m_config.instancePadding),
-						   ImVec2(instX + m_config.resizeHandleWidth, instY + instHeight - m_config.instancePadding),
-						   IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
-		draw->AddRectFilled(ImVec2(instX + instWidth - m_config.resizeHandleWidth, instY + m_config.instancePadding),
-						   ImVec2(instX + instWidth, instY + instHeight - m_config.instancePadding),
-						   IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
+		draw->AddRectFilled(ImVec2(instX, instY + m_config.instancePadding), ImVec2(instX + m_config.resizeHandleWidth, instY + instHeight - m_config.instancePadding), IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
+		draw->AddRectFilled(ImVec2(instX + instWidth - m_config.resizeHandleWidth, instY + m_config.instancePadding), ImVec2(instX + instWidth, instY + instHeight - m_config.instancePadding), IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
 	}
 }
 
-void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth,
-						 size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX,
-						 TrackUIState& ui)
+void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX, TrackUIState& ui)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& track = state.tracks[trackIndex];
@@ -818,10 +784,10 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 	float instY = yPos + m_config.instancePadding;
 	float instHeight = ui.height - m_config.instancePadding * 2;
 	
-	if (instX + instWidth < trackStartX || instX > canvasPos.x + canvasSize.x) return;
+	if (instX + instWidth < trackStartX || instX > canvasPos.x + canvasSize.x) 
+		return;
 	
 	bool selected = IsInstanceSelected((int)trackIndex, (int)instanceIndex);
-	
 	ImVec4 baseColor = track.color;
 	if (track.muted)
 	{
@@ -831,29 +797,21 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 	}
 	if (selected)
 	{
-		baseColor.x = std::min(1.0f, baseColor.x * SELECTED_COLOR_MULTIPLIER);
-		baseColor.y = std::min(1.0f, baseColor.y * SELECTED_COLOR_MULTIPLIER);
-		baseColor.z = std::min(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
+		baseColor.x = std::min<float>(1.0f, baseColor.x * SELECTED_COLOR_MULTIPLIER);
+		baseColor.y = std::min<float>(1.0f, baseColor.y * SELECTED_COLOR_MULTIPLIER);
+		baseColor.z = std::min<float>(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
 	}
 	
 	ImU32 instCol = ImGui::ColorConvertFloat4ToU32(baseColor);
-	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(
-		ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
+	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
 	
-	draw->AddRectFilled(ImVec2(instX, instY),
-					ImVec2(instX + instWidth, instY + instHeight),
-					instCol, 3.0f);
-
-	draw->AddRect(ImVec2(instX, instY),
-				ImVec2(instX + instWidth, instY + instHeight),
-				borderCol, 3.0f, 0, selected ? 2.5f : 1.5f);
+	draw->AddRectFilled(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), instCol, 3.0f);
+	draw->AddRect(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), borderCol, 3.0f, 0, selected ? 2.5f : 1.5f);
 	
 	if (instWidth > 20.0f && instHeight > 20.0f && 
 		instance.sampleBlock.sampleIndex < state.samples.size())
 	{
-		
-		const AudioSample& sample = state.samples[instance.sampleBlock.sampleIndex];
-		
+		const AudioSample& sample = state.samples[instance.sampleBlock.sampleIndex];	
 		if (sample.frameData && sample.frameCount > 0)
 		{
 			const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
@@ -867,10 +825,7 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 			const double visibleDurationSeconds = visibleDurationBeats * secondsPerBeat / instance.sampleBlock.stretchScale;
 			
 			const uint64_t startFrame = (uint64_t)(startOffsetSeconds * sample.sampleRate);
-			const uint64_t endFrame = std::min(
-				(uint64_t)((startOffsetSeconds + visibleDurationSeconds) * sample.sampleRate),
-				sample.frameCount
-			);
+			const uint64_t endFrame = std::min<uint64_t>((uint64_t)((startOffsetSeconds + visibleDurationSeconds) * sample.sampleRate), sample.frameCount);
 			
 			if (startFrame < sample.frameCount && endFrame > startFrame)
 			{
@@ -893,12 +848,14 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 					for (int px = 0; px < numPixels; px++)
 					{
 						const float x = std::floor(instX + px);
-						if (x < trackStartX || x > canvasPos.x + canvasSize.x) continue;
+						if (x < trackStartX || x > canvasPos.x + canvasSize.x) 
+							continue;
 						
 						const double t = (double)px / numPixels;
 						const uint64_t frameIdx = startFrame + (uint64_t)(t * frameCount);
 						
-						if (frameIdx >= sample.frameCount) continue;
+						if (frameIdx >= sample.frameCount) 
+							continue;
 						
 						float sampleValue = 0.0f;
 						
@@ -938,19 +895,16 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 					for (int px = 0; px < numPixels; px++)
 					{
 						const float x = std::floor(instX + px);
-						if (x < trackStartX || x > canvasPos.x + canvasSize.x) continue;
+						if (x < trackStartX || x > canvasPos.x + canvasSize.x) 
+							continue;
 						
 						const double tStart = (double)px / numPixels;
 						const double tEnd = (double)(px + 1) / numPixels;
 						const uint64_t frameStart = startFrame + (uint64_t)(tStart * frameCount);
-						const uint64_t frameEnd = std::min(
-							startFrame + (uint64_t)(tEnd * frameCount),
-							endFrame
-						);
+						const uint64_t frameEnd = std::min<uint64_t>(startFrame + (uint64_t)(tEnd * frameCount), endFrame);
 						
 						float minVal = 0.0f;
 						float maxVal = 0.0f;
-						
 						for (uint64_t f = frameStart; f < frameEnd && f < sample.frameCount; f++)
 						{
 							float val = 0.0f;
@@ -965,8 +919,8 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 								val = sample.frameData[f];
 							}
 							
-							minVal = std::min(minVal, val);
-							maxVal = std::max(maxVal, val);
+							minVal = std::min<float>(minVal, val);
+							maxVal = std::max<float>(maxVal, val);
 						}
 						
 						minVal = std::clamp(minVal, -1.0f, 1.0f);
@@ -986,31 +940,23 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 					}
 				}
 				
-				draw->AddLine(ImVec2(instX, waveformCenter), 
-							ImVec2(instX + instWidth, waveformCenter),
-							IM_COL32(255, 255, 255, (int)WAVEFORM_CENTER_LINE_ALPHA), 1.0f);
+				draw->AddLine(ImVec2(instX, waveformCenter), ImVec2(instX + instWidth, waveformCenter), IM_COL32(255, 255, 255, (int)WAVEFORM_CENTER_LINE_ALPHA), 1.0f);
 			}
 		}
 	}
 	
 	ImGui::PushClipRect(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), true);
-	if (instWidth > 40.0f && instHeight > 20.0f && 
-		instance.sampleBlock.sampleIndex < state.samples.size())
+	if (instWidth > 40.0f && instHeight > 20.0f && instance.sampleBlock.sampleIndex < state.samples.size())
 	{
 		ImVec2 textPos(instX + 8, instY + 6);
-		draw->AddText(textPos, IM_COL32(255, 255, 255, 255), 
-					state.samples[instance.sampleBlock.sampleIndex].name.c_str());
+		draw->AddText(textPos, IM_COL32(255, 255, 255, 255), state.samples[instance.sampleBlock.sampleIndex].name.c_str());
 	}
+
 	ImGui::PopClipRect();
-	
 	if (selected && instHeight > 20.0f)
 	{
-		draw->AddRectFilled(ImVec2(instX, instY + m_config.instancePadding),
-						ImVec2(instX + m_config.resizeHandleWidth, instY + instHeight - m_config.instancePadding),
-						IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
-		draw->AddRectFilled(ImVec2(instX + instWidth - m_config.resizeHandleWidth, instY + m_config.instancePadding),
-						ImVec2(instX + instWidth, instY + instHeight - m_config.instancePadding),
-						IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
+		draw->AddRectFilled(ImVec2(instX, instY + m_config.instancePadding), ImVec2(instX + m_config.resizeHandleWidth, instY + instHeight - m_config.instancePadding), IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
+		draw->AddRectFilled(ImVec2(instX + instWidth - m_config.resizeHandleWidth, instY + m_config.instancePadding), ImVec2(instX + instWidth, instY + instHeight - m_config.instancePadding), IM_COL32(255, 255, 255, (int)RESIZE_HANDLE_ALPHA));
 	}
 }
 
@@ -1021,15 +967,11 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 	float timelineStartY = canvasPos.y + m_config.rulerHeight;
 	
 	if (ImGui::IsMouseReleased(0))
-	{
 		ResetDragState();
-	}
 	
 	static bool isScrubbing = false;
 	if (HandleRulerClick(mousePos, canvasPos, trackStartX, beatWidth, isScrubbing))
-	{
 		return;
-	}
 	
 	bool isInteracting = m_selection.isDragging || m_selection.isResizing || m_selection.isResizingLeft || m_selection.isSelecting;
 	if (!isInteracting)
@@ -1050,9 +992,7 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 	
 	bool inTimeline = IsInTimelineArea(mousePos, canvasPos, canvasSize, trackStartX, timelineStartY);
 	if (!inTimeline && !isInteracting)
-	{
 		return;
-	}
 	
 	double beatPos = (mousePos.x - trackStartX + m_scrollX) / beatWidth;
 	int trackIdx = GetTrackAtY(mousePos.y, timelineStartY);
@@ -1060,14 +1000,10 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 	UpdateCursor(mousePos, beatPos, trackIdx, trackStartX, beatWidth);
 	
 	if (ImGui::IsMouseClicked(0))
-	{
 		HandleMouseClick(mousePos, beatPos, trackIdx, trackStartX, beatWidth);
-	}
 	
 	if (ImGui::IsMouseDragging(0))
-	{
 		HandleMouseDrag(mousePos, beatPos, trackIdx, timelineStartY, trackStartX, beatWidth);
-	}
 }
 
 void SongTimeline::ResetDragState()
@@ -1081,13 +1017,9 @@ void SongTimeline::ResetDragState()
 	m_selection.originalPositions.clear();
 }
 
-bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, float trackStartX, 
-						 float beatWidth, bool& isScrubbing)
+bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, float trackStartX, float beatWidth, bool& isScrubbing)
 {
-	bool inRuler = mousePos.y >= canvasPos.y && 
-				   mousePos.y < canvasPos.y + m_config.rulerHeight &&
-				   mousePos.x >= trackStartX;
-	
+	bool inRuler = mousePos.y >= canvasPos.y && mousePos.y < canvasPos.y + m_config.rulerHeight && mousePos.x >= trackStartX;
 	if (ImGui::IsMouseClicked(0) && inRuler && ImGui::IsWindowHovered())
 	{
 		isScrubbing = true;
@@ -1108,15 +1040,14 @@ bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, float tra
 		
 		double beatPos = (mousePos.x - trackStartX + m_scrollX) / beatWidth;
 		ProjectState& state = ProjectState::GetInstance();
-		state.timelinePositionBeats = SnapToGrid(std::max(0.0, beatPos));
+		state.timelinePositionBeats = SnapToGrid(std::max<double>(0.0, beatPos));
 		return true;
 	}
 	
 	return false;
 }
 
-bool SongTimeline::IsInTimelineArea(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize,
-						 float trackStartX, float timelineStartY)
+bool SongTimeline::IsInTimelineArea(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize, float trackStartX, float timelineStartY)
 {
 	return mousePos.x >= trackStartX && 
 		   mousePos.x < canvasPos.x + canvasSize.x &&
@@ -1124,11 +1055,9 @@ bool SongTimeline::IsInTimelineArea(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 ca
 		   mousePos.y < canvasPos.y + canvasSize.y;
 }
 
-void SongTimeline::UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx,
-					 float trackStartX, float beatWidth)
+void SongTimeline::UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth)
 {
 	ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
-
 	if (m_selection.isResizing || m_selection.isResizingLeft)
 	{
 		ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
@@ -1142,12 +1071,9 @@ void SongTimeline::UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx,
 	}
 	
 	if (m_selection.isSelecting)
-	{
 		return;
-	}
 	
 	auto [instTrack, instIdx] = FindInstanceAt(beatPos, trackIdx);
-	
 	if (instTrack >= 0 && instIdx >= 0)
 	{
 		ProjectState& state = ProjectState::GetInstance();
@@ -1169,16 +1095,8 @@ void SongTimeline::UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx,
 		
 		float instStartX = (float)(trackStartX + blockStart * beatWidth - m_scrollX);
 		float instEndX = (float)(instStartX + blockLength * beatWidth);
-		
-		if ((mousePos.x >= instStartX - 2 && mousePos.x <= instStartX + 6) ||
-			(mousePos.x >= instEndX - 6 && mousePos.x <= instEndX + 2))
-		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
-		}
-		else
-		{
-			ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-		}
+		ImGuiMouseCursor cursorFlag = (mousePos.x >= instStartX - 2 && mousePos.x <= instStartX + 6) || (mousePos.x >= instEndX - 6 && mousePos.x <= instEndX + 2) ? ImGuiMouseCursor_ResizeEW : ImGuiMouseCursor_Hand; 
+		ImGui::SetMouseCursor(cursorFlag);
 	}
 }
 
@@ -1207,7 +1125,6 @@ void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackId
 	}
 	
 	auto [instTrack, instIdx] = FindInstanceAt(beatPos, trackIdx);
-	
 	switch (m_currentTool)
 	{
 		case Tool::Draw:
@@ -1243,12 +1160,9 @@ void SongTimeline::HandleDrawToolClick(int instTrack, int instIdx, int trackIdx,
 	if (instTrack >= 0 && instIdx >= 0)
 	{
 		if (TryStartResize(instTrack, instIdx, mousePos, trackStartX, beatWidth))
-		{
 			return;
-		}
 		
 		bool alreadySelected = IsInstanceSelected(instTrack, instIdx);
-		
 		if (alreadySelected)
 		{
 			StartDragging(instTrack, instIdx, mousePos);
@@ -1257,13 +1171,11 @@ void SongTimeline::HandleDrawToolClick(int instTrack, int instIdx, int trackIdx,
 		else
 		{
 			if (!ImGui::GetIO().KeyCtrl)
-			{
 				ClearSelection();
-			}
+
 			if (ImGui::GetIO().KeyCtrl)
-			{
 				m_selection.selectedInstances.push_back({instTrack, instIdx});
-			}
+
 			StartDragging(instTrack, instIdx, mousePos);
 		}
 	}
@@ -1274,21 +1186,14 @@ void SongTimeline::HandleSelectToolClick(int instTrack, int instIdx, int trackId
 	if (instTrack >= 0 && instIdx >= 0)
 	{
 		if (TryStartResize(instTrack, instIdx, mousePos, trackStartX, beatWidth))
-		{
 			return;
-		}
 		
 		bool alreadySelected = IsInstanceSelected(instTrack, instIdx);
-		
 		if (!ImGui::GetIO().KeyCtrl && !alreadySelected)
-		{
 			ClearSelection();
-		}
 		
 		if (!alreadySelected)
-		{
 			m_selection.selectedInstances.push_back({instTrack, instIdx});
-		}
 		
 		StartDragging(instTrack, instIdx, mousePos);
 		StoreOriginalInstancePositions();
@@ -1296,9 +1201,8 @@ void SongTimeline::HandleSelectToolClick(int instTrack, int instIdx, int trackId
 	else
 	{
 		if (!ImGui::GetIO().KeyCtrl)
-		{
 			ClearSelection();
-		}
+
 		m_selection.isSelecting = true;
 		m_selection.selectionStart = mousePos;
 	}
@@ -1370,13 +1274,10 @@ void SongTimeline::StartDragging(int trackIdx, int instIdx, ImVec2 mousePos)
 		TimelineBlock& block = track.blocks[instIdx];
 		double start = 0.0;
 		if (track.type == TrackType::Midi)
-		{
 			start = block.midiBlock.startBeat;
-		}
 		else
-		{
 			start = block.sampleBlock.startBeat;
-		}
+
 		m_selection.originalPositions.push_back({start, trackIdx});
 	}
 }
@@ -1384,42 +1285,31 @@ void SongTimeline::StartDragging(int trackIdx, int instIdx, ImVec2 mousePos)
 void SongTimeline::HandleMouseDrag(ImVec2 mousePos, double beatPos, int trackIdx, float timelineStartY, float trackStartX, float beatWidth)
 {
 	if (m_selection.isResizing)
-	{
 		HandleRightResize(beatPos);
-	}
+
 	else if (m_selection.isResizingLeft)
-	{
 		HandleLeftResize(beatPos);
-	}
+
 	else if (m_selection.isDragging)
-	{
 		HandleInstanceDrag(mousePos, trackIdx, timelineStartY, beatWidth);
-	}
+
 	else if (m_selection.isSelecting)
-	{
 		HandleBoxSelection(mousePos, timelineStartY, trackStartX, beatWidth);
-	}
 }
 
 void SongTimeline::HandleRightResize(double beatPos)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	if (m_selection.draggedTrack < 0 || m_selection.draggedInstance < 0 || 
-		m_selection.draggedTrack >= (int)state.tracks.size())
-	{
+	if (m_selection.draggedTrack < 0 || m_selection.draggedInstance < 0 || m_selection.draggedTrack >= (int)state.tracks.size())
 		return;
-	}
 	
 	AudioTrack& track = state.tracks[m_selection.draggedTrack];
 	if (m_selection.draggedInstance >= (int)track.blocks.size())
-	{
 		return;
-	}
 	
 	TimelineBlock& block = track.blocks[m_selection.draggedInstance];
 	double newLength = 0.0;
 	double blockStart = 0.0;
-	
 	if (track.type == TrackType::Midi)
 	{
 		blockStart = block.midiBlock.startBeat;
@@ -1443,7 +1333,7 @@ void SongTimeline::HandleRightResize(double beatPos)
 			const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;
 			const double maxLength = std::max<double>(m_config.minInstanceLength, availableDuration);
 			
-			snappedLength = std::min(snappedLength, maxLength);
+			snappedLength = std::min<double>(snappedLength, maxLength);
 		}
 		
 		block.sampleBlock.lengthBeats = std::max<double>(m_config.minInstanceLength, snappedLength);
@@ -1453,27 +1343,21 @@ void SongTimeline::HandleRightResize(double beatPos)
 void SongTimeline::HandleLeftResize(double beatPos)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	if (m_selection.draggedTrack < 0 || m_selection.draggedInstance < 0 || 
-		m_selection.draggedTrack >= (int)state.tracks.size())
-	{
+	if (m_selection.draggedTrack < 0 || m_selection.draggedInstance < 0 || m_selection.draggedTrack >= (int)state.tracks.size())
 		return;
-	}
 	
 	AudioTrack& track = state.tracks[m_selection.draggedTrack];
 	if (m_selection.draggedInstance >= (int)track.blocks.size())
-	{
 		return;
-	}
 	
 	TimelineBlock& block = track.blocks[m_selection.draggedInstance];
-	
 	if (track.type == TrackType::Midi)
 	{
 		double originalEnd = block.midiBlock.startBeat + block.midiBlock.lengthBeats;
 		double newStart = SnapToGrid(beatPos);
 		
-		newStart = std::max(0.0, newStart);
-		newStart = std::min(originalEnd - m_config.minInstanceLength, newStart);
+		newStart = std::max<double>(0.0, newStart);
+		newStart = std::min<double>(originalEnd - m_config.minInstanceLength, newStart);
 		
 		double delta = newStart - block.midiBlock.startBeat;
 		double newOffset = block.midiBlock.startOffsetBeats + delta;
@@ -1486,19 +1370,17 @@ void SongTimeline::HandleLeftResize(double beatPos)
 		
 		block.midiBlock.startBeat = newStart;
 		block.midiBlock.lengthBeats = originalEnd - newStart;
-		block.midiBlock.startOffsetBeats = std::max(0.0, block.midiBlock.startOffsetBeats + delta);
+		block.midiBlock.startOffsetBeats = std::max<double>(0.0, block.midiBlock.startOffsetBeats + delta);
 	}
 	else
 	{
 		double originalEnd = block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
 		double newStart = SnapToGrid(beatPos);
-		
-		newStart = std::max(0.0, newStart);
-		newStart = std::min(originalEnd - m_config.minInstanceLength, newStart);
+		newStart = std::max<double>(0.0, newStart);
+		newStart = std::min<double>(originalEnd - m_config.minInstanceLength, newStart);
 		
 		double delta = newStart - block.sampleBlock.startBeat;
 		double newOffset = block.sampleBlock.startOffsetBeats + delta;
-		
 		if (newOffset < 0.0)
 		{
 			delta = -block.sampleBlock.startOffsetBeats;
@@ -1507,7 +1389,7 @@ void SongTimeline::HandleLeftResize(double beatPos)
 		
 		block.sampleBlock.startBeat = newStart;
 		block.sampleBlock.lengthBeats = originalEnd - newStart;
-		block.sampleBlock.startOffsetBeats = std::max(0.0, block.sampleBlock.startOffsetBeats + delta);
+		block.sampleBlock.startOffsetBeats = std::max<double>(0.0, block.sampleBlock.startOffsetBeats + delta);
 	}
 }
 
@@ -1552,19 +1434,15 @@ void SongTimeline::HandleSingleInstanceDrag(int hoverTrack, double deltaBeat, fl
 	if (!m_selection.originalPositions.empty())
 	{
 		double newStart = m_selection.originalPositions[0].startBeat + deltaBeat;
-		newStart = SnapToGrid(std::max(0.0, newStart));
+		newStart = SnapToGrid(std::max<double>(0.0, newStart));
 		
 		AudioTrack& track = state.tracks[m_selection.draggedTrack];
 		if (m_selection.draggedInstance < (int)track.blocks.size())
 		{
 			if (track.type == TrackType::Midi)
-			{
 				track.blocks[m_selection.draggedInstance].midiBlock.startBeat = newStart;
-			}
 			else
-			{
 				track.blocks[m_selection.draggedInstance].sampleBlock.startBeat = newStart;
-			}
 		}
 	}
 }
@@ -1576,76 +1454,63 @@ void SongTimeline::HandleMultiInstanceDrag(int hoverTrack, double deltaBeat, flo
 	double minOriginalStart = DBL_MAX;
 	for (const auto& orig : m_selection.originalPositions)
 	{
-		minOriginalStart = std::min(minOriginalStart, orig.startBeat);
+		minOriginalStart = std::min<double>(minOriginalStart, orig.startBeat);
 	}
 	
 	if (minOriginalStart + deltaBeat < 0.0)
-	{
 		deltaBeat = -minOriginalStart;
-	}
 	
 	ProjectState& state = ProjectState::GetInstance();
 	for (size_t i = 0; i < m_selection.selectedInstances.size(); i++)
 	{
-		if (i >= m_selection.originalPositions.size()) continue;
+		if (i >= m_selection.originalPositions.size()) 
+			continue;
 		
 		const auto& [tIdx, iIdx] = m_selection.selectedInstances[i];
 		AudioTrack& track = state.tracks[tIdx];
-		
-		if (iIdx >= (int)track.blocks.size()) continue;
+		if (iIdx >= (int)track.blocks.size()) 
+			continue;
 		
 		double newStart = m_selection.originalPositions[i].startBeat + deltaBeat;
-		newStart = SnapToGrid(std::max(0.0, newStart));
+		newStart = SnapToGrid(std::max<double>(0.0, newStart));
 		
 		if (track.type == TrackType::Midi)
-		{
 			track.blocks[iIdx].midiBlock.startBeat = newStart;
-		}
 		else
-		{
 			track.blocks[iIdx].sampleBlock.startBeat = newStart;
-		}
 	}
 }
 
 void SongTimeline::TryMoveSelectionToTrack(int hoverTrack)
 {
 	if (hoverTrack < 0 || m_selection.selectedInstances.empty())
-	{
 		return;
-	}
 	
 	int firstTrack = m_selection.selectedInstances[0].first;
 	for (const auto& [tIdx, _] : m_selection.selectedInstances)
 	{
 		if (tIdx != firstTrack)
-		{
 			return;
-		}
 	}
 	
 	if (hoverTrack == firstTrack)
-	{
 		return;
-	}
 	
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& srcTrack = state.tracks[firstTrack];
 	AudioTrack& dstTrack = state.tracks[hoverTrack];
 	
 	if (srcTrack.type != dstTrack.type)
-	{
 		return;
-	}
 	
 	std::vector<std::pair<int, int>> sorted = m_selection.selectedInstances;
-	std::sort(sorted.begin(), sorted.end(), 
-			 [](const auto& a, const auto& b) { return a.second > b.second; });
+	std::sort(sorted.begin(), sorted.end(), [](const auto& a, const auto& b) { return a.second > b.second; });
 	
 	std::vector<std::pair<int, int>> newSelection;
 	for (const auto& [tIdx, iIdx] : sorted)
 	{
-		if (iIdx >= (int)srcTrack.blocks.size()) continue;
+		if (iIdx >= (int)srcTrack.blocks.size()) 
+			continue;
 		
 		TimelineBlock block = srcTrack.blocks[iIdx];
 		srcTrack.blocks.erase(srcTrack.blocks.begin() + iIdx);
@@ -1665,8 +1530,8 @@ void SongTimeline::HandleBoxSelection(ImVec2 mousePos, float timelineStartY, flo
 {
 	m_selection.selectionEnd = mousePos;
 	
-	ImVec2 boxMin(std::min(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::min(m_selection.selectionStart.y, m_selection.selectionEnd.y));
-	ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+	ImVec2 boxMin(std::min<float>(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::min<float>(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+	ImVec2 boxMax(std::max<float>(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::max<float>(m_selection.selectionStart.y, m_selection.selectionEnd.y));
 	
 	float currentY = timelineStartY - m_scrollY;
 	ProjectState& state = ProjectState::GetInstance();
@@ -1707,9 +1572,7 @@ void SongTimeline::HandleBoxSelection(ImVec2 mousePos, float timelineStartY, flo
 			bool inBox = instX2 >= boxMin.x && instX1 <= boxMax.x && instY + instHeight >= boxMin.y && instY <= boxMax.y;
 			
 			if (inBox && !IsInstanceSelected((int)t, (int)i))
-			{
 				m_selection.selectedInstances.push_back({(int)t, (int)i});
-			}
 		}
 		
 		currentY += trackHeight;
@@ -1733,7 +1596,8 @@ void SongTimeline::SelectAllInstances()
 void SongTimeline::CreateInstance(int trackIdx, double beatPos)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	if (trackIdx < 0 || trackIdx >= (int)state.tracks.size()) return;
+	if (trackIdx < 0 || trackIdx >= (int)state.tracks.size()) 
+		return;
 	
 	double snappedStart = SnapToGrid(beatPos);
 	AudioTrack& track = state.tracks[trackIdx];
@@ -1763,9 +1627,7 @@ std::pair<int, int> SongTimeline::FindInstanceAt(double beatPos, int trackIdx)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	if (trackIdx < 0 || trackIdx >= (int)state.tracks.size())
-	{
 		return {-1, -1};
-	}
 	
 	AudioTrack& track = state.tracks[trackIdx];
 	
@@ -1791,6 +1653,7 @@ std::pair<int, int> SongTimeline::FindInstanceAt(double beatPos, int trackIdx)
 			return {trackIdx, i};
 		}
 	}
+
 	return {-1, -1};
 }
 
@@ -1801,17 +1664,19 @@ int SongTimeline::GetTrackAtY(float mouseY, float timelineStartY)
 	for (size_t i = 0; i < state.tracks.size(); i++)
 	{
 		if (mouseY >= currentY && mouseY < currentY + m_trackUIStates[i].height)
-		{
 			return (int)i;
-		}
+
 		currentY += m_trackUIStates[i].height;
 	}
+
 	return -1;
 }
 
 double SongTimeline::SnapToGrid(double value)
 {
-	if (m_snap == 0) return value;
+	if (m_snap == 0) 
+		return value;
+
 	double snapSize = BEATS_PER_MEASURE / m_snap;
 	return std::round(value / snapSize) * snapSize;
 }
@@ -1824,15 +1689,10 @@ void SongTimeline::StoreOriginalInstancePositions()
 	{
 		AudioTrack& track = state.tracks[tIdx];
 		double start = 0.0;
-		
 		if (track.type == TrackType::Midi && iIdx < (int)track.blocks.size())
-		{
 			start = track.blocks[iIdx].midiBlock.startBeat;
-		}
 		else if (track.type == TrackType::Audio && iIdx < (int)track.blocks.size())
-		{
 			start = track.blocks[iIdx].sampleBlock.startBeat;
-		}
 		
 		m_selection.originalPositions.push_back({start, tIdx});
 	}
@@ -1848,10 +1708,9 @@ bool SongTimeline::IsInstanceSelected(int trackIdx, int instanceIdx)
 	for (const auto& [tIdx, iIdx] : m_selection.selectedInstances)
 	{
 		if (tIdx == trackIdx && iIdx == instanceIdx)
-		{
 			return true;
-		}
 	}
+
 	return false;
 }
 
@@ -1867,9 +1726,7 @@ void SongTimeline::DeleteSelectedInstances()
 		{
 			AudioTrack& track = state.tracks[tIdx];
 			if (iIdx < (int)track.blocks.size())
-			{
 				track.blocks.erase(track.blocks.begin() + iIdx);
-			}
 		}
 	}
 	m_selection.selectedInstances.clear();

@@ -12,7 +12,4 @@ public:
 	static void LayoutMenu();
 	static void HelpMenu();
 	static void RenderPopups();
-
-private:
-	static double GetTimelineDuration();
 };

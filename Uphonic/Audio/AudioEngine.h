@@ -21,7 +21,7 @@ public:
     static bool Initialize(const AudioConfig& config);
     static void Shutdown();
     static void StopAllNotes();
-    static AudioSample& AddSample(const char* filepath);
+    static AudioSample& AddSample(const char* filepath, ProjectState& state = ProjectState::GetInstance());
     static bool LoadSample(const char* filepath, AudioSample &sample);
     static void UnloadSample(AudioSample& sample);
     static bool ExportToWav(const char* filepath, double startBeat, double endBeat);

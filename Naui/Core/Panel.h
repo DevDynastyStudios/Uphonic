@@ -22,6 +22,17 @@ public:
 	void SetResizable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoResize : m_imguiFlags |= ImGuiWindowFlags_NoResize; }
 	void SetMovable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoMove : m_imguiFlags |= ImGuiWindowFlags_NoMove; }
 	void SetMinimizable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse : m_imguiFlags |= ImGuiWindowFlags_NoCollapse; }
+	void SetAutoResize(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_AlwaysAutoResize : m_imguiFlags &= ~ImGuiWindowFlags_AlwaysAutoResize; }
+	void SetNoCollapse(bool value) { value ? m_imguiFlags |= ImGuiWindowFlags_NoCollapse : m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse; }
+	void SetDockable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoDocking : m_imguiFlags |= ImGuiWindowFlags_NoDocking; }
+
+	void SetViewportPos(const ImVec2& pos, ImGuiCond cond = ImGuiCond_Always)
+	{
+		ImGuiViewport* view = ImGui::GetMainViewport();
+		ImVec2 screenPos = view->Pos;
+		ImVec2 screenSize = view->Size;
+		ImGui::SetWindowPos(ImVec2(screenPos.x + pos.x * screenSize.x, screenPos.y + pos.y * screenSize.y), cond);
+	}
 
 	void SetMaxSize(float x, float y) { m_maxSize = ImVec2(x, y); }
 	void SetMinSize(float x, float y) { m_minSize = ImVec2(x, y); }
@@ -76,6 +87,30 @@ Panel &AddPanel(void)
 
 NAUI_API void DestroyPanel(uint64_t uid);
 NAUI_API void DestroyAllPanels(void);
+
+template<typename T>
+T* GetPanelOfType()
+{
+	for(auto& [uid, panel] : GetAllPanels())
+	{
+		if(auto casted = dynamic_cast<T*>(panel))
+			return casted;
+	}
+
+	return nullptr;
+}
+
+template<typename T>
+T* FindPanelByTitle(const std::string& title)
+{
+	for(auto& [uid, panel] : GetAllPanels())
+	{
+		if(panel && panel->GetTitle() == title)
+			return static_cast<T*>(panel);
+	}
+
+	return nullptr;
+}
 
 template<typename T>
 void DestroyPanelOfType(void)

@@ -9,7 +9,9 @@ public:
 	static void NewProject(bool initialLoad = false);
 	static bool OpenProject(const std::filesystem::path& path);
 	static bool Save();
-	static bool SaveProject(std::filesystem::path path, std::string fileName);
+	static bool SaveProject(std::filesystem::path path);
+	static void CloseProject();
+	static bool LoadFromWorkspace(const std::filesystem::path& folder);
 
 	static void ImportSample(const std::filesystem::path& source);
 	static void DeleteSample(AudioSample& sample);
@@ -19,4 +21,5 @@ public:
 	
 private:
 	static void InitializeWorkspace(bool initialLoad = false, bool clearDir = false);
+	static void ShutdownWorkspace(std::filesystem::path path);
 };

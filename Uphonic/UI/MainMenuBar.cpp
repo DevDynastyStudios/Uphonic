@@ -5,6 +5,7 @@
 #include "Core/FileDialog.h"
 #include "Core/Defer.h"
 #include "Audio/AudioEngine.h"
+#include "UI/SongTimeline.h"
 #include "Layout.h"
 
 static char newLayoutName[64] = {};
@@ -16,32 +17,8 @@ static bool requestOverridePopup = false;
 static std::string pendingOverrideName;
 static std::string currentLayout = "Default";
 
-double MainMenuBar::GetTimelineDuration()
-{
-	ProjectState& state = ProjectState::GetInstance();
-	double endBeat = 0.0;
-
-	for (const auto& track : state.tracks)
-	{
-		for (const auto& block : track.blocks)
-		{
-			double blockEnd = (track.type == TrackType::Midi) ? block.midiBlock.startBeat + block.midiBlock.lengthBeats : block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
-
-			if (blockEnd > endBeat)
-				endBeat = blockEnd;
-		}
-	}
-
-	return endBeat;
-}
-
 void MainMenuBar::FileMenu()
 {
-	FileDialog::Display("menubar_open_project", [](const std::filesystem::path& path)
-	{
-		ProjectManager::OpenProject(path);
-	});
-
 	if (!ImGui::BeginMenu("File"))
 		return;
 
@@ -49,28 +26,28 @@ void MainMenuBar::FileMenu()
 		ProjectManager::NewProject();
 
 	if (ImGui::MenuItem("Open"))
-		FileDialog::OpenFile("menubar_open_project", "Open Project", ".uph");
+		FileDialog::OpenFile("open_project", "Open Project", ".uph");
 
 	ImGui::Separator();
 
 	if(ImGui::MenuItem("Save"))
 		ProjectManager::Save();
 
-	if(ImGui::MenuItem("Save As"))	
-		ProjectManager::SaveProject(Naui::Directory::WorkspaceDirectory(), "Test");		// (Chimpchi): Call FileDialog to choose where to save .uph to
+	if(ImGui::MenuItem("Save As"))
+		FileDialog::SaveFile("save_project", "Save Project", ".uph");
 
 	ImGui::Separator();
 
 	if (ImGui::BeginMenu("Import"))
 	{
-		ImGui::MenuItem("MIDI");
+		ImGui::MenuItem("MIDI", nullptr, nullptr, false);
 		ImGui::EndMenu();
 	}
 
 	if (ImGui::BeginMenu("Export"))
 	{
 		if (ImGui::MenuItem("Wave file..."))
-			AudioEngine::ExportToWav("test.wav", 0, GetTimelineDuration());
+			AudioEngine::ExportToWav("test.wav", 0, SongTimeline::GetTimelineDuration());
 
 		ImGui::MenuItem("Ogg file...", nullptr, nullptr, false);
 		ImGui::MenuItem("Mp3 file...", nullptr, nullptr, false);
@@ -84,7 +61,7 @@ void MainMenuBar::FileMenu()
 	ImGui::Separator();
 
 	if (ImGui::MenuItem("Exit"))
-		exit(0);
+		ProjectManager::CloseProject();
 
 	ImGui::EndMenu();
 }
@@ -94,11 +71,11 @@ void MainMenuBar::EditMenu()
 	if (!ImGui::BeginMenu("Edit"))
 		return;
 
-	ImGui::MenuItem("Undo");
+	ImGui::MenuItem("Undo", nullptr, nullptr, false);
 	ImGui::Separator();
-	ImGui::MenuItem("Cut");
-	ImGui::MenuItem("Copy");
-	ImGui::MenuItem("Paste");
+	ImGui::MenuItem("Cut", nullptr, nullptr, false);
+	ImGui::MenuItem("Copy", nullptr, nullptr, false);
+	ImGui::MenuItem("Paste", nullptr, nullptr, false);
 
 	ImGui::EndMenu();
 }

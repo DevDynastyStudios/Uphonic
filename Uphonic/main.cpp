@@ -5,6 +5,7 @@
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
 #include "Config/EditorConfig.h"
+#include "Core/FileDialog.h"
 
 #include "UI/Layout.h"
 #include "UI/MainMenuBar.h"
@@ -13,6 +14,7 @@
 #include "UI/SampleRack.h"
 #include "UI/SongTimeline.h"
 #include "UI/MixerRack.h"
+#include "UI/RecoveryPrompt.h"
 #include "UI/FileExplorer.h"
 
 #include <iostream>
@@ -24,8 +26,7 @@ class UphonicApp : public Naui::App
 private:
 	void OnEnter() override
 	{
-		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::WorkingDirectory() / "workspace", true);
-		ProjectManager::NewProject(true);
+		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/workspace", true);
 		Layout::LoadDefault();
 		ProjectState& state = ProjectState::GetInstance();
 		state.mainWindow = GetPlatformWindow();
@@ -42,11 +43,15 @@ private:
 		Naui::AddPanel<SampleRack>();
 		Naui::AddPanel<SongTimeline>();
 		Naui::AddPanel<MixerRack>();
+		Naui::AddPanel<RecoveryPrompt>();
+
+		ProjectManager::NewProject(true);
 	}
 	
 	void OnExit() override
 	{
 		AudioEngine::Shutdown();
+		ProjectManager::CloseProject();
 	}
 	
 	void OnFileDrop(const char* path) override
@@ -56,6 +61,16 @@ private:
 	
 	void OnRender() override
 	{
+		FileDialog::Display("open_project", [](const std::filesystem::path& path)
+		{
+			ProjectManager::OpenProject(path);
+		});
+
+		FileDialog::Display("save_project", [](const std::filesystem::path& path)
+		{
+			ProjectManager::SaveProject(path);
+		});
+
 		if(ImGui::BeginMainMenuBar())
 		{	
 			MainMenuBar::FileMenu();

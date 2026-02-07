@@ -20,6 +20,9 @@ void ProjectState::ClearProject()
 
 void ProjectState::CopyFrom(const ProjectState& other)
 {
+	settings = other.settings;
+	masterTrack = other.masterTrack;
+
 	timelinePositionBeats = other.timelinePositionBeats;
 	beatsPerMinute = other.beatsPerMinute;
 	masterVolume = other.masterVolume;
@@ -29,18 +32,21 @@ void ProjectState::CopyFrom(const ProjectState& other)
 	currentMidiPatternIndex = other.currentMidiPatternIndex;
 	timelinePositionBeats = other.timelinePositionBeats;
 
+	samples.clear();
 	samples.reserve(other.samples.size());
 	for(const AudioSample& sample : other.samples)
 	{
 		samples.push_back(sample);
 	}
 
+	patterns.clear();
 	patterns.reserve(other.patterns.size());
 	for(const MidiPattern& pattern : other.patterns)
 	{
 		patterns.push_back(pattern);
 	}
 
+	tracks.clear();
 	tracks.reserve(other.tracks.size());
 	for(const AudioTrack& track : other.tracks)
 	{

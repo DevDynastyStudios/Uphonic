@@ -5,6 +5,17 @@
 #include <algorithm>
 #include <chrono>
 
+static void ConfirmSelection(DialogState& state, std::filesystem::path path)
+{
+    if (!state.canConfirm)
+        return;
+
+    if (state.callback)
+        state.callback(path);
+
+    state.open = false;
+}
+
 static bool MatchesFilter(const std::filesystem::path& p, const std::string& filters)
 {
 	if (filters.empty())
@@ -14,27 +25,43 @@ static bool MatchesFilter(const std::filesystem::path& p, const std::string& fil
 	return filters.find(ext) != std::string::npos;
 }
 
-void FileDialog::OpenFile(const char* key, const char* title, const char* filters)
+void FileDialog::SaveFile(const char* key, const char* title, const char* filters, const char* confirmLabel)
 {
 	state.open = true;
-	state.folderMode = false;
+	state.mode = DialogMode::SaveFile;
+	state.confirmLabel = confirmLabel;
 	state.key = key;
 	state.title = title;
 	state.filters = filters ? filters : "";
-	state.currentDir = std::filesystem::current_path();
+	state.currentDir = Naui::Directory::DownloadsDirectory();
 	state.selected.clear();
 	state.searchText.clear();
 	state.hasPendingDir = false;
 }
 
-void FileDialog::OpenFolder(const char* key, const char* filters)
+void FileDialog::OpenFile(const char* key, const char* title, const char* filters, const char* confirmLabel)
 {
 	state.open = true;
-	state.folderMode = true;
+	state.mode = DialogMode::OpenFile;
+	state.confirmLabel = confirmLabel;
+	state.key = key;
+	state.title = title;
+	state.filters = filters ? filters : "";
+	state.currentDir = Naui::Directory::DownloadsDirectory();
+	state.selected.clear();
+	state.searchText.clear();
+	state.hasPendingDir = false;
+}
+
+void FileDialog::OpenFolder(const char* key, const char* filters, const char* confirmLabel)
+{
+	state.open = true;
+	state.mode = DialogMode::OpenFolder;
+	state.confirmLabel = confirmLabel;
 	state.key = key;
 	state.title = "Choose Folder";
 	state.filters = filters ? filters : "";
-	state.currentDir = std::filesystem::current_path();
+	state.currentDir = Naui::Directory::DownloadsDirectory();
 	state.selected.clear();
 	state.searchText.clear();
 	state.hasPendingDir = false;
@@ -114,20 +141,34 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 		ImGui::TextUnformatted("File Name:");
 		ImGui::SameLine();
 
-		std::string displayName = Naui::Directory::ToUTF8(state.folderMode ? state.selected.u8string() : state.selected.filename().u8string());
+		std::string displayName;
+		if(state.mode == DialogMode::SaveFile)
+		{
+			if(!state.selected.empty())
+				displayName = Naui::Directory::ToUTF8(state.selected.filename().u8string());
+		}
+		else
+			displayName = Naui::Directory::ToUTF8(state.mode == DialogMode::OpenFolder ? state.selected.u8string() : state.selected.filename().u8string());
+		
 		char selectedBuf[512];
 		if (displayName.size() < sizeof(selectedBuf))
 		{
-		    memcpy(selectedBuf, displayName.data(), displayName.size());
-		    selectedBuf[displayName.size()] = '\0';
+			memcpy(selectedBuf, displayName.data(), displayName.size());
+			selectedBuf[displayName.size()] = '\0';
 		}
 		else
-		    selectedBuf[0] = '\0';
+			selectedBuf[0] = '\0';
 
 		ImGui::PushItemWidth(-1);
-		ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll);
-		ImGui::PopItemWidth();
-		
+		if(state.mode == DialogMode::SaveFile)
+		{
+			if(ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf)))
+				state.selected = state.currentDir / selectedBuf;
+		}
+		else
+			ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll);
+
+		ImGui::PopItemWidth();		
 		ImGui::Dummy(ImVec2(0, 0));
 
 		float buttonWidth = 80.0f;
@@ -137,16 +178,51 @@ void FileDialog::Display(const char* key, const std::function<void(const std::fi
 
 		ImGui::SetCursorPosX(avail - totalWidth);
 
-		bool canConfirm = state.folderMode ? std::filesystem::exists(state.currentDir) : (!state.selected.empty() && std::filesystem::exists(state.selected));
-		if (!canConfirm) ImGui::BeginDisabled();
+		if(state.mode == DialogMode::OpenFolder)
+			state.canConfirm = std::filesystem::exists(state.currentDir);
 
-		if (ImGui::Button("Open", ImVec2(buttonWidth, 0)))
+		else if(state.mode == DialogMode::OpenFile)
+			state.canConfirm = (!state.selected.empty() && std::filesystem::exists(state.selected));
+
+		else
+			state.canConfirm = strlen(selectedBuf) > 0;
+
+		if (!state.canConfirm)
+			ImGui::BeginDisabled();
+
+		bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter);
+		if(state.canConfirm && confirmKeyPressed)
+			ConfirmSelection(state, state.selected);
+
+		if (ImGui::Button(state.confirmLabel.c_str(), ImVec2(buttonWidth, 0)))
 		{
 			state.open = false;
-			state.callback(state.folderMode ? state.currentDir : state.selected);
+
+			if(state.mode == DialogMode::OpenFolder)
+				state.callback(state.currentDir);
+
+			else if(state.mode == DialogMode::OpenFile)
+				state.callback(state.selected);
+
+			else
+			{
+				std::string fileName = selectedBuf;
+				if(fileName.empty())
+					return;
+
+				std::filesystem::path finalPath = state.currentDir / fileName;
+				if(!state.filters.empty())
+				{
+					std::string extension = state.filters;		// Yes, filters can hold multiple. This will be resolved during the rewrite
+					if(finalPath.extension() != extension)
+						finalPath.replace_extension(extension);
+				}
+
+				ConfirmSelection(state, finalPath);
+			}
 		}
 
-		if (!canConfirm) ImGui::EndDisabled();
+		if (!state.canConfirm) ImGui::EndDisabled();
 
 		ImGui::SameLine();
 

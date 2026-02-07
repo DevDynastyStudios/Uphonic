@@ -1,10 +1,12 @@
 #include "ProjectManager.h"
 #include "ProjectSerializer.h"
-#include "UI/SongTimeline.h"
+#include "Recovery.h"
 #include "FileDialog.h"
 #include "Audio/AudioEngine.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/Archive.h"
+#include "UI/RecoveryPrompt.h"
+#include "UI/SongTimeline.h"
 #include <iostream>
 
 void ProjectManager::NewProject(bool initialLoad)
@@ -19,128 +21,185 @@ void ProjectManager::NewProject(bool initialLoad)
 
 bool ProjectManager::OpenProject(const std::filesystem::path& uphPath)
 {
-	std::filesystem::path base = Naui::Directory::WorkspaceDirectory();
-	std::filesystem::path workspace = base / "current_project";
-	std::filesystem::path tempFolder = base / "temp";
-	std::filesystem::remove_all(tempFolder);
-	std::filesystem::create_directories(tempFolder);
+	ProjectState& state = ProjectState::GetInstance();
+	std::filesystem::path workspace = Naui::Directory::WorkspaceDirectory();
+	std::filesystem::path snapshot = workspace / ("temp_" + Naui::UUID().Str());
+	std::filesystem::create_directories(snapshot);
 
 	Naui::Archive archive(uphPath, Naui::ArchiveMode::Read);
 	if(!archive.IsValid())
 	{
 		std::cout << "Failed to open archive\n";
-		std::filesystem::remove_all(tempFolder);
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 
-	if(!archive.ExtractTo(tempFolder))
+	if(!archive.ExtractTo(snapshot))
 	{
 		std::cout << "Failed to extract archive\n";
-		std::filesystem::remove_all(tempFolder);
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 
-	//ProjectState tempState;
-	if(!ProjectSerializer::Load(ProjectState::GetInstance(), tempFolder))
+	ProjectState tempState;
+	if(!ProjectSerializer::Load(tempState, snapshot))
 	{
 		std::cout << "Failed to load project.json\n";
-		std::filesystem::remove_all(tempFolder);
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 	
-	std::filesystem::remove_all(workspace);
-	std::filesystem::rename(tempFolder, workspace);
-
-	// for(AudioSample& sample : tempState.samples)
-	// {
-	// 	AudioEngine::AddSample((workspace / "Samples" / sample.name).string().c_str());
-	// }
-
-	//ProjectState::GetInstance().CopyFrom(tempState);
+	Naui::UUID projectID = state.settings.projectID;
+	ProjectManager::ShutdownWorkspace(workspace / state.settings.projectID.Str());
+	std::filesystem::path projectFolder = workspace / state.settings.projectID.Str();
+	std::filesystem::rename(snapshot, projectFolder);
+	
+	state.ClearProject();
+	state.CopyFrom(tempState);
+	state.settings.projectID = projectID;
 	std::cout << "Opened Project: "  << uphPath << "\n";
 	return true;
 }
 
 bool ProjectManager::Save()
 {
-	std::filesystem::path workspace = Naui::Directory::WorkspaceDirectory() / "current_project";
-	std::filesystem::create_directories(workspace);
-	return ProjectSerializer::Save(workspace);
+	ProjectState& state = ProjectState::GetInstance();
+	if(state.settings.saveToPath.has_value())
+		return SaveProject(state.settings.saveToPath.value());
+
+	FileDialog::SaveFile("save_project", "Save Project", ".uph");
+	return true;	// Technically misleading if the dialog cancels mid-way through
 }
 
-bool ProjectManager::SaveProject(std::filesystem::path path, std::string fileName)
+bool ProjectManager::SaveProject(std::filesystem::path path)
 {
-	std::filesystem::path base = Naui::Directory::WorkspaceDirectory();
-	std::filesystem::path workspace = base / "current_project";
-	std::filesystem::path snapshot  = base / "save_snapshot_tmp";
+	if(!path.has_filename())
+	{
+		std::cout << "Unable to save project. No filename was given\n";
+		return false;
+	}
 
+	std::string fileName = path.stem().string();
+	std::string extension = path.extension().string();
+	if(extension != ".uph")
+		extension = ".uph";
+
+	std::filesystem::path saveToPath = path.parent_path() / (fileName + extension);
+	
+	ProjectState& state = ProjectState::GetInstance();
+	state.settings.projectName = fileName;
+	state.settings.saveToPath = saveToPath;
+
+	std::filesystem::path workspace = Naui::Directory::WorkspaceDirectory();
+	std::filesystem::path projectFolder = workspace / state.settings.projectID.Str();
+	std::string snapshotFolderName = "temp_" + state.settings.projectID.Str();
+	std::filesystem::path snapshot  = workspace / snapshotFolderName;
 	std::filesystem::remove_all(snapshot);
 	std::filesystem::create_directories(snapshot);
 
-	if(!ProjectSerializer::Save(workspace))
+	if(!ProjectSerializer::Save(projectFolder))
 		return false;
 
 	try
 	{
-		std::filesystem::copy(workspace, snapshot, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+		std::filesystem::copy(projectFolder, snapshot, std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
 	}
 	catch (const std::exception& e)
 	{
 		std::cout << "Snapshot copy failed: " << e.what() << "\n";
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 
-	std::filesystem::path archivePath = path / (fileName + ".uph");
-	Naui::Archive archive(archivePath, Naui::ArchiveMode::Write);
-
+	Naui::Archive archive(saveToPath, Naui::ArchiveMode::Write);
 	if(!archive.IsValid())
 	{
 		std::cout << "Failed to create archive\n";
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 
 	if(!archive.AddFolder(snapshot, ""))
 	{
 		std::cout << "Failed to add folder to archive\n";
+		std::filesystem::remove_all(snapshot);
 		return false;
 	}
 
 	std::filesystem::remove_all(snapshot);
-	std::cout << "Project saved to: " << archivePath << "\n";
+	std::cout << "Project saved to: " << saveToPath << "\n";
 	return true;
 }
 
-void ProjectManager::InitializeWorkspace(bool initialLoad, bool clearDir)
+void ProjectManager::CloseProject()
 {
-	std::filesystem::path base = Naui::Directory::WorkspaceDirectory();
-	std::filesystem::path projectFolder = base / "current_project";
+	std::filesystem::path projectPath = std::filesystem::weakly_canonical(Naui::Directory::WorkspaceDirectory() / ProjectState::GetInstance().settings.projectID.Str());
+	std::cout << "Shutdown request for project: " << ProjectState::GetInstance().settings.projectName << "\n";
+	ProjectManager::ShutdownWorkspace(projectPath);
+	ProjectState::GetInstance().mainWindow->Close();
+	std::cout << "Uphonic Successfully Closed\n";
+}
 
-	// (Chimpchi): Change this to where it looks in a history file to get the last used directory, also make project names unique.
-	std::filesystem::create_directories(projectFolder);
-	if(clearDir)
-		std::filesystem::remove_all(projectFolder);
+bool ProjectManager::LoadFromWorkspace(const std::filesystem::path& folder)
+{
+	std::filesystem::path canonicalFolder = std::filesystem::weakly_canonical(folder);
+	ProjectState& state = ProjectState::GetInstance();
+	if(!std::filesystem::exists(canonicalFolder / "project.json"))
+	{
+		std::cout << "Failed to find project file.\n";
+		return false;
+	}
+	
+	if(Naui::Directory::IsLocked(canonicalFolder))
+	{
+		std::cout << "Path currently in use by another project instance: " << canonicalFolder << '\n';
+		return false;	
+	}
 
-	std::filesystem::create_directories(projectFolder / "Samples");
-	std::filesystem::create_directories(projectFolder / "PluginData");
-	std::filesystem::create_directories(projectFolder / "Cache");
-	std::cout << "Workspace initialized at: " << projectFolder << "\n";
+	Naui::UUID projectID = state.settings.projectID;
+	std::filesystem::path currentWorkspace = Naui::Directory::WorkspaceDirectory() / projectID.Str();
+	ProjectState tempState;
+	if(!ProjectSerializer::Load(tempState, canonicalFolder))
+	{
+		std::cout << "Failed to load project\n";
+		return false;
+	}
+
+	Naui::Directory::UnlockPath(currentWorkspace);
+	std::filesystem::remove_all(currentWorkspace);
+	ProjectState::ClearProject();
+	state.CopyFrom(tempState);
+	std::filesystem::rename(canonicalFolder, currentWorkspace);
+	Naui::Directory::LockPath(currentWorkspace);
+	state.settings.projectID = projectID;
+	std::cout << "Loaded project: " << canonicalFolder << "\n";
+	return true;
 }
 
 void ProjectManager::ImportSample(const std::filesystem::path& source)
 {
-	AudioSample& sample = AudioEngine::AddSample(source.string().c_str());
-	if(!sample.IsValid())
-		return;
-
-	std::filesystem::path base = Naui::Directory::WorkspaceDirectory() / "current_project/Samples";
-	std::filesystem::path dest = base / source.filename();
+	ProjectState& state = ProjectState::GetInstance();
+	std::filesystem::path sampleFolder = Naui::Directory::WorkspaceDirectory() / state.settings.projectID.Str() /  "Samples";
+	std::filesystem::path dest = sampleFolder / source.filename();
 
 	try {
 		std::filesystem::copy_file(source, dest, std::filesystem::copy_options::overwrite_existing);
-		sample.filePath = dest;
 	}
 	catch (const std::exception& e) {
 		std::cout << "Failed to import sample: " << e.what() << "\n";
+	}
+
+	AudioSample& sample = AudioEngine::AddSample(dest.string().c_str());
+	if(sample.IsValid())
+		return;
+
+	try
+	{
+		std::filesystem::remove_all(dest);
+	}
+	catch(const std::exception& e)
+	{
+		std::cerr << "Failed to clean up sample data. " << e.what() << '\n';
 	}
 }
 
@@ -212,4 +271,71 @@ bool ProjectManager::RenameSample(size_t index, const std::string& newName)
 	sample.filePath = newPath;
 	sample.name = newPath.filename().string();
 	return true;
+}
+
+void ProjectManager::InitializeWorkspace(bool initialLoad, bool clearDir)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	ProjectManager::ShutdownWorkspace(Naui::Directory::WorkspaceDirectory() / state.settings.projectID.Str());
+	state.settings.projectID = Naui::UUID();
+
+	std::filesystem::path workspacePath = Naui::Directory::WorkspaceDirectory();
+	std::filesystem::path workspace = Naui::Directory::HideDirectory(workspacePath, true);
+	std::filesystem::path projectFolder = std::filesystem::weakly_canonical(workspace / state.settings.projectID.Str());
+	auto recoveredPath = Recovery::TryGetLastSession();
+
+	RecoveryPrompt* recover = Naui::GetPanelOfType<RecoveryPrompt>();	// (Chimpchi): This will change in the future, I plan to add Modal's to the Naui engine.
+	if(recover == nullptr)
+	{
+		std::cout << "Unable to retrieve Recovery Prompt. Uphonic will be unable to recover projects.\n";
+	}
+	else if(recoveredPath.has_value())
+	{
+		recover->recoverPath = recoveredPath;
+		recover->SetOpen(true);
+	} else
+		std::cout << "No recovery projects found.\n";
+
+	if(clearDir)
+		std::filesystem::remove_all(projectFolder);
+	
+	std::filesystem::create_directories(projectFolder);
+	state.settings.projectName = "Untitled";
+	ProjectSerializer::Save(projectFolder);
+	Naui::Directory::LockPath(projectFolder);
+	std::cout << "Workspace initialized at: " << projectFolder << "\n";
+}
+
+void ProjectManager::ShutdownWorkspace(std::filesystem::path path)
+{
+	if(path.empty())
+		return;
+
+	std::cout << "Closing workspace:" << path << "...\n";
+	if(std::filesystem::exists(path))
+	{
+		try
+		{
+			Naui::Directory::UnlockPath(path);
+			std::filesystem::remove_all(path);
+		}
+		catch(const std::exception& e)
+		{
+			std::cout << "Failed to remove project workspace: " << e.what() << '\n';
+		}
+	}
+
+	std::string uuid = path.filename().string();
+	std::filesystem::path snapshotFolder = path.parent_path() / ("temp_" + uuid);
+	if(std::filesystem::exists(snapshotFolder))
+	{
+		try
+		{
+			std::filesystem::remove_all(snapshotFolder);
+		}
+		catch(const std::exception& e)
+		{
+			std::cout << "Failed to remove temp directories: " << e.what() << '\n';
+		}
+	}
 }

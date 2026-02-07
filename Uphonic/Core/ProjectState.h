@@ -123,6 +123,9 @@ struct MasterTrack
 
 struct ApplicationSettings
 {
+	Naui::UUID projectID;
+	std::string projectName;
+	std::optional<std::filesystem::path> saveToPath;
 	std::vector<std::string> pluginSearchPaths;
 	uint32_t audioSampleRate;
 	

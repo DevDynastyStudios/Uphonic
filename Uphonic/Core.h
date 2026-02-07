@@ -66,6 +66,7 @@ struct Effect
 
 enum TrackType
 {
+	TrackType_None,
     TrackType_Sample,
     TrackType_Midi
 };
