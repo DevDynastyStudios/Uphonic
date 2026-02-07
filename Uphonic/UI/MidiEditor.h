@@ -41,6 +41,7 @@ private:
     void RenderGrid(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight);
     void RenderNotes(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight);
     void HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight);
+	void HandlePatternDrop(void);
     void UpdateCursor(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight, 
                      double beatPos, int noteNum, bool inGrid);
     void CreateNote(double beatPos, int noteNum);

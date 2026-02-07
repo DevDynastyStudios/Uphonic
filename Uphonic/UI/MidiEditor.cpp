@@ -34,32 +34,12 @@ void MidiEditor::OnRender()
     ImGui::BeginChild("##PianoRoll", ImVec2(0, 0), false, ImGuiWindowFlags_NoScrollbar);
     RenderPianoRoll();
     ImGui::EndChild();
+	HandlePatternDrop();
 }
 
 void MidiEditor::RenderToolbar()
 {
     ProjectState& state = ProjectState::GetInstance();
-    
-    ImGui::Text("Pattern:");
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(100);
-    int currentPattern = state.currentMidiPatternIndex;
-    if (ImGui::InputInt("##Pattern", &currentPattern, 1, 1))
-    {
-        state.currentMidiPatternIndex = std::clamp(currentPattern, 0, (int)state.patterns.size() - 1);
-    }
-    
-    ImGui::SameLine();
-    if (ImGui::Button("New Pattern"))
-    {
-        state.patterns.push_back(MidiPattern());
-        state.patterns.back().name = "Pattern " + std::to_string(state.patterns.size());
-        state.currentMidiPatternIndex = (uint16_t)(state.patterns.size() - 1);
-    }
-    
-    ImGui::SameLine();
-    ImGui::Text("|");
-    ImGui::SameLine();
     
     if (ImGui::RadioButton("Select", m_currentTool == Tool::Select))
     {
@@ -582,6 +562,22 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
     {
         SelectAllNotes();
     }
+}
+
+void MidiEditor::HandlePatternDrop(void)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if (ImGui::GetDragDropPayload())
+	{
+		if (ImGui::BeginDragDropTarget())
+		{
+			if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("PATTERN_INDEX"))
+			{
+				state.currentMidiPatternIndex = *(const uint16_t*)payload->Data;
+			}
+			ImGui::EndDragDropTarget();
+		}
+	}
 }
 
 void MidiEditor::UpdateCursor(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight, 
