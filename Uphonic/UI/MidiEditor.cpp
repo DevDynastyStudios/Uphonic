@@ -40,20 +40,17 @@ void MidiEditor::OnRender()
 void MidiEditor::RenderToolbar()
 {
     ProjectState& state = ProjectState::GetInstance();
-    
+
     if (ImGui::RadioButton("Select", m_currentTool == Tool::Select))
     {
         m_currentTool = Tool::Select;
+		ClearSelection();
     }
     ImGui::SameLine();
     if (ImGui::RadioButton("Draw", m_currentTool == Tool::Draw))
     {
         m_currentTool = Tool::Draw;
-    }
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Erase", m_currentTool == Tool::Erase))
-    {
-        m_currentTool = Tool::Erase;
+		ClearSelection();
     }
     
     ImGui::SameLine();
@@ -86,7 +83,7 @@ void MidiEditor::RenderToolbar()
     ImGui::Text("|");
     ImGui::SameLine();
     
-    if (ImGui::Button("Delete Selected"))
+    if (m_currentTool == Tool::Select && m_selection.selectedNoteIndices.size() > 0 && ImGui::Button("Delete Selected"))
     {
         DeleteSelectedNotes();
     }
@@ -131,9 +128,7 @@ void MidiEditor::RenderPianoRoll()
     }
     
     draw->PushClipRect(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
-    
-    draw->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), 
-                       IM_COL32(30, 30, 35, 255));
+    draw->AddRectFilled(canvasPos, ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), IM_COL32(30, 30, 35, 255));
     
     RenderPianoKeys(draw, canvasPos, canvasSize, noteHeight);
     RenderGrid(draw, canvasPos, canvasSize, beatWidth, noteHeight);
@@ -164,12 +159,8 @@ void MidiEditor::RenderPianoKeys(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canv
         
         if (!IsBlackKey(note % 12))
         {
-            draw->AddRectFilled(ImVec2(canvasPos.x, y), 
-                               ImVec2(canvasPos.x + m_config.pianoWidth, y + noteHeight), 
-                               IM_COL32(45, 45, 48, 255));
-            draw->AddRect(ImVec2(canvasPos.x, y), 
-                         ImVec2(canvasPos.x + m_config.pianoWidth, y + noteHeight), 
-                         IM_COL32(25, 25, 28, 255));
+            draw->AddRectFilled(ImVec2(canvasPos.x, y), ImVec2(canvasPos.x + m_config.pianoWidth, y + noteHeight), IM_COL32(45, 45, 48, 255));
+            draw->AddRect(ImVec2(canvasPos.x, y), ImVec2(canvasPos.x + m_config.pianoWidth, y + noteHeight), IM_COL32(25, 25, 28, 255));
         }
     }
     
@@ -181,12 +172,8 @@ void MidiEditor::RenderPianoKeys(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canv
         
         if (IsBlackKey(note % 12))
         {
-            draw->AddRectFilled(ImVec2(canvasPos.x, y), 
-                               ImVec2(canvasPos.x + blackKeyWidth, y + noteHeight), 
-                               IM_COL32(20, 20, 22, 255));
-            draw->AddRect(ImVec2(canvasPos.x, y), 
-                         ImVec2(canvasPos.x + blackKeyWidth, y + noteHeight), 
-                         IM_COL32(10, 10, 12, 255));
+            draw->AddRectFilled(ImVec2(canvasPos.x, y), ImVec2(canvasPos.x + blackKeyWidth, y + noteHeight), IM_COL32(20, 20, 22, 255));
+            draw->AddRect(ImVec2(canvasPos.x, y), ImVec2(canvasPos.x + blackKeyWidth, y + noteHeight), IM_COL32(10, 10, 12, 255));
         }
     }
     
@@ -199,14 +186,11 @@ void MidiEditor::RenderPianoKeys(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canv
         {
             char buf[8];
             snprintf(buf, sizeof(buf), "C%d", (note / 12) - 1);
-            draw->AddText(ImVec2(canvasPos.x + blackKeyWidth + 3, y + 2), 
-                         IM_COL32(120, 120, 125, 255), buf);
+            draw->AddText(ImVec2(canvasPos.x + blackKeyWidth + 3, y + 2), IM_COL32(120, 120, 125, 255), buf);
         }
     }
     
-    draw->AddLine(ImVec2(canvasPos.x + m_config.pianoWidth, canvasPos.y),
-                 ImVec2(canvasPos.x + m_config.pianoWidth, canvasPos.y + canvasSize.y),
-                 IM_COL32(60, 60, 65, 255), 2.0f);
+    draw->AddLine(ImVec2(canvasPos.x + m_config.pianoWidth, canvasPos.y), ImVec2(canvasPos.x + m_config.pianoWidth, canvasPos.y + canvasSize.y), IM_COL32(60, 60, 65, 255), 2.0f);
 }
 
 void MidiEditor::RenderGrid(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight)
@@ -225,9 +209,7 @@ void MidiEditor::RenderGrid(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSiz
         bool isBlack = IsBlackKey(note % 12);
         ImU32 bgCol = isBlack ? IM_COL32(26, 26, 30, 255) : IM_COL32(30, 30, 35, 255);
         
-        draw->AddRectFilled(ImVec2(gridStartX, y), 
-                           ImVec2(canvasPos.x + canvasSize.x, y + noteHeight), 
-                           bgCol);
+        draw->AddRectFilled(ImVec2(gridStartX, y), ImVec2(canvasPos.x + canvasSize.x, y + noteHeight), bgCol);
     }
     
     for (int i = startKey; i < endKey; i++)
@@ -238,9 +220,7 @@ void MidiEditor::RenderGrid(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSiz
         bool isBlack = IsBlackKey(note % 12);
         ImU32 lineCol = isBlack ? IM_COL32(35, 35, 38, 255) : IM_COL32(38, 38, 42, 255);
         
-        draw->AddLine(ImVec2(gridStartX, y), 
-                     ImVec2(canvasPos.x + canvasSize.x, y), 
-                     lineCol);
+        draw->AddLine(ImVec2(gridStartX, y), ImVec2(canvasPos.x + canvasSize.x, y), lineCol);
     }
     
     int visibleBeats = (int)((gridWidth + m_scrollX) / beatWidth) + 2;
@@ -256,9 +236,7 @@ void MidiEditor::RenderGrid(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSiz
         ImU32 lineCol = (beat % 4 == 0) ? IM_COL32(55, 55, 60, 255) : IM_COL32(42, 42, 46, 255);
         float thickness = (beat % 4 == 0) ? 1.5f : 1.0f;
         
-        draw->AddLine(ImVec2(x, canvasPos.y), 
-                     ImVec2(x, canvasPos.y + canvasSize.y), 
-                     lineCol, thickness);
+        draw->AddLine(ImVec2(x, canvasPos.y), ImVec2(x, canvasPos.y + canvasSize.y), lineCol, thickness);
     }
 }
 
@@ -379,12 +357,10 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
     
     UpdateCursor(canvasPos, canvasSize, beatWidth, noteHeight, beatPos, noteNum, inGrid);
     
-    if (ImGui::IsMouseClicked(0) && inGrid)
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && inGrid)
     {
         if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
-        {
             return;
-        }
         
         int clicked = FindNoteAt(beatPos, noteNum);
         
@@ -465,17 +441,25 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
                 m_selection.selectionStart = mousePos;
             }
         }
-        else if (m_currentTool == Tool::Erase)
-        {
-            if (clicked != -1)
-            {
-                MidiPattern& pattern = GetCurrentPattern();
-                pattern.notes.erase(pattern.notes.begin() + clicked);
-            }
-        }
-    }
+    } else if(ImGui::IsMouseDown(ImGuiMouseButton_Right) && inGrid)
+	{
+		if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
+			return;
+
+		if(m_currentTool == Tool::Select)
+			ClearSelection();
+		else
+		{
+			int noteIndex = FindNoteAt(beatPos, noteNum);
+			if(noteIndex != -1)
+			{
+				MidiPattern& pattern = GetCurrentPattern();
+				pattern.notes.erase(pattern.notes.begin() + noteIndex);
+			}
+		}
+	}
     
-    if (m_selection.isDragging && ImGui::IsMouseDragging(0))
+    if (m_selection.isDragging && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         MidiPattern& pattern = GetCurrentPattern();
         ImVec2 mouseDelta = ImVec2(mousePos.x - m_selection.dragStartPosition.x, mousePos.y - m_selection.dragStartPosition.y);
@@ -528,10 +512,8 @@ void MidiEditor::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidt
         m_selection.selectionEnd = mousePos;
         
         MidiPattern& pattern = GetCurrentPattern();
-        ImVec2 boxMin(std::min(m_selection.selectionStart.x, m_selection.selectionEnd.x),
-                    std::min(m_selection.selectionStart.y, m_selection.selectionEnd.y));
-        ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x),
-                    std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+        ImVec2 boxMin(std::min(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::min(m_selection.selectionStart.y, m_selection.selectionEnd.y));
+        ImVec2 boxMax(std::max(m_selection.selectionStart.x, m_selection.selectionEnd.x), std::max(m_selection.selectionStart.y, m_selection.selectionEnd.y));
         
         for (int i = 0; i < pattern.notes.size(); i++)
         {
@@ -580,8 +562,7 @@ void MidiEditor::HandlePatternDrop(void)
 	}
 }
 
-void MidiEditor::UpdateCursor(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight, 
-                             double beatPos, int noteNum, bool inGrid)
+void MidiEditor::UpdateCursor(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, float noteHeight, double beatPos, int noteNum, bool inGrid)
 {
     ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
 
