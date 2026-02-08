@@ -17,7 +17,7 @@ void AssetManager::Initialize(Renderer &renderer, const char *assets_directory)
     if (!fs::exists(assets_directory))
         return;
     
-    for (auto &entry : fs::directory_iterator(assets_directory))
+    for (auto &entry : fs::recursive_directory_iterator(assets_directory))
     {
         if (!entry.is_regular_file())
             continue;
@@ -25,7 +25,13 @@ void AssetManager::Initialize(Renderer &renderer, const char *assets_directory)
         auto path = entry.path();
         if (path.extension() == ".png")
         {
-            auto name = path.stem().string();
+            auto relative_path = fs::relative(path, assets_directory);
+            
+            std::string name = relative_path.string();
+            std::replace(name.begin(), name.end(), '\\', '/');
+            
+            name = name.substr(0, name.length() - 4);
+            
             int width, height, channels;
             stbi_uc *data = stbi_load(path.string().c_str(), &width, &height, &channels, 4);
             auto image = renderer.CreateImage(width, height, data);
