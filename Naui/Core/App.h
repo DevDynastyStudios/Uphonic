@@ -1,13 +1,12 @@
 #pragma once
-
-#include <string>
-
 #include "Base.h"
-#include "Platform/Window.h"
-#include "Renderer/Renderer.h"
+#include <string>
 
 namespace Naui
 {
+
+class PlatformWindow;
+class Renderer;
 
 class NAUI_API App
 {

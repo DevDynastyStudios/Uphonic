@@ -110,19 +110,32 @@ void MainMenuBar::ViewMenu()
 	if (ImGui::MenuItem("Show All"))
 	{
 		for (auto& [id, panelPtr] : Naui::GetAllPanels())
+		{
+			if(panelPtr->GetWindowFlags() & ImGuiWindowFlags_NoSavedSettings)
+				continue;
+
 			panelPtr->SetOpen(true);
+		}
 	}
 
 	if (ImGui::MenuItem("Hide All"))
 	{
 		for (auto& [id, panelPtr] : Naui::GetAllPanels())
+		{
+			if(panelPtr->GetWindowFlags() & ImGuiWindowFlags_NoSavedSettings)
+				continue;
+
 			panelPtr->SetOpen(false);
+		}
 	}
 
 	ImGui::Separator();
 
 	for (auto& [id, panelPtr] : Naui::GetAllPanels())
 	{
+		if(panelPtr->GetWindowFlags() & ImGuiWindowFlags_NoSavedSettings)
+			continue;
+
 		Naui::Panel& panel = *panelPtr;
 		ImGui::PushID((int)id);
 
@@ -153,7 +166,8 @@ void MainMenuBar::LayoutMenu()
 		}
 	}
 	
-	ImGui::Separator();
+	if(Layout::GetUserLayouts().size() > 0)
+		ImGui::Separator();
 	
 	for (const std::filesystem::path& layoutName : Layout::GetUserLayouts())
 	{

@@ -5,6 +5,8 @@
 #include "AssetManager.h"
 #include "Defer.h"
 #include "Debug.h"
+#include "Platform/Window.h"
+#include "Renderer/Renderer.h"
 
 #include <cstdint>
 
