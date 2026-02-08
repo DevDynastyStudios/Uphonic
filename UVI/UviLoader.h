@@ -133,7 +133,7 @@ struct V2Events
 {
     int32_t numEvents;
     intptr_t reserved;
-    V2Event* events[256];
+    V2Event* events[2];
 };
 
 struct V2Rect

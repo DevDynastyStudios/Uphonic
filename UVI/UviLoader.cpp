@@ -108,7 +108,8 @@ V2PluginWrapper::V2PluginWrapper(UviLibrary library, const char* name, float sam
         PluginLoader::UnloadLib(library);
         return;
     }
-    
+
+    m_plugin->dispatcher(m_plugin, (int32_t)V2PluginOpcodes::Open, 0, 0, nullptr, 0);
     m_plugin->dispatcher(m_plugin, (int32_t)V2PluginOpcodes::SetSampleRate, 0, 0, nullptr, sampleRate);
     m_plugin->dispatcher(m_plugin, (int32_t)V2PluginOpcodes::SetBlockSize, 0, (intptr_t)blockSize, nullptr, 0);
     m_plugin->dispatcher(m_plugin, (int32_t)V2PluginOpcodes::MainsChanged, 0, 1, nullptr, 0);
@@ -168,14 +169,25 @@ void V2PluginWrapper::ProcessEvents()
 {
     if (m_midiEventCount == 0)
         return;
-    
-    V2Events events{};
-    events.numEvents = m_midiEventCount;
-    
+
+    const size_t size =
+        sizeof(V2Events) + (m_midiEventCount - 1) * sizeof(V2Event*);
+
+    V2Events* events = (V2Events*)alloca(size);
+    events->numEvents = m_midiEventCount;
+    events->reserved = 0;
+
     for (uint32_t i = 0; i < m_midiEventCount; ++i)
-        events.events[i] = (V2Event*)&m_midiEvents[i];
-    
-    m_plugin->dispatcher(m_plugin, (int32_t)V2PluginOpcodes::ProcessEvents, 0, 0, &events, 0.0f);
+        events->events[i] = (V2Event*)&m_midiEvents[i];
+
+    m_plugin->dispatcher(
+        m_plugin,
+        (int32_t)V2PluginOpcodes::ProcessEvents,
+        0, 0,
+        events,
+        0.0f
+    );
+
     m_midiEventCount = 0;
 }
 
