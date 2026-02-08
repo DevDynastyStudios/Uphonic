@@ -37,14 +37,14 @@ void PluginManager::UnloadAllEffects()
 {
 	ProjectState& state = ProjectState::GetInstance();
 
-	for(PluginEffect plugin : state.masterTrack.effects)
+	for(PluginEffect& plugin : state.masterTrack.effects)
 		UnloadEffect(plugin);
 
-	for(AudioTrack track : state.tracks)
+	for(AudioTrack& track : state.tracks)
 	{
         if (track.instrument.plugin)
             UnloadEffect(track.instrument);
-		for(PluginEffect plugin : track.effects)
+		for(PluginEffect& plugin : track.effects)
 		{
 			UnloadEffect(plugin);
 		}
