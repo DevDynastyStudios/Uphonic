@@ -23,12 +23,13 @@ struct MidiEditorConfig
     float verticalScrollSensitivity = 2.0f;
     float zoomSensitivity = 0.1f;
     float verticalZoomSensitivity = 0.1f;
+	bool followPlayhead = true;
 };
 
 struct TimelineConfig
 {
     float defaultZoom = 1.0f;
-    float minZoom = 0.25f;
+    float minZoom = 0.20f;
     float maxZoom = 4.0f;
     float defaultTrackHeight = 80.0f;
     float minTrackHeight = 40.0f;
@@ -46,6 +47,8 @@ struct TimelineConfig
     float resizeHandleWidth = 4.0f;
     float resizeHandleTolerance = 6.0f;
     float blockEndEpsilon = 0.005f;
+	float playheadLockPosition = 0.0f;
+	bool followPlayhead = true;
 };
 
 struct MixerConfig

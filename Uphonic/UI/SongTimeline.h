@@ -12,8 +12,9 @@ class SongTimeline : public Naui::Panel
 public:
     SongTimeline();
 	static AudioTrack& CreateTrack(std::string title, ImVec4 color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f));
+	static double GetPlayheadPositionNormalized();
 	static double GetTimelineDuration();
-
+	
 protected:
     void OnRender() override;
 
@@ -52,46 +53,31 @@ private:
     void RenderTimeline();
     void RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth);
     void RenderPlayhead(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth);
-    void RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, 
-                    float beatWidth, size_t trackIndex, float yPos);
+    void RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, float yPos);
     void RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t trackIndex, float yPos);
     void RenderTrackContextMenu(size_t trackIndex);
-    void RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth,
-                           size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX,
-                           TrackUIState& ui);
-    void RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth,
-                         size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX,
-                         TrackUIState& ui);
+    void RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX, TrackUIState& ui);
+    void RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX, TrackUIState& ui);
     void HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth);
     void ResetDragState();
-    bool HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, float trackStartX, 
-                         float beatWidth, bool& isScrubbing);
-    bool IsInTimelineArea(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize,
-                         float trackStartX, float timelineStartY);
-    void UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx,
-                     float trackStartX, float beatWidth);
+    bool HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize, float trackStartX, float beatWidth, bool& isScrubbing);
+    bool IsInTimelineArea(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize, float trackStartX, float timelineStartY);
+    void UpdateCursor(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth);
     bool HandleKeyboardShortcuts();
-    void HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx,
-                         float trackStartX, float beatWidth);
-    void HandleDrawToolClick(int instTrack, int instIdx, int trackIdx, double beatPos,
-                            ImVec2 mousePos, float trackStartX, float beatWidth);
-    void HandleSelectToolClick(int instTrack, int instIdx, int trackIdx,
-                              ImVec2 mousePos, float trackStartX, float beatWidth);
+    void HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth, ImGuiMouseButton btn);
+    void HandleDrawToolClick(int instTrack, int instIdx, int trackIdx, double beatPos, ImVec2 mousePos, float trackStartX, float beatWidth);
+    void HandleSelectToolClick(int instTrack, int instIdx, int trackIdx, ImVec2 mousePos, float trackStartX, float beatWidth);
     void HandleDeleteToolClick(int instTrack, int instIdx);
-    bool TryStartResize(int trackIdx, int instIdx, ImVec2 mousePos,
-                       float trackStartX, float beatWidth);
+    bool TryStartResize(int trackIdx, int instIdx, ImVec2 mousePos, float trackStartX, float beatWidth);
     void StartDragging(int trackIdx, int instIdx, ImVec2 mousePos);
-    void HandleMouseDrag(ImVec2 mousePos, double beatPos, int trackIdx,
-                        float timelineStartY, float trackStartX, float beatWidth);
+    void HandleMouseDrag(ImVec2 mousePos, double beatPos, int trackIdx, float timelineStartY, float trackStartX, float beatWidth);
     void HandleRightResize(double beatPos);
     void HandleLeftResize(double beatPos);
-    void HandleInstanceDrag(ImVec2 mousePos, int hoverTrack, 
-                           float timelineStartY, float beatWidth);
+    void HandleInstanceDrag(ImVec2 mousePos, int hoverTrack, float timelineStartY, float beatWidth);
     void HandleSingleInstanceDrag(int hoverTrack, double deltaBeat, float timelineStartY);
     void HandleMultiInstanceDrag(int hoverTrack, double deltaBeat, float timelineStartY);
     void TryMoveSelectionToTrack(int hoverTrack);
-    void HandleBoxSelection(ImVec2 mousePos, float timelineStartY,
-                           float trackStartX, float beatWidth);
+    void HandleBoxSelection(ImVec2 mousePos, float timelineStartY, float trackStartX, float beatWidth);
     void SelectAllInstances();
     void CreateInstance(int trackIdx, double beatPos);
     std::pair<int, int> FindInstanceAt(double beatPos, int trackIdx);

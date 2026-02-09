@@ -7,6 +7,7 @@
 #include <cstring>
 #include <filesystem>
 #include <cfloat>
+#include <imgui_internal.h>
 
 static constexpr float SECONDS_PER_MINUTE = 60.0f;
 static constexpr float BEATS_PER_MEASURE = 4.0f;
@@ -18,6 +19,48 @@ static constexpr float MUTED_COLOR_MULTIPLIER = 0.4f;
 static constexpr float SELECTED_COLOR_MULTIPLIER = 1.3f;
 static constexpr float BORDER_COLOR_MULTIPLIER = 1.5f;
 static constexpr float MINIMUM_NOTE_LENGTH_BEATS = 0.125f;
+
+static bool ToggleButton(const char* id, bool* v, const char* label)
+{
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiContext& g = *GImGui;
+    const ImGuiStyle& style = g.Style;
+    float h = ImGui::GetFrameHeight();
+    ImVec2 size(h, h);
+
+    ImGuiID buttonId = window->GetID(id);
+
+    ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
+    ImGui::ItemSize(size);
+    if (!ImGui::ItemAdd(bb, buttonId))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(bb, buttonId, &hovered, &held);
+
+    if (pressed)
+        *v = !*v;
+
+    ImU32 col;
+    if (*v)
+        col = ImGui::GetColorU32(hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Button);
+    else
+        col = ImGui::GetColorU32(hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg);
+
+    ImGui::RenderNavHighlight(bb, buttonId);
+    ImGui::RenderFrame(bb.Min, bb.Max, col, true, style.FrameRounding);
+
+    if (label && label[0] != '\0')
+    {
+        ImGui::SameLine(0.0f, style.ItemInnerSpacing.x);
+        ImGui::TextUnformatted(label);
+    }
+
+    return pressed;
+}
 
 SongTimeline::SongTimeline() : Naui::Panel("Song Timeline")
 {
@@ -72,6 +115,16 @@ double SongTimeline::GetTimelineDuration()
 	}
 
 	return endBeat;
+}
+
+double SongTimeline::GetPlayheadPositionNormalized()
+{
+	ProjectState& state = ProjectState::GetInstance();
+	double duration = GetTimelineDuration();
+	if(duration <= 0.0)
+		return 0.0;
+
+	return state.timelinePositionBeats / duration;
 }
 
 void SongTimeline::OnRender()
@@ -154,11 +207,6 @@ void SongTimeline::RenderToolbar()
 	{
 		m_currentTool = Tool::Cut;
 	}
-	ImGui::SameLine();
-	if (ImGui::RadioButton("Delete", m_currentTool == Tool::Delete))
-	{
-		m_currentTool = Tool::Delete;
-	}
 	
 	ImGui::SameLine();
 	ImGui::Text("|");
@@ -208,6 +256,10 @@ void SongTimeline::RenderToolbar()
 		track.name = "MIDI " + std::to_string(state.tracks.size() + 1);
 		state.tracks.push_back(track);
 	}
+
+	ImGui::SameLine();
+	std::string playheadText = m_config.followPlayhead ? "Unfollow Playhead" : "Follow Playhead";
+	ToggleButton("playhead_toggle", &m_config.followPlayhead, "Follow Playhead");
 }
 
 void SongTimeline::RenderTimeline()
@@ -324,7 +376,19 @@ void SongTimeline::RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 void SongTimeline::RenderPlayhead(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	float playheadX = canvasPos.x + m_config.trackHeaderWidth + (float)state.timelinePositionBeats * beatWidth - m_scrollX;
+	float leftEdge  = canvasPos.x + m_config.trackHeaderWidth;
+	float rightEdge = leftEdge + canvasSize.x;
+	float playheadX = leftEdge + state.timelinePositionBeats * beatWidth - m_scrollX;
+	bool playheadVisible = (playheadX >= leftEdge && playheadX <= rightEdge);
+
+	if (state.isPlaying && m_config.followPlayhead)
+	{
+	    float lockPosX = leftEdge + canvasSize.x * m_config.playheadLockPosition;
+	    float desiredScroll = (state.timelinePositionBeats * beatWidth) - (lockPosX - leftEdge);
+	    float speed = 0.15f;
+	    m_scrollX = m_scrollX + (desiredScroll - m_scrollX) * speed;
+	}
+
 	draw->AddLine(ImVec2(playheadX, canvasPos.y), ImVec2(playheadX, canvasPos.y + canvasSize.y), IM_COL32(255, 200, 100, 255), 2.0f);
 	
 	ImVec2 tri[3] = {
@@ -658,9 +722,7 @@ void SongTimeline::DeleteTrack(size_t trackIndex)
 	}
 }
 
-void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth,
-						   size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX,
-						   TrackUIState& ui)
+void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth, size_t trackIndex, size_t instanceIndex, float yPos, float trackStartX, TrackUIState& ui)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& track = state.tracks[trackIndex];
@@ -970,7 +1032,7 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 		ResetDragState();
 	
 	static bool isScrubbing = false;
-	if (HandleRulerClick(mousePos, canvasPos, trackStartX, beatWidth, isScrubbing))
+	if (HandleRulerClick(mousePos, canvasPos, canvasSize, trackStartX, beatWidth, isScrubbing))
 		return;
 	
 	bool isInteracting = m_selection.isDragging || m_selection.isResizing || m_selection.isResizingLeft || m_selection.isSelecting;
@@ -999,10 +1061,12 @@ void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWi
 	
 	UpdateCursor(mousePos, beatPos, trackIdx, trackStartX, beatWidth);
 	
-	if (ImGui::IsMouseClicked(0))
-		HandleMouseClick(mousePos, beatPos, trackIdx, trackStartX, beatWidth);
-	
-	if (ImGui::IsMouseDragging(0))
+	if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+		HandleMouseClick(mousePos, beatPos, trackIdx, trackStartX, beatWidth, ImGuiMouseButton_Left);
+	else if(ImGui::IsMouseClicked(ImGuiMouseButton_Right))
+		HandleMouseClick(mousePos, beatPos, trackIdx, trackStartX, beatWidth, ImGuiMouseButton_Right);
+
+	if (ImGui::IsMouseDragging(ImGuiMouseButton_Left))
 		HandleMouseDrag(mousePos, beatPos, trackIdx, timelineStartY, trackStartX, beatWidth);
 }
 
@@ -1017,11 +1081,15 @@ void SongTimeline::ResetDragState()
 	m_selection.originalPositions.clear();
 }
 
-bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, float trackStartX, float beatWidth, bool& isScrubbing)
+bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize, float trackStartX, float beatWidth, bool& isScrubbing)
 {
 	bool inRuler = mousePos.y >= canvasPos.y && mousePos.y < canvasPos.y + m_config.rulerHeight && mousePos.x >= trackStartX;
 	if (ImGui::IsMouseClicked(0) && inRuler && ImGui::IsWindowHovered())
 	{
+		float visibleWidth = canvasSize.x;
+        float relativeX = mousePos.x - trackStartX;
+        m_config.playheadLockPosition = std::clamp(relativeX / visibleWidth, 0.0f, 1.0f);
+
 		isScrubbing = true;
 		ProjectState& state = ProjectState::GetInstance();
 		state.isDraggingPlayhead = true;
@@ -1117,13 +1185,11 @@ bool SongTimeline::HandleKeyboardShortcuts()
 	return false;
 }
 
-void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth)
+void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackIdx, float trackStartX, float beatWidth, ImGuiMouseButton btn)
 {
 	if (ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
-	{
 		return;
-	}
-	
+
 	auto [instTrack, instIdx] = FindInstanceAt(beatPos, trackIdx);
 	switch (m_currentTool)
 	{
@@ -1131,10 +1197,11 @@ void SongTimeline::HandleMouseClick(ImVec2 mousePos, double beatPos, int trackId
 			HandleDrawToolClick(instTrack, instIdx, trackIdx, beatPos, mousePos, trackStartX, beatWidth);
 			break;
 		case Tool::Select:
-			HandleSelectToolClick(instTrack, instIdx, trackIdx, mousePos, trackStartX, beatWidth);
-			break;
-		case Tool::Delete:
-			HandleDeleteToolClick(instTrack, instIdx);
+			if(btn == ImGuiMouseButton_Left)
+				HandleSelectToolClick(instTrack, instIdx, trackIdx, mousePos, trackStartX, beatWidth);
+			else
+				HandleDeleteToolClick(instTrack, instIdx);
+
 			break;
 		case Tool::Cut:
 			break;
@@ -1215,6 +1282,7 @@ void SongTimeline::HandleDeleteToolClick(int instTrack, int instIdx)
 		ProjectState& state = ProjectState::GetInstance();
 		AudioTrack& track = state.tracks[instTrack];
 		track.blocks.erase(track.blocks.begin() + instIdx);
+		ClearSelection();
 	}
 }
 
