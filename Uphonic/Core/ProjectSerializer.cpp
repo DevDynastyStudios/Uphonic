@@ -129,7 +129,7 @@ bool ProjectSerializer::SaveSamples(const ProjectState& state, const std::filesy
 		sampleJson["name"] = sample.name;
 		sampleJson["audioFileName"] = sample.filename;
 		sampleJson["channelType"] = static_cast<int>(sample.channelType);
-		sampleJson["sampleRate"] = sample.sampleRate;
+		sampleJson["originalSampleRate"] = sample.originalSampleRate;
 		sampleJson["frameCount"] = sample.frameCount;
 		sampleJson["color"] = { sample.color.x, sample.color.y, sample.color.z, sample.color.w };
 		samples.push_back(sampleJson);
@@ -360,7 +360,7 @@ bool ProjectSerializer::LoadSamples(ProjectState& state, const std::filesystem::
 		AudioSample& sample = AudioEngine::AddSample(sampleFilename.string().c_str(), state);
 		sample.name = sampleJson.value("name", sampleFilename.filename().string());
 		sample.channelType = static_cast<SampleChannelType>(sampleJson.value("channelType", 0));
-		sample.sampleRate = sampleJson.value("sampleRate", 44100);	// (Chimpchi): Change this to grab the file and get the sample rate from that.
+		sample.originalSampleRate = sampleJson.value("originalSampleRate", sample.originalSampleRate);
 		sample.frameCount = sampleJson.value("frameCount", 0);
 		sample.color.x = sampleJson["color"][0];
 		sample.color.y = sampleJson["color"][1];

@@ -267,7 +267,7 @@ void SampleRack::OnRender()
 			}
 
 			ImGui::Separator();
-			ImGui::TextDisabled("Sample Rate: %d Hz", sample.sampleRate);
+			ImGui::TextDisabled("Sample Rate: %d Hz", sample.originalSampleRate);
 			ImGui::TextDisabled("Channels: %s", sample.channelType == SampleChannelType::Mono ? "Mono" : "Stereo");
 			ImGui::TextDisabled("Frames: %lu", sample.frameCount);
 			ImGui::EndPopup();

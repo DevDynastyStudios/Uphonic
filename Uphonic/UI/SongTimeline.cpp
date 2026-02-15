@@ -182,7 +182,7 @@ void SongTimeline::RenderToolbar()
 					continue;
 				const AudioSample& sample = state.samples[block.sampleBlock.sampleIndex];
 				const double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-				const double sampleDurationSeconds = (double)sample.frameCount / sample.sampleRate;
+				const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
 				const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 				const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;
 				block.sampleBlock.lengthBeats = std::min<double>(block.sampleBlock.lengthBeats, availableDuration);
@@ -463,7 +463,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 						
 						const AudioSample& sample = state.samples[sampleIdx];
 						double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-						double sampleDurationSeconds = (double)sample.frameCount / sample.sampleRate;
+						double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
 						instance.sampleBlock.lengthBeats = sampleDurationSeconds / secondsPerBeat;
 						
 						instance.sampleBlock.startOffsetBeats = 0.0;
@@ -877,7 +877,7 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 		if (sample.frameData && sample.frameCount > 0)
 		{
 			const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-			const double sampleDurationSeconds = (double)sample.frameCount / sample.sampleRate;
+			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
 			const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 			
 			const double startOffsetBeats = instance.sampleBlock.startOffsetBeats;
@@ -886,8 +886,8 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 			const double startOffsetSeconds = startOffsetBeats * secondsPerBeat / instance.sampleBlock.stretchScale;
 			const double visibleDurationSeconds = visibleDurationBeats * secondsPerBeat / instance.sampleBlock.stretchScale;
 			
-			const uint64_t startFrame = (uint64_t)(startOffsetSeconds * sample.sampleRate);
-			const uint64_t endFrame = std::min<uint64_t>((uint64_t)((startOffsetSeconds + visibleDurationSeconds) * sample.sampleRate), sample.frameCount);
+			const uint64_t startFrame = (uint64_t)(startOffsetSeconds * state.settings.audioSampleRate);
+			const uint64_t endFrame = std::min<uint64_t>((uint64_t)((startOffsetSeconds + visibleDurationSeconds) * state.settings.audioSampleRate), sample.frameCount);
 			
 			if (startFrame < sample.frameCount && endFrame > startFrame)
 			{
@@ -1395,7 +1395,7 @@ void SongTimeline::HandleRightResize(double beatPos)
 		{
 			const AudioSample& sample = state.samples[block.sampleBlock.sampleIndex];
 			const double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-			const double sampleDurationSeconds = (double)sample.frameCount / sample.sampleRate;
+			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
 			const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 			
 			const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;

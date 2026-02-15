@@ -103,10 +103,23 @@ AudioSample& AudioEngine::AddSample(const char* filepath, ProjectState& state)
 
 bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 {	
+	// First pass: get original sample rate from file
+	ma_decoder tempDecoder;
+	ma_decoder_config tempConfig = ma_decoder_config_init(ma_format_f32, 0, 0);
+	
+	ma_uint32 originalSampleRate = s_config.sampleRate;  // Default fallback
+	
+	if (ma_decoder_init_file(filepath, &tempConfig, &tempDecoder) == MA_SUCCESS)
+	{
+		originalSampleRate = tempDecoder.outputSampleRate;
+		ma_decoder_uninit(&tempDecoder);
+	}
+	
+	// Second pass: load with resampling to device rate
 	ma_decoder decoder;
 	ma_decoder_config decoderConfig = ma_decoder_config_init(
 		ma_format_f32,
-		0,
+		0,  // Keep original channel count
 		s_config.sampleRate  // Resample to device rate during decode
 	);
 	
@@ -115,6 +128,8 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 		Naui::Debug::Error("Failed to initialize decoder for: %s", filepath);
 		return false;
 	}
+	
+	const ma_uint32 channels = decoder.outputChannels;
 	
 	ma_uint64 frameCount;
 	ma_result result = ma_decoder_get_length_in_pcm_frames(&decoder, &frameCount);
@@ -125,8 +140,6 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 		return false;
 	}
 	
-	const ma_uint32 channels = decoder.outputChannels;
-	const ma_uint32 sampleRate = decoder.outputSampleRate;
 	const ma_uint64 totalSamples = frameCount * channels;
 	
 	float* frames = new float[totalSamples];
@@ -157,12 +170,23 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 	sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
 	sample.frameData = frames;
 	sample.frameCount = framesRead;
-	sample.sampleRate = s_config.sampleRate;  // Store device rate (decoder has already resampled)
+	sample.originalSampleRate = originalSampleRate;  // Store original rate for display
 	
-	std::cout << "Loaded sample: " << sample.name 
-			  << " (" << framesRead << " frames, " 
-			  << channels << " channels, " 
-			  << s_config.sampleRate << " Hz [device rate])\n";
+	if (originalSampleRate != s_config.sampleRate)
+	{
+		std::cout << "Loaded sample: " << sample.name 
+				  << " (" << framesRead << " frames, " 
+				  << channels << " channels, " 
+				  << originalSampleRate << " Hz → " 
+				  << s_config.sampleRate << " Hz [resampled])\n";
+	}
+	else
+	{
+		std::cout << "Loaded sample: " << sample.name 
+				  << " (" << framesRead << " frames, " 
+				  << channels << " channels, " 
+				  << s_config.sampleRate << " Hz)\n";
+	}
 	
 	return true;
 }
@@ -286,7 +310,7 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			const double beatInBlock = currentBeat - block.sampleBlock.startBeat + block.sampleBlock.startOffsetBeats;
 			const double secondsInBlock = beatInBlock * secondsPerBeat;
 			const double sampleTime = secondsInBlock / block.sampleBlock.stretchScale;
-			const double samplePos = sampleTime * sample.sampleRate;
+			const double samplePos = sampleTime * s_config.sampleRate;
 			
 			if (samplePos < 0 || samplePos >= sample.frameCount)
 				continue;
