@@ -1,98 +1,105 @@
 #include "ProjectSerializer.h"
 #include "../Plugin/PluginManager.h"
 #include "../Audio/AudioEngine.h"
+#include "Naui/FileSystem/File.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <filesystem>
 #include <algorithm>
+#include <unordered_set>
 #include <iostream>
 
 using json = nlohmann::json;
 
-bool ProjectSerializer::Save(const std::filesystem::path& projectPath, bool overwrite)
+#define PROJECT_FILENAME "project.json"
+#define PATTERN_FILENAME "patterns.json"
+#define SAMPLE_FILENAME "samples.json"
+#define TRACK_META_FILENAME "metadata.json"
+#define TRACK_BLOCK_FILENAME "blocks.json"
+#define TRACK_AUTOMATION_FILENAME "automation.json"
+#define INSTRUMENT_FILENAME "instrument.json"
+
+#pragma region Serialize Helpers
+static bool WriteJsonFile(const std::filesystem::path& path, const json& j)
 {
-	static constexpr const char* subFolders[] = { "Samples", "PluginData", "Cache" };
-
-	try
+	std::error_code err;
+	std::filesystem::create_directories(path.parent_path(), err);
+	std::ofstream out(path, std::ios::binary | std::ios::trunc);
+	if(!out.is_open())
 	{
-		if(overwrite)
-			std::filesystem::remove_all(projectPath);
-
-		std::filesystem::create_directories(projectPath);
-		for(std::string subFolder : subFolders)
-		{
-			std::filesystem::create_directories(projectPath / subFolder);
-		}
-		
-		ProjectState& state = ProjectState::GetInstance();
-		json projectJson;
-		
-		SerializeToJson(state, projectJson, projectPath);
-		
-		std::filesystem::path jsonPath = projectPath / "project.json";
-		std::ofstream jsonFile(jsonPath);
-		if (!jsonFile.is_open())
-		{
-			return false;
-		}
-		jsonFile << projectJson.dump(4);
-		jsonFile.close();
-		
-		return true;
-	}
-	catch (const std::exception& e)
-	{
+		std::cout << "Unable to write json file " << path.filename() << "\n";
 		return false;
 	}
+
+	out << j.dump(4);
+	return true;
 }
 
-bool ProjectSerializer::Load(ProjectState& state, const std::filesystem::path& projectPath)
+static bool ReadJsonFile(const std::filesystem::path& path, json& j)
 {
-	try
+	std::ifstream in(path, std::ios::binary);
+	if(!in.is_open())
 	{
-		std::filesystem::path jsonPath = projectPath / "project.json";
-		if (!std::filesystem::exists(jsonPath))
-		{
-			return false;
-		}
-		
-		std::ifstream jsonFile(jsonPath);
-		if (!jsonFile.is_open())
-		{
-			return false;
-		}
-		
-		json projectJson;
-		jsonFile >> projectJson;
-		jsonFile.close();
-		
-		DeserializeFromJson(state, projectJson, projectPath);
-		
-		return true;
-	}
-	catch (const std::exception& e)
-	{
+		std::cout << "Failed to read json file " << path.filename() << "\n";
 		return false;
 	}
+
+	in >> j;
+	return true;
 }
 
-void ProjectSerializer::SerializeToJson(const ProjectState& state, nlohmann::json& j, const std::filesystem::path& projectDir)
+static std::string FormatFolderName(const char* folderName, int trackIndex)
 {
-	j["version"] = "1.0";
-	j["projectName"] = state.settings.projectName;
-	j["bpm"] = state.beatsPerMinute;
-	j["masterVolume"] = state.masterVolume;
-	j["timelinePositionBeats"] = state.timelinePositionBeats;
-	j["currentMidiPatternIndex"] = state.currentMidiPatternIndex;
-	
-	j["patterns"] = json::array();
+	char buf[64];
+	std::snprintf(buf, sizeof(buf), "%s_%04d", folderName, trackIndex);
+	return std::string(buf);
+}
+#pragma endregion
+
+#pragma region Serialize Functions
+bool ProjectSerializer::SaveProject(const ProjectState& state, const std::filesystem::path& projectPath)
+{
+	std::filesystem::create_directories(projectPath / "Patterns");
+	std::filesystem::create_directories(projectPath / "Samples");
+	std::filesystem::create_directories(projectPath / "Tracks");
+
+	bool saved = true;
+	saved &= SaveSettings(state, projectPath); 
+	saved &= SavePatterns(state, projectPath / "Patterns");
+	saved &= SaveSamples(state, projectPath / "Samples");
+	saved &= SaveTracks(state, projectPath / "Tracks");
+	return saved;
+}
+
+bool ProjectSerializer::SaveSettings(const ProjectState& state, const std::filesystem::path& settingsDir)
+{
+	if (std::filesystem::exists(settingsDir) && !std::filesystem::is_directory(settingsDir))
+		return false;
+
+	json settings;
+	settings["version"] = "1.0";
+	settings["projectName"] = state.settings.projectName;
+	settings["bpm"] = state.beatsPerMinute;
+	settings["masterVolume"] = state.masterVolume;
+	settings["timelinePositionBeats"] = state.timelinePositionBeats;
+	settings["currentMidiPatternIndex"] = state.currentMidiPatternIndex;
+	return WriteJsonFile(settingsDir / PROJECT_FILENAME, settings);
+}
+
+bool ProjectSerializer::SavePatterns(const ProjectState& state, const std::filesystem::path& patternDir)
+{
+	if (std::filesystem::exists(patternDir) && !std::filesystem::is_directory(patternDir))
+		return false;
+
+	std::filesystem::create_directories(patternDir);
+	json patterns = json::array();
 	for (size_t i = 0; i < state.patterns.size(); ++i)
 	{
 		const MidiPattern& pattern = state.patterns[i];
 		json patternJson;
 		patternJson["name"] = pattern.name;
+		patternJson["color"] = { pattern.color.x, pattern.color.y, pattern.color.z, pattern.color.w };
 		patternJson["notes"] = json::array();
-		
 		for (const MidiNote& note : pattern.notes)
 		{
 			json noteJson;
@@ -103,417 +110,420 @@ void ProjectSerializer::SerializeToJson(const ProjectState& state, nlohmann::jso
 			patternJson["notes"].push_back(noteJson);
 		}
 		
-		j["patterns"].push_back(patternJson);
+		patterns.push_back(patternJson);
 	}
-	
-	j["samples"] = json::array();
-	std::filesystem::path samplesDir = projectDir / "Samples";
-	for (size_t i = 0; i < state.samples.size(); ++i)
+
+	return WriteJsonFile(patternDir / PATTERN_FILENAME, patterns);
+}
+
+bool ProjectSerializer::SaveSamples(const ProjectState& state, const std::filesystem::path& samplesDir)
+{
+	if (std::filesystem::exists(samplesDir) && !std::filesystem::is_directory(samplesDir))
+		return false;
+
+	std::filesystem::create_directories(samplesDir);
+	json samples = json::array();
+	for(const AudioSample& sample : state.samples)
 	{
-		const AudioSample& sample = state.samples[i];
 		json sampleJson;
 		sampleJson["name"] = sample.name;
+		sampleJson["audioFileName"] = sample.filename;
 		sampleJson["channelType"] = static_cast<int>(sample.channelType);
 		sampleJson["sampleRate"] = sample.sampleRate;
 		sampleJson["frameCount"] = sample.frameCount;
-		
-		std::string fileName;
-		if (!sample.filePath.empty())
-		{
-			std::filesystem::path sourcePath(sample.filePath);
-			
-			if (!sourcePath.is_absolute())
-			{
-				sourcePath = std::filesystem::absolute(sourcePath);
-			}
-			
-			fileName = sourcePath.filename().string();
-			
-			if (std::filesystem::exists(sourcePath))
-			{
-				std::filesystem::path destPath = samplesDir / fileName;
-				bool needsCopy = true;
-				
-				try
-				{
-					if (std::filesystem::exists(destPath))
-					{
-						std::filesystem::path canonicalSource = std::filesystem::canonical(sourcePath);
-						std::filesystem::path canonicalDest = std::filesystem::canonical(destPath);
-						if (canonicalSource == canonicalDest)
-						{
-							needsCopy = false;
-						}
-					}
-					
-					if (needsCopy)
-					{
-						std::filesystem::copy_file(sourcePath, destPath, std::filesystem::copy_options::overwrite_existing);
-					}
-				}
-				catch (...)
-				{
-
-				}
-			}
-		}
-		else
-		{
-			fileName = sample.name;
-		}
-		
-		if (!fileName.empty())
-			sampleJson["fileName"] = fileName;
-		
-		j["samples"].push_back(sampleJson);
+		sampleJson["color"] = { sample.color.x, sample.color.y, sample.color.z, sample.color.w };
+		samples.push_back(sampleJson);
 	}
-	
-	j["tracks"] = json::array();
-	for (size_t trackIdx = 0; trackIdx < state.tracks.size(); ++trackIdx)
-	{
-		const AudioTrack& track = state.tracks[trackIdx];
-		json trackJson;
-		trackJson["name"] = track.name;
-		trackJson["type"] = static_cast<int>(track.type);
-		trackJson["volume"] = track.volume;
-		trackJson["pan"] = track.pan;
-		trackJson["muted"] = track.muted;
-		trackJson["solo"] = track.solo;
-		trackJson["armed"] = track.armed;
-		trackJson["color"] = { track.color.x, track.color.y, track.color.z, track.color.w };
-		
-		if (track.instrument.plugin && !track.instrument.pluginPath.empty())
-		{
-			trackJson["instrument"]["hasPlugin"] = true;
-			trackJson["instrument"]["path"] = track.instrument.pluginPath;
-			
-			std::filesystem::path pluginDataPath = projectDir / "PluginData" / ("instrument_" + std::to_string(trackIdx) + ".bin");
-			try
-			{
-				track.instrument.plugin->Serialize(pluginDataPath.string().c_str());
-				trackJson["instrument"]["dataPath"] = std::filesystem::relative(pluginDataPath, projectDir).string();
-			}
-			catch (...)
-			{
 
-			}
-		}
-		else
-		{
-			trackJson["instrument"]["hasPlugin"] = false;
-		}
-		
-		trackJson["effects"] = json::array();
-		for (size_t i = 0; i < track.effects.size(); ++i)
-		{
-			const PluginEffect& effect = track.effects[i];
-			json effectJson;
-			effectJson["index"] = i;
-			if (effect.plugin && !effect.pluginPath.empty())
-			{
-				effectJson["hasPlugin"] = true;
-				effectJson["path"] = effect.pluginPath;
-				
-				std::filesystem::path pluginDataPath = projectDir / "PluginData" / ("track_" + std::to_string(trackIdx) + "_effect_" + std::to_string(i) + ".bin");
-				try
-				{
-					effect.plugin->Serialize(pluginDataPath.string().c_str());
-					effectJson["dataPath"] = std::filesystem::relative(pluginDataPath, projectDir).string();
-				}
-				catch (...)
-				{
-
-				}
-			}
-			else
-			{
-				effectJson["hasPlugin"] = false;
-			}
-			trackJson["effects"].push_back(effectJson);
-		}
-		
-		trackJson["blocks"] = json::array();
-		for (const TimelineBlock& block : track.blocks)
-		{
-			json blockJson;
-			if (track.type == TrackType::Midi)
-			{
-				blockJson["type"] = "midi";
-				blockJson["startBeat"] = block.midiBlock.startBeat;
-				blockJson["startOffsetBeats"] = block.midiBlock.startOffsetBeats;
-				blockJson["lengthBeats"] = block.midiBlock.lengthBeats;
-				blockJson["patternIndex"] = block.midiBlock.patternIndex;
-			}
-			else
-			{
-				blockJson["type"] = "sample";
-				blockJson["startBeat"] = block.sampleBlock.startBeat;
-				blockJson["startOffsetBeats"] = block.sampleBlock.startOffsetBeats;
-				blockJson["lengthBeats"] = block.sampleBlock.lengthBeats;
-				blockJson["stretchScale"] = block.sampleBlock.stretchScale;
-				blockJson["sampleIndex"] = block.sampleBlock.sampleIndex;
-			}
-			trackJson["blocks"].push_back(blockJson);
-		}
-		
-		j["tracks"].push_back(trackJson);
-	}
-	
-	json masterJson;
-	masterJson["volume"] = state.masterTrack.volume;
-	masterJson["pan"] = state.masterTrack.pan;
-	masterJson["muted"] = state.masterTrack.muted;
-	masterJson["solo"] = state.masterTrack.solo;
-	masterJson["armed"] = state.masterTrack.armed;
-	
-	masterJson["effects"] = json::array();
-	std::filesystem::path pluginsDir = projectDir / "PluginData";
-	for (size_t i = 0; i < state.masterTrack.effects.size(); ++i)
-	{
-		const PluginEffect& effect = state.masterTrack.effects[i];
-		json effectJson;
-		effectJson["index"] = i;
-		if (effect.plugin && !effect.pluginPath.empty())
-		{
-			effectJson["hasPlugin"] = true;
-			effectJson["path"] = effect.pluginPath;
-			
-			std::filesystem::path pluginDataPath = pluginsDir / ("master_effect_" + std::to_string(i) + ".bin");
-			try
-			{
-				effect.plugin->Serialize(pluginDataPath.string().c_str());
-				effectJson["dataPath"] = std::filesystem::relative(pluginDataPath, projectDir).string();
-			}
-			catch (...)
-			{
-
-			}
-		}
-		else
-		{
-			effectJson["hasPlugin"] = false;
-		}
-		masterJson["effects"].push_back(effectJson);
-	}
-	j["masterTrack"] = masterJson;
+	return WriteJsonFile(samplesDir / SAMPLE_FILENAME, samples);
 }
 
-void ProjectSerializer::DeserializeFromJson(ProjectState& state, const nlohmann::json& j, const std::filesystem::path& projectDir)
+bool ProjectSerializer::SaveAutomation(const ProjectState& state, const std::filesystem::path& projectPath)
 {
-	if (j.contains("projectName")) state.settings.projectName = j["projectName"];
-	if (j.contains("bpm")) state.beatsPerMinute = j["bpm"];
-	if (j.contains("masterVolume")) state.masterVolume = j["masterVolume"];
-	if (j.contains("timelinePositionBeats")) state.timelinePositionBeats = j["timelinePositionBeats"];
-	if (j.contains("currentMidiPatternIndex")) state.currentMidiPatternIndex = j["currentMidiPatternIndex"];
+	// if (std::filesystem::exists(projectPath) && !std::filesystem::is_directory(projectPath))
+	// 	return false;
 	
-	if (j.contains("patterns"))
+	// (Chimpchi): Add automation in the future
+
+	return true;
+}
+#pragma endregion
+
+#pragma region Track Serialization
+bool ProjectSerializer::SaveTracks(const ProjectState& state, const std::filesystem::path& trackDir)
+{
+	if (!std::filesystem::exists(trackDir) || !std::filesystem::is_directory(trackDir))
+		return false;
+
+	bool success = true;
+	for(size_t i = 0; i < state.tracks.size(); i++)
 	{
-		state.patterns.clear();
-		for (const json& patternJson : j["patterns"])
-		{
-			MidiPattern pattern;
-			if (patternJson.contains("name")) pattern.name = patternJson["name"];
-			
-			if (patternJson.contains("notes"))
-			{
-				for (const json& noteJson : patternJson["notes"])
-				{
-					MidiNote note;
-					if (noteJson.contains("startBeat")) note.startBeat = noteJson["startBeat"];
-					if (noteJson.contains("lengthBeats")) note.lengthBeats = noteJson["lengthBeats"];
-					if (noteJson.contains("keyNumber")) note.keyNumber = noteJson["keyNumber"];
-					if (noteJson.contains("velocity")) note.velocity = noteJson["velocity"];
-					pattern.notes.push_back(note);
-				}
-			}
-			state.patterns.push_back(pattern);
-		}
+		const AudioTrack& track = state.tracks[i];
+		std::filesystem::path currentTrackDir = trackDir / ("Track_" + std::to_string(i));
+		std::filesystem::create_directories(currentTrackDir);
+		if(!SaveTrack(track, (int) i, currentTrackDir))
+			success = false;
 	}
 	
-	if (j.contains("samples"))
+	return success;
+}
+
+bool ProjectSerializer::SaveTrack(const AudioTrack& track, int trackIndex, const std::filesystem::path& trackDir)
+{
+	if(!std::filesystem::exists(trackDir) || !std::filesystem::is_directory(trackDir))
 	{
-		state.samples.clear();
-		std::filesystem::path samplesDir = projectDir / "Samples";
-		for (const json& sampleJson : j["samples"])
+		std::cout << "Unable to save to " << trackDir << "\n";
+		return false;
+	}
+
+	bool saved = true;
+	saved &= SaveTrackMetadata(track, trackIndex, trackDir);
+	saved &= SaveTrackBlocks(track, trackIndex, trackDir);
+	saved &= SaveTrackAutomation(track, trackIndex, trackDir);
+	return saved;
+}
+
+bool ProjectSerializer::SaveTrackMetadata(const AudioTrack& track, int trackIndex, const std::filesystem::path& trackDir)
+{
+	if (std::filesystem::exists(trackDir) && !std::filesystem::is_directory(trackDir))
+		return false;
+
+	std::filesystem::create_directories(trackDir.parent_path());
+	json metaData;
+	metaData["name"] = track.name;
+	metaData["type"] = static_cast<int>(track.type);
+	metaData["volume"] = track.volume;
+	metaData["pan"] = track.pan;
+	metaData["muted"] = track.muted;
+	metaData["solo"] = track.solo;
+	metaData["color"] = { track.color.x, track.color.y, track.color.z, track.color.w };
+
+	json instrument;
+	instrument["hasPlugin"] = track.instrument.plugin != nullptr;
+	if(track.instrument.plugin)
+	{
+		//instrument["id"] = track.instrument.pluginID;
+		//instrument["vendor"] = track.instrument.vendorName;
+		//instrument["name"] = track.instrument.pluginName;
+		//instrument["version"] = track.instrument.pluginVersion;
+
+		instrument["path"] = track.instrument.pluginPath;
+		try
 		{
-			std::string fileName;
-			
-			if (sampleJson.contains("fileName"))
-			{
-				fileName = sampleJson["fileName"];
-			}
-			else if (sampleJson.contains("filePath"))
-			{
-				std::filesystem::path oldPath = sampleJson["filePath"];
-				fileName = oldPath.filename().string();
-			}
-			
-			if (!fileName.empty())
-			{
-				std::filesystem::path filePath = samplesDir / fileName;
-				
-				if (std::filesystem::exists(filePath))
-				{
-					std::cout << "Added: " << filePath.string().c_str();
-					AudioEngine::AddSample(filePath.string().c_str(), state);
-				}
-			}
+			track.instrument.plugin->Serialize((trackDir / INSTRUMENT_FILENAME).string().c_str());
+			instrument["dataPath"] = INSTRUMENT_FILENAME;
+		}
+		catch(const std::exception& e)
+		{
+			instrument["dataPath"] = "";
+			std::cerr << e.what() << '\n';
 		}
 	}
-	
-	if (j.contains("tracks"))
+
+	metaData["instrument"] = instrument;
+	return WriteJsonFile(trackDir / TRACK_META_FILENAME, metaData);
+}
+
+bool ProjectSerializer::SaveTrackBlocks(const AudioTrack& track, int trackIndex, const std::filesystem::path& trackDir)
+{
+	if (std::filesystem::exists(trackDir) && !std::filesystem::is_directory(trackDir))
+		return false;
+
+	std::filesystem::create_directories(trackDir.parent_path());
+	json blockJson = json::array();
+	if (track.type == TrackType::Midi)
 	{
-		state.tracks.clear();
-		std::filesystem::path pluginsDir = projectDir / "PluginData";
-		for (size_t trackIdx = 0; trackIdx < j["tracks"].size(); ++trackIdx)
+		for(const TimelineBlock& block : track.blocks)
 		{
-			const json& trackJson = j["tracks"][trackIdx];
-			AudioTrack track;
-			if (trackJson.contains("name")) track.name = trackJson["name"];
-			if (trackJson.contains("type")) track.type = static_cast<TrackType>(trackJson["type"]);
-			if (trackJson.contains("volume")) track.volume = trackJson["volume"];
-			if (trackJson.contains("pan")) track.pan = trackJson["pan"];
-			if (trackJson.contains("muted")) track.muted = trackJson["muted"];
-			if (trackJson.contains("solo")) track.solo = trackJson["solo"];
-			if (trackJson.contains("armed")) track.armed = trackJson["armed"];
-			if (trackJson.contains("color"))
-			{
-				track.color.x = trackJson["color"][0];
-				track.color.y = trackJson["color"][1];
-				track.color.z = trackJson["color"][2];
-				track.color.w = trackJson["color"][3];
-			}
-			
-			if (trackJson.contains("instrument") && trackJson["instrument"].contains("hasPlugin") && trackJson["instrument"]["hasPlugin"])
-			{
-				if (trackJson["instrument"].contains("path"))
-				{
-					std::string pluginPath = trackJson["instrument"]["path"];
-					if (std::filesystem::exists(pluginPath))
-					{
-						PluginManager::LoadEffect(track.instrument, pluginPath);
-						
-						if (trackJson["instrument"].contains("dataPath"))
-						{
-							std::string dataPath = trackJson["instrument"]["dataPath"];
-							if (!std::filesystem::path(dataPath).is_absolute())
-							{
-								dataPath = (projectDir / dataPath).string();
-							}
-							if (std::filesystem::exists(dataPath) && track.instrument.plugin)
-							{
-								track.instrument.plugin->Deserialize(dataPath.c_str());
-							}
-						}
-					}
-				}
-			}
-			
-			if (trackJson.contains("effects"))
-			{
-				for (const json& effectJson : trackJson["effects"])
-				{
-					if (effectJson.contains("hasPlugin") && effectJson["hasPlugin"])
-					{
-						if (effectJson.contains("path"))
-						{
-							std::string pluginPath = effectJson["path"];
-							if (std::filesystem::exists(pluginPath))
-							{
-								PluginEffect effect;
-								PluginManager::LoadEffect(effect, pluginPath);
-								
-								if (effectJson.contains("dataPath"))
-								{
-									std::string dataPath = effectJson["dataPath"];
-									if (!std::filesystem::path(dataPath).is_absolute())
-									{
-										dataPath = (projectDir / dataPath).string();
-									}
-									if (std::filesystem::exists(dataPath) && effect.plugin)
-									{
-										effect.plugin->Deserialize(dataPath.c_str());
-									}
-								}
-								
-								track.effects.push_back(effect);
-							}
-						}
-					}
-				}
-			}
-			
-			if (trackJson.contains("blocks"))
-			{
-				for (const json& blockJson : trackJson["blocks"])
-				{
-					TimelineBlock block;
-					std::string blockType = blockJson.contains("type") ? blockJson["type"] : "midi";
-					if (blockType == "midi")
-					{
-						if (blockJson.contains("startBeat")) block.midiBlock.startBeat = blockJson["startBeat"];
-						if (blockJson.contains("startOffsetBeats")) block.midiBlock.startOffsetBeats = blockJson["startOffsetBeats"];
-						if (blockJson.contains("lengthBeats")) block.midiBlock.lengthBeats = blockJson["lengthBeats"];
-						if (blockJson.contains("patternIndex")) block.midiBlock.patternIndex = blockJson["patternIndex"];
-					}
-					else
-					{
-						if (blockJson.contains("startBeat")) block.sampleBlock.startBeat = blockJson["startBeat"];
-						if (blockJson.contains("startOffsetBeats")) block.sampleBlock.startOffsetBeats = blockJson["startOffsetBeats"];
-						if (blockJson.contains("lengthBeats")) block.sampleBlock.lengthBeats = blockJson["lengthBeats"];
-						if (blockJson.contains("stretchScale")) block.sampleBlock.stretchScale = blockJson["stretchScale"];
-						if (blockJson.contains("sampleIndex")) block.sampleBlock.sampleIndex = blockJson["sampleIndex"];
-					}
-					track.blocks.push_back(block);
-				}
-			}
-			
-			state.tracks.push_back(track);
+			json note;
+			note["startBeat"] = block.midiBlock.startBeat;
+			note["startOffsetBeats"] = block.midiBlock.startOffsetBeats;
+			note["lengthBeats"] = block.midiBlock.lengthBeats;
+			note["patternIndex"] = block.midiBlock.patternIndex;
+			blockJson.push_back(note);
 		}
 	}
-	
-	if (j.contains("masterTrack"))
+	else if (track.type == TrackType::Audio)
 	{
-		const json& masterJson = j["masterTrack"];
-		if (masterJson.contains("volume")) state.masterTrack.volume = masterJson["volume"];
-		if (masterJson.contains("pan")) state.masterTrack.pan = masterJson["pan"];
-		if (masterJson.contains("muted")) state.masterTrack.muted = masterJson["muted"];
-		if (masterJson.contains("solo")) state.masterTrack.solo = masterJson["solo"];
-		if (masterJson.contains("armed")) state.masterTrack.armed = masterJson["armed"];
+		for(const TimelineBlock& block : track.blocks)
+		{
+			json note;
+			note["startBeat"] = block.sampleBlock.startBeat;
+			note["startOffsetBeats"] = block.sampleBlock.startOffsetBeats;
+			note["lengthBeats"] = block.sampleBlock.lengthBeats;
+			note["stretchScale"] = block.sampleBlock.stretchScale;
+			note["sampleIndex"] = block.sampleBlock.sampleIndex;
+			blockJson.push_back(note);
+		}
+	}
+
+	return WriteJsonFile(trackDir / TRACK_BLOCK_FILENAME, blockJson);
+}
+
+bool ProjectSerializer::SaveTrackAutomation(const AudioTrack& track, int trackIndex, const std::filesystem::path& trackDir)
+{
+	return true;
+}
+#pragma endregion
+
+#pragma region Deserialize Functions
+
+bool ProjectSerializer::LoadProject(ProjectState& state, const std::filesystem::path& projectPath)
+{
+	bool loaded = true;
+	loaded &= LoadSettings(state, projectPath);
+	loaded &= LoadPatterns(state, projectPath / "Patterns");
+	loaded &= LoadSamples(state, projectPath / "Samples");
+	loaded &= LoadTracks(state, projectPath / "Tracks");
+	return loaded;
+}
+
+bool ProjectSerializer::LoadSettings(ProjectState& state, const std::filesystem::path& projectPath)
+{
+	std::filesystem::path file = std::filesystem::weakly_canonical(projectPath / PROJECT_FILENAME);
+	if(!std::filesystem::exists(file))
+	{
+		std::cout << "Unable to load settings: " << file << "\n";
+		return false;
+	}
+
+	json settings;
+	if(!ReadJsonFile(file, settings))
+		return false;
+
+	state.settings.projectName = settings["projectName"];
+	state.beatsPerMinute = settings["bpm"];		
+	state.masterVolume = settings["masterVolume"];
+	state.timelinePositionBeats = settings["timelinePositionBeats"];
+	state.currentMidiPatternIndex = settings["currentMidiPatternIndex"];
+	return true;
+}
+
+bool ProjectSerializer::LoadPatterns(ProjectState& state, const std::filesystem::path& patternDir)
+{
+	std::filesystem::path file = std::filesystem::weakly_canonical(patternDir / PATTERN_FILENAME);
+	if(!std::filesystem::exists(file))
+	{
+		std::cout << "Unable to load pattern: " << file << "\n";
+		return false;
+	}
+
+	json patterns;
+	if(!ReadJsonFile(file, patterns))
+		return false;
+
+	state.patterns.clear();
+	for (const auto& patternJson : patterns)
+	{
+		MidiPattern pattern;
+		pattern.name = patternJson.value("name", "");
+		auto c = patternJson.value("color", std::vector<float>{1,1,1,1});
+		if (c.size() == 4)
+			pattern.color = { c[0], c[1], c[2], c[3] };
+
+		for (const auto& noteJson : patternJson["notes"])
+		{
+			MidiNote note;
+			note.startBeat = noteJson.value("startBeat", 0.0f);
+			note.lengthBeats = noteJson.value("lengthBeats", 0.0f);
+			note.keyNumber = noteJson.value("keyNumber", 60);
+			note.velocity = noteJson.value("velocity", 100);
+			pattern.notes.push_back(note);
+		}
 		
-		if (masterJson.contains("effects"))
+		state.patterns.push_back(pattern);
+	}
+
+	return true;
+}
+
+bool ProjectSerializer::LoadSamples(ProjectState& state, const std::filesystem::path& sampleDir)
+{
+	std::filesystem::path file = std::filesystem::weakly_canonical(sampleDir / SAMPLE_FILENAME);
+	if(!std::filesystem::exists(file))
+	{
+		std::cout << "Unable to load samples: " << file << "\n";
+		return false;
+	}
+
+	json samples;
+	if(!ReadJsonFile(file, samples))
+		return false;
+
+	state.samples.clear();
+	for(const auto& sampleJson : samples)
+	{
+		const std::filesystem::path sampleFilename = sampleDir / sampleJson.value("audioFileName", "");
+		if(!std::filesystem::exists(sampleFilename))
+			continue;
+
+		AudioSample& sample = AudioEngine::AddSample(sampleFilename.string().c_str(), state);
+		sample.name = sampleJson.value("name", sampleFilename.filename().string());
+		sample.channelType = static_cast<SampleChannelType>(sampleJson.value("channelType", 0));
+		sample.sampleRate = sampleJson.value("sampleRate", 44100);	// (Chimpchi): Change this to grab the file and get the sample rate from that.
+		sample.frameCount = sampleJson.value("frameCount", 0);
+		sample.color.x = sampleJson["color"][0];
+		sample.color.y = sampleJson["color"][1];
+		sample.color.z = sampleJson["color"][2];
+		sample.color.w = sampleJson["color"][3];
+	}
+
+	return true;
+}
+
+bool ProjectSerializer::LoadTracks(ProjectState& state, const std::filesystem::path& trackDir)
+{
+	if(!std::filesystem::exists(trackDir))
+	{
+		std::cout << "Unable to load track: " << trackDir << "\n";
+		return false;
+	}
+	
+	if(!std::filesystem::is_directory(trackDir))
+	{
+		std::cout << "Path is not a directory: " << trackDir << "\n";
+		return false;
+	}
+
+	std::vector<std::filesystem::path> dirs;
+	for(const auto& entry : std::filesystem::directory_iterator(trackDir))
+	{
+		if(entry.is_directory())
 		{
-			std::filesystem::path pluginsDir = projectDir / "PluginData";
-			for (const json& effectJson : masterJson["effects"])
-			{
-				if (effectJson.contains("hasPlugin") && effectJson["hasPlugin"])
-				{
-					if (effectJson.contains("path"))
-					{
-						std::string pluginPath = effectJson["path"];
-						if (std::filesystem::exists(pluginPath))
-						{
-							PluginEffect effect;
-							PluginManager::LoadEffect(effect, pluginPath);
-							
-							if (effectJson.contains("dataPath"))
-							{
-								std::string dataPath = effectJson["dataPath"];
-								if (!std::filesystem::path(dataPath).is_absolute())
-								{
-									dataPath = (projectDir / dataPath).string();
-								}
-								if (std::filesystem::exists(dataPath) && effect.plugin)
-								{
-									effect.plugin->Deserialize(dataPath.c_str());
-								}
-							}
-							
-							state.masterTrack.effects.push_back(effect);
-						}
-					}
-				}
-			}
+
+			dirs.push_back(entry.path());
+		}
+	}
+
+	std::sort(dirs.begin(), dirs.end());
+	state.tracks.clear();
+	for(const std::filesystem::path& path : dirs)
+	{
+		AudioTrack track;
+		if(LoadTrack(track, path))
+			state.tracks.push_back(track);
+		else
+			return false;
+	}
+
+	return true;
+}
+
+bool ProjectSerializer::LoadTrack(AudioTrack& track, const std::filesystem::path& trackDir)
+{
+	bool loaded = true;
+	loaded &= LoadTrackMetadata(track, trackDir / TRACK_META_FILENAME);
+	loaded &= LoadTrackBlocks(track, trackDir / TRACK_BLOCK_FILENAME);
+	loaded &= LoadTrackAutomation(track, trackDir / TRACK_AUTOMATION_FILENAME);
+	return loaded;
+}
+
+static void OldInstrumentLoading(AudioTrack& track, json& metaJson, const std::filesystem::path& trackFolder)
+{
+	if (!metaJson.contains("instrument"))
+		return;
+
+	const auto& inst = metaJson["instrument"];
+	if (!inst.value("hasPlugin", false))
+		return;
+
+	std::string pluginPath = inst.value("path", "");
+	if (pluginPath.empty() || !std::filesystem::exists(pluginPath))
+		return;
+
+	PluginManager::LoadEffect(track.instrument, pluginPath);
+	std::string dataPath = inst.value("dataPath", "");
+	if (dataPath.empty() || !track.instrument.plugin)
+		return;
+
+	std::filesystem::path binPath = trackFolder / dataPath;
+	if (std::filesystem::exists(binPath))
+	{
+		try
+		{
+			track.instrument.plugin->Deserialize(binPath.string().c_str());
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "Failed to load instrument state: " << e.what() << "\n";
 		}
 	}
 }
+
+bool ProjectSerializer::LoadTrackMetadata(AudioTrack& track, const std::filesystem::path& metaDir)
+{
+	if(!std::filesystem::exists(metaDir) || std::filesystem::is_directory(metaDir))
+		return false;
+
+	json metaJson;
+	if(!ReadJsonFile(metaDir, metaJson))
+		return false;
+
+	track.name = metaJson.value("name", "");
+	track.type = static_cast<TrackType>(metaJson.value("type", 0));
+	track.volume = metaJson.value("volume", 1.0f);
+	track.pan = metaJson.value("pan", 0.0f);
+	track.muted = metaJson.value("muted", false);
+	track.solo = metaJson.value("solo", false);
+	track.color.x = metaJson["color"][0];
+	track.color.y = metaJson["color"][1];
+	track.color.z = metaJson["color"][2];
+	track.color.w = metaJson["color"][3];
+	OldInstrumentLoading(track, metaJson, metaDir.parent_path());
+	// if(metaJson.contains("instrument"))
+	// {
+	// 	const auto& instrument = metaJson["instrument"];
+	// 	bool hasPlugin = instrument.value("hasPlugin", false);
+	// 	if(hasPlugin)
+	// 	{
+	// 		//track.instrument.pluginID  = inst.value("id", "");
+	// 		//track.instrument.vendorName= inst.value("vendor", "");
+	// 		//track.instrument.pluginName= inst.value("name", "");
+	// 		//track.instrument.pluginVersion = inst.value("version", "");
+	// 		//track.instrument.pluginPath= inst.value("path", "");
+	// 	}
+	// }
+
+	return true;
+}
+
+// Be sure to call LoadTrackMetadata before this function
+bool ProjectSerializer::LoadTrackBlocks(AudioTrack& track, const std::filesystem::path& blockDir)
+{
+	if(!std::filesystem::exists(blockDir) || std::filesystem::is_directory(blockDir))
+		return false;
+
+	json blockArrJson;
+	if(!ReadJsonFile(blockDir, blockArrJson))
+		return false;
+
+	for(const auto& blockJson : blockArrJson)
+	{
+		TimelineBlock block;
+		if(track.type == TrackType::Midi)
+		{
+			block.midiBlock.startBeat = blockJson.value("startBeat", 0.0f);
+			block.midiBlock.startOffsetBeats = blockJson.value("startOffsetBeats", 0.0f);
+			block.midiBlock.lengthBeats = blockJson.value("lengthBeats", 0.0f);
+			block.midiBlock.patternIndex = blockJson.value("patternIndex", 0);
+		}
+		else
+		{
+			block.sampleBlock.startBeat = blockJson.value("startBeat", 0.0f);
+			block.sampleBlock.startOffsetBeats = blockJson.value("startOffsetBeats", 0.0f);
+			block.sampleBlock.lengthBeats = blockJson.value("lengthBeats", 0.0f);
+			block.sampleBlock.stretchScale = blockJson.value("stretchScale", 1.0f);
+			block.sampleBlock.sampleIndex = blockJson.value("sampleIndex", 0);
+		}
+
+		track.blocks.push_back(block);
+	}
+
+	return true;
+}
+
+bool ProjectSerializer::LoadTrackAutomation(AudioTrack& state, const std::filesystem::path& automationDir)
+{
+	return true;
+}
+#pragma endregion

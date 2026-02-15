@@ -42,9 +42,9 @@ bool ProjectManager::OpenProject(const std::filesystem::path& uphPath)
 	}
 
 	ProjectState tempState;
-	if(!ProjectSerializer::Load(tempState, snapshot))
+	if(!ProjectSerializer::LoadProject(tempState, snapshot))
 	{
-		std::cout << "Failed to load project.json\n";
+		std::cout << "Failed to load " << uphPath.filename() << "\n";
 		std::filesystem::remove_all(snapshot);
 		return false;
 	}
@@ -97,7 +97,7 @@ bool ProjectManager::SaveProject(std::filesystem::path path)
 	std::filesystem::remove_all(snapshot);
 	std::filesystem::create_directories(snapshot);
 
-	if(!ProjectSerializer::Save(projectFolder))
+	if(!ProjectSerializer::SaveProject(state, projectFolder))
 		return false;
 
 	Naui::Directory::UnlockPath(projectFolder);
@@ -161,7 +161,7 @@ bool ProjectManager::LoadFromWorkspace(const std::filesystem::path& folder)
 	Naui::UUID projectID = state.settings.projectID;
 	std::filesystem::path currentWorkspace = Naui::Directory::WorkspaceDirectory() / projectID.Str();
 	ProjectState tempState;
-	if(!ProjectSerializer::Load(tempState, canonicalFolder))
+	if(!ProjectSerializer::LoadProject(tempState, canonicalFolder))
 	{
 		std::cout << "Failed to load project\n";
 		return false;
@@ -178,7 +178,7 @@ bool ProjectManager::LoadFromWorkspace(const std::filesystem::path& folder)
 	return true;
 }
 
-void ProjectManager::ImportSample(const std::filesystem::path& source)
+void ProjectManager::ImportSample(const std::filesystem::path& source)	// (Chimpchi): Change this to rename samples with duplicate names
 {
 	ProjectState& state = ProjectState::GetInstance();
 	std::filesystem::path sampleFolder = Naui::Directory::WorkspaceDirectory() / state.settings.projectID.Str() /  "Samples";
@@ -222,13 +222,14 @@ void ProjectManager::DeleteSample(size_t index)
 		return;
 
 	AudioSample& sample = state.samples[index];
+	std::filesystem::path filePath = Naui::Directory::WorkspaceDirectory() / ProjectState::GetInstance().settings.projectID.Str() / "Samples" / sample.filename;
 	AudioEngine::UnloadSample(sample);
-	if(sample.filePath.empty() || !std::filesystem::exists(sample.filePath))
+	if(filePath.empty() || !std::filesystem::exists(filePath))
 		return;
 
 	try
 	{
-		std::filesystem::remove(sample.filePath);
+		std::filesystem::remove(filePath);
 	}
 	catch(const std::exception& e)
 	{
@@ -255,23 +256,7 @@ bool ProjectManager::RenameSample(size_t index, const std::string& newName)
 		return false;
 
 	AudioSample& sample = state.samples[index];
-	std::filesystem::path newPath = sample.filePath.parent_path() / newName;
-
-	if(newPath.extension().empty())
-		newPath.replace_extension(sample.filePath.extension());
-
-	try
-	{
-		std::filesystem::rename(sample.filePath, newPath);
-	}
-	catch(const std::exception& e)
-	{
-		std::cout << "Failed to rename sample: " << e.what() << "\n";
-		return false;
-	}
-	
-	sample.filePath = newPath;
-	sample.name = newPath.filename().string();
+	sample.name = newName;
 	return true;
 }
 
@@ -303,7 +288,7 @@ void ProjectManager::InitializeWorkspace(bool initialLoad, bool clearDir)
 	
 	std::filesystem::create_directories(projectFolder);
 	state.settings.projectName = "Untitled";
-	ProjectSerializer::Save(projectFolder);
+	ProjectSerializer::SaveProject(state, projectFolder);
 	Naui::Directory::LockPath(projectFolder);
 	std::cout << "Workspace initialized at: " << projectFolder << "\n";
 }

@@ -149,7 +149,7 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 	
 	sample.name = filename;
 	sample.color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	sample.filePath = filepath;
+	sample.filename = filename;
 	sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
 	sample.frameData = frames;
 	sample.frameCount = framesRead;
