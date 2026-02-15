@@ -14,8 +14,6 @@
 #include <imgui_impl_opengl3.h>
 #include <imgui_impl_opengl3_loader.h>
 
-extern Display *dpy;
-
 namespace Naui
 {
 
@@ -60,9 +58,10 @@ public:
     void DestroyImage(Image *image) override;
 
 private:
-    bool CreateEGLContext(Display *dpy, Window win);
+    bool CreateEGLContext(Window win);
     void CleanupEGLContext(void);
 
+	Display *m_xdpy;
     EGLDisplay m_dpy;
     EGLSurface m_surface;
     EGLContext m_glContext;
@@ -70,8 +69,13 @@ private:
 
 OpenGLRenderer::OpenGLRenderer(const PlatformWindow &window)
 {
-    Window *win = (Window*)window.GetNativeHandle();
-    if (!CreateEGLContext(dpy, *win))
+	Display *m_xdpy = XOpenDisplay(nullptr);
+	if (!m_xdpy)
+	{
+		fprintf(stderr, "failed to open X11 display\n");
+		return;
+	}
+    if (!CreateEGLContext((Window)window.GetNativeHandle()))
     {
         CleanupEGLContext();
         return;
@@ -83,16 +87,12 @@ OpenGLRenderer::~OpenGLRenderer(void)
 {
     ImGui_ImplOpenGL3_Shutdown();
     CleanupEGLContext();
+	//XCloseDisplay(m_xdpy);
 }
 
-bool OpenGLRenderer::CreateEGLContext(Display *dpy, Window win)
+bool OpenGLRenderer::CreateEGLContext(Window win)
 {
-    if (!dpy)
-    {
-        fprintf(stderr, "invalid X11 display\n");
-        return false;
-    }
-    m_dpy = eglGetDisplay((EGLNativeDisplayType)dpy);
+    m_dpy = eglGetDisplay((EGLNativeDisplayType)m_xdpy);
     eglInitialize(m_dpy, nullptr, nullptr);
 
     EGLint configAttribs[] = {

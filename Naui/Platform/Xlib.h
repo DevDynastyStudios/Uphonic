@@ -8,15 +8,14 @@
 #include <imgui.h>
 #include <imgui_impl_xlib.h>
 
-Display *dpy = nullptr;
-
 namespace Naui
 {
 
 class PlatformXlibWindow : public PlatformWindow
 {
 private:
-    Window m_window, *m_rootWindow;
+	Display *m_dpy;
+    Window m_window, m_rootWindow;
     Atom m_wmDeleteWindow;
     uint32_t m_width, m_height;
     bool m_isOpen = true;
@@ -28,7 +27,7 @@ public:
     PlatformXlibWindow(int width, int height, const char *title, PlatformWindow *parent);
     ~PlatformXlibWindow(void);
 
-    void *GetNativeHandle(void) const override { return (void*)&m_window; }
+    void *GetNativeHandle(void) const override { return (void*)m_window; }
     bool IsOpen(void) const override { return m_isOpen; }
     uint32_t GetWidth(void) const override { return m_width; }
     uint32_t GetHeight(void) const override { return m_height; }
@@ -43,26 +42,26 @@ public:
 
 PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title, PlatformWindow *parent)
 {
-    dpy = XOpenDisplay(nullptr);
-    if (!dpy)
+    m_dpy = XOpenDisplay(nullptr);
+    if (!m_dpy)
     {
         fprintf(stderr, "failed to open X11 display\n");
         return;
     }
 
-    const int screen = DefaultScreen(dpy);
+    const int screen = DefaultScreen(m_dpy);
     if (parent)
     {
-        m_rootWindow = (Window*)parent->GetNativeHandle();
+        m_rootWindow = (Window)parent->GetNativeHandle();
     }
     else
-        m_rootWindow = &RootWindow(dpy, screen);
+        m_rootWindow = RootWindow(m_dpy, screen);
 
     XSetWindowAttributes attr = {};
     attr.event_mask = ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
 
     m_window = XCreateWindow(
-            dpy, *m_rootWindow,
+            m_dpy, m_rootWindow,
             0, 0, width, height,
             0, CopyFromParent, InputOutput, CopyFromParent,
             CWEventMask, &attr);
@@ -70,19 +69,19 @@ PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title,
     {
         fprintf(stderr, "failed to create X11 window\n");
     }
-    XStoreName(dpy, m_window, title);
+    XStoreName(m_dpy, m_window, title);
 
-    m_wmDeleteWindow = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
-	if (!XSetWMProtocols(dpy, m_window, &m_wmDeleteWindow, 1))
+    m_wmDeleteWindow = XInternAtom(m_dpy, "WM_DELETE_WINDOW", False);
+	if (!XSetWMProtocols(m_dpy, m_window, &m_wmDeleteWindow, 1))
     {
         fprintf(stderr, "failed to get WM_DELETE_WINDOW atom\n");
         return;
     }
 
-    XMapWindow(dpy, m_window);
-    XFlush(dpy);
+    XMapWindow(m_dpy, m_window);
+    XFlush(m_dpy);
 
-    ImGui_ImplXlib_Init(dpy, m_window);
+    ImGui_ImplXlib_Init(m_dpy, m_window);
 
     m_width = width, m_height = height;
 }
@@ -90,15 +89,16 @@ PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title,
 PlatformXlibWindow::~PlatformXlibWindow(void)
 {
     ImGui_ImplXlib_Shutdown();
-    XDestroyWindow(dpy, m_window);
+    XDestroyWindow(m_dpy, m_window);
+	//XCloseDisplay(m_dpy);
 }
 
 void PlatformXlibWindow::PollEvents(void)
 {
     XEvent ev;
-    while (XPending(dpy) > 0)
+    while (XPending(m_dpy) > 0)
     {
-        XNextEvent(dpy, &ev);
+        XNextEvent(m_dpy, &ev);
         ImGui_ImplXlib_ProcessEvent(&ev);
         switch (ev.type)
         {
@@ -134,9 +134,9 @@ void PlatformXlibWindow::PollEvents(void)
 void PlatformXlibWindow::Show(bool value)
 {
     if (value)
-        XMapRaised(dpy, m_window);
+        XMapRaised(m_dpy, m_window);
     else
-        XUnmapWindow(dpy, m_window);
+        XUnmapWindow(m_dpy, m_window);
 }
 
 }
