@@ -1,3 +1,10 @@
+local host = os.host()
+if host == "windows" then
+	VST_SDK = os.getenv("VST_SDK")
+else
+	VST_SDK = "."
+end
+
 workspace "Naui"
     configurations { "Release" }
     startproject "Uphonic"
@@ -54,12 +61,14 @@ project "Uphonic"
     architecture "x64"
     staticruntime "Off"
     conformancemode "On"
+    buildoptions { "/Zc:char8_t-" }
 
     files {
         "Uphonic/**.h",
         "Uphonic/**.c",
         "Uphonic/**.cpp",
-        "UVI/**.cpp"
+        "UVI/**.cpp",
+        VST_SDK.."/public.sdk/source/common/memorystream.cpp"
     }
 
     includedirs {
@@ -72,8 +81,48 @@ project "Uphonic"
         "Uphonic/Vendor/stb",
         "Uphonic/Vendor/miniaudio",
         "Uphonic/Vendor/imgui-knobs",
-        "UVI"
+        "UVI",
+        VST_SDK
     }
+
+    libdirs {
+        VST_SDK.."/build/lib/Release"
+    }
+
+    filter "configurations:Release"
+        links {
+            "sdk_hosting",
+            "sdk_common", 
+            "sdk",
+            "base",
+            "pluginterfaces"
+        }
+    
+    filter "system:windows"
+        files { VST_SDK.."/public.sdk/source/vst/hosting/module_win32.cpp"}
+        defines {
+            "NOMINMAX",
+            "WIN32"
+        }
+    
+    filter "system:linux"
+        files { VST_SDK.."/public.sdk/source/vst/hosting/module_linux.cpp"}
+        defines {
+            "LINUX"
+        }
+        links {
+            "pthread",
+            "dl"
+        }
+    
+    filter "system:macosx"
+        files { VST_SDK.."/public.sdk/source/vst/hosting/module_mac.cpp"}
+        links {
+            "CoreFoundation.framework",
+            "Cocoa.framework"
+        }
+    
+    filter {}
 
     links { "Naui" }
 

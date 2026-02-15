@@ -352,7 +352,9 @@ void AudioEngine::ProcessTrackEffects(std::vector<PluginEffect>& effects, float*
 {
 	if (effects.empty())
 		return;
-	
+
+	const ProjectState &state = ProjectState::GetInstance();
+
 	for (ma_uint32 i = 0; i < frameCount; ++i)
 	{
 		outputs[0][i] = trackBuffer[i * 2];
@@ -366,7 +368,7 @@ void AudioEngine::ProcessTrackEffects(std::vector<PluginEffect>& effects, float*
 			memcpy(inputs[0], outputs[0], frameCount * sizeof(float));
 			memcpy(inputs[1], outputs[1], frameCount * sizeof(float));
 			
-			effect.plugin->Process((float**)inputs, (float**)outputs, frameCount);
+			effect.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
 		}
 	}
 	
@@ -478,7 +480,7 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		if (track.instrument.plugin && !track.muted)
 		{
 			memset(trackBuffer, 0, frameCount * s_config.channels * sizeof(float));
-			track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount);
+			track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
 			
 			for (ma_uint32 i = 0; i < frameCount; i++)
 			{
@@ -519,7 +521,7 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 				memcpy(inputs[0], outputs[0], frameCount * sizeof(float));
 				memcpy(inputs[1], outputs[1], frameCount * sizeof(float));
 				
-				effect.plugin->Process((float**)inputs, (float**)outputs, frameCount);
+				effect.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
 			}
 		}
 		
@@ -653,4 +655,3 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	std::cout << "Export complete: " << filepath << "\n";
 	return true;
 }
-

@@ -131,8 +131,8 @@ struct ApplicationSettings
 	uint32_t audioSampleRate;
 	
 	ApplicationSettings() : audioSampleRate(44100), pluginSearchPaths({
-		"C:\\Program Files\\VSTPlugins",
-		"C:\\Program Files\\Steinberg\\VSTPlugins"
+		"C:\\Program Files\\Common Files\\VST3",
+		"C:\\Program Files\\Steinberg\\VST3"
 	}) {}
 };
 

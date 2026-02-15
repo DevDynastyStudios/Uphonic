@@ -5,6 +5,7 @@
 *.lib
 *.dll
 *.exp
+*.user
 *.wav
 bin/Release/*.exe
 bin/Release/Projects

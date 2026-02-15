@@ -4,13 +4,12 @@
 void PluginManager::LoadEffect(PluginEffect& effect, const std::filesystem::path& path)
 {
     ProjectState& state = ProjectState::GetInstance();
-    Uvi::Plugin* plugin = Uvi::PluginLoader::Load(path.string().c_str(), state.settings.audioSampleRate);
+    Uvi::Plugin* plugin = Uvi::PluginLoader::Load(path.string().c_str(), state.settings.audioSampleRate, 512);
 
-    uint32_t width, height;
-    plugin->GetEditorSize(&width, &height);
-    effect.window = Naui::CreatePlatformWindow(width, height, path.filename().replace_extension().string().c_str(), state.mainWindow);
+    effect.window = Naui::CreatePlatformWindow(0, 0, path.filename().replace_extension().string().c_str(),
+        state.mainWindow);
 
-    plugin->OpenEditor(effect.window->GetNativeHandle());
+    plugin->AttachEditor(effect.window->GetNativeHandle());
 
     effect.plugin = plugin;
     effect.pluginPath = path.string();
@@ -26,11 +25,18 @@ void PluginManager::OpenEffect(PluginEffect& effect)
 
 void PluginManager::UnloadEffect(PluginEffect& effect)
 {
-    Uvi::Plugin* plugin = effect.plugin;
-    effect.plugin = nullptr;
+    if (!effect.plugin)
+        return;
 
+    Uvi::Plugin *plugin = effect.plugin;
+    effect.plugin = nullptr;
     delete plugin;
-    delete effect.window;
+
+    if (effect.window)
+    {
+        delete effect.window;
+        effect.window = nullptr;
+    }
 }
 
 void PluginManager::UnloadAllEffects()

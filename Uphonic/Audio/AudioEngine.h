@@ -5,7 +5,6 @@
 #include <miniaudio.h>
 #include <cstdint>
 #include <vector>
-#include <atomic>
 
 struct AudioEngineData
 {

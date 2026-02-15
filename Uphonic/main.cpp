@@ -92,14 +92,14 @@ private:
 		ProjectState& state = ProjectState::GetInstance();
 		for (PluginEffect& effect : state.masterTrack.effects)
 		{
-			if (effect.window)
+			if (effect.plugin && effect.window)
 				effect.plugin->IdleEditor();
 		}
 		for (AudioTrack& track : state.tracks)
 		{
 			for (PluginEffect& effect : track.effects)
 			{
-				if (effect.window)
+				if (effect.plugin && effect.window)
 					effect.plugin->IdleEditor();
 			}
 		}
