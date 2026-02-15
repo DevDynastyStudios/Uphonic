@@ -630,7 +630,6 @@ void Vst3Plugin::CleanupProcessing()
         m_processor->setProcessing(false);
         m_processingActive = false;
         
-        // CRITICAL: Process a few silent blocks to let the plugin clean up
         if (m_outputChannels > 0 && m_maxBlockSize > 0)
         {
             LOG_DEBUG("Processing silent blocks for cleanup...");

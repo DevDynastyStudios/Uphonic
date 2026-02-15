@@ -104,7 +104,11 @@ AudioSample& AudioEngine::AddSample(const char* filepath, ProjectState& state)
 bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 {	
 	ma_decoder decoder;
-	ma_decoder_config decoderConfig = ma_decoder_config_init(ma_format_f32, 0, 0);
+	ma_decoder_config decoderConfig = ma_decoder_config_init(
+		ma_format_f32,
+		0,
+		s_config.sampleRate  // Resample to device rate during decode
+	);
 	
 	if (ma_decoder_init_file(filepath, &decoderConfig, &decoder) != MA_SUCCESS)
 	{
@@ -153,12 +157,12 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 	sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
 	sample.frameData = frames;
 	sample.frameCount = framesRead;
-	sample.sampleRate = sampleRate;
+	sample.sampleRate = s_config.sampleRate;  // Store device rate (decoder has already resampled)
 	
 	std::cout << "Loaded sample: " << sample.name 
 			  << " (" << framesRead << " frames, " 
 			  << channels << " channels, " 
-			  << sampleRate << " Hz)\n";
+			  << s_config.sampleRate << " Hz [device rate])\n";
 	
 	return true;
 }
@@ -272,6 +276,7 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			continue;
 		
 		const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
+		
 		for (ma_uint32 i = 0; i < frameCount; ++i)
 		{
 			const double currentBeat = prevBeat + i * beatsPerFrame;
