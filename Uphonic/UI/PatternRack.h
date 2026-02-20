@@ -1,12 +1,17 @@
 #pragma once
 
 #include "Naui.h"
-#include "../Core/ProjectState.h"
+
+struct MidiPattern;
 
 class PatternRack : public Naui::Panel
 {
 public:
     PatternRack();
+	static size_t GetPatternIndex(MidiPattern& pattern);
+	static MidiPattern& GetPatternAtIndex(size_t index);
+	static bool RenamePattern(size_t index, const std::string& newName);
+
 
 protected:
     void OnRender() override;

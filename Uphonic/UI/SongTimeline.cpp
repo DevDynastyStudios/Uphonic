@@ -2,6 +2,7 @@
 #include "../Core/ProjectState.h"
 #include "../Plugin/PluginManager.h"
 #include "../Audio/AudioEngine.h"
+#include "Actions/Tracks/RenameTrackAction.h"
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -96,6 +97,31 @@ AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
 	track.name = title;
 	state.tracks.push_back(track);
 	return state.tracks.back();
+}
+
+size_t SongTimeline::GetTrackIndex(AudioTrack& track)
+{
+	return &track - ProjectState::GetInstance().tracks.data();
+}
+
+AudioTrack& SongTimeline::GetTrackAtIndex(size_t index)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.tracks.size())
+		throw std::out_of_range("Track index out of range");
+
+	return state.tracks[index];
+}
+
+bool SongTimeline::RenameTrack(size_t index, const std::string& newName)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.tracks.size())
+		return false;
+
+	AudioTrack& track = state.tracks[index];
+	track.name = newName;
+	return true;
 }
 
 double SongTimeline::GetTimelineDuration()
@@ -592,6 +618,7 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 	ImGui::SetNextItemWidth(200);
 	if (ImGui::InputText("Name", nameBuffer, sizeof(nameBuffer)))
 	{
+		//ProjectState::GetInstance().actionManager.Execute(new RenameTrackAction(track, nameBuffer));	// Add this back when it doesn't save every key press
 		track.name = nameBuffer;
 	}
 	

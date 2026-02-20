@@ -1,5 +1,6 @@
 #include "PluginManager.h"
-#include "../Core/ProjectState.h"
+#include "Core/ProjectState.h"
+#include "Naui/Platform/Window.h"
 
 void PluginManager::LoadEffect(PluginEffect& effect, const std::filesystem::path& path)
 {

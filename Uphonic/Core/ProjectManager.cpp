@@ -2,6 +2,7 @@
 #include "ProjectSerializer.h"
 #include "Recovery.h"
 #include "Audio/AudioEngine.h"
+#include "Naui/Platform/Window.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
 #include "Naui/FileSystem/Archive.h"
@@ -237,27 +238,6 @@ void ProjectManager::DeleteSample(size_t index)
 	}
 	
 	state.samples.erase(state.samples.begin() + index);
-}
-
-bool ProjectManager::RenameSample(AudioSample& sample, const std::string& newName)
-{
-	ProjectState& state = ProjectState::GetInstance();
-	size_t index = &sample - state.samples.data();
-	if(index > state.samples.size())
-		return false;
-
-	return ProjectManager::RenameSample(index, newName);
-}
-
-bool ProjectManager::RenameSample(size_t index, const std::string& newName)
-{
-	ProjectState& state = ProjectState::GetInstance();
-	if(index >= state.samples.size())
-		return false;
-
-	AudioSample& sample = state.samples[index];
-	sample.name = newName;
-	return true;
 }
 
 void ProjectManager::InitializeWorkspace(bool initialLoad, bool clearDir)

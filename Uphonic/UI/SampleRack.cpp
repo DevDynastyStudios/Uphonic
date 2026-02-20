@@ -3,6 +3,8 @@
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
+#include "DataModel/Samples.h"
+#include "Actions/Samples/RenameSampleAction.h"
 #include <algorithm>
 #include <cstring>
 #include <imgui_internal.h>
@@ -28,12 +30,39 @@ static ImVec4 SAMPLE_BG_HOVER_COLOR	= ImVec4(0.24f, 0.24f, 0.24f, 1.0f);
 static ImVec4 SAMPLE_OUTLINE_COLOR	= ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
 static ImVec4 SAMPLE_OUTLINE_ACTIVE	= ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
 
+#pragma region Facade Functions
 SampleRack::SampleRack() : Naui::Panel("Sample Rack")
 {
 	m_renamingIndex = -1;
 	memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
 	SetMinSize(SAMPLE_PANEL_MIN_WIDTH, SAMPLE_PANEL_MIN_HEIGHT);
 }
+
+size_t SampleRack::GetSampleIndex(AudioSample& sample)
+{
+	return &sample - ProjectState::GetInstance().samples.data();
+}
+
+AudioSample& SampleRack::GetSampleAtIndex(size_t index)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if (index >= state.samples.size())
+		throw std::out_of_range("Sample index out of range");
+
+	return state.samples[index];
+}
+
+bool SampleRack::RenameSample(size_t index, const std::string& newName)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.samples.size())
+		return false;
+
+	AudioSample& sample = state.samples[index];
+	sample.name = newName;
+	return true;
+}
+#pragma endregion
 
 bool SampleRack::DrawSampleItem(AudioSample& sample, float width, float height, bool& colorClicked)
 {
@@ -198,7 +227,7 @@ void SampleRack::OnRender()
 			if (enter)
 			{
 				if(sample.name != m_renameBuffer)
-					ProjectManager::RenameSample((size_t)i, m_renameBuffer);
+					state.actionManager.Execute<RenameSampleAction>(SampleRack::GetSampleAtIndex(i), m_renameBuffer);
 
 				m_renamingIndex = -1;
 			}

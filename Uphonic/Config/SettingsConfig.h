@@ -9,6 +9,7 @@ struct ApplicationSettings
 	std::string projectName;
 	std::optional<std::filesystem::path> saveToPath;
 	std::vector<std::string> pluginSearchPaths;
+	uint32_t undoHistory;
 	uint32_t audioSampleRate;
 	
 	ApplicationSettings() : audioSampleRate(44100), pluginSearchPaths({

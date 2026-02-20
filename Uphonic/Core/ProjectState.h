@@ -1,9 +1,9 @@
 #pragma once
-#include "Naui/Platform/Window.h"
 #include "DataModel/Tracks.h"
+#include "Config/SettingsConfig.h"
+#include "Naui/Actions/ActionManager.h"
 #include "DataModel/Samples.h"
 #include "DataModel/Patterns.h"
-#include "Config/SettingsConfig.h"
 
 namespace Naui { class PlatformWindow; }
 
@@ -21,9 +21,12 @@ public:
 
 	ApplicationSettings settings;
 	MasterTrack masterTrack;
+	Naui::ActionManager actionManager;
+
 	std::vector<AudioTrack> tracks;
 	std::vector<MidiPattern> patterns;
 	std::vector<AudioSample> samples;
+
 	Naui::PlatformWindow* mainWindow;
 	double timelinePositionBeats;
 	float beatsPerMinute;
@@ -32,11 +35,7 @@ public:
 	bool isPlaying;
 	bool isDraggingPlayhead;
 	
-	ProjectState() : mainWindow(nullptr), timelinePositionBeats(0.0),
-					  beatsPerMinute(120.0f), masterVolume(0.8f),
-					  currentMidiPatternIndex(0), isPlaying(false),
-					  isDraggingPlayhead(false) {}
-	
+	ProjectState();	
 	ProjectState(const ProjectState&) = delete;
 	ProjectState& operator=(const ProjectState&) = delete;
 };

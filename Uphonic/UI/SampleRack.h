@@ -1,13 +1,18 @@
 #pragma once
 
 #include "Naui.h"
-#include "Core/ProjectState.h"
 #include <filesystem>
+
+struct AudioSample;
 
 class SampleRack : public Naui::Panel
 {
 public:
     SampleRack();
+
+	static size_t GetSampleIndex(AudioSample& sample);
+	static AudioSample& GetSampleAtIndex(size_t index);
+	static bool RenameSample(size_t index, const std::string& newName);
 
 protected:
     void OnRender() override;

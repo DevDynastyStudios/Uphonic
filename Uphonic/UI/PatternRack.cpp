@@ -1,5 +1,6 @@
 #include "PatternRack.h"
-#include "../Core/ProjectState.h"
+#include "Core/ProjectState.h"
+#include "DataModel/Patterns.h"
 #include <algorithm>
 #include <cstring>
 
@@ -9,9 +10,43 @@ PatternRack::PatternRack() : Naui::Panel("Pattern Rack")
     memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
 }
 
+size_t PatternRack::GetPatternIndex(MidiPattern& pattern)
+{
+	return &pattern - ProjectState::GetInstance().patterns.data();
+}
+
+MidiPattern& PatternRack::GetPatternAtIndex(size_t index)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.patterns.size())
+		throw std::out_of_range("Sample index out of range");
+
+	return state.patterns[index];
+}
+
+bool PatternRack::RenamePattern(size_t index, const std::string& newName)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.samples.size())
+		return false;
+
+	MidiPattern& pattern = state.patterns[index];
+	pattern.name = newName;
+	return true;
+}
+
 void PatternRack::OnRender()
 {
     ProjectState& state = ProjectState::GetInstance();
+
+	if (ImGui::Button("+ New Pattern"))
+    {
+        ProjectState& state = ProjectState::GetInstance();
+        MidiPattern pattern;
+        pattern.name = "Pattern " + std::to_string(state.patterns.size() + 1);
+        state.patterns.push_back(pattern);
+    }
+
     for (uint16_t i = 0; i < state.patterns.size(); i++)
     {
         MidiPattern& pattern = state.patterns[i];
@@ -21,8 +56,7 @@ void PatternRack::OnRender()
         if (m_renamingIndex == (int)i)
         {
             ImGui::SetNextItemWidth(-60.0f);
-            if (ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), 
-                                ImGuiInputTextFlags_EnterReturnsTrue))
+            if (ImGui::InputText("##rename", m_renameBuffer, sizeof(m_renameBuffer), ImGuiInputTextFlags_EnterReturnsTrue))
             {
                 pattern.name = m_renameBuffer;
                 m_renamingIndex = -1;
@@ -82,14 +116,6 @@ void PatternRack::OnRender()
         
         ImGui::PopID();
     }
-    
-    if (ImGui::Button("+"))
-    {
-        ProjectState& state = ProjectState::GetInstance();
-        MidiPattern pattern;
-        pattern.name = "Pattern " + std::to_string(state.patterns.size() + 1);
-        state.patterns.push_back(pattern);
-    }
 }
 
 void PatternRack::DeletePattern(uint16_t index)
@@ -126,8 +152,7 @@ void PatternRack::DeletePattern(uint16_t index)
     
     if (state.currentMidiPatternIndex == index)
     {
-        state.currentMidiPatternIndex = std::min(state.currentMidiPatternIndex, 
-                                               (uint16_t)(state.patterns.size() - 1));
+        state.currentMidiPatternIndex = std::min(state.currentMidiPatternIndex, (uint16_t)(state.patterns.size() - 1));
     }
     else if (state.currentMidiPatternIndex > index)
     {

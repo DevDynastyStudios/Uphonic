@@ -1,6 +1,12 @@
 #include "ProjectState.h"
+#include "Naui/Platform/Window.h"
 
 ProjectState& g_ProjectState = ProjectState::GetInstance();
+
+ProjectState::ProjectState() : mainWindow(nullptr), timelinePositionBeats(0.0),
+								beatsPerMinute(120.0f), masterVolume(0.8f),
+								currentMidiPatternIndex(0), isPlaying(false),
+								isDraggingPlayhead(false) {}
 
 void ProjectState::ClearProject()
 {

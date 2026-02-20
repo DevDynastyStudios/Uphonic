@@ -78,10 +78,20 @@ void MainMenuBar::FileMenu()
 
 void MainMenuBar::EditMenu()
 {
+	Naui::ActionManager& actionManager = ProjectState::GetInstance().actionManager;
 	if (!ImGui::BeginMenu("Edit"))
 		return;
 
-	ImGui::MenuItem("Undo", nullptr, nullptr, false);
+	if(ImGui::MenuItem("Undo", nullptr, nullptr, actionManager.CanUndo()))
+	{
+		actionManager.Undo();
+	}
+
+	if(ImGui::MenuItem("Redo", nullptr, nullptr, actionManager.CanRedo()))
+	{
+		actionManager.Redo();
+	}
+
 	ImGui::Separator();
 	ImGui::MenuItem("Cut", nullptr, nullptr, false);
 	ImGui::MenuItem("Copy", nullptr, nullptr, false);
