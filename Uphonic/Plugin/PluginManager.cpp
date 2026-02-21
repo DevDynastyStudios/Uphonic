@@ -7,7 +7,7 @@ void PluginManager::LoadEffect(PluginEffect& effect, const std::filesystem::path
     ProjectState& state = ProjectState::GetInstance();
     Uvi::Plugin* plugin = Uvi::PluginLoader::Load(path.string().c_str(), state.settings.audioSampleRate, 512);
 
-    effect.window = Naui::CreatePlatformWindow(0, 0, path.filename().replace_extension().string().c_str(),
+    effect.window = Naui::CreatePlatformWindow(1, 1, path.filename().replace_extension().string().c_str(),
         state.mainWindow);
 
     plugin->AttachEditor(effect.window->GetNativeHandle());

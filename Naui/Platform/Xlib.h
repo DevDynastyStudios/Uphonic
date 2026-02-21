@@ -3,6 +3,7 @@
 #include "Window.h"
 
 #include <cstdio>
+#include <vector>
 #include <X11/Xlib.h>
 
 #include <imgui.h>
@@ -19,9 +20,14 @@ private:
     Atom m_wmDeleteWindow;
     uint32_t m_width, m_height;
     bool m_isOpen = true;
+    bool m_isChild = false;
+
+    std::vector<PlatformXlibWindow*> m_children;
 
     std::function<void(uint32_t, uint32_t)> m_resizeCallback = nullptr;
     std::function<void(const char *path)> m_fileDropCallback = nullptr;
+
+    void ProcessEvent(XEvent &ev);
 
 public:
     PlatformXlibWindow(int width, int height, const char *title, PlatformWindow *parent);
@@ -34,7 +40,7 @@ public:
 
     void PollEvents(void) override;
     void Show(bool value) override;
-    void Close(void) override { m_isOpen = false; };
+    void Close(void) override { m_isOpen = false; }
 
     void SetResizeEvent(std::function<void(uint32_t, uint32_t)> callback) override { m_resizeCallback = callback; }
     void SetFileDropEvent(std::function<void(const char *path)> callback) override { m_fileDropCallback = callback; }
@@ -42,7 +48,9 @@ public:
 
 PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title, PlatformWindow *parent)
 {
-    m_dpy = XOpenDisplay(nullptr);
+    PlatformXlibWindow *parentXlibWindow = (PlatformXlibWindow*)parent;
+    m_dpy = parent ? parentXlibWindow->m_dpy : XOpenDisplay(nullptr);
+
     if (!m_dpy)
     {
         fprintf(stderr, "failed to open X11 display\n");
@@ -50,12 +58,9 @@ PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title,
     }
 
     const int screen = DefaultScreen(m_dpy);
-    if (parent)
-    {
-        m_rootWindow = (Window)parent->GetNativeHandle();
-    }
-    else
-        m_rootWindow = RootWindow(m_dpy, screen);
+    m_rootWindow = RootWindow(m_dpy, screen);
+
+    m_isChild = (bool)parent;
 
     XSetWindowAttributes attr = {};
     attr.event_mask = ExposureMask | StructureNotifyMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask;
@@ -68,65 +73,105 @@ PlatformXlibWindow::PlatformXlibWindow(int width, int height, const char *title,
     if (!m_window)
     {
         fprintf(stderr, "failed to create X11 window\n");
+        return;
     }
+
     XStoreName(m_dpy, m_window, title);
 
     m_wmDeleteWindow = XInternAtom(m_dpy, "WM_DELETE_WINDOW", False);
-	if (!XSetWMProtocols(m_dpy, m_window, &m_wmDeleteWindow, 1))
+    if (!XSetWMProtocols(m_dpy, m_window, &m_wmDeleteWindow, 1))
     {
         fprintf(stderr, "failed to get WM_DELETE_WINDOW atom\n");
         return;
     }
 
+    if (m_isChild)
+    {
+        XSetTransientForHint(m_dpy, m_window, (Window)parent->GetNativeHandle());
+        parentXlibWindow->m_children.push_back(this);
+    }
+
     XMapWindow(m_dpy, m_window);
     XFlush(m_dpy);
 
-    ImGui_ImplXlib_Init(m_dpy, m_window);
+    if (!m_isChild)
+        ImGui_ImplXlib_Init(m_dpy, m_window);
 
-    m_width = width, m_height = height;
+    m_width = width;
+    m_height = height;
 }
 
 PlatformXlibWindow::~PlatformXlibWindow(void)
 {
-    ImGui_ImplXlib_Shutdown();
+    if (!m_isChild)
+        ImGui_ImplXlib_Shutdown();
     XDestroyWindow(m_dpy, m_window);
-	//XCloseDisplay(m_dpy);
+    if (!m_isChild)
+        XCloseDisplay(m_dpy);
+}
+
+void PlatformXlibWindow::ProcessEvent(XEvent &ev)
+{
+    switch (ev.type)
+    {
+        case ClientMessage:
+        {
+            XClientMessageEvent *msg_ev = (XClientMessageEvent*)&ev;
+            if ((Atom)msg_ev->data.l[0] == m_wmDeleteWindow)
+            {
+                if (!m_isChild)
+                    Close();
+                else
+                    Show(false);
+            }
+        } break;
+
+        case ConfigureNotify:
+        {
+            XConfigureEvent *conf_ev = (XConfigureEvent*)&ev;
+            m_width = conf_ev->width;
+            m_height = conf_ev->height;
+
+            if (m_resizeCallback)
+                m_resizeCallback(m_width, m_height);
+        } break;
+
+        // TODO(smoke): file dropping, we might have to use the Xdnd protocol
+
+        default: break;
+    }
 }
 
 void PlatformXlibWindow::PollEvents(void)
 {
+    // Only the root (non-child) window drives the event loop, since all
+    // windows on the same Display share a single event queue.
+    if (m_isChild)
+        return;
+
     XEvent ev;
     while (XPending(m_dpy) > 0)
     {
         XNextEvent(m_dpy, &ev);
-        ImGui_ImplXlib_ProcessEvent(&ev);
-        switch (ev.type)
+
+        // Let ImGui see every event first
+        if (!m_isChild)
+            ImGui_ImplXlib_ProcessEvent(&ev);
+
+        if (ev.xany.window == m_window)
         {
-            case ClientMessage:
+            ProcessEvent(ev);
+        }
+        else
+        {
+            for (PlatformXlibWindow *child : m_children)
             {
-                XClientMessageEvent *msg_ev = (XClientMessageEvent*)&ev;
-                if ((Atom)msg_ev->data.l[0] == m_wmDeleteWindow)
+                if (ev.xany.window == child->m_window)
                 {
-                    if (!m_rootWindow)
-                        Show(false);
-                    else
-                        Close();
+                    child->ProcessEvent(ev);
+                    break;
                 }
-            } break;
-
-            case ConfigureNotify:
-            {
-                XConfigureEvent *conf_ev = (XConfigureEvent*)&ev;
-                m_width = conf_ev->width;
-                m_height = conf_ev->height;
-
-                if (m_resizeCallback)
-                    m_resizeCallback(m_width, m_height);
-            } break;
-
-            // TODO(smoke): file dropping, we might have to use the Xdnd protocol
-
-            default: break;
+            }
         }
     }
 }

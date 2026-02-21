@@ -17,6 +17,7 @@
 #include "UI/RecoveryPrompt.h"
 #include "UI/FileExplorer.h"
 
+#include <cstdio>
 #include <iostream>
 
 using namespace ImGui;
@@ -97,6 +98,8 @@ private:
 		}
 		for (AudioTrack& track : state.tracks)
 		{
+			if (track.instrument.plugin && track.instrument.window)
+				track.instrument.plugin->IdleEditor();
 			for (PluginEffect& effect : track.effects)
 			{
 				if (effect.plugin && effect.window)

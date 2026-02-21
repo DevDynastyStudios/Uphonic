@@ -1,9 +1,5 @@
 local host = os.host()
-if host == "windows" then
-	VST_SDK = os.getenv("VST_SDK")
-else
-	VST_SDK = "."
-end
+VST_SDK = os.getenv("VST_SDK")
 
 workspace "Naui"
     configurations { "Release" }
@@ -61,7 +57,6 @@ project "Uphonic"
     architecture "x64"
     staticruntime "Off"
     conformancemode "On"
-    buildoptions { "/Zc:char8_t-" }
 
     files {
         "Uphonic/**.h",
@@ -85,10 +80,6 @@ project "Uphonic"
         VST_SDK
     }
 
-    libdirs {
-        VST_SDK.."/build/lib/Release"
-    }
-
     filter "configurations:Release"
         links {
             "sdk_hosting",
@@ -100,6 +91,8 @@ project "Uphonic"
     
     filter "system:windows"
         files { VST_SDK.."/public.sdk/source/vst/hosting/module_win32.cpp"}
+        libdirs {VST_SDK.."/build/lib/Release"}
+        buildoptions { "/Zc:char8_t-" }
         defines {
             "NOMINMAX",
             "WIN32"
@@ -107,12 +100,15 @@ project "Uphonic"
     
     filter "system:linux"
         files { VST_SDK.."/public.sdk/source/vst/hosting/module_linux.cpp"}
+        libdirs {VST_SDK.."/build/lib"}
+        buildoptions { "-fno-char8_t" }
         defines {
             "LINUX"
         }
         links {
             "pthread",
-            "dl"
+            "dl",
+            "X11"
         }
     
     filter "system:macosx"

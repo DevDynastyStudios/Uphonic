@@ -386,7 +386,7 @@ void MixerRack::RenderEffectsPanel()
             
             for (const auto& entry : std::filesystem::recursive_directory_iterator(path))
             {
-                if (entry.is_regular_file() && entry.path().extension() == ".vst3")
+                if (entry.path().extension() == ".vst3")
                 {
                     ImGui::PushID(pluginId++);
                     if (ImGui::Selectable(entry.path().filename().replace_extension().string().c_str()))

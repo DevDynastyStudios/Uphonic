@@ -672,7 +672,7 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 				
 				for (const auto& entry : std::filesystem::recursive_directory_iterator(path))
 				{
-					if (entry.is_regular_file() && entry.path().extension() == ".vst3")
+					if (entry.path().extension() == ".vst3")
 					{
 						ImGui::PushID(pluginId++);
 						if (ImGui::MenuItem(entry.path().filename().replace_extension().string().c_str()))
