@@ -1,4 +1,5 @@
 #include "MainMenuBar.h"
+#include "Naui.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
 #include "Core/ProjectState.h"

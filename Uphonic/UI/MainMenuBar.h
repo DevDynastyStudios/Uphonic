@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Naui.h"
-
 class MainMenuBar
 {
 public:

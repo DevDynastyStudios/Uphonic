@@ -76,23 +76,13 @@ SongTimeline::SongTimeline() : Naui::Panel("Song Timeline")
 	m_selection.isSelecting = false;
 	m_selection.draggedTrack = -1;
 	m_selection.draggedInstance = -1;
-	
-	ProjectState& state = ProjectState::GetInstance();
-	if (state.tracks.empty())
-	{
-		AudioTrack track;
-		track.type = TrackType::Midi;
-		track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
-		track.name = "MIDI 1";
-		state.tracks.push_back(track);
-	}
 }
 
 AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack track;
-	track.type = TrackType::Midi;
+	track.type = TrackType::None;
 	track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
 	track.name = title;
 	state.tracks.push_back(track);
@@ -265,21 +255,12 @@ void SongTimeline::RenderToolbar()
 	ImGui::Text("|");
 	ImGui::SameLine();
 	
-	if (ImGui::Button("+ Audio Track"))
+	if (ImGui::Button("+ Track"))
 	{
 		AudioTrack track;
-		track.type = TrackType::Audio;
+		track.type = TrackType::None;
 		track.color = ImVec4(0.8f, 0.3f, 0.3f, 1.0f);
-		track.name = "Audio " + std::to_string(state.tracks.size() + 1);
-		state.tracks.push_back(track);
-	}
-	ImGui::SameLine();
-	if (ImGui::Button("+ MIDI Track"))
-	{
-		AudioTrack track;
-		track.type = TrackType::Midi;
-		track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
-		track.name = "MIDI " + std::to_string(state.tracks.size() + 1);
+		track.name = "Track " + std::to_string(state.tracks.size() + 1);
 		state.tracks.push_back(track);
 	}
 
@@ -457,7 +438,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 			RenderMidiInstance(draw, canvasPos, canvasSize, beatWidth, trackIndex, i, yPos, trackStartX, ui);
 		}
 	}
-	else
+	else if(track.type == TrackType::Audio)
 	{
 		for (size_t i = 0; i < track.blocks.size(); i++)
 		{
@@ -472,7 +453,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 
 		if (ImGui::BeginDragDropTarget())
 		{
-			if (track.type == TrackType::Audio)
+			if (track.type == TrackType::Audio || track.type == TrackType::None)
 			{
 				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("SAMPLE_INDEX"))
 				{
@@ -497,29 +478,35 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 						instance.sampleBlock.sampleIndex = sampleIdx;
 						
 						track.blocks.push_back(instance);
+						track.type = TrackType::Audio;
 					}
 				}
 			}
-			else if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN_INDEX"))
+			if(track.type == TrackType::Midi || track.type == TrackType::None)
 			{
-				uint16_t patternIdx = *(const uint16_t*)payload->Data;
-				
-				ImVec2 mousePos = ImGui::GetMousePos();
-				double beatPos = (mousePos.x - trackStartX + m_scrollX) / beatWidth;
-				double snappedStart = SnapToGrid(beatPos);
-				
-				if (patternIdx < state.patterns.size())
+				if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PATTERN_INDEX"))
 				{
-					TimelineBlock instance;
-					instance.midiBlock.startBeat = snappedStart;
-					
-					instance.midiBlock.lengthBeats = m_config.defaultInstanceLength;
-					instance.midiBlock.startOffsetBeats = 0.0;
-					instance.midiBlock.patternIndex = patternIdx;
-					
-					track.blocks.push_back(instance);
+					uint16_t patternIdx = *(const uint16_t*)payload->Data;
+
+					ImVec2 mousePos = ImGui::GetMousePos();
+					double beatPos = (mousePos.x - trackStartX + m_scrollX) / beatWidth;
+					double snappedStart = SnapToGrid(beatPos);
+
+					if (patternIdx < state.patterns.size())
+					{
+						TimelineBlock instance;
+						instance.midiBlock.startBeat = snappedStart;
+
+						instance.midiBlock.lengthBeats = m_config.defaultInstanceLength;
+						instance.midiBlock.startOffsetBeats = 0.0;
+						instance.midiBlock.patternIndex = patternIdx;
+
+						track.blocks.push_back(instance);
+						track.type = TrackType::Midi;
+					}
 				}
 			}
+			
 			ImGui::EndDragDropTarget();
 		}
 	}
@@ -561,7 +548,7 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 	ImGui::Text("%s", track.name.c_str());
 	ImGui::PopStyleColor();
 	
-	const char* typeStr = (track.type == TrackType::Audio) ? "Audio" : "MIDI";
+	const char* typeStr = (track.type == TrackType::Audio) ? "Audio" : (track.type == TrackType::Midi) ? "MIDI" : "Track";
 	ImGui::SetCursorScreenPos(ImVec2(canvasPos.x + 15, yPos + 28));
 	ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(140, 140, 145, 255));
 	ImGui::TextUnformatted(typeStr);
@@ -636,10 +623,10 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 	
 	ImGui::Separator();
 	
-	const char* typeStr = (track.type == TrackType::Audio) ? "Audio Track" : "MIDI Track";
+	const char* typeStr = (track.type == TrackType::Audio) ? "Audio Track" : (track.type == TrackType::Midi) ? "MIDI Track" : "Track";
 	ImGui::TextDisabled("Type: %s", typeStr);
 	
-	if (track.type == TrackType::Midi)
+	if (track.type != TrackType::Audio)
 	{
 		ImGui::Separator();
 		ImGui::Text("Instrument");
@@ -656,6 +643,8 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 			if (ImGui::Button("Remove Instrument", ImVec2(200, 0)))
 			{
 				PluginManager::UnloadEffect(track.instrument);
+				if(track.blocks.size() == 0)
+					track.type = TrackType::None;
 			}
 		}
 		else
@@ -680,7 +669,9 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 							PluginEffect& effect = track.instrument;
 							if (effect.plugin)
 								PluginManager::UnloadEffect(effect);
+
 							PluginManager::LoadEffect(track.instrument, entry.path());
+							track.type = TrackType::Midi;
 						}
 						ImGui::PopID();
 					}
@@ -1310,6 +1301,9 @@ void SongTimeline::HandleDeleteToolClick(int instTrack, int instIdx)
 		AudioTrack& track = state.tracks[instTrack];
 		track.blocks.erase(track.blocks.begin() + instIdx);
 		ClearSelection();
+
+		if(track.blocks.size() == 0 && !track.instrument.plugin)
+			track.type = TrackType::None;
 	}
 }
 
@@ -1822,6 +1816,9 @@ void SongTimeline::DeleteSelectedInstances()
 			AudioTrack& track = state.tracks[tIdx];
 			if (iIdx < (int)track.blocks.size())
 				track.blocks.erase(track.blocks.begin() + iIdx);
+
+			if(track.blocks.size() == 0 && !track.instrument.plugin)
+				track.type = TrackType::None;
 		}
 	}
 	m_selection.selectedInstances.clear();
