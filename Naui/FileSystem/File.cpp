@@ -267,10 +267,83 @@ std::vector<DirEntry> Directory::Filter(const std::filesystem::path& path, std::
 	return entries;
 }
 
-std::string Directory::ToUTF8(const std::filesystem::path& p)
+std::string Directory::ToUTF8(const std::u8string& s)
 {
-	auto u8 = p.u8string();
-	return std::string(reinterpret_cast<const char*>(u8.c_str()));
+	return std::string(reinterpret_cast<const char*>(s.c_str()));
+}
+
+std::u8string Directory::ToU8(const std::string& s)
+{
+	return std::u8string(reinterpret_cast<const char8_t*>(s.c_str()));
+}
+
+std::wstring Directory::UTF8ToUTF16(const std::string& utf8)
+{
+	if (utf8.empty())
+		return std::wstring();
+
+    int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), nullptr, 0);
+    std::wstring result(sizeNeeded, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), result.data(), sizeNeeded);
+    return result;
+}
+
+std::wstring Directory::UTF8ToUTF16(const std::u8string& u8)
+{
+	return UTF8ToUTF16(ToUTF8(u8));
+}
+
+std::wstring Directory::PathToUTF16(const std::filesystem::path& p)
+{
+	return p.native();
+}
+
+// Convert filesystem path to UTF-8 string (safe on all platforms)
+std::string Directory::PathToUTF8(const std::filesystem::path& path)
+{
+#ifdef NAUI_PLATFORM_WINDOWS
+    std::wstring wstr = path.wstring();
+    if (wstr.empty()) 
+        return {};
+    
+    int size = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    if (size <= 0) 
+        return {};
+    
+    std::string result(size - 1, 0);
+    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, &result[0], size, nullptr, nullptr);
+    return result;
+#else
+    return path.string();
+#endif
+}
+    
+// Convert UTF-8 string to filesystem path (safe on all platforms)
+std::filesystem::path Directory::UTF8ToPath(const std::string& utf8)
+{
+#ifdef NAUI_PLATFORM_WINDOWS
+    if (utf8.empty()) 
+        return {};
+    
+    int size = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, nullptr, 0);
+    if (size <= 0) 
+        return {};
+    
+    std::wstring wstr(size - 1, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), -1, &wstr[0], size);
+    return std::filesystem::path(wstr);
+#else
+    return std::filesystem::path(utf8);
+#endif
+}   
+
+std::string Directory::GetFilename(const std::filesystem::path& path)
+{
+#ifdef NAUI_PLATFORM_WINDOWS
+	return Directory::PathToUTF8(path.filename());
+#else
+    return path.filename().string();
+#endif
 }
 
 bool Directory::IsHidden(const std::filesystem::path& path)

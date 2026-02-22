@@ -61,7 +61,16 @@ public:
 	static std::filesystem::path HideDirectory(const std::filesystem::path& path, bool hidden = false);
 	static std::string GetEnv(const char* name);
 	static std::vector<DirEntry> Filter(const std::filesystem::path& path, std::string_view nameFilter, const std::vector<std::string_view>& allowedExtensions);
-	static std::string ToUTF8(const std::filesystem::path& p);
+
+	static std::string ToUTF8(const std::u8string& s);
+	static std::u8string ToU8(const std::string& s);
+	static std::wstring UTF8ToUTF16(const std::string& utf8);
+	static std::wstring UTF8ToUTF16(const std::u8string& u8);
+	static std::wstring PathToUTF16(const std::filesystem::path& p);
+
+	static std::string PathToUTF8(const std::filesystem::path& path);
+	static std::filesystem::path UTF8ToPath(const std::string& utf8);
+	static std::string GetFilename(const std::filesystem::path& path);
 
 	static bool LockPath(const std::filesystem::path& path);
 	static void UnlockPath(const std::filesystem::path& path);

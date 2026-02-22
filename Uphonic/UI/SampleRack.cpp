@@ -1,4 +1,5 @@
 #include "SampleRack.h"
+#include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
@@ -8,6 +9,7 @@
 #include <algorithm>
 #include <cstring>
 #include <imgui_internal.h>
+#include <iostream>
 
 static float SAMPLE_PANEL_MIN_WIDTH		= 120.0f;
 static float SAMPLE_PANEL_MIN_HEIGHT	= 120.0f;
@@ -111,6 +113,7 @@ void SampleRack::OnRender()
 {
 	FileDialog::Display("sample_audio_import", [this](const std::filesystem::path& path)
 	{
+    	std::cout << Naui::Directory::PathToUTF8(path) << "\n";
 		ProjectManager::ImportSample(path);
 	});
 
@@ -125,7 +128,7 @@ void SampleRack::OnRender()
 	ImRect bb(pos, pos + ImVec2(IMPORT_BUTTON_WIDTH, IMPORT_BUTTON_HEIGHT));
 
 	ImGuiStyle& style = ImGui::GetStyle();
-	ImU32 bg = 	ImGui::IsItemActive()   ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) : ImGui::IsItemHovered()  ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
+	ImU32 bg = ImGui::IsItemActive() ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) : ImGui::IsItemHovered() ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
 	dl->AddRectFilled(bb.Min, bb.Max, bg, 4.0f);
 
 	const char* label = "Import";

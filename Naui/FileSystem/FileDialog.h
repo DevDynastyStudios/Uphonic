@@ -32,11 +32,11 @@ struct DialogState {
 class NAUI_API FileDialog
 {
 public:
-	static void SaveFile(const char* key, const char* title, const char* filters, const char* confirmLabel = "Save As");
-	static void OpenFile(const char* key, const char* title, const char* filters, const char* confirmLabel = "Open");
-	static void OpenFolder(const char* key, const char* filters, const char* confirmLabel = "Select Folder");
+	static void SaveFile(const std::string& key, const std::string& title, const std::string& filters, const std::string& confirmLabel = "Save As");
+	static void OpenFile(const std::string& key, const std::string& title, const std::string& filters, const std::string& confirmLabel = "Open");
+	static void OpenFolder(const std::string& key, const std::string& filters, const std::string& confirmLabel = "Select Folder");
 
-	static void Display(const char* key, const std::function<void(const std::filesystem::path& path)>& callback);
+	static void Display(const std::string& key, const std::function<void(const std::filesystem::path& path)>& callback);
 
 private:
 	static void ConfirmSaveFile(const char* typedName);

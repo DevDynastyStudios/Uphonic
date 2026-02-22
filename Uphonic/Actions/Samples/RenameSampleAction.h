@@ -2,7 +2,7 @@
 #include "Naui/Actions/IAction.h"
 #include <string>
 
-class AudioSample;
+struct AudioSample;
 
 class RenameSampleAction : public Naui::IAction
 {

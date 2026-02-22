@@ -185,6 +185,7 @@ void ProjectManager::ImportSample(const std::filesystem::path& source)	// (Chimp
 	std::filesystem::path sampleFolder = Naui::Directory::WorkspaceDirectory() / state.settings.projectID.Str() /  "Samples";
 	std::filesystem::path dest = sampleFolder / source.filename();
 
+	//std::cout << source << "\n";
 	try {
 		std::filesystem::copy_file(source, dest, std::filesystem::copy_options::overwrite_existing);
 	}
@@ -192,7 +193,7 @@ void ProjectManager::ImportSample(const std::filesystem::path& source)	// (Chimp
 		std::cout << "Failed to import sample: " << e.what() << "\n";
 	}
 
-	AudioSample& sample = AudioEngine::AddSample(dest.string().c_str());
+	AudioSample& sample = AudioEngine::AddSample(Naui::Directory::PathToUTF8(dest).c_str());
 	if(sample.IsValid())
 		return;
 

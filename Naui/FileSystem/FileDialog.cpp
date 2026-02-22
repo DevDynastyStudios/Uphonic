@@ -4,7 +4,6 @@
 #include <string.h>
 #include <algorithm>
 #include <chrono>
-#include <iostream>
 
 static std::string NormalizeExtension(const std::string& extension)
 {
@@ -37,205 +36,212 @@ static bool MatchesFilter(const std::filesystem::path& p, const std::string& fil
 	if (filters.empty())
 		return true;
 
-	auto ext = p.extension().string();
+	std::string ext = p.extension().string();
 	return filters.find(ext) != std::string::npos;
 }
 
-void FileDialog::SaveFile(const char* key, const char* title, const char* filters, const char* confirmLabel)
+void FileDialog::SaveFile(const std::string& key, const std::string& title, const std::string& filters, const std::string& confirmLabel)
 {
 	state.open = true;
 	state.mode = DialogMode::SaveFile;
 	state.confirmLabel = confirmLabel;
 	state.key = key;
 	state.title = title;
-	state.filters = filters ? filters : "";
+	state.filters = filters.empty() ? "" : filters;
 	state.currentDir = Naui::Directory::DownloadsDirectory();
 	state.selected.clear();
 	state.searchText.clear();
 	state.hasPendingDir = false;
 }
 
-void FileDialog::OpenFile(const char* key, const char* title, const char* filters, const char* confirmLabel)
+void FileDialog::OpenFile(const std::string& key, const std::string& title, const std::string& filters, const std::string& confirmLabel)
 {
 	state.open = true;
 	state.mode = DialogMode::OpenFile;
 	state.confirmLabel = confirmLabel;
 	state.key = key;
 	state.title = title;
-	state.filters = filters ? filters : "";
+	state.filters = filters.empty() ? "" : filters;
 	state.currentDir = Naui::Directory::DownloadsDirectory();
 	state.selected.clear();
 	state.searchText.clear();
 	state.hasPendingDir = false;
 }
 
-void FileDialog::OpenFolder(const char* key, const char* filters, const char* confirmLabel)
+void FileDialog::OpenFolder(const std::string& key, const std::string& filters, const std::string& confirmLabel)
 {
 	state.open = true;
 	state.mode = DialogMode::OpenFolder;
 	state.confirmLabel = confirmLabel;
 	state.key = key;
 	state.title = "Choose Folder";
-	state.filters = filters ? filters : "";
+	state.filters = filters.empty() ? "" : filters;
 	state.currentDir = Naui::Directory::DownloadsDirectory();
 	state.selected.clear();
 	state.searchText.clear();
 	state.hasPendingDir = false;
 }
 
-void FileDialog::Display(const char* key, const std::function<void(const std::filesystem::path&)>& callback)
+void FileDialog::Display(const std::string& key, const std::function<void(const std::filesystem::path&)>& callback)
 {
-	if (!state.open || state.key != key)
-		return;
+    if (!state.open || state.key != key)
+        return;
 
-	if (state.hasPendingDir)
-	{
-		if (std::filesystem::exists(state.pendingDir) && std::filesystem::is_directory(state.pendingDir))
-		{
-			state.currentDir = state.pendingDir;
-			state.selected.clear();
-		}
-		state.hasPendingDir = false;
-	}
+    if (state.hasPendingDir)
+    {
+        if (std::filesystem::exists(state.pendingDir) &&
+            std::filesystem::is_directory(state.pendingDir))
+        {
+            state.currentDir = state.pendingDir;
+            state.selected.clear();
+        }
+        state.hasPendingDir = false;
+    }
 
-	state.callback = callback;
+    state.callback = callback;
 
-	const int windowWidth = 800;
-	const int windowHeight = windowWidth / 14 * 9;
+    const int windowWidth = 800;
+    const int windowHeight = windowWidth / 14 * 9;
 
-	ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight), ImGuiCond_FirstUseEver);
-	ImGui::SetNextWindowSizeConstraints(ImVec2(windowWidth / 3 * 2, windowHeight / 3 * 2), ImVec2(FLT_MAX, FLT_MAX));
-	ImGui::SetNextWindowFocus();
+    ImGui::SetNextWindowSize(ImVec2(windowWidth, windowHeight), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(windowWidth / 3 * 2, windowHeight / 3 * 2), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::SetNextWindowFocus();
 
-	ImGuiWindowFlags flags =
-		ImGuiWindowFlags_NoDocking |
-		ImGuiWindowFlags_NoCollapse |
-		ImGuiWindowFlags_NoScrollbar |
-		ImGuiWindowFlags_NoScrollWithMouse;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
-	if (ImGui::Begin(state.title.c_str(), nullptr, flags))
-	{
-		float fullWidth = ImGui::GetContentRegionAvail().x;
-		float breadcrumbWidth = fullWidth * 0.65f;
-		float rowH = ImGui::GetFrameHeight();
+    if (ImGui::Begin(state.title.c_str(), nullptr, flags))
+    {
+        float fullWidth = ImGui::GetContentRegionAvail().x;
+        float breadcrumbWidth = fullWidth * 0.65f;
+        float rowH = ImGui::GetFrameHeight();
 
-		ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
-		ImGui::BeginChild("BreadcrumbBox", ImVec2(breadcrumbWidth, rowH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-		float textH = ImGui::GetTextLineHeight();
-		ImGui::SetCursorPosY((rowH - textH) * 0.5f);
-		DrawBreadcrumb();
-		ImGui::EndChild();
-		ImGui::PopStyleColor();
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::GetStyle().Colors[ImGuiCol_FrameBg]);
+        ImGui::BeginChild("BreadcrumbBox", ImVec2(breadcrumbWidth, rowH), true, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+        float textH = ImGui::GetTextLineHeight();
+        ImGui::SetCursorPosY((rowH - textH) * 0.5f);
+        DrawBreadcrumb();
+        ImGui::EndChild();
+        ImGui::PopStyleColor();
 
-		ImGui::SameLine();
-		if (ImGui::Button("R", ImVec2(rowH, rowH)))
-		{
-			state.pendingDir = state.currentDir;
-			state.hasPendingDir = true;
-		}
+        ImGui::SameLine();
+        if (ImGui::Button("R", ImVec2(rowH, rowH)))
+        {
+            state.pendingDir = state.currentDir;
+            state.hasPendingDir = true;
+        }
 
-		ImGui::SameLine();
-		char searchBuf[256];
-		strncpy(searchBuf, state.searchText.c_str(), sizeof(searchBuf));
+        ImGui::SameLine();
+        {
+            char searchBuf[256];
+            strncpy(searchBuf, state.searchText.c_str(), sizeof(searchBuf));
+            searchBuf[sizeof(searchBuf)-1] = '\0';
 
-		ImGui::PushItemWidth(-1);
-		if (ImGui::InputTextWithHint("##SearchBar", "Search", searchBuf, sizeof(searchBuf)))
-			state.searchText = searchBuf;
-		ImGui::PopItemWidth();
+            ImGui::PushItemWidth(-1);
+            if (ImGui::InputTextWithHint("##SearchBar", "Search", searchBuf, sizeof(searchBuf)))
+            {
+                state.searchText = searchBuf;
+            }
+            ImGui::PopItemWidth();
+        }
 
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
 
-		DrawFileTable();
+        DrawFileTable();
 
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
 
-		ImGui::AlignTextToFramePadding();
-		ImGui::TextUnformatted("File Name:");
-		ImGui::SameLine();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextUnformatted("File Name:");
+        ImGui::SameLine();
 
-		std::string displayName;
-		if (state.mode == DialogMode::SaveFile)
-		{
-			if (!state.selected.empty())
-				displayName = Naui::Directory::ToUTF8(state.selected.filename().u8string());
-		}
-		else
-			displayName = Naui::Directory::ToUTF8(state.mode == DialogMode::OpenFolder ? state.selected.u8string() : state.selected.filename().u8string());
-		
-		char selectedBuf[512];
-		if (displayName.size() < sizeof(selectedBuf))
-		{
-			memcpy(selectedBuf, displayName.data(), displayName.size());
-			selectedBuf[displayName.size()] = '\0';
-		}
-		else
-			selectedBuf[0] = '\0';
+        std::string displayName;
+        if (state.mode == DialogMode::SaveFile)
+        {
+            if (!state.selected.empty())
+            {
+                auto u8 = state.selected.filename().u8string();
+                displayName = std::string(reinterpret_cast<const char*>(u8.c_str()));
+            }
+        }
+        else
+        {
+            auto u8 = (state.mode == DialogMode::OpenFolder) ? state.selected.u8string() : state.selected.filename().u8string();
+            displayName = std::string(reinterpret_cast<const char*>(u8.c_str()));
+        }
 
-		ImGui::PushItemWidth(-1);
-		if (state.mode == DialogMode::SaveFile)
-		{
-			if (ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf)))
-				state.selected = state.currentDir / selectedBuf;
-		}
-		else
-			ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll);
+        char selectedBuf[512];
+        strncpy(selectedBuf, displayName.c_str(), sizeof(selectedBuf));
+        selectedBuf[sizeof(selectedBuf)-1] = '\0';
 
-		ImGui::PopItemWidth();		
-		ImGui::Dummy(ImVec2(0, 0));
+        ImGui::PushItemWidth(-1);
+        if (state.mode == DialogMode::SaveFile)
+        {
+            if (ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf)))
+            {
+                state.selected = state.currentDir / std::filesystem::path(selectedBuf);
+            }
+        }
+        else
+        {
+            ImGui::InputText("##SelectedFile", selectedBuf, sizeof(selectedBuf), ImGuiInputTextFlags_ReadOnly | ImGuiInputTextFlags_NoHorizontalScroll);
+        }
+        ImGui::PopItemWidth();
 
-		float buttonWidth = 80.0f;
-		float spacing = ImGui::GetStyle().ItemSpacing.x;
-		float totalWidth = buttonWidth * 2.0f + spacing;
-		float avail = ImGui::GetContentRegionAvail().x;
+        ImGui::Dummy(ImVec2(0, 0));
 
-		ImGui::SetCursorPosX(avail - totalWidth);
+        float buttonWidth = 80.0f;
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float totalWidth = buttonWidth * 2.0f + spacing;
+        float avail = ImGui::GetContentRegionAvail().x;
 
-		if (state.mode == DialogMode::OpenFolder)
-			state.canConfirm = std::filesystem::exists(state.currentDir);
+        ImGui::SetCursorPosX(avail - totalWidth);
 
-		else if (state.mode == DialogMode::OpenFile)
-			state.canConfirm = (!state.selected.empty() && std::filesystem::exists(state.selected));
+        if (state.mode == DialogMode::OpenFolder)
+            state.canConfirm = std::filesystem::exists(state.currentDir);
+        else if (state.mode == DialogMode::OpenFile)
+            state.canConfirm = (!state.selected.empty() && std::filesystem::exists(state.selected));
+        else
+            state.canConfirm = strlen(selectedBuf) > 0;
 
-		else
-			state.canConfirm = strlen(selectedBuf) > 0;
+        if (!state.canConfirm)
+            ImGui::BeginDisabled();
 
-		if (!state.canConfirm)
-			ImGui::BeginDisabled();
+        bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
 
-		bool confirmKeyPressed = ImGui::IsKeyPressed(ImGuiKey_Enter) || ImGui::IsKeyPressed(ImGuiKey_KeypadEnter) || ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-		if (state.canConfirm && confirmKeyPressed)
-			if(state.mode == DialogMode::SaveFile)
-				ConfirmSaveFile(selectedBuf);
-			else
-				ConfirmSelection(state, state.selected);
+        if (state.canConfirm && confirmKeyPressed)
+        {
+            if (state.mode == DialogMode::SaveFile)
+                ConfirmSaveFile(selectedBuf);
+            else
+                ConfirmSelection(state, state.selected);
+        }
 
-		if (ImGui::Button(state.confirmLabel.c_str(), ImVec2(buttonWidth, 0)))
-		{
-			state.open = false;
+        if (ImGui::Button(state.confirmLabel.c_str(), ImVec2(buttonWidth, 0)))
+        {
+            state.open = false;
 
-			if (state.mode == DialogMode::OpenFolder)
-				state.callback(state.currentDir);
+            if (state.mode == DialogMode::OpenFolder)
+                state.callback(state.currentDir);
+            else if (state.mode == DialogMode::OpenFile)
+                state.callback(state.selected);
+            else
+                ConfirmSaveFile(selectedBuf);
+        }
 
-			else if (state.mode == DialogMode::OpenFile)
-				state.callback(state.selected);
+        if (!state.canConfirm)
+            ImGui::EndDisabled();
 
-			else
-				ConfirmSaveFile(selectedBuf);
-		}
+        ImGui::SameLine();
 
-		if (!state.canConfirm) ImGui::EndDisabled();
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)))
+            state.open = false;
+    }
 
-		ImGui::SameLine();
-
-		if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)))
-			state.open = false;
-	}
-
-	ImGui::End();
+    ImGui::End();
 }
 
 void FileDialog::ConfirmSaveFile(const char* typedName)
@@ -268,7 +274,7 @@ void FileDialog::DrawBreadcrumb()
 		int idCounter = 0;
 		for (auto& part : state.currentDir)
 		{
-			std::string partStr = part.string();
+			std::string partStr = Naui::Directory::ToUTF8(part.u8string());
 			if (partStr.empty() || partStr == "\\" || partStr == "/")
 				continue;
 
@@ -325,7 +331,10 @@ void FileDialog::DrawBreadcrumb()
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 0));
 
 		char pathBuf[512];
-		strncpy(pathBuf, state.currentDir.string().c_str(), sizeof(pathBuf));
+		auto u8 = state.currentDir.u8string();
+		std::string utf8(reinterpret_cast<const char*>(u8.c_str()));
+		strncpy(pathBuf, utf8.c_str(), sizeof(pathBuf));
+		pathBuf[sizeof(pathBuf)-1] = '\0';
 
 		if (state.editingJustActivated)
 		{
@@ -370,21 +379,18 @@ void FileDialog::DrawFileTable()
 	}
 
 	entries.erase(
-		std::remove_if(entries.begin(), entries.end(),
-			[&](const auto& entry)
-			{
-				const bool isDir = entry.is_directory();
-				const std::string name = Naui::Directory::ToUTF8(entry.path().filename());
+		std::remove_if(entries.begin(), entries.end(), [&](const auto& entry)
+		{
+			const bool isDir = entry.is_directory();
+			const std::string name = Naui::Directory::ToUTF8(entry.path().filename().u8string());
+			if (!state.searchText.empty() && name.find(state.searchText) == std::string::npos)
+				return true;
 
-				if (!state.searchText.empty() &&
-					name.find(state.searchText) == std::string::npos)
-					return true;
+			if (!isDir && !MatchesFilter(entry.path(), state.filters))
+				return true;
 
-				if (!isDir && !MatchesFilter(entry.path(), state.filters))
-					return true;
-
-				return false;
-			}),
+			return false;
+		}),
 		entries.end()
 	);
 
@@ -419,14 +425,14 @@ void FileDialog::DrawFileTable()
 		{
 			const bool isDir = entry.is_directory();
 			const auto path = entry.path();
-			const std::string name = Naui::Directory::ToUTF8(path.filename());
+			const std::u8string name = path.filename().u8string();
 
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
-			std::string label = isDir ? "[DIR] " + name : name;
+			std::u8string label = isDir ? u8"[DIR] " + name : name;
 			bool selected = (state.selected == path);
 
-			if (ImGui::Selectable(label.c_str(), selected, ImGuiSelectableFlags_SpanAllColumns))
+			if (ImGui::Selectable(reinterpret_cast<const char*>(label.c_str()), selected, ImGuiSelectableFlags_SpanAllColumns))
 			{
 				if (isDir)
 				{
