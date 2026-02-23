@@ -21,6 +21,8 @@
 #include <atomic>
 #include <algorithm>
 #include <chrono>
+#include <mutex>
+#include <map>
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -35,6 +37,19 @@ using namespace Steinberg::Vst;
 
 namespace Uvi
 {
+
+// ---------------------------------------------------------------------------
+// Module cache — intentionally never unloaded.
+//
+// Many complex plugins (Kontakt, Guitar Rig, etc.) spin up background threads
+// and register static destructors that are not safe to run while the host is
+// still alive. Calling FreeLibrary / dlclose on them causes crashes. The
+// industry-standard workaround is to keep every loaded module resident for
+// the lifetime of the process. Memory cost is negligible compared to the
+// plugin's own footprint, and the OS reclaims everything on exit anyway.
+// ---------------------------------------------------------------------------
+static std::mutex                                        s_moduleCacheMutex;
+static std::map<std::string, VST3::Hosting::Module::Ptr> s_moduleCache;
 
 #define LOG_DEBUG(msg) std::cout << "[DEBUG] " << msg << '\n'
 
@@ -422,6 +437,7 @@ public:
     ~Vst3Plugin();
 
     void AttachEditor(void* handle) override;
+    void DetachEditor() override;
     void IdleEditor() override;
     void Process(float** inputs, float** outputs, int32_t sampleFrames, float bpm) override;
     void PlayNote(int32_t key, int32_t velocity, int32_t sampleOffset) override;
@@ -492,7 +508,26 @@ Vst3Plugin::Vst3Plugin(const char* path, float sampleRate, int32_t blockSize)
 
     std::string errorMsg;
     LOG_DEBUG("Creating VST3 module...");
-    m_module = VST3::Hosting::Module::create(path, errorMsg);
+
+    {
+        std::lock_guard<std::mutex> lock(s_moduleCacheMutex);
+        auto it = s_moduleCache.find(std::string(path));
+        if (it != s_moduleCache.end())
+        {
+            m_module = it->second;
+            LOG_DEBUG("Module retrieved from cache");
+        }
+        else
+        {
+            m_module = VST3::Hosting::Module::create(path, errorMsg);
+            if (m_module)
+            {
+                s_moduleCache[std::string(path)] = m_module;
+                LOG_DEBUG("Module created and cached");
+            }
+        }
+    }
+
     if (!m_module)
     {
         std::cerr << "Failed to create VST3 module: " << errorMsg << std::endl;
@@ -848,12 +883,19 @@ Vst3Plugin::~Vst3Plugin()
 
     m_isLoaded = false;
 
-    CleanupEditor();
+    // Stop audio FIRST before touching the editor. Complex plugins (Kontakt,
+    // Guitar Rig, etc.) share state between their audio and UI threads.
+    // Tearing down the editor while the plugin is still processing causes
+    // race conditions and crashes.
     CleanupProcessing();
+    CleanupEditor();
     CleanupController();
     CleanupComponent();
 
-    m_module.reset();
+    // Release our shared_ptr reference. The module cache still holds a
+    // reference, so the DLL is NOT unloaded — intentional. See the comment
+    // above s_moduleCache for the rationale.
+    m_module = nullptr;
 
     std::cout << "Plugin destroyed: " << m_name << std::endl;
 }
@@ -956,6 +998,11 @@ void Vst3Plugin::AttachEditor(void* handle)
     }
 
     LOG_DEBUG("AttachEditor complete");
+}
+
+void Vst3Plugin::DetachEditor()
+{
+    CleanupEditor();
 }
 
 void Vst3Plugin::IdleEditor()

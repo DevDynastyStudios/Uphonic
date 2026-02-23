@@ -13,6 +13,7 @@ public:
     virtual ~Plugin() = default;
 
     virtual void AttachEditor(void* handle) = 0;
+    virtual void DetachEditor() = 0;
     virtual void IdleEditor() = 0;
     virtual void Process(float** inputs, float** outputs, int32_t sampleFrames, float bpm) = 0;
     virtual void PlayNote(int32_t key, int32_t velocity, int32_t sampleOffset) = 0;

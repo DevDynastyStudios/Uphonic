@@ -29,15 +29,25 @@ void PluginManager::UnloadEffect(PluginEffect& effect)
     if (!effect.plugin)
         return;
 
-    Uvi::Plugin *plugin = effect.plugin;
-    effect.plugin = nullptr;
-    delete plugin;
+    // Step 1 – explicitly detach the editor while the platform window is
+    // still alive. The plugin may access the native handle during teardown
+    // (e.g. to destroy its embedded child window), so it must happen before
+    // we delete the window.
+    effect.plugin->DetachEditor();
 
+    // Step 2 – destroy the platform window now that the plugin's embedded
+    // UI has been cleanly removed.
     if (effect.window)
     {
         delete effect.window;
         effect.window = nullptr;
     }
+
+    // Step 3 – delete the plugin. The destructor will skip CleanupEditor
+    // (already done above) and proceed with audio/component teardown.
+    Uvi::Plugin* plugin = effect.plugin;
+    effect.plugin = nullptr;
+    delete plugin;
 }
 
 void PluginManager::UnloadAllEffects()
