@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <cfloat>
 
 AudioEngineData AudioEngine::s_data = {};
 AudioConfig AudioEngine::s_config;
@@ -11,6 +12,11 @@ AudioConfig AudioEngine::s_config;
 static constexpr float PI_HALF = 1.5707963267948966f;
 static constexpr float SECONDS_PER_MINUTE = 60.0f;
 static constexpr int MAX_PLUGIN_CHANNELS = 64;
+
+bool static float_approx_equal(float a, float b)
+{
+    return fabsf(a - b) <= FLT_EPSILON * fmaxf(1.0f, fmaxf(fabsf(a), fabsf(b)));
+}
 
 float AudioEngine::CubicInterpolate(float y0, float y1, float y2, float y3, float mu)
 {
@@ -25,10 +31,9 @@ float AudioEngine::CubicInterpolate(float y0, float y1, float y2, float y3, floa
 
 void AudioEngine::CalculatePanGains(float pan, float& leftGain, float& rightGain)
 {
-	pan = std::max<float>(0.0f, std::min<float>(1.0f, pan));
-	const float panRadians = pan * PI_HALF;
-	leftGain = cosf(panRadians);
-	rightGain = sinf(panRadians);
+    pan = std::max<float>(0.0f, std::min<float>(1.0f, pan));
+    leftGain  = (pan <= 0.5f) ? 1.0f : 1.0f - (pan - 0.5f) * 2.0f;
+    rightGain = (pan >= 0.5f) ? 1.0f : pan * 2.0f;
 }
 
 void AudioEngine::UpdatePeaks(float& peakLeft, float& peakRight, float newLeft, float newRight)
@@ -374,7 +379,6 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 	}
 	
 	ProcessTrackEffects(track.effects, trackBuffer, frameCount, inputs, outputs);
-	ApplyTrackVolumeAndPan(track, trackBuffer, nullptr, frameCount, leftGain, rightGain);
 }
 
 void AudioEngine::ProcessTrackEffects(std::vector<PluginEffect>& effects, float* trackBuffer, ma_uint32 frameCount, float** inputs, float** outputs)
@@ -480,17 +484,7 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 				
 				float leftGain, rightGain;
 				CalculatePanGains(track.pan, leftGain, rightGain);
-				
-				for (ma_uint32 i = 0; i < frameCount; i++)
-				{
-					const float leftOut = trackBuffer[i * 2] * track.volume * leftGain;
-					const float rightOut = trackBuffer[i * 2 + 1] * track.volume * rightGain;
-					
-					outputBuffer[i * 2] += leftOut;
-					outputBuffer[i * 2 + 1] += rightOut;
-					
-					UpdatePeaks(track.peakLeft, track.peakRight, leftOut, rightOut);
-				}
+				ApplyTrackVolumeAndPan(track, trackBuffer, outputBuffer, frameCount, leftGain, rightGain);
 			}
 		}
 		
@@ -567,11 +561,14 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		return;
 	}
 
-	float leftGain, rightGain;
-	CalculatePanGains(state.masterTrack.pan, leftGain, rightGain);
+	float leftGain = 1.0f;
+	float rightGain = 1.0f;
+	if(!float_approx_equal(state.masterTrack.pan, 0.5f))
+		CalculatePanGains(state.masterTrack.pan, leftGain, rightGain);
+		
 	const float masterVolume = state.masterTrack.volume;
-	leftGain *= masterVolume / s_config.masterVolumeNormalization;
-	rightGain *= masterVolume / s_config.masterVolumeNormalization;
+	leftGain *= masterVolume;
+	rightGain *= masterVolume;
 	
 	for (ma_uint32 i = 0; i < frameCount; i++)
 	{
