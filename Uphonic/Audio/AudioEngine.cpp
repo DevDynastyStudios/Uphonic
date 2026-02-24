@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <cfloat>
+#include <vector>
 
 AudioEngineData AudioEngine::s_data = {};
 AudioConfig AudioEngine::s_config;
@@ -50,10 +51,13 @@ bool AudioEngine::Initialize(const AudioConfig& config)
 	s_config = config;
 	
 	ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
-	deviceConfig.playback.format = ma_format_f32;
-	deviceConfig.playback.channels = s_config.channels;
-	deviceConfig.sampleRate = s_config.sampleRate;
-	deviceConfig.dataCallback = AudioCallback;
+	deviceConfig.playback.format    = ma_format_f32;
+	deviceConfig.playback.channels  = s_config.channels;
+	deviceConfig.sampleRate         = s_config.sampleRate;
+	deviceConfig.dataCallback       = AudioCallback;
+	// Request our preferred buffer size. miniaudio may grant a different size,
+	// so AudioCallback always uses the actual frameCount it receives.
+	deviceConfig.periodSizeInFrames = s_config.bufferSize;
 	
 	if (ma_device_init(nullptr, &deviceConfig, &s_data.device) != MA_SUCCESS)
 	{
@@ -68,7 +72,7 @@ bool AudioEngine::Initialize(const AudioConfig& config)
 		return false;
 	}
 	
-	s_data.lastProcessedBeat = -1.0;
+	s_data.lastProcessedBeat  = -1.0;
 	s_data.needsNoteRetrigger = true;
 	
 	return true;
@@ -86,9 +90,7 @@ void AudioEngine::StopAllNotes()
 	for (AudioTrack& track : state.tracks)
 	{
 		if (track.instrument.plugin)
-		{
 			track.instrument.plugin->StopAllNotes();
-		}
 	}
 }
 
@@ -96,23 +98,23 @@ AudioSample& AudioEngine::AddSample(const char* filepath, ProjectState& state)
 {
 	AudioSample sample;
 
-	if(!AudioEngine::LoadSample(filepath, sample))
+	if (!AudioEngine::LoadSample(filepath, sample))
 	{
-		static AudioSample invalidSample{};		// Great global sample in the C++ sky
-		return invalidSample;					// Is this unnecessary? Probably so.
+		static AudioSample invalidSample{};
+		return invalidSample;
 	}
 
 	state.samples.push_back(sample);
 	return state.samples.back();
 }
 
-bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
-{	
+bool AudioEngine::LoadSample(const char* filepath, AudioSample& sample)
+{
 	// First pass: get original sample rate from file
 	ma_decoder tempDecoder;
 	ma_decoder_config tempConfig = ma_decoder_config_init(ma_format_f32, 0, 0);
 	
-	ma_uint32 originalSampleRate = s_config.sampleRate;  // Default fallback
+	ma_uint32 originalSampleRate = s_config.sampleRate;
 	
 	if (ma_decoder_init_file(filepath, &tempConfig, &tempDecoder) == MA_SUCCESS)
 	{
@@ -124,8 +126,8 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 	ma_decoder decoder;
 	ma_decoder_config decoderConfig = ma_decoder_config_init(
 		ma_format_f32,
-		0,  // Keep original channel count
-		s_config.sampleRate  // Resample to device rate during decode
+		0,
+		s_config.sampleRate
 	);
 	
 	if (ma_decoder_init_file(filepath, &decoderConfig, &decoder) != MA_SUCCESS)
@@ -146,12 +148,10 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 	}
 	
 	const ma_uint64 totalSamples = frameCount * channels;
-	
 	float* frames = new float[totalSamples];
 	
 	ma_uint64 framesRead = 0;
 	result = ma_decoder_read_pcm_frames(&decoder, frames, frameCount, &framesRead);
-	
 	ma_decoder_uninit(&decoder);
 	
 	if (result != MA_SUCCESS || framesRead == 0)
@@ -161,35 +161,33 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample &sample)
 		return false;
 	}
 	
-	const char* filename = filepath;
-	const char* lastSlash = strrchr(filepath, '/');
+	const char* filename      = filepath;
+	const char* lastSlash     = strrchr(filepath, '/');
 	const char* lastBackslash = strrchr(filepath, '\\');
 	if (lastSlash || lastBackslash)
-	{
 		filename = (lastSlash > lastBackslash) ? lastSlash + 1 : lastBackslash + 1;
-	}
 	
-	sample.name = filename;
-	sample.color = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-	sample.filename = filename;
-	sample.channelType = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
-	sample.frameData = frames;
-	sample.frameCount = framesRead;
-	sample.originalSampleRate = originalSampleRate;  // Store original rate for display
+	sample.name               = filename;
+	sample.color              = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+	sample.filename           = filename;
+	sample.channelType        = (channels == 2) ? SampleChannelType::Stereo : SampleChannelType::Mono;
+	sample.frameData          = frames;
+	sample.frameCount         = framesRead;
+	sample.originalSampleRate = originalSampleRate;
 	
 	if (originalSampleRate != s_config.sampleRate)
 	{
-		std::cout << "Loaded sample: " << sample.name 
-				  << " (" << framesRead << " frames, " 
-				  << channels << " channels, " 
-				  << originalSampleRate << " Hz → " 
+		std::cout << "Loaded sample: " << sample.name
+				  << " (" << framesRead << " frames, "
+				  << channels << " channels, "
+				  << originalSampleRate << " Hz → "
 				  << s_config.sampleRate << " Hz [resampled])\n";
 	}
 	else
 	{
-		std::cout << "Loaded sample: " << sample.name 
-				  << " (" << framesRead << " frames, " 
-				  << channels << " channels, " 
+		std::cout << "Loaded sample: " << sample.name
+				  << " (" << framesRead << " frames, "
+				  << channels << " channels, "
 				  << s_config.sampleRate << " Hz)\n";
 	}
 	
@@ -202,7 +200,7 @@ void AudioEngine::UnloadSample(AudioSample& sample)
 	sample.frameData = nullptr;
 }
 
-void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double newBeat,double beatsPerFrame, ma_uint32 frameCount,float** inputs, float** outputs)
+void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double newBeat, double beatsPerFrame, ma_uint32 frameCount, float** inputs, float** outputs)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	bool trackHasActiveBlock = false;
@@ -222,11 +220,11 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 		
 		for (const MidiNote& note : pattern.notes)
 		{
-			const double noteStart = block.midiBlock.startBeat + note.startBeat - block.midiBlock.startOffsetBeats;
-			const double noteEnd = noteStart + note.lengthBeats - s_config.blockEndEpsilon;
+			const double noteStart        = block.midiBlock.startBeat + note.startBeat - block.midiBlock.startOffsetBeats;
+			const double noteEnd          = noteStart + note.lengthBeats - s_config.blockEndEpsilon;
 			const double effectiveNoteEnd = std::min<double>(noteEnd, blockEnd);
 			
-			const bool noteCutByOffset = note.startBeat < block.midiBlock.startOffsetBeats;
+			const bool noteCutByOffset       = note.startBeat < block.midiBlock.startOffsetBeats;
 			const bool noteActiveAtBlockStart = noteCutByOffset && (note.startBeat + note.lengthBeats) > block.midiBlock.startOffsetBeats;
 			
 			if (s_data.needsNoteRetrigger && noteStart < prevBeat && effectiveNoteEnd > prevBeat)
@@ -271,9 +269,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 		if (it->second && !trackHasActiveBlock)
 		{
 			for (int key = 0; key < 128; ++key)
-			{
 				track.instrument.plugin->StopNote(key, 0);
-			}
 		}
 		it->second = trackHasActiveBlock;
 	}
@@ -312,16 +308,16 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			if (currentBeat < block.sampleBlock.startBeat || currentBeat >= blockEnd)
 				continue;
 			
-			const double beatInBlock = currentBeat - block.sampleBlock.startBeat + block.sampleBlock.startOffsetBeats;
+			const double beatInBlock    = currentBeat - block.sampleBlock.startBeat + block.sampleBlock.startOffsetBeats;
 			const double secondsInBlock = beatInBlock * secondsPerBeat;
-			const double sampleTime = secondsInBlock / block.sampleBlock.stretchScale;
-			const double samplePos = sampleTime * s_config.sampleRate;
+			const double sampleTime     = secondsInBlock / block.sampleBlock.stretchScale;
+			const double samplePos      = sampleTime * s_config.sampleRate;
 			
 			if (samplePos < 0 || samplePos >= sample.frameCount)
 				continue;
 			
 			const uint64_t sampleIndex = (uint64_t)samplePos;
-			const float fraction = (float)(samplePos - sampleIndex);
+			const float    fraction    = (float)(samplePos - sampleIndex);
 			
 			if (sample.channelType == SampleChannelType::Stereo)
 			{
@@ -334,16 +330,16 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 					if (sampleIndex > 0 && sampleIndex + 2 < sample.frameCount)
 					{
 						const float* s = &sample.frameData[frameOffset];
-						left = CubicInterpolate(s[-2], s[0], s[2], s[4], fraction);
+						left  = CubicInterpolate(s[-2], s[0], s[2], s[4], fraction);
 						right = CubicInterpolate(s[-1], s[1], s[3], s[5], fraction);
 					}
 					else
 					{
-						left = sample.frameData[frameOffset] + (sample.frameData[frameOffset + 2] - sample.frameData[frameOffset]) * fraction;
+						left  = sample.frameData[frameOffset]     + (sample.frameData[frameOffset + 2] - sample.frameData[frameOffset])     * fraction;
 						right = sample.frameData[frameOffset + 1] + (sample.frameData[frameOffset + 3] - sample.frameData[frameOffset + 1]) * fraction;
 					}
 					
-					trackBuffer[i * 2] += left;
+					trackBuffer[i * 2]     += left;
 					trackBuffer[i * 2 + 1] += right;
 				}
 			}
@@ -372,7 +368,7 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 					monoSample = sample.frameData[sampleIndex];
 				}
 				
-				trackBuffer[i * 2] += monoSample;
+				trackBuffer[i * 2]     += monoSample;
 				trackBuffer[i * 2 + 1] += monoSample;
 			}
 		}
@@ -386,7 +382,7 @@ void AudioEngine::ProcessTrackEffects(std::vector<PluginEffect>& effects, float*
 	if (effects.empty())
 		return;
 
-	const ProjectState &state = ProjectState::GetInstance();
+	const ProjectState& state = ProjectState::GetInstance();
 
 	for (ma_uint32 i = 0; i < frameCount; ++i)
 	{
@@ -400,14 +396,13 @@ void AudioEngine::ProcessTrackEffects(std::vector<PluginEffect>& effects, float*
 		{
 			memcpy(inputs[0], outputs[0], frameCount * sizeof(float));
 			memcpy(inputs[1], outputs[1], frameCount * sizeof(float));
-			
 			effect.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
 		}
 	}
 	
 	for (ma_uint32 i = 0; i < frameCount; ++i)
 	{
-		trackBuffer[i * 2] = outputs[0][i];
+		trackBuffer[i * 2]     = outputs[0][i];
 		trackBuffer[i * 2 + 1] = outputs[1][i];
 	}
 }
@@ -416,12 +411,12 @@ void AudioEngine::ApplyTrackVolumeAndPan(AudioTrack& track, float* trackBuffer, 
 {
 	for (ma_uint32 i = 0; i < frameCount; i++)
 	{
-		const float leftOut = trackBuffer[i * 2] * track.volume * leftGain;
+		const float leftOut  = trackBuffer[i * 2]     * track.volume * leftGain;
 		const float rightOut = trackBuffer[i * 2 + 1] * track.volume * rightGain;
 		
 		if (output)
 		{
-			output[i * 2] += leftOut;
+			output[i * 2]     += leftOut;
 			output[i * 2 + 1] += rightOut;
 		}
 		
@@ -431,55 +426,74 @@ void AudioEngine::ApplyTrackVolumeAndPan(AudioTrack& track, float* trackBuffer, 
 
 void AudioEngine::AudioCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount)
 {
-	ProjectState& state = ProjectState::GetInstance();
-	float* outputBuffer = (float*)output;
+	ProjectState& state       = ProjectState::GetInstance();
+	float*        outputBuffer = (float*)output;
 	memset(output, 0, frameCount * s_config.channels * sizeof(float));
-	
-	float pluginInputs[MAX_PLUGIN_CHANNELS][512] = {0};
-	float pluginOutputs[MAX_PLUGIN_CHANNELS][512] = {0};
-	
-	static float* inputs[MAX_PLUGIN_CHANNELS] = {nullptr};
-	static float* outputs[MAX_PLUGIN_CHANNELS] = {nullptr};
+
+	// -----------------------------------------------------------------------
+	// Per-callback scratch buffers sized to the actual frameCount.
+	//
+	// The old code used fixed 512-sample stack arrays. On Linux, miniaudio
+	// may request larger buffers (e.g. 1024, 2048) depending on the ALSA /
+	// PulseAudio / PipeWire period size negotiated at device-open time.
+	// Writing past 512 samples silently overwrote adjacent stack memory,
+	// producing zeros or garbage in the output — the most common reason VST3
+	// instruments appear silent on Linux while samples play fine (samples are
+	// mixed frame-by-frame into trackBuffer and are unaffected by this).
+	// -----------------------------------------------------------------------
+	std::vector<float> pluginInputStorage (MAX_PLUGIN_CHANNELS * frameCount, 0.0f);
+	std::vector<float> pluginOutputStorage(MAX_PLUGIN_CHANNELS * frameCount, 0.0f);
+	std::vector<float> trackBufferStorage (frameCount * s_config.channels,   0.0f);
+
+	float* inputs [MAX_PLUGIN_CHANNELS];
+	float* outputs[MAX_PLUGIN_CHANNELS];
 	for (int i = 0; i < MAX_PLUGIN_CHANNELS; ++i)
 	{
-		inputs[i] = pluginInputs[i];
-		outputs[i] = pluginOutputs[i];
+		inputs [i] = pluginInputStorage .data() + i * frameCount;
+		outputs[i] = pluginOutputStorage.data() + i * frameCount;
 	}
-	
-	float trackBuffer[512 * 2] = {0};
-	
+
+	float* trackBuffer = trackBufferStorage.data();
+
 	for (AudioTrack& track : state.tracks)
 	{
-		track.peakLeft = 0.0f;
+		track.peakLeft  = 0.0f;
 		track.peakRight = 0.0f;
 	}
-	state.masterTrack.peakLeft = 0.0f;
+	state.masterTrack.peakLeft  = 0.0f;
 	state.masterTrack.peakRight = 0.0f;
-	
+
+	// -----------------------------------------------------------------------
+	// Playback-dependent work: advance the timeline and queue MIDI events.
+	//
+	// ProcessMidiTrack only queues note-on/off events into the plugin's
+	// internal event list. Audio is rendered unconditionally below so that:
+	//   • notes triggered during playback are heard, and
+	//   • the user can play the instrument live even when the transport is
+	//     stopped (e.g. clicking a piano roll key or external MIDI input).
+	// -----------------------------------------------------------------------
 	if (state.isPlaying && !state.isDraggingPlayhead)
 	{
-		const double prevBeat = state.timelinePositionBeats;
-		const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-		const double beatsPerFrame = 1.0 / (device->sampleRate * secondsPerBeat);
-		const double newBeat = prevBeat + frameCount * beatsPerFrame;
-		const bool playbackJumped = (s_data.lastProcessedBeat < 0 || prevBeat < s_data.lastProcessedBeat || prevBeat > s_data.lastProcessedBeat + beatsPerFrame * frameCount * 2);
+		const double prevBeat      = state.timelinePositionBeats;
+		const float  secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
+		const double beatsPerFrame  = 1.0 / (device->sampleRate * secondsPerBeat);
+		const double newBeat        = prevBeat + frameCount * beatsPerFrame;
+		const bool   playbackJumped = (s_data.lastProcessedBeat < 0 ||
+		                               prevBeat < s_data.lastProcessedBeat ||
+		                               prevBeat > s_data.lastProcessedBeat + beatsPerFrame * frameCount * 2);
 		
 		if (playbackJumped)
-		{
 			s_data.needsNoteRetrigger = true;
-		}
 		
 		for (AudioTrack& track : state.tracks)
-		{			
+		{
 			if (track.type == TrackType::Midi && track.instrument.plugin)
 			{
+				// Queue MIDI events — audio is rendered in the pass below.
 				ProcessMidiTrack(track, prevBeat, newBeat, beatsPerFrame, frameCount, inputs, outputs);
 			}
-			else if (track.type == TrackType::Audio)
+			else if (track.type == TrackType::Audio && !track.muted)
 			{
-				if (track.muted)
-					continue;
-
 				ProcessSampleTrack(track, prevBeat, newBeat, beatsPerFrame, frameCount, trackBuffer, inputs, outputs);
 				
 				float leftGain, rightGain;
@@ -488,47 +502,69 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 			}
 		}
 		
-		s_data.needsNoteRetrigger = false;
-		s_data.lastProcessedBeat = newBeat;
+		s_data.needsNoteRetrigger   = false;
+		s_data.lastProcessedBeat    = newBeat;
 		state.timelinePositionBeats = newBeat;
 	}
 	else
 	{
-		s_data.lastProcessedBeat = -1.0;
+		s_data.lastProcessedBeat  = -1.0;
 		s_data.needsNoteRetrigger = true;
 	}
-	
+
+	// -----------------------------------------------------------------------
+	// Unconditional instrument render pass.
+	//
+	// Every MIDI track's plugin is processed here regardless of whether the
+	// transport is playing. This renders:
+	//   1. Audio for MIDI events queued by ProcessMidiTrack above.
+	//   2. Live notes played by the user when the transport is stopped.
+	//
+	// Each track gets freshly zeroed input/output buffers so that a plugin
+	// that produces silence on this block doesn't corrupt the next track.
+	// -----------------------------------------------------------------------
 	for (AudioTrack& track : state.tracks)
 	{
-		if (track.instrument.plugin && !track.muted)
+		if (!track.instrument.plugin || track.muted)
+			continue;
+
+		// Zero only the stereo pair we actually use to keep this lean.
+		// Plugins that need more channels will find the rest already zero
+		// from the initial vector construction above.
+		memset(outputs[0], 0, frameCount * sizeof(float));
+		memset(outputs[1], 0, frameCount * sizeof(float));
+		memset(inputs [0], 0, frameCount * sizeof(float));
+		memset(inputs [1], 0, frameCount * sizeof(float));
+
+		track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
+
+		// Deinterleave plugin stereo output into trackBuffer for effect chain.
+		for (ma_uint32 i = 0; i < frameCount; i++)
 		{
-			memset(trackBuffer, 0, frameCount * s_config.channels * sizeof(float));
-			track.instrument.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
-			
-			for (ma_uint32 i = 0; i < frameCount; i++)
-			{
-				trackBuffer[i * 2] = outputs[0][i];
-				trackBuffer[i * 2 + 1] = outputs[1][i];
-			}
-			
-			ProcessTrackEffects(track.effects, trackBuffer, frameCount, inputs, outputs);
-			
-			float leftGain, rightGain;
-			CalculatePanGains(track.pan, leftGain, rightGain);
-			
-			for (ma_uint32 i = 0; i < frameCount; i++)
-			{
-				const float leftOut = trackBuffer[i * 2] * track.volume * leftGain;
-				const float rightOut = trackBuffer[i * 2 + 1] * track.volume * rightGain;
-				
-				outputBuffer[i * 2] += leftOut;
-				outputBuffer[i * 2 + 1] += rightOut;
-				
-				UpdatePeaks(track.peakLeft, track.peakRight, leftOut, rightOut);
-			}
+			trackBuffer[i * 2]     = outputs[0][i];
+			trackBuffer[i * 2 + 1] = outputs[1][i];
+		}
+
+		ProcessTrackEffects(track.effects, trackBuffer, frameCount, inputs, outputs);
+
+		float leftGain, rightGain;
+		CalculatePanGains(track.pan, leftGain, rightGain);
+
+		for (ma_uint32 i = 0; i < frameCount; i++)
+		{
+			const float leftOut  = trackBuffer[i * 2]     * track.volume * leftGain;
+			const float rightOut = trackBuffer[i * 2 + 1] * track.volume * rightGain;
+
+			outputBuffer[i * 2]     += leftOut;
+			outputBuffer[i * 2 + 1] += rightOut;
+
+			UpdatePeaks(track.peakLeft, track.peakRight, leftOut, rightOut);
 		}
 	}
-	
+
+	// -----------------------------------------------------------------------
+	// Master chain: effects → mute → volume/pan → peak metering.
+	// -----------------------------------------------------------------------
 	if (!state.masterTrack.effects.empty())
 	{
 		for (ma_uint32 i = 0; i < frameCount; ++i)
@@ -543,14 +579,13 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 			{
 				memcpy(inputs[0], outputs[0], frameCount * sizeof(float));
 				memcpy(inputs[1], outputs[1], frameCount * sizeof(float));
-				
 				effect.plugin->Process((float**)inputs, (float**)outputs, frameCount, state.beatsPerMinute);
 			}
 		}
 		
 		for (ma_uint32 i = 0; i < frameCount; ++i)
 		{
-			outputBuffer[i * 2] = outputs[0][i];
+			outputBuffer[i * 2]     = outputs[0][i];
 			outputBuffer[i * 2 + 1] = outputs[1][i];
 		}
 	}
@@ -561,21 +596,21 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		return;
 	}
 
-	float leftGain = 1.0f;
+	float leftGain  = 1.0f;
 	float rightGain = 1.0f;
-	if(!float_approx_equal(state.masterTrack.pan, 0.5f))
+	if (!float_approx_equal(state.masterTrack.pan, 0.5f))
 		CalculatePanGains(state.masterTrack.pan, leftGain, rightGain);
 		
 	const float masterVolume = state.masterTrack.volume;
-	leftGain *= masterVolume;
+	leftGain  *= masterVolume;
 	rightGain *= masterVolume;
 	
 	for (ma_uint32 i = 0; i < frameCount; i++)
 	{
-		const float leftOut = outputBuffer[i * 2] * leftGain;
+		const float leftOut  = outputBuffer[i * 2]     * leftGain;
 		const float rightOut = outputBuffer[i * 2 + 1] * rightGain;
 		
-		outputBuffer[i * 2] = leftOut;
+		outputBuffer[i * 2]     = leftOut;
 		outputBuffer[i * 2 + 1] = rightOut;
 		
 		UpdatePeaks(state.masterTrack.peakLeft, state.masterTrack.peakRight, leftOut, rightOut);
@@ -591,16 +626,16 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	}
 	
 	ProjectState& state = ProjectState::GetInstance();
-	const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-	const double durationBeats = endBeat - startBeat;
+	const float  secondsPerBeat  = SECONDS_PER_MINUTE / state.beatsPerMinute;
+	const double durationBeats   = endBeat - startBeat;
 	const double durationSeconds = durationBeats * secondsPerBeat;
 	
-	const ma_uint32 sampleRate = s_config.sampleRate;
-	const ma_uint32 channels = s_config.channels;
+	const ma_uint32 sampleRate  = s_config.sampleRate;
+	const ma_uint32 channels    = s_config.channels;
 	const ma_uint64 totalFrames = (ma_uint64)(durationSeconds * sampleRate);
 	
-	std::cout << "Exporting " << durationBeats << " beats (" 
-			  << durationSeconds << " seconds, " 
+	std::cout << "Exporting " << durationBeats << " beats ("
+			  << durationSeconds << " seconds, "
 			  << totalFrames << " frames) to " << filepath << "\n";
 	
 	ma_encoder_config encoderConfig = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, channels, sampleRate);
@@ -612,23 +647,23 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	}
 	
 	const double originalPosition = state.timelinePositionBeats;
-	const bool wasPlaying = state.isPlaying;
-	const bool wasDragging = state.isDraggingPlayhead;
+	const bool   wasPlaying       = state.isPlaying;
+	const bool   wasDragging      = state.isDraggingPlayhead;
 	
 	state.timelinePositionBeats = startBeat;
-	state.isPlaying = true;
-	state.isDraggingPlayhead = false;
+	state.isPlaying             = true;
+	state.isDraggingPlayhead    = false;
 	
-	s_data.lastProcessedBeat = -1.0;
+	s_data.lastProcessedBeat  = -1.0;
 	s_data.needsNoteRetrigger = true;
 	s_data.trackActiveBlockState.clear();
 	
-	const ma_uint32 chunkSize = s_config.bufferSize;
-	float* buffer = new float[chunkSize * channels];
+	const ma_uint32        chunkSize = s_config.bufferSize;
+	std::vector<float>     buffer(chunkSize * channels, 0.0f);
 	
 	ma_uint64 framesProcessed = 0;
 	
-	ma_device fakeDevice = s_data.device;
+	ma_device fakeDevice  = s_data.device;
 	fakeDevice.sampleRate = sampleRate;
 	
 	ma_device_stop(&s_data.device);
@@ -637,22 +672,20 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	{
 		const ma_uint32 framesToProcess = std::min<ma_uint32>(chunkSize, (ma_uint32)(totalFrames - framesProcessed));
 		
-		memset(buffer, 0, framesToProcess * channels * sizeof(float));
-		
-		AudioCallback(&fakeDevice, buffer, nullptr, framesToProcess);
+		memset(buffer.data(), 0, framesToProcess * channels * sizeof(float));
+		AudioCallback(&fakeDevice, buffer.data(), nullptr, framesToProcess);
 		
 		ma_uint64 framesWritten;
-		if (ma_encoder_write_pcm_frames(&encoder, buffer, framesToProcess, &framesWritten) != MA_SUCCESS)
+		if (ma_encoder_write_pcm_frames(&encoder, buffer.data(), framesToProcess, &framesWritten) != MA_SUCCESS)
 		{
 			std::cerr << "Failed to write frames to WAV file\n";
-			delete[] buffer;
 			ma_encoder_uninit(&encoder);
 			
 			state.timelinePositionBeats = originalPosition;
-			state.isPlaying = wasPlaying;
-			state.isDraggingPlayhead = wasDragging;
-			s_data.lastProcessedBeat = -1.0;
-			s_data.needsNoteRetrigger = true;
+			state.isPlaying             = wasPlaying;
+			state.isDraggingPlayhead    = wasDragging;
+			s_data.lastProcessedBeat    = -1.0;
+			s_data.needsNoteRetrigger   = true;
 			
 			return false;
 		}
@@ -666,15 +699,14 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 		}
 	}
 	
-	delete[] buffer;
 	StopAllNotes();
 	ma_encoder_uninit(&encoder);
 	
 	state.timelinePositionBeats = originalPosition;
-	state.isPlaying = wasPlaying;
-	state.isDraggingPlayhead = wasDragging;
-	s_data.lastProcessedBeat = -1.0;
-	s_data.needsNoteRetrigger = true;
+	state.isPlaying             = wasPlaying;
+	state.isDraggingPlayhead    = wasDragging;
+	s_data.lastProcessedBeat    = -1.0;
+	s_data.needsNoteRetrigger   = true;
 	s_data.trackActiveBlockState.clear();
 	ma_device_start(&s_data.device);
 	
