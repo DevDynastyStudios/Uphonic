@@ -12,6 +12,11 @@ struct AudioEngineData
     double lastProcessedBeat;
     bool needsNoteRetrigger;
     std::vector<std::pair<AudioTrack*, bool>> trackActiveBlockState;
+
+    std::vector<float> pluginInputStorage;
+    std::vector<float> pluginOutputStorage;
+    std::vector<float> trackBufferStorage;
+    ma_uint32          scratchFrameCapacity = 0;
 };
 
 class AudioEngine

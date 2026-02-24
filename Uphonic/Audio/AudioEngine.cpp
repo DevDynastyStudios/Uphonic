@@ -430,30 +430,30 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 	float*        outputBuffer = (float*)output;
 	memset(output, 0, frameCount * s_config.channels * sizeof(float));
 
-	// -----------------------------------------------------------------------
-	// Per-callback scratch buffers sized to the actual frameCount.
-	//
-	// The old code used fixed 512-sample stack arrays. On Linux, miniaudio
-	// may request larger buffers (e.g. 1024, 2048) depending on the ALSA /
-	// PulseAudio / PipeWire period size negotiated at device-open time.
-	// Writing past 512 samples silently overwrote adjacent stack memory,
-	// producing zeros or garbage in the output — the most common reason VST3
-	// instruments appear silent on Linux while samples play fine (samples are
-	// mixed frame-by-frame into trackBuffer and are unaffected by this).
-	// -----------------------------------------------------------------------
-	std::vector<float> pluginInputStorage (MAX_PLUGIN_CHANNELS * frameCount, 0.0f);
-	std::vector<float> pluginOutputStorage(MAX_PLUGIN_CHANNELS * frameCount, 0.0f);
-	std::vector<float> trackBufferStorage (frameCount * s_config.channels,   0.0f);
+	const ma_uint32 requiredFrames = frameCount;
+	if (requiredFrames > s_data.scratchFrameCapacity)
+	{
+		s_data.pluginInputStorage .assign(MAX_PLUGIN_CHANNELS * requiredFrames, 0.0f);
+		s_data.pluginOutputStorage.assign(MAX_PLUGIN_CHANNELS * requiredFrames, 0.0f);
+		s_data.trackBufferStorage .assign(requiredFrames * s_config.channels,   0.0f);
+		s_data.scratchFrameCapacity = requiredFrames;
+	}
+	else
+	{
+		memset(s_data.pluginInputStorage .data(), 0, MAX_PLUGIN_CHANNELS * frameCount * sizeof(float));
+		memset(s_data.pluginOutputStorage.data(), 0, MAX_PLUGIN_CHANNELS * frameCount * sizeof(float));
+		memset(s_data.trackBufferStorage .data(), 0, frameCount * s_config.channels   * sizeof(float));
+	}
 
 	float* inputs [MAX_PLUGIN_CHANNELS];
 	float* outputs[MAX_PLUGIN_CHANNELS];
 	for (int i = 0; i < MAX_PLUGIN_CHANNELS; ++i)
 	{
-		inputs [i] = pluginInputStorage .data() + i * frameCount;
-		outputs[i] = pluginOutputStorage.data() + i * frameCount;
+		inputs [i] = s_data.pluginInputStorage .data() + i * frameCount;
+		outputs[i] = s_data.pluginOutputStorage.data() + i * frameCount;
 	}
 
-	float* trackBuffer = trackBufferStorage.data();
+	float* trackBuffer = s_data.trackBufferStorage.data();
 
 	for (AudioTrack& track : state.tracks)
 	{
@@ -463,15 +463,6 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 	state.masterTrack.peakLeft  = 0.0f;
 	state.masterTrack.peakRight = 0.0f;
 
-	// -----------------------------------------------------------------------
-	// Playback-dependent work: advance the timeline and queue MIDI events.
-	//
-	// ProcessMidiTrack only queues note-on/off events into the plugin's
-	// internal event list. Audio is rendered unconditionally below so that:
-	//   • notes triggered during playback are heard, and
-	//   • the user can play the instrument live even when the transport is
-	//     stopped (e.g. clicking a piano roll key or external MIDI input).
-	// -----------------------------------------------------------------------
 	if (state.isPlaying && !state.isDraggingPlayhead)
 	{
 		const double prevBeat      = state.timelinePositionBeats;
@@ -512,25 +503,11 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		s_data.needsNoteRetrigger = true;
 	}
 
-	// -----------------------------------------------------------------------
-	// Unconditional instrument render pass.
-	//
-	// Every MIDI track's plugin is processed here regardless of whether the
-	// transport is playing. This renders:
-	//   1. Audio for MIDI events queued by ProcessMidiTrack above.
-	//   2. Live notes played by the user when the transport is stopped.
-	//
-	// Each track gets freshly zeroed input/output buffers so that a plugin
-	// that produces silence on this block doesn't corrupt the next track.
-	// -----------------------------------------------------------------------
 	for (AudioTrack& track : state.tracks)
 	{
 		if (!track.instrument.plugin || track.muted)
 			continue;
 
-		// Zero only the stereo pair we actually use to keep this lean.
-		// Plugins that need more channels will find the rest already zero
-		// from the initial vector construction above.
 		memset(outputs[0], 0, frameCount * sizeof(float));
 		memset(outputs[1], 0, frameCount * sizeof(float));
 		memset(inputs [0], 0, frameCount * sizeof(float));
@@ -562,9 +539,6 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Master chain: effects → mute → volume/pan → peak metering.
-	// -----------------------------------------------------------------------
 	if (!state.masterTrack.effects.empty())
 	{
 		for (ma_uint32 i = 0; i < frameCount; ++i)
