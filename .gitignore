@@ -14,6 +14,7 @@ bin/Release/Projects
 obj/
 # loonix
 *.make
+*.a
 Makefile
 bin/Release/*.so
 bin/Release/Uphonic

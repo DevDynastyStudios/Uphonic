@@ -14,6 +14,7 @@ struct ApplicationSettings
 	
 	ApplicationSettings() : audioSampleRate(44100), pluginSearchPaths({
 		"C:\\Program Files\\Common Files\\VST3",
-		"C:\\Program Files\\Steinberg\\VST3"
+		"C:\\Program Files\\Steinberg\\VST3",
+		"/home/box/Downloads/VitalInstaller/lib/vst3/"
 	}) {}
 };
