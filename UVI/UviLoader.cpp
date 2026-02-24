@@ -497,6 +497,12 @@ private:
     double  m_sampleRate     = 0.0;
     int32_t m_maxBlockSize   = 0;
 
+    // Per-bus channel offsets into the flat inputs/outputs pointer arrays.
+    // Computed once in SetupProcessing and used in Process to correctly
+    // address each bus regardless of how many channels the previous bus has.
+    int32_t m_inputBusChannelOffset[2]  = {0, 0};
+    int32_t m_outputBusChannelOffset[2] = {0, 0};
+
     VST3::Hosting::Module::Ptr m_module;
 };
 
@@ -1138,21 +1144,33 @@ void Vst3Plugin::Process(float** inputs, float** outputs, int32_t sampleFrames, 
     if (sampleFrames <= 0 || sampleFrames > m_maxBlockSize)
         return;
 
+    // ------------------------------------------------------------------
+    // Wire up input bus channel buffer pointers.
+    //
+    // m_inputBusChannelOffset[i] is the cumulative channel index into
+    // the flat `inputs` pointer array at which bus i starts. This is
+    // computed once in SetupProcessing so that buses with different
+    // channel counts are addressed correctly (e.g. bus 0 = stereo at
+    // offset 0, bus 1 = stereo at offset 2, NOT at offset 1*2 = 2 only
+    // by coincidence — the old code just happened to work for equal-
+    // channel buses but would silently mis-address unequal ones).
+    // ------------------------------------------------------------------
     for (int32_t i = 0; i < m_numInputBuses; i++)
     {
         inputBuses[i].silenceFlags = 0;
 
         if (inputs && inputBuses[i].numChannels > 0)
         {
-            inputBuses[i].channelBuffers32 = inputs + (i * inputBuses[i].numChannels);
+            inputBuses[i].channelBuffers32 = inputs + m_inputBusChannelOffset[i];
 
             bool isSilent = true;
-            for (int32_t ch = 0; ch < inputBuses[i].numChannels; ch++)
+            for (int32_t ch = 0; ch < inputBuses[i].numChannels && isSilent; ch++)
             {
                 float* buffer = inputBuses[i].channelBuffers32[ch];
                 if (buffer)
                 {
-                    for (int32_t s = 0; s < std::min(sampleFrames, 32); s++)
+                    int32_t checkSamples = std::min(sampleFrames, 32);
+                    for (int32_t s = 0; s < checkSamples; s++)
                     {
                         if (buffer[s] != 0.0f)
                         {
@@ -1161,7 +1179,6 @@ void Vst3Plugin::Process(float** inputs, float** outputs, int32_t sampleFrames, 
                         }
                     }
                 }
-                if (!isSilent) break;
             }
 
             if (isSilent)
@@ -1169,16 +1186,30 @@ void Vst3Plugin::Process(float** inputs, float** outputs, int32_t sampleFrames, 
         }
         else
         {
-            inputBuses[i].silenceFlags = (1ULL << inputBuses[i].numChannels) - 1;
+            inputBuses[i].channelBuffers32 = nullptr;
+            inputBuses[i].silenceFlags     = (1ULL << inputBuses[i].numChannels) - 1;
         }
     }
 
+    // ------------------------------------------------------------------
+    // Wire up output bus channel buffer pointers.
+    //
+    // Same cumulative-offset logic as inputs above. The original code
+    // used `outputs + (i * outputBuses[i].numChannels)` which is only
+    // correct when every bus has the same number of channels. Using the
+    // pre-computed offset handles the general case.
+    // ------------------------------------------------------------------
     for (int32_t i = 0; i < m_numOutputBuses; i++)
     {
         if (outputs && outputBuses[i].numChannels > 0)
         {
-            outputBuses[i].channelBuffers32 = outputs + (i * outputBuses[i].numChannels);
-            outputBuses[i].silenceFlags = 0;
+            outputBuses[i].channelBuffers32 = outputs + m_outputBusChannelOffset[i];
+            outputBuses[i].silenceFlags     = 0;
+        }
+        else
+        {
+            outputBuses[i].channelBuffers32 = nullptr;
+            outputBuses[i].silenceFlags     = (1ULL << outputBuses[i].numChannels) - 1;
         }
     }
 
@@ -1230,8 +1261,11 @@ void Vst3Plugin::SetupProcessing(double sampleRate, int32_t maxBlockSize)
     m_inputChannels  = 0;
     m_outputChannels = 0;
 
+    // Activate input buses and record per-bus channel offsets.
     for (int32_t i = 0; i < m_numInputBuses; i++)
     {
+        m_inputBusChannelOffset[i] = m_inputChannels; // offset = channels accumulated so far
+
         BusInfo busInfo;
         if (m_component->getBusInfo(Steinberg::Vst::kAudio, Steinberg::Vst::kInput, i, busInfo) == kResultOk)
         {
@@ -1246,8 +1280,11 @@ void Vst3Plugin::SetupProcessing(double sampleRate, int32_t maxBlockSize)
         }
     }
 
+    // Activate output buses and record per-bus channel offsets.
     for (int32_t i = 0; i < m_numOutputBuses; i++)
     {
+        m_outputBusChannelOffset[i] = m_outputChannels; // offset = channels accumulated so far
+
         BusInfo busInfo;
         if (m_component->getBusInfo(Steinberg::Vst::kAudio, Steinberg::Vst::kOutput, i, busInfo) == kResultOk)
         {
@@ -1280,21 +1317,43 @@ void Vst3Plugin::SetupProcessing(double sampleRate, int32_t maxBlockSize)
     setup.maxSamplesPerBlock = maxBlockSize;
     setup.sampleRate         = sampleRate;
 
-    m_processor->setupProcessing(setup);
-
-    if (m_component->setActive(true) != kResultOk)
+    tresult setupResult = m_processor->setupProcessing(setup);
+    if (setupResult != kResultOk)
     {
-        std::cerr << "Failed to activate component" << std::endl;
+        std::cerr << "setupProcessing failed with result: " << setupResult << std::endl;
+        return;
+    }
+
+    tresult activeResult = m_component->setActive(true);
+    if (activeResult != kResultOk)
+    {
+        std::cerr << "Failed to activate component, result: " << activeResult << std::endl;
         return;
     }
     m_componentActive = true;
 
-    m_processor->setProcessing(true);
+    tresult processingResult = m_processor->setProcessing(true);
+    if (processingResult != kResultOk && processingResult != kNotImplemented)
+    {
+        std::cerr << "setProcessing(true) failed with result: " << processingResult << std::endl;
+        // Some plugins return kNotImplemented here — that is acceptable and
+        // does not indicate a failure. Any other non-OK result is a real error,
+        // but we continue anyway since some plugins misbehave here yet still
+        // produce audio correctly.
+    }
     m_processingActive = true;
 
     std::cout << "Processing setup complete (Input: " << m_inputChannels
               << " channels in " << m_numInputBuses << " bus(es), Output: " << m_outputChannels
               << " channels in " << m_numOutputBuses << " bus(es))" << std::endl;
+
+    LOG_DEBUG("Bus channel offsets:");
+    for (int32_t i = 0; i < m_numInputBuses; i++)
+        LOG_DEBUG("  Input bus " << i << ": offset=" << m_inputBusChannelOffset[i]
+                                 << " channels=" << inputBuses[i].numChannels);
+    for (int32_t i = 0; i < m_numOutputBuses; i++)
+        LOG_DEBUG("  Output bus " << i << ": offset=" << m_outputBusChannelOffset[i]
+                                  << " channels=" << outputBuses[i].numChannels);
 }
 
 void Vst3Plugin::Serialize(const char* filePath)
