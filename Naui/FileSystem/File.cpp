@@ -282,10 +282,21 @@ std::wstring Directory::UTF8ToUTF16(const std::string& utf8)
 	if (utf8.empty())
 		return std::wstring();
 
+#ifdef _WIN32
+    if (utf8.empty()) return std::wstring();
     int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), nullptr, 0);
     std::wstring result(sizeNeeded, 0);
-    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), result.data(), sizeNeeded);
+    MultiByteToWideChar(CP_UTF8, 0, utf8.c_str(), (int)utf8.size(), &result[0], sizeNeeded);
     return result;
+#else
+    std::wstring result(utf8.size(), L'\0');
+    std::mbstate_t state{};
+    const char* src = utf8.c_str();
+    size_t len = std::mbsrtowcs(result.data(), &src, result.size(), &state);
+    if (len == static_cast<size_t>(-1)) return L"";
+    result.resize(len);
+    return result;
+#endif
 }
 
 std::wstring Directory::UTF8ToUTF16(const std::u8string& u8)
@@ -295,7 +306,11 @@ std::wstring Directory::UTF8ToUTF16(const std::u8string& u8)
 
 std::wstring Directory::PathToUTF16(const std::filesystem::path& p)
 {
-	return p.native();
+#ifdef _WIN32
+    return p.native();
+#else
+    return UTF8ToUTF16(p.native());
+#endif
 }
 
 // Convert filesystem path to UTF-8 string (safe on all platforms)
