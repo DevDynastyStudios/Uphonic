@@ -1,0 +1,63 @@
+{
+    "_meta": {
+        "language": "en",
+        "region": "GB",
+        "direction": "ltr"
+    },
+
+	"midi_editor.title": "MIDI Editor, innit",
+	"mixer_rack.title": "Mixer Shelf Thing",
+	"song_timeline.title": "Song Timeline, Sort Of",
+	"recovery.title": "Rescue Your Project (Hopefully)",
+
+    "menu.file": "File & That",
+	"menu.file.new": "New Project, Go On Then",
+	"menu.file.open": "Open It Up",
+	"menu.file.save": "Save It Properly",
+	"menu.file.save_as": "Save It As Something Else",
+	"menu.file.import": "Bring It In",
+	"menu.file.import.midi": "That MIDI Lark",
+	"menu.file.export": "Send It Out",
+	"menu.file.export.wav": "Wavey File...",
+	"menu.file.export.ogg": "Ogg File, Fancy",
+	"menu.file.export.mp3": "MP3, Classic",
+	"menu.file.export.flac": "FLAC, If You’re Posh",
+	"menu.file.export.m4a": "M4A, Why Not",
+	"menu.file.export.midi": "MIDI File, Obviously",
+	"menu.file.exit": "Bugger Off",
+
+    "menu.edit": "Tinker With It",
+	"menu.edit.undo": "Oops, Undo That",
+	"menu.edit.redo": "Actually, Redo It",
+	"menu.edit.cut": "Snip",
+	"menu.edit.copy": "Nick",
+	"menu.edit.paste": "Stick It There",
+
+	"menu.view": "Have a Gander",
+	"menu.view.show": "Show the Lot",
+	"menu.view.hide": "Hide the Lot",
+
+	"menu.layout": "Layouts & Such",
+	"menu.layout.save": "Save This Layout, Go On...",
+	"menu.layout.delete": "Bin This Layout",
+	"menu.layout.popup.save": "Save Layout, Proper",
+	"menu.layout.popup.override": "Override It, Reckon?",
+	"menu.layout.popup.save_btn": "Save It",
+	"menu.layout.popup.cancel_btn": "Nah",
+	"menu.layout.popup.overwrite": "Overwrite the Blighter",
+	"menu.layout.popup.cancel": "Cancel It",
+
+	"menu.help": "Help, Please",
+	"menu.help.tutorials": "How-To Bits",
+	"menu.help.about": "About This Thing",
+
+	"pattern_rack.title": "Pattern Shelf",
+	"pattern_rack.new": "+ New Pattern, Lovely",
+
+	"sample_rack.title": "Sample Shelf",
+	"sample_rack.import": "Chuck It In",
+	"sample_rack.import_text": "Drag & drop your audio bits here and we’ll bung ’em into your project.",
+
+    "dialog.delete_file": "$You sure you wanna delete \"{0}\" then?",
+    "file.count": "$You’ve got {0} files picked out, mate."
+}

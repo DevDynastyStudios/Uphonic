@@ -1,6 +1,7 @@
 #include "MixerRack.h"
 #include "../Core/ProjectState.h"
 #include "../Plugin/PluginManager.h"
+#include "Naui/Localization/Localization.h"
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -46,7 +47,7 @@ static float SmoothPeak(float current, float target, float dt)
 
 // ------------------------------------------------------------
 
-MixerRack::MixerRack() : Naui::Panel("Mixer Rack"), m_selectedTrack(-2)	// Nothing selected by default
+MixerRack::MixerRack() : Naui::Panel(Naui::TR("mixer_rack.title")), m_selectedTrack(-2)	// Nothing selected by default
 {
 	SetMinSize(0.0f, 250.0f);
 }

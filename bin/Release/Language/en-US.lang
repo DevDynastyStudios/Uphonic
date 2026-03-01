@@ -5,8 +5,58 @@
         "direction": "ltr"
     },
 
+	"midi_editor.title": "MIDI Editor",
+	"mixer_rack.title": "Mixer Rack",
+	"song_timeline.title": "Song Timeline",
+	"recovery.title": "Recover Project",
+
     "menu.file": "File",
+	"menu.file.new": "New Project",
+	"menu.file.open": "Open",
+	"menu.file.save": "Save",
+	"menu.file.save_as": "Save As",
+	"menu.file.import": "Import",
+	"menu.file.import.midi": "MIDI",
+	"menu.file.export": "Export",
+	"menu.file.export.wav": "Wave file...",
+	"menu.file.export.ogg": "Ogg file...",
+	"menu.file.export.mp3": "Mp3 file...",
+	"menu.file.export.flac": "FLAC file...",
+	"menu.file.export.m4a": "M4A file...",
+	"menu.file.export.midi": "MIDI file...",
+	"menu.file.exit": "Exit",
+
     "menu.edit": "Edit",
+	"menu.edit.undo": "Undo",
+	"menu.edit.redo": "Redo",
+	"menu.edit.cut": "Cut",
+	"menu.edit.copy": "Copy",
+	"menu.edit.paste": "Paste",
+
+	"menu.view": "View",
+	"menu.view.show": "Show All",
+	"menu.view.hide": "Hide All",
+
+	"menu.layout": "Layouts",
+	"menu.layout.save": "Save Layout As...",
+	"menu.layout.delete": "Delete Layout",
+	"menu.layout.popup.save": "Save Layout As",
+	"menu.layout.popup.override": "Override Layout?",
+	"menu.layout.popup.save_btn": "Save",
+	"menu.layout.popup.cancel_btn": "Cancel",
+	"menu.layout.popup.overwrite": "Overwrite",
+	"menu.layout.popup.cancel": "Cancel",
+
+	"menu.help": "Help",
+	"menu.help.tutorials": "Tutorials",
+	"menu.help.about": "About",
+
+	"pattern_rack.title": "Pattern Rack",
+	"pattern_rack.new": "+ New Pattern",
+
+	"sample_rack.title": "Sample Rack",
+	"sample_rack.import": "Import",
+	"sample_rack.import_text": "Drag & drop audio files here to import them into your project.",
 
     "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",
     "file.count": "$You have {0} files selected."

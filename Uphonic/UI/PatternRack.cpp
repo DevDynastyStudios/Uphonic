@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cstring>
 
-PatternRack::PatternRack() : Naui::Panel("Pattern Rack")
+PatternRack::PatternRack() : Naui::Panel(Naui::TR("pattern_rack.title"))
 {
     m_renamingIndex = -1;
     memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
@@ -39,7 +39,7 @@ void PatternRack::OnRender()
 {
     ProjectState& state = ProjectState::GetInstance();
 
-	if (ImGui::Button("+ New Pattern"))
+	if (ImGui::Button(Naui::TR("pattern_rack.new")))
     {
         ProjectState& state = ProjectState::GetInstance();
         MidiPattern pattern;

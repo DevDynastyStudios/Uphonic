@@ -1,9 +1,10 @@
 #include "RecoveryPrompt.h"
 #include "Core/ProjectManager.h"
 #include "Core/Recovery.h"
+#include "Naui/Localization/Localization.h"
 #include <iostream>
 
-RecoveryPrompt::RecoveryPrompt() : Naui::Panel("Recover Project")
+RecoveryPrompt::RecoveryPrompt() : Naui::Panel(Naui::TR("recovery.title"))
 {
 	SetClosable(false);
 	SetAutoResize(true);

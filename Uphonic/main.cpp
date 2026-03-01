@@ -29,7 +29,7 @@ private:
 	void OnEnter() override
 	{
 		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/.workspace", true);
-		Naui::Localization::SetLanguage("en-US");	// (Chimpchi): This is temporary
+		Naui::Localization::SetLanguage("en-UK");	// (Chimpchi): This is temporary
 		Layout::LoadDefault();
 		ProjectState& state = ProjectState::GetInstance();
 		state.mainWindow = GetPlatformWindow();

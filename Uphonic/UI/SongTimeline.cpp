@@ -2,6 +2,7 @@
 #include "../Core/ProjectState.h"
 #include "../Plugin/PluginManager.h"
 #include "../Audio/AudioEngine.h"
+#include "Naui/Localization/Localization.h"
 #include "Actions/Tracks/RenameTrackAction.h"
 #include <algorithm>
 #include <cmath>
@@ -63,7 +64,7 @@ static bool ToggleButton(const char* id, bool* v, const char* label)
     return pressed;
 }
 
-SongTimeline::SongTimeline() : Naui::Panel("Song Timeline")
+SongTimeline::SongTimeline() : Naui::Panel(Naui::TR("song_timeline.title"))
 {
 	m_zoom = m_config.defaultZoom;
 	m_scrollX = 0.0f;

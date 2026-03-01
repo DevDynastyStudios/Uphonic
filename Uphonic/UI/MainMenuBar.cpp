@@ -20,50 +20,50 @@ static std::string currentLayout = "Default";
 
 void MainMenuBar::FileMenu()
 {
-	if (!ImGui::BeginMenu("File"))
+	if (!ImGui::BeginMenu(Naui::TR("menu.file")))
 		return;
 
-	if (ImGui::MenuItem("New Project"))
+	if (ImGui::MenuItem(Naui::TR("menu.file.new")))
 		ProjectManager::NewProject();
 
-	if (ImGui::MenuItem("Open"))
+	if (ImGui::MenuItem(Naui::TR("menu.file.open")))
 		FileDialog::OpenFile("open_project", "Open Project", ".uph");
 
 	ImGui::Separator();
 
-	if(ImGui::MenuItem("Save"))
+	if(ImGui::MenuItem(Naui::TR("menu.file.save")))
 		ProjectManager::Save();
 
-	if(ImGui::MenuItem("Save As"))
+	if(ImGui::MenuItem(Naui::TR("menu.file.save_as")))
 		FileDialog::SaveFile("save_project", "Save Project", ".uph");
 
 	ImGui::Separator();
 
-	if (ImGui::BeginMenu("Import"))
+	if (ImGui::BeginMenu(Naui::TR("menu.file.import")))
 	{
-		ImGui::MenuItem("MIDI", nullptr, nullptr, false);
+		ImGui::MenuItem(Naui::TR("menu.file.import.midi"), nullptr, nullptr, false);
 		ImGui::EndMenu();
 	}
 
-	if (ImGui::BeginMenu("Export"))
+	if (ImGui::BeginMenu(Naui::TR("menu.file.export")))
 	{
 		const char* exportText = "Export As";
-		if (ImGui::MenuItem("Wave file..."))
+		if (ImGui::MenuItem(Naui::TR("menu.file.export.wav")))
 			FileDialog::SaveFile("export_project", "Export To Wav", "*.wav", exportText);
 
-		if(ImGui::MenuItem("Ogg file...", nullptr, nullptr, false))
+		if(ImGui::MenuItem(Naui::TR("menu.file.export.ogg"), nullptr, nullptr, false))
 			FileDialog::SaveFile("export_project", "Export To Ogg", "*.ogg", exportText);
 
-		if(ImGui::MenuItem("Mp3 file...", nullptr, nullptr, false))
+		if(ImGui::MenuItem(Naui::TR("menu.file.export.mp3"), nullptr, nullptr, false))
 			FileDialog::SaveFile("export_project", "Export To Mp3", "*.mp3", exportText);
 
-		if(ImGui::MenuItem("FLAC file...", nullptr, nullptr, false))
+		if(ImGui::MenuItem(Naui::TR("menu.file.export.flac"), nullptr, nullptr, false))
 			FileDialog::SaveFile("export_project", "Export To FLAC", "*.flac", exportText);
 
-		if(ImGui::MenuItem("M4A file...", nullptr, nullptr, false))
+		if(ImGui::MenuItem(Naui::TR("menu.file.export.m4a"), nullptr, nullptr, false))
 			FileDialog::SaveFile("export_project", "Export To M4A", "*.m4a", exportText);
 
-		if(ImGui::MenuItem("MIDI file...", nullptr, nullptr, false))
+		if(ImGui::MenuItem(Naui::TR("menu.file.export.midi"), nullptr, nullptr, false))
 			FileDialog::SaveFile("export_project", "Export To MIDI", "*.midi", exportText);
 
 		ImGui::EndMenu();
@@ -71,7 +71,7 @@ void MainMenuBar::FileMenu()
 
 	ImGui::Separator();
 
-	if (ImGui::MenuItem("Exit"))
+	if (ImGui::MenuItem(Naui::TR("menu.file.exit")))
 		ProjectManager::CloseProject();
 
 	ImGui::EndMenu();
@@ -80,28 +80,28 @@ void MainMenuBar::FileMenu()
 void MainMenuBar::EditMenu()
 {
 	Naui::ActionManager& actionManager = ProjectState::GetInstance().actionManager;
-	if (!ImGui::BeginMenu("Edit"))
+	if (!ImGui::BeginMenu(Naui::TR("menu.edit")))
 		return;
 
-	if(ImGui::MenuItem("Undo", nullptr, nullptr, actionManager.CanUndo()))
+	if(ImGui::MenuItem(Naui::TR("menu.edit.undo"), nullptr, nullptr, actionManager.CanUndo()))
 	{
 		actionManager.Undo();
 	}
 
-	if(ImGui::MenuItem("Redo", nullptr, nullptr, actionManager.CanRedo()))
+	if(ImGui::MenuItem(Naui::TR("menu.edit.redo"), nullptr, nullptr, actionManager.CanRedo()))
 	{
 		actionManager.Redo();
 	}
 
 	ImGui::Separator();
-	ImGui::MenuItem("Cut", nullptr, nullptr, false);
-	ImGui::MenuItem("Copy", nullptr, nullptr, false);
-	ImGui::MenuItem("Paste", nullptr, nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.cut"), nullptr, nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.copy"), nullptr, nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.paste"), nullptr, nullptr, false);
 
 	ImGui::EndMenu();
 }
 
-void MainMenuBar::OptionsMenu()
+void MainMenuBar::OptionsMenu()		// (Chimpchi): Old abandoned code. Should probably do something with this.
 {
 	if (!ImGui::BeginMenu("Options"))
 		return;
@@ -115,10 +115,10 @@ void MainMenuBar::OptionsMenu()
 
 void MainMenuBar::ViewMenu()
 {
-	if (!ImGui::BeginMenu("View"))
+	if (!ImGui::BeginMenu(Naui::TR("menu.view")))
 		return;
 
-	if (ImGui::MenuItem("Show All"))
+	if (ImGui::MenuItem(Naui::TR("menu.view.show")))
 	{
 		for (auto& [id, panelPtr] : Naui::GetAllPanels())
 		{
@@ -129,7 +129,7 @@ void MainMenuBar::ViewMenu()
 		}
 	}
 
-	if (ImGui::MenuItem("Hide All"))
+	if (ImGui::MenuItem(Naui::TR("menu.view.hide")))
 	{
 		for (auto& [id, panelPtr] : Naui::GetAllPanels())
 		{
@@ -161,7 +161,7 @@ void MainMenuBar::ViewMenu()
 
 void MainMenuBar::LayoutMenu()
 {
-	if (!ImGui::BeginMenu("Layouts"))
+	if (!ImGui::BeginMenu(Naui::TR("menu.layout")))
 		return;
 
 	for (const std::filesystem::path& layoutName : Layout::GetSystemLayouts())
@@ -195,7 +195,7 @@ void MainMenuBar::LayoutMenu()
 
 	ImGui::Separator();
 
-	if (ImGui::MenuItem("Save Layout As..."))
+	if (ImGui::MenuItem(Naui::TR("menu.layout.save")))
 	{
 		newLayoutName[0] = '\0';
 		popupFocusRequest = true;
@@ -203,7 +203,7 @@ void MainMenuBar::LayoutMenu()
 	}
 
 	auto userLayouts = Layout::GetUserLayouts();
-	if (ImGui::BeginMenu("Delete Layout", !userLayouts.empty()))
+	if (ImGui::BeginMenu(Naui::TR("menu.layout.delete"), !userLayouts.empty()))
 	{
 		for (const std::filesystem::path layoutName : userLayouts)
 		{
@@ -225,11 +225,11 @@ void MainMenuBar::LayoutMenu()
 
 void MainMenuBar::HelpMenu()
 {
-	if (!ImGui::BeginMenu("Help"))
+	if (!ImGui::BeginMenu(Naui::TR("menu.help")))
 		return;
 
-	ImGui::MenuItem("Tutorials");
-	ImGui::MenuItem("About");
+	ImGui::MenuItem(Naui::TR("menu.help.tutorials"));
+	ImGui::MenuItem(Naui::TR("menu.help.about"));
 
 	ImGui::EndMenu();
 }
@@ -238,17 +238,17 @@ void MainMenuBar::RenderPopups()
 {
 	if (requestSaveAsPopup)
 	{
-		ImGui::OpenPopup("Save Layout As");
+		ImGui::OpenPopup(Naui::TR("menu.layout.popup.save"));
 		requestSaveAsPopup = false;
 	}
 
 	if (requestOverridePopup)
 	{
-		ImGui::OpenPopup("Override Layout?");
+		ImGui::OpenPopup(Naui::TR("menu.layout.popup.override"));
 		requestOverridePopup = false;
 	}
 
-	if (ImGui::BeginPopup("Save Layout As"))
+	if (ImGui::BeginPopup(Naui::TR("menu.layout.popup.save")))
 	{
 		if (popupFocusRequest)
 		{
@@ -258,7 +258,7 @@ void MainMenuBar::RenderPopups()
 
 		ImGui::InputText("Layout Name", newLayoutName, IM_ARRAYSIZE(newLayoutName));
 
-		if (ImGui::Button("Save") || ImGui::IsKeyPressed(ImGuiKey_Enter))
+		if (ImGui::Button(Naui::TR("menu.layout.popup.save_btn")) || ImGui::IsKeyPressed(ImGuiKey_Enter))
 		{
 			std::string name = newLayoutName;
 			if (Layout::Exists(name))
@@ -277,18 +277,18 @@ void MainMenuBar::RenderPopups()
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("Cancel"))
+		if (ImGui::Button(Naui::TR("menu.layout.popup.cancel_btn")))
 			ImGui::CloseCurrentPopup();
 
 		ImGui::EndPopup();
 	}
 
-	if (ImGui::BeginPopup("Override Layout?"))
+	if (ImGui::BeginPopup(Naui::TR("menu.layout.popup.override")))
 	{
 		ImGui::Text("A layout named '%s' already exists.", pendingOverrideName.c_str());
 		ImGui::Text("Do you want to overwrite it?");
 
-		if (ImGui::Button("Overwrite"))
+		if (ImGui::Button(Naui::TR("menu.layout.popup.overwrite")))
 		{
 			Layout::Save(pendingOverrideName, true);
 			currentLayout = pendingOverrideName;
@@ -297,7 +297,7 @@ void MainMenuBar::RenderPopups()
 
 		ImGui::SameLine();
 
-		if (ImGui::Button("Cancel"))
+		if (ImGui::Button(Naui::TR("menu.layout.popup.cancel")))
 			ImGui::CloseCurrentPopup();
 
 		ImGui::EndPopup();

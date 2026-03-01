@@ -1,11 +1,12 @@
 #include "MidiEditor.h"
 #include "../Core/ProjectState.h"
 #include "../Config/EditorConfig.h"
+#include "Naui/Localization/Localization.h"
 #include <algorithm>
 #include <cmath>
 #include <cfloat>
 
-MidiEditor::MidiEditor() : Naui::Panel("Midi Editor")
+MidiEditor::MidiEditor() : Naui::Panel(Naui::TR("midi_editor.title"))
 {
     m_zoom = m_config.defaultZoom;
     m_scrollX = 0.0f;

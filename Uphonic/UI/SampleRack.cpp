@@ -1,6 +1,7 @@
 #include "SampleRack.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
+#include "Naui/Localization/Localization.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
@@ -33,7 +34,7 @@ static ImVec4 SAMPLE_OUTLINE_COLOR	= ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
 static ImVec4 SAMPLE_OUTLINE_ACTIVE	= ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
 
 #pragma region Facade Functions
-SampleRack::SampleRack() : Naui::Panel("Sample Rack")
+SampleRack::SampleRack() : Naui::Panel(Naui::TR("sample_rack.title"))
 {
 	m_renamingIndex = -1;
 	memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
@@ -131,7 +132,7 @@ void SampleRack::OnRender()
 	ImU32 bg = ImGui::IsItemActive() ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonActive]) : ImGui::IsItemHovered() ? ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_ButtonHovered]) : ImGui::ColorConvertFloat4ToU32(style.Colors[ImGuiCol_Button]);
 	dl->AddRectFilled(bb.Min, bb.Max, bg, 4.0f);
 
-	const char* label = "Import";
+	const char* label = Naui::TR("sample_rack.import");
 	ImVec2 ts = ImGui::CalcTextSize(label);
 	float tx = bb.Min.x + (IMPORT_BUTTON_WIDTH - ts.x) * 0.5f;
 	float ty = bb.Min.y + (IMPORT_BUTTON_HEIGHT - ts.y) * 0.5f;
@@ -151,7 +152,7 @@ void SampleRack::OnRender()
 		ImVec2 avail = ImGui::GetContentRegionAvail();
 		ImGui::BeginChild("empty", avail, true);
 
-		const char* msg = "Drag & drop audio files here to import them into your project.";
+		const char* msg = Naui::TR("sample_rack.import_text");
 		float wrap = avail.x * 0.75f;
 
 		ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + wrap);
