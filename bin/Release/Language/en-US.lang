@@ -1,0 +1,13 @@
+{
+    "_meta": {
+        "language": "en",
+        "region": "US",
+        "direction": "ltr"
+    },
+
+    "menu.file": "File",
+    "menu.edit": "Edit",
+
+    "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",
+    "file.count": "$You have {0} files selected."
+}
