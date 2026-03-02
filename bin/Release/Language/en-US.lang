@@ -9,6 +9,9 @@
 	"mixer_rack.title": "Mixer Rack",
 	"song_timeline.title": "Song Timeline",
 	"recovery.title": "Recover Project",
+	"recovery.project_found": "An unsaved project was found. Would you like to restore or discard it?",
+	"recovery.restore": "Restore",
+	"recovery.discard": "Discard",
 
     "menu.file": "File",
 	"menu.file.new": "New Project",

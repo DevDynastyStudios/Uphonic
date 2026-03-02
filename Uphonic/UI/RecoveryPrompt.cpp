@@ -22,12 +22,12 @@ void RecoveryPrompt::OnRender()
 		return;
 	}
 
-	ImGui::TextWrapped("An unsaved project was found. Would you like to restore or discard it?");
+	ImGui::TextWrapped(Naui::TR("recovery.project_found"));
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
 
-	if (ImGui::Button("Restore", ImVec2(120, 0))) 
+	if (ImGui::Button(Naui::TR("recovery.restore"), ImVec2(120, 0)))
 	{
 		Recovery::Recover(recoverPath.value());
 		SetOpen(false);
@@ -35,7 +35,7 @@ void RecoveryPrompt::OnRender()
 
 	ImGui::SameLine();
 
-	if (ImGui::Button("Discard", ImVec2(120, 0))) 
+	if (ImGui::Button(Naui::TR("recovery.discard"), ImVec2(120, 0)))
 	{
 		Recovery::Discard(recoverPath.value());
 		SetOpen(false);

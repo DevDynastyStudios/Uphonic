@@ -29,8 +29,17 @@ private:
 	void OnEnter() override
 	{
 		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/.workspace", true);
-		Naui::Localization::SetLanguage("en-UK");	// (Chimpchi): This is temporary
+		Naui::Localization::SetLanguage("en-US");	// (Chimpchi): This is temporary
+
+		Naui::RegisterPanel<MidiEditor>();
+		Naui::RegisterPanel<PatternRack>();
+		Naui::RegisterPanel<SampleRack>();
+		Naui::RegisterPanel<SongTimeline>();
+		Naui::RegisterPanel<MixerRack>();
+		Naui::RegisterPanel<RecoveryPrompt>();
+
 		Layout::LoadDefault();
+
 		ProjectState& state = ProjectState::GetInstance();
 		state.mainWindow = GetPlatformWindow();
 		
@@ -40,13 +49,6 @@ private:
 		{
 			std::cerr << "Failed to initialize audio engine\n";
 		}
-		
-		Naui::AddPanel<MidiEditor>();
-		Naui::AddPanel<PatternRack>();
-		Naui::AddPanel<SampleRack>();
-		Naui::AddPanel<SongTimeline>();
-		Naui::AddPanel<MixerRack>();
-		Naui::AddPanel<RecoveryPrompt>();
 
 		ProjectManager::NewProject(true);
 	}
