@@ -1,6 +1,6 @@
 #include "ProjectManager.h"
-#include "ProjectSerializer.h"
 #include "Recovery.h"
+#include "Serializer/ProjectSerializer.h"
 #include "Audio/AudioEngine.h"
 #include "Naui/Platform/Window.h"
 #include "Naui/FileSystem/File.h"
@@ -9,6 +9,8 @@
 #include "UI/RecoveryPrompt.h"
 #include "UI/SongTimeline.h"
 #include <iostream>
+
+#define UPH_EXTENSION ".uph"
 
 void ProjectManager::NewProject(bool initialLoad)
 {
@@ -68,7 +70,7 @@ bool ProjectManager::Save()
 	if(state.settings.saveToPath.has_value())
 		return SaveProject(state.settings.saveToPath.value());
 
-	FileDialog::SaveFile("save_project", "Save Project", ".uph");
+	FileDialog::SaveFile("save_project", "Save Project", UPH_EXTENSION);
 	return true;	// Technically misleading if the dialog cancels mid-way through
 }
 
@@ -82,8 +84,8 @@ bool ProjectManager::SaveProject(std::filesystem::path path)
 
 	std::string fileName = path.stem().string();
 	std::string extension = path.extension().string();
-	if(extension != ".uph")
-		extension = ".uph";
+	if(extension != UPH_EXTENSION)
+		extension = UPH_EXTENSION;
 
 	std::filesystem::path saveToPath = path.parent_path() / (fileName + extension);
 	

@@ -1,5 +1,4 @@
 #pragma once
-#include <nlohmann/json.hpp>
 #include <filesystem>
 
 class ProjectState;
@@ -8,9 +7,6 @@ struct AudioTrack;
 class ProjectSerializer
 {
 public:
-	static bool Save(const std::filesystem::path& projectPath, bool overwrite = false);
-	static bool Load(ProjectState& state, const std::filesystem::path& projectPath);
-
 	static bool SaveProject(const ProjectState& state, const std::filesystem::path& projectPath);
 	static bool SaveSettings(const ProjectState& state, const std::filesystem::path& projectPath);
 	
@@ -34,10 +30,4 @@ public:
 	static bool LoadTrackMetadata(AudioTrack& track, const std::filesystem::path& trackDir);
 	static bool LoadTrackBlocks(AudioTrack& track, const std::filesystem::path& trackDir);
 	static bool LoadTrackAutomation(AudioTrack& state, const std::filesystem::path& projectPath);
-
-private:
-	static void SerializeToJson(const ProjectState& state, nlohmann::json& json, const std::filesystem::path& projectDir);
-	static void DeserializeFromJson(ProjectState& state, const nlohmann::json& json, const std::filesystem::path& projectDir);
-
-	static void DeserializeSamplesFromJson(ProjectState& state, const nlohmann::json& json, const std::filesystem::path& projectDir);
 };

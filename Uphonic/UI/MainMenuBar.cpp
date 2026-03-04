@@ -2,12 +2,13 @@
 #include "Naui.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
+#include "Layout.h"
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Core/Defer.h"
 #include "Audio/AudioEngine.h"
 #include "UI/SongTimeline.h"
-#include "Layout.h"
+#include "Actions/Project/SaveProjectAction.h"
 
 static char newLayoutName[64] = {};
 static bool popupFocusRequest = false;
@@ -32,7 +33,7 @@ void MainMenuBar::FileMenu()
 	ImGui::Separator();
 
 	if(ImGui::MenuItem(Naui::TR("menu.file.save")))
-		ProjectManager::Save();
+		ProjectState::GetInstance().actionManager.ExecuteWithoutHistory<SaveProjectAction>(ProjectState::GetInstance());
 
 	if(ImGui::MenuItem(Naui::TR("menu.file.save_as")))
 		FileDialog::SaveFile("save_project", "Save Project", ".uph");

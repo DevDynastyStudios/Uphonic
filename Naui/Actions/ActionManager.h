@@ -41,6 +41,23 @@ public:
 		EnforceHistoryLimit();
 	}
 
+	template<typename T, typename... Args>
+	void ExecuteWithoutHistory(Args&&... args)
+	{
+		IAction* action = new T(std::forward<Args>(args)...);
+		action->Do();
+		delete action;
+	}
+
+	void ExecuteWithoutHistory(IAction* action)
+	{
+		if(!action)
+			return;
+
+		action->Do();
+		delete action;
+	}
+
 	void Undo()
 	{
 		if (undoStack.empty())
@@ -78,6 +95,14 @@ public:
 
 		undoStack.clear();
 		redoStack.clear();
+	}
+
+	void ClearHistory()
+	{
+		for (auto* a : undoStack)
+			delete a;
+
+		undoStack.clear();
 	}
 
 	void SetHistoryLimit(int limit)

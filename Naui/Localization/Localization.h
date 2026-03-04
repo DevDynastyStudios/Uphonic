@@ -1,3 +1,5 @@
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #pragma once
 #include "Base.h"
 #include <string>
@@ -48,3 +50,4 @@ inline std::string TR(const char* key, std::vector<std::string> args)
 }
 
 }
+#pragma warning(pop)

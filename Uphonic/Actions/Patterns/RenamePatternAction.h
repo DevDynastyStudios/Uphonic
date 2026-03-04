@@ -2,7 +2,7 @@
 #include "Naui/Actions/IAction.h"
 #include <string>
 
-class MidiPattern;
+struct MidiPattern;
 
 class RenamePatternAction : public Naui::IAction
 {

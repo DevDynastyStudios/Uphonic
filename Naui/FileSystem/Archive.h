@@ -1,3 +1,5 @@
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #pragma once
 
 #include "Base.h"
@@ -45,3 +47,4 @@ private:
 };
 
 }
+#pragma warning(pop)
