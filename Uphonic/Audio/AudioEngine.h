@@ -16,21 +16,27 @@ struct AudioEngineData
     std::vector<float> pluginInputStorage;
     std::vector<float> pluginOutputStorage;
     std::vector<float> trackBufferStorage;
-    ma_uint32          scratchFrameCapacity = 0;
+    ma_uint32 scratchFrameCapacity = 0;
+};
+
+struct AudioContext
+{
+	const AudioConfig* config;
+	AudioSettings* settings;
 };
 
 class AudioEngine
 {
 public:
-    static bool Initialize(const AudioConfig& config);
+    static bool Initialize(const AudioContext& ctx);
     static void Shutdown();
     static void StopAllNotes();
     static AudioSample& AddSample(const char* filepath, ProjectState& state = ProjectState::GetInstance());
     static bool LoadSample(const char* filepath, AudioSample &sample);
     static void UnloadSample(AudioSample& sample);
     static bool ExportToWav(const char* filepath, double startBeat, double endBeat);
-    static AudioConfig& GetConfig() { return s_config; }
-    static void SetConfig(const AudioConfig& config) { s_config = config; }
+    static AudioContext& GetContext() { return s_context; }
+    static void SetConfig(const AudioContext& ctx) { s_context = ctx; }
 
 private:
     static void AudioCallback(ma_device* device, void* output, const void* input, ma_uint32 frameCount);
@@ -44,6 +50,6 @@ private:
 
 private:
     static AudioEngineData s_data;
-    static AudioConfig s_config;
+    static AudioContext s_context;
 };
 

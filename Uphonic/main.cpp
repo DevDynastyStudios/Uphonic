@@ -6,6 +6,7 @@
 #include "Audio/AudioEngine.h"
 #include "Plugin/PluginManager.h"
 #include "Config/EditorConfig.h"
+#include "Serializer/EditorSerializer.h"
 
 #include "UI/Layout.h"
 #include "UI/MainMenuBar.h"
@@ -16,7 +17,7 @@
 #include "UI/MixerRack.h"
 #include "UI/RecoveryPrompt.h"
 #include "UI/FileExplorer.h"
-
+#include "UI/Settings/SettingsPanel.h"
 
 #include <cstdio>
 #include <iostream>
@@ -29,27 +30,40 @@ private:
 	void OnEnter() override
 	{
 		Naui::Directory::SetWorkspaceDirectory(Naui::Directory::AppDataDirectory() / "Uphonic/.workspace", true);
-		Naui::Localization::SetLanguage("en-US");	// (Chimpchi): This is temporary
 
 		Naui::RegisterPanel<MidiEditor>();
 		Naui::RegisterPanel<PatternRack>();
 		Naui::RegisterPanel<SampleRack>();
 		Naui::RegisterPanel<SongTimeline>();
 		Naui::RegisterPanel<MixerRack>();
-		Naui::RegisterPanel<RecoveryPrompt>();
 
-		Layout::LoadDefault();
+		Naui::RegisterModal<RecoveryPrompt>();
+		Naui::RegisterModal<SettingsPanel>();
 
 		ProjectState& state = ProjectState::GetInstance();
+		EditorSerializer::LoadSettings(state);
+		std::string language = state.settings.generalSettings.languageCode + "-" + state.settings.generalSettings.regionCode;
+		Naui::Localization::SetLanguage(language);
+
+		if(state.settings.generalSettings.theme.empty())
+			Layout::LoadDefault();
+		else
+			Layout::Load(state.settings.generalSettings.theme);
+
 		state.mainWindow = GetPlatformWindow();
 		
-		AudioConfig audioConfig;
-		audioConfig.sampleRate = state.settings.audioSampleRate;
-		if (!AudioEngine::Initialize(audioConfig))
+		AudioContext audioCtx 
+		{
+			.config = &state.settings.config,
+			.settings = &state.settings.audioSettings
+		};
+
+		if (!AudioEngine::Initialize(audioCtx))
 		{
 			std::cerr << "Failed to initialize audio engine\n";
 		}
 
+		Naui::SetModalOverlayAlpha(0.0f);
 		ProjectManager::NewProject(true);
 	}
 	

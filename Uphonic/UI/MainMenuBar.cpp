@@ -7,8 +7,9 @@
 #include "Core/ProjectManager.h"
 #include "Core/Defer.h"
 #include "Audio/AudioEngine.h"
-#include "UI/SongTimeline.h"
 #include "Actions/Project/SaveProjectAction.h"
+#include "UI/SongTimeline.h"
+#include "UI/Settings/SettingsPanel.h"
 
 static char newLayoutName[64] = {};
 static bool popupFocusRequest = false;
@@ -99,17 +100,10 @@ void MainMenuBar::EditMenu()
 	ImGui::MenuItem(Naui::TR("menu.edit.copy"), nullptr, nullptr, false);
 	ImGui::MenuItem(Naui::TR("menu.edit.paste"), nullptr, nullptr, false);
 
-	ImGui::EndMenu();
-}
-
-void MainMenuBar::OptionsMenu()		// (Chimpchi): Old abandoned code. Should probably do something with this.
-{
-	if (!ImGui::BeginMenu("Options"))
-		return;
-
-	ImGui::MenuItem("MIDI Settings");
-	ImGui::MenuItem("Audio Settings");
-	ImGui::MenuItem("General Settings");
+	if(ImGui::MenuItem(Naui::TR("menu.edit.settings")))
+	{
+		Naui::TriggerModal<SettingsPanel>();
+	}
 
 	ImGui::EndMenu();
 }

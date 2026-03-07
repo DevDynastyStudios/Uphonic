@@ -66,10 +66,11 @@ static bool ToggleButton(const char* id, bool* v, const char* label)
 
 SongTimeline::SongTimeline() : Naui::Panel(Naui::TR("song_timeline.title"))
 {
-	m_zoom = m_config.defaultZoom;
+	ProjectState& state = ProjectState::GetInstance();
+	m_zoom = state.settings.generalSettings.defaultHorizontalZoom;
 	m_scrollX = 0.0f;
 	m_scrollY = 0.0f;
-	m_snap = m_config.defaultSnap;
+	m_snap = state.settings.generalSettings.defaultSnap;
 	m_currentTool = Tool::Select;
 	m_selection.isDragging = false;
 	m_selection.isResizing = false;
@@ -159,10 +160,10 @@ void SongTimeline::EnsureUIStates()
 	ProjectState& state = ProjectState::GetInstance();
 	while (m_trackUIStates.size() < state.tracks.size())
 	{
-		TrackUIState state;
-		state.height = m_config.defaultTrackHeight;
-		state.collapsed = false;
-		m_trackUIStates.push_back(state);
+		TrackUIState trackState;
+		trackState.height = state.settings.timelineSettings.defaultTrackHeight;
+		trackState.collapsed = false;
+		m_trackUIStates.push_back(trackState);
 	}
 }
 
@@ -199,7 +200,7 @@ void SongTimeline::RenderToolbar()
 					continue;
 				const AudioSample& sample = state.samples[block.sampleBlock.sampleIndex];
 				const double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-				const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
+				const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSettings.sampleRate;
 				const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 				const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;
 				block.sampleBlock.lengthBeats = std::min<double>(block.sampleBlock.lengthBeats, availableDuration);
@@ -266,35 +267,36 @@ void SongTimeline::RenderToolbar()
 	}
 
 	ImGui::SameLine();
-	std::string playheadText = m_config.followPlayhead ? "Unfollow Playhead" : "Follow Playhead";
-	ToggleButton("playhead_toggle", &m_config.followPlayhead, "Follow Playhead");
+	std::string playheadText = state.settings.generalSettings.followPlayhead ? "Unfollow Playhead" : "Follow Playhead";
+	ToggleButton("playhead_toggle", &state.settings.generalSettings.followPlayhead, "Follow Playhead");
 }
 
 void SongTimeline::RenderTimeline()
 {
+	ProjectState& state = ProjectState::GetInstance();
 	EnsureUIStates();
 	
 	ImDrawList* draw = ImGui::GetWindowDrawList();
 	ImVec2 canvasPos = ImGui::GetCursorScreenPos();
 	ImVec2 canvasSize = ImGui::GetContentRegionAvail();
 	
-	float beatWidth = m_config.defaultBeatWidth * m_zoom;
+	float beatWidth = state.settings.timelineSettings.defaultBeatWidth * m_zoom;
 	
 	if (ImGui::IsWindowHovered())
 	{
 		float wheel = ImGui::GetIO().MouseWheel;
 		if (ImGui::GetIO().KeyCtrl)
 		{
-			m_zoom += wheel * m_config.zoomSensitivity;
+			m_zoom += wheel * state.settings.generalSettings.horizontalZoomSensitivity;
 			m_zoom = std::clamp(m_zoom, m_config.minZoom, m_config.maxZoom);
 		}
 		else if (ImGui::GetIO().KeyShift)
 		{
-			m_scrollX -= wheel * m_config.scrollSensitivity;
+			m_scrollX -= wheel * state.settings.generalSettings.horizontalScrollSensitivity;
 		}
 		else
 		{
-			m_scrollY -= wheel * m_config.verticalScrollSensitivity;
+			m_scrollY -= wheel * state.settings.generalSettings.verticalScrollSensitivity;
 		}
 		m_scrollX = std::max<float>(0.0f, m_scrollX);
 		m_scrollY = std::max<float>(0.0f, m_scrollY);
@@ -314,7 +316,6 @@ void SongTimeline::RenderTimeline()
 
 	float timelineStartY = canvasPos.y;
 	float currentY = timelineStartY - m_scrollY + m_config.rulerHeight;
-	ProjectState& state = ProjectState::GetInstance();
 	for (size_t i = 0; i < state.tracks.size(); i++)
 	{
 		if (currentY > canvasPos.y + canvasSize.y) break;
@@ -330,7 +331,7 @@ void SongTimeline::RenderTimeline()
 
 	ImGui::PopClipRect();
 
-	ImGui::PushClipRect(ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
+	ImGui::PushClipRect(ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, canvasPos.y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y), true);
 	RenderRuler(draw, canvasPos, canvasSize, beatWidth);
 	RenderPlayhead(draw, canvasPos, canvasSize, beatWidth);
 	ImGui::PopClipRect();
@@ -348,11 +349,12 @@ void SongTimeline::RenderTimeline()
 
 void SongTimeline::RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth)
 {
-	float rulerStartX = canvasPos.x + m_config.trackHeaderWidth;
-	float rulerWidth = canvasSize.x - m_config.trackHeaderWidth;
+	ProjectState& state = ProjectState::GetInstance();
+	float rulerStartX = canvasPos.x + state.settings.timelineSettings.trackHeaderWidth;
+	float rulerWidth = canvasSize.x - state.settings.timelineSettings.trackHeaderWidth;
 	
 	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight), IM_COL32(35, 35, 38, 255));
-	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y), ImVec2(canvasPos.x + m_config.trackHeaderWidth, canvasPos.y + m_config.rulerHeight), IM_COL32(30, 30, 33, 255));
+	draw->AddRectFilled(ImVec2(canvasPos.x, canvasPos.y), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, canvasPos.y + m_config.rulerHeight), IM_COL32(30, 30, 33, 255));
 	draw->AddLine(ImVec2(canvasPos.x, canvasPos.y + m_config.rulerHeight), ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + m_config.rulerHeight), IM_COL32(60, 60, 65, 255), 1.0f);
 	
 	int visibleBeats = (int)((rulerWidth + m_scrollX) / beatWidth) + 2;
@@ -384,15 +386,15 @@ void SongTimeline::RenderRuler(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 void SongTimeline::RenderPlayhead(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	float leftEdge  = canvasPos.x + m_config.trackHeaderWidth;
+	float leftEdge  = canvasPos.x + state.settings.timelineSettings.trackHeaderWidth;
 	float rightEdge = leftEdge + canvasSize.x;
-	float playheadX = leftEdge + state.timelinePositionBeats * beatWidth - m_scrollX;
+	float playheadX = leftEdge + (float)state.timelinePositionBeats * beatWidth - m_scrollX;
 	bool playheadVisible = (playheadX >= leftEdge && playheadX <= rightEdge);
 
-	if (state.isPlaying && m_config.followPlayhead)
+	if (state.isPlaying && state.settings.generalSettings.followPlayhead)
 	{
-	    float lockPosX = leftEdge + canvasSize.x * m_config.playheadLockPosition;
-	    float desiredScroll = (state.timelinePositionBeats * beatWidth) - (lockPosX - leftEdge);
+	    float lockPosX = leftEdge + canvasSize.x * state.settings.generalSettings.playheadLockPosition;
+	    float desiredScroll = ((float)state.timelinePositionBeats * beatWidth) - (lockPosX - leftEdge);
 	    float speed = 0.15f;
 	    m_scrollX = m_scrollX + (desiredScroll - m_scrollX) * speed;
 	}
@@ -412,13 +414,13 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack& track = state.tracks[trackIndex];
 	TrackUIState& ui = m_trackUIStates[trackIndex];
-	float trackStartX = canvasPos.x + m_config.trackHeaderWidth;
+	float trackStartX = canvasPos.x + state.settings.timelineSettings.trackHeaderWidth;
 	
 	ImU32 laneColor = (trackIndex % 2 == 0) ? IM_COL32(28, 28, 31, 255) : IM_COL32(25, 25, 28, 255);
 	draw->AddRectFilled(ImVec2(trackStartX, yPos), ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height), laneColor);
 	draw->AddLine(ImVec2(trackStartX, yPos + ui.height), ImVec2(canvasPos.x + canvasSize.x, yPos + ui.height), IM_COL32(40, 40, 45, 255), 1.0f);
 	
-	int visibleBeats = (int)((canvasSize.x - m_config.trackHeaderWidth + m_scrollX) / beatWidth) + 2;
+	int visibleBeats = (int)((canvasSize.x - state.settings.timelineSettings.trackHeaderWidth + m_scrollX) / beatWidth) + 2;
 	int startBeat = (int)(m_scrollX / beatWidth);
 	
 	for (int i = 0; i < visibleBeats; i++)
@@ -450,7 +452,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 	if (ImGui::GetDragDropPayload())
 	{
 		ImGui::SetCursorScreenPos(ImVec2(trackStartX, yPos));
-		ImGui::InvisibleButton(("##track_drop_" + std::to_string(trackIndex)).c_str(), ImVec2(canvasSize.x - m_config.trackHeaderWidth, ui.height));
+		ImGui::InvisibleButton(("##track_drop_" + std::to_string(trackIndex)).c_str(), ImVec2(canvasSize.x - state.settings.timelineSettings.trackHeaderWidth, ui.height));
 
 		if (ImGui::BeginDragDropTarget())
 		{
@@ -471,7 +473,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 						
 						const AudioSample& sample = state.samples[sampleIdx];
 						double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-						double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
+						double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSettings.sampleRate;
 						instance.sampleBlock.lengthBeats = sampleDurationSeconds / secondsPerBeat;
 						
 						instance.sampleBlock.startOffsetBeats = 0.0;
@@ -498,7 +500,7 @@ void SongTimeline::RenderTrack(ImDrawList* draw, ImVec2 canvasPos, ImVec2 canvas
 						TimelineBlock instance;
 						instance.midiBlock.startBeat = snappedStart;
 
-						instance.midiBlock.lengthBeats = m_config.defaultInstanceLength;
+						instance.midiBlock.lengthBeats = state.settings.timelineSettings.defaultInstanceLength;
 						instance.midiBlock.startOffsetBeats = 0.0;
 						instance.midiBlock.patternIndex = patternIdx;
 
@@ -521,14 +523,14 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 	TrackUIState& ui = m_trackUIStates[trackIndex];
 	AudioTrack& track = state.tracks[trackIndex];
 	
-	draw->AddRectFilled(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height), IM_COL32(35, 35, 38, 255));
-	draw->AddLine(ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height), IM_COL32(50, 50, 55, 255), 2.0f);
+	draw->AddRectFilled(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos + ui.height), IM_COL32(35, 35, 38, 255));
+	draw->AddLine(ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos + ui.height), IM_COL32(50, 50, 55, 255), 2.0f);
 	
 	ImU32 trackCol = ImGui::ColorConvertFloat4ToU32(track.color);
 	draw->AddRectFilled(ImVec2(canvasPos.x + 5, yPos + 8), ImVec2(canvasPos.x + 10, yPos + ui.height - 8), trackCol);
 	
 	ImGui::PushID((int)trackIndex);
-	if (ImGui::IsMouseHoveringRect(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + m_config.trackHeaderWidth, yPos + ui.height)))
+	if (ImGui::IsMouseHoveringRect(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos + ui.height)))
 	{
 		if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
 			ImGui::OpenPopup("TrackContextMenu");
@@ -656,7 +658,7 @@ void SongTimeline::RenderTrackContextMenu(size_t trackIndex)
 		if (ImGui::BeginMenu("Load Instrument"))
 		{
 			int pluginId = 0;
-			for (const auto& path : state.settings.pluginSearchPaths)
+			for (const auto& path : state.settings.pluginSettings.pluginPaths)
 			{
 				if (!std::filesystem::exists(path)) continue;
 				
@@ -896,7 +898,7 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 		if (sample.frameData && sample.frameCount > 0)
 		{
 			const float secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
+			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSettings.sampleRate;
 			const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 			
 			const double startOffsetBeats = instance.sampleBlock.startOffsetBeats;
@@ -905,8 +907,8 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 			const double startOffsetSeconds = startOffsetBeats * secondsPerBeat / instance.sampleBlock.stretchScale;
 			const double visibleDurationSeconds = visibleDurationBeats * secondsPerBeat / instance.sampleBlock.stretchScale;
 			
-			const uint64_t startFrame = (uint64_t)(startOffsetSeconds * state.settings.audioSampleRate);
-			const uint64_t endFrame = std::min<uint64_t>((uint64_t)((startOffsetSeconds + visibleDurationSeconds) * state.settings.audioSampleRate), sample.frameCount);
+			const uint64_t startFrame = (uint64_t)(startOffsetSeconds * state.settings.audioSettings.sampleRate);
+			const uint64_t endFrame = std::min<uint64_t>((uint64_t)((startOffsetSeconds + visibleDurationSeconds) * state.settings.audioSettings.sampleRate), sample.frameCount);
 			
 			if (startFrame < sample.frameCount && endFrame > startFrame)
 			{
@@ -1043,8 +1045,9 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 
 void SongTimeline::HandleInput(ImVec2 canvasPos, ImVec2 canvasSize, float beatWidth)
 {
+	ProjectState& state = ProjectState::GetInstance();
 	ImVec2 mousePos = ImGui::GetMousePos();
-	float trackStartX = canvasPos.x + m_config.trackHeaderWidth;
+	float trackStartX = canvasPos.x + state.settings.timelineSettings.trackHeaderWidth;
 	float timelineStartY = canvasPos.y + m_config.rulerHeight;
 	
 	if (ImGui::IsMouseReleased(0))
@@ -1102,12 +1105,13 @@ void SongTimeline::ResetDragState()
 
 bool SongTimeline::HandleRulerClick(ImVec2 mousePos, ImVec2 canvasPos, ImVec2 canvasSize, float trackStartX, float beatWidth, bool& isScrubbing)
 {
+	ProjectState& state = ProjectState::GetInstance();
 	bool inRuler = mousePos.y >= canvasPos.y && mousePos.y < canvasPos.y + m_config.rulerHeight && mousePos.x >= trackStartX;
 	if (ImGui::IsMouseClicked(0) && inRuler && ImGui::IsWindowHovered())
 	{
 		float visibleWidth = canvasSize.x;
         float relativeX = mousePos.x - trackStartX;
-        m_config.playheadLockPosition = std::clamp(relativeX / visibleWidth, 0.0f, 1.0f);
+        state.settings.generalSettings.playheadLockPosition = std::clamp(relativeX / visibleWidth, 0.0f, 1.0f);
 
 		isScrubbing = true;
 		ProjectState& state = ProjectState::GetInstance();
@@ -1417,7 +1421,7 @@ void SongTimeline::HandleRightResize(double beatPos)
 		{
 			const AudioSample& sample = state.samples[block.sampleBlock.sampleIndex];
 			const double secondsPerBeat = SECONDS_PER_MINUTE / state.beatsPerMinute;
-			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSampleRate;
+			const double sampleDurationSeconds = (double)sample.frameCount / state.settings.audioSettings.sampleRate;
 			const double sampleDurationBeats = sampleDurationSeconds / secondsPerBeat;
 			
 			const double availableDuration = (sampleDurationBeats - block.sampleBlock.startOffsetBeats) * block.sampleBlock.stretchScale;
@@ -1696,7 +1700,7 @@ void SongTimeline::CreateInstance(int trackIdx, double beatPos)
 	{
 		TimelineBlock instance;
 		instance.midiBlock.startBeat = snappedStart;
-		instance.midiBlock.lengthBeats = m_config.defaultInstanceLength;
+		instance.midiBlock.lengthBeats = state.settings.timelineSettings.defaultInstanceLength;
 		instance.midiBlock.startOffsetBeats = 0.0;
 		instance.midiBlock.patternIndex = state.currentMidiPatternIndex;
 		track.blocks.push_back(instance);
@@ -1705,7 +1709,7 @@ void SongTimeline::CreateInstance(int trackIdx, double beatPos)
 	{
 		TimelineBlock instance;
 		instance.sampleBlock.startBeat = snappedStart;
-		instance.sampleBlock.lengthBeats = m_config.defaultInstanceLength;
+		instance.sampleBlock.lengthBeats = state.settings.timelineSettings.defaultInstanceLength;
 		instance.sampleBlock.startOffsetBeats = 0.0;
 		instance.sampleBlock.stretchScale = 1.0;
 		instance.sampleBlock.sampleIndex = 0;

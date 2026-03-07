@@ -8,12 +8,13 @@
 
 MidiEditor::MidiEditor() : Naui::Panel(Naui::TR("midi_editor.title"))
 {
-    m_zoom = m_config.defaultZoom;
+	ProjectState& state = ProjectState::GetInstance();
+    m_zoom = state.settings.generalSettings.defaultHorizontalZoom;
     m_scrollX = 0.0f;
     m_scrollY = m_config.pianoWidth;
     m_snap = m_config.defaultSnap;
-    m_verticalZoom = m_config.defaultVerticalZoom;
-    m_lastNoteLength = m_config.defaultNoteLength;
+    m_verticalZoom = state.settings.generalSettings.defaultVerticalZoom;
+    m_lastNoteLength = state.settings.midiSettings.defaultNoteLength;
     m_currentTool = Tool::Draw;
     m_selection.isDragging = false;
     m_selection.isResizing = false;
@@ -97,33 +98,34 @@ void MidiEditor::RenderToolbar()
 
 void MidiEditor::RenderPianoRoll()
 {
+	ProjectState& state = ProjectState::GetInstance();
     ImDrawList* draw = ImGui::GetWindowDrawList();
     ImVec2 canvasPos = ImGui::GetCursorScreenPos();
     ImVec2 canvasSize = ImGui::GetContentRegionAvail();
     
-    float beatWidth = m_config.defaultBeatWidth * m_zoom;
-    float noteHeight = m_config.defaultNoteHeight * m_verticalZoom;
+    float beatWidth = state.settings.midiSettings.defaultBeatWidth * m_zoom;
+    float noteHeight = state.settings.midiSettings.defaultBeatHeight * m_verticalZoom;
     
     if (ImGui::IsWindowHovered())
     {
         float wheel = ImGui::GetIO().MouseWheel;
         if (ImGui::GetIO().KeyCtrl && ImGui::IsMouseDown(ImGuiMouseButton_Middle))
         {
-            m_verticalZoom += wheel * m_config.verticalZoomSensitivity;
+            m_verticalZoom += wheel * state.settings.generalSettings.verticalZoomSensitivity;
             m_verticalZoom = std::clamp(m_verticalZoom, m_config.minVerticalZoom, m_config.maxVerticalZoom);
         }
         else if (ImGui::GetIO().KeyCtrl)
         {
-            m_zoom += wheel * m_config.zoomSensitivity;
+            m_zoom += wheel * state.settings.generalSettings.horizontalZoomSensitivity;
             m_zoom = std::clamp(m_zoom, m_config.minZoom, m_config.maxZoom);
         }
         else if (ImGui::GetIO().KeyShift)
         {
-            m_scrollX -= wheel * m_config.scrollSensitivity;
+            m_scrollX -= wheel * state.settings.generalSettings.horizontalScrollSensitivity;
         }
         else
         {
-            m_scrollY -= wheel * m_config.verticalScrollSensitivity;
+            m_scrollY -= wheel * state.settings.generalSettings.verticalScrollSensitivity;
         }
         m_scrollY = std::clamp(m_scrollY, 0.0f, (float)(m_config.totalKeys - 20));
     }

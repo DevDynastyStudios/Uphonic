@@ -9,9 +9,11 @@ namespace Naui
 class NAUI_API Theme
 {
 public:
-    static void Load(const char* path);
-    static void LoadDefault(void);
-    static ImColor GetColor(const char* name);
+	static void Load(const char* path);
+	static void LoadDefault(void);
+	static ImColor GetColor(const char* name);
+	static ImVec2 GetVec2(const char* name);
+	static float GetFloat(const char* name);
 };
 
 };

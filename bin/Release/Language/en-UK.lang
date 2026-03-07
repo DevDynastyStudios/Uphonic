@@ -2,7 +2,8 @@
     "_meta": {
         "language": "en",
         "region": "GB",
-        "direction": "ltr"
+        "direction": "ltr",
+		"name": "English (United Kindom)"
     },
 
 	"midi_editor.title": "MIDI Editor, innit",

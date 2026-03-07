@@ -1,9 +1,9 @@
 #pragma once
-#include "DataModel/Tracks.h"
-#include "Config/SettingsConfig.h"
 #include "Naui/Actions/ActionManager.h"
-#include "DataModel/Samples.h"
-#include "DataModel/Patterns.h"
+#include "Models/EditorModel/ApplicationSettings.h"
+#include "Models/DataModel/Tracks.h"
+#include "Models/DataModel/Samples.h"
+#include "Models/DataModel/Patterns.h"
 
 namespace Naui { class PlatformWindow; }
 

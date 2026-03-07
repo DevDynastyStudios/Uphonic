@@ -5,12 +5,19 @@
 #include <string>
 #include <unordered_map>
 #include <span>
+#include <vector>
 
 namespace Naui
 {
 enum class TextDirection
 {
 	LTR, RTL
+};
+
+struct LanguageEntry
+{
+	std::string code;
+	std::string displayName;
 };
 
 class NAUI_API Localization
@@ -24,8 +31,15 @@ public:
 	static TextDirection Direction();
 	static const std::string& LanguageCode();
 	static const std::string& RegionCode();
+	static const std::string& CurrentLanguage();
+
+	// Returns all available language entries found in the Language directory.
+	// Cached on every SetLanguage call.
+	static const std::vector<LanguageEntry>& GetLanguages();
 
 private:
+	static void ScanLanguages();
+
 	struct Entry
 	{
 		std::string text;
@@ -37,6 +51,7 @@ private:
 	static std::string languageCode;
 	static std::string regionCode;
 	static std::string currentLanguage;
+	static std::vector<LanguageEntry> languages;
 };
 
 inline const char* TR(const char* key)

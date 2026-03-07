@@ -8,7 +8,7 @@
 #include <vector>
 
 AudioEngineData AudioEngine::s_data = {};
-AudioConfig AudioEngine::s_config;
+AudioContext AudioEngine::s_context;
 
 static constexpr float PI_HALF = 1.5707963267948966f;
 static constexpr float SECONDS_PER_MINUTE = 60.0f;
@@ -42,22 +42,22 @@ void AudioEngine::UpdatePeaks(float& peakLeft, float& peakRight, float newLeft, 
 	newLeft = std::abs(newLeft);
 	newRight = std::abs(newRight);
 	
-	peakLeft = std::max<float>(newLeft, peakLeft * s_config.peakDecayRate);
-	peakRight = std::max<float>(newRight, peakRight * s_config.peakDecayRate);
+	peakLeft = std::max<float>(newLeft, peakLeft * s_context.config->peakDecayRate);
+	peakRight = std::max<float>(newRight, peakRight * s_context.config->peakDecayRate);
 }
 
-bool AudioEngine::Initialize(const AudioConfig& config)
+bool AudioEngine::Initialize(const AudioContext& ctx)
 {
-	s_config = config;
+	s_context = ctx;
 	
 	ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
 	deviceConfig.playback.format    = ma_format_f32;
-	deviceConfig.playback.channels  = s_config.channels;
-	deviceConfig.sampleRate         = s_config.sampleRate;
+	deviceConfig.playback.channels  = s_context.settings->channels;
+	deviceConfig.sampleRate         = s_context.settings->sampleRate;
 	deviceConfig.dataCallback       = AudioCallback;
 	// Request our preferred buffer size. miniaudio may grant a different size,
 	// so AudioCallback always uses the actual frameCount it receives.
-	deviceConfig.periodSizeInFrames = s_config.bufferSize;
+	deviceConfig.periodSizeInFrames = s_context.settings->bufferSize;
 	
 	if (ma_device_init(nullptr, &deviceConfig, &s_data.device) != MA_SUCCESS)
 	{
@@ -114,7 +114,7 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample& sample)
 	ma_decoder tempDecoder;
 	ma_decoder_config tempConfig = ma_decoder_config_init(ma_format_f32, 0, 0);
 	
-	ma_uint32 originalSampleRate = s_config.sampleRate;
+	ma_uint32 originalSampleRate = s_context.settings->sampleRate;
 	
 	if (ma_decoder_init_file(filepath, &tempConfig, &tempDecoder) == MA_SUCCESS)
 	{
@@ -127,7 +127,7 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample& sample)
 	ma_decoder_config decoderConfig = ma_decoder_config_init(
 		ma_format_f32,
 		0,
-		s_config.sampleRate
+		s_context.settings->sampleRate
 	);
 	
 	if (ma_decoder_init_file(filepath, &decoderConfig, &decoder) != MA_SUCCESS)
@@ -175,20 +175,20 @@ bool AudioEngine::LoadSample(const char* filepath, AudioSample& sample)
 	sample.frameCount         = framesRead;
 	sample.originalSampleRate = originalSampleRate;
 	
-	if (originalSampleRate != s_config.sampleRate)
+	if (originalSampleRate != s_context.settings->sampleRate)
 	{
 		std::cout << "Loaded sample: " << sample.name
 				  << " (" << framesRead << " frames, "
 				  << channels << " channels, "
 				  << originalSampleRate << " Hz → "
-				  << s_config.sampleRate << " Hz [resampled])\n";
+				  << s_context.settings->sampleRate << " Hz [resampled])\n";
 	}
 	else
 	{
 		std::cout << "Loaded sample: " << sample.name
 				  << " (" << framesRead << " frames, "
 				  << channels << " channels, "
-				  << s_config.sampleRate << " Hz)\n";
+				  << s_context.settings->sampleRate << " Hz)\n";
 	}
 	
 	return true;
@@ -207,7 +207,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 	
 	for (const TimelineBlock& block : track.blocks)
 	{
-		const double blockEnd = block.midiBlock.startBeat + block.midiBlock.lengthBeats - s_config.blockEndEpsilon;
+		const double blockEnd = block.midiBlock.startBeat + block.midiBlock.lengthBeats - s_context.config->blockEndEpsilon;
 		if (blockEnd < prevBeat || block.midiBlock.startBeat > newBeat)
 			continue;
 		
@@ -221,7 +221,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 		for (const MidiNote& note : pattern.notes)
 		{
 			const double noteStart        = block.midiBlock.startBeat + note.startBeat - block.midiBlock.startOffsetBeats;
-			const double noteEnd          = noteStart + note.lengthBeats - s_config.blockEndEpsilon;
+			const double noteEnd          = noteStart + note.lengthBeats - s_context.config->blockEndEpsilon;
 			const double effectiveNoteEnd = std::min<double>(noteEnd, blockEnd);
 			
 			const bool noteCutByOffset       = note.startBeat < block.midiBlock.startOffsetBeats;
@@ -229,7 +229,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 			
 			if (s_data.needsNoteRetrigger && noteStart < prevBeat && effectiveNoteEnd > prevBeat)
 			{
-				int32_t sampleOffset = s_config.midiKeyOffset - note.keyNumber;
+				int32_t sampleOffset = s_context.config->midiKeyOffset - note.keyNumber;
 				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
@@ -237,7 +237,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 			{
 				const double beatsFromBufferStart = block.midiBlock.startBeat - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
-				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
+				sampleOffset += s_context.config->midiKeyOffset - note.keyNumber;
 				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
@@ -245,7 +245,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 			{
 				const double beatsFromBufferStart = noteStart - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
-				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
+				sampleOffset += s_context.config->midiKeyOffset - note.keyNumber;
 				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->PlayNote(note.keyNumber, note.velocity, clampedOffset);
 			}
@@ -254,7 +254,7 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 			{
 				const double beatsFromBufferStart = effectiveNoteEnd - prevBeat;
 				int32_t sampleOffset = (int32_t)(beatsFromBufferStart / beatsPerFrame);
-				sampleOffset += s_config.midiKeyOffset - note.keyNumber;
+				sampleOffset += s_context.config->midiKeyOffset - note.keyNumber;
 				const int32_t clampedOffset = std::max<int32_t>(0, std::min<int32_t>((int32_t)frameCount - 1, sampleOffset));
 				track.instrument.plugin->StopNote(note.keyNumber, clampedOffset);
 			}
@@ -282,14 +282,14 @@ void AudioEngine::ProcessMidiTrack(AudioTrack& track, double prevBeat, double ne
 void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double newBeat, double beatsPerFrame, ma_uint32 frameCount, float* trackBuffer, float** inputs, float** outputs)
 {
 	ProjectState& state = ProjectState::GetInstance();
-	memset(trackBuffer, 0, frameCount * s_config.channels * sizeof(float));
+	memset(trackBuffer, 0, frameCount * s_context.settings->channels * sizeof(float));
 	
 	float leftGain, rightGain;
 	CalculatePanGains(track.pan, leftGain, rightGain);
 	
 	for (const TimelineBlock& block : track.blocks)
 	{
-		const double blockEnd = block.sampleBlock.startBeat + block.sampleBlock.lengthBeats - s_config.blockEndEpsilon;
+		const double blockEnd = block.sampleBlock.startBeat + block.sampleBlock.lengthBeats - s_context.config->blockEndEpsilon;
 		if (blockEnd <= prevBeat || block.sampleBlock.startBeat >= newBeat)
 			continue;
 		
@@ -311,7 +311,7 @@ void AudioEngine::ProcessSampleTrack(AudioTrack& track, double prevBeat, double 
 			const double beatInBlock    = currentBeat - block.sampleBlock.startBeat + block.sampleBlock.startOffsetBeats;
 			const double secondsInBlock = beatInBlock * secondsPerBeat;
 			const double sampleTime     = secondsInBlock / block.sampleBlock.stretchScale;
-			const double samplePos      = sampleTime * s_config.sampleRate;
+			const double samplePos      = sampleTime * s_context.settings->sampleRate;
 			
 			if (samplePos < 0 || samplePos >= sample.frameCount)
 				continue;
@@ -428,21 +428,21 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 {
 	ProjectState& state       = ProjectState::GetInstance();
 	float*        outputBuffer = (float*)output;
-	memset(output, 0, frameCount * s_config.channels * sizeof(float));
+	memset(output, 0, frameCount * s_context.settings->channels * sizeof(float));
 
 	const ma_uint32 requiredFrames = frameCount;
 	if (requiredFrames > s_data.scratchFrameCapacity)
 	{
 		s_data.pluginInputStorage .assign(MAX_PLUGIN_CHANNELS * requiredFrames, 0.0f);
 		s_data.pluginOutputStorage.assign(MAX_PLUGIN_CHANNELS * requiredFrames, 0.0f);
-		s_data.trackBufferStorage .assign(requiredFrames * s_config.channels,   0.0f);
+		s_data.trackBufferStorage .assign(requiredFrames * s_context.settings->channels,   0.0f);
 		s_data.scratchFrameCapacity = requiredFrames;
 	}
 	else
 	{
 		memset(s_data.pluginInputStorage .data(), 0, MAX_PLUGIN_CHANNELS * frameCount * sizeof(float));
 		memset(s_data.pluginOutputStorage.data(), 0, MAX_PLUGIN_CHANNELS * frameCount * sizeof(float));
-		memset(s_data.trackBufferStorage .data(), 0, frameCount * s_config.channels   * sizeof(float));
+		memset(s_data.trackBufferStorage .data(), 0, frameCount * s_context.settings->channels   * sizeof(float));
 	}
 
 	float* inputs [MAX_PLUGIN_CHANNELS];
@@ -566,7 +566,7 @@ void AudioEngine::AudioCallback(ma_device* device, void* output, const void* inp
 	
 	if (state.masterTrack.muted)
 	{
-		memset(outputBuffer, 0, frameCount * s_config.channels * sizeof(float));
+		memset(outputBuffer, 0, frameCount * s_context.settings->channels * sizeof(float));
 		return;
 	}
 
@@ -604,8 +604,8 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	const double durationBeats   = endBeat - startBeat;
 	const double durationSeconds = durationBeats * secondsPerBeat;
 	
-	const ma_uint32 sampleRate  = s_config.sampleRate;
-	const ma_uint32 channels    = s_config.channels;
+	const ma_uint32 sampleRate  = s_context.settings->sampleRate;
+	const ma_uint32 channels    = s_context.settings->channels;
 	const ma_uint64 totalFrames = (ma_uint64)(durationSeconds * sampleRate);
 	
 	std::cout << "Exporting " << durationBeats << " beats ("
@@ -632,7 +632,7 @@ bool AudioEngine::ExportToWav(const char* filepath, double startBeat, double end
 	s_data.needsNoteRetrigger = true;
 	s_data.trackActiveBlockState.clear();
 	
-	const ma_uint32        chunkSize = s_config.bufferSize;
+	const ma_uint32        chunkSize = s_context.settings->bufferSize;
 	std::vector<float>     buffer(chunkSize * channels, 0.0f);
 	
 	ma_uint64 framesProcessed = 0;

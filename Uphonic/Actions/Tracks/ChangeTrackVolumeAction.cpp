@@ -1,5 +1,5 @@
 #include "ChangeTrackVolumeAction.h"
-#include "DataModel/Tracks.h"
+#include "Models/DataModel/Tracks.h"
 
 ChangeTrackVolumeAction::ChangeTrackVolumeAction(AudioTrack& track, float newVolume) : track(track), newVolume(newVolume), oldVolume(track.volume) {}
 

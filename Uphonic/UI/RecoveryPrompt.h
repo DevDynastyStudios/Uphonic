@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <optional>
 
-class RecoveryPrompt : public Naui::Panel
+class RecoveryPrompt : public Naui::Modal
 {
 public:
 	RecoveryPrompt();
@@ -11,5 +11,4 @@ public:
 
 protected:
 	void OnRender() override;
-
 };

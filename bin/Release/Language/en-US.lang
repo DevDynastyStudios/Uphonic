@@ -2,7 +2,8 @@
     "_meta": {
         "language": "en",
         "region": "US",
-        "direction": "ltr"
+        "direction": "ltr",
+		"name": "English (United States)"
     },
 
 	"midi_editor.title": "MIDI Editor",
@@ -35,6 +36,7 @@
 	"menu.edit.cut": "Cut",
 	"menu.edit.copy": "Copy",
 	"menu.edit.paste": "Paste",
+	"menu.edit.settings": "Settings",
 
 	"menu.view": "View",
 	"menu.view.show": "Show All",
@@ -60,6 +62,8 @@
 	"sample_rack.title": "Sample Rack",
 	"sample_rack.import": "Import",
 	"sample_rack.import_text": "Drag & drop audio files here to import them into your project.",
+
+	"settings.title": "Settings",
 
     "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",
     "file.count": "$You have {0} files selected."

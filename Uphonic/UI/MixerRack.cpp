@@ -401,7 +401,7 @@ void MixerRack::RenderEffectsPanel()
 
 		int pluginId = 0;
 		
-		for (const auto& path : state.settings.pluginSearchPaths)
+		for (const auto& path : state.settings.pluginSettings.pluginPaths)
 		{
 			if (!std::filesystem::exists(path)) continue;
 			

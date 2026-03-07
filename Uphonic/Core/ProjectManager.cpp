@@ -1,6 +1,7 @@
 #include "ProjectManager.h"
 #include "Recovery.h"
 #include "Serializer/ProjectSerializer.h"
+#include "Serializer/EditorSerializer.h"
 #include "Audio/AudioEngine.h"
 #include "Naui/Platform/Window.h"
 #include "Naui/FileSystem/File.h"
@@ -67,8 +68,8 @@ bool ProjectManager::OpenProject(const std::filesystem::path& uphPath)
 bool ProjectManager::Save()
 {
 	ProjectState& state = ProjectState::GetInstance();
-	if(state.settings.saveToPath.has_value())
-		return SaveProject(state.settings.saveToPath.value());
+	if(std::filesystem::exists(state.settings.generalSettings.lastSaveDirectory))
+		return SaveProject(state.settings.generalSettings.lastSaveDirectory);
 
 	FileDialog::SaveFile("save_project", "Save Project", UPH_EXTENSION);
 	return true;	// Technically misleading if the dialog cancels mid-way through
@@ -91,7 +92,7 @@ bool ProjectManager::SaveProject(std::filesystem::path path)
 	
 	ProjectState& state = ProjectState::GetInstance();
 	state.settings.projectName = fileName;
-	state.settings.saveToPath = saveToPath;
+	state.settings.generalSettings.lastSaveDirectory = saveToPath.string();
 
 	std::filesystem::path workspace = Naui::Directory::WorkspaceDirectory();
 	std::filesystem::path projectFolder = workspace / state.settings.projectID.Str();
@@ -254,13 +255,9 @@ void ProjectManager::InitializeWorkspace(bool initialLoad, bool clearDir)
 	std::filesystem::path projectFolder = std::filesystem::weakly_canonical(workspace / state.settings.projectID.Str());
 	auto recoveredPath = Recovery::TryGetLastSession();
 
-	RecoveryPrompt* recover = Naui::GetPanelOfType<RecoveryPrompt>();	// (Chimpchi): This will change in the future, I plan to add Modal's to the Naui engine.
-	if(recover == nullptr)
+	if(recoveredPath.has_value())
 	{
-		std::cout << "Unable to retrieve Recovery Prompt. Uphonic will be unable to recover projects.\n";
-	}
-	else if(recoveredPath.has_value())
-	{
+		RecoveryPrompt* recover = Naui::TriggerModal<RecoveryPrompt>();
 		recover->recoverPath = recoveredPath;
 		recover->SetOpen(true);
 	} else
@@ -281,6 +278,7 @@ void ProjectManager::ShutdownWorkspace(std::filesystem::path path)
 	if(path.empty())
 		return;
 
+	EditorSerializer::SaveSettings(ProjectState::GetInstance());
 	std::cout << "Closing workspace:" << path << "...\n";
 	if(std::filesystem::exists(path))
 	{

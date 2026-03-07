@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Naui.h"
-#include "../Core/ProjectState.h"
-#include "../Config/EditorConfig.h"
-#include "../Audio/AudioEngine.h"
+#include "Core/ProjectState.h"
+#include "Config/EditorConfig.h"
+#include "Audio/AudioEngine.h"
+#include "Models/EditorModel/GeneralSettings.h"
+#include "Models/EditorModel/TimelineSettings.h"
 #include <vector>
 #include <utility>
 

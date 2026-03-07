@@ -2,20 +2,23 @@
 #include "Core/ProjectManager.h"
 #include "Core/Recovery.h"
 #include "Naui/Localization/Localization.h"
+#include <imgui.h>
 #include <iostream>
 
-RecoveryPrompt::RecoveryPrompt() : Naui::Panel(Naui::TR("recovery.title"))
+RecoveryPrompt::RecoveryPrompt() : Naui::Modal(Naui::TR("recovery.title"))
 {
-	SetClosable(false);
 	SetAutoResize(true);
 	SetMinimizable(false);
 	SetDockable(false);
 	SetSerializable(false);
+	SetFocusPolicy(Naui::ModalFocusPolicy::HardBlock);
+	SetCloseOnOverlayClick(false);
+	SetAllowMultipleInstances(false);
 }
 
 void RecoveryPrompt::OnRender()
 {
-	if(!recoverPath.has_value())
+	if (!recoverPath.has_value())
 	{
 		std::cout << "Unable to prompt recovery! Recovery path not set.\n";
 		SetOpen(false);

@@ -65,11 +65,11 @@ public:
 	std::string	GetTitle() const { return m_title; }
 	const std::string& GetLayoutID() const { return m_layoutID; }
 	ImGuiWindowFlags GetWindowFlags() const { return m_imguiFlags; }
+	ImVec2 m_minSize = ImVec2(0, 0);
+	ImVec2 m_maxSize = ImVec2(FLT_MAX, FLT_MAX);
 
 protected:
 	ImGuiWindowFlags m_imguiFlags = 0;
-	ImVec2 m_minSize = ImVec2(0, 0);
-	ImVec2 m_maxSize = ImVec2(FLT_MAX, FLT_MAX);
 	std::string m_title;
 	std::string m_layoutID;
 };

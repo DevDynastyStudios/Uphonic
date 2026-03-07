@@ -5,7 +5,7 @@
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
-#include "DataModel/Samples.h"
+#include "Models/DataModel/Samples.h"
 #include "Actions/Samples/RenameSampleAction.h"
 #include <algorithm>
 #include <cstring>

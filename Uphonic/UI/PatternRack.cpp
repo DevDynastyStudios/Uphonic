@@ -1,6 +1,6 @@
 #include "PatternRack.h"
 #include "Core/ProjectState.h"
-#include "DataModel/Patterns.h"
+#include "Models/DataModel/Patterns.h"
 #include <algorithm>
 #include <cstring>
 
