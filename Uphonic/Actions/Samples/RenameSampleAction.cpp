@@ -1,5 +1,5 @@
 #include "RenameSampleAction.h"
-#include "UI/SampleRack.h"
+#include "UI/Panels/SampleRack.h"
 #include "Models/DataModel/Samples.h"
 
 RenameSampleAction::RenameSampleAction(AudioSample& sample, std::string newName) : sample(sample), newName(newName), oldName(sample.name) {}

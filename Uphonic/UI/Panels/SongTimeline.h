@@ -13,13 +13,20 @@ class SongTimeline : public Naui::Panel
 public:
     SongTimeline();
 	static AudioTrack& CreateTrack(std::string title, ImVec4 color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f));
+	static void NormalizeTracks();
+	static bool MuteTrack(size_t index, bool mute);
+	static bool SoloTrack(size_t index, bool solo);
+	static bool RecordTrack(size_t index, bool record);
+
 	static size_t GetTrackIndex(AudioTrack& track);
 	static AudioTrack& GetTrackAtIndex(size_t index);
 	static double GetPlayheadPositionNormalized();
+	static double GetTrackDuration(size_t trackIndex);
 	static double GetTimelineDuration();
 	static bool RenameTrack(size_t index, const std::string& newName);
 	
 protected:
+	void OnRegisterShortcuts(Naui::ShortcutTable& table) override;
     void OnRender() override;
 
 private:

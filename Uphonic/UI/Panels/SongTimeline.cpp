@@ -1,15 +1,18 @@
 #include "SongTimeline.h"
-#include "../Core/ProjectState.h"
-#include "../Plugin/PluginManager.h"
-#include "../Audio/AudioEngine.h"
-#include "Naui/Localization/Localization.h"
+#include "Core/ProjectState.h"
+#include "Core/AppShortcuts.h"
 #include "Actions/Tracks/RenameTrackAction.h"
+#include "Audio/AudioEngine.h"
+#include "Plugin/PluginManager.h"
+#include "Naui/Localization/Localization.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <filesystem>
 #include <cfloat>
 #include <imgui_internal.h>
+#include <iostream>
 
 static constexpr float SECONDS_PER_MINUTE = 60.0f;
 static constexpr float BEATS_PER_MEASURE = 4.0f;
@@ -80,15 +83,110 @@ SongTimeline::SongTimeline() : Naui::Panel(Naui::TR("song_timeline.title"))
 	m_selection.draggedInstance = -1;
 }
 
+void SongTimeline::OnRegisterShortcuts(Naui::ShortcutTable& table)
+{
+	table.Register("timeline.delete",		{ ImGuiKey_Delete },				PRIORITY_PANEL, [this]{ /* delete selected blocks */ });
+	table.Register("timeline.play",			{ ImGuiKey_Space },					PRIORITY_PANEL, [this]{ /* play / pause */ });
+	table.Register("timeline.stop",			{ ImGuiKey_Escape },				PRIORITY_PANEL, [this]{ std::cout << "Stop this!\n"; });
+	table.Register("timeline.solo",			{ ImGuiKey_S },						PRIORITY_PANEL, [this]{ /* solo track */ });
+	table.Register("timeline.mute",			{ ImGuiKey_M },						PRIORITY_PANEL, [this]{ /* mute track */ });
+	table.Register("timeline.duplicate",	{ ImGuiKey_LeftCtrl, ImGuiKey_D },	PRIORITY_PANEL, [this]{ /* duplicate */ });
+	table.Register("timeline.selectAll",	{ ImGuiKey_LeftCtrl, ImGuiKey_A },	PRIORITY_PANEL, [this]{ /* select all */ });
+}
+
 AudioTrack& SongTimeline::CreateTrack(std::string title, ImVec4 color)
 {
 	ProjectState& state = ProjectState::GetInstance();
 	AudioTrack track;
 	track.type = TrackType::None;
-	track.color = ImVec4(0.9f, 0.7f, 0.3f, 1.0f);
+	track.color = {0.9f, 0.7f, 0.3f, 1.0f};
 	track.name = title;
 	state.tracks.push_back(track);
 	return state.tracks.back();
+}
+
+void SongTimeline::NormalizeTracks()
+{
+	ProjectState& state = ProjectState::GetInstance();
+	bool hasSoloTrack = false;
+	for(AudioTrack& track : state.tracks)
+	{
+		hasSoloTrack |= track.solo;
+		track.silenced = track.muted;
+	}
+
+	if(!hasSoloTrack)
+		return;
+
+	for(AudioTrack& track : state.tracks)
+	{
+		if(track.solo)
+		{
+			track.muted = false;
+			track.silenced = false;
+			continue;
+		}
+
+		track.solo = false;
+		track.muted = true;
+		track.silenced = true;
+	}
+}
+
+bool SongTimeline::MuteTrack(size_t index, bool mute)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.tracks.size())
+		return false;
+
+	bool hasSoloTrack = false;
+
+	if(state.tracks[index].solo)
+	{
+		for(AudioTrack& track : state.tracks)
+		{
+			if(!track.muted)
+				track.silenced = false;
+		}
+	}
+	else
+	{
+		for(AudioTrack& track : state.tracks)
+		{
+			hasSoloTrack |= track.solo;
+		}
+	}
+
+	state.tracks[index].solo = false;
+	state.tracks[index].muted = mute;
+	state.tracks[index].silenced = mute;
+
+	if(hasSoloTrack && !state.tracks[index].solo)
+		state.tracks[index].silenced = true;
+
+	return true;
+}
+
+bool SongTimeline::SoloTrack(size_t index, bool solo)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.tracks.size())
+		return false;
+
+	state.tracks[index].solo = solo;
+	state.tracks[index].muted = false;
+	state.tracks[index].silenced = false;
+
+	for(size_t i = 0; i < state.tracks.size(); i++)
+	{
+		if(i == index)
+			continue;
+
+		state.tracks[i].solo = false;
+		state.tracks[i].silenced = solo | state.tracks[i].muted;
+	}
+
+	return true;
 }
 
 size_t SongTimeline::GetTrackIndex(AudioTrack& track)
@@ -114,6 +212,24 @@ bool SongTimeline::RenameTrack(size_t index, const std::string& newName)
 	AudioTrack& track = state.tracks[index];
 	track.name = newName;
 	return true;
+}
+
+double SongTimeline::GetTrackDuration(size_t index)
+{
+	ProjectState& state = ProjectState::GetInstance();
+	if(index >= state.tracks.size())
+		return NAN;
+
+	double endBeat = 0.0;
+	for(const auto& block : state.tracks[index].blocks)
+	{
+		double blockEnd = (state.tracks[index].type == TrackType::Midi) ? block.midiBlock.startBeat + block.midiBlock.lengthBeats : block.sampleBlock.startBeat + block.sampleBlock.lengthBeats;
+		
+		if(blockEnd > endBeat)
+			endBeat = blockEnd;
+	}
+
+	return endBeat;
 }
 
 double SongTimeline::GetTimelineDuration()
@@ -241,6 +357,7 @@ void SongTimeline::RenderToolbar()
 		if (ImGui::Selectable("1/8", m_snap == 8)) m_snap = 8;
 		if (ImGui::Selectable("1/16", m_snap == 16)) m_snap = 16;
 		if (ImGui::Selectable("1/32", m_snap == 32)) m_snap = 32;
+		if (ImGui::Selectable("1/64", m_snap == 64)) m_snap = 64;
 		ImGui::EndCombo();
 	}
 	
@@ -261,7 +378,7 @@ void SongTimeline::RenderToolbar()
 	{
 		AudioTrack track;
 		track.type = TrackType::None;
-		track.color = ImVec4(0.8f, 0.3f, 0.3f, 1.0f);
+		track.color = {0.8f, 0.3f, 0.3f, 1.0f};
 		track.name = "Track " + std::to_string(state.tracks.size() + 1);
 		state.tracks.push_back(track);
 	}
@@ -526,7 +643,7 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 	draw->AddRectFilled(ImVec2(canvasPos.x, yPos), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos + ui.height), IM_COL32(35, 35, 38, 255));
 	draw->AddLine(ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos), ImVec2(canvasPos.x + state.settings.timelineSettings.trackHeaderWidth, yPos + ui.height), IM_COL32(50, 50, 55, 255), 2.0f);
 	
-	ImU32 trackCol = ImGui::ColorConvertFloat4ToU32(track.color);
+	ImU32 trackCol = ImGui::ColorConvertFloat4ToU32({track.color.x, track.color.y, track.color.z, track.color.w});
 	draw->AddRectFilled(ImVec2(canvasPos.x + 5, yPos + 8), ImVec2(canvasPos.x + 10, yPos + ui.height - 8), trackCol);
 	
 	ImGui::PushID((int)trackIndex);
@@ -567,7 +684,8 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 		ImGui::PushStyleColor(ImGuiCol_Button, track.muted ? IM_COL32(180, 100, 50, 180) : IM_COL32(60, 60, 65, 180));
 		if (ImGui::SmallButton("M"))
 		{
-			track.muted = !track.muted;
+			size_t trackIndex = SongTimeline::GetTrackIndex(track);
+			SongTimeline::MuteTrack(trackIndex, !track.muted);
 		}
 		ImGui::PopStyleColor();
 		
@@ -575,13 +693,14 @@ void SongTimeline::RenderTrackHeader(ImDrawList* draw, ImVec2 canvasPos, size_t 
 		ImGui::PushStyleColor(ImGuiCol_Button, track.solo ? IM_COL32(100, 180, 100, 180) : IM_COL32(60, 60, 65, 180));
 		if (ImGui::SmallButton("S"))
 		{
-			track.solo = !track.solo;
+			size_t trackIndex = SongTimeline::GetTrackIndex(track);
+			SongTimeline::SoloTrack(trackIndex, !track.solo);
 		}
 		ImGui::PopStyleColor();
 		
 		ImGui::SameLine();
 		ImGui::PushStyleColor(ImGuiCol_Button, track.armed ? IM_COL32(200, 80, 80, 180) : IM_COL32(60, 60, 65, 180));
-		if (ImGui::SmallButton("R"))
+		if (track.type != TrackType::Midi && ImGui::SmallButton("R"))
 		{
 			track.armed = !track.armed;
 		}
@@ -759,8 +878,8 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 	
 	bool selected = IsInstanceSelected((int)trackIndex, (int)instanceIndex);
 	
-	ImVec4 baseColor = track.color;
-	if (track.muted)
+	Color4 baseColor = track.color;
+	if (track.muted || !track.muted && track.silenced)
 	{
 		baseColor.x *= MUTED_COLOR_MULTIPLIER;
 		baseColor.y *= MUTED_COLOR_MULTIPLIER;
@@ -773,9 +892,8 @@ void SongTimeline::RenderMidiInstance(ImDrawList* draw, ImVec2 canvasPos, ImVec2
 		baseColor.z = std::min<float>(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
 	}
 	
-	ImU32 instCol = ImGui::ColorConvertFloat4ToU32(baseColor);
-	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(
-		ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
+	ImU32 instCol = ImGui::ColorConvertFloat4ToU32({baseColor.x, baseColor.y, baseColor.z, baseColor.w});
+	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
 	
 	draw->AddRectFilled(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), instCol, 3.0f);
 	draw->AddRect(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), borderCol, 3.0f, 0, selected ? 2.5f : 1.5f);
@@ -871,8 +989,8 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 		return;
 	
 	bool selected = IsInstanceSelected((int)trackIndex, (int)instanceIndex);
-	ImVec4 baseColor = track.color;
-	if (track.muted)
+	Color4 baseColor = track.color;
+	if (track.muted || !track.muted && track.silenced)
 	{
 		baseColor.x *= MUTED_COLOR_MULTIPLIER;
 		baseColor.y *= MUTED_COLOR_MULTIPLIER;
@@ -885,7 +1003,7 @@ void SongTimeline::RenderSampleInstance(ImDrawList* draw, ImVec2 canvasPos, ImVe
 		baseColor.z = std::min<float>(1.0f, baseColor.z * SELECTED_COLOR_MULTIPLIER);
 	}
 	
-	ImU32 instCol = ImGui::ColorConvertFloat4ToU32(baseColor);
+	ImU32 instCol = ImGui::ColorConvertFloat4ToU32({baseColor.x, baseColor.y, baseColor.z, baseColor.w});
 	ImU32 borderCol = ImGui::ColorConvertFloat4ToU32(ImVec4(baseColor.x * BORDER_COLOR_MULTIPLIER, baseColor.y * BORDER_COLOR_MULTIPLIER, baseColor.z * BORDER_COLOR_MULTIPLIER, 1.0f));
 	
 	draw->AddRectFilled(ImVec2(instX, instY), ImVec2(instX + instWidth, instY + instHeight), instCol, 3.0f);

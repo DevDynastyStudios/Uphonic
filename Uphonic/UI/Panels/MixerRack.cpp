@@ -1,6 +1,6 @@
 #include "MixerRack.h"
-#include "../Core/ProjectState.h"
-#include "../Plugin/PluginManager.h"
+#include "Core/ProjectState.h"
+#include "Plugin/PluginManager.h"
 #include "Naui/Localization/Localization.h"
 #include <algorithm>
 #include <cmath>
@@ -50,6 +50,13 @@ static float SmoothPeak(float current, float target, float dt)
 MixerRack::MixerRack() : Naui::Panel(Naui::TR("mixer_rack.title")), m_selectedTrack(-2)	// Nothing selected by default
 {
 	SetMinSize(0.0f, 250.0f);
+}
+
+void MixerRack::OnRegisterShortcuts(Naui::ShortcutTable& table)
+{
+	table.Register("mixer.mute",	{ ImGuiKey_M },								PRIORITY_PANEL, []{ /* mute strip */ });
+	table.Register("mixer.solo",	{ ImGuiKey_S },								PRIORITY_PANEL, []{ /* solo strip */ });
+	table.Register("mixer.reset",	{ ImGuiKey_LeftCtrl, ImGuiKey_R },			PRIORITY_PANEL, []{ /* reset strip */ });
 }
 
 void MixerRack::OnRender()
@@ -245,7 +252,7 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 
 	ImDrawList* draw = ImGui::GetWindowDrawList();
 	ImVec2 pos = ImGui::GetCursorScreenPos();
-	ImU32 color = ImGui::ColorConvertFloat4ToU32(track.color);
+	ImU32 color = ImGui::ColorConvertFloat4ToU32({track.color.x, track.color.y, track.color.z, track.color.w});
 
 	draw->AddRectFilled(pos, ImVec2(pos.x + m_config.stripWidth - COLOR_BAR_PADDING, pos.y + 3), color);
 	ImGui::Dummy(ImVec2(0, 5));

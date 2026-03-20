@@ -1,6 +1,6 @@
 #include "RenameTrackAction.h"
 #include "Models/DataModel/Tracks.h"
-#include "UI/SongTimeline.h"
+#include "UI/Panels/SongTimeline.h"
 
 RenameTrackAction::RenameTrackAction(AudioTrack& track, std::string newName) : track(track), newName(newName), oldName(track.name) {}
 

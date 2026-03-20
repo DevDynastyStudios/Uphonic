@@ -88,6 +88,10 @@ project "Uphonic"
         "Uphonic/**.c",
         "Uphonic/**.cpp",
     }
+	removefiles {
+    "Uphonic/Vendor/miniaudio/miniaudio.c",
+    "Uphonic/Vendor/stb/stb_vorbis.c",
+    }
     includedirs {
         ".",
         "Naui",

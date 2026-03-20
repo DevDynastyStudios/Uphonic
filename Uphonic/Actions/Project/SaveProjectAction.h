@@ -7,11 +7,12 @@ class ProjectState;
 class SaveProjectAction : public Naui::IAction
 {
 public:
-	SaveProjectAction(ProjectState& state);
+	SaveProjectAction(ProjectState& state, bool forceDialogSave = false);
 	void Do() override;
 	void Undo() override;
 	const char* Name() const override { return "Save Project"; }
 
 private:
 	ProjectState& state;
+	bool forceDialogSave;
 };

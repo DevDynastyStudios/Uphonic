@@ -1,6 +1,8 @@
 #include "Naui.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
+#include "Naui/Shortcut/Shortcut.h"
+
 #include "Core/ProjectManager.h"
 #include "Core/ProjectState.h"
 #include "Audio/AudioEngine.h"
@@ -10,14 +12,17 @@
 
 #include "UI/Layout.h"
 #include "UI/MainMenuBar.h"
-#include "UI/MidiEditor.h"
-#include "UI/PatternRack.h"
-#include "UI/SampleRack.h"
-#include "UI/SongTimeline.h"
-#include "UI/MixerRack.h"
-#include "UI/RecoveryPrompt.h"
-#include "UI/FileExplorer.h"
-#include "UI/Settings/SettingsPanel.h"
+#include "UI/Panels/MidiEditor/MidiEditor.h"
+#include "UI/Panels/PatternRack.h"
+#include "UI/Panels/SampleRack.h"
+#include "UI/Panels/SongTimeline.h"
+#include "UI/Panels/MixerRack.h"
+#include "UI/Panels/FileExplorer.h"
+#include "UI/Modals/RecoveryPrompt.h"
+#include "UI/Modals/Settings/SettingsPanel.h"
+
+#include "Actions/Project/SaveProjectAction.h"
+#include "Core/AppShortcuts.h"
 
 #include <cstdio>
 #include <iostream>
@@ -63,8 +68,11 @@ private:
 			std::cerr << "Failed to initialize audio engine\n";
 		}
 
+		AppShortcuts::RegisterGlobal();
+
 		Naui::SetModalOverlayAlpha(0.0f);
 		ProjectManager::NewProject(true);
+		// Request window focus here
 	}
 	
 	void OnExit() override

@@ -7,7 +7,7 @@ namespace Naui {
 class NAUI_API PanelRenderer
 {
 public:
-    static void Render();
+	static void Render();
 };
 
 }

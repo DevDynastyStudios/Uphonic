@@ -16,7 +16,7 @@ struct MIDISettings{
 	uint8_t defaultVelocity = 100;
 	float defaultNoteLength = 1.0f;
 	float defaultBeatWidth = 40.0f;
-	float defaultBeatHeight = 16.0f;
+	float defaultBeatHeight = 14.0f;
 
 	uint32_t gridDivision = 16;	// Refer to recordQuantizeGrid
 	float gridSwing = 0.0f;	// 0-1

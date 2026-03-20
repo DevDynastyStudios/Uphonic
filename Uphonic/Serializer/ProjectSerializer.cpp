@@ -1,6 +1,6 @@
 #include "ProjectSerializer.h"
-#include "../Plugin/PluginManager.h"
-#include "../Audio/AudioEngine.h"
+#include "Plugin/PluginManager.h"
+#include "Audio/AudioEngine.h"
 #include "Naui/FileSystem/File.h"
 #include <nlohmann/json.hpp>
 #include <fstream>

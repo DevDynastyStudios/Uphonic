@@ -4,6 +4,7 @@
 #pragma once
 
 #include "Base.h"
+#include "Shortcut/ShortcutTable.h"
 
 #include <imgui.h>
 
@@ -15,7 +16,7 @@
 #include <typeinfo>
 
 #if defined(__GNUC__) || defined(__clang__)
-    #include <cxxabi.h>
+	#include <cxxabi.h>
 #endif
 
 namespace Naui
@@ -24,6 +25,9 @@ namespace Naui
 class NAUI_API PanelImGuiImpl
 {
 public:
+	static constexpr int PRIORITY_GLOBAL = 10;
+	static constexpr int PRIORITY_PANEL = 20;
+
 	void SetResizable(bool value)	{ value ? m_imguiFlags &= ~ImGuiWindowFlags_NoResize		  	: m_imguiFlags |= ImGuiWindowFlags_NoResize; }
 	void SetMovable(bool value)	  	{ value ? m_imguiFlags &= ~ImGuiWindowFlags_NoMove				: m_imguiFlags |= ImGuiWindowFlags_NoMove; }
 	void SetMinimizable(bool value)  { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse			: m_imguiFlags |= ImGuiWindowFlags_NoCollapse; }
@@ -61,17 +65,25 @@ public:
 		auto pos = m_title.find("###");
 		return (pos != std::string::npos) ? m_title.substr(0, pos) : m_title;
 	}
-
+	
+	bool IsFocused() const;
 	std::string	GetTitle() const { return m_title; }
 	const std::string& GetLayoutID() const { return m_layoutID; }
 	ImGuiWindowFlags GetWindowFlags() const { return m_imguiFlags; }
+	ShortcutTable& GetShortcuts() { return m_shortcuts; }
 	ImVec2 m_minSize = ImVec2(0, 0);
 	ImVec2 m_maxSize = ImVec2(FLT_MAX, FLT_MAX);
 
 protected:
+	virtual void OnRegisterShortcuts(Naui::ShortcutTable& table) {}
+	virtual void OnFocus()   {}
+	virtual void OnUnfocus() {}
+
 	ImGuiWindowFlags m_imguiFlags = 0;
 	std::string m_title;
 	std::string m_layoutID;
+	ShortcutTable m_shortcuts;
+	bool m_shortcutsRegistered = false;
 };
 
 class NAUI_API Panel : public PanelImGuiImpl
@@ -79,6 +91,9 @@ class NAUI_API Panel : public PanelImGuiImpl
 public:
 	Panel(void) = default;
 	Panel(const char* title) { m_title = title; }
+
+	static constexpr int PRIORITY_GLOBAL = 10;
+	static constexpr int PRIORITY_PANEL = 20;
 
 	const uint64_t GetUID() const { return (uint64_t)this; }
 	const std::string& GetTypeName() const { return m_typeName; }
@@ -88,6 +103,7 @@ public:
 	void SetTypeName(const std::string& type)  { m_typeName = type; }
 
 protected:
+	virtual void OnRegisterShortcuts(ShortcutTable& table) { }
 	virtual void OnRender(void) { }
 	virtual void OnClose(void)  { }
 
@@ -98,6 +114,7 @@ private:
 	bool m_closable	= true;
 	bool m_open	= true;
 	bool m_calledClose = false;
+	bool m_registered = false;
 	std::string m_typeName;
 
 	friend class PanelRenderer;
@@ -120,27 +137,27 @@ NAUI_API void DestroyAllPanels(void);
 
 inline std::string NormalizeTypeName(const char* name)
 {
-    std::string s;
+	std::string s;
 
 #if defined(__GNUC__) || defined(__clang__)
-    int status = 0;
-    char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-    s = (status == 0 && demangled) ? demangled : name;
-    std::free(demangled);
+	int status = 0;
+	char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
+	s = (status == 0 && demangled) ? demangled : name;
+	std::free(demangled);
 #else
-    s = name;
+	s = name;
 #endif
 
-    for (const char* prefix : { "class ", "struct " })
-    {
-        if (s.rfind(prefix, 0) == 0)
-        {
-            s.erase(0, std::strlen(prefix));
-            break;
-        }
-    }
+	for (const char* prefix : { "class ", "struct " })
+	{
+		if (s.rfind(prefix, 0) == 0)
+		{
+			s.erase(0, std::strlen(prefix));
+			break;
+		}
+	}
 
-    return s;
+	return s;
 }
 
 // Call once per panel type at startup so that Layout::Load can recreate panels from a file

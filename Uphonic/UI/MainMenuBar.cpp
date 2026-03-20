@@ -2,14 +2,18 @@
 #include "Naui.h"
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
-#include "Layout.h"
+#include "Naui/Shortcut/Shortcut.h"
+
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Core/Defer.h"
+
 #include "Audio/AudioEngine.h"
 #include "Actions/Project/SaveProjectAction.h"
-#include "UI/SongTimeline.h"
-#include "UI/Settings/SettingsPanel.h"
+
+#include "UI/Panels/SongTimeline.h"
+#include "UI/Modals/Settings/SettingsPanel.h"
+#include "Layout.h"
 
 static char newLayoutName[64] = {};
 static bool popupFocusRequest = false;
@@ -28,15 +32,15 @@ void MainMenuBar::FileMenu()
 	if (ImGui::MenuItem(Naui::TR("menu.file.new")))
 		ProjectManager::NewProject();
 
-	if (ImGui::MenuItem(Naui::TR("menu.file.open")))
+	if (ImGui::MenuItem(Naui::TR("menu.file.open"), Naui::Shortcut::GetChordString("app.open").c_str()))
 		FileDialog::OpenFile("open_project", "Open Project", ".uph");
 
 	ImGui::Separator();
 
-	if(ImGui::MenuItem(Naui::TR("menu.file.save")))
+	if(ImGui::MenuItem(Naui::TR("menu.file.save"), Naui::Shortcut::GetChordString("app.save").c_str()))
 		ProjectState::GetInstance().actionManager.ExecuteWithoutHistory<SaveProjectAction>(ProjectState::GetInstance());
 
-	if(ImGui::MenuItem(Naui::TR("menu.file.save_as")))
+	if(ImGui::MenuItem(Naui::TR("menu.file.save_as"), Naui::Shortcut::GetChordString("app.save_as").c_str()))
 		FileDialog::SaveFile("save_project", "Save Project", ".uph");
 
 	ImGui::Separator();
@@ -85,22 +89,22 @@ void MainMenuBar::EditMenu()
 	if (!ImGui::BeginMenu(Naui::TR("menu.edit")))
 		return;
 
-	if(ImGui::MenuItem(Naui::TR("menu.edit.undo"), nullptr, nullptr, actionManager.CanUndo()))
+	if(ImGui::MenuItem(Naui::TR("menu.edit.undo"), Naui::Shortcut::GetChordString("app.undo").c_str(), nullptr, actionManager.CanUndo()))
 	{
 		actionManager.Undo();
 	}
 
-	if(ImGui::MenuItem(Naui::TR("menu.edit.redo"), nullptr, nullptr, actionManager.CanRedo()))
+	if(ImGui::MenuItem(Naui::TR("menu.edit.redo"), Naui::Shortcut::GetChordString("app.redo").c_str(), nullptr, actionManager.CanRedo()))
 	{
 		actionManager.Redo();
 	}
 
 	ImGui::Separator();
-	ImGui::MenuItem(Naui::TR("menu.edit.cut"), nullptr, nullptr, false);
-	ImGui::MenuItem(Naui::TR("menu.edit.copy"), nullptr, nullptr, false);
-	ImGui::MenuItem(Naui::TR("menu.edit.paste"), nullptr, nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.cut"), Naui::Shortcut::GetChordString("app.cut").c_str(), nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.copy"), Naui::Shortcut::GetChordString("app.copy").c_str(), nullptr, false);
+	ImGui::MenuItem(Naui::TR("menu.edit.paste"), Naui::Shortcut::GetChordString("app.paste").c_str(), nullptr, false);
 
-	if(ImGui::MenuItem(Naui::TR("menu.edit.settings")))
+	if(ImGui::MenuItem(Naui::TR("menu.edit.settings"), Naui::Shortcut::GetChordString("app.settings").c_str()))
 	{
 		Naui::TriggerModal<SettingsPanel>();
 	}

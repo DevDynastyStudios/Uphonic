@@ -14,6 +14,7 @@ public:
 
 
 protected:
+	void OnRegisterShortcuts(Naui::ShortcutTable& table) override;
     void OnRender() override;
 
 private:

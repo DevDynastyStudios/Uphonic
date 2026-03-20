@@ -4,6 +4,7 @@
 #include "Models/DataModel/Tracks.h"
 #include "Models/DataModel/Samples.h"
 #include "Models/DataModel/Patterns.h"
+#include "Models/DataModel/Music.h"
 
 namespace Naui { class PlatformWindow; }
 
@@ -28,6 +29,7 @@ public:
 	std::vector<AudioSample> samples;
 
 	Naui::PlatformWindow* mainWindow;
+	TimeSignature timeSignature;
 	double timelinePositionBeats;
 	float beatsPerMinute;
 	float masterVolume;

@@ -19,7 +19,7 @@ std::unordered_map<std::string, int>& GetPanelTypeCounters(void)
 
 std::unordered_map<std::string, PanelFactory>& GetPanelFactories(void)
 {
-    return s_panelFactories;
+	return s_panelFactories;
 }
 
 void ResetPanelTypeCounters(void)
@@ -29,7 +29,7 @@ void ResetPanelTypeCounters(void)
 
 void RegisterPanelFactory(const std::string& typeName, PanelFactory factory)
 {
-    s_panelFactories[NormalizeTypeName(typeName.c_str())] = std::move(factory);
+	s_panelFactories[NormalizeTypeName(typeName.c_str())] = std::move(factory);
 }
 
 Panel* CreatePanelByType(const std::string& typeName, const std::string& layoutID)

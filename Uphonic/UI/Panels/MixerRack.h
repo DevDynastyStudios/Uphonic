@@ -1,9 +1,8 @@
 #pragma once
 
 #include "Naui.h"
-#include "../Core/ProjectState.h"
-#include "../Config/EditorConfig.h"
-#include "../Vendor/imgui-knobs/imgui-knobs.h"
+#include "Config/EditorConfig.h"
+#include "Vendor/imgui-knobs/imgui-knobs.h"
 #include <vector>
 
 class MixerRack : public Naui::Panel
@@ -12,6 +11,7 @@ public:
     MixerRack();
 
 protected:
+	void OnRegisterShortcuts(Naui::ShortcutTable& table) override;
     void OnRender() override;
 
 private:
@@ -26,4 +26,3 @@ private:
 	bool m_effectsPanelOpen = false;
 	bool m_scrollToSelected;
 };
-

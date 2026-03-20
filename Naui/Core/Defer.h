@@ -14,23 +14,23 @@ namespace Naui
 class NAUI_API Defer
 {
 public:
-    template<typename Fn, typename... Args>
-    static void Add(Fn&& fn, Args&&... args)
-    {
-        callbacks.emplace_back(
-            [fn = std::forward<Fn>(fn),
-             ...args = std::forward<Args>(args)]() mutable
-            {
-                fn(args...);
-            }
-        );
-    }
+	template<typename Fn, typename... Args>
+	static void Add(Fn&& fn, Args&&... args)
+	{
+		callbacks.emplace_back(
+			[fn = std::forward<Fn>(fn),
+			 ...args = std::forward<Args>(args)]() mutable
+			{
+				fn(args...);
+			}
+		);
+	}
 
-    static void Process();
-    static void Flush();
+	static void Process();
+	static void Flush();
 
 private:
-    static std::vector<std::function<void()>> callbacks;
+	static std::vector<std::function<void()>> callbacks;
 };
 
 }

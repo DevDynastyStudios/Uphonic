@@ -1,5 +1,5 @@
 #include "RenamePatternAction.h"
-#include "UI/PatternRack.h"
+#include "UI/Panels/PatternRack.h"
 #include "Models/DataModel/Patterns.h"
 
 RenamePatternAction::RenamePatternAction(MidiPattern& pattern, std::string newName) : pattern(pattern), newName(newName), oldName(pattern.name) {}

@@ -1,5 +1,5 @@
 #pragma once
-#include <imgui.h>
+#include "Color.h"
 #include <filesystem>
 
 enum class SampleChannelType
@@ -13,7 +13,7 @@ struct AudioSample
 	std::string name;
 	std::string filename;	// Points to the audio sample in workspace
 	SampleChannelType channelType;
-	ImVec4 color = {1.0f, 1.0f, 1.0f, 1.0f};	// Possibly optimize to not use ImGui's Vec4
+	Color4 color = {1.0f, 1.0f, 1.0f, 1.0f};
 	float* frameData;
 	uint64_t frameCount;
 	uint32_t originalSampleRate;

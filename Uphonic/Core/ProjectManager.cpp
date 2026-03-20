@@ -7,8 +7,9 @@
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
 #include "Naui/FileSystem/Archive.h"
-#include "UI/RecoveryPrompt.h"
-#include "UI/SongTimeline.h"
+
+#include "UI/Panels/SongTimeline.h"
+#include "UI/Modals/RecoveryPrompt.h"
 #include <iostream>
 
 #define UPH_EXTENSION ".uph"
@@ -61,6 +62,7 @@ bool ProjectManager::OpenProject(const std::filesystem::path& uphPath)
 	state.ClearProject();
 	state.CopyFrom(tempState);
 	state.settings.projectID = projectID;
+	SongTimeline::NormalizeTracks();
 	std::cout << "Opened Project: "  << uphPath << "\n";
 	return true;
 }

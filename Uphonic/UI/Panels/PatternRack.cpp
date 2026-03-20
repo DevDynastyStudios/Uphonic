@@ -3,11 +3,24 @@
 #include "Models/DataModel/Patterns.h"
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 
 PatternRack::PatternRack() : Naui::Panel(Naui::TR("pattern_rack.title"))
 {
     m_renamingIndex = -1;
     memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
+}
+
+void PatternRack::OnRegisterShortcuts(Naui::ShortcutTable& table)
+{
+	table.Register("pattern.delete",	{ ImGuiKey_Delete },					PRIORITY_PANEL, [this]{ /* delete pattern */ });
+	table.Register("pattern.rename",	{ ImGuiKey_F2 },						PRIORITY_PANEL, [this]{ /* rename */ });
+	table.Register("pattern.new",		{ ImGuiKey_LeftCtrl, ImGuiKey_N },		PRIORITY_PANEL, [this]{ /* new pattern */ });
+	table.Register("pattern.select.up", { ImGuiKey_UpArrow },					PRIORITY_PANEL, [this]{ });
+	table.Register("pattern.select.down", { ImGuiKey_DownArrow },				PRIORITY_PANEL, [this]{ });
+	table.Register("pattern.select.left", { ImGuiKey_LeftArrow },				PRIORITY_PANEL, [this]{ });
+	table.Register("pattern.select.right", { ImGuiKey_RightArrow },				PRIORITY_PANEL, [this]{ });
+	table.Register("timeline.stop",			{ ImGuiKey_Escape },				PRIORITY_PANEL, [this]{ std::cout << "Stop there!\n"; });
 }
 
 size_t PatternRack::GetPatternIndex(MidiPattern& pattern)

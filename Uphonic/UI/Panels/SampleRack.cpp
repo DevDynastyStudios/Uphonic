@@ -2,11 +2,15 @@
 #include "Naui/FileSystem/File.h"
 #include "Naui/FileSystem/FileDialog.h"
 #include "Naui/Localization/Localization.h"
+
 #include "Core/ProjectState.h"
 #include "Core/ProjectManager.h"
 #include "Audio/AudioEngine.h"
+
 #include "Models/DataModel/Samples.h"
 #include "Actions/Samples/RenameSampleAction.h"
+#include "Actions/Samples/RemoveSampleAction.h"
+
 #include <algorithm>
 #include <cstring>
 #include <imgui_internal.h>
@@ -33,12 +37,54 @@ static ImVec4 SAMPLE_BG_HOVER_COLOR	= ImVec4(0.24f, 0.24f, 0.24f, 1.0f);
 static ImVec4 SAMPLE_OUTLINE_COLOR	= ImVec4(0.35f, 0.35f, 0.35f, 1.0f);
 static ImVec4 SAMPLE_OUTLINE_ACTIVE	= ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
 
+static int currentSelectedSample = -1;
+
 #pragma region Facade Functions
 SampleRack::SampleRack() : Naui::Panel(Naui::TR("sample_rack.title"))
 {
 	m_renamingIndex = -1;
 	memset(m_renameBuffer, 0, sizeof(m_renameBuffer));
 	SetMinSize(SAMPLE_PANEL_MIN_WIDTH, SAMPLE_PANEL_MIN_HEIGHT);
+}
+
+void SampleRack::OnRegisterShortcuts(Naui::ShortcutTable& table)
+{
+	table.Register("sample.delete", { ImGuiKey_Delete }, PRIORITY_PANEL, []{
+		ProjectState& state = ProjectState::GetInstance(); 
+		if(currentSelectedSample < 0 || state.samples.size() == 0)
+			return;
+
+		state.actionManager.Execute<RemoveSampleAction>(state.samples[currentSelectedSample]);
+		if(currentSelectedSample >= state.samples.size())
+			currentSelectedSample = state.samples.size() - 1;
+	});
+
+	table.Register("sample.rename",	{ ImGuiKey_F2 },						PRIORITY_PANEL, []{ /* rename */ });
+	table.Register("sample.new",		{ ImGuiKey_LeftCtrl, ImGuiKey_N },		PRIORITY_PANEL, []{ FileDialog::OpenFile("sample_audio_import", "Import Audio", "*.wav;*.mp3;*.flac;*.ogg"); });
+	table.Register("sample.select.up", { ImGuiKey_UpArrow },					PRIORITY_PANEL, []{
+		std::cout << "Sample Rack Shortcuts\n";
+		ProjectState& state = ProjectState::GetInstance();
+		currentSelectedSample--;
+		if(currentSelectedSample < 0)
+			currentSelectedSample = state.samples.size() - 1;
+	});
+
+	table.Register("sample.select.down", { ImGuiKey_DownArrow },				PRIORITY_PANEL, []{
+		ProjectState& state = ProjectState::GetInstance();
+
+		if(state.samples.size() == 0)
+		{
+			currentSelectedSample = -1;
+			return;
+		}
+
+		currentSelectedSample++;
+		if(currentSelectedSample >= state.samples.size())
+			currentSelectedSample = 0;
+	});
+
+	table.Register("sample.select.left", { ImGuiKey_LeftArrow },				PRIORITY_PANEL, []{ std::cout << "Left Arrow\n"; });
+	table.Register("sample.select.right", { ImGuiKey_RightArrow },				PRIORITY_PANEL, []{ std::cout << "Right Arrow\n"; });
 }
 
 size_t SampleRack::GetSampleIndex(AudioSample& sample)
@@ -88,7 +134,7 @@ bool SampleRack::DrawSampleItem(AudioSample& sample, float width, float height, 
 	dl->AddRect(bb.Min, bb.Max, outline, SAMPLE_BUTTON_ROUNDING, 0, SAMPLE_BUTTON_OUTLINE);
 
 	ImRect strip(bb.Min, ImVec2(bb.Min.x + SAMPLE_COLOR_STRIP_WIDTH, bb.Max.y));
-	dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32(sample.color), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
+	dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32({sample.color.x, sample.color.y, sample.color.z, sample.color.w}), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
 
 	if (hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
 	{
@@ -206,7 +252,7 @@ void SampleRack::OnRender()
 			dl->AddRectFilled(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(SAMPLE_BG_COLOR), SAMPLE_BUTTON_ROUNDING);
 			dl->AddRect(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(SAMPLE_OUTLINE_COLOR), SAMPLE_BUTTON_ROUNDING, 0, SAMPLE_BUTTON_OUTLINE);
 			ImRect strip(bb.Min, ImVec2(bb.Min.x + SAMPLE_COLOR_STRIP_WIDTH, bb.Max.y));
-			dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32(sample.color), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
+			dl->AddRectFilled(strip.Min, strip.Max, ImGui::ColorConvertFloat4ToU32({sample.color.x, sample.color.y, sample.color.z, sample.color.w}), SAMPLE_BUTTON_ROUNDING, ImDrawFlags_RoundCornersLeft);
 			
 			float textX = pos.x + SAMPLE_COLOR_STRIP_WIDTH + 6.0f;
 			float textWidth = renameWidth - SAMPLE_COLOR_STRIP_WIDTH - 10.0f;

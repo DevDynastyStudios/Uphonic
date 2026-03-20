@@ -15,6 +15,7 @@ public:
 	static bool RenameSample(size_t index, const std::string& newName);
 
 protected:
+	void OnRegisterShortcuts(Naui::ShortcutTable& table) override;
     void OnRender() override;
 
 private:
