@@ -8,6 +8,8 @@
 
 namespace Naui {
 
+static ImVec2 ToImGui(Vec2 v) { return ImVec2(v.x, v.y); }
+
 bool PanelImGuiImpl::IsFocused() const
 {
 	ImGuiWindow* win = ImGui::FindWindowByName(GetTitle().c_str());
@@ -86,7 +88,7 @@ void PanelRenderer::Render()
 		if (!panel.m_open)
 			continue;
 
-		ImGui::SetNextWindowSizeConstraints(panel.m_minSize, panel.m_maxSize);
+		ImGui::SetNextWindowSizeConstraints(ToImGui(panel.m_minSize), ToImGui(panel.m_maxSize));
 		ImGui::Begin(panel.GetTitle().c_str(), panel.m_closable ? &panel.m_open : nullptr, panel.m_imguiFlags);
 		panel.OnRender();
 		ImGui::End();

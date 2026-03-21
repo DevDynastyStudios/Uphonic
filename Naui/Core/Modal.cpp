@@ -1,10 +1,11 @@
 #include "Modal.h"
+#include <imgui.h>
 
 namespace Naui {
 
 static std::unordered_map<uint64_t, Modal*> s_modals;
 static std::unordered_map<std::string, ModalFactory> s_modalFactories;
-static ImVec4 s_overlayColor = ImVec4(0.0f, 0.0f, 0.0f, 0.6f);
+static Vec4 s_overlayColor = Vec4(0.0f, 0.0f, 0.0f, 0.6f);
 
 std::unordered_map<uint64_t, Modal*>& GetAllModals()
 {
@@ -14,6 +15,11 @@ std::unordered_map<uint64_t, Modal*>& GetAllModals()
 std::unordered_map<std::string, ModalFactory>& GetModalFactories()
 {
 	return s_modalFactories;
+}
+
+void FocusModalWindow(const char* title)
+{
+	ImGui::SetWindowFocus(title);
 }
 
 void RegisterModalFactory(const std::string& typeName, ModalFactory factory)
@@ -42,12 +48,12 @@ void DestroyAllModals()
 	}
 }
 
-void SetModalOverlayColor(const ImVec4& color)
+void SetModalOverlayColor(const Vec4& color)
 {
 	s_overlayColor = color;
 }
 
-ImVec4 GetModalOverlayColor()
+Vec4 GetModalOverlayColor()
 {
 	return s_overlayColor;
 }

@@ -62,7 +62,7 @@ static std::pair<ShortcutEntry*, bool> Resolve(std::vector<ShortcutEntry*>& cand
 static void PollImpl(std::vector<ShortcutTable*>& tables)
 {
 	++s_frameCounter;
-	auto CollapseToLeft = [](ImGuiKey k) -> ImGuiKey
+	auto CollapseToLeft = [](Key k) -> Key
 	{
 		switch (k)
 		{
@@ -74,7 +74,7 @@ static void PollImpl(std::vector<ShortcutTable*>& tables)
 		}
 	};
 
-	auto IsMouse = [](ImGuiKey k) -> bool
+	auto IsMouse = [](Key k) -> bool
 	{
 		return k >= ImGuiKey_MouseLeft && k <= ImGuiKey_MouseWheelY;
 	};
@@ -113,13 +113,13 @@ static void PollImpl(std::vector<ShortcutTable*>& tables)
 
 	ShortcutChord specificNoMouse;
 	ShortcutChord agnosticNoMouse;
-	for (ImGuiKey k : specificKeys)
+	for (Key k : specificKeys)
 	{
 		if (!IsMouse(k))
 			specificNoMouse.push_back(k);
 	}
 
-	for (ImGuiKey k : agnosticKeys)
+	for (Key k : agnosticKeys)
 	{
 		if (!IsMouse(k))
 			agnosticNoMouse.push_back(k);
@@ -244,9 +244,9 @@ static void WriteTable(nlohmann::json& j, const std::string& scope, ShortcutTabl
 	for (ShortcutEntry* e : table->AllEntries())
 	{
 		nlohmann::json keys = nlohmann::json::array();
-		for (ImGuiKey k : e->chord)
+		for (Key k : e->chord)
 		{
-			keys.push_back(ImGui::GetKeyName(k));
+			keys.push_back(ImGui::GetKeyName(static_cast<ImGuiKey>(k)));
 		}
 
 		entries[e->id] = keys;

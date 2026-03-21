@@ -1,7 +1,46 @@
 #include "Panel.h"
+#include <imgui.h>
 
 namespace Naui
 {
+
+void PanelImGuiImpl::SetResizable(bool value)
+{
+	value ? m_imguiFlags &= ~ImGuiWindowFlags_NoResize : m_imguiFlags |= ImGuiWindowFlags_NoResize;
+}
+
+void PanelImGuiImpl::SetMovable(bool value)
+{
+	value ? m_imguiFlags &= ~ImGuiWindowFlags_NoMove : m_imguiFlags |= ImGuiWindowFlags_NoMove;
+}
+
+void PanelImGuiImpl::SetMinimizable(bool value)
+{
+	value ? m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse : m_imguiFlags |= ImGuiWindowFlags_NoCollapse;
+}
+
+void PanelImGuiImpl::SetAutoResize(bool value)
+{
+	value ? m_imguiFlags |= ImGuiWindowFlags_AlwaysAutoResize : m_imguiFlags &= ~ImGuiWindowFlags_AlwaysAutoResize;
+}
+
+void PanelImGuiImpl::SetDockable(bool value)
+{
+	value ? m_imguiFlags &= ~ImGuiWindowFlags_NoDocking : m_imguiFlags |= ImGuiWindowFlags_NoDocking;
+}
+
+void PanelImGuiImpl::SetSerializable(bool value)
+{
+	value ? m_imguiFlags &= ~ImGuiWindowFlags_NoSavedSettings : m_imguiFlags |= ImGuiWindowFlags_NoSavedSettings;
+}
+
+void PanelImGuiImpl::SetViewportPos(const Vec2& pos, int cond)
+{
+	ImGuiViewport* view = ImGui::GetMainViewport();
+	ImVec2 screenPos = view->Pos;
+	ImVec2 screenSize = view->Size;
+	ImGui::SetWindowPos(ImVec2(screenPos.x + pos.x * screenSize.x, screenPos.y + pos.y * screenSize.y), cond);
+}
 
 static std::unordered_map<uint64_t, Panel*> s_panels;
 static std::unordered_map<std::string, int> s_panelTypeCounters;
@@ -61,7 +100,6 @@ void DestroyAllPanels(void)
 
 void Panel::SetCategory(const std::string& category)
 {
-
 }
 
 }

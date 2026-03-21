@@ -1,6 +1,8 @@
 #include "FileExplorer.h"
 #include "Core/ProjectState.h"
 #include "Audio/AudioEngine.h"
+
+#include <imgui.h>
 #include <algorithm>
 #include <cstring>
 #include <cctype>

@@ -1,5 +1,6 @@
 #include "ToolbarRenderer.h"
 #include "Core/ProjectState.h"
+#include <imgui.h>
 
 struct TimeSigPreset { int num; int den; const char* label; };
 static const TimeSigPreset kPresets[] =

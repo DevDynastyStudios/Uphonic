@@ -15,7 +15,7 @@ ShortcutChord ShortcutTable::Normalize(ShortcutChord chord)
 size_t ShortcutTable::Hash(const ShortcutChord& chord)
 {
 	size_t hash = 14695981039346656037ULL;
-	for (ImGuiKey key : chord)
+	for (Key key : chord)
 	{
 		hash ^= static_cast<size_t>(key);
 		hash *= 1099511628211ULL;
@@ -93,9 +93,9 @@ void ShortcutTable::SetIgnoreMouseInput(const std::string& id, bool ignore)
 
 // Collapses Right-side modifier keys to their Left equivalent.
 // Agnostic chords are stored under Left keys so PollImpl's collapsed chord path matches them regardless of which side was pressed.
-static ImGuiKey CollapseToLeft(ImGuiKey k)
+static Key CollapseToLeft(Key k)
 {
-	switch (k)
+	switch (static_cast<ImGuiKey>(k))
 	{
 		case ImGuiKey_RightCtrl: return ImGuiKey_LeftCtrl;
 		case ImGuiKey_RightShift: return ImGuiKey_LeftShift;
@@ -113,7 +113,7 @@ void ShortcutTable::SetSideAgnostic(const std::string& id, bool agnostic)
 
 	it->second.sideAgnostic = agnostic;
 	ShortcutChord reindexed;
-	for (ImGuiKey k : it->second.chord)
+	for (Key k : it->second.chord)
 	{
 		reindexed.push_back(agnostic ? CollapseToLeft(k) : k);
 	}
@@ -196,42 +196,42 @@ void ShortcutTable::RecordTrigger(const std::string& id, uint64_t frameCounter)
 
 std::string ShortcutTable::ChordToString(const ShortcutChord& chord)
 {
-	auto DisplayName = [](ImGuiKey key) -> std::string
+	auto DisplayName = [](Key key) -> std::string
 	{
-		switch (key)
+		switch (static_cast<ImGuiKey>(key))
 		{
 			case ImGuiKey_LeftCtrl:
 			case ImGuiKey_RightCtrl:	return "Ctrl";
 			case ImGuiKey_LeftShift:
-			case ImGuiKey_RightShift:   return "Shift";
+			case ImGuiKey_RightShift:	return "Shift";
 			case ImGuiKey_LeftAlt:
-			case ImGuiKey_RightAlt:	 return "Alt";
+			case ImGuiKey_RightAlt:		return "Alt";
 			case ImGuiKey_LeftSuper:
-			case ImGuiKey_RightSuper:   return "Super";
-			case ImGuiKey_Delete:	   return "Delete";
+			case ImGuiKey_RightSuper:	return "Super";
+			case ImGuiKey_Delete:		return "Delete";
 			case ImGuiKey_Backspace:	return "Backspace";
-			case ImGuiKey_Tab:		  return "Tab";
-			case ImGuiKey_Escape:	   return "Esc";
+			case ImGuiKey_Tab:			return "Tab";
+			case ImGuiKey_Escape:		return "Esc";
 			case ImGuiKey_Enter:		return "Enter";
 			case ImGuiKey_Space:		return "Space";
-			case ImGuiKey_UpArrow:	  return "Up";
+			case ImGuiKey_UpArrow:		return "Up";
 			case ImGuiKey_DownArrow:	return "Down";
 			case ImGuiKey_LeftArrow:	return "Left";
-			case ImGuiKey_RightArrow:   return "Right";
-			case ImGuiKey_PageUp:	   return "PgUp";
-			case ImGuiKey_PageDown:	 return "PgDn";
-			case ImGuiKey_Home:		 return "Home";
-			case ImGuiKey_End:		  return "End";
-			case ImGuiKey_Insert:	   return "Insert";
+			case ImGuiKey_RightArrow:	return "Right";
+			case ImGuiKey_PageUp:		return "PgUp";
+			case ImGuiKey_PageDown:		return "PgDn";
+			case ImGuiKey_Home:			return "Home";
+			case ImGuiKey_End:			return "End";
+			case ImGuiKey_Insert:		return "Insert";
 			default:
 			{
-				const char* name = ImGui::GetKeyName(key);
+				const char* name = ImGui::GetKeyName(static_cast<ImGuiKey>(key));
 				return name ? name : "?";
 			}
 		}
 	};
 
-	auto IsModifier = [](ImGuiKey key) -> bool
+	auto IsModifier = [](Key key) -> bool
 	{
 		return key == ImGuiKey_LeftCtrl		|| key == ImGuiKey_RightCtrl	||
 				key == ImGuiKey_LeftShift	|| key == ImGuiKey_RightShift	||
@@ -240,14 +240,14 @@ std::string ShortcutTable::ChordToString(const ShortcutChord& chord)
 	};
 
 	ShortcutChord sorted = chord;
-	std::stable_sort(sorted.begin(), sorted.end(), [&](ImGuiKey a, ImGuiKey b)
+	std::stable_sort(sorted.begin(), sorted.end(), [&](Key a, Key b)
 	{
 		return IsModifier(a) && !IsModifier(b);
 	});
 
 	std::string result;
 	std::string prev;
-	for (ImGuiKey key : sorted)
+	for (Key key : sorted)
 	{
 		std::string name = DisplayName(key);
 		if (name == prev)

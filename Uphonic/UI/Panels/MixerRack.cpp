@@ -2,6 +2,8 @@
 #include "Core/ProjectState.h"
 #include "Plugin/PluginManager.h"
 #include "Naui/Localization/Localization.h"
+
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -304,7 +306,7 @@ void MixerRack::RenderChannelStrip(size_t idx, bool isSelected)
 
 // ------------------------------------------------------------
 
-void MixerRack::DrawVUMeterWithFader(float vuLeft, float vuRight, float& volume, float width, float height, ImU32 channelColor)
+void MixerRack::DrawVUMeterWithFader(float vuLeft, float vuRight, float& volume, float width, float height, int channelColor)
 {
 	ImDrawList* draw = ImGui::GetWindowDrawList();
 	ImVec2 pos = ImGui::GetCursorScreenPos();

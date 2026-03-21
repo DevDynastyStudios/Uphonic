@@ -5,7 +5,8 @@
 #include "Naui/FileSystem/FileDialog.h"
 #include "Naui/Actions/ActionManager.h"
 #include "Actions/Project/SaveProjectAction.h"
-#include <iostream>
+
+#include <imgui.h>
 
 static constexpr int PRIORITY_GLOBAL = 10;
 static constexpr int PRIORITY_PANEL  = 20;

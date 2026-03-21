@@ -5,6 +5,9 @@
 
 namespace Naui {
 
+static inline ImVec2 ToImGui(const Vec2& v) { return ImVec2(v.x, v.y); }
+static inline ImVec4 ToImGui(const Vec4& v) { return ImVec4(v.x, v.y, v.z, v.w); }
+
 static ModalFocusPolicy ResolveStrongestPolicy()
 {
 	ModalFocusPolicy strongest = ModalFocusPolicy::Free;
@@ -33,7 +36,7 @@ static void ApplyModalPosition(const Modal* modal)
 	const ImVec2 vpPos = vp->Pos;
 	const ImVec2 vpSize = vp->Size;
 
-	ImVec2 winSize = modal->m_minSize;
+	ImVec2 winSize = ToImGui(modal->m_minSize);
 	if (const ImGuiWindow* win = ImGui::FindWindowByName(modal->GetTitle().c_str()))
 		winSize = win->Size;
 
@@ -53,7 +56,7 @@ static void ApplyModalPosition(const Modal* modal)
 			break;
 
 		case ModalPosition::Custom:
-			target = modal->GetCustomPosition();
+			target = ToImGui(modal->GetCustomPosition());
 			break;
 
 		default:
@@ -75,7 +78,7 @@ void ModalRenderer::Render()
 
 	const ModalFocusPolicy policy = ResolveStrongestPolicy();
 	const bool overlayBlocks = (policy >= ModalFocusPolicy::SoftBlock);
-	const ImVec4 overlayColor  = GetModalOverlayColor();
+	const ImVec4 overlayColor  = ToImGui(GetModalOverlayColor());
 
 	ImGuiWindowFlags overlayFlags =
 		ImGuiWindowFlags_NoTitleBar			|
@@ -127,7 +130,7 @@ void ModalRenderer::Render()
 		}
 
 		ApplyModalPosition(modal);
-		ImGui::SetNextWindowSizeConstraints(modal->m_minSize, modal->m_maxSize);
+		ImGui::SetNextWindowSizeConstraints(ToImGui(modal->m_minSize), ToImGui(modal->m_maxSize));
 
 		ImGuiWindowFlags flags = modal->GetWindowFlags();
 		flags |= ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoSavedSettings;

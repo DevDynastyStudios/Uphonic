@@ -1,6 +1,8 @@
 #include "MidiEditor.h"
 #include "Core/ProjectState.h"
 #include "Naui/Localization/Localization.h"
+
+#include <imgui.h>
 #include <algorithm>
 #include <cmath>
 #include <cfloat>

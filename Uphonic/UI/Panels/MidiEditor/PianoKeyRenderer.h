@@ -1,6 +1,8 @@
 #pragma once
 #include "Naui.h"
 #include "Config/EditorConfig.h"
+
+#include <imgui.h>
 #include <set>
 
 class PianoKeyRenderer

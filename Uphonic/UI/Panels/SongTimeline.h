@@ -5,6 +5,8 @@
 #include "Audio/AudioEngine.h"
 #include "Models/EditorModel/GeneralSettings.h"
 #include "Models/EditorModel/TimelineSettings.h"
+
+#include <imgui.h>
 #include <vector>
 #include <utility>
 

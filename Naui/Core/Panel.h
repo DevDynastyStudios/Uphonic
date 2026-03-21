@@ -5,8 +5,7 @@
 
 #include "Base.h"
 #include "Shortcut/ShortcutTable.h"
-
-#include <imgui.h>
+#include "Vector.h"
 
 #include <cstdint>
 #include <string>
@@ -28,23 +27,18 @@ public:
 	static constexpr int PRIORITY_GLOBAL = 10;
 	static constexpr int PRIORITY_PANEL = 20;
 
-	void SetResizable(bool value)	{ value ? m_imguiFlags &= ~ImGuiWindowFlags_NoResize		  	: m_imguiFlags |= ImGuiWindowFlags_NoResize; }
-	void SetMovable(bool value)	  	{ value ? m_imguiFlags &= ~ImGuiWindowFlags_NoMove				: m_imguiFlags |= ImGuiWindowFlags_NoMove; }
-	void SetMinimizable(bool value)  { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoCollapse			: m_imguiFlags |= ImGuiWindowFlags_NoCollapse; }
-	void SetAutoResize(bool value)   { value ? m_imguiFlags |= ImGuiWindowFlags_AlwaysAutoResize   	: m_imguiFlags &= ~ImGuiWindowFlags_AlwaysAutoResize; }
-	void SetDockable(bool value)	 { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoDocking		 	: m_imguiFlags |= ImGuiWindowFlags_NoDocking; }
-	void SetSerializable(bool value) { value ? m_imguiFlags &= ~ImGuiWindowFlags_NoSavedSettings   	: m_imguiFlags |= ImGuiWindowFlags_NoSavedSettings; }
+	void SetResizable(bool value);
+	void SetMovable(bool value);
+	void SetMinimizable(bool value);
+	void SetAutoResize(bool value);
+	void SetDockable(bool value);
+	void SetSerializable(bool value);
 
-	void SetViewportPos(const ImVec2& pos, ImGuiCond cond = ImGuiCond_Always)
-	{
-		ImGuiViewport* view = ImGui::GetMainViewport();
-		ImVec2 screenPos  = view->Pos;
-		ImVec2 screenSize = view->Size;
-		ImGui::SetWindowPos(ImVec2(screenPos.x + pos.x * screenSize.x, screenPos.y + pos.y * screenSize.y), cond);
-	}
+	// cond matches ImGuiCond_Always (1) by default
+	void SetViewportPos(const Vec2& pos, int cond = 1);
 
-	void SetMaxSize(float x, float y) { m_maxSize = ImVec2(x, y); }
-	void SetMinSize(float x, float y) { m_minSize = ImVec2(x, y); }
+	void SetMaxSize(float x, float y) { m_maxSize = {x, y}; }
+	void SetMinSize(float x, float y) { m_minSize = {x, y}; }
 
 	// Sets only the visible portion of the title, preserving the ###layoutID suffix if present
 	void SetDisplayTitle(const std::string& title)
@@ -56,30 +50,35 @@ public:
 	void SetLayoutID(const std::string& id)
 	{
 		m_layoutID = id;
-		m_title	= GetDisplayTitle() + "###" + id;
+		m_title = GetDisplayTitle() + "###" + id;
 	}
 
-	// Returns only the human-readable portion of the title (before ###)
+	// Returns portion of the title (before ###)
 	std::string GetDisplayTitle() const
 	{
 		auto pos = m_title.find("###");
 		return (pos != std::string::npos) ? m_title.substr(0, pos) : m_title;
 	}
-	
+
 	bool IsFocused() const;
-	std::string	GetTitle() const { return m_title; }
+	std::string GetTitle() const { return m_title; }
 	const std::string& GetLayoutID() const { return m_layoutID; }
-	ImGuiWindowFlags GetWindowFlags() const { return m_imguiFlags; }
+
+	// ImGuiWindowFlags ABI compatiable int return
+	int GetWindowFlags() const { return m_imguiFlags; }
+
 	ShortcutTable& GetShortcuts() { return m_shortcuts; }
-	ImVec2 m_minSize = ImVec2(0, 0);
-	ImVec2 m_maxSize = ImVec2(FLT_MAX, FLT_MAX);
+
+	Vec2 m_minSize = {0.f, 0.f};
+	Vec2 m_maxSize = {FLT_MAX, FLT_MAX};
 
 protected:
 	virtual void OnRegisterShortcuts(Naui::ShortcutTable& table) {}
 	virtual void OnFocus()   {}
 	virtual void OnUnfocus() {}
 
-	ImGuiWindowFlags m_imguiFlags = 0;
+
+	int m_imguiFlags = 0;	// Keep as int to avoid including imgui.h
 	std::string m_title;
 	std::string m_layoutID;
 	ShortcutTable m_shortcuts;
@@ -100,7 +99,7 @@ public:
 
 	void SetOpen(bool value) { m_open = value; m_calledClose = false; }
 	bool IsOpen(void) const { return m_open; }
-	void SetTypeName(const std::string& type)  { m_typeName = type; }
+	void SetTypeName(const std::string& type) { m_typeName = type; }
 
 protected:
 	virtual void OnRegisterShortcuts(ShortcutTable& table) { }
@@ -111,8 +110,8 @@ protected:
 	void SetCategory(const std::string& category);
 
 private:
-	bool m_closable	= true;
-	bool m_open	= true;
+	bool m_closable = true;
+	bool m_open = true;
 	bool m_calledClose = false;
 	bool m_registered = false;
 	std::string m_typeName;

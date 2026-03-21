@@ -7,6 +7,8 @@
 #include "GridRenderer.h"
 #include "NoteRenderer.h"
 #include "ToolbarRenderer.h"
+
+#include <imgui.h>
 #include <vector>
 
 class MidiEditor : public Naui::Panel

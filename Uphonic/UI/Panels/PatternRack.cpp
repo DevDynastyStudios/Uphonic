@@ -1,6 +1,8 @@
 #include "PatternRack.h"
 #include "Core/ProjectState.h"
 #include "Models/DataModel/Patterns.h"
+
+#include <imgui.h>
 #include <algorithm>
 #include <cstring>
 #include <iostream>

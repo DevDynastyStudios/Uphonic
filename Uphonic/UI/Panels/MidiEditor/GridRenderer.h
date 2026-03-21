@@ -2,6 +2,8 @@
 #include "Naui.h"
 #include "Config/EditorConfig.h"
 
+#include <imgui.h>
+
 struct TimeSignature;
 
 class GridRenderer

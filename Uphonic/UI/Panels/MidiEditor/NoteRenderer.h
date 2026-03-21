@@ -2,6 +2,8 @@
 #include "Naui.h"
 #include "Models/DataModel/Patterns.h"
 #include "Config/EditorConfig.h"
+
+#include <imgui.h>
 #include <vector>
 
 class NoteRenderer

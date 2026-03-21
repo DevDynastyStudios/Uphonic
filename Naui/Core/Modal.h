@@ -4,8 +4,8 @@
 
 #include "Base.h"
 #include "Panel.h"
+#include "Vector.h"
 
-#include <imgui.h>
 #include <functional>
 #include <string>
 #include <unordered_map>
@@ -46,14 +46,14 @@ public:
 	void SetAllowMultipleInstances(bool value)	{ m_allowMultiple			= value; }
 	void SetClosable(bool value)				{ m_closable				= value; }
 	void SetPosition(ModalPosition pos)			{ m_position				= pos;   }
-	void SetCustomPosition(const ImVec2& pos)	{ m_customPos = pos; m_position = ModalPosition::Custom; }
+	void SetCustomPosition(const Vec2& pos)	{ m_customPos = pos; m_position = ModalPosition::Custom; }
 
 	ModalFocusPolicy GetFocusPolicy()			const { return m_focusPolicy; }
 	bool			AllowsMultipleInstances()	const { return m_allowMultiple; }
 	bool			ClosesOnOverlayClick()		const { return m_closeOnOverlayClick; }
 	bool			IsClosable()				const { return m_closable; }
 	ModalPosition	GetPosition()				const { return m_position; }
-	const ImVec2&	GetCustomPosition()			const { return m_customPos; }
+	const Vec2&	GetCustomPosition()			const { return m_customPos; }
 	virtual void OnRender() {}
 	virtual void OnClose()  {}
 
@@ -65,7 +65,7 @@ protected:
 	bool				m_closable				= true;
 	ModalFocusPolicy	m_focusPolicy			= ModalFocusPolicy::SoftBlock;
 	ModalPosition		m_position				= ModalPosition::Center;
-	ImVec2				m_customPos				= ImVec2(0, 0);
+	Vec2				m_customPos				= Vec2(0, 0);
 	std::string			m_typeName;
 
 	friend class ModalRenderer;
@@ -80,9 +80,10 @@ NAUI_API void RegisterModalFactory(const std::string& typeName, ModalFactory fac
 NAUI_API void DestroyModal(uint64_t uid);
 NAUI_API void DestroyAllModals();
 
-NAUI_API void SetModalOverlayColor(const ImVec4& color);
-NAUI_API ImVec4 GetModalOverlayColor();
+NAUI_API void SetModalOverlayColor(const Vec4& color);
+NAUI_API Vec4 GetModalOverlayColor();
 NAUI_API void SetModalOverlayAlpha(float alpha);
+NAUI_API void FocusModalWindow(const char* title);
 
 template<typename T>
 void RegisterModal()
@@ -114,7 +115,7 @@ T* TriggerModal()
 		if (!modal->AllowsMultipleInstances())
 		{
 			modal->SetOpen(true);
-			ImGui::SetWindowFocus(modal->GetTitle().c_str());
+			FocusModalWindow(modal->GetTitle().c_str());
 			return static_cast<T*>(modal);
 		}
 	}

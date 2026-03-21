@@ -56,7 +56,7 @@ void SampleRack::OnRegisterShortcuts(Naui::ShortcutTable& table)
 
 		state.actionManager.Execute<RemoveSampleAction>(state.samples[currentSelectedSample]);
 		if(currentSelectedSample >= state.samples.size())
-			currentSelectedSample = state.samples.size() - 1;
+			currentSelectedSample = (int)state.samples.size() - 1;
 	});
 
 	table.Register("sample.rename",	{ ImGuiKey_F2 },						PRIORITY_PANEL, []{ /* rename */ });
@@ -66,7 +66,7 @@ void SampleRack::OnRegisterShortcuts(Naui::ShortcutTable& table)
 		ProjectState& state = ProjectState::GetInstance();
 		currentSelectedSample--;
 		if(currentSelectedSample < 0)
-			currentSelectedSample = state.samples.size() - 1;
+			currentSelectedSample = (int)state.samples.size() - 1;
 	});
 
 	table.Register("sample.select.down", { ImGuiKey_DownArrow },				PRIORITY_PANEL, []{

@@ -1,6 +1,9 @@
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #pragma once
 #include "Base.h"
-#include <imgui.h>
+#include "Key.h"
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -10,7 +13,7 @@
 
 namespace Naui {
 
-using ShortcutChord = std::vector<ImGuiKey>;
+using ShortcutChord = std::vector<Key>;
 
 enum class ShortcutConflictMode
 {
@@ -92,3 +95,4 @@ private:
 };
 
 }
+#pragma warning(pop)
