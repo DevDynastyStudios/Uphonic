@@ -1,19 +1,5 @@
-#pragma once
+NAUI_API void       naui_load_theme     (const char *file_name);
 
-#include "Base.h"
-#include <imgui.h>
-
-namespace Naui
-{
-
-class NAUI_API Theme
-{
-public:
-	static void Load(const char* path);
-	static void LoadDefault(void);
-	static ImColor GetColor(const char* name);
-	static ImVec2 GetVec2(const char* name);
-	static float GetFloat(const char* name);
-};
-
-};
+NAUI_API Naui_Color naui_theme_color    (const char *name);
+NAUI_API Naui_Vec2  naui_theme_vec2     (const char *name);
+NAUI_API float      naui_theme_float    (const char *name);

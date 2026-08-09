@@ -1,246 +1,177 @@
-#pragma warning(push)
-#pragma warning(disable : 4251)
-
-#pragma once
-
-#include "Base.h"
-#include "Shortcut/ShortcutTable.h"
-#include "Vector.h"
-
-#include <cstdint>
-#include <string>
-#include <cfloat>
-#include <functional>
-#include <unordered_map>
-#include <typeinfo>
-
-#if defined(__GNUC__) || defined(__clang__)
-	#include <cxxabi.h>
+#ifndef NAUI_PANEL_BORDER_COLOR_TAG
+    #define NAUI_PANEL_BORDER_COLOR_TAG "naui_panel_border_color"
 #endif
 
-namespace Naui
+#ifndef NAUI_PANEL_BORDER_WIDTH_TAG
+    #define NAUI_PANEL_BORDER_WIDTH_TAG "naui_panel_border_width"
+#endif
+
+#ifndef NAUI_PANEL_TITLEBAR_BG_COLOR_TAG
+    #define NAUI_PANEL_TITLEBAR_BG_COLOR_TAG "naui_panel_title_bg_color"
+#endif
+
+#ifndef NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG
+    #define NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG "naui_panel_title_text_color"
+#endif
+
+#ifndef NAUI_PANEL_TITLEBAR_PADDING_TAG
+    #define NAUI_PANEL_TITLEBAR_PADDING_TAG "naui_panel_title_padding"
+#endif
+
+#ifndef NAUI_PANEL_BODY_BG_COLOR_TAG
+    #define NAUI_PANEL_BODY_BG_COLOR_TAG "naui_panel_body_bg_color"
+#endif
+
+#ifndef NAUI_PANEL_BODY_PADDING_TAG
+    #define NAUI_PANEL_BODY_PADDING_TAG "naui_panel_body_padding"
+#endif
+
+#ifndef NAUI_PANEL_ROUNDING_TAG
+    #define NAUI_PANEL_ROUNDING_TAG "naui_panel_rounding"
+#endif
+
+#ifndef NAUI_PANEL_SHADOW_COLOR_TAG
+    #define NAUI_PANEL_SHADOW_COLOR_TAG "naui_panel_shadow_color"
+#endif
+
+#ifndef NAUI_PANEL_INNER_SHADOW_COLOR_TAG
+    #define NAUI_PANEL_INNER_SHADOW_COLOR_TAG "naui_panel_inner_shadow_color"
+#endif
+
+#ifndef NAUI_PANEL_FONT_SIZE_TAG
+    #define NAUI_PANEL_FONT_SIZE_TAG "naui_panel_font_size"
+#endif
+
+#ifndef NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG
+    #define NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG "naui_panel_button_hovered_bg_color"
+#endif
+
+#ifndef NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG
+    #define NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG "naui_panel_close_hovered_bg_color"
+#endif
+
+#ifndef NAUI_VIEWPORT_BG_COLOR_TAG
+    #define NAUI_VIEWPORT_BG_COLOR_TAG "naui_viewport_bg_color"
+#endif
+
+#ifndef NAUI_DOCK_GUIDE_COLOR_TAG
+    #define NAUI_DOCK_GUIDE_COLOR_TAG "naui_dock_guide_color"
+#endif
+
+#ifndef NAUI_DOCK_GUIDE_HOVERED_COLOR_TAG
+    #define NAUI_DOCK_GUIDE_HOVERED_COLOR_TAG "naui_dock_guide_hovered_color"
+#endif
+
+#ifndef NAUI_DOCK_GUIDE_OUTLINE_COLOR_TAG
+    #define NAUI_DOCK_GUIDE_OUTLINE_COLOR_TAG "naui_dock_guide_outline_color"
+#endif
+
+#ifndef NAUI_MINIMIZE_ICON_TAG
+    #define NAUI_MINIMIZE_ICON_TAG "naui_icon_minimize"
+#endif
+
+#ifndef NAUI_MAXIMIZE_ICON_TAG
+    #define NAUI_MAXIMIZE_ICON_TAG "naui_icon_maximize"
+#endif
+
+#ifndef NAUI_CLOSE_ICON_TAG
+    #define NAUI_CLOSE_ICON_TAG "naui_icon_close"
+#endif
+
+typedef uint64_t Naui_PanelID;
+typedef void(*NauiPanelEvent)(void *data);
+
+typedef uint8_t Naui_DockDirection;
+enum
 {
-
-class NAUI_API PanelImGuiImpl
-{
-public:
-	static constexpr int PRIORITY_GLOBAL = 10;
-	static constexpr int PRIORITY_PANEL = 20;
-
-	void SetResizable(bool value);
-	void SetMovable(bool value);
-	void SetMinimizable(bool value);
-	void SetAutoResize(bool value);
-	void SetDockable(bool value);
-	void SetSerializable(bool value);
-
-	// cond matches ImGuiCond_Always (1) by default
-	void SetViewportPos(const Vec2& pos, int cond = 1);
-
-	void SetMaxSize(float x, float y) { m_maxSize = {x, y}; }
-	void SetMinSize(float x, float y) { m_minSize = {x, y}; }
-
-	// Sets only the visible portion of the title, preserving the ###layoutID suffix if present
-	void SetDisplayTitle(const std::string& title)
-	{
-		m_title = m_layoutID.empty() ? title : title + "###" + m_layoutID;
-	}
-
-	// Sets the stable layout ID used by ImGui for window identity (###ID) and updates the full title
-	void SetLayoutID(const std::string& id)
-	{
-		m_layoutID = id;
-		m_title = GetDisplayTitle() + "###" + id;
-	}
-
-	// Returns portion of the title (before ###)
-	std::string GetDisplayTitle() const
-	{
-		auto pos = m_title.find("###");
-		return (pos != std::string::npos) ? m_title.substr(0, pos) : m_title;
-	}
-
-	bool IsFocused() const;
-	std::string GetTitle() const { return m_title; }
-	const std::string& GetLayoutID() const { return m_layoutID; }
-
-	// ImGuiWindowFlags ABI compatiable int return
-	int GetWindowFlags() const { return m_imguiFlags; }
-
-	ShortcutTable& GetShortcuts() { return m_shortcuts; }
-
-	Vec2 m_minSize = {0.f, 0.f};
-	Vec2 m_maxSize = {FLT_MAX, FLT_MAX};
-
-protected:
-	virtual void OnRegisterShortcuts(Naui::ShortcutTable& table) {}
-	virtual void OnFocus()   {}
-	virtual void OnUnfocus() {}
-
-
-	int m_imguiFlags = 0;	// Keep as int to avoid including imgui.h
-	std::string m_title;
-	std::string m_layoutID;
-	ShortcutTable m_shortcuts;
-	bool m_shortcutsRegistered = false;
+    NAUI_DOCK_DIRECTION_LEFT,
+    NAUI_DOCK_DIRECTION_RIGHT,
+    NAUI_DOCK_DIRECTION_TOP,
+    NAUI_DOCK_DIRECTION_BOTTOM,
+    NAUI_DOCK_DIRECTION_CENTER
 };
 
-class NAUI_API Panel : public PanelImGuiImpl
+typedef struct
 {
-public:
-	Panel(void) = default;
-	Panel(const char* title) { m_title = title; }
+    NauiPanelEvent on_attach;
+    NauiPanelEvent on_detach;
+    NauiPanelEvent on_update;
+    size_t user_data_size;
+    const char *type_name;
+}
+Naui_PanelType;
 
-	static constexpr int PRIORITY_GLOBAL = 10;
-	static constexpr int PRIORITY_PANEL = 20;
-
-	const uint64_t GetUID() const { return (uint64_t)this; }
-	const std::string& GetTypeName() const { return m_typeName; }
-
-	void SetOpen(bool value) { m_open = value; m_calledClose = false; }
-	bool IsOpen(void) const { return m_open; }
-	void SetTypeName(const std::string& type) { m_typeName = type; }
-
-protected:
-	virtual void OnRegisterShortcuts(ShortcutTable& table) { }
-	virtual void OnRender(void) { }
-	virtual void OnClose(void)  { }
-
-	void SetClosable(bool value) { m_closable = value; }
-	void SetCategory(const std::string& category);
-
-private:
-	bool m_closable = true;
-	bool m_open = true;
-	bool m_calledClose = false;
-	bool m_registered = false;
-	std::string m_typeName;
-
-	friend class PanelRenderer;
+typedef uint32_t Naui_PanelFlags;
+enum
+{
+    NAUI_PANEL_FLAG_NONE = 0,
+    NAUI_PANEL_FLAG_NO_CLOSE = 1 << 0,
+    NAUI_PANEL_FLAG_NO_DOCK_TO_OTHER = 1 << 1,
+    NAUI_PANEL_FLAG_NO_DOCK_FROM_OTHER = 1 << 2,
+    NAUI_PANEL_FLAG_NO_DOCK = NAUI_PANEL_FLAG_NO_DOCK_TO_OTHER | NAUI_PANEL_FLAG_NO_DOCK_FROM_OTHER,
+    NAUI_PANEL_FLAG_NO_UNDOCK = 1 << 3,
+    NAUI_PANEL_FLAG_NO_MOVE = 1 << 4,
+    NAUI_PANEL_FLAG_NO_RESIZE = 1 << 5,
+    NAUI_PANEL_FLAG_NO_TITLE = 1 << 6,
+    NAUI_PANEL_FLAG_ALWAYS_TO_FRONT = 1 << 7, // still not implemented
+    NAUI_PANEL_FLAG_SERIALIZABLE = 1 << 8
 };
 
+#define NAUI_ATTACH_PANEL(type_name) naui_attach_panel(#type_name)
+#define NAUI_FIND_PANEL_OF_TYPE(type_name) naui_find_panel_of_type(#type_name)
 
+NAUI_API Naui_PanelID       naui_attach_panel               (const char *type_name);
+NAUI_API void               naui_detach_panel               (Naui_PanelID id);
+NAUI_API void               naui_register_panel_type        (const char *name, Naui_PanelType type);
 
-using PanelFactory = std::function<Panel*(void)>;
+NAUI_API void               naui_panel_set_title            (Naui_PanelID panel_id, const char *title);
+NAUI_API void               naui_panel_set_size             (Naui_PanelID panel_id, Naui_Vec2 size);
+NAUI_API void               naui_panel_set_min_size         (Naui_PanelID panel_id, Naui_Vec2 size);
+NAUI_API void               naui_panel_enable_flags         (Naui_PanelID panel_id, Naui_PanelFlags flags);
+NAUI_API void               naui_panel_disable_flags        (Naui_PanelID panel_id, Naui_PanelFlags flags);
 
-NAUI_API std::unordered_map<uint64_t, Panel*>& GetAllPanels(void);
-NAUI_API std::unordered_map<std::string, int>&  GetPanelTypeCounters(void);
-NAUI_API std::unordered_map<std::string, PanelFactory>& GetPanelFactories(void);
+NAUI_API Naui_PanelID       naui_dock_panel                 (Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio);
+NAUI_API void               naui_undock_panel               (Naui_PanelID id);
 
-NAUI_API void   RegisterPanelFactory(const std::string& typeName, PanelFactory factory);
-NAUI_API Panel* CreatePanelByType(const std::string& typeName, const std::string& layoutID);
-NAUI_API void   ResetPanelTypeCounters(void);
+NAUI_API void               naui_set_main_viewport          (Naui_PanelID id);
+NAUI_API Naui_PanelID       naui_get_main_viewport          (void);
 
-NAUI_API void DestroyPanel(uint64_t uid);
-NAUI_API void DestroyAllPanels(void);
+NAUI_API bool               naui_panel_hovered              (Naui_PanelID id);
+NAUI_API bool               naui_any_panel_hovered          (void);
 
-inline std::string NormalizeTypeName(const char* name)
-{
-	std::string s;
+NAUI_API Naui_PanelID       naui_find_panel_of_type         (const char *type_name);
 
-#if defined(__GNUC__) || defined(__clang__)
-	int status = 0;
-	char* demangled = abi::__cxa_demangle(name, nullptr, nullptr, &status);
-	s = (status == 0 && demangled) ? demangled : name;
-	std::free(demangled);
+NAUI_API void               naui_render_panels_and_viewport (void);
+NAUI_API Naui_PanelID       naui_current_panel              (void);
+
+NAUI_API bool               naui_serialize_viewport         (const char *file_path);
+NAUI_API bool               naui_deserialize_viewport       (const char *file_path);
+
+#ifdef _MSC_VER
+  #pragma section(".CRT$XCU", read)
+  #define NAUI_CONSTRUCTOR_NAMED(fn) \
+      static void fn(void); \
+      __declspec(allocate(".CRT$XCU")) void(*fn##_)(void) = fn; \
+      static void fn(void)
 #else
-	s = name;
+  #define NAUI_CONSTRUCTOR_NAMED(fn) \
+      __attribute__((constructor)) static void fn(void)
 #endif
 
-	for (const char* prefix : { "class ", "struct " })
-	{
-		if (s.rfind(prefix, 0) == 0)
-		{
-			s.erase(0, std::strlen(prefix));
-			break;
-		}
-	}
+#define __NAUI_DEFINE_PANEL_TYPE(name, data_size) \
+    static void name##_on_attach(void); \
+    static void name##_on_detach(void); \
+    static void name##_on_update(void); \
+    static Naui_PanelType _##name##_events = { \
+        (NauiPanelEvent)name##_on_attach, \
+        (NauiPanelEvent)name##_on_detach, \
+        (NauiPanelEvent)name##_on_update, \
+        data_size, \
+        #name \
+    }; \
+    NAUI_CONSTRUCTOR_NAMED(_register_##name) { \
+        naui_register_panel_type(#name, _##name##_events); \
+    }
 
-	return s;
-}
-
-// Call once per panel type at startup so that Layout::Load can recreate panels from a file
-template<typename T>
-void RegisterPanel()
-{
-	RegisterPanelFactory(typeid(T).name(), []() -> Panel*
-	{
-		Panel* p = new T;
-		p->SetTypeName(typeid(T).name());
-		return p;
-	});
-}
-
-template<typename T>
-Panel& AddPanel()
-{
-	Panel* p = new T;
-
-	const std::string typeName = typeid(T).name();
-	p->SetTypeName(typeName);
-
-	const int idx = GetPanelTypeCounters()[typeName]++;
-	p->SetLayoutID(typeName + "_" + std::to_string(idx));
-
-	GetAllPanels()[p->GetUID()] = p;
-	return *p;
-}
-
-template<typename T>
-T* GetPanelOfType()
-{
-	for (auto& [uid, panel] : GetAllPanels())
-	{
-		if (auto casted = dynamic_cast<T*>(panel))
-			return casted;
-	}
-
-	return nullptr;
-}
-
-template<typename T>
-T* FindPanelByTitle(const std::string& title)
-{
-	for (auto& [uid, panel] : GetAllPanels())
-	{
-		if (panel && panel->GetDisplayTitle() == title)
-			return static_cast<T*>(panel);
-	}
-
-	return nullptr;
-}
-
-template<typename T>
-void DestroyPanelOfType()
-{
-	auto& panels = GetAllPanels();
-	for (auto it = panels.begin(); it != panels.end(); ++it)
-	{
-		if (dynamic_cast<T*>(it->second))
-		{
-			delete it->second;
-			panels.erase(it);
-			return;
-		}
-	}
-}
-
-template<typename T>
-void DestroyAllPanelsOfType()
-{
-	auto& panels = GetAllPanels();
-	for (auto it = panels.begin(); it != panels.end();)
-	{
-		if (dynamic_cast<T*>(it->second))
-		{
-			delete it->second;
-			it = panels.erase(it);
-		}
-		else
-			++it;
-	}
-}
-
-}
-
-#pragma warning(pop)
+#define NAUI_PANEL_WITH_DATA(name, data_type) __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))
+#define NAUI_PANEL(name) __NAUI_DEFINE_PANEL_TYPE(name, 0)

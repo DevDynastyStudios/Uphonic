@@ -1,50 +1,53 @@
-#pragma warning(push)
-#pragma warning(disable : 4251)
 #pragma once
 
-#include "Base.h"
-#include <filesystem>
-#include <string>
-#include <vector>
-#include <miniz.h>
+#define NAUI_ARCHIVE_MAGIC "NauiPak"
+#define NAUI_ARCHIVE_MAGIC_SIZE (sizeof(NAUI_ARCHIVE_MAGIC) - 1)
+#define NAUI_ARCHIVE_VERSION 1
 
-namespace Naui {
+#define NAUI_ARCHIVE_INIT { {0}, 0, false }
 
-enum class ArchiveMode { Read, Write };
-
-struct NAUI_API ArchiveEntry
+typedef uint8_t Naui_ArchiveMode;
+enum
 {
-	std::string path;
+	NAUI_ARCHIVE_READ,
+	NAUI_ARCHIVE_WRITE
+};
+
+typedef struct Naui_ArchiveEntry
+{
+	Naui_Path path;
 	uint64_t size;
-	bool isDirectory;
-};
+	bool is_directory;
+} Naui_ArchiveEntry;
 
-class NAUI_API Archive
+typedef struct Naui_Archive
 {
-public:
-	Archive(const std::filesystem::path& file, ArchiveMode mode);
-	~Archive();
+	mz_zip_archive zip;
+	Naui_ArchiveMode mode;
+	bool is_valid;
+} Naui_Archive;
 
-	Archive(const Archive&) = delete;
-	Archive& operator=(const Archive&) = delete;
-	Archive(Archive&& other) noexcept;
-	Archive& operator=(Archive&& other) noexcept;
+bool naui_archive_open(Naui_Archive* archive, const Naui_Path path, Naui_ArchiveMode mode);
+void naui_archive_move(Naui_Archive* dst, Naui_Archive* src);
+void naui_archive_close(Naui_Archive* archive);
+bool naui_archive_is_valid(const Naui_Archive* archive);
 
-	bool IsValid() const;
-	bool AddFolder(const std::filesystem::path& folder, const std::filesystem::path& rootInArchive);
-	bool ExtractTo(const std::filesystem::path& outputFolder);
-	bool AddFile(const std::filesystem::path& source, const std::filesystem::path& destInArchive);
-	bool ExtractFile(const std::filesystem::path& entry, const std::filesystem::path& dest);
+/* Add all files under folder recursively, prefixed with root_in_archive. */
+bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive);
 
-	std::vector<ArchiveEntry> ListEntries();
-	static bool CreateCustom(const std::filesystem::path& folder, const std::filesystem::path& archivePath);
-	static bool ExtractCustom(const std::filesystem::path& archivePath, const std::filesystem::path& outputFolder);
+/* Add a single file into the archive at dest_in_archive. */
+bool naui_archive_add_file(Naui_Archive* archive, const Naui_Path source, const Naui_Path dest_in_archive);
 
-private:
-	mz_zip_archive zip_;
-	ArchiveMode mode_;
-	bool isValid_;
-};
+/* Extract all entries to output_folder. */
+bool naui_archive_extract_to(Naui_Archive* archive, const Naui_Path output_folder);
 
-}
-#pragma warning(pop)
+/* Extract a single named entry to dest. */
+bool naui_archive_extract_file(Naui_Archive* archive, const Naui_Path entry, const Naui_Path dest);
+
+/* List all entries.
+ * Call naui_archive_list_free() when done. */
+Naui_List(Naui_ArchiveEntry) naui_archive_list_entries(Naui_Archive* archive);
+void naui_archive_list_free(Naui_List(Naui_ArchiveEntry) list);
+
+bool naui_archive_create_custom(const Naui_Path folder, const Naui_Path archive_path);
+bool naui_archive_extract_custom(const Naui_Path archive_path, const Naui_Path output_folder);

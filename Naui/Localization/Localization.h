@@ -1,68 +1,65 @@
-#pragma warning(push)
-#pragma warning(disable : 4251)
-#pragma once
-#include "Base.h"
-#include <string>
-#include <unordered_map>
-#include <span>
-#include <vector>
+#define NAUI_TR(key) naui_localization_get(naui_localization_get_current(), key)
 
-namespace Naui
+typedef uint8_t Naui_TextDirection;
+enum
 {
-enum class TextDirection
-{
-	LTR, RTL
+	NAUI_TEXT_LTR,
+	NAUI_TEXT_RTL
 };
 
-struct LanguageEntry
+typedef struct
 {
-	std::string code;
-	std::string displayName;
-};
+	char* filename;
+	char* language_code;
+	char* region_code;
+	char* display_name;
+	Naui_TextDirection text_direction;
+} Naui_LanguageMeta;
 
-class NAUI_API Localization
+typedef struct
 {
-public:
-	static bool Load(const std::string& path);
-	static bool SetLanguage(const std::string& code);
-	static const char* Get(const char* key);
-	static std::string Format(const char* key, std::span<const std::string> args);
+	char* key;
+	char* value;
+	bool is_interpolated;
+} Naui_LanguageEntry;
 
-	static TextDirection Direction();
-	static const std::string& LanguageCode();
-	static const std::string& RegionCode();
-	static const std::string& CurrentLanguage();
-
-	// Returns all available language entries found in the Language directory.
-	// Cached on every SetLanguage call.
-	static const std::vector<LanguageEntry>& GetLanguages();
-
-private:
-	static void ScanLanguages();
-
-	struct Entry
-	{
-		std::string text;
-		bool isInterpolated = false;
-	};
-
-	static std::unordered_map<std::string, Entry> table;
-	static TextDirection direction;
-	static std::string languageCode;
-	static std::string regionCode;
-	static std::string currentLanguage;
-	static std::vector<LanguageEntry> languages;
-};
-
-inline const char* TR(const char* key)
+typedef struct
 {
-	return Localization::Get(key);
-}
+	Naui_Map(Naui_LanguageEntry) table;
+	Naui_LanguageMeta meta;
+} Naui_Language;
 
-inline std::string TR(const char* key, std::vector<std::string> args)
-{
-	return Localization::Format(key, args);
-}
+/* Set the active language by code. Scans the language subfolder file names.
+ * Attempts fall back to en-US if the requested code fails. */
+void naui_localization_set_current(const char* language_code);
 
-}
-#pragma warning(pop)
+void naui_localization_set_current_lang(Naui_Language* language);
+
+/* Returns the currently active language, or NULL if none loaded. */
+Naui_Language* naui_localization_get_current(void);
+
+/* Rebuild the metadata cache from all .lang files in the language subfolder. */
+void naui_localization_reload_meta_cache(void);
+
+/* Return the cached list of available languages.
+ * Valid until the next naui_localization_reload_meta_cache() call. */
+Naui_List(Naui_LanguageMeta) naui_localization_get_languages(void);
+
+/* Load a language by code into out_language.
+ * Returns false if the file cannot be found or parsed. */
+bool naui_localization_load(const char* language_code, Naui_Language* out_language);
+
+/* Load directly from a file stored in the Localization folder */
+bool naui_localization_load_file(const char* path, Naui_Language* out_language);
+
+/* Look up a key. Returns the key itself if not found (never NULL). */
+const char* naui_localization_get(const Naui_Language* language, const char* key);
+
+/*
+ * Look up and format an interpolated string.
+ * Returns NULL if key not found or not interpolated.
+ */
+char* naui_localization_format(const Naui_Language* language, const char* key, const char** args, int arg_count);
+
+/* Free all memory owned by a Naui_Language. */
+void naui_localization_free(Naui_Language* language);
