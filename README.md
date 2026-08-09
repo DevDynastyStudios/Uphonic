@@ -1,10 +1,4 @@
-<div style="display: flex; align-items: center; justify-content: center;">
-  <img src="https://github.com/DevDynastyStudios/Uphonic/blob/main/content/logo.png?raw=true" 
-       alt="Uphonic-Logo" 
-       width="15%">
-  <h1 style="font-size: 4rem;">phonic</h1>
-</div>
-<br>
+![Uphonic](content/logo-large.png)
 
 **Uphonic** is a digital audio workstation written entirely within C.\
 Built to be simple, fast, and customizable.
