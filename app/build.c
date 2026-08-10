@@ -12,5 +12,5 @@
 #include "defaults/titlebar.c"
 #include "defaults/widgets/widgets.c"
 
-#include "panels/welcome.c"
+#include "panels/build.c"
 #include "main.c"
