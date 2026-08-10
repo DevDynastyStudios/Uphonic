@@ -12,5 +12,14 @@
 #include "defaults/titlebar.c"
 #include "defaults/widgets/widgets.c"
 
+#include "core/project_types.h"
+#include "core/editor_types.h"
+
+#include "core/project_manager.h"
+#include "core/project_manager.c"
+
+#include "io/serialization.h"
+#include "io/serialization.c"
+
 #include "panels/build.c"
 #include "main.c"
