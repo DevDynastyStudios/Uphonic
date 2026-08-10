@@ -5,3 +5,4 @@ build
 bin
 tags
 sokol-shdc*
+app/panels/build.c
