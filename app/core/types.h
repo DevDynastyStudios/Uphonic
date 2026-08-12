@@ -10,7 +10,8 @@ typedef struct
 	bool confirm_on_exit;
 	bool confirm_on_delete;
 	bool show_tooltips;
-} Uph_GeneralSettings;
+}
+Uph_GeneralSettings;
 
 typedef struct
 {
@@ -26,7 +27,8 @@ typedef struct
 	bool software_monitoring;
 	bool auto_restart_on_device_change;
 	bool underrun_protection;
-} Uph_AudioSettings;
+}
+Uph_AudioSettings;
 
 typedef struct
 {
@@ -35,7 +37,8 @@ typedef struct
 	uint32_t default_snap;
 	float playhead_lock_position;
 	bool follow_playhead;
-} Uph_UISettings;
+}
+Uph_UISettings;
 
 typedef struct
 {
@@ -49,7 +52,8 @@ typedef struct
 	bool midi_thru_enabled;
 	bool record_over_dub;
 	bool record_quantize;
-} Uph_MIDISettings;
+}
+Uph_MIDISettings;
 
 typedef struct
 {
@@ -57,7 +61,8 @@ typedef struct
 	Naui_List(Naui_Path) blacklist_paths;
 	bool sandbox_plugins;
 	// Box, you can fill in the rest
-} Uph_PluginSettings;
+}
+Uph_PluginSettings;
 
 // :project
 typedef struct
@@ -67,7 +72,8 @@ typedef struct
 	double length_beats;
 	double reserved;
 	uint16_t pattern_index;
-} Uph_MidiTimelineBlock;
+}
+Uph_MidiTimelineBlock;
 
 typedef struct
 {
@@ -76,30 +82,42 @@ typedef struct
 	double length_beats;
 	double stretched_scale;
 	uint16_t sample_index;
-} Uph_SampleTimelineBlock;
+}
+Uph_SampleTimelineBlock;
 
 typedef union
 {
 	Uph_MidiTimelineBlock midi_block;
 	Uph_SampleTimelineBlock sample_block;
-} Uph_TimelineBlock;
+}
+Uph_TimelineBlock;
 
-typedef enum
+typedef uint8_t Uph_SampleChannelType;
+enum
 {
 	UPH_SAMPLE_MONO,
 	UPH_SAMPLE_STEREO
-} Uph_SampleChannelType;
+};
+
+typedef uint32_t Uph_ResoureceID;
+
+typedef struct
+{
+	Naui_Path file_path;
+	float *frames;
+	uint64_t frame_count;
+	uint32_t original_sample_rate;
+	Uph_SampleChannelType channel_type;
+}
+Uph_SampleData;
 
 typedef struct
 {
 	Naui_String name;
-	Naui_Path* file_path;
-	Uph_SampleChannelType channel_type;
 	Naui_Color color;
-	float* frame_data;
-	uint64_t frame_count;
-	uint32_t original_sample_rate;
-} Uph_AudioSample;
+	Uph_ResoureceID data_id;
+}
+Uph_Sample;
 
 typedef struct
 {
@@ -107,24 +125,28 @@ typedef struct
 	double length_beats;
 	uint8_t key_number;
 	uint8_t velocity;
-} Uph_MidiNote;
+}
+Uph_MidiNote;
 
 typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
 	Naui_Color color;
-} Uph_MidiPattern;
+}
+Uph_MidiPattern;
 
 typedef enum
 {
 	UPH_TRACK_NONE,
 	UPH_TRACK_AUDIO,
 	UPH_TRACK_MIDI
-} Uph_TrackType;
+}
+Uph_TrackType;
 
 typedef uint8_t Uph_TrackState;
-enum {
+enum
+{
 	UPH_TRACK_STATE_NONE = 1 << 0,
 	UPH_TRACK_STATE_MUTE = 1 << 1,
 	UPH_TRACK_STATE_SOLO = 1 << 2,
@@ -142,20 +164,23 @@ typedef struct
 	float peak_left, peak_right;
 	float smooth_peak_left, smooth_peak_right;
 	Uph_TrackState state;
-} Uph_Track;
+}
+Uph_Track;
 
 typedef struct
 {
 	uint32_t numerator;
 	uint32_t denominator;
-} Uph_TimeSignature;
+}
+Uph_TimeSignature;
 
 typedef struct
 {
 	uint8_t major;
 	uint8_t minor;
 	uint16_t patch;
-} Uph_Version;
+}
+Uph_Version;
 
 typedef struct
 {
@@ -164,4 +189,5 @@ typedef struct
 	uint64_t last_accessed;
 	uint64_t last_modified;
 	Uph_Version project_version;
-} Uph_Project;
+}
+Uph_Project;
