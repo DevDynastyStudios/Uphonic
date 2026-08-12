@@ -187,11 +187,6 @@ typedef struct
 	Naui_String title;
 	Uph_Version project_version;
 
-	Uph_GeneralSettings general_settings;
-	Uph_AudioSettings audio_settings;
-	Uph_UISettings ui_settings;
-	Uph_MIDISettings midi_settings;
-	Uph_PluginSettings plugin_settings;
 	Uph_TimeSignature time_signature;
 		
 	Naui_List(Uph_Track) tracks;
@@ -201,3 +196,21 @@ typedef struct
 	float bpm;
 }
 Uph_Project;
+
+typedef struct
+{
+	Uph_GeneralSettings general;
+	Uph_AudioSettings audio;
+	Uph_UISettings ui;
+	Uph_MIDISettings midi;
+	Uph_PluginSettings plugin;
+} Uph_Settings;
+
+typedef struct
+{
+	Uph_Project project;
+	Uph_Settings settings;
+	// Input State
+} Uph_State;
+
+extern Uph_State state;

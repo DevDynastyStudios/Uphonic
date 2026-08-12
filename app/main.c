@@ -1,5 +1,7 @@
 NAUI_APP("Uphonic")
 
+Uph_State state = { 0 };
+
 void naui_app_start(void)
 {
 	naui_load_theme("Default");
