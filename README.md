@@ -1,4 +1,6 @@
-![Uphonic](content/logo-large.png)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/DevDynastyStudios/Uphonic/refs/heads/main/content/logo-large.png" alt="Naui" width="50%">
+</p>
 
 **Uphonic** is a digital audio workstation written entirely within C.\
 Built to be simple, fast, and customizable.
