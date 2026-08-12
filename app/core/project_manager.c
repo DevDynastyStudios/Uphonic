@@ -29,7 +29,7 @@ bool uph_load_project(Naui_Path project_path)
 	return false;
 }
 
-bool uph_add_file(Naui_Path file_path)
+bool uph_add_file(Naui_Path file_path, bool make_copy)
 {
 
 	return false;
