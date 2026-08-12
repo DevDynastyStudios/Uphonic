@@ -186,6 +186,15 @@ typedef struct
 {
 	Naui_String title;
 	Uph_Version project_version;
+
+	Uph_GeneralSettings general_settings;
+	Uph_AudioSettings audio_settings;
+	Uph_UISettings ui_settings;
+	Uph_MIDISettings midi_settings;
+	Uph_PluginSettings plugin_settings;
+	Uph_TimeSignature time_signature;
+		
+	Naui_List(Uph_Track) tracks;
 	uint64_t time_created;
 	uint64_t last_accessed;
 	uint64_t last_modified;
