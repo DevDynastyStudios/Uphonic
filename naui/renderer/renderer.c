@@ -560,7 +560,8 @@ void naui_renderer_initialize(void)
     rdata = calloc(1, sizeof(Naui_RendererData));
 
     mgfx_init(&(mgfx_init_info){
-        .handle = mg_app_handle(),
+        .primary_handle = mg_app_primary_handle(),
+        .secondary_handle = mg_app_primary_handle(),
         .width = mg_app_width(),
         .height = mg_app_height(),
         .vsync = true
@@ -575,13 +576,13 @@ void naui_renderer_initialize(void)
 
     rdata->batch_vb = mgfx_create_buffer(&(mgfx_buffer_create_info){
         .usage  = MGFX_BUFFER_USAGE_VERTEX,
-        .access = MGFX_ACCESS_CPU,
+        .memory = MGFX_MEMORY_SHARED,
         .size   = sizeof(rdata->vertices)
     });
 
     rdata->batch_ib = mgfx_create_buffer(&(mgfx_buffer_create_info){
         .usage  = MGFX_BUFFER_USAGE_INDEX,
-        .access = MGFX_ACCESS_CPU,
+        .memory = MGFX_MEMORY_SHARED,
         .size   = sizeof(rdata->indices)
     });
 

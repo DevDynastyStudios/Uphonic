@@ -1,3 +1,6 @@
+@glsl_options flip_vert_y
+@hlsl_options flip_vert_y
+
 @stage vertex
 
 in vec2 in_position;
@@ -79,3 +82,5 @@ void main()
     }
     }
 }
+
+@shader base
