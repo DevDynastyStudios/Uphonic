@@ -147,10 +147,10 @@ Uph_TrackType;
 typedef uint8_t Uph_TrackState;
 enum
 {
-	UPH_TRACK_STATE_NONE = 1 << 0,
-	UPH_TRACK_STATE_MUTE = 1 << 1,
-	UPH_TRACK_STATE_SOLO = 1 << 2,
-	UPH_TRACK_STATE_ARMED = 1 << 3
+	UPH_TRACK_STATE_NONE = 0,
+	UPH_TRACK_STATE_MUTE = 1 << 0,
+	UPH_TRACK_STATE_SOLO = 1 << 1,
+	UPH_TRACK_STATE_ARMED = 1 << 2
 };
 
 typedef struct
@@ -185,9 +185,32 @@ Uph_Version;
 typedef struct
 {
 	Naui_String title;
+	Uph_Version project_version;
+
+	Uph_TimeSignature time_signature;
+		
+	Naui_List(Uph_Track) tracks;
 	uint64_t time_created;
 	uint64_t last_accessed;
 	uint64_t last_modified;
-	Uph_Version project_version;
+	float bpm;
 }
 Uph_Project;
+
+typedef struct
+{
+	Uph_GeneralSettings general;
+	Uph_AudioSettings audio;
+	Uph_UISettings ui;
+	Uph_MIDISettings midi;
+	Uph_PluginSettings plugin;
+} Uph_Settings;
+
+typedef struct
+{
+	Uph_Project project;
+	Uph_Settings settings;
+	// Input State
+} Uph_State;
+
+extern Uph_State state;

@@ -20,7 +20,7 @@ typedef struct
     Naui_Arena deferred_arg_arena;
 }
 Naui_AppState;
-static Naui_AppState state;
+static Naui_AppState _naui_app_state;
 
 extern void naui_renderer_initialize(void);
 extern void naui_renderer_shutdown(void);
@@ -116,7 +116,7 @@ static void render(void)
         return;
     leaf_begin_frame(mg_app_width(), mg_app_height());
     leaf_set_pointer_pos((float)mg_app_mouse_x(), (float)mg_app_mouse_y());
-    state.events.update();
+    _naui_app_state.events.update();
     Leaf_RenderCmdList cmd_list = leaf_end_frame();
     render_leaf_cmd_list(&cmd_list);
     naui_renderer_end();
@@ -136,31 +136,31 @@ static void __naui_app_start(void)
     naui_themes_initialize();
     leaf_init();
     leaf_set_measure_text(measure_text_bridge);
-    naui_arena_init(&state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
-    state.events.start();
+    naui_arena_init(&_naui_app_state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
+    _naui_app_state.events.start();
     render();
     mg_app_show(true);
 }
 
 static void __naui_app_end(void)
 {
-    state.events.end();
+    _naui_app_state.events.end();
     leaf_shutdown();
     naui_renderer_shutdown();
     naui_themes_shutdown();
-    naui_list_free(state.deferred_entries);
-    naui_arena_free(&state.deferred_arg_arena);
+    naui_list_free(_naui_app_state.deferred_entries);
+    naui_arena_free(&_naui_app_state.deferred_arg_arena);
     naui_arena_free(naui_arena_frame());
 }
 
 static inline void naui_process_deferred(void)
 {
-    if (naui_list_len(state.deferred_entries) > 0)
+    if (naui_list_len(_naui_app_state.deferred_entries) > 0)
     {
-        for (uint32_t i = 0; i < (uint32_t)naui_list_len(state.deferred_entries); i++)
-            state.deferred_entries[i].event(state.deferred_entries[i].data);
-        naui_list_clear(state.deferred_entries);
-        naui_arena_reset(&state.deferred_arg_arena);
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(_naui_app_state.deferred_entries); i++)
+            _naui_app_state.deferred_entries[i].event(_naui_app_state.deferred_entries[i].data);
+        naui_list_clear(_naui_app_state.deferred_entries);
+        naui_arena_reset(&_naui_app_state.deferred_arg_arena);
     }
 }
 
@@ -180,7 +180,7 @@ void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
     
     if (data_size)
     {
-        entry.data = naui_arena_alloc(&state.deferred_arg_arena, data_size);
+        entry.data = naui_arena_alloc(&_naui_app_state.deferred_arg_arena, data_size);
         memcpy(entry.data, data, data_size);
     }
     else
@@ -188,7 +188,7 @@ void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
         entry.data = NULL;
     }
     
-    naui_list_push(state.deferred_entries, entry);
+    naui_list_push(_naui_app_state.deferred_entries, entry);
 }
 
 int32_t naui_app_width(void)
@@ -243,9 +243,9 @@ void naui_app_run(
     Naui_AppEvent update
     )
 {
-    state.events.start = start;
-    state.events.end = end;
-    state.events.update = update;
+    _naui_app_state.events.start = start;
+    _naui_app_state.events.end = end;
+    _naui_app_state.events.update = update;
     
     mg_app_run(&(mg_app_init_info){
         .title = title,
