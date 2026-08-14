@@ -779,7 +779,7 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         {
             if (LOWORD(l_param) == HTCLIENT)
             {
-                SetCursor(mg_app_state.cursors[platform.current_cursor]);
+                SetCursor(mg_app_state.cursors[mg_app_state.current_cursor]);
                 return TRUE;
             }
             break;
@@ -941,7 +941,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
         NULL
     );
 
-    if (!platform.hwnd)
+    if (!mg_app_state.hwnd)
     {
         MessageBoxA(NULL, "Window creation failed!", "Error", MB_OK | MB_ICONERROR);
         return 1;
