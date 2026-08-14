@@ -4,5 +4,5 @@
 build
 bin
 tags
-sokol-shdc*
+magma-shdc*
 app/panels/build.c

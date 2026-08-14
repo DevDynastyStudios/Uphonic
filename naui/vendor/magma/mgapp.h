@@ -343,8 +343,8 @@ typedef struct
 {
     struct
     {
-        bool keys[256];
-        bool keys_pressed[256];
+        bool keys[MG_KEY_MAX];
+        bool keys_pressed[MG_KEY_MAX];
     }
     keyboard;
     struct
@@ -501,12 +501,12 @@ typedef struct mg_emscripten_platform
 }
 mg_emscripten_platform;
 
-static mg_emscripten_platform platform;
+static mg_emscripten_platform mg_app_state;
 
 static inline void mg_app_call_event(const mg_app_event *event)
 {
-    if (platform.on_event_call)
-        platform.on_event_call(event);
+    if (mg_app_state.on_event_call)
+        mg_app_state.on_event_call(event);
 }
 
 static EM_BOOL mg_em_resize_callback(int event_type, const EmscriptenUiEvent *ui_event, void *user_data)
@@ -514,12 +514,12 @@ static EM_BOOL mg_em_resize_callback(int event_type, const EmscriptenUiEvent *ui
     double w, h;
     emscripten_get_element_css_size("#canvas", &w, &h);
 
-    platform.window_width  = (int32_t)w;
-    platform.window_height = (int32_t)h;
+    mg_app_state.window_width  = (int32_t)w;
+    mg_app_state.window_height = (int32_t)h;
 
     mg_app_event event = {
-        .window_width  = platform.window_width,
-        .window_height = platform.window_height,
+        .window_width  = mg_app_state.window_width,
+        .window_height = mg_app_state.window_height,
         .type          = MG_APP_EVENT_RESIZE
     };
     mg_app_call_event(&event);
@@ -530,30 +530,30 @@ static EM_BOOL mg_em_resize_callback(int event_type, const EmscriptenUiEvent *ui
 static void mg_em_frame(void *user_data)
 {
     double now = emscripten_get_now() * 0.001;
-    platform.delta_time = (float)(now - platform.time);
-    platform.time = (float)now;
+    mg_app_state.delta_time = (float)(now - mg_app_state.time);
+    mg_app_state.time = (float)now;
 
-    if (platform.info->events.update)
-        platform.info->events.update();
+    if (mg_app_state.info->events.update)
+        mg_app_state.info->events.update();
 
     mg_app_input_frame();
 }
 
 int32_t mg_app_run(const mg_app_init_info *info)
 {
-    platform.info = info;
-    platform.on_event_call = info->events.event;
-    platform.running = true;
+    mg_app_state.info = info;
+    mg_app_state.on_event_call = info->events.event;
+    mg_app_state.running = true;
 
     double w, h;
     emscripten_get_element_css_size("#canvas", &w, &h);
-    platform.window_width  = (int32_t)w;
-    platform.window_height = (int32_t)h;
+    mg_app_state.window_width  = (int32_t)w;
+    mg_app_state.window_height = (int32_t)h;
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mg_em_resize_callback);
 
-    platform.time = (float)(emscripten_get_now() * 0.001);
-    platform.delta_time = 0.0f;
+    mg_app_state.time = (float)(emscripten_get_now() * 0.001);
+    mg_app_state.delta_time = 0.0f;
 
     if (info->events.start)
         info->events.start();
@@ -566,10 +566,10 @@ int32_t mg_app_run(const mg_app_init_info *info)
 void mg_app_close(void)
 {
     emscripten_cancel_main_loop();
-    platform.running = false;
+    mg_app_state.running = false;
 
-    if (platform.info && platform.info->events.end)
-        platform.info->events.end();
+    if (mg_app_state.info && mg_app_state.info->events.end)
+        mg_app_state.info->events.end();
 }
 
 void mg_app_set_cursor(mg_cursor cursor)
@@ -579,22 +579,22 @@ void mg_app_set_cursor(mg_cursor cursor)
 
 float mg_app_time(void)
 {
-    return platform.time;
+    return mg_app_state.time;
 }
 
 float mg_app_delta_time(void)
 {
-    return platform.delta_time;
+    return mg_app_state.delta_time;
 }
 
 int32_t mg_app_width(void)
 {
-    return platform.window_width;
+    return mg_app_state.window_width;
 }
 
 int32_t mg_app_height(void)
 {
-    return platform.window_height;
+    return mg_app_state.window_height;
 }
 
 void *mg_app_primary_handle(void)
@@ -629,15 +629,15 @@ typedef struct mg_win32_platform
 }
 mg_win32_platform;
 
-static mg_win32_platform platform;
+static mg_win32_platform mg_app_state;
 
 static float clock_frequency;
 static LARGE_INTEGER start_time;
 
 static inline void mg_app_call_event(const mg_app_event *event)
 {
-    if (platform.on_event_call)
-        platform.on_event_call(event);
+    if (mg_app_state.on_event_call)
+        mg_app_state.on_event_call(event);
 }
 
 static void mg_app_setup_clock(void)
@@ -659,11 +659,11 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         {
             RECT r;
             GetClientRect(hwnd, &r);
-            platform.window_width  = r.right - r.left;
-            platform.window_height = r.bottom - r.top;
+            mg_app_state.window_width  = r.right - r.left;
+            mg_app_state.window_height = r.bottom - r.top;
             mg_app_event event = {
-                .window_width = platform.window_width,
-                .window_height = platform.window_height,
+                .window_width = mg_app_state.window_width,
+                .window_height = mg_app_state.window_height,
                 .type = MG_APP_EVENT_RESIZE
             };
             mg_app_call_event(&event);
@@ -767,7 +767,7 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                     break;
             }
 
-            mg_app_input_process_mouse_button(mouse_button, pressed, platform.time);
+            mg_app_input_process_mouse_button(mouse_button, pressed, mg_app_state.time);
             mg_app_event event = {
                 .mouse_button = mouse_button,
                 .type = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
@@ -779,15 +779,15 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         {
             if (LOWORD(l_param) == HTCLIENT)
             {
-                SetCursor(platform.cursors[platform.current_cursor]);
+                SetCursor(mg_app_state.cursors[platform.current_cursor]);
                 return TRUE;
             }
             break;
         }
         case WM_DPICHANGED:
         {
-            platform.dpi = HIWORD(w_param);
-            platform.dpi_scale = (float)platform.dpi / 96.0f;
+            mg_app_state.dpi = HIWORD(w_param);
+            mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
             RECT *suggested = (RECT*)l_param;
             SetWindowPos(hwnd, NULL,
                 suggested->left, suggested->top,
@@ -813,11 +813,11 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                 LARGE_INTEGER now_time;
                 QueryPerformanceCounter(&now_time);
                 float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-                platform.delta_time = new_time - platform.time;
-                platform.time = new_time;
+                mg_app_state.delta_time = new_time - mg_app_state.time;
+                mg_app_state.time = new_time;
 
-                if (platform.info && platform.info->events.update)
-                    platform.info->events.update();
+                if (mg_app_state.info && mg_app_state.info->events.update)
+                    mg_app_state.info->events.update();
 
                 mg_app_input_frame();
             }
@@ -861,15 +861,15 @@ static LRESULT CALLBACK mg_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_
             if (rx <= bw) return HTLEFT;
             if (rx >= w - bw) return HTRIGHT;
 
-            if (rx >= platform.caption_x && rx < platform.caption_x + platform.caption_width &&
-                ry >= platform.caption_y && ry < platform.caption_y + platform.caption_height)
+            if (rx >= mg_app_state.caption_x && rx < mg_app_state.caption_x + mg_app_state.caption_width &&
+                ry >= mg_app_state.caption_y && ry < mg_app_state.caption_y + mg_app_state.caption_height)
                 return HTCAPTION;
             break;
         }
         case WM_NCMOUSEMOVE:
         {
             POINT pt = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
-            ScreenToClient(platform.hwnd, &pt);
+            ScreenToClient(mg_app_state.hwnd, &pt);
             input_state.mouse.x = (int16_t)pt.x;
             input_state.mouse.y = (int16_t)pt.y;
             mg_app_event event = {
@@ -884,14 +884,14 @@ static LRESULT CALLBACK mg_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_
         case WM_NCACTIVATE:
             break;
     }
-    return CallWindowProc(platform.original_proc, hwnd, msg, w_param, l_param);
+    return CallWindowProc(mg_app_state.original_proc, hwnd, msg, w_param, l_param);
 }
 
 int32_t mg_app_run(const mg_app_init_info *info)
 {
     const char *CLASS_NAME = "MAGMA";
-    platform.hinstace = GetModuleHandleA(NULL);
-    platform.info = info;
+    mg_app_state.hinstace = GetModuleHandleA(NULL);
+    mg_app_state.info = info;
 
     mg_app_setup_clock();
 
@@ -912,13 +912,13 @@ int32_t mg_app_run(const mg_app_init_info *info)
     };
 
     for (uint8_t i = 0; i < MG_CURSOR_MAX; i++)
-        platform.cursors[i] = win32_cursor_map[i] ? LoadCursorA(NULL, win32_cursor_map[i]) : NULL;
+        mg_app_state.cursors[i] = win32_cursor_map[i] ? LoadCursorA(NULL, win32_cursor_map[i]) : NULL;
 
     WNDCLASSA wc = {0};
     wc.lpfnWndProc = mg_win32_process_message;
-    wc.hInstance = platform.hinstace;
+    wc.hInstance = mg_app_state.hinstace;
     wc.lpszClassName = CLASS_NAME;
-    wc.hCursor = platform.cursors[MG_CURSOR_ARROW];
+    wc.hCursor = mg_app_state.cursors[MG_CURSOR_ARROW];
 
     if (!RegisterClassA(&wc))
     {
@@ -929,7 +929,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
     const int32_t width = info->width ? info->width : CW_USEDEFAULT;
     const int32_t height = info->height ? info->height : CW_USEDEFAULT;
 
-    platform.hwnd = CreateWindowExA(
+    mg_app_state.hwnd = CreateWindowExA(
         0,
         CLASS_NAME,
         info->title,
@@ -937,7 +937,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
         CW_USEDEFAULT, CW_USEDEFAULT,
         width, height,
         NULL, NULL,
-        platform.hinstace,
+        mg_app_state.hinstace,
         NULL
     );
 
@@ -947,29 +947,29 @@ int32_t mg_app_run(const mg_app_init_info *info)
         return 1;
     }
 
-    platform.dpi = GetDpiForWindow(platform.hwnd);
-    platform.dpi_scale = (float)platform.dpi / 96.0f;
+    mg_app_state.dpi = GetDpiForWindow(mg_app_state.hwnd);
+    mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
 
     if (info->flags & MG_APP_FLAG_NO_TITLEBAR)
     {
-        LONG_PTR style = GetWindowLongPtr(platform.hwnd, GWL_STYLE);
+        LONG_PTR style = GetWindowLongPtr(mg_app_state.hwnd, GWL_STYLE);
         style |= WS_THICKFRAME | WS_CAPTION;
-        SetWindowLongPtr(platform.hwnd, GWL_STYLE, style);
+        SetWindowLongPtr(mg_app_state.hwnd, GWL_STYLE, style);
 
         RECT wr;
-        GetWindowRect(platform.hwnd, &wr);
+        GetWindowRect(mg_app_state.hwnd, &wr);
         int w = wr.right - wr.left;
         int h = wr.bottom - wr.top;
 
-        platform.original_proc = (WNDPROC)GetWindowLongPtr(platform.hwnd, GWLP_WNDPROC);
-        SetWindowLongPtr(platform.hwnd, GWLP_WNDPROC, (LONG_PTR)mg_win32_no_titlebar_proc);
-        SetWindowPos(platform.hwnd, NULL, 0, 0, w, h, SWP_FRAMECHANGED | SWP_NOMOVE);
+        mg_app_state.original_proc = (WNDPROC)GetWindowLongPtr(mg_app_state.hwnd, GWLP_WNDPROC);
+        SetWindowLongPtr(mg_app_state.hwnd, GWLP_WNDPROC, (LONG_PTR)mg_win32_no_titlebar_proc);
+        SetWindowPos(mg_app_state.hwnd, NULL, 0, 0, w, h, SWP_FRAMECHANGED | SWP_NOMOVE);
     }
 
-    ShowWindow(platform.hwnd, info->flags & MG_APP_FLAG_HIDDEN ? SW_HIDE : SW_SHOW);
-    UpdateWindow(platform.hwnd);
+    ShowWindow(mg_app_state.hwnd, info->flags & MG_APP_FLAG_HIDDEN ? SW_HIDE : SW_SHOW);
+    UpdateWindow(mg_app_state.hwnd);
 
-    platform.on_event_call = info->events.event;
+    mg_app_state.on_event_call = info->events.event;
 
     if (info->events.start)
         info->events.start();
@@ -992,8 +992,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
         LARGE_INTEGER now_time;
         QueryPerformanceCounter(&now_time);
         float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-        platform.delta_time = new_time - platform.time;
-        platform.time = new_time;
+        mg_app_state.delta_time = new_time - mg_app_state.time;
+        mg_app_state.time = new_time;
 
         mg_app_set_cursor(MG_CURSOR_ARROW);
 
@@ -1003,10 +1003,10 @@ int32_t mg_app_run(const mg_app_init_info *info)
         POINT pt;
         GetCursorPos(&pt);
         HWND hovered = WindowFromPoint(pt);
-        if (hovered == platform.hwnd)
+        if (hovered == mg_app_state.hwnd)
         {
-            LRESULT ht = SendMessage(platform.hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
-            SendMessage(platform.hwnd, WM_SETCURSOR, (WPARAM)platform.hwnd, MAKELPARAM(ht, WM_MOUSEMOVE));
+            LRESULT ht = SendMessage(mg_app_state.hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
+            SendMessage(mg_app_state.hwnd, WM_SETCURSOR, (WPARAM)mg_app_state.hwnd, MAKELPARAM(ht, WM_MOUSEMOVE));
         }
 
         mg_app_input_frame();
@@ -1015,92 +1015,92 @@ int32_t mg_app_run(const mg_app_init_info *info)
     if (info->events.end)
         info->events.end();
 
-    DestroyWindow(platform.hwnd);
-    UnregisterClassA(CLASS_NAME, platform.hinstace);
+    DestroyWindow(mg_app_state.hwnd);
+    UnregisterClassA(CLASS_NAME, mg_app_state.hinstace);
     return 0;
 }
 
 void mg_app_close(void)
 {
-    PostMessage(platform.hwnd, WM_CLOSE, 0, 0);
+    PostMessage(mg_app_state.hwnd, WM_CLOSE, 0, 0);
 }
 
 void mg_app_show(bool value)
 {
-    ShowWindow(platform.hwnd, value);
+    ShowWindow(mg_app_state.hwnd, value);
 }
 
 void mg_app_minimize(void)
 {
-    ShowWindow(platform.hwnd, SW_MINIMIZE);
+    ShowWindow(mg_app_state.hwnd, SW_MINIMIZE);
 }
 
 void mg_app_maximize(void)
 {
-    ShowWindow(platform.hwnd, SW_MAXIMIZE);
+    ShowWindow(mg_app_state.hwnd, SW_MAXIMIZE);
 }
 
 void mg_app_restore(void)
 {
-    ShowWindow(platform.hwnd, SW_RESTORE);
+    ShowWindow(mg_app_state.hwnd, SW_RESTORE);
 }
 
 bool mg_app_maximized(void)
 {
-    return IsZoomed(platform.hwnd);
+    return IsZoomed(mg_app_state.hwnd);
 }
 
 void mg_app_set_cursor(mg_cursor cursor)
 {
-    platform.current_cursor = cursor;
+    mg_app_state.current_cursor = cursor;
 }
 
 float mg_app_time(void)
 {
-    return platform.time;
+    return mg_app_state.time;
 }
 
 float mg_app_delta_time(void)
 {
-    return platform.delta_time;
+    return mg_app_state.delta_time;
 }
 
 int32_t mg_app_width(void)
 {
-    return platform.window_width;
+    return mg_app_state.window_width;
 }
 
 int32_t mg_app_height(void)
 {
-    return platform.window_height;
+    return mg_app_state.window_height;
 }
 
 uint32_t mg_app_dpi(void)
 {
-    return platform.dpi;
+    return mg_app_state.dpi;
 }
 
 float mg_app_dpi_scale(void)
 {
-    return platform.dpi_scale;
+    return mg_app_state.dpi_scale;
 }
 
 void mg_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
 {
-    platform.caption_x = x;
-    platform.caption_y = y;
-    platform.caption_width = width;
-    platform.caption_height = height;
+    mg_app_state.caption_x = x;
+    mg_app_state.caption_y = y;
+    mg_app_state.caption_width = width;
+    mg_app_state.caption_height = height;
 }
 
 void *mg_app_primary_handle(void)
 {
-    return (void*)platform.hwnd;
+    return (void*)mg_app_state.hwnd;
 }
 
 void *mg_app_secondary_handle(void)
 {
-    return (void*)platform.hinstace;
+    return (void*)mg_app_state.hinstace;
 }
 
 #elif defined(__linux__)
@@ -1140,12 +1140,12 @@ typedef struct mg_xlib_platform
 }
 mg_xlib_platform;
  
-static mg_xlib_platform platform;
+static mg_xlib_platform mg_app_state;
  
 static inline void mg_app_call_event(const mg_app_event *event)
 {
-    if (platform.on_event_call)
-        platform.on_event_call(event);
+    if (mg_app_state.on_event_call)
+        mg_app_state.on_event_call(event);
 }
  
 static float mg_xlib_get_time(void)
@@ -1292,13 +1292,13 @@ enum
 
 static void mg_xlib_send_moveresize(int32_t root_x, int32_t root_y, int32_t direction)
 {
-    XUngrabPointer(platform.display, CurrentTime);
-    XFlush(platform.display);
+    XUngrabPointer(mg_app_state.display, CurrentTime);
+    XFlush(mg_app_state.display);
 
     XEvent e = {0};
     e.xclient.type = ClientMessage;
-    e.xclient.window = platform.window;
-    e.xclient.message_type = platform.atoms.moveresize;
+    e.xclient.window = mg_app_state.window;
+    e.xclient.message_type = mg_app_state.atoms.moveresize;
     e.xclient.format = 32;
     e.xclient.data.l[0] = root_x;
     e.xclient.data.l[1] = root_y;
@@ -1307,20 +1307,20 @@ static void mg_xlib_send_moveresize(int32_t root_x, int32_t root_y, int32_t dire
     e.xclient.data.l[4] = 1;
 
     XSendEvent(
-        platform.display,
-        DefaultRootWindow(platform.display),
+        mg_app_state.display,
+        DefaultRootWindow(mg_app_state.display),
         False,
         SubstructureRedirectMask | SubstructureNotifyMask,
         &e);
 
-    XFlush(platform.display);
+    XFlush(mg_app_state.display);
 }
 
 static int32_t mg_xlib_hittest(int32_t x, int32_t y)
 {
     const int32_t bw = 8;
-    int32_t w = platform.window_width;
-    int32_t h = platform.window_height;
+    int32_t w = mg_app_state.window_width;
+    int32_t h = mg_app_state.window_height;
 
     bool left   = x <= bw;
     bool right  = x >= w - bw;
@@ -1336,8 +1336,8 @@ static int32_t mg_xlib_hittest(int32_t x, int32_t y)
     if (left)             return MG_NET_WM_MOVERESIZE_SIZE_LEFT;
     if (right)            return MG_NET_WM_MOVERESIZE_SIZE_RIGHT;
 
-    if (x >= platform.caption_x && x < platform.caption_x + platform.caption_width &&
-        y >= platform.caption_y && y < platform.caption_y + platform.caption_height)
+    if (x >= mg_app_state.caption_x && x < mg_app_state.caption_x + mg_app_state.caption_width &&
+        y >= mg_app_state.caption_y && y < mg_app_state.caption_y + mg_app_state.caption_height)
         return MG_NET_WM_MOVERESIZE_MOVE;
 
     return -1;
@@ -1374,22 +1374,22 @@ static uint32_t mg_xlib_query_dpi(Display *display, int screen)
 
 int32_t mg_app_run(const mg_app_init_info *info)
 {
-    platform.display = XOpenDisplay(NULL);
-    if (!platform.display)
+    mg_app_state.display = XOpenDisplay(NULL);
+    if (!mg_app_state.display)
     {
         fprintf(stderr, "Failed to open X display\n");
         return 1;
     }
  
-    platform.screen = DefaultScreen(platform.display);
+    mg_app_state.screen = DefaultScreen(mg_app_state.display);
  
     const int32_t width  = info->width  ? (int32_t)info->width  : 800;
     const int32_t height = info->height ? (int32_t)info->height : 600;
  
-    platform.window_width  = width;
-    platform.window_height = height;
+    mg_app_state.window_width  = width;
+    mg_app_state.window_height = height;
  
-    Window root = RootWindow(platform.display, platform.screen);
+    Window root = RootWindow(mg_app_state.display, mg_app_state.screen);
  
     XSetWindowAttributes swa = {0};
     swa.background_pixmap = None;
@@ -1400,91 +1400,91 @@ int32_t mg_app_run(const mg_app_init_info *info)
         ButtonPressMask | ButtonReleaseMask |
         PointerMotionMask;
 
-    platform.window = XCreateWindow(
-        platform.display,
+    mg_app_state.window = XCreateWindow(
+        mg_app_state.display,
         root,
         0, 0,
         (unsigned int)width, (unsigned int)height,
         0,
-        DefaultDepth(platform.display, platform.screen),
+        DefaultDepth(mg_app_state.display, mg_app_state.screen),
         InputOutput,
-        DefaultVisual(platform.display, platform.screen),
+        DefaultVisual(mg_app_state.display, mg_app_state.screen),
         CWBackPixmap | CWBitGravity | CWEventMask,
         &swa
     );
  
-    if (!platform.window)
+    if (!mg_app_state.window)
     {
         fprintf(stderr, "Failed to create X window\n");
-        XCloseDisplay(platform.display);
+        XCloseDisplay(mg_app_state.display);
         return 1;
     }
  
     if (info->title)
-        XStoreName(platform.display, platform.window, info->title);
+        XStoreName(mg_app_state.display, mg_app_state.window, info->title);
  
-    platform.wm_delete_window = XInternAtom(platform.display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(platform.display, platform.window, &platform.wm_delete_window, 1);
+    mg_app_state.wm_delete_window = XInternAtom(mg_app_state.display, "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(mg_app_state.display, mg_app_state.window, &mg_app_state.wm_delete_window, 1);
 
-    platform.atoms.motif_hints = XInternAtom(platform.display, "_MOTIF_WM_HINTS", False);
-    platform.atoms.moveresize  = XInternAtom(platform.display, "_NET_WM_MOVERESIZE", False);
+    mg_app_state.atoms.motif_hints = XInternAtom(mg_app_state.display, "_MOTIF_WM_HINTS", False);
+    mg_app_state.atoms.moveresize  = XInternAtom(mg_app_state.display, "_NET_WM_MOVERESIZE", False);
 
-    platform.no_titlebar = (info->flags & MG_APP_FLAG_NO_TITLEBAR) != 0;
-    if (platform.no_titlebar)
-        mg_xlib_set_borderless(platform.display, platform.window, platform.atoms.motif_hints, true);
+    mg_app_state.no_titlebar = (info->flags & MG_APP_FLAG_NO_TITLEBAR) != 0;
+    if (mg_app_state.no_titlebar)
+        mg_xlib_set_borderless(mg_app_state.display, mg_app_state.window, mg_app_state.atoms.motif_hints, true);
  
-    XMapWindow(platform.display, platform.window);
-    XFlush(platform.display);
+    XMapWindow(mg_app_state.display, mg_app_state.window);
+    XFlush(mg_app_state.display);
 
     // creating the hidden cursor
     {
-        const Pixmap cursor_pixmap    = XCreatePixmap(platform.display, platform.window, 1, 1, 1);
-        GC gfx_ctx = XCreateGC(platform.display, cursor_pixmap, 0, NULL);
-        XDrawPoint(platform.display, cursor_pixmap, gfx_ctx, 0, 0);
-        XFreeGC(platform.display, gfx_ctx);
+        const Pixmap cursor_pixmap    = XCreatePixmap(mg_app_state.display, mg_app_state.window, 1, 1, 1);
+        GC gfx_ctx = XCreateGC(mg_app_state.display, cursor_pixmap, 0, NULL);
+        XDrawPoint(mg_app_state.display, cursor_pixmap, gfx_ctx, 0, 0);
+        XFreeGC(mg_app_state.display, gfx_ctx);
 
         XColor color;
         color.flags = DoRed | DoGreen | DoBlue;
         color.red = color.blue = color.green = 0;
-        platform.cursors[MG_CURSOR_HIDDEN] = XCreatePixmapCursor(platform.display, cursor_pixmap, cursor_pixmap, &color, &color, 0, 0);
+        mg_app_state.cursors[MG_CURSOR_HIDDEN] = XCreatePixmapCursor(mg_app_state.display, cursor_pixmap, cursor_pixmap, &color, &color, 0, 0);
 
-        XFreePixmap(platform.display, cursor_pixmap);
+        XFreePixmap(mg_app_state.display, cursor_pixmap);
     }
 
-    platform.cursors[MG_CURSOR_ARROW] = XCreateFontCursor(platform.display, XC_left_ptr);
-    platform.cursors[MG_CURSOR_IBEAM] = XCreateFontCursor(platform.display, XC_xterm);
-    platform.cursors[MG_CURSOR_CROSSHAIR] = XCreateFontCursor(platform.display, XC_crosshair);
-    platform.cursors[MG_CURSOR_HAND] = XCreateFontCursor(platform.display, XC_hand2);
-    platform.cursors[MG_CURSOR_RESIZE_ALL] = XCreateFontCursor(platform.display, XC_fleur);
-    platform.cursors[MG_CURSOR_RESIZE_NS] = XCreateFontCursor(platform.display, XC_sb_v_double_arrow);
-    platform.cursors[MG_CURSOR_RESIZE_EW] = XCreateFontCursor(platform.display, XC_sb_h_double_arrow);
-    platform.cursors[MG_CURSOR_RESIZE_NESW] = XCreateFontCursor(platform.display, XC_fleur);
-    platform.cursors[MG_CURSOR_RESIZE_NWSE] = XCreateFontCursor(platform.display, XC_fleur);
-    platform.cursors[MG_CURSOR_NOT_ALLOWED] = XCreateFontCursor(platform.display, XC_pirate);
-    XDefineCursor(platform.display, platform.window, platform.cursors[MG_CURSOR_ARROW]);
+    mg_app_state.cursors[MG_CURSOR_ARROW] = XCreateFontCursor(mg_app_state.display, XC_left_ptr);
+    mg_app_state.cursors[MG_CURSOR_IBEAM] = XCreateFontCursor(mg_app_state.display, XC_xterm);
+    mg_app_state.cursors[MG_CURSOR_CROSSHAIR] = XCreateFontCursor(mg_app_state.display, XC_crosshair);
+    mg_app_state.cursors[MG_CURSOR_HAND] = XCreateFontCursor(mg_app_state.display, XC_hand2);
+    mg_app_state.cursors[MG_CURSOR_RESIZE_ALL] = XCreateFontCursor(mg_app_state.display, XC_fleur);
+    mg_app_state.cursors[MG_CURSOR_RESIZE_NS] = XCreateFontCursor(mg_app_state.display, XC_sb_v_double_arrow);
+    mg_app_state.cursors[MG_CURSOR_RESIZE_EW] = XCreateFontCursor(mg_app_state.display, XC_sb_h_double_arrow);
+    mg_app_state.cursors[MG_CURSOR_RESIZE_NESW] = XCreateFontCursor(mg_app_state.display, XC_fleur);
+    mg_app_state.cursors[MG_CURSOR_RESIZE_NWSE] = XCreateFontCursor(mg_app_state.display, XC_fleur);
+    mg_app_state.cursors[MG_CURSOR_NOT_ALLOWED] = XCreateFontCursor(mg_app_state.display, XC_pirate);
+    XDefineCursor(mg_app_state.display, mg_app_state.window, mg_app_state.cursors[MG_CURSOR_ARROW]);
 
-    platform.on_event_call = info->events.event;
-    platform.running = true;
+    mg_app_state.on_event_call = info->events.event;
+    mg_app_state.running = true;
  
-    platform.time = mg_xlib_get_time();
-    platform.delta_time = 0.0f;
+    mg_app_state.time = mg_xlib_get_time();
+    mg_app_state.delta_time = 0.0f;
 
-    platform.dpi = mg_xlib_query_dpi(platform.display, platform.screen);
-    platform.dpi_scale = (float)platform.dpi / 96.0f;
+    mg_app_state.dpi = mg_xlib_query_dpi(mg_app_state.display, mg_app_state.screen);
+    mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
 
-    platform.atoms.wm_state = XInternAtom(platform.display, "_NET_WM_STATE", False);
-    platform.atoms.max_horz = XInternAtom(platform.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-    platform.atoms.max_vert = XInternAtom(platform.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    mg_app_state.atoms.wm_state = XInternAtom(mg_app_state.display, "_NET_WM_STATE", False);
+    mg_app_state.atoms.max_horz = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    mg_app_state.atoms.max_vert = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
  
     if (info->events.start)
         info->events.start();
  
-    while (platform.running)
+    while (mg_app_state.running)
     {
-        while (XPending(platform.display))
+        while (XPending(mg_app_state.display))
         {
             XEvent xev;
-            XNextEvent(platform.display, &xev);
+            XNextEvent(mg_app_state.display, &xev);
  
             switch (xev.type)
             {
@@ -1492,31 +1492,31 @@ int32_t mg_app_run(const mg_app_init_info *info)
                 {
                     XConfigureEvent *ce = &xev.xconfigure;
 
-                    while (XPending(platform.display))
+                    while (XPending(mg_app_state.display))
                     {
                         XEvent next;
-                        XPeekEvent(platform.display, &next);
+                        XPeekEvent(mg_app_state.display, &next);
                         if (next.type != ConfigureNotify || next.xconfigure.window != ce->window)
                             break;
-                        XNextEvent(platform.display, &xev);
+                        XNextEvent(mg_app_state.display, &xev);
                         ce = &xev.xconfigure;
                     }
 
-                    if (ce->width  != platform.window_width ||
-                        ce->height != platform.window_height)
+                    if (ce->width  != mg_app_state.window_width ||
+                        ce->height != mg_app_state.window_height)
                     {
-                        platform.window_width  = ce->width;
-                        platform.window_height = ce->height;
+                        mg_app_state.window_width  = ce->width;
+                        mg_app_state.window_height = ce->height;
                         mg_app_event event = {
-                            .window_width = platform.window_width,
-                            .window_height = platform.window_height,
+                            .window_width = mg_app_state.window_width,
+                            .window_height = mg_app_state.window_height,
                             .type = MG_APP_EVENT_RESIZE
                         };
                         mg_app_call_event(&event);
 
                         float resize_time = mg_xlib_get_time();
-                        platform.delta_time = resize_time - platform.time;
-                        platform.time = resize_time;
+                        mg_app_state.delta_time = resize_time - mg_app_state.time;
+                        mg_app_state.time = resize_time;
 
                         mg_app_input_frame();
                     }
@@ -1590,7 +1590,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
                         break;
                     }
 
-                    if (platform.no_titlebar && pressed && xev.xbutton.button == Button1)
+                    if (mg_app_state.no_titlebar && pressed && xev.xbutton.button == Button1)
                     {
                         int32_t direction = mg_xlib_hittest(xev.xbutton.x, xev.xbutton.y);
                         if (direction != -1)
@@ -1610,7 +1610,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
                     if (mb != MG_MOUSE_BUTTON_MAX)
                     {
-                        mg_app_input_process_mouse_button(mb, pressed, platform.time);
+                        mg_app_input_process_mouse_button(mb, pressed, mg_app_state.time);
                         mg_app_event event = {
                             .mouse_button = mb,
                             .type         = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
@@ -1634,8 +1634,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
                 break;
  
                 case ClientMessage:
-                    if ((Atom)xev.xclient.data.l[0] == platform.wm_delete_window)
-                        platform.running = false;
+                    if ((Atom)xev.xclient.data.l[0] == mg_app_state.wm_delete_window)
+                        mg_app_state.running = false;
                     break;
  
                 default:
@@ -1644,8 +1644,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
         }
  
         float new_time = mg_xlib_get_time();
-        platform.delta_time = new_time - platform.time;
-        platform.time = new_time;
+        mg_app_state.delta_time = new_time - mg_app_state.time;
+        mg_app_state.time = new_time;
 
         mg_app_set_cursor(MG_CURSOR_ARROW);
  
@@ -1658,112 +1658,112 @@ int32_t mg_app_run(const mg_app_init_info *info)
     if (info->events.end)
         info->events.end();
  
-    XDestroyWindow(platform.display, platform.window);
-    XCloseDisplay(platform.display);
+    XDestroyWindow(mg_app_state.display, mg_app_state.window);
+    XCloseDisplay(mg_app_state.display);
     return 0;
 }
  
 void mg_app_close(void)
 {
-    platform.running = false;
+    mg_app_state.running = false;
 }
 
 void mg_app_set_cursor(mg_cursor cursor)
 {
-    if (platform.current_cursor == cursor)
+    if (mg_app_state.current_cursor == cursor)
         return;
-    platform.current_cursor = cursor;
-    XDefineCursor(platform.display, platform.window, platform.cursors[cursor]);
+    mg_app_state.current_cursor = cursor;
+    XDefineCursor(mg_app_state.display, mg_app_state.window, mg_app_state.cursors[cursor]);
 }
  
 float mg_app_time(void)
 {
-    return platform.time;
+    return mg_app_state.time;
 }
  
 float mg_app_delta_time(void)
 {
-    return platform.delta_time;
+    return mg_app_state.delta_time;
 }
  
 int32_t mg_app_width(void)
 {
-    return platform.window_width;
+    return mg_app_state.window_width;
 }
  
 int32_t mg_app_height(void)
 {
-    return platform.window_height;
+    return mg_app_state.window_height;
 }
  
 void *mg_app_primary_handle(void)
 {
-    return (void*)platform.window;
+    return (void*)mg_app_state.window;
 }
 
 void *mg_app_secondary_handle(void)
 {
-    return (void*)platform.display;
+    return (void*)mg_app_state.display;
 }
 
 void mg_app_show(bool value)
 {
     if (value)
-        XMapWindow(platform.display, platform.window);
+        XMapWindow(mg_app_state.display, mg_app_state.window);
     else
-        XUnmapWindow(platform.display, platform.window);
+        XUnmapWindow(mg_app_state.display, mg_app_state.window);
 }
 
 void mg_app_minimize(void)
 {
-    XIconifyWindow(platform.display, platform.window, platform.screen);
-    XFlush(platform.display);
+    XIconifyWindow(mg_app_state.display, mg_app_state.window, mg_app_state.screen);
+    XFlush(mg_app_state.display);
 }
 
 void mg_app_maximize(void)
 {
     XEvent e = {0};
     e.xclient.type = ClientMessage;
-    e.xclient.window = platform.window;
-    e.xclient.message_type = platform.atoms.wm_state;
+    e.xclient.window = mg_app_state.window;
+    e.xclient.message_type = mg_app_state.atoms.wm_state;
     e.xclient.format = 32;
     e.xclient.data.l[0] = 1; // _NET_WM_STATE_ADD
-    e.xclient.data.l[1] = platform.atoms.max_horz;
-    e.xclient.data.l[2] = platform.atoms.max_vert;
+    e.xclient.data.l[1] = mg_app_state.atoms.max_horz;
+    e.xclient.data.l[2] = mg_app_state.atoms.max_vert;
     e.xclient.data.l[3] = 1;
     e.xclient.data.l[4] = 0;
 
     XSendEvent(
-        platform.display,
-        DefaultRootWindow(platform.display),
+        mg_app_state.display,
+        DefaultRootWindow(mg_app_state.display),
         False,
         SubstructureRedirectMask | SubstructureNotifyMask,
         &e);
 
-    XFlush(platform.display);
+    XFlush(mg_app_state.display);
 }
 
 void mg_app_restore(void)
 {
     XEvent e = {0};
     e.xclient.type = ClientMessage;
-    e.xclient.window = platform.window;
-    e.xclient.message_type = platform.atoms.wm_state;
+    e.xclient.window = mg_app_state.window;
+    e.xclient.message_type = mg_app_state.atoms.wm_state;
     e.xclient.format = 32;
     e.xclient.data.l[0] = 0; // _NET_WM_STATE_REMOVE
-    e.xclient.data.l[1] = platform.atoms.max_horz;
-    e.xclient.data.l[2] = platform.atoms.max_vert;
+    e.xclient.data.l[1] = mg_app_state.atoms.max_horz;
+    e.xclient.data.l[2] = mg_app_state.atoms.max_vert;
     e.xclient.data.l[3] = 1;
     e.xclient.data.l[4] = 0;
 
     XSendEvent(
-        platform.display,
-        DefaultRootWindow(platform.display),
+        mg_app_state.display,
+        DefaultRootWindow(mg_app_state.display),
         False,
         SubstructureRedirectMask | SubstructureNotifyMask,
         &e);
 
-    XFlush(platform.display);
+    XFlush(mg_app_state.display);
 }
 
 bool mg_app_maximized(void)
@@ -1773,8 +1773,8 @@ bool mg_app_maximized(void)
     unsigned long nitems, bytes_after;
     unsigned char *data = NULL;
 
-    if (XGetWindowProperty(platform.display, platform.window,
-        platform.atoms.wm_state,
+    if (XGetWindowProperty(mg_app_state.display, mg_app_state.window,
+        mg_app_state.atoms.wm_state,
         0, 1024,
         False,
         XA_ATOM,
@@ -1784,17 +1784,17 @@ bool mg_app_maximized(void)
         &bytes_after,
         &data) == Success)
     {
-        platform.atoms.max_horz = XInternAtom(platform.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-        platform.atoms.max_vert = XInternAtom(platform.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+        mg_app_state.atoms.max_horz = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+        mg_app_state.atoms.max_vert = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 
         int horz = 0, vert = 0;
 
         Atom *atoms = (Atom*)data;
         for (unsigned long i = 0; i < nitems; i++)
         {
-            if (atoms[i] == platform.atoms.max_horz)
+            if (atoms[i] == mg_app_state.atoms.max_horz)
                 horz = 1;
-            if (atoms[i] == platform.atoms.max_vert)
+            if (atoms[i] == mg_app_state.atoms.max_vert)
                 vert = 1;
         }
 
@@ -1809,22 +1809,22 @@ bool mg_app_maximized(void)
 
 uint32_t mg_app_dpi(void)
 {
-    return platform.dpi;
+    return mg_app_state.dpi;
 }
 
 float mg_app_dpi_scale(void)
 {
-    return platform.dpi_scale;
+    return mg_app_state.dpi_scale;
 }
 
 void mg_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
 {
-    platform.caption_x = x;
-    platform.caption_y = y;
-    platform.caption_width = width;
-    platform.caption_height = height;
+    mg_app_state.caption_x = x;
+    mg_app_state.caption_y = y;
+    mg_app_state.caption_width = width;
+    mg_app_state.caption_height = height;
 }
  
-#endif // Platform
+#endif // mg_app_state
 
 #endif // MGAPP_IMPL

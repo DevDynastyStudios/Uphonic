@@ -1,6 +1,4 @@
-@glsl_options flip_vert_y
-@hlsl_options flip_vert_y
-
+@name base
 @stage vertex
 
 in vec2 in_position;
@@ -20,6 +18,7 @@ layout(binding = 0) uniform ViewData
 void main()
 {
     vec2 ndc = (in_position / u_resolution) * 2.0 - 1.0;
+    ndc.y = -ndc.y;
     gl_Position = vec4(ndc, 0.0, 1.0);
     frag_uv = in_uv;
     frag_color = in_color;
@@ -82,5 +81,3 @@ void main()
     }
     }
 }
-
-@shader base
