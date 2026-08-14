@@ -981,6 +981,12 @@ typedef struct
     egl;
 #endif
 
+    struct
+    {
+        int32_t height;
+    }
+    current_pass;
+
     int32_t width, height;
     bool vsync;
 }
@@ -4108,12 +4114,12 @@ static void mgfx_gl_bind_pipeline(mgfx_gl_pipeline *pipeline)
 
 static void mgfx_gl_viewport(int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
-    glViewport(x, y, width, height);
+    glViewport(x, mgfx_ctx.gl.current_pass.height - (y + height), width, height);
 }
 
 static void mgfx_gl_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height)
 {
-    glScissor(x, y, width, height);
+    glScissor(x, mgfx_ctx.gl.current_pass.height - (y + height), width, height);
 }
 
 static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
@@ -4125,6 +4131,7 @@ static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
         glScissor(0, 0, mgfx_ctx.gl.width, mgfx_ctx.gl.height);
         glClearColor(pass->clear.r, pass->clear.g, pass->clear.b, pass->clear.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        mgfx_ctx.gl.current_pass.height = mgfx_ctx.gl.height;
         return;
     }
 
@@ -4175,12 +4182,14 @@ static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
     else
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, 0, 0);
 
-    mgfx_gl_viewport(0, 0, width, height);
-    mgfx_gl_scissor(0, 0, width, height);
+    glViewport(0, 0, width, height);
+    glScissor(0, 0, width, height);
     glClearColor(pass->clear.r, pass->clear.g, pass->clear.b, pass->clear.a);
     GLbitfield clear_mask = color_count > 0 ? GL_COLOR_BUFFER_BIT : 0;
     if (depth) clear_mask |= GL_DEPTH_BUFFER_BIT;
     glClear(clear_mask);
+
+    mgfx_ctx.gl.current_pass.height = height;
 }
 
 static void mgfx_gl_resize(uint32_t width, uint32_t height)

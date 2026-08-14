@@ -241,7 +241,7 @@ static inline Naui_ClipRect naui_current_clip(void)
 static void naui_apply_scissor(void)
 {
     Naui_ClipRect c = naui_current_clip();
-    mgfx_scissor((int32_t)c.x0, (int32_t)(rdata->height - c.y1), (uint32_t)(c.x1 - c.x0), (uint32_t)(c.y1 - c.y0));
+    mgfx_scissor((int32_t)c.x0, (int32_t)c.y0, (uint32_t)(c.x1 - c.x0), (uint32_t)(c.y1 - c.y0));
 }
 
 static void naui_renderer_flush(void)
