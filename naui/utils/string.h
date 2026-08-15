@@ -30,7 +30,6 @@ NAUI_API bool               naui_string_view_contains           (Naui_StringView
 NAUI_API bool               naui_string_contains                (Naui_String haystack, Naui_String needle, bool case_sensitive);
 
 NAUI_API bool               naui_strings_equal                  (Naui_String str1, Naui_String str2, bool case_sensitive);
-NAUI_API bool               naui_strings_with_len_equal         (Naui_String str1, Naui_String str2, size_t len, bool case_sensitive);
 NAUI_API bool               naui_string_views_equal             (Naui_StringView view1, Naui_StringView view2, bool case_sensitive);
 
 NAUI_API Naui_StringView    naui_string_view_trim               (Naui_StringView view);

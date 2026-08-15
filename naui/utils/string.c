@@ -227,17 +227,6 @@ bool naui_strings_equal(Naui_String str1, Naui_String str2, bool case_sensitive)
     return naui_string_views_equal(naui_string_to_view(&str1), naui_string_to_view(&str2), case_sensitive);
 }
 
-bool naui_strings_with_len_equal(Naui_String str1, Naui_String str2, size_t len, bool case_sensitive)
-{
-    Naui_StringView v1 = naui_sub_string(&str1, 0, len);
-    Naui_StringView v2 = naui_sub_string(&str2, 0, len);
-
-    if (v1.length != len || v2.length != len)
-        return false;
-
-    return naui_string_views_equal(v1, v2, case_sensitive);
-}
-
 static bool naui__is_space(char c)
 {
     return isspace((unsigned char)c) != 0;
