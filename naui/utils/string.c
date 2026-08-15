@@ -1,139 +1,211 @@
-size_t naui_string_len(Naui_String str)
+static char naui__tolower(char c)
 {
-    return strlen(str);
+    return (char)tolower((unsigned char)c);
 }
 
-Naui_StringView naui_string_to_view(Naui_String str)
+static int naui__char_eq(char a, char b, bool case_sensitive)
 {
-    return (Naui_StringView) {
-        .data = str,
-        .length = strlen(str)
-    };
+    if (case_sensitive)
+        return a == b;
+    return naui__tolower(a) == naui__tolower(b);
 }
 
-Naui_StringView naui_substring(Naui_String str, size_t start, size_t length)
+static size_t naui__min_size(size_t a, size_t b)
 {
-    return (Naui_StringView) {
-        .data = str + start,
-        .length = length
-    };
+    return a < b ? a : b;
 }
 
-Naui_StringView naui_sub_string_view(Naui_StringView view, size_t start, size_t length)
+static size_t naui__clamp_start_len(size_t total_len, size_t start, size_t len, size_t *out_start)
 {
-    return (Naui_StringView) {
-        .data = view.data + start,
-        .length = length
-    };
+    if (start > total_len)
+        start = total_len;
+
+    size_t max_len = total_len - start;
+    if (len > max_len)
+        len = max_len;
+
+    *out_start = start;
+    return len;
 }
 
-Naui_String naui_view_to_string(Naui_Arena *arena, Naui_StringView view)
+Naui_String naui_string_from_cstr(const char *cstr)
 {
-    Naui_String string = naui_arena_alloc(arena, view.length + 1);
-    memcpy(string, view.data, view.length);
-    string[view.length] = '\0';
-    return string;
+    Naui_String result;
+    result.len = 0;
+    result.data[0] = '\0';
+
+    if (!cstr)
+        return result;
+
+    size_t src_len = strlen(cstr);
+    size_t copy_len = naui__min_size(src_len, NAUI_STRING_MAX_SIZE - 1);
+
+    memcpy(result.data, cstr, copy_len);
+    result.data[copy_len] = '\0';
+    result.len = copy_len;
+
+    return result;
 }
 
-Naui_String naui_string_clone(Naui_Arena *arena, Naui_String str)
+Naui_StringView naui_string_to_view(const Naui_String *str)
 {
-    const size_t length = strlen(str) + 1;
-    Naui_String string = naui_arena_alloc(arena, length);
-    memcpy(string, str, length);
-    return string;
+    Naui_StringView view;
+
+    if (!str)
+    {
+        view.data = NULL;
+        view.length = 0;
+        return view;
+    }
+
+    view.data = (char *)str->data;
+    view.length = str->len;
+    return view;
 }
 
-void naui_string_copy(Naui_String *dest, const Naui_String *src, size_t len)
+Naui_String naui_view_to_string(Naui_StringView view)
 {
-#if NAUI_WINDOWS
-    strncpy_s(dest, src, len);
-#else
-    strncpy(dest, src, len);
-#endif
+    Naui_String result;
+    result.len = 0;
+    result.data[0] = '\0';
+
+    if (!view.data || view.length == 0)
+        return result;
+
+    size_t copy_len = naui__min_size(view.length, NAUI_STRING_MAX_SIZE - 1);
+
+    memcpy(result.data, view.data, copy_len);
+    result.data[copy_len] = '\0';
+    result.len = copy_len;
+
+    return result;
 }
 
-void naui_string_builder_append(Naui_StringBuilder builder, Naui_String str)
+Naui_StringView naui_sub_string(const Naui_String *str, size_t start, size_t len)
 {
-    naui_string_builder_append_view(builder, naui_string_to_view(str));
+    Naui_StringView view;
+
+    if (!str)
+    {
+        view.data = NULL;
+        view.length = 0;
+        return view;
+    }
+
+    size_t clamped_start = 0;
+    size_t clamped_len = naui__clamp_start_len(str->len, start, len, &clamped_start);
+
+    view.data = (char *)str->data + clamped_start;
+    view.length = clamped_len;
+    return view;
 }
 
-void naui_string_builder_append_view(Naui_StringBuilder builder, Naui_StringView view)
+Naui_StringView naui_sub_string_view(Naui_StringView src, size_t start, size_t len)
 {
-    if (view.length == 0)
+    Naui_StringView view;
+    size_t clamped_start = 0;
+    size_t clamped_len = naui__clamp_start_len(src.length, start, len, &clamped_start);
+
+    view.data = src.data ? src.data + clamped_start : NULL;
+    view.length = clamped_len;
+    return view;
+}
+
+void naui_string_copy(Naui_String *dest, const Naui_String src)
+{
+    if (!dest)
         return;
 
-    const size_t old_len = naui_string_builder_len(builder);
-    naui_list_reserve(builder, old_len + view.length + 1);
-    memcpy(builder + old_len - 1, view.data, view.length);
-    naui_list_push(builder, '\0');
+    memcpy(dest->data, src.data, src.len);
+    dest->data[src.len] = '\0';
+    dest->len = src.len;
 }
 
-void naui_string_builder_append_char(Naui_StringBuilder builder, char c)
+void naui_string_append_view(Naui_String *dest, Naui_StringView view)
 {
-    const size_t old_len = naui_string_builder_len(builder);
-    builder[old_len - 1] = c;
-    naui_list_push(builder, '\0');
+    if (!dest || !view.data || view.length == 0)
+        return;
+
+    size_t space_left = (NAUI_STRING_MAX_SIZE - 1) - dest->len;
+    size_t copy_len = naui__min_size(view.length, space_left);
+
+    if (copy_len == 0)
+        return;
+
+    memcpy(dest->data + dest->len, view.data, copy_len);
+    dest->len += copy_len;
+    dest->data[dest->len] = '\0';
 }
 
-Naui_StringView naui_string_builder_to_view(Naui_StringBuilder builder)
+void naui_string_append(Naui_String *dest, Naui_String str)
 {
-    return (Naui_StringView) {
-        .data = builder,
-        .length = naui_list_len(builder) - 1
-    };
+    naui_string_append_view(dest, naui_string_to_view(&str));
+}
+
+void naui_string_append_cstr(Naui_String *dest, const char *cstr)
+{
+    if (!dest || !cstr)
+        return;
+
+    Naui_StringView view;
+    view.data = (char *)cstr;
+    view.length = strlen(cstr);
+    naui_string_append_view(dest, view);
+}
+
+void naui_string_append_char(Naui_String *dest, char ch)
+{
+    if (!dest)
+        return;
+
+    if (dest->len >= NAUI_STRING_MAX_SIZE - 1)
+        return;
+
+    dest->data[dest->len] = ch;
+    dest->len += 1;
+    dest->data[dest->len] = '\0';
+}
+
+size_t naui_string_view_find(Naui_StringView haystack, Naui_StringView needle, bool case_sensitive)
+{
+    if (!haystack.data || !needle.data)
+        return (size_t)-1;
+
+    if (needle.length == 0)
+        return 0;
+
+    if (needle.length > haystack.length)
+        return (size_t)-1;
+
+    size_t last_start = haystack.length - needle.length;
+    for (size_t i = 0; i <= last_start; ++i)
+    {
+        size_t j = 0;
+        for (; j < needle.length; ++j)
+        {
+            if (!naui__char_eq(haystack.data[i + j], needle.data[j], case_sensitive))
+                break;
+        }
+        if (j == needle.length)
+            return i;
+    }
+
+    return (size_t)-1;
+}
+
+size_t naui_string_find(Naui_String haystack, Naui_String needle, bool case_sensitive)
+{
+    return naui_string_view_find(naui_string_to_view(&haystack), naui_string_to_view(&needle), case_sensitive);
 }
 
 bool naui_string_view_contains(Naui_StringView haystack, Naui_StringView needle, bool case_sensitive)
 {
-    if (needle.length == 0)
-        return true;
-
-    if (needle.length > haystack.length)
-        return false;
-
-    for (size_t i = 0; i + needle.length <= haystack.length; i++)
-    {
-        Naui_StringView slice = {
-            .data = haystack.data + i,
-            .length = needle.length
-        };
-
-        if (naui_strings_with_len_equal(slice.data, needle.data, needle.length, case_sensitive))
-            return true;
-    }
-
-    return false;
+    return naui_string_view_find(haystack, needle, case_sensitive) != (size_t)-1;
 }
 
 bool naui_string_contains(Naui_String haystack, Naui_String needle, bool case_sensitive)
 {
-    return naui_string_view_contains(
-        naui_string_to_view(haystack),
-        naui_string_to_view(needle),
-        case_sensitive
-    );
-}
-
-bool naui_strings_equal(Naui_String str1, Naui_String str2, bool case_sensitive)
-{
-    if (case_sensitive)
-        return !strcmp(str1, str2);
-#if NAUI_WINDOWS
-    return !_stricmp(str1, str2);
-#else
-    return !strcasecmp(str1, str2);
-#endif
-}
-
-bool naui_strings_with_len_equal(Naui_String str1, Naui_String str2, size_t len, bool case_sensitive)
-{
-    if (case_sensitive)
-        return !strncmp(str1, str2, len);
-#if NAUI_WINDOWS
-    return !_strnicmp(str1, str2, len);
-#else
-    return !strncasecmp(str1, str2, len);
-#endif
+    return naui_string_view_contains(naui_string_to_view(&haystack), naui_string_to_view(&needle), case_sensitive);
 }
 
 bool naui_string_views_equal(Naui_StringView view1, Naui_StringView view2, bool case_sensitive)
@@ -141,10 +213,227 @@ bool naui_string_views_equal(Naui_StringView view1, Naui_StringView view2, bool 
     if (view1.length != view2.length)
         return false;
 
-    return naui_strings_with_len_equal(
-        view1.data,
-        view2.data,
-        view1.length,
-        case_sensitive
-    );
+    for (size_t i = 0; i < view1.length; ++i)
+    {
+        if (!naui__char_eq(view1.data[i], view2.data[i], case_sensitive))
+            return false;
+    }
+
+    return true;
+}
+
+bool naui_strings_equal(Naui_String str1, Naui_String str2, bool case_sensitive)
+{
+    return naui_string_views_equal(naui_string_to_view(&str1), naui_string_to_view(&str2), case_sensitive);
+}
+
+bool naui_strings_with_len_equal(Naui_String str1, Naui_String str2, size_t len, bool case_sensitive)
+{
+    Naui_StringView v1 = naui_sub_string(&str1, 0, len);
+    Naui_StringView v2 = naui_sub_string(&str2, 0, len);
+
+    if (v1.length != len || v2.length != len)
+        return false;
+
+    return naui_string_views_equal(v1, v2, case_sensitive);
+}
+
+static bool naui__is_space(char c)
+{
+    return isspace((unsigned char)c) != 0;
+}
+
+Naui_StringView naui_string_view_trim_left(Naui_StringView view)
+{
+    size_t start = 0;
+    while (start < view.length && naui__is_space(view.data[start]))
+        ++start;
+
+    Naui_StringView result;
+    result.data = view.data ? view.data + start : NULL;
+    result.length = view.length - start;
+    return result;
+}
+
+Naui_StringView naui_string_view_trim_right(Naui_StringView view)
+{
+    size_t end = view.length;
+    while (end > 0 && naui__is_space(view.data[end - 1]))
+        --end;
+
+    Naui_StringView result;
+    result.data = view.data;
+    result.length = end;
+    return result;
+}
+
+Naui_StringView naui_string_view_trim(Naui_StringView view)
+{
+    return naui_string_view_trim_right(naui_string_view_trim_left(view));
+}
+
+Naui_String naui_string_trim(Naui_String str)
+{
+    Naui_StringView trimmed = naui_string_view_trim(naui_string_to_view(&str));
+    return naui_view_to_string(trimmed);
+}
+
+void naui_string_to_lower_inplace(Naui_String *str)
+{
+    if (!str)
+        return;
+
+    for (size_t i = 0; i < str->len; ++i)
+        str->data[i] = (char)tolower((unsigned char)str->data[i]);
+}
+
+void naui_string_to_upper_inplace(Naui_String *str)
+{
+    if (!str)
+        return;
+
+    for (size_t i = 0; i < str->len; ++i)
+        str->data[i] = (char)toupper((unsigned char)str->data[i]);
+}
+
+Naui_String naui_string_to_lower(Naui_String str)
+{
+    Naui_String result = str;
+    naui_string_to_lower_inplace(&result);
+    return result;
+}
+
+Naui_String naui_string_to_upper(Naui_String str)
+{
+    Naui_String result = str;
+    naui_string_to_upper_inplace(&result);
+    return result;
+}
+
+size_t naui_string_view_split(Naui_StringView view, char delim, Naui_StringView *out_parts, size_t max_parts)
+{
+    if (!out_parts || max_parts == 0)
+        return 0;
+
+    if (!view.data || view.length == 0)
+    {
+        out_parts[0].data = view.data;
+        out_parts[0].length = 0;
+        return 1;
+    }
+
+    size_t part_count = 0;
+    size_t segment_start = 0;
+
+    for (size_t i = 0; i < view.length; ++i)
+    {
+        if (part_count + 1 >= max_parts)
+            break;
+
+        if (view.data[i] == delim)
+        {
+            out_parts[part_count].data = view.data + segment_start;
+            out_parts[part_count].length = i - segment_start;
+            ++part_count;
+            segment_start = i + 1;
+        }
+    }
+
+    out_parts[part_count].data = view.data + segment_start;
+    out_parts[part_count].length = view.length - segment_start;
+    ++part_count;
+
+    return part_count;
+}
+
+size_t naui_string_split(const Naui_String *str, char delim, Naui_StringView *out_parts, size_t max_parts)
+{
+    return naui_string_view_split(naui_string_to_view(str), delim, out_parts, max_parts);
+}
+
+Naui_String naui_string_replace(Naui_String str, Naui_String find, Naui_String replace, bool case_sensitive)
+{
+    Naui_String result;
+    result.len = 0;
+    result.data[0] = '\0';
+
+    Naui_StringView src_view = naui_string_to_view(&str);
+    Naui_StringView find_view = naui_string_to_view(&find);
+
+    if (find.len == 0)
+    {
+        naui_string_copy(&result, str);
+        return result;
+    }
+
+    size_t pos = 0;
+    while (pos <= src_view.length)
+    {
+        Naui_StringView remaining;
+        remaining.data = src_view.data + pos;
+        remaining.length = src_view.length - pos;
+
+        size_t found = naui_string_view_find(remaining, find_view, case_sensitive);
+
+        if (found == (size_t)-1)
+        {
+            naui_string_append_view(&result, remaining);
+            break;
+        }
+
+        Naui_StringView before;
+        before.data = remaining.data;
+        before.length = found;
+        naui_string_append_view(&result, before);
+
+        naui_string_append(&result, replace);
+
+        pos += found + find.len;
+    }
+
+    return result;
+}
+
+bool naui_string_view_starts_with(Naui_StringView view, Naui_StringView prefix, bool case_sensitive)
+{
+    if (prefix.length > view.length)
+        return false;
+
+    Naui_StringView head;
+    head.data = view.data;
+    head.length = prefix.length;
+
+    return naui_string_views_equal(head, prefix, case_sensitive);
+}
+
+bool naui_string_view_ends_with(Naui_StringView view, Naui_StringView suffix, bool case_sensitive)
+{
+    if (suffix.length > view.length)
+        return false;
+
+    Naui_StringView tail;
+    tail.data = view.data + (view.length - suffix.length);
+    tail.length = suffix.length;
+
+    return naui_string_views_equal(tail, suffix, case_sensitive);
+}
+
+bool naui_string_starts_with(Naui_String str, Naui_String prefix, bool case_sensitive)
+{
+    return naui_string_view_starts_with(naui_string_to_view(&str), naui_string_to_view(&prefix), case_sensitive);
+}
+
+bool naui_string_ends_with(Naui_String str, Naui_String suffix, bool case_sensitive)
+{
+    return naui_string_view_ends_with(naui_string_to_view(&str), naui_string_to_view(&suffix), case_sensitive);
+}
+
+bool naui_string_is_empty(Naui_String str)
+{
+    return str.len == 0;
+}
+
+bool naui_string_view_is_empty(Naui_StringView view)
+{
+    return view.length == 0;
 }
