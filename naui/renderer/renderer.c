@@ -262,7 +262,7 @@ static void naui_renderer_flush(void)
     rdata->index_offset = rdata->index_count;
 }
 
-static inline bool naui_reserve(uint32_t vert_needed, uint32_t idx_needed)
+static inline bool naui_renderer_reserve(uint32_t vert_needed, uint32_t idx_needed)
 {
     if (rdata->vertex_count + vert_needed > NAUI_RENDERER_MAX_VERTICES) return false;
     if (rdata->index_count  + idx_needed  > NAUI_RENDERER_MAX_INDICES)  return false;
@@ -271,7 +271,7 @@ static inline bool naui_reserve(uint32_t vert_needed, uint32_t idx_needed)
 
 static void naui_push_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
 {
-    if (!naui_reserve(4, 6))
+    if (!naui_renderer_reserve(4, 6))
         return;
 
     uint32_t base = rdata->vertex_count;
@@ -292,7 +292,7 @@ static void naui_push_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, 
 static void naui_push_gradient_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d,
     uint32_t ca, uint32_t cb, uint32_t cc, uint32_t cd, int32_t texture_id)
 {
-    if (!naui_reserve(4, 6))
+    if (!naui_renderer_reserve(4, 6))
         return;
 
     uint32_t base = rdata->vertex_count;
@@ -312,7 +312,7 @@ static void naui_push_gradient_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui
 
 static void naui_push_textured_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, Naui_Vec4 texture_area, uint32_t color, int32_t texture_id)
 {
-    if (!naui_reserve(4, 6))
+    if (!naui_renderer_reserve(4, 6))
         return;
 
     uint32_t base = rdata->vertex_count;
@@ -355,7 +355,7 @@ static void naui_push_textured_rect(Naui_Vec2 tl, Naui_Vec2 br, Naui_Vec4 uv, ui
 
 static void naui_push_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, uint32_t color)
 {
-    if (!naui_reserve(3, 3))
+    if (!naui_renderer_reserve(3, 3))
         return;
 
     uint32_t base = rdata->vertex_count;
@@ -374,7 +374,7 @@ static void naui_push_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, uint32_t c
 static void naui_push_gradient_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c,
     uint32_t ca, uint32_t cb, uint32_t cc)
 {
-    if (!naui_reserve(3, 3))
+    if (!naui_renderer_reserve(3, 3))
         return;
 
     uint32_t base = rdata->vertex_count;
@@ -1034,7 +1034,7 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t fo
             continue;
         }
 
-        if (!naui_reserve(4, 6))
+        if (!naui_renderer_reserve(4, 6))
             break;
 
         float gu0 = bc->x0 / atlas_sz, gv0 = bc->y0 / atlas_sz;
@@ -1381,7 +1381,7 @@ static void naui_push_textured_gradient_triangle(
     uint32_t ca, uint32_t cb, uint32_t cc,
     int32_t texture_id)
 {
-    if (!naui_reserve(3, 3))
+    if (!naui_renderer_reserve(3, 3))
         return;
 
     uint32_t base = rdata->vertex_count;

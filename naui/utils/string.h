@@ -1,49 +1,43 @@
-typedef struct {
+typedef struct
+{
     char *data;
     size_t length;
-} Naui_StringView;
+}
+Naui_StringView;
 
-typedef Naui_List(char) Naui_String;
+typedef char *Naui_String;
+typedef Naui_List(char) Naui_StringBuilder;
 
-#define naui_sv(cstr) (Naui_StringView){ (char*)(cstr), sizeof(cstr) - 1 } // Pretty damn convenient
-#define naui_sv_spread(s) (int)(s).length, (s).data
-#define naui_sv_fmt "%.*s"
-NAUI_API bool naui_sv_is_valid(Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_from_cstring(char *s);
-NAUI_API bool naui_sv_eq(Naui_StringView a, Naui_StringView b, bool case_sensitive);
-NAUI_API bool naui_sv_contains(Naui_StringView string_view, Naui_StringView substring);
-NAUI_API bool naui_sv_starts_with(Naui_StringView string_view, Naui_StringView substring);
-NAUI_API bool naui_sv_ends_with(Naui_StringView string_view, Naui_StringView substring);
-NAUI_API Naui_StringView naui_sv_substring(Naui_StringView string_view, size_t start, size_t count);
-NAUI_API Naui_StringView naui_sv_find(Naui_StringView haystack, Naui_StringView needle);
-NAUI_API char *naui_sv_find_char(Naui_StringView haystack, char needle);
-NAUI_API Naui_StringView naui_sv_trim_left(Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_trim_right(Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_trim(Naui_StringView string_view);
-// String functions that involve allocations
-NAUI_API Naui_StringView naui_sv_clone(Naui_Arena *arena, Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_clone_from_cstring(Naui_Arena *arena, char *s);
-NAUI_API Naui_StringView naui_sv_clone_from_bytes(Naui_Arena *arena, char *s, size_t len);
-NAUI_API char *naui_sv_clone_to_cstring(Naui_Arena *arena, Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_to_lower(Naui_Arena *arena, Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_to_upper(Naui_Arena *arena, Naui_StringView string_view);
-NAUI_API Naui_StringView naui_sv_concat(Naui_Arena *arena, Naui_StringView a, Naui_StringView b);
-NAUI_API Naui_StringView naui_sv_replace(Naui_Arena *arena, Naui_StringView string_view, Naui_StringView find, Naui_StringView replace);
-/* TODO(doomguy)
-NAUI_API naui_sv_slice naui_sv_split(Naui_Arena *arena, Naui_StringView string_view, Naui_StringView seperator);
-NAUI_API naui_sv_slice naui_sv_split_lines(Naui_Arena *arena, Naui_StringView string_view);
-NAUI_API naui_sv_slice naui_sv_split_char(Naui_Arena *arena, Naui_StringView string_view, char seperator);
-*/
+NAUI_API size_t             naui_string_len                     (Naui_String str);
+NAUI_API Naui_StringView    naui_string_to_view                 (Naui_String str);
 
-#define naui_string(cstr) naui_string_create_from_sv((Naui_StringView){ (char*)(cstr), sizeof(cstr) - 1 });
-NAUI_API Naui_String naui_string_create(void);
-NAUI_API Naui_String naui_string_create_from_sv(Naui_StringView string_view);
-NAUI_API void naui_string_destroy(Naui_String string);
-NAUI_API Naui_StringView naui_string_to_sv(Naui_String string);
+NAUI_API Naui_StringView    naui_sub_string                     (Naui_String str, size_t start, size_t length);
+NAUI_API Naui_StringView    naui_sub_string_view                (Naui_StringView view, size_t start, size_t length);
 
-#define naui_string_append_sv(string, ...) naui_string_append_sv_null(string, __VA_ARGS__, (Naui_StringView){0})
-NAUI_API void naui_string_append_sv_null(Naui_String string, ...);
+NAUI_API Naui_String        naui_view_to_string                 (Naui_Arena *arena, Naui_StringView view);
 
-// functions needed by iterator_win32 and iterator_unix
-int naui_cstr_strcmp(const char *str1, const char *str2, bool case_sensitive);
-int naui_cstr_strncmp(const char *str1, const char *str2, size_t len, bool case_sensitive);
+NAUI_API Naui_String        naui_string_copy                    (Naui_Arena *arena, Naui_String str);
+
+NAUI_API Naui_String        naui_capped_string_alloc            (Naui_Arena *arena, size_t max_length);
+NAUI_API size_t             naui_capped_string_len              (Naui_String str);
+NAUI_API size_t             naui_capped_string_capacity         (Naui_String str);
+NAUI_API bool               naui_capped_string_append           (Naui_String str, Naui_String suffix);
+NAUI_API bool               naui_capped_string_append_view      (Naui_String str, Naui_StringView suffix);
+NAUI_API bool               naui_capped_string_append_char      (Naui_String str, char c);
+
+static inline void          naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
+static inline void          naui_string_builder_clear           (Naui_StringBuilder builder) { naui_list_clear(builder); }
+static inline void          naui_string_builder_free            (Naui_StringBuilder builder) { naui_list_free(builder); }
+static inline size_t        naui_string_builder_len             (Naui_StringBuilder builder) { return naui_list_len(builder); }
+
+NAUI_API void               naui_string_builder_append          (Naui_StringBuilder builder, Naui_String str);
+NAUI_API void               naui_string_builder_append_view     (Naui_StringBuilder builder, Naui_StringView view);
+NAUI_API void               naui_string_builder_append_char     (Naui_StringBuilder builder, char c);
+NAUI_API Naui_StringView    naui_string_builder_to_view         (Naui_StringBuilder builder);
+
+NAUI_API bool               naui_string_view_contains           (Naui_StringView haystack, Naui_StringView needle, bool case_sensitive);
+NAUI_API bool               naui_string_contains                (Naui_String haystack, Naui_String needle, bool case_sensitive);
+
+NAUI_API bool               naui_strings_equal                  (Naui_String str1, Naui_String str2, bool case_sensitive);
+NAUI_API bool               naui_strings_with_len_equal         (Naui_String str1, Naui_String str2, size_t len, bool case_sensitive);
+
