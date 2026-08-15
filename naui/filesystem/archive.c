@@ -114,7 +114,7 @@ bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, cons
 	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_WRITE)
 		return false;
 
-	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL, 0);
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL);
 	if (!entries)
 		return true;
 
@@ -215,7 +215,7 @@ void naui_archive_list_free(Naui_List(Naui_ArchiveEntry) list)
 
 bool naui_archive_create_custom(const Naui_Path folder, const Naui_Path archive_path)
 {
-	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL, 0);
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL);
 
 	size_t blob_cap = 1024 * 1024;
 	size_t blob_len = 0;

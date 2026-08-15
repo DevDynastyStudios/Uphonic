@@ -1,11 +1,3 @@
-#pragma once
-
-// #include "utils/list.h"
-
-// #include <stdbool.h>
-// #include <stddef.h>
-// #include <stdint.h>
-
 #ifndef NAUI_PATH_MAX
 #if defined(_WIN32) || defined(_WIN64)
 #	define NAUI_PATH_MAX 1024
@@ -87,19 +79,19 @@ bool naui_file_delete(const Naui_Path path);
 bool naui_file_rename(const Naui_Path old_path, const Naui_Path new_path);
 
 /* Hide or unhide a file. */
-Naui_Path naui_file_hide(const Naui_Path path, bool hidden);
+Naui_Path naui_file_hide(const Naui_Path* path, bool hidden);
 bool naui_file_is_hidden(const Naui_Path path);
 
-/* Returns a pointer INTO path.data at the final component. */
-const char* naui_file_filename(const Naui_Path path);
+/* Returns a Naui_StringView of the filename. */
+Naui_StringView naui_file_filename(const Naui_Path* path);
 
-/* Returns the filename without its extension, as a Naui_Path.
- * Returns an empty Naui_Path if there is no stem. */
-Naui_Path naui_file_stem(const Naui_Path path);
+/* Returns the filename without its extension, as a Naui_StringView.
+ * Returns an empty Naui_StringView if there is no stem. */
+Naui_StringView naui_file_stem(const Naui_Path* path);
 
-/* Returns the extension including the dot, as a Naui_Path.
- * Returns an empty Naui_Path if there is no extension. */
-Naui_Path naui_file_extension(const Naui_Path path);
+/* Returns the extension including the dot, as a Naui_StringView.
+ * Returns an empty Naui_StringView if there is no extension. */
+Naui_StringView naui_file_extension(const Naui_Path* path);
 
 bool naui_directory_create(const Naui_Path path);
 bool naui_directory_remove(const Naui_Path path);
@@ -112,11 +104,11 @@ Naui_Path naui_directory_get(const Naui_Dir directory);
 
 /* List directory entries.
  * Returns a Naui_List(Naui_DirEntry). Call naui_directory_filter_free() when done. */
-Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char* filter, const char** extensions, int ext_count);
+Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char* filter, const char** extensions);
 
 /* List directory and sub-directory entries.
  * Returns a Naui_List(Naui_DirEntry). Call naui_directory_filter_free() when done. */
-Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, const char* filter, const char** extensions, int ext_count);
+Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, const char* filter, const char** extensions);
 
 /* Frees the list returned by naui_directory_filter. */
 void naui_directory_filter_free(Naui_List(Naui_DirEntry) list);

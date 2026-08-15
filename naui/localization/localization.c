@@ -288,8 +288,7 @@ void naui_localization_reload_meta_cache(void)
 	if (!naui_path_exists(lang_dir))
 		return;
 
-	const char* extensions[] = { ".lang", NULL };
-	Naui_List(Naui_DirEntry) entries = naui_directory_filter(lang_dir, NULL, extensions, 1);
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter(lang_dir, NULL, NAUI_EXTENSIONS(".lang"));
 	for (ptrdiff_t i = 0; i < naui_list_len(entries); ++i)
 	{
 		if (entries[i].is_directory)
