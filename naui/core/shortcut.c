@@ -131,7 +131,7 @@ void naui_unregister_shortcut(Naui_StringView name)
 {
 	for(size_t i = 0; i < naui_list_len(s_shortcuts); i++)
 	{
-		if(naui_string_eq(s_shortcuts[i].name, name, true))
+		if(naui_sv_eq(s_shortcuts[i].name, name, true))
 		{
 			free_registered_shortcut(&s_shortcuts[i]);
 			naui_list_uremove(s_shortcuts, i);
