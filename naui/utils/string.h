@@ -5,6 +5,9 @@ typedef struct
 }
 Naui_StringView;
 
+#define NAUI_SHORT_STRING_SIZE 128
+typedef char Naui_ShortString[NAUI_SHORT_STRING_SIZE];
+
 typedef char *Naui_String;
 typedef Naui_List(char) Naui_StringBuilder;
 
@@ -16,14 +19,8 @@ NAUI_API Naui_StringView    naui_sub_string_view                (Naui_StringView
 
 NAUI_API Naui_String        naui_view_to_string                 (Naui_Arena *arena, Naui_StringView view);
 
-NAUI_API Naui_String        naui_string_copy                    (Naui_Arena *arena, Naui_String str);
-
-NAUI_API Naui_String        naui_capped_string_alloc            (Naui_Arena *arena, size_t max_length);
-NAUI_API size_t             naui_capped_string_len              (Naui_String str);
-NAUI_API size_t             naui_capped_string_capacity         (Naui_String str);
-NAUI_API bool               naui_capped_string_append           (Naui_String str, Naui_String suffix);
-NAUI_API bool               naui_capped_string_append_view      (Naui_String str, Naui_StringView suffix);
-NAUI_API bool               naui_capped_string_append_char      (Naui_String str, char c);
+NAUI_API Naui_String        naui_string_clone                   (Naui_Arena *arena, Naui_String str);
+NAUI_API void               naui_string_copy                    (Naui_String dest, const Naui_String src, size_t len);
 
 static inline void          naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
 static inline void          naui_string_builder_clear           (Naui_StringBuilder builder) { naui_list_clear(builder); }

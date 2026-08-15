@@ -35,7 +35,7 @@ Naui_String naui_view_to_string(Naui_Arena *arena, Naui_StringView view)
     return string;
 }
 
-Naui_String naui_string_copy(Naui_Arena *arena, Naui_String str)
+Naui_String naui_string_clone(Naui_Arena *arena, Naui_String str)
 {
     const size_t length = strlen(str) + 1;
     Naui_String string = naui_arena_alloc(arena, length);
@@ -43,70 +43,13 @@ Naui_String naui_string_copy(Naui_Arena *arena, Naui_String str)
     return string;
 }
 
-typedef struct
+void naui_string_copy(Naui_String *dest, const Naui_String *src, size_t len)
 {
-    size_t length;
-    size_t capacity;
-}
-Naui__CappedStringHeader;
-
-#define NAUI__CAPPED_HEADER(str) ((Naui__CappedStringHeader *)(str) - 1)
-
-Naui_String naui_capped_string_alloc(Naui_Arena *arena, size_t max_length)
-{
-    void *block = naui_arena_alloc(arena, sizeof(Naui__CappedStringHeader) + max_length + 1);
-
-    Naui__CappedStringHeader *hdr = (Naui__CappedStringHeader *)block;
-    hdr->length   = 0;
-    hdr->capacity = max_length;
-
-    Naui_String str = (Naui_String)(hdr + 1);
-    str[0] = '\0';
-
-    return str;
-}
-
-size_t naui_capped_string_len(Naui_String str)
-{
-    return NAUI__CAPPED_HEADER(str)->length;
-}
-
-size_t naui_capped_string_capacity(Naui_String str)
-{
-    return NAUI__CAPPED_HEADER(str)->capacity;
-}
-
-bool naui_capped_string_append_view(Naui_String str, Naui_StringView suffix)
-{
-    Naui__CappedStringHeader *hdr = NAUI__CAPPED_HEADER(str);
-
-    if (hdr->length + suffix.length > hdr->capacity)
-        return false;
-
-    memcpy(str + hdr->length, suffix.data, suffix.length);
-    hdr->length += suffix.length;
-    str[hdr->length] = '\0';
-
-    return true;
-}
-
-bool naui_capped_string_append(Naui_String str, Naui_String suffix)
-{
-    return naui_capped_string_append_view(str, naui_string_to_view(suffix));
-}
-
-bool naui_capped_string_append_char(Naui_String str, char c)
-{
-    Naui__CappedStringHeader *hdr = NAUI__CAPPED_HEADER(str);
-
-    if (hdr->length + 1 > hdr->capacity)
-        return false;
-
-    str[hdr->length] = c;
-    hdr->length += 1;
-    str[hdr->length] = '\0';
-
-    return true;
+#if NAUI_WINDOWS
+    strncpy_s(dest, src, len);
+#else
+    strncpy(dest, src, len);
+#endif
 }
 
 void naui_string_builder_append(Naui_StringBuilder builder, Naui_String str)
