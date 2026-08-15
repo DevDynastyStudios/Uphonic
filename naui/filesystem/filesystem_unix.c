@@ -352,7 +352,7 @@ Naui_Path naui_file_stem(const Naui_Path path)
 	if (!dot || dot == filename.data)
 		return filename;
 
-	return naui_sv_substring(filename, 0, (size_t)(dot - filename.data));
+	return naui_sub_string_view(filename, 0, (size_t)(dot - filename.data));
 }
 
 Naui_Path naui_file_extension(const Naui_Path path)
@@ -364,7 +364,7 @@ Naui_Path naui_file_extension(const Naui_Path path)
 		return (Naui_StringView){ 0 };
 
 	size_t offset = (size_t)(dot - filename.data);
-	return naui_sv_substring(filename, offset, filename.length - offset);
+	return naui_sub_string_view(filename, offset, filename.length - offset);
 }
 
 bool naui_directory_create(const Naui_Path path)
