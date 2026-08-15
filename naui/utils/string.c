@@ -192,3 +192,16 @@ bool naui_strings_with_len_equal(Naui_String str1, Naui_String str2, size_t len,
     return !strncasecmp(str1, str2, len);
 #endif
 }
+
+bool naui_string_views_equal(Naui_StringView view1, Naui_StringView view2, bool case_sensitive)
+{
+    if (view1.length != view2.length)
+        return false;
+
+    return naui_strings_with_len_equal(
+        view1.data,
+        view2.data,
+        view1.length,
+        case_sensitive
+    );
+}
