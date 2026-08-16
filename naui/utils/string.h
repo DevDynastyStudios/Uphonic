@@ -5,7 +5,7 @@ typedef struct
 }
 Naui_StringView;
 
-#define NAUI_STRING_MAX_SIZE 128
+#define NAUI_STRING_MAX_SIZE 256
 typedef struct
 {
     char data[NAUI_STRING_MAX_SIZE];
