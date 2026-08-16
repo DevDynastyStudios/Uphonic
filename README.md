@@ -66,5 +66,5 @@ Support coming soon.
 Uphonic uses a simple Lua build script:
 
 ```bash
-lua build.lua release
+lua build.lua build release
 ```
