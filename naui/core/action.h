@@ -1,14 +1,7 @@
 /*
-
-NOTE(chimpchi): one quick thing i should mention.
-
-if an action fails, it will return false, and when that happens it doesn't push
-the data onto the undo stack. so you have to manually free data if you expect
-a function to fail.
-
-also if you don't handle the undo case properly if the execute failed, then you can have
-some fucky behaviour...
-
+	An action that fails (returns false) will NOT push data onto the undo stack.
+	Any data that you expect to return false, must be checked and manually freed.
+	Undo functions must be written to accommodate this behavior.
 */
 
 typedef bool (*Naui_ActionFn)(void* data);

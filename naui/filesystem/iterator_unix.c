@@ -11,6 +11,21 @@ static Naui_DirIterInternal* iterator_internal(Naui_DirIterator* it)
 	return (Naui_DirIterInternal*)(void*)it->_handle;
 }
 
+// functions needed by iterator_win32 and iterator_unix
+int naui_cstr_strcmp(const char *str1, const char *str2, bool case_sensitive) {
+    if (case_sensitive)
+        return strcmp(str1, str2);
+
+    return strcasecmp(str1, str2);
+}
+
+int naui_cstr_strncmp(const char *str1, const char *str2, size_t len, bool case_sensitive) {
+    if (case_sensitive)
+        return strncmp(str1, str2, len);
+
+    return strncasecmp(str1, str2, len);
+}
+
 static bool iterator_match_filter(const char* name, const char* filter, bool case_sensitive)
 {
 	if (!filter || filter[0] == '\0')

@@ -8,6 +8,21 @@ typedef struct
 	bool first;
 } Naui_DirIteratorInternal;
 
+// functions needed by iterator_win32 and iterator_unix
+static int naui_cstr_strcmp(const char *str1, const char *str2, bool case_sensitive) {
+    if (case_sensitive)
+        return strcmp(str1, str2);
+
+    return _stricmp(str1, str2);
+}
+
+static int naui_cstr_strncmp(const char *str1, const char *str2, size_t len, bool case_sensitive) {
+    if (case_sensitive)
+        return strncmp(str1, str2, len);
+		
+    return _strnicmp(str1, str2, len);
+}
+
 static Naui_DirIteratorInternal* iterator_internal(Naui_DirIterator* it)
 {
 	return (Naui_DirIteratorInternal*)(void*)it->_handle;
