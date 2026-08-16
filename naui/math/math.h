@@ -1,3 +1,5 @@
+#define NAUI_PI 3.1415926535897931f
+
 static inline float naui_lerp(float a, float b, float t)
 {
 	return a + t * (b - a);

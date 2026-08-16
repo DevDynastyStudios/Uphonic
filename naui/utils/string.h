@@ -9,7 +9,7 @@ Naui_StringView;
 typedef struct
 {
     char data[NAUI_STRING_MAX_SIZE];
-    size_t len;
+    size_t length;
 }
 Naui_String;
 
@@ -21,6 +21,7 @@ NAUI_API Naui_StringView    naui_sub_string                     (const Naui_Stri
 NAUI_API Naui_StringView    naui_sub_string_view                (Naui_StringView view, size_t start, size_t len);
 
 NAUI_API void               naui_string_copy                    (Naui_String *dest, const Naui_String src);
+NAUI_API void               naui_string_copy_view               (Naui_String *dest, const Naui_StringView src);
 NAUI_API void               naui_string_append                  (Naui_String *dest, Naui_String str);
 NAUI_API void               naui_string_append_char             (Naui_String *dest, char ch);
 NAUI_API void               naui_string_append_cstr             (Naui_String *dest, const char *cstr);

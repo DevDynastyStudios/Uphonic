@@ -99,6 +99,7 @@ Naui_PanelID naui_attach_panel(const char *type_name)
     node->min_size = (Naui_Vec2) { 100.0f, 100.0f };
     node->root = node;
     node->root_index = (uint32_t)naui_list_len(pm.root_nodes);
+    node->title = "\0";
 
     if (node->type.user_data_size)
         node->user_data = malloc(node->type.user_data_size);

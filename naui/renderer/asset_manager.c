@@ -128,5 +128,11 @@ void naui_asset_manager_free(void)
 
 Naui_Image *naui_get_image(const char *const name)
 {
-    return &naui_strmap_get(image_hm, name);
+    const ptrdiff_t index = naui_strmap_get_index(image_hm, name);
+    if (index < 0)
+    {
+        fprintf(stderr, "[Naui]: image not found: %s\n", name);
+        return NULL;
+    }
+    return &image_hm[index].value;
 }

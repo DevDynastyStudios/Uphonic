@@ -159,9 +159,6 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
 #endif
 
 #define __NAUI_DEFINE_PANEL_TYPE(name, data_size) \
-    static void name##_on_attach(void); \
-    static void name##_on_detach(void); \
-    static void name##_on_update(void); \
     static Naui_PanelType _##name##_events = { \
         (NauiPanelEvent)name##_on_attach, \
         (NauiPanelEvent)name##_on_detach, \
@@ -173,5 +170,14 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
         naui_register_panel_type(#name, _##name##_events); \
     }
 
-#define NAUI_PANEL_WITH_DATA(name, data_type) __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))
-#define NAUI_PANEL(name) __NAUI_DEFINE_PANEL_TYPE(name, 0)
+#define NAUI_PANEL_WITH_DATA(name, data_type) \
+    static void name##_on_attach(data_type*); \
+    static void name##_on_detach(data_type*); \
+    static void name##_on_update(data_type*); \
+    __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))
+
+#define NAUI_PANEL(name) \
+    static void name##_on_attach(void); \
+    static void name##_on_detach(void); \
+    static void name##_on_update(void); \
+    __NAUI_DEFINE_PANEL_TYPE(name, 0)

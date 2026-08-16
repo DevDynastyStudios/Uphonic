@@ -13,8 +13,14 @@
 #include "defaults/widgets/widgets.c"
 
 #include "core/types.h"
+#include "core/audio_engine.h"
+#include "core/audio_engine.c"
 #include "core/project_manager.h"
 #include "core/project_manager.c"
 
-#include "panels/build.c"
+#include "panels/song_timeline.c"
+#include "panels/mixer.c"
+#include "panels/pattern_list.c"
+#include "panels/sample_list.c"
+#include "panels/midi_editor.c"
 #include "main.c"

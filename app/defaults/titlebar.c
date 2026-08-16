@@ -49,8 +49,8 @@ void naui_render_main_titlebar(const char *title)
 			.padding = LEAF_PADDING_AXES(padding.x, 0.0f)
 		})
 		leaf({
-			.size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.5f)},
-			.image = naui_get_image("naui_logo_small"),
+			.size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.75f)},
+			.image = naui_get_image("uph_logo_small"),
 			.color = LEAF_COLOR_WHITE,
 			.aspect_ratio = 1.0f
 		});

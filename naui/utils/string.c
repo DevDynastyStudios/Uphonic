@@ -31,7 +31,7 @@ static size_t naui__clamp_start_len(size_t total_len, size_t start, size_t len, 
 Naui_String naui_string_from_cstr(const char *cstr)
 {
     Naui_String result;
-    result.len = 0;
+    result.length = 0;
     result.data[0] = '\0';
 
     if (!cstr)
@@ -42,7 +42,7 @@ Naui_String naui_string_from_cstr(const char *cstr)
 
     memcpy(result.data, cstr, copy_len);
     result.data[copy_len] = '\0';
-    result.len = copy_len;
+    result.length = copy_len;
 
     return result;
 }
@@ -59,14 +59,14 @@ Naui_StringView naui_string_to_view(const Naui_String *str)
     }
 
     view.data = (char *)str->data;
-    view.length = str->len;
+    view.length = str->length;
     return view;
 }
 
 Naui_String naui_view_to_string(Naui_StringView view)
 {
     Naui_String result;
-    result.len = 0;
+    result.length = 0;
     result.data[0] = '\0';
 
     if (!view.data || view.length == 0)
@@ -76,7 +76,7 @@ Naui_String naui_view_to_string(Naui_StringView view)
 
     memcpy(result.data, view.data, copy_len);
     result.data[copy_len] = '\0';
-    result.len = copy_len;
+    result.length = copy_len;
 
     return result;
 }
@@ -93,7 +93,7 @@ Naui_StringView naui_sub_string(const Naui_String *str, size_t start, size_t len
     }
 
     size_t clamped_start = 0;
-    size_t clamped_len = naui__clamp_start_len(str->len, start, len, &clamped_start);
+    size_t clamped_len = naui__clamp_start_len(str->length, start, len, &clamped_start);
 
     view.data = (char *)str->data + clamped_start;
     view.length = clamped_len;
@@ -116,9 +116,19 @@ void naui_string_copy(Naui_String *dest, const Naui_String src)
     if (!dest)
         return;
 
-    memcpy(dest->data, src.data, src.len);
-    dest->data[src.len] = '\0';
-    dest->len = src.len;
+    memcpy(dest->data, src.data, src.length);
+    dest->data[src.length] = '\0';
+    dest->length = src.length;
+}
+
+void naui_string_copy_view(Naui_String *dest, const Naui_StringView src)
+{
+    if (!dest)
+        return;
+
+    memcpy(dest->data, src.data, src.length);
+    dest->data[src.length] = '\0';
+    dest->length = src.length;
 }
 
 void naui_string_append_view(Naui_String *dest, Naui_StringView view)
@@ -126,15 +136,15 @@ void naui_string_append_view(Naui_String *dest, Naui_StringView view)
     if (!dest || !view.data || view.length == 0)
         return;
 
-    size_t space_left = (NAUI_STRING_MAX_SIZE - 1) - dest->len;
+    size_t space_left = (NAUI_STRING_MAX_SIZE - 1) - dest->length;
     size_t copy_len = naui__min_size(view.length, space_left);
 
     if (copy_len == 0)
         return;
 
-    memcpy(dest->data + dest->len, view.data, copy_len);
-    dest->len += copy_len;
-    dest->data[dest->len] = '\0';
+    memcpy(dest->data + dest->length, view.data, copy_len);
+    dest->length += copy_len;
+    dest->data[dest->length] = '\0';
 }
 
 void naui_string_append(Naui_String *dest, Naui_String str)
@@ -158,12 +168,12 @@ void naui_string_append_char(Naui_String *dest, char ch)
     if (!dest)
         return;
 
-    if (dest->len >= NAUI_STRING_MAX_SIZE - 1)
+    if (dest->length >= NAUI_STRING_MAX_SIZE - 1)
         return;
 
-    dest->data[dest->len] = ch;
-    dest->len += 1;
-    dest->data[dest->len] = '\0';
+    dest->data[dest->length] = ch;
+    dest->length += 1;
+    dest->data[dest->length] = '\0';
 }
 
 size_t naui_string_view_find(Naui_StringView haystack, Naui_StringView needle, bool case_sensitive)
@@ -272,7 +282,7 @@ void naui_string_to_lower_inplace(Naui_String *str)
     if (!str)
         return;
 
-    for (size_t i = 0; i < str->len; ++i)
+    for (size_t i = 0; i < str->length; ++i)
         str->data[i] = (char)tolower((unsigned char)str->data[i]);
 }
 
@@ -281,7 +291,7 @@ void naui_string_to_upper_inplace(Naui_String *str)
     if (!str)
         return;
 
-    for (size_t i = 0; i < str->len; ++i)
+    for (size_t i = 0; i < str->length; ++i)
         str->data[i] = (char)toupper((unsigned char)str->data[i]);
 }
 
@@ -343,13 +353,13 @@ size_t naui_string_split(const Naui_String *str, char delim, Naui_StringView *ou
 Naui_String naui_string_replace(Naui_String str, Naui_String find, Naui_String replace, bool case_sensitive)
 {
     Naui_String result;
-    result.len = 0;
+    result.length = 0;
     result.data[0] = '\0';
 
     Naui_StringView src_view = naui_string_to_view(&str);
     Naui_StringView find_view = naui_string_to_view(&find);
 
-    if (find.len == 0)
+    if (find.length == 0)
     {
         naui_string_copy(&result, str);
         return result;
@@ -377,7 +387,7 @@ Naui_String naui_string_replace(Naui_String str, Naui_String find, Naui_String r
 
         naui_string_append(&result, replace);
 
-        pos += found + find.len;
+        pos += found + find.length;
     }
 
     return result;
@@ -419,7 +429,7 @@ bool naui_string_ends_with(Naui_String str, Naui_String suffix, bool case_sensit
 
 bool naui_string_is_empty(Naui_String str)
 {
-    return str.len == 0;
+    return str.length == 0;
 }
 
 bool naui_string_view_is_empty(Naui_StringView view)

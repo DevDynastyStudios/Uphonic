@@ -1,3 +1,5 @@
+#define UPH_SAMPLE_FRAME_COUNT 512
+
 // :settings
 typedef struct
 {
@@ -65,30 +67,21 @@ typedef struct
 Uph_PluginSettings;
 
 // :project
-typedef struct
+typedef uint8_t Uph_TimelineBlockType;
+enum
 {
-	double start_beat;
-	double start_offset_beats;
-	double length_beats;
-	double reserved;
-	uint16_t pattern_index;
-}
-Uph_MidiTimelineBlock;
+    UPH_TIMELINE_BLOCK_SAMPLE,
+    UPH_TIMELINE_BLOCK_PATTERN
+};
 
 typedef struct
 {
 	double start_beat;
 	double start_offset_beats;
 	double length_beats;
-	double stretched_scale;
-	uint16_t sample_index;
-}
-Uph_SampleTimelineBlock;
-
-typedef union
-{
-	Uph_MidiTimelineBlock midi_block;
-	Uph_SampleTimelineBlock sample_block;
+    double stretch_scale;
+    uint32_t resource_index;
+    Uph_TimelineBlockType type;
 }
 Uph_TimelineBlock;
 
@@ -99,23 +92,33 @@ enum
 	UPH_SAMPLE_STEREO
 };
 
-typedef uint32_t Uph_ResoureceID;
-
 typedef struct
 {
+    float min;
+    float max;
+}
+Uph_WaveformPeak;
+
+/*typedef struct
+{
 	Naui_Path file_path;
+	Naui_List(Uph_WaveformPeak) waveform_peaks;
 	float *frames;
 	uint64_t frame_count;
 	uint32_t original_sample_rate;
 	Uph_SampleChannelType channel_type;
 }
-Uph_SampleData;
+Uph_SampleData;*/
 
 typedef struct
 {
 	Naui_String name;
-	Naui_Color color;
-	Uph_ResoureceID data_id;
+	Naui_Path file_path;
+	Naui_List(Uph_WaveformPeak) waveform_peaks;
+	float *frames;
+	uint64_t frame_count;
+	uint32_t sample_rate;
+	Uph_SampleChannelType channel_type;
 }
 Uph_Sample;
 
@@ -155,6 +158,7 @@ enum
 
 typedef struct
 {
+	Naui_String name;
 	Naui_Color color;
 	Uph_TrackType type;
 	Naui_List(Uph_TimelineBlock) blocks;
@@ -163,6 +167,7 @@ typedef struct
 	float pan;
 	float peak_left, peak_right;
 	float smooth_peak_left, smooth_peak_right;
+	float glow_effect;
 	Uph_TrackState state;
 }
 Uph_Track;
@@ -189,7 +194,10 @@ typedef struct
 
 	Uph_TimeSignature time_signature;
 		
-	Naui_List(Uph_Track) tracks;
+    Naui_List(Uph_Track) tracks;
+    Naui_List(Uph_MidiPattern) midi_patterns;
+    Naui_List(Uph_Sample) samples;
+
 	uint64_t time_created;
 	uint64_t last_accessed;
 	uint64_t last_modified;
@@ -204,13 +212,22 @@ typedef struct
 	Uph_UISettings ui;
 	Uph_MIDISettings midi;
 	Uph_PluginSettings plugin;
-} Uph_Settings;
+}
+Uph_Settings;
+
+typedef struct
+{
+    double song_timeline_playhead_position;
+    bool song_timeline_playing;
+}
+Uph_InteractionState;
 
 typedef struct
 {
 	Uph_Project project;
 	Uph_Settings settings;
-	// Input State
-} Uph_State;
+	Uph_InteractionState interact;
+}
+Uph_State;
 
-extern Uph_State state;
+extern Uph_State uph_state;
