@@ -404,10 +404,10 @@ Naui_Path naui_file_hide(const Naui_Path* path, bool hidden)
 	return result;
 }
 
-bool naui_file_is_hidden(const Naui_Path path)
+bool naui_file_is_hidden(const Naui_Path *path)
 {
 	wchar_t wpath[NAUI_PATH_MAX];
-	if (!to_wide(path.data, wpath))
+	if (!to_wide(path->data, wpath))
 		return false;
 
 	DWORD attrs = GetFileAttributesW(wpath);

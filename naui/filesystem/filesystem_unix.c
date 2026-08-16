@@ -296,7 +296,7 @@ Naui_Path naui_file_hide(const Naui_Path* path, bool hidden)
 	if (currently_hidden == hidden)
 		return result;
 
-	Naui_Path parent = naui_path_parent(path);
+	Naui_Path parent = naui_path_parent(result);
 	Naui_Path renamed;
 	if (hidden)
 		snprintf(renamed.data, NAUI_PATH_MAX, "%s/.%s", parent.data, filename.data);
@@ -344,7 +344,7 @@ Naui_StringView naui_file_filename(const Naui_Path* path)
 	};
 }
 
-Naui_Path naui_file_stem(const Naui_Path path)
+Naui_StringView naui_file_stem(const Naui_Path *path)
 {
 	Naui_StringView filename = naui_file_filename(path);
 	const char* dot = find_last_char(filename, '.');
@@ -355,7 +355,7 @@ Naui_Path naui_file_stem(const Naui_Path path)
 	return naui_sub_string_view(filename, 0, (size_t)(dot - filename.data));
 }
 
-Naui_Path naui_file_extension(const Naui_Path path)
+Naui_StringView naui_file_extension(const Naui_Path *path)
 {
 	Naui_StringView filename = naui_file_filename(path);
 	const char* dot = find_last_char(filename, '.');

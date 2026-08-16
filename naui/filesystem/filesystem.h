@@ -82,7 +82,7 @@ bool naui_file_rename(const Naui_Path old_path, const Naui_Path new_path);
 
 /* Hide or unhide a file. */
 Naui_Path naui_file_hide(const Naui_Path* path, bool hidden);
-bool naui_file_is_hidden(const Naui_Path path);
+bool naui_file_is_hidden(const Naui_Path *path);
 
 /* Returns a Naui_StringView of the filename. */
 Naui_StringView naui_file_filename(const Naui_Path* path);
