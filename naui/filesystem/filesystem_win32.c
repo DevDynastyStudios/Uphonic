@@ -730,6 +730,19 @@ bool naui_path_exists(const Naui_Path path)
 	return GetFileAttributesW(wpath) != INVALID_FILE_ATTRIBUTES;
 }
 
+bool naui_path_is_directory(const Naui_Path path)
+{
+	wchar_t wpath[NAUI_PATH_MAX];
+	if (!to_wide(path.data, wpath))
+		return false;
+
+	DWORD attrs = GetFileAttributesW(wpath);
+	if (attrs != FILE_ATTRIBUTE_DIRECTORY)
+		return false;
+
+	return true;
+}
+
 bool naui_path_is_empty(const Naui_Path path)
 {
 	return path.data[0] == '\0';
