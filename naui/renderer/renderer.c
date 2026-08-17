@@ -882,17 +882,11 @@ void naui_load_font(uint8_t index, const char *file_name)
     strncat(final_file_name, ".ttf", sizeof(final_file_name) - 1);
 
 	Naui_Path font_path = NAUI_PATH("Assets/Fonts", final_file_name);
-    FILE *f = fopen(font_path.data, "rb");
-	
-    if (!f) return;
 
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    uint8_t *ttf_buf = malloc(size);
-    if (!ttf_buf) { fclose(f); return; }
-    fread(ttf_buf, 1, size, f);
-    fclose(f);
+	size_t size;
+	uint8_t* ttf_buf = (uint8_t*)naui_file_read_all(font_path, &size);
+	if(ttf_buf == NULL)
+		return;
 
     naui_unload_font(index);
 
