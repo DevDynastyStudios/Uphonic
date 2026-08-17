@@ -117,10 +117,13 @@ void naui_directory_filter_free(Naui_List(Naui_DirEntry) list);
 
 bool naui_path_set_current(const Naui_Path current_directory);
 
-/* Returns true if the path exists on the filesystem. */
+/* Returns true if path exists on the filesystem. */
 bool naui_path_exists(const Naui_Path path);
 
-/* Returns true is the path is empty. */
+/* Returns true if path is a directory on the filesystem. */
+bool naui_path_is_directory(const Naui_Path path);
+
+/* Returns true if path is empty. */
 bool naui_path_is_empty(const Naui_Path path);
 
 Naui_Path naui_path_from_cstr(const char* str);

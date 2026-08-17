@@ -606,6 +606,15 @@ bool naui_path_exists(const Naui_Path path)
 	return stat(path.data, &st) == 0;
 }
 
+bool naui_path_is_directory(const Naui_Path path)
+{
+	struct stat st;
+	if (stat(path.data, &st) != 0)
+		return false;
+
+	return S_ISDIR(st.st_mode);
+}
+
 bool naui_path_is_empty(const Naui_Path path)
 {
 	return path.data[0] == '\0';

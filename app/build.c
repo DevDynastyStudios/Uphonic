@@ -13,6 +13,10 @@
 #include "defaults/widgets/widgets.c"
 
 #include "core/types.h"
+
+#include "io/serialization.h"
+#include "io/serialization.c"
+
 #include "core/audio_engine.h"
 #include "core/audio_engine.c"
 #include "core/project_manager.h"

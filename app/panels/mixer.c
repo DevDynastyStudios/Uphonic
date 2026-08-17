@@ -100,7 +100,7 @@ static void mixer_render_track(Uph_Track *track)
             .aspect_ratio = 1.0f,
             .color = naui_theme_color("uph_track_header_border_color"),
             .rounding = {
-                .value = INT_MAX,
+                .value = (float)INT_MAX,
                 .corners = LEAF_CORNER_ALL
             }
         });

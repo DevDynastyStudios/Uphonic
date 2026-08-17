@@ -1,3 +1,4 @@
+#define UPH_VERSION (Uph_Version) { .major = 0, .minor = 0, .patch = 1 };
 #define UPH_SAMPLE_FRAME_COUNT 512
 
 // :settings
@@ -191,9 +192,7 @@ typedef struct
 {
 	Naui_String title;
 	Uph_Version project_version;
-
 	Uph_TimeSignature time_signature;
-		
     Naui_List(Uph_Track) tracks;
     Naui_List(Uph_MidiPattern) midi_patterns;
     Naui_List(Uph_Sample) samples;
@@ -227,6 +226,10 @@ typedef struct
 	Uph_Project project;
 	Uph_Settings settings;
 	Uph_InteractionState interact;
+
+	uint64_t _last_autosave_time;
+	uint64_t _last_modified_time;
+	int32_t _modified_counter;
 }
 Uph_State;
 

@@ -220,7 +220,6 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
         return;
 
     const float bpm = uph_state.project.bpm;
-
     const double seconds_per_beat = 60.0 / (double)bpm;
     const double timeline_seconds = block->length_beats * seconds_per_beat;
     const double stretch_scale = block->stretch_scale > 0.0 ? block->stretch_scale : 1.0;
@@ -233,8 +232,10 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
 
     if (frame_start_global >= resource->frame_count)
         return;
+
     if (frame_start_global + frame_count_visible > resource->frame_count)
         frame_count_visible = resource->frame_count - frame_start_global;
+
     if (frame_count_visible == 0)
         return;
 
@@ -242,6 +243,7 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
     uint64_t bin_end = (frame_start_global + frame_count_visible) / UPH_SAMPLE_FRAME_COUNT;
     if (bin_end >= peak_count)
         bin_end = peak_count - 1;
+
     if (bin_end <= bin_start)
         bin_end = bin_start + 1;
 
@@ -253,15 +255,11 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
 
     const float mid_y = top + available_height * 0.5f;
     const float half_height = available_height * 0.5f * 0.9f;
-
     if (size.x <= 0.0f)
-    {
         return;
-    }
 
     const uint64_t bin_count_visible = bin_end - bin_start + 1;
     const float pixels_per_bin = size.x / (float)bin_count_visible;
-
     uint64_t bin_step = 1;
     if (pixels_per_bin < 1.0f)
         bin_step = (uint64_t)(1.0f / pixels_per_bin) + 1;
@@ -269,7 +267,6 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
     Naui_Vec2 prev_point = { 0 };
     bool has_prev = false;
     bool use_max = true;
-
     const float rect_left = position.x;
     const float rect_right = position.x + size.x;
     const float rect_top = position.y;
@@ -278,7 +275,8 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
     for (uint64_t bin = bin_start; bin <= bin_end; bin += bin_step)
     {
         uint64_t range_end = bin + bin_step;
-        if (range_end > bin_end + 1) range_end = bin_end + 1;
+        if (range_end > bin_end + 1)
+			range_end = bin_end + 1;
 
         float min_v = 1.0f;
         float max_v = -1.0f;
@@ -589,12 +587,7 @@ static void song_timeline_grid_custom_draw(Leaf_BoundingBox box, void *user_data
         if (x < box.x - pixels_per_beat) continue;
         if (x > box.x + box.width) break;
 
-        naui_draw_line(
-            naui_vec2(x, box.y),
-            naui_vec2(x, box.y + box.height),
-            is_bar_line ? bar_color : beat_color,
-            line_width
-        );
+        naui_draw_line(naui_vec2(x, box.y), naui_vec2(x, box.y + box.height), is_bar_line ? bar_color : beat_color, line_width);
     }
 
     naui_pop_clip_rect();
@@ -607,15 +600,9 @@ static void song_timeline_overlay_custom_draw(Leaf_BoundingBox box, void *user_d
     Uph_OverlayCustomDrawData *data = (Uph_OverlayCustomDrawData*)user_data;
     const float header_width = NAUI_DPI(naui_theme_float("uph_track_header_width"));
     const float header_padding = NAUI_DPI(naui_theme_vec2("uph_track_header_padding").x * 2.0f);
-    const float x = box.x + header_width + header_padding + data->timeline_data->scroll.x
-        + uph_state.interact.song_timeline_playhead_position * data->timeline_data->zoom.x;
+    const float x = box.x + header_width + header_padding + data->timeline_data->scroll.x + uph_state.interact.song_timeline_playhead_position * data->timeline_data->zoom.x;
     naui_push_clip_rect(box.x + header_width + header_padding, box.y, box.width, box.height);
-    naui_draw_line(
-        naui_vec2(x, box.y),
-        naui_vec2(x, box.height + box.y),
-        leaf_hex(0xEFFBB5),
-        NAUI_DPI(1.0f)
-    );
+    naui_draw_line(naui_vec2(x, box.y), naui_vec2(x, box.height + box.y), leaf_hex(0xEFFBB5), NAUI_DPI(1.0f));
     naui_pop_clip_rect();
 }
 
@@ -710,8 +697,8 @@ static bool uph_track_toggle_button(const char *text, bool *toggled)
 {
     Leaf_ID id = naui_widgets_alloc_id();
     bool hovered = naui_panel_hovered(naui_current_panel()) && leaf_hovered(id);
-
     bool clicked = hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT);
+	
     if (clicked)
         *toggled = !(*toggled);
 
@@ -760,9 +747,7 @@ static void song_timeline_on_update(Uph_SongTimelineData *timeline_data)
     if (naui_panel_hovered(naui_current_panel()))
     {
         const float track_area_x = NAUI_DPI(header_width) + NAUI_DPI(header_padding.x * 2.0f);
-
         Leaf_BoundingBox viewport = leaf_get_bounding_box(leaf_id("uph_song_timeline_viewport"));
-
         Naui_Vec2 mouse_pos = naui_vec2((float)naui_mouse_x(), (float)naui_mouse_y());
         bool ctrl_down = naui_key_down(NAUI_KEY_CONTROL);
 
@@ -772,9 +757,7 @@ static void song_timeline_on_update(Uph_SongTimelineData *timeline_data)
             song_timeline_update_scroll_y_wheel(timeline_data);
 
         song_timeline_update_middle_mouse_drag(timeline_data, mouse_pos, viewport, ctrl_down);
-
         timeline_data->last_mouse_pos = mouse_pos;
-
         const float ruler_height = NAUI_DPI(24.0f);
         float track_list_height = viewport.height - ruler_height;
         song_timeline_clamp_scroll(timeline_data, track_list_height);
@@ -809,9 +792,8 @@ static void song_timeline_on_update(Uph_SongTimelineData *timeline_data)
         {
             leaf({
                 .direction = LEAF_DIRECTION_HORIZONTAL,
-                .size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width)), LEAF_SIZE_FULL},
+                .size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width + header_padding.x * 2)), LEAF_SIZE_FULL},
                 .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-                .padding = LEAF_PADDING_AXES(NAUI_DPI(header_padding.x), NAUI_DPI(header_padding.y)),
                 .child_gap = NAUI_DPI(12.0f),
                 .border = {
                     .width = 1.0f,
@@ -820,7 +802,26 @@ static void song_timeline_on_update(Uph_SongTimelineData *timeline_data)
                 }
             })
             {
-                
+				Leaf_ID track_btn_id = leaf_id("uph_song_timeline_track_add_id");
+				bool track_btn_hovered = leaf_hovered(track_btn_id);
+				Leaf_Color track_btn_color = naui_theme_color("naui_widget_frame_hovered_bg_color");
+
+				if(track_btn_hovered)
+					track_btn_color = naui_mouse_down(NAUI_MOUSE_LEFT) ? naui_theme_color("naui_widget_frame_bg_color") : naui_theme_color("naui_widget_frame_pressed_bg_color");
+
+                leaf({
+					.id = track_btn_id,
+					.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
+					.rounding = LEAF_ROUNDING_FIXED(4, LEAF_CORNER_ALL),
+					.color = track_btn_color,
+					.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+				})
+				{
+					leaf_text("+", {
+						.font_size = LEAF_SIZE_GROW,
+						.color = naui_theme_color("uph_track_text_color")
+					});
+				}
             }
 
             Uph_RulerCustomDrawData ruler_data = {
