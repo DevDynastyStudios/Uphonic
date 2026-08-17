@@ -51,6 +51,8 @@ static void uph_read_sample_frame(const Uph_Sample *sample, double pos, float *o
     }
 }
 
+#define UPH_PAN_COMPENSATION 1.41421356f
+
 static void uph_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
     (void)input;
@@ -86,8 +88,8 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
         float pan = naui_clamp(track->pan, -1.0f, 1.0f);
 
         float pan_angle = (pan + 1.0f) * 0.25f * (float)NAUI_PI;
-        float gain_left  = volume * cosf(pan_angle);
-        float gain_right = volume * sinf(pan_angle);
+        float gain_left  = volume * cosf(pan_angle) * UPH_PAN_COMPENSATION;
+        float gain_right = volume * sinf(pan_angle) * UPH_PAN_COMPENSATION;
 
         float track_peak_left = 0.0f;
         float track_peak_right = 0.0f;
