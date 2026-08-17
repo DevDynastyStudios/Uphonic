@@ -227,7 +227,7 @@ static void uph_draw_sample_waveform(const Uph_Sample *resource, const Uph_Timel
     const double audio_seconds = timeline_seconds / stretch_scale;
     const double start_offset_seconds = block->start_offset_beats * seconds_per_beat / stretch_scale;
 
-    const double sample_rate = (double)resource->sample_rate;
+    const double sample_rate = (double)uph_state.settings.audio.sample_rate;
     uint64_t frame_start_global = (uint64_t)(start_offset_seconds * sample_rate);
     uint64_t frame_count_visible = (uint64_t)(audio_seconds * sample_rate);
 
@@ -392,7 +392,7 @@ static double uph_block_max_length_beats(const Uph_TimelineBlock *block)
     const Uph_Sample *resource = &uph_state.project.samples[block->resource_index];
     const double seconds_per_beat = 60.0 / (double)uph_state.project.bpm;
     const double stretch_scale = block->stretch_scale > 0.0 ? block->stretch_scale : 1.0;
-    const double available_seconds = (double)resource->frame_count / (double)resource->sample_rate;
+    const double available_seconds = (double)resource->frame_count / (double)uph_state.settings.audio.sample_rate;
     const double max_audio_seconds = available_seconds - (block->start_offset_beats * seconds_per_beat / stretch_scale);
     const double max_length_beats = (max_audio_seconds * stretch_scale) / seconds_per_beat;
 

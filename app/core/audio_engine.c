@@ -115,7 +115,7 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
 
                 double source_beats = beats_into_block / stretch_scale + block->start_offset_beats;
                 double source_seconds = uph_beats_to_seconds(source_beats, bpm);
-                double source_frame_pos = source_seconds * (double)sample->sample_rate;
+                double source_frame_pos = source_seconds * (double)uph_state.settings.audio.sample_rate;
 
                 float left, right;
                 uph_read_sample_frame(sample, source_frame_pos, &left, &right);
@@ -211,9 +211,22 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
 {
     Uph_Sample sample = {0};
 
+    ma_decoder temp_decoder;
+    ma_decoder_config temp_config = ma_decoder_config_init(ma_format_f32, 0, 0);
+
+    uint32_t original_sample_rate = data.device.sampleRate;
+    if (ma_decoder_init_file(path.data, &temp_config, &temp_decoder) == MA_SUCCESS)
+    {
+        original_sample_rate = temp_decoder.outputSampleRate;
+        ma_decoder_uninit(&temp_decoder);
+    }
+
     ma_decoder decoder;
-    ma_decoder_config decoder_config = ma_decoder_config_init_default();
-    decoder_config.format = ma_format_f32;
+    ma_decoder_config decoder_config = ma_decoder_config_init(
+        ma_format_f32,
+        0,
+        data.device.sampleRate
+    );
 
     ma_result result = ma_decoder_init_file(path.data, &decoder_config, &decoder);
     if (result != MA_SUCCESS)
@@ -259,8 +272,13 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
     sample.file_path = path;
     sample.frames = frames;
     sample.frame_count = frames_read;
-    sample.sample_rate = sample_rate;
+    sample.original_sample_rate = original_sample_rate;
     sample.channel_type = (channels == 1) ? UPH_SAMPLE_MONO : UPH_SAMPLE_STEREO;
+
+    if (original_sample_rate != sample_rate)
+        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz -> %u Hz [resampled])\n", path.data, (unsigned long long)frames_read, channels, original_sample_rate, sample_rate);
+    else
+        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz)\n", path.data, (unsigned long long)frames_read, channels, sample_rate);
 
     uph_build_waveform_peaks(&sample);
 

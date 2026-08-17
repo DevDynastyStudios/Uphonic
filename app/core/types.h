@@ -117,7 +117,7 @@ typedef struct
 	Naui_List(Uph_WaveformPeak) waveform_peaks;
 	float *frames;
 	uint64_t frame_count;
-	uint32_t sample_rate;
+	uint32_t original_sample_rate;
 	Uph_SampleChannelType channel_type;
 }
 Uph_Sample;
