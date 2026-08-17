@@ -214,8 +214,16 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
     ma_decoder temp_decoder;
     ma_decoder_config temp_config = ma_decoder_config_init(ma_format_f32, 0, 0);
 
+    size_t file_size;
+    void *file_data = naui_file_read_all(path, &file_size);
+    if (!file_data)
+    {
+        fprintf(stderr, "uph_audio_engine_load_sample: failed to read file '%s'\n", path.data);
+        return sample;
+    }
+
     uint32_t original_sample_rate = data.device.sampleRate;
-    if (ma_decoder_init_file(path.data, &temp_config, &temp_decoder) == MA_SUCCESS)
+    if (ma_decoder_init_memory(file_data, file_size, &temp_config, &temp_decoder) == MA_SUCCESS)
     {
         original_sample_rate = temp_decoder.outputSampleRate;
         ma_decoder_uninit(&temp_decoder);
@@ -228,7 +236,7 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
         data.device.sampleRate
     );
 
-    ma_result result = ma_decoder_init_file(path.data, &decoder_config, &decoder);
+    ma_result result = ma_decoder_init_memory(file_data, file_size, &decoder_config, &decoder);
     if (result != MA_SUCCESS)
     {
         // TODO: route through your logging/error system instead
