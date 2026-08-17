@@ -267,6 +267,126 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
     return sample;
 }
 
+double uph_audio_engine_get_song_length_beats(void)
+{
+    Uph_Project *project = &uph_state.project;
+
+    double max_end_beat = 0.0;
+
+    uint64_t track_count = naui_list_len(project->tracks);
+    for (uint64_t t = 0; t < track_count; t++)
+    {
+        Uph_Track *track = &project->tracks[t];
+        uint64_t block_count = naui_list_len(track->blocks);
+
+        for (uint64_t b = 0; b < block_count; b++)
+        {
+            Uph_TimelineBlock *block = &track->blocks[b];
+
+            double block_end = block->start_beat + block->length_beats;
+            if (block_end > max_end_beat)
+                max_end_beat = block_end;
+        }
+    }
+
+    return max_end_beat;
+}
+
+double uph_audio_engine_get_song_length_seconds(void)
+{
+    Uph_Project *project = &uph_state.project;
+    float bpm = project->bpm;
+    if (bpm <= 0.0f)
+        return 0.0;
+
+    return uph_beats_to_seconds(uph_audio_engine_get_song_length_beats(), bpm);
+}
+
+bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)
+{
+    if (end_beat <= start_beat)
+    {
+        fprintf(stderr, "uph_audio_engine_export_to_wav: invalid beat range\n");
+        return false;
+    }
+
+    Uph_Project *project = &uph_state.project;
+    float bpm = project->bpm;
+    if (bpm <= 0.0f)
+    {
+        fprintf(stderr, "uph_audio_engine_export_to_wav: invalid bpm\n");
+        return false;
+    }
+
+    double duration_beats   = end_beat - start_beat;
+    double duration_seconds = uph_beats_to_seconds(duration_beats, bpm);
+
+    uint32_t sample_rate = data.device.sampleRate;
+    uint64_t total_frames = (uint64_t)(duration_seconds * (double)sample_rate);
+
+    ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 2, sample_rate);
+    ma_encoder encoder;
+    if (ma_encoder_init_file(filepath, &encoder_config, &encoder) != MA_SUCCESS)
+    {
+        fprintf(stderr, "uph_audio_engine_export_to_wav: failed to init WAV encoder for '%s'\n", filepath);
+        return false;
+    }
+
+    double saved_playhead = uph_state.interact.song_timeline_playhead_position;
+    bool saved_playing  = uph_state.interact.song_timeline_playing;
+
+    uph_state.interact.song_timeline_playhead_position = start_beat;
+    uph_state.interact.song_timeline_playing = true;
+
+    const ma_uint32 chunk_frames = 1024;
+    float *buffer = (float*)malloc(sizeof(float) * 2 * chunk_frames);
+    if (!buffer)
+    {
+        fprintf(stderr, "uph_audio_engine_export_to_wav: out of memory\n");
+        ma_encoder_uninit(&encoder);
+        uph_state.interact.song_timeline_playhead_position = saved_playhead;
+        uph_state.interact.song_timeline_playing = saved_playing;
+        return false;
+    }
+
+    ma_device fake_device = data.device;
+    fake_device.sampleRate = sample_rate;
+
+    uint64_t frames_processed = 0;
+    bool ok = true;
+
+    while (frames_processed < total_frames)
+    {
+        ma_uint32 frames_to_process = (ma_uint32)((total_frames - frames_processed) < chunk_frames
+            ? (total_frames - frames_processed)
+            : chunk_frames);
+
+        uph_data_callback(&fake_device, buffer, NULL, frames_to_process);
+
+        ma_uint64 frames_written = 0;
+        if (ma_encoder_write_pcm_frames(&encoder, buffer, frames_to_process, &frames_written) != MA_SUCCESS)
+        {
+            fprintf(stderr, "uph_audio_engine_export_to_wav: failed writing frames to '%s'\n", filepath);
+            ok = false;
+            break;
+        }
+
+        frames_processed += frames_written;
+    }
+
+    free(buffer);
+    ma_encoder_uninit(&encoder);
+
+    uph_state.interact.song_timeline_playhead_position = saved_playhead;
+    uph_state.interact.song_timeline_playing = saved_playing;
+
+    if (ok)
+        fprintf(stdout, "uph_audio_engine_export_to_wav: exported %llu frames to '%s'\n",
+                (unsigned long long)frames_processed, filepath);
+
+    return ok;
+}
+
 void uph_audio_engine_unload_sample(Uph_Sample*sample)
 {
     if (!sample)

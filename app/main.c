@@ -34,6 +34,7 @@ void naui_app_start(void)
 
 void naui_app_end(void)
 {
+    uph_audio_engine_export_to_wav("test.wav", 0, uph_audio_engine_get_song_length_beats());
     uph_audio_engine_shutdown();
 }
 
