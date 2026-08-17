@@ -693,21 +693,21 @@ if (naui_mouse_down(NAUI_MOUSE_LEFT) && vec4_contains_point(naui_vec4(box.x, box
     naui_pop_clip_rect();
 }
 
-static bool uph_track_toggle_button(const char *text, bool *toggled)
+static bool uph_track_toggle_button(const char *text, Uph_TrackState *current_state, Uph_TrackState target_state)
 {
     Leaf_ID id = naui_widgets_alloc_id();
     bool hovered = naui_panel_hovered(naui_current_panel()) && leaf_hovered(id);
     bool clicked = hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT);
 	
     if (clicked)
-        *toggled = !(*toggled);
+        *current_state ^= target_state;
 
     Naui_Color color;
     if (hovered)
         color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
             naui_theme_color("naui_widget_frame_pressed_bg_color") :
             naui_theme_color("naui_widget_frame_hovered_bg_color");
-    else if (*toggled)
+    else if (*current_state & target_state)
         color = naui_theme_color("naui_widget_frame_toggled_bg_color");
     else color = naui_theme_color("naui_widget_frame_bg_color");
 
@@ -716,7 +716,7 @@ static bool uph_track_toggle_button(const char *text, bool *toggled)
     leaf({
         .id = id,
         .size = {LEAF_SIZE_FIXED(NAUI_DPI(font_size)), LEAF_SIZE_FIXED(NAUI_DPI(font_size))},
-        .padding = LEAF_PADDING_ALL(NAUI_DPI(1.0f)),
+        .padding = LEAF_PADDING_ALL(NAUI_DPI(3.0f)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
         .color = color,
         .border = {
@@ -910,9 +910,9 @@ static void song_timeline_on_update(Uph_SongTimelineData *timeline_data)
                                 .child_gap = NAUI_DPI(2.0f)
                             })
                             {
-                                //uph_track_toggle_button("M", &track->muted);
-                                //uph_track_toggle_button("S", &track->soloed);
-                                //uph_track_toggle_button("R", &track->recording);
+                                uph_track_toggle_button("M", &track->state, UPH_TRACK_STATE_MUTE);
+                                uph_track_toggle_button("S", &track->state, UPH_TRACK_STATE_SOLO);
+                                uph_track_toggle_button("R", &track->state, UPH_TRACK_STATE_ARMED);
                             }
                         }
                     }

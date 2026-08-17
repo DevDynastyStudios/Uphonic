@@ -135,5 +135,5 @@ bool naui_image_button(Naui_Image *image, Naui_Vec2 size, Naui_Color tint)
         });
     }
 
-    return hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT);
+    return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
