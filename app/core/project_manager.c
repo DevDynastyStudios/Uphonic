@@ -36,15 +36,15 @@ bool uph_save_project(Uph_Project* project, Uph_SaveType save_type)
 
 bool uph_export_project(Uph_Project* project, Naui_Path output_path, Uph_ExportFormat format)
 {
-	bool created_dest_path;
-	if (!naui_path_exists(output_path))
-		created_dest_path = naui_directory_create(output_path);
-
-	if (!created_dest_path)
-		return false;
-	
 	if (format == UPH_EXPORT_UPH)
 	{
+		bool created_dest_path;
+		if (!naui_path_exists(output_path))
+			created_dest_path = naui_directory_create(output_path);
+
+		if (!created_dest_path)
+			return false;
+	
 		const Naui_Path canonical_save = naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project->title.data));
 		const Naui_Path temp_save = naui_path_join(canonical_save, NAUI_PATH(".temp"));
 		// bool duplicated_project = naui_directory_merge_to(canonical_save, temp_save, output_path);	// Make this function real // Might not be needed, see if we can merge via archive
@@ -80,6 +80,10 @@ bool uph_export_project(Uph_Project* project, Naui_Path output_path, Uph_ExportF
 		naui_path_lock(canonical_save);
 		naui_log(NAUI_LOG_INFO, "Project(%s) saved to: %s", project->title.data, output_path.data);
 		return true;
+	}
+	else if (format == UPH_EXPORT_WAV)
+	{
+		uph_audio_engine_export_to_wav(naui_file_filename(&output_path).data, 0, uph_audio_engine_get_song_length_beats());
 	}
 
 	return false;
