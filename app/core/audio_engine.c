@@ -73,7 +73,7 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     for (uint64_t t = 0; t < track_count; t++)
     {
         Uph_Track *track = &project->tracks[t];
-        if (track->state & UPH_TRACK_STATE_MUTE)
+        if (track->state & (UPH_TRACK_STATE_MUTE | UPH_TRACK_STATE_SILENCED))
         {
             track->peak_right = 0.0f;
             track->peak_left = 0.0f;
@@ -296,20 +296,22 @@ Uph_Sample uph_audio_engine_load_sample(Naui_Path path)
 double uph_audio_engine_get_song_length_beats(void)
 {
     Uph_Project *project = &uph_state.project;
-
     double max_end_beat = 0.0;
-
     uint64_t track_count = naui_list_len(project->tracks);
+
     for (uint64_t t = 0; t < track_count; t++)
     {
+		if(project->tracks[t].state & (UPH_TRACK_STATE_MUTE | UPH_TRACK_STATE_SILENCED))
+			continue;
+
         Uph_Track *track = &project->tracks[t];
         uint64_t block_count = naui_list_len(track->blocks);
 
         for (uint64_t b = 0; b < block_count; b++)
         {
             Uph_TimelineBlock *block = &track->blocks[b];
-
             double block_end = block->start_beat + block->length_beats;
+
             if (block_end > max_end_beat)
                 max_end_beat = block_end;
         }

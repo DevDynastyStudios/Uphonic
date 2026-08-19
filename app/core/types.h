@@ -155,7 +155,8 @@ enum
 	UPH_TRACK_STATE_NONE = 0,
 	UPH_TRACK_STATE_MUTE = 1 << 0,
 	UPH_TRACK_STATE_SOLO = 1 << 1,
-	UPH_TRACK_STATE_ARMED = 1 << 2
+	UPH_TRACK_STATE_ARMED = 1 << 2,
+	UPH_TRACK_STATE_SILENCED = 1 << 3 // This is driven by the other states
 };
 
 typedef struct

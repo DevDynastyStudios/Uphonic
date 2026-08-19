@@ -5,7 +5,7 @@ Uph_State uph_state = { 0 };
 void naui_app_start(void)
 {
     uph_state.settings.audio = (Uph_AudioSettings){
-        .sample_rate = 44100
+        .sample_rate = 48000
     };
     uph_state.project.bpm = 210.0f;
 
@@ -30,12 +30,11 @@ void naui_app_start(void)
         NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
     ));
 
-	naui_log(NAUI_LOG_INFO, "君がくれた夏");
 }
 
 void naui_app_end(void)
 {
-	uph_export_project(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
+	uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
     uph_audio_engine_shutdown();
 }
 
