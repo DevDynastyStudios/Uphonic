@@ -64,7 +64,7 @@ bool naui_archive_open(Naui_Archive* archive, const Naui_Path path, Naui_Archive
 	archive->mode = mode;
 	archive->is_valid = false;
 
-	if (mode == NAUI_ARCHIVE_READ)
+	if (mode == NAUI_ARCHIVE_MODE_READ)
 		archive->is_valid = zip_open_read(&archive->zip, path.data);
 	else
 		archive->is_valid = zip_open_write(&archive->zip, path.data);
@@ -88,7 +88,7 @@ void naui_archive_close(Naui_Archive* archive)
 	if (!archive->is_valid)
 		return;
 
-	if (archive->mode == NAUI_ARCHIVE_READ)
+	if (archive->mode == NAUI_ARCHIVE_MODE_READ)
 		zip_close_read(&archive->zip);
 	else
 		zip_close_write(&archive->zip);
@@ -103,7 +103,7 @@ bool naui_archive_is_valid(const Naui_Archive* archive)
 
 bool naui_archive_add_file(Naui_Archive* archive, const Naui_Path source, const Naui_Path dest_in_archive)
 {
-	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_WRITE)
+	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_WRITE)
 		return false;
 
 	return zip_add_file(&archive->zip, dest_in_archive.data, source.data);
@@ -111,7 +111,7 @@ bool naui_archive_add_file(Naui_Archive* archive, const Naui_Path source, const 
 
 bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive)
 {
-	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_WRITE)
+	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_WRITE)
 		return false;
 
 	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL);
@@ -148,7 +148,7 @@ bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, cons
 
 bool naui_archive_extract_to(Naui_Archive* archive, const Naui_Path output_folder)
 {
-	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_READ)
+	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_READ)
 		return false;
 
 	int count = zip_entry_count(&archive->zip);
@@ -177,7 +177,7 @@ bool naui_archive_extract_to(Naui_Archive* archive, const Naui_Path output_folde
 
 bool naui_archive_extract_file(Naui_Archive* archive, const Naui_Path entry, const Naui_Path dest)
 {
-	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_READ)
+	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_READ)
 		return false;
 
 	return zip_extract_entry_to_file(&archive->zip, entry.data, dest.data);
@@ -187,7 +187,7 @@ Naui_List(Naui_ArchiveEntry) naui_archive_list_entries(Naui_Archive* archive)
 {
 	Naui_List(Naui_ArchiveEntry) list = NULL;
 
-	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_READ)
+	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_READ)
 		return list;
 
 	int count = zip_entry_count(&archive->zip);

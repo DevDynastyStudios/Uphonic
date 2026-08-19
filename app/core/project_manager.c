@@ -47,14 +47,10 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 	
 		const Naui_Path canonical_save = uph_project_get_path(project);
 		const Naui_Path temp_save = naui_path_join(canonical_save, NAUI_PATH(".temp"));
-		// bool duplicated_project = naui_directory_merge_to(canonical_save, temp_save, output_path);	// Make this function real // Might not be needed, see if we can merge via archive
-		// if(!duplicated_project)
-		// 	return false;
-
 		naui_path_unlock(canonical_save);
-		// Use Archives to turn the project into a uph file at the output destination.
-		Naui_Archive archive;
-		//Create archive here
+		Naui_Archive archive = NAUI_ARCHIVE_INIT;
+		naui_archive_open(&archive, output_path, NAUI_ARCHIVE_MODE_WRITE);
+
 		if (naui_archive_is_valid(&archive))
 		{
 			naui_log(NAUI_LOG_ERROR, "Failed to create archive");
@@ -75,7 +71,6 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 			naui_directory_remove_all(output_path);
 			return false;
 		}
-
 
 		naui_path_lock(canonical_save);
 		naui_log(NAUI_LOG_INFO, "Project(%s) saved to: %s", project->title.data, output_path.data);
