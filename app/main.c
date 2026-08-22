@@ -16,15 +16,15 @@ void naui_app_start(void)
         naui_dock_panel(
             NAUI_ATTACH_PANEL(uph_song_timeline),
             naui_dock_panel(
-                NAUI_ATTACH_PANEL(pattern_list),
-                NAUI_ATTACH_PANEL(sample_list),
+                NAUI_ATTACH_PANEL(uph_pattern_list),
+                NAUI_ATTACH_PANEL(uph_sample_list),
                 NAUI_DOCK_DIRECTION_CENTER, 0.0f
             ),
             NAUI_DOCK_DIRECTION_RIGHT, 0.8f
         ),
         naui_dock_panel(
-            NAUI_ATTACH_PANEL(mixer),
-            NAUI_ATTACH_PANEL(midi_editor),
+            NAUI_ATTACH_PANEL(uph_mixer),
+            NAUI_ATTACH_PANEL(uph_midi_editor),
             NAUI_DOCK_DIRECTION_LEFT, 0.7f
         ),
         NAUI_DOCK_DIRECTION_BOTTOM, 0.6f

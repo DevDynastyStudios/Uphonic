@@ -1,4 +1,4 @@
-NAUI_PANEL(mixer)
+NAUI_PANEL(uph_mixer)
 
 typedef struct
 {
@@ -6,18 +6,18 @@ typedef struct
 }
 Uph_VolumePeaksCustomDrawData;
 
-static void mixer_on_attach(void)
+static void uph_mixer_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
     naui_panel_set_title(this, "Mixer");
 }
 
-static void mixer_on_detach(void)
+static void uph_mixer_on_detach(void)
 {
     
 }
 
-static Naui_Gradient mixer_peak_gradient(void)
+static Naui_Gradient uph_mixer_peak_gradient(void)
 {
     return (Naui_Gradient) {
         .color1   = leaf_rgb(255, 255, 0),
@@ -28,7 +28,7 @@ static Naui_Gradient mixer_peak_gradient(void)
     };
 }
 
-static void mixer_draw_peak_bar(Leaf_BoundingBox box, float x, float width, float peak)
+static void uph_mixer_draw_peak_bar(Leaf_BoundingBox box, float x, float width, float peak)
 {
     naui_fill_rect(
         naui_vec2(x, box.y),
@@ -41,15 +41,15 @@ static void mixer_draw_peak_bar(Leaf_BoundingBox box, float x, float width, floa
     naui_fill_gradient_rect(
         naui_vec2(x, box.y),
         naui_vec2(width, box.height),
-        mixer_peak_gradient(),
+        uph_mixer_peak_gradient(),
         0.0f,
         NAUI_CORNER_NONE
     );
     naui_pop_clip_rect();
 }
 
-#define MIXER_PEAK_SMOOTH_RATE 30.0f
-static void mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_data)
+#define uph_mixer_PEAK_SMOOTH_RATE 30.0f
+static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_data)
 {
     Uph_VolumePeaksCustomDrawData *data = (Uph_VolumePeaksCustomDrawData*)user_data;
     Uph_Track *track = data->track;
@@ -57,17 +57,17 @@ static void mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_data
     bool playing = uph_state.interact.song_timeline_playing;
     const float gap = NAUI_DPI(1.0f);
 
-    track->smooth_peak_left  = naui_lerp(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * MIXER_PEAK_SMOOTH_RATE);
-    track->smooth_peak_right = naui_lerp(track->smooth_peak_right, playing ? track->peak_right : 0.0f, naui_delta_time() * MIXER_PEAK_SMOOTH_RATE);
+    track->smooth_peak_left  = naui_lerp(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
+    track->smooth_peak_right = naui_lerp(track->smooth_peak_right, playing ? track->peak_right : 0.0f, naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
 
     float half_width = box.width * 0.5f;
     float bar_width  = half_width - gap * 0.5f;
 
-    mixer_draw_peak_bar(box, box.x, bar_width, track->smooth_peak_left);
-    mixer_draw_peak_bar(box, box.x + half_width + gap * 0.5f, bar_width, track->smooth_peak_right);
+    uph_mixer_draw_peak_bar(box, box.x, bar_width, track->smooth_peak_left);
+    uph_mixer_draw_peak_bar(box, box.x + half_width + gap * 0.5f, bar_width, track->smooth_peak_right);
 }
 
-static void mixer_render_track(Uph_Track *track)
+static void uph_mixer_render_track(Uph_Track *track)
 {
     leaf({
         .size = {LEAF_SIZE_FIXED(NAUI_DPI(80.0f)), LEAF_SIZE_FULL},
@@ -110,13 +110,13 @@ static void mixer_render_track(Uph_Track *track)
         };
         leaf({
             .size = {LEAF_SIZE_PERCENT(0.3f), LEAF_SIZE_GROW},
-            .custom_draw = mixer_volume_peaks_custom_draw,
+            .custom_draw = uph_mixer_volume_peaks_custom_draw,
             .custom_draw_data = LEAF_DATA_SLICE(peaks_data)
         });
     }
 }
 
-static void mixer_on_update(void)
+static void uph_mixer_on_update(void)
 {
     leaf({
         .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -126,7 +126,7 @@ static void mixer_on_update(void)
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
             Uph_Track *track = &uph_state.project.tracks[i];
-            mixer_render_track(track);
+            uph_mixer_render_track(track);
         }
     }
 }

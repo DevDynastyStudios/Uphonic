@@ -1,6 +1,6 @@
-NAUI_PANEL(welcome)
+NAUI_PANEL(uph_welcome)
 
-static void welcome_sidebar()
+static void uph_welcome_sidebar()
 {
 	leaf({
 		.size = { LEAF_SIZE_PERCENT(0.12f), LEAF_SIZE_GROW },
@@ -12,7 +12,7 @@ static void welcome_sidebar()
 	}
 }
 
-static void welcome_top_bar()
+static void uph_welcome_top_bar()
 {
 	leaf({
 		.size = { LEAF_SIZE_GROW, LEAF_SIZE_PERCENT(0.1f) },
@@ -24,7 +24,7 @@ static void welcome_top_bar()
 	}
 }
 
-static void welcome_content()
+static void uph_welcome_content()
 {
 	leaf({
 		.size = { LEAF_SIZE_GROW, LEAF_SIZE_GROW },
@@ -37,19 +37,19 @@ static void welcome_content()
 	}
 }
 
-static void welcome_on_attach(void)
+static void uph_welcome_on_attach(void)
 {
     Naui_PanelID self = naui_current_panel();
     naui_panel_set_title(self, "Welcome");
     naui_panel_enable_flags(self, NAUI_PANEL_FLAG_NO_UNDOCK | NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_TITLE);
 }
 
-static void welcome_on_detach(void)
+static void uph_welcome_on_detach(void)
 {
 
 }
 
-static void welcome_on_update(void)
+static void uph_welcome_on_update(void)
 {
 	leaf({
 		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
