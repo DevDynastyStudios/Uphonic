@@ -41,6 +41,14 @@ void naui_app_end(void)
 void naui_app_update(void)
 {
     naui_widgets_new_frame();
+
+	Naui_Menu* file = naui_menu_create("File");
+	Naui_Menu* edit = naui_menu_create("Edit");
+	Naui_Menu* windows = naui_menu_create("Windows");
+
+	Naui_MenuItem* new_proj = naui_menu_item_create(file, "New Project");
+	Naui_MenuItem* open_proj = naui_menu_item_create(file, "Open Project");
+
 	naui_render_main_titlebar("Uphonic");
 
     const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");

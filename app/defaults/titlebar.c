@@ -1,4 +1,6 @@
-static void naui_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_Color fg_color, Leaf_Color bg_color, void (*event)(void))
+static bool titlebar_widgets_hovered = false;
+
+static bool naui_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_Color fg_color, Leaf_Color bg_color, void (*event)(void))
 {
 	const float dpi_scale = naui_app_dpi_scale();
 	const bool hovered = leaf_hovered(id);
@@ -22,6 +24,8 @@ static void naui_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf
 		.color = fg_color,
 		.aspect_ratio = 1.0f
 	});
+
+	return hovered;
 }
 
 static inline void minimize(void) { naui_defer((Naui_DeferredEvent)naui_app_minimize, NULL, 0); }
@@ -31,7 +35,8 @@ void naui_render_main_titlebar(const char *title)
 {
 	const float dpi_scale = naui_app_dpi_scale();
 	const float titlebar_height = 32.0f * dpi_scale;
-	naui_app_set_caption_area(0, 0, naui_app_width() - 80 * dpi_scale, naui_any_panel_hovered() ? 0 : titlebar_height);
+	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_any_panel_hovered() ? 0 : titlebar_height);
+	titlebar_widgets_hovered = false;
 
 	Naui_Vec2 padding = naui_theme_vec2(NAUI_PANEL_TITLEBAR_PADDING_TAG);
 	Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);
@@ -53,7 +58,11 @@ void naui_render_main_titlebar(const char *title)
 			.image = naui_get_image("uph_logo_small"),
 			.color = LEAF_COLOR_WHITE,
 			.aspect_ratio = 1.0f
-		});
+		})
+		{
+			titlebar_widgets_hovered |= _naui_menu_render();
+		}
+
 		leaf({
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
@@ -71,9 +80,9 @@ void naui_render_main_titlebar(const char *title)
 			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
 		})
 		{
-			naui_render_titlebar_icon_button(naui_get_image(NAUI_MINIMIZE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 0), text_color, naui_theme_color(NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG), minimize);
-			naui_render_titlebar_icon_button(naui_get_image(NAUI_MAXIMIZE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 1), text_color, naui_theme_color(NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG), maximize);
-			naui_render_titlebar_icon_button(naui_get_image(NAUI_CLOSE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 2), text_color, naui_theme_color(NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG), naui_app_close);
+			titlebar_widgets_hovered |= naui_render_titlebar_icon_button(naui_get_image(NAUI_MINIMIZE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 0), text_color, naui_theme_color(NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG), minimize);
+			titlebar_widgets_hovered |= naui_render_titlebar_icon_button(naui_get_image(NAUI_MAXIMIZE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 1), text_color, naui_theme_color(NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG), maximize);
+			titlebar_widgets_hovered |= naui_render_titlebar_icon_button(naui_get_image(NAUI_CLOSE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 2), text_color, naui_theme_color(NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG), naui_app_close);
 		}
 	}
 }

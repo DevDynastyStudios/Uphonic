@@ -2,7 +2,7 @@
 #define UPH_SAMPLE_FRAME_COUNT 512
 
 // :settings
-typedef struct
+typedef struct Uph_GeneralSettings
 {
 	Naui_String theme;
 	Naui_String language_code;
@@ -16,7 +16,7 @@ typedef struct
 }
 Uph_GeneralSettings;
 
-typedef struct
+typedef struct Uph_AudioSettings
 {
 	Naui_String output_device;
 	Naui_String input_device;
@@ -33,7 +33,7 @@ typedef struct
 }
 Uph_AudioSettings;
 
-typedef struct
+typedef struct Uph_UISettings
 {
 	Naui_Vec2 scroll_sensitivity;
 	Naui_Vec2 zoom_sensitivity;
@@ -44,7 +44,7 @@ typedef struct
 }
 Uph_UISettings;
 
-typedef struct
+typedef struct Uph_MIDISettings
 {
 	Naui_String midi_input_device_id;
 	uint32_t record_quantize_grid;
@@ -59,7 +59,7 @@ typedef struct
 }
 Uph_MIDISettings;
 
-typedef struct
+typedef struct Uph_PluginSettings
 {
 	Naui_List(Naui_Path) plugin_paths;
 	Naui_List(Naui_Path) blacklist_paths;
