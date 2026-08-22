@@ -20,7 +20,7 @@ bool uph_project_create(Naui_String project_name)
 
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
-	const Naui_Path project_folder = naui_path_join(UPHONIC_FOLDER, NAUI_PATH(uph_state.project.title.data));
+	const Naui_Path project_folder = uph_project_get_path(project);
 	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : naui_path_join(project_folder, NAUI_PATH(".temp"));
 	bool save_successful = uph_io_save_project(project, save_dest);
 
@@ -28,7 +28,7 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 	{
 		uint64_t current_time = naui_unix_time();
 		uph_state._last_autosave_time = current_time;
-		uph_state._last_modified_time = UINT64_MAX;
+		uph_state._last_modified_time = current_time;
 	}
 
 	return save_successful;

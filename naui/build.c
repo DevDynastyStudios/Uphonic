@@ -62,6 +62,7 @@
 #include "core/panel.h"
 #include "core/log.h"
 #include "core/shortcut.h"
+#include "core/menu.h"
 
 #include "filesystem/filesystem.h"
 #include "filesystem/iterator.h"
@@ -95,6 +96,7 @@
 #include "core/log.c"
 #include "core/theme.c"
 #include "core/panel.c"
+#include "core/menu.c"
 
 #include "serialization/json.c"
 #include "serialization/json_writer.c"
