@@ -1,8 +1,8 @@
 .vscode
 .vs
 *.exe
+*.wav
 build
 bin
 tags
 magma-shdc*
-app/panels/build.c
