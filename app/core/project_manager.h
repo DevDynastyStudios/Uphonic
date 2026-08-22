@@ -14,10 +14,10 @@ typedef enum
 	UPH_EXPORT_MIDI
 } Uph_ExportFormat;
 
-bool uph_create_project(Naui_String project_name);
-bool uph_save_project(Uph_Project* project, Uph_SaveType save_type);
-bool uph_export_project(Uph_Project* project, Naui_Path output_path, Uph_ExportFormat format);
-bool uph_load_project(Naui_Path project_path);
+bool uph_project_create(Naui_String project_name);
+bool uph_project_save(Uph_Project* project, Uph_SaveType save_type);
+bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_ExportFormat format);
+bool uph_project_load(Uph_Project* project, const Naui_Path project_path);
 
-bool uph_add_file(Naui_Path file_path, bool make_copy);	// Add a file to the project (ie. mp3, midi, ogg, etc.)
-Naui_Path uph_get_project_path();
+bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path);	// Add a file to the project (ie. mp3, midi, ogg, etc.)
+Naui_Path uph_project_get_path(Uph_Project* project);

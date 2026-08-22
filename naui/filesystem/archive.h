@@ -9,8 +9,8 @@
 typedef uint8_t Naui_ArchiveMode;
 enum
 {
-	NAUI_ARCHIVE_READ,
-	NAUI_ARCHIVE_WRITE
+	NAUI_ARCHIVE_MODE_READ,
+	NAUI_ARCHIVE_MODE_WRITE
 };
 
 typedef struct Naui_ArchiveEntry

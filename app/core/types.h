@@ -12,7 +12,7 @@ typedef struct
 	uint32_t undo_history_limit;
 	bool confirm_on_exit;
 	bool confirm_on_delete;
-	bool show_tooltips;
+	bool copy_resources;
 }
 Uph_GeneralSettings;
 
@@ -40,6 +40,7 @@ typedef struct
 	uint32_t default_snap;
 	float playhead_lock_position;
 	bool follow_playhead;
+	bool show_tooltips;
 }
 Uph_UISettings;
 
@@ -154,7 +155,8 @@ enum
 	UPH_TRACK_STATE_NONE = 0,
 	UPH_TRACK_STATE_MUTE = 1 << 0,
 	UPH_TRACK_STATE_SOLO = 1 << 1,
-	UPH_TRACK_STATE_ARMED = 1 << 2
+	UPH_TRACK_STATE_ARMED = 1 << 2,
+	UPH_TRACK_STATE_SILENCED = 1 << 3 // This is driven by the other states
 };
 
 typedef struct
