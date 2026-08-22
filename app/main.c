@@ -14,7 +14,7 @@ void naui_app_start(void)
     uph_audio_engine_init();
     naui_set_main_viewport(naui_dock_panel(
         naui_dock_panel(
-            NAUI_ATTACH_PANEL(song_timeline),
+            NAUI_ATTACH_PANEL(uph_song_timeline),
             naui_dock_panel(
                 NAUI_ATTACH_PANEL(pattern_list),
                 NAUI_ATTACH_PANEL(sample_list),

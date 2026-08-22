@@ -496,6 +496,11 @@ Naui_PanelID naui_current_panel(void)
     return (Naui_PanelID)pm.current_panel;
 }
 
+void *naui_current_panel_data(void)
+{
+    return pm.current_panel->user_data;
+}
+
 static Naui_PanelNode *naui_find_panel_of_type_recursive(Naui_PanelNode *node, const char *type_name)
 {
     if (!node)
@@ -800,11 +805,8 @@ static inline void naui_render_panel_titlebar(Naui_PanelNode *node)
 
 static inline void naui_render_panel_body(Naui_PanelNode *node)
 {
-    Naui_Vec2 padding = naui_theme_vec2(NAUI_PANEL_BODY_PADDING_TAG);
-
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-        .padding = LEAF_PADDING_AXES(padding.x, padding.y),
         .color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG),
         .rounding = {
             NAUI_DPI(naui_theme_float(NAUI_PANEL_ROUNDING_TAG)),

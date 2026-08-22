@@ -22,10 +22,6 @@
     #define NAUI_PANEL_BODY_BG_COLOR_TAG "naui_panel_body_bg_color"
 #endif
 
-#ifndef NAUI_PANEL_BODY_PADDING_TAG
-    #define NAUI_PANEL_BODY_PADDING_TAG "naui_panel_body_padding"
-#endif
-
 #ifndef NAUI_PANEL_ROUNDING_TAG
     #define NAUI_PANEL_ROUNDING_TAG "naui_panel_rounding"
 #endif
@@ -143,6 +139,7 @@ NAUI_API Naui_PanelID       naui_find_panel_of_type         (const char *type_na
 
 NAUI_API void               naui_render_panels_and_viewport (void);
 NAUI_API Naui_PanelID       naui_current_panel              (void);
+NAUI_API void              *naui_current_panel_data         (void);
 
 NAUI_API bool               naui_serialize_viewport         (const char *file_path);
 NAUI_API bool               naui_deserialize_viewport       (const char *file_path);
@@ -159,6 +156,9 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
 #endif
 
 #define __NAUI_DEFINE_PANEL_TYPE(name, data_size) \
+    static void name##_on_attach(void); \
+    static void name##_on_detach(void); \
+    static void name##_on_update(void); \
     static Naui_PanelType _##name##_events = { \
         (NauiPanelEvent)name##_on_attach, \
         (NauiPanelEvent)name##_on_detach, \
@@ -170,14 +170,5 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
         naui_register_panel_type(#name, _##name##_events); \
     }
 
-#define NAUI_PANEL_WITH_DATA(name, data_type) \
-    static void name##_on_attach(data_type*); \
-    static void name##_on_detach(data_type*); \
-    static void name##_on_update(data_type*); \
-    __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))
-
-#define NAUI_PANEL(name) \
-    static void name##_on_attach(void); \
-    static void name##_on_detach(void); \
-    static void name##_on_update(void); \
-    __NAUI_DEFINE_PANEL_TYPE(name, 0)
+#define NAUI_PANEL_WITH_DATA(name, data_type) __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))
+#define NAUI_PANEL(name) __NAUI_DEFINE_PANEL_TYPE(name, 0)
