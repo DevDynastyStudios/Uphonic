@@ -477,6 +477,28 @@ static void uph_song_timeline_update_input(void)
     }
 }
 
+/*static void render_dropdown_menu(void)
+{
+    leaf({
+        .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+        .floating = {
+            .parent_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM},
+            .self_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_TOP}
+        },
+        .color = leaf_rgb(255, 0, 0)
+    })
+    {
+        for (uint32_t i = 0; i < 10; i++)
+        {
+            leaf_text("Hello World", {
+                .font_size = 16.0f,
+                .color = LEAF_COLOR_WHITE
+            });
+        }
+
+    }
+}*/
+
 static void uph_song_timeline_on_update(void)
 {
     const Leaf_ID track_section_id = leaf_id("uph_track_section");
@@ -484,6 +506,42 @@ static void uph_song_timeline_on_update(void)
 
     uph_song_timeline_update_input();
     uph_song_timeline_update_drag_track_switch(track_section_bbox.y);
+
+    /*leaf({
+        .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .child_gap = 4.0f
+    })
+    {
+        leaf({
+            .color = leaf_rgb(0, 255, 0)
+        })
+        {
+            leaf_text("File", {
+                .font_size = 16.0f,
+                .color = LEAF_COLOR_WHITE
+            });
+        }
+        leaf({
+            .color = leaf_rgb(0, 255, 0)
+        })
+        {
+            leaf_text("Edit", {
+                .font_size = 16.0f,
+                .color = LEAF_COLOR_WHITE
+            });
+            render_dropdown_menu();
+        }
+        leaf({
+            .color = leaf_rgb(0, 255, 0)
+        })
+        {
+            leaf_text("Windows", {
+                .font_size = 16.0f,
+                .color = LEAF_COLOR_WHITE
+            });
+        }
+    }*/
 
     uph_song_timeline_render_top_bar();
     leaf({
