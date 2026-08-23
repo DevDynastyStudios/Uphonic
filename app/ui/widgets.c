@@ -59,7 +59,7 @@ void uph_ui_widgets_flush(void)
             uph_global_widget_data.current_dropdown_callback();
         }
 
-        if ((naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_MIDDLE) || naui_mouse_pressed(NAUI_MOUSE_RIGHT)) && !uph_global_widget_data.dropdown_opened_this_frame && !uph_ui_widget_hovered(dropdown_id))
+        if ((naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_MIDDLE) || naui_mouse_pressed(NAUI_MOUSE_RIGHT)) && !leaf_hovered(dropdown_id) && !uph_global_widget_data.dropdown_opened_this_frame && !uph_ui_widget_hovered(dropdown_id))
             uph_ui_close_dropdown();
         
         naui_occlude_all_panels();
