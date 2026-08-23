@@ -126,6 +126,8 @@ NAUI_API void               naui_panel_set_min_size         (Naui_PanelID panel_
 NAUI_API void               naui_panel_enable_flags         (Naui_PanelID panel_id, Naui_PanelFlags flags);
 NAUI_API void               naui_panel_disable_flags        (Naui_PanelID panel_id, Naui_PanelFlags flags);
 
+NAUI_API void               naui_occlude_all_panels         (void);
+
 NAUI_API Naui_PanelID       naui_dock_panel                 (Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio);
 NAUI_API void               naui_undock_panel               (Naui_PanelID id);
 

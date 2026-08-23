@@ -18,13 +18,13 @@ static Leaf_ID uph_ui_alloc_widget_id(void)
 
 static bool uph_ui_widget_hovered(Leaf_ID id)
 {
-    const bool result = ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
+    const bool result = !uph_ui_any_widget_hovered() && (!naui_current_panel() || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
     if (result)
         uph_global_widget_data.any_widget_hovered = true;
     return result;
 }
 
-static bool uph_ui_any_widget_hovered(void)
+bool uph_ui_any_widget_hovered(void)
 {
     return uph_global_widget_data.any_widget_hovered;
 }
@@ -47,7 +47,7 @@ void uph_ui_widgets_flush(void)
                     uph_global_widget_data.current_dropdown_position.y
                 }
             },
-            .padding = LEAF_PADDING_AXES(NAUI_DPI(14.0f), NAUI_DPI(12.0f)),
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(6.0f), NAUI_DPI(6.0f)),
             .color = bg_color,
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(6.0f), LEAF_CORNER_ALL),
             .shadow = {
@@ -61,6 +61,8 @@ void uph_ui_widgets_flush(void)
 
         if ((naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_MIDDLE) || naui_mouse_pressed(NAUI_MOUSE_RIGHT)) && !uph_global_widget_data.dropdown_opened_this_frame && !uph_ui_widget_hovered(dropdown_id))
             uph_ui_close_dropdown();
+        
+        naui_occlude_all_panels();
     }
 
     if (uph_global_widget_data.dropdown_opened_this_frame)
@@ -84,19 +86,40 @@ void uph_ui_close_dropdown(void)
 
 bool uph_ui_text_button(const char *string)
 {
-    const Leaf_ID id = uph_ui_alloc_widget_id();
+    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
+    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
+    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
 
+    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const float rounding = naui_theme_float("uph_ui_frame_rounding");
+
+    const Leaf_ID id = uph_ui_alloc_widget_id();
+    const bool hovered = uph_ui_widget_hovered(id);
+
+    Leaf_Color color;
+    if (hovered)
+    {
+        if (naui_mouse_down(NAUI_MOUSE_LEFT))
+            color = pressed_bg_color;
+        else color = hovered_bg_color;
+    }
+    else color = bg_color;
+    
     leaf({
         .id = id,
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(4.0f), NAUI_DPI(4.0f))
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = color,
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
         leaf_text(string, {
             .font_size = NAUI_DPI(13.5f),
-            .color = LEAF_COLOR_WHITE
+            .color = text_color
         });
     }
-    return false;
+    return hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT);
 }
 
 void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown)

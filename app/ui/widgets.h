@@ -8,6 +8,7 @@ enum
 typedef void (*Uph_DropDownCallback)(void);
 
 void uph_ui_widgets_flush(void);
+bool uph_ui_any_widget_hovered(void);
 
 void uph_ui_dropdown(Uph_DropDownCallback callback, Naui_Vec2 position);
 void uph_ui_close_dropdown(void);
