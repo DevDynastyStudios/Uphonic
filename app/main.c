@@ -117,6 +117,23 @@ void naui_app_update(void)
             .child_gap = NAUI_DPI(10.0f)
         })
         {
+            // metronome
+            // TODO(doomguy): replace text with metronome icon
+            {
+                static bool metronome_enabled;
+                static float metronome_last_time;
+
+                if (metronome_enabled) {
+                    if (uph_ui_text_button("bpm button")) {
+                        const float time = naui_time();
+                        uph_state.project.bpm = 60.0f / (time - metronome_last_time);
+                        metronome_last_time = time;
+                    }
+                }
+
+                if (uph_ui_text_button("metronome enable")) metronome_enabled = !metronome_enabled;
+            }
+
             const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
 
             leaf_text(bpm.data, {
