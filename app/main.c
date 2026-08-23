@@ -131,7 +131,7 @@ void naui_app_update(void)
                     }
                 }
 
-                if (uph_ui_text_button("metronome enable")) metronome_enabled = !metronome_enabled;
+                uph_ui_text_toggle_button("metronome enable", &metronome_enabled);
             }
 
             const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);

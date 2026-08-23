@@ -14,5 +14,6 @@ void uph_ui_dropdown(Uph_DropDownCallback callback, Naui_Vec2 position);
 void uph_ui_close_dropdown(void);
 
 bool uph_ui_text_button(const char *string);
+bool uph_ui_text_toggle_button(const char *string, bool *enabled);
 
 void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown);
