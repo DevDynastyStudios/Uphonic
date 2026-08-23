@@ -1,0 +1,17 @@
+typedef uint32_t Uph_UIMenuFlags;
+enum
+{
+    UPH_UI_MENU_FLAGS_NONE     = 0,
+    UPH_UI_MENU_ITEM_DISABLED  = 1 << 0,
+};
+
+typedef void (*Uph_DropDownCallback)(void);
+
+void uph_ui_widgets_flush(void);
+
+void uph_ui_dropdown(Uph_DropDownCallback callback, Naui_Vec2 position);
+void uph_ui_close_dropdown(void);
+
+bool uph_ui_text_button(const char *string);
+
+void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown);

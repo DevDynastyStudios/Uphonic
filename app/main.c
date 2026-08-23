@@ -40,16 +40,7 @@ void naui_app_end(void)
 
 void naui_app_update(void)
 {
-    naui_widgets_new_frame();
-
-	Naui_Menu* file = naui_menu_create("File");
-	Naui_Menu* edit = naui_menu_create("Edit");
-	Naui_Menu* windows = naui_menu_create("Windows");
-
-	Naui_MenuItem* new_proj = naui_menu_item_create(file, "New Project");
-	Naui_MenuItem* open_proj = naui_menu_item_create(file, "Open Project");
-
-	naui_render_main_titlebar("Uphonic");
+	uph_render_main_titlebar();
 
     const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
     const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
@@ -73,7 +64,7 @@ void naui_app_update(void)
             .child_gap = NAUI_DPI(4.0f)
         })
         {
-            naui_image_button(
+            /*naui_image_button(
                 naui_get_image("uph_icon_select"),
                 naui_vec2(15.0f, 15.0f),
                 tool_icon_color
@@ -89,7 +80,7 @@ void naui_app_update(void)
                 naui_get_image("uph_icon_cut"),
                 naui_vec2(15.0f, 15.0f),
                 tool_icon_color
-            );
+            );*/
         }
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -98,7 +89,7 @@ void naui_app_update(void)
             .child_gap = NAUI_DPI(4.0f)
         })
         {
-            if (naui_image_button(
+            /*if (naui_image_button(
                 naui_get_image(uph_state.interact.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
                 naui_vec2(15.0f, 15.0f),
                 uph_state.interact.song_timeline_playing ?  pause_icon_color : play_icon_color
@@ -115,7 +106,7 @@ void naui_app_update(void)
             {
                 uph_state.interact.song_timeline_playing = false;
                 uph_state.interact.song_timeline_playhead_position = 0.0;
-            }
+            }*/
         }
 
 
@@ -126,7 +117,7 @@ void naui_app_update(void)
             .child_gap = NAUI_DPI(10.0f)
         })
         {
-            leaf_text("BPM: 140.0", {
+            /*leaf_text("BPM: 140.0", {
                 .font_size = NAUI_DPI(13.0f),
                 .color = tool_icon_color
             });
@@ -134,8 +125,9 @@ void naui_app_update(void)
             leaf_text("Zoom: 10.5%", {
                 .font_size = NAUI_DPI(13.0f),
                 .color = tool_icon_color
-            });
+            });*/
         }
     }
 	naui_render_panels_and_viewport();
+    uph_ui_widgets_flush();
 }

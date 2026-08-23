@@ -6,11 +6,11 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <vendor/miniaudio/miniaudio.h>
 
-#include "defaults/titlebar.h"
-#include "defaults/widgets/widgets.h"
+#include "ui/titlebar.h"
+#include "ui/widgets.h"
 
-#include "defaults/titlebar.c"
-#include "defaults/widgets/widgets.c"
+#include "ui/titlebar.c"
+#include "ui/widgets.c"
 
 #include "core/types.h"
 
