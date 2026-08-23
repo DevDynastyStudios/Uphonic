@@ -436,3 +436,15 @@ bool naui_string_view_is_empty(Naui_StringView view)
 {
     return view.length == 0;
 }
+
+Naui_String naui_string_format(char *const fmt, ...)
+{
+    Naui_String result;
+
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(result.data, NAUI_STRING_MAX_SIZE, fmt, ap);
+    va_end(ap);
+
+    return result;
+}

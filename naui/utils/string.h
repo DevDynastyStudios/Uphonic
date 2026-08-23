@@ -59,6 +59,8 @@ NAUI_API bool                naui_string_ends_with              (Naui_String str
 NAUI_API bool                naui_string_is_empty               (Naui_String str);
 NAUI_API bool                naui_string_view_is_empty          (Naui_StringView view);
 
+NAUI_API Naui_String         naui_string_format                 (char *const fmt, ...);
+
 // typedef Naui_List(char) Naui_StringBuilder;
 /*static inline void        naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
 static inline void          naui_string_builder_clear           (Naui_StringBuilder builder) { naui_list_clear(builder); }

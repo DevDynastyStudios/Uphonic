@@ -117,12 +117,14 @@ void naui_app_update(void)
             .child_gap = NAUI_DPI(10.0f)
         })
         {
-            /*leaf_text("BPM: 140.0", {
+            const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
+
+            leaf_text(bpm.data, {
                 .font_size = NAUI_DPI(13.0f),
                 .color = tool_icon_color
             });
 
-            leaf_text("Zoom: 10.5%", {
+            /*leaf_text("Zoom: 10.5%", {
                 .font_size = NAUI_DPI(13.0f),
                 .color = tool_icon_color
             });*/
