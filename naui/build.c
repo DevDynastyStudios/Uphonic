@@ -54,6 +54,7 @@
 #include "math/math.h"
 #include "math/vec2.h"
 #include "math/vec4.h"
+#include "math/mat4x4.h"
 
 #include "core/action.h"
 #include "core/time.h"

@@ -1641,3 +1641,147 @@ Naui_Vec4 naui_current_clip_rect(void)
     Naui_ClipRect c = naui_current_clip();
     return (Naui_Vec4){ c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0 };
 }
+
+static void naui_push_quad4_xform(const Naui_Mat4x4 *m, Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
+{
+    naui_push_quad4(
+        naui_mat4x4_transform_point2(*m, a),
+        naui_mat4x4_transform_point2(*m, b),
+        naui_mat4x4_transform_point2(*m, c),
+        naui_mat4x4_transform_point2(*m, d),
+        color, texture_id
+    );
+}
+
+static void naui_push_corner_ring_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
+{
+    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    {
+        float cx = s_cos[s],     cy = s_sin[s];
+        float nx = s_cos[s + 1], ny = s_sin[s + 1];
+
+        Naui_Vec2 o0 = { center.x + ax * cx * outer_r, center.y + ay * cy * outer_r };
+        Naui_Vec2 o1 = { center.x + ax * nx * outer_r, center.y + ay * ny * outer_r };
+        Naui_Vec2 i0 = { center.x + ax * cx * inner_r, center.y + ay * cy * inner_r };
+        Naui_Vec2 i1 = { center.x + ax * nx * inner_r, center.y + ay * ny * inner_r };
+
+        naui_push_quad4_xform(m, o0, o1, i1, i0, color, -1);
+    }
+}
+
+void naui_draw_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot, float angle, Naui_Color color, float line_width, float rounding, Naui_CornerFlags corners, Naui_SideFlags sides)
+{
+    if (angle == 0.0f)
+    {
+        naui_draw_rect(position, scale, color, line_width, rounding, corners, sides);
+        return;
+    }
+
+    Naui_Vec2 pivot_offset = { pivot.x * scale.x, pivot.y * scale.y };
+    Naui_Mat4x4 xform = naui_mat4x4_rotate_around(pivot_offset, angle, position);
+
+    float x0 = 0.0f, y0 = 0.0f;
+    float x1 = scale.x, y1 = scale.y;
+    float lw = line_width;
+    uint32_t c = naui_pack_color(color);
+
+    int side_top    = (sides & NAUI_SIDE_TOP)    != 0;
+    int side_right  = (sides & NAUI_SIDE_RIGHT)  != 0;
+    int side_bottom = (sides & NAUI_SIDE_BOTTOM) != 0;
+    int side_left   = (sides & NAUI_SIDE_LEFT)   != 0;
+
+    if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
+    {
+        if (side_top)    naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x0-lw, y0    }, c, -1);
+        if (side_bottom) naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, (Naui_Vec2){x0-lw, y1+lw}, c, -1);
+        if (side_left)   naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y0    }, (Naui_Vec2){x0,    y1    }, (Naui_Vec2){x0-lw, y1    }, c, -1);
+        if (side_right)  naui_push_quad4_xform(&xform, (Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1,    y1    }, c, -1);
+        return;
+    }
+
+    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float outer_r = r + lw;
+
+    int tl = (corners & NAUI_CORNER_TL) != 0 && side_top    && side_left;
+    int tr = (corners & NAUI_CORNER_TR) != 0 && side_top    && side_right;
+    int br = (corners & NAUI_CORNER_BR) != 0 && side_bottom && side_right;
+    int bl = (corners & NAUI_CORNER_BL) != 0 && side_bottom && side_left;
+
+    if (side_top)    naui_push_quad4_xform(&xform, (Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0   }, (Naui_Vec2){x0 + (tl ? r : -lw), y0   }, c, -1);
+    if (side_bottom) naui_push_quad4_xform(&xform, (Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw}, (Naui_Vec2){x0 + (bl ? r : -lw), y1+lw}, c, -1);
+    if (side_left)   naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y1 - (bl ? r : 0)}, (Naui_Vec2){x0-lw, y1 - (bl ? r : 0)}, c, -1);
+    if (side_right)  naui_push_quad4_xform(&xform, (Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, (Naui_Vec2){x1,    y1 - (br ? r : 0)}, c, -1);
+
+    if (tl) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, outer_r, -1, -1, c);
+    if (tr) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, outer_r, +1, -1, c);
+    if (br) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, outer_r, +1, +1, c);
+    if (bl) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, outer_r, -1, +1, c);
+}
+
+static void naui_push_rect_xform(const Naui_Mat4x4 *m, Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t texture_id)
+{
+    naui_push_quad4_xform(
+        m,
+        (Naui_Vec2){tl.x, tl.y},
+        (Naui_Vec2){br.x, tl.y},
+        (Naui_Vec2){br.x, br.y},
+        (Naui_Vec2){tl.x, br.y},
+        color, texture_id
+    );
+}
+
+static void naui_push_corner_fan_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
+{
+    Naui_Vec2 xcenter = naui_mat4x4_transform_point2(*m, center);
+
+    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    {
+        Naui_Vec2 p0 = { center.x + ax * s_cos[s]     * r, center.y + ay * s_sin[s]     * r };
+        Naui_Vec2 p1 = { center.x + ax * s_cos[s + 1] * r, center.y + ay * s_sin[s + 1] * r };
+
+        naui_push_triangle(
+            xcenter,
+            naui_mat4x4_transform_point2(*m, p0),
+            naui_mat4x4_transform_point2(*m, p1),
+            color
+        );
+    }
+}
+
+void naui_fill_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot, float angle, Naui_Color color, float rounding, Naui_CornerFlags corners)
+{
+    if (angle == 0.0f)
+    {
+        naui_fill_rect(position, scale, color, rounding, corners);
+        return;
+    }
+
+    Naui_Vec2 pivot_offset = { pivot.x * scale.x, pivot.y * scale.y };
+    Naui_Mat4x4 xform = naui_mat4x4_rotate_around(pivot_offset, angle, position);
+
+    float x0 = 0.0f, y0 = 0.0f;
+    float x1 = scale.x, y1 = scale.y;
+    uint32_t c = naui_pack_color(color);
+
+    if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
+    {
+        naui_push_rect_xform(&xform, (Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, c, -1);
+        return;
+    }
+
+    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+
+    int tl = (corners & NAUI_CORNER_TL) != 0;
+    int tr = (corners & NAUI_CORNER_TR) != 0;
+    int br = (corners & NAUI_CORNER_BR) != 0;
+    int bl = (corners & NAUI_CORNER_BL) != 0;
+
+    naui_push_rect_xform(&xform, (Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, c, -1);
+    naui_push_rect_xform(&xform, (Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, c, -1);
+    naui_push_rect_xform(&xform, (Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, c, -1);
+
+    if (tl) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, -1, -1, c);
+    if (tr) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, +1, -1, c);
+    if (br) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, +1, +1, c);
+    if (bl) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, -1, +1, c);
+}
