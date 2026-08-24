@@ -111,6 +111,16 @@ Naui_StringView naui_sub_string_view(Naui_StringView src, size_t start, size_t l
     return view;
 }
 
+char naui_string_pop(Naui_String *dest) {
+    if (!dest->length)
+        return '\0';
+    
+    char ch = dest->data[--dest->length];
+    dest->data[dest->length] = '\0';
+    
+    return ch;
+}
+
 void naui_string_copy(Naui_String *dest, const Naui_String src)
 {
     if (!dest)
@@ -147,6 +157,19 @@ void naui_string_append_view(Naui_String *dest, Naui_StringView view)
     dest->data[dest->length] = '\0';
 }
 
+void naui_string_remove(Naui_String *dest, size_t index, size_t size)
+{
+    if (index + size > dest->length)
+        return;
+    
+    memmove(
+        &dest->data[index],
+        &dest->data[index+size],
+        dest->length - index - size + 1
+    );
+    dest->length -= size;
+}
+
 void naui_string_append(Naui_String *dest, Naui_String str)
 {
     naui_string_append_view(dest, naui_string_to_view(&str));
@@ -174,6 +197,21 @@ void naui_string_append_char(Naui_String *dest, char ch)
     dest->data[dest->length] = ch;
     dest->length += 1;
     dest->data[dest->length] = '\0';
+}
+
+void naui_string_append_char_at(Naui_String *dest, char ch, size_t index) {
+    if (index > dest->length)
+        return;
+
+    if (dest->length)
+        memmove(
+            &dest->data[index + 1],
+            &dest->data[index],
+            dest->length - index
+        );
+
+    dest->data[index] = ch;
+    dest->length++;
 }
 
 size_t naui_string_view_find(Naui_StringView haystack, Naui_StringView needle, bool case_sensitive)

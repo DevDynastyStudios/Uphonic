@@ -20,12 +20,15 @@ NAUI_API Naui_String        naui_view_to_string                 (Naui_StringView
 NAUI_API Naui_StringView    naui_sub_string                     (const Naui_String *str, size_t start, size_t len);
 NAUI_API Naui_StringView    naui_sub_string_view                (Naui_StringView view, size_t start, size_t len);
 
+NAUI_API char               naui_string_pop                     (Naui_String *dest);
 NAUI_API void               naui_string_copy                    (Naui_String *dest, const Naui_String src);
 NAUI_API void               naui_string_copy_view               (Naui_String *dest, const Naui_StringView src);
 NAUI_API void               naui_string_append                  (Naui_String *dest, Naui_String str);
 NAUI_API void               naui_string_append_char             (Naui_String *dest, char ch);
+NAUI_API void               naui_string_append_char_at          (Naui_String *dest, char ch, size_t index);
 NAUI_API void               naui_string_append_cstr             (Naui_String *dest, const char *cstr);
 NAUI_API void               naui_string_append_view             (Naui_String *dest, Naui_StringView view);
+NAUI_API void               naui_string_remove                  (Naui_String *dest, size_t index, size_t size);
 
 NAUI_API bool               naui_string_view_contains           (Naui_StringView haystack, Naui_StringView needle, bool case_sensitive);
 NAUI_API bool               naui_string_contains                (Naui_String haystack, Naui_String needle, bool case_sensitive);
