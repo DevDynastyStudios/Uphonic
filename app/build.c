@@ -6,12 +6,6 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <vendor/miniaudio/miniaudio.h>
 
-#include "ui/titlebar.h"
-#include "ui/widgets.h"
-
-#include "ui/titlebar.c"
-#include "ui/widgets.c"
-
 #include "core/types.h"
 
 #include "io/serialization.h"
@@ -19,8 +13,16 @@
 
 #include "core/audio_engine.h"
 #include "core/audio_engine.c"
+#include "core/resource_manager.h"
+#include "core/resource_manager.c"
 #include "core/project_manager.h"
 #include "core/project_manager.c"
+
+#include "ui/titlebar.h"
+#include "ui/widgets.h"
+
+#include "ui/titlebar.c"
+#include "ui/widgets.c"
 
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"

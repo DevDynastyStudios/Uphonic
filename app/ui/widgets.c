@@ -11,12 +11,7 @@ typedef struct
 Uph_GlobalWidgetData;
 static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
-static Leaf_ID uph_ui_alloc_widget_id(void)
-{
-    return leaf_id_indexed("naui_widget", uph_global_widget_data.id_counter++);
-}
-
-static bool uph_ui_widget_hovered(Leaf_ID id)
+static bool uph_ui_widget_hovered(const Leaf_ID id)
 {
     const bool result = !uph_ui_any_widget_hovered() && (!naui_current_panel() || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
     if (result)
@@ -33,7 +28,7 @@ void uph_ui_widgets_flush(void)
 {
     if (uph_global_widget_data.current_dropdown_callback)
     {
-        Leaf_ID dropdown_id = uph_ui_alloc_widget_id();
+        Leaf_ID dropdown_id = leaf_id("uph_current_dropdown");
 
         const Leaf_Color shadow_color = naui_theme_color("uph_ui_dropdown_shadow_color");
         const Leaf_Color bg_color = naui_theme_color("uph_ui_dropdown_bg_color");
@@ -84,7 +79,7 @@ void uph_ui_close_dropdown(void)
     uph_global_widget_data.current_dropdown_callback = NULL;
 }
 
-bool uph_ui_text_button(const char *string)
+bool uph_ui_text_button(const char *string, const Leaf_ID id)
 {
     const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
@@ -95,7 +90,6 @@ bool uph_ui_text_button(const char *string)
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
-    const Leaf_ID id = uph_ui_alloc_widget_id();
     const bool hovered = uph_ui_widget_hovered(id);
 
     Leaf_Color color;
@@ -122,7 +116,7 @@ bool uph_ui_text_button(const char *string)
     return hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT);
 }
 
-bool uph_ui_text_toggle_button(const char *string, bool *enabled)
+bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabled)
 {
     const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
@@ -133,10 +127,9 @@ bool uph_ui_text_toggle_button(const char *string, bool *enabled)
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
-    const Leaf_ID id = uph_ui_alloc_widget_id();
     const bool hovered = uph_ui_widget_hovered(id);
 
-    Leaf_Color color = (*enabled) ? hovered_bg_color : bg_color;
+    Leaf_Color color = (*enabled) ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
     leaf({
         .id = id,
@@ -151,21 +144,19 @@ bool uph_ui_text_toggle_button(const char *string, bool *enabled)
         });
     }
 
-    if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT))
+    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
         *enabled = !(*enabled);
         return true;
     }
+
     return false;
 }
 
-void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown)
+void uph_ui_menu(const char *label, const Leaf_ID id, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown)
 {
-    const Leaf_ID id = uph_ui_alloc_widget_id();
     const bool hovered = uph_ui_widget_hovered(id);
     const bool this_dropdown_open = (uph_global_widget_data.current_dropdown_callback == dropdown);
-
-    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
@@ -183,15 +174,17 @@ void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback 
         uph_ui_dropdown(dropdown, naui_vec2(parent_bbox.x, parent_bbox.y + parent_bbox.height));
     }
 
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     leaf({
         .id = id,
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(6.0f), NAUI_DPI(6.0f)),
-        .color = (hovered || this_dropdown_open) ? leaf_rgb(255, 0, 0) : LEAF_COLOR_TRANSPARENT
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = (hovered || this_dropdown_open) ? naui_theme_color("uph_ui_frame_hovered_bg_color") : LEAF_COLOR_TRANSPARENT,
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
     })
     {
         leaf_text(label, {
             .font_size = NAUI_DPI(13.5f),
-            .color = text_color
+            .color = naui_theme_color("uph_ui_text_color")
         });
     }
 }

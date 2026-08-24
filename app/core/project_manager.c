@@ -111,8 +111,11 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 		// res_dest = Audio Path Here
 	}
 
-	Uph_Sample sample_resource = uph_audio_engine_load_sample(res_dest);
-    naui_list_push(uph_state.project.samples, sample_resource);
+	// TODO (from box to chimpchi): If you are gonna do this do it with the new sample data implementation in mind
+	// You can use the resource manager I added or drag the code from it in the project manager if you don't want them separate
+
+	//Uph_Sample sample_resource = uph_audio_engine_load_sample(res_dest);
+    //naui_list_push(uph_state.project.samples, sample_resource);
 	return true;
 }
 

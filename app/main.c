@@ -7,7 +7,7 @@ void naui_app_start(void)
     uph_state.settings.audio = (Uph_AudioSettings){
         .sample_rate = 48000
     };
-    uph_state.project.bpm = 210.0f;
+    uph_state.project.bpm = 120.0f;
 
 	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
@@ -34,7 +34,6 @@ void naui_app_start(void)
 
 void naui_app_end(void)
 {
-	uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
     uph_audio_engine_shutdown();
 }
 
@@ -124,14 +123,14 @@ void naui_app_update(void)
                 static float metronome_last_time;
 
                 if (metronome_enabled) {
-                    if (uph_ui_text_button("bpm button")) {
+                    if (uph_ui_text_button("bpm button", leaf_id("uph_bpm_button"))) {
                         const float time = naui_time();
                         uph_state.project.bpm = 60.0f / (time - metronome_last_time);
                         metronome_last_time = time;
                     }
                 }
 
-                uph_ui_text_toggle_button("metronome enable", &metronome_enabled);
+                uph_ui_text_toggle_button("metronome enable", leaf_id("uph_metronome_toggle"), &metronome_enabled);
             }
 
             const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);

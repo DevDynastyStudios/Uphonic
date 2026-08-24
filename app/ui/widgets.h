@@ -13,7 +13,7 @@ bool uph_ui_any_widget_hovered(void);
 void uph_ui_dropdown(Uph_DropDownCallback callback, Naui_Vec2 position);
 void uph_ui_close_dropdown(void);
 
-bool uph_ui_text_button(const char *string);
-bool uph_ui_text_toggle_button(const char *string, bool *enabled);
+bool uph_ui_text_button(const char *string, const Leaf_ID id);
+bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabled);
 
-void uph_ui_menu(const char *label, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown);
+void uph_ui_menu(const char *label, const Leaf_ID id, Uph_UIMenuFlags flags, Uph_DropDownCallback dropdown);

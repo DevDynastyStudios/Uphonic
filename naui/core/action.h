@@ -9,6 +9,7 @@ typedef void (*Naui_ActionDestroyFn)(void* data);
 
 typedef struct
 {
+	Naui_String name;
 	Naui_ActionFn execute;
 	Naui_ActionFn undo;
 	Naui_ActionFn redo;
@@ -31,11 +32,14 @@ bool naui_action_redo(void);
 bool naui_action_can_undo(void);
 bool naui_action_can_redo(void);
 
-// name of the action or group sitting at the top of each stack, NULL if empty.
-const char* naui_action_undo_name(void);
+const Naui_List(Naui_Action) naui_action_get_undo_history(void);
+const Naui_List(Naui_Action) naui_action_get_redo_history(void);
 
 // name of the action or group sitting at the top of each stack, NULL if empty.
-const char* naui_action_redo_name(void);
+//const char* naui_action_undo_name(void);
+
+// name of the action or group sitting at the top of each stack, NULL if empty.
+//const char* naui_action_redo_name(void);
 
 // wipes both undo/redo histories.
 void naui_action_clear_history(void);

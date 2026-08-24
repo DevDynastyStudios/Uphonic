@@ -22,6 +22,7 @@ static void uph_sample_list_on_update(void)
         {
             leaf_text(resource->name.data, {
                 .font_size = 16.0f,
+                .color = LEAF_COLOR_WHITE
             });
         }
     }

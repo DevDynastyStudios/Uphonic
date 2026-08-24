@@ -548,7 +548,7 @@ void naui_renderer_build_atlas(uint32_t width, uint32_t height, void *data)
     rdata->image_atlas = mgfx_create_image(&(mgfx_image_create_info){
         .type = MGFX_IMAGE_TYPE_2D,
         .format = MGFX_FORMAT_RGBA8_UNORM,
-        .usage = MGFX_IMAGE_USAGE_COLOR_ATTACHMENT,
+        .usage = MGFX_IMAGE_USAGE_SAMPLED,
         .width = width,
         .height = height,
         .data = data
@@ -678,7 +678,7 @@ bool naui_renderer_begin(void)
     mgfx_bind_pipeline(rdata->base_pipeline);
     mgfx_bind_vertex_buffer(rdata->batch_vb);
     mgfx_bind_index_buffer(rdata->batch_ib, MGFX_INDEX_TYPE_UINT32);
-    mgfx_bind_image(rdata->image_atlas, rdata->linear_sampler, 0);
+    mgfx_bind_sampled_image(rdata->image_atlas, rdata->linear_sampler, 0);
 
     struct { Naui_Vec2 u_resolution; } ub_data;
     ub_data.u_resolution = (Naui_Vec2){(float)rdata->width, (float)rdata->height};
@@ -843,7 +843,7 @@ static int naui_bake_font_size(
     bake->atlas = mgfx_create_image(&(mgfx_image_create_info){
         .type   = MGFX_IMAGE_TYPE_2D,
         .format = MGFX_FORMAT_R8_UNORM,
-        .usage  = MGFX_IMAGE_USAGE_COLOR_ATTACHMENT,
+        .usage  = MGFX_IMAGE_USAGE_SAMPLED,
         .width  = (uint32_t)chosen_atlas_size,
         .height = (uint32_t)chosen_atlas_size,
         .data   = alpha,
@@ -972,7 +972,7 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t fo
     if (rdata->font_current_index != (int8_t)font_index)
     {
         naui_renderer_flush();
-        mgfx_bind_image(bake->atlas, rdata->linear_sampler , 1);
+        mgfx_bind_sampled_image(bake->atlas, rdata->linear_sampler , 1);
         rdata->font_current_index = (int8_t)font_index;
     }
 

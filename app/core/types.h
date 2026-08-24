@@ -62,11 +62,31 @@ Uph_MIDISettings;
 typedef struct Uph_PluginSettings
 {
 	Naui_List(Naui_Path) plugin_paths;
-	Naui_List(Naui_Path) blacklist_paths;
+	// Naui_List(Naui_Path) blacklist_paths; this is useless bro
 	bool sandbox_plugins;
 	// Box, you can fill in the rest
 }
 Uph_PluginSettings;
+
+typedef uint8_t Uph_SaveType;
+enum
+{
+	UPH_SAVE_TYPE_CANONICAL,
+	UPH_SAVE_TYPE_TEMP
+};
+
+typedef uint8_t Uph_ExportFormat;
+enum
+{
+	UPH_EXPORT_UPH,
+	UPH_EXPORT_WAV,
+	UPH_EXPORT_MP3,
+	UPH_EXPORT_OGG,
+	UPH_EXPORT_FLAC,
+	UPH_EXPORT_MIDI
+};
+
+typedef uint32_t Uph_ResourceIndex;
 
 // :project
 typedef uint8_t Uph_TimelineBlockType;
@@ -82,7 +102,7 @@ typedef struct
 	double start_offset_beats;
 	double length_beats;
     double stretch_scale;
-    uint32_t resource_index;
+    Uph_ResourceIndex resource_index;
     Uph_TimelineBlockType type;
 }
 Uph_TimelineBlock;
@@ -96,31 +116,27 @@ enum
 
 typedef struct
 {
-    float min;
-    float max;
+    uint16_t min;
+    uint16_t max;
 }
 Uph_WaveformPeak;
 
-/*typedef struct
+typedef struct
 {
 	Naui_Path file_path;
 	Naui_List(Uph_WaveformPeak) waveform_peaks;
 	float *frames;
 	uint64_t frame_count;
 	uint32_t original_sample_rate;
+	uint32_t ref_count;
 	Uph_SampleChannelType channel_type;
 }
-Uph_SampleData;*/
+Uph_SampleData;
 
 typedef struct
 {
 	Naui_String name;
-	Naui_Path file_path;
-	Naui_List(Uph_WaveformPeak) waveform_peaks;
-	float *frames;
-	uint64_t frame_count;
-	uint32_t original_sample_rate;
-	Uph_SampleChannelType channel_type;
+	Uph_ResourceIndex data_index;
 }
 Uph_Sample;
 
@@ -149,16 +165,6 @@ typedef enum
 }
 Uph_TrackType;
 
-typedef uint8_t Uph_TrackState;
-enum
-{
-	UPH_TRACK_STATE_NONE = 0,
-	UPH_TRACK_STATE_MUTE = 1 << 0,
-	UPH_TRACK_STATE_SOLO = 1 << 1,
-	UPH_TRACK_STATE_ARMED = 1 << 2,
-	UPH_TRACK_STATE_SILENCED = 1 << 3 // This is driven by the other states
-};
-
 typedef struct
 {
 	Naui_String name;
@@ -171,7 +177,8 @@ typedef struct
 	float peak_left, peak_right;
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
-	Uph_TrackState state;
+
+	bool muted, soloed, armed, silenced;
 }
 Uph_Track;
 
@@ -195,9 +202,11 @@ typedef struct
 	Naui_String title;
 	Uph_Version project_version;
 	Uph_TimeSignature time_signature;
+
     Naui_List(Uph_Track) tracks;
     Naui_List(Uph_MidiPattern) midi_patterns;
     Naui_List(Uph_Sample) samples;
+    Naui_List(Uph_SampleData) sample_data;
 
 	uint64_t time_created;
 	uint64_t last_accessed;

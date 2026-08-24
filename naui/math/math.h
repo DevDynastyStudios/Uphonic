@@ -1,7 +1,10 @@
 #define NAUI_PI 3.1415926535897931f
 #define NAUI_SQRT2 1.41421353816986083984375f
 #define NAUI_EPSILON 1e-9
-#define NAUI_EPSILON_F 1e-6f 
+#define NAUI_EPSILON_F 1e-6f
+
+#define NAUI_MIN(a, b) ((a) < (b) ? (a) : (b))
+#define NAUI_MAX(a, b) ((a) > (b) ? (a) : (b))
 
 static inline float naui_lerp(float a, float b, float t)
 {

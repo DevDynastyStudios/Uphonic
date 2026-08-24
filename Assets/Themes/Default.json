@@ -48,9 +48,18 @@
 	"uph_track_text_color": "#D9D9DE",
 	"uph_track_font_size": 12.0,
 
-	"uph_track_grid_beat_color": "#1C1C1F30",
-	"uph_track_grid_bar_color": "#1C1C1FE0",
-	"uph_track_grid_text_color": "#48484EFF",
+    "uph_track_grid_beat_color": "#2A2A3045",
+    "uph_track_grid_bar_color": "#33333CB0",
+    "uph_track_grid_text_color": "#63636AFF",
+
+    "uph_palette_color_1": "#B388FF",
+    "uph_palette_color_2": "#40C4FF",
+    "uph_palette_color_3": "#1DE9B6",
+    "uph_palette_color_4": "#B2FF59",
+    "uph_palette_color_5": "#FFD740",
+    "uph_palette_color_6": "#FF9E40",
+    "uph_palette_color_7": "#FF4FA3",
+    "uph_palette_color_8": "#E040FB",
 
 	"uph_tool_icon_color": "#C4C4C9",
 	"uph_play_icon_color": "#4ADE80",

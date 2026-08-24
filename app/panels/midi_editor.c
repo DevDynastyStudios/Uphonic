@@ -77,6 +77,11 @@ static void uph_midi_editor_on_detach(void)
     
 }
 
+static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_data)
+{
+
+}
+
 static void uph_midi_editor_on_update(void)
 {
     leaf({
@@ -89,7 +94,8 @@ static void uph_midi_editor_on_update(void)
             .custom_draw = uph_midi_editor_side_piano_custom_draw
         });
         leaf({
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
+            .custom_draw = uph_midi_editor_lanes_custom_draw
         });
     }
 }

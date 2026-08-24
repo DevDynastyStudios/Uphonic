@@ -29,19 +29,21 @@ static inline void maximize(void) { naui_defer(naui_app_maximized() ? (Naui_Defe
 
 static void uph_menu_file_dropdown(void)
 {
-	uph_ui_text_button("New File");
+	uph_ui_text_button("New File", leaf_id("uph_file_menu_new_file"));
+	if (uph_ui_text_button("Export Wav", leaf_id("uph_file_menu_export_wav")))
+		uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
 }
 
 static void uph_menu_edit_dropdown(void)
 {
-	uph_ui_text_button("Undo");
-	uph_ui_text_button("Redo");
+	uph_ui_text_button("Undo", leaf_id("uph_edit_menu_undo"));
+	uph_ui_text_button("Redo", leaf_id("uph_edit_menu_redo"));
 }
 
 static void uph_menu_windows_dropdown(void)
 {
-	uph_ui_text_button("Song Timeline");
-	uph_ui_text_button("Midi Editor");
+	uph_ui_text_button("Song Timeline", leaf_id("uph_windows_menu_song_timeline"));
+	uph_ui_text_button("Midi Editor", leaf_id("uph_windows_menu_midi_editor"));
 }
 
 void uph_render_main_titlebar(void)
@@ -85,9 +87,9 @@ void uph_render_main_titlebar(void)
 				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
 			})
 			{
-				uph_ui_menu("File", 0, uph_menu_file_dropdown);
-				uph_ui_menu("Edit", 0, uph_menu_edit_dropdown);
-				uph_ui_menu("Windows", 0, uph_menu_windows_dropdown);
+				uph_ui_menu("File", leaf_id("uph_file_menu"), 0, uph_menu_file_dropdown);
+				uph_ui_menu("Edit", leaf_id("uph_edit_menu"), 0, uph_menu_edit_dropdown);
+				uph_ui_menu("Windows", leaf_id("uph_windows_menu"), 0, uph_menu_windows_dropdown);
 			}
 		}
 
