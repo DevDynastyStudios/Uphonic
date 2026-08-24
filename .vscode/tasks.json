@@ -38,7 +38,7 @@
             },
             "args": [
                 "build.lua",
-                "run",
+                "build_run",
                 "release"
             ],
             "problemMatcher": []
@@ -52,7 +52,7 @@
             },
             "args": [
                 "build.lua",
-                "run",
+                "build_run",
                 "debug"
             ],
             "problemMatcher": []
