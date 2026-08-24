@@ -14,6 +14,7 @@ typedef struct
         Naui_AppEvent start;
         Naui_AppEvent end;
         Naui_AppEvent update;
+        Naui_AppOtherEvent event;
     }
     events;
     Naui_List(Naui_DeferredEntry) deferred_entries;
@@ -126,6 +127,7 @@ static void __naui_app_event(const mg_app_event* event)
 {
     if (event->type == MG_APP_EVENT_RESIZE)
         naui_renderer_resize(event->window_width, event->window_height);
+    _naui_app_state.events.event((const Naui_AppEventData*)event);
 }
 
 static void __naui_app_start(void)
@@ -240,13 +242,15 @@ void naui_app_run(
     const char *title,
     Naui_AppEvent start,
     Naui_AppEvent end,
-    Naui_AppEvent update
-    )
+    Naui_AppEvent update,
+    Naui_AppOtherEvent event
+)
 {
     _naui_app_state.events.start = start;
     _naui_app_state.events.end = end;
     _naui_app_state.events.update = update;
-    
+    _naui_app_state.events.event = event;
+
     mg_app_run(&(mg_app_init_info){
         .title = title,
         .flags = MG_APP_FLAG_NO_TITLEBAR | MG_APP_FLAG_HIDDEN,

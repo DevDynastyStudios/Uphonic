@@ -209,7 +209,8 @@ enum
     MG_APP_EVENT_MOUSE_DOWN,
     MG_APP_EVENT_MOUSE_UP,
     MG_APP_EVENT_MOUSE_MOVE,
-    MG_APP_EVENT_MOUSE_SCROLL
+    MG_APP_EVENT_MOUSE_SCROLL,
+    MG_APP_EVENT_FILE_DROP
 };
 
 typedef struct
@@ -224,6 +225,12 @@ typedef struct
         {
             int32_t mouse_x, mouse_y;
         };
+        struct
+        {
+            const char **paths;
+            int32_t path_count;
+        }
+        file_drop;
         int8_t scroll_delta;
         mg_key key;
         mg_mouse_button mouse_button;
@@ -880,6 +887,48 @@ static LRESULT CALLBACK mg_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_
             mg_app_call_event(&event);
             break;
         }
+        case WM_DROPFILES:
+        {
+            HDROP drop = (HDROP)w_param;
+            UINT file_count = DragQueryFileW(drop, 0xFFFFFFFF, NULL, 0);
+
+            #define MG_MAX_DROP_FILES 64
+            #define MG_MAX_DROP_PATH 1024
+
+            if (file_count > MG_MAX_DROP_FILES)
+                file_count = MG_MAX_DROP_FILES;
+
+            static char path_buf[MG_MAX_DROP_FILES][MG_MAX_DROP_PATH];
+            static const char *paths[MG_MAX_DROP_FILES];
+            WCHAR wpath[MG_MAX_DROP_PATH];
+
+            UINT valid_count = 0;
+            for (UINT i = 0; i < file_count; i++)
+            {
+                UINT wlen = DragQueryFileW(drop, i, wpath, MG_MAX_DROP_PATH);
+                if (wlen == 0)
+                    continue;
+
+                int u8len = WideCharToMultiByte(CP_UTF8, 0, wpath, -1,
+                    path_buf[valid_count], MG_MAX_DROP_PATH, NULL, NULL);
+                if (u8len == 0)
+                    continue;
+
+                paths[valid_count] = path_buf[valid_count];
+                valid_count++;
+            }
+
+            mg_app_event event = {
+                .file_drop = { .paths = paths, .path_count = (int32_t)valid_count },
+                .type = MG_APP_EVENT_FILE_DROP
+            };
+            mg_app_call_event(&event);
+
+            DragFinish(drop);
+            break;
+            #undef MG_MAX_DROP_FILES
+            #undef MG_MAX_DROP_PATH
+        }
 
         case WM_NCACTIVATE:
             break;
@@ -968,6 +1017,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
     ShowWindow(mg_app_state.hwnd, info->flags & MG_APP_FLAG_HIDDEN ? SW_HIDE : SW_SHOW);
     UpdateWindow(mg_app_state.hwnd);
+
+    DragAcceptFiles(mg_app_state.hwnd, TRUE);
 
     mg_app_state.on_event_call = info->events.event;
 
@@ -1133,9 +1184,16 @@ typedef struct mg_xlib_platform
 
     int32_t caption_x, caption_y, caption_width, caption_height;
 
+    Window xdnd_source;
+    Atom xdnd_type;
+    int32_t xdnd_version;
+
     struct
     {
         Atom wm_state, max_horz, max_vert, moveresize, motif_hints;
+        Atom xdnd_aware, xdnd_enter, xdnd_position, xdnd_status,
+             xdnd_drop, xdnd_finished, xdnd_selection,
+             xdnd_type_list, xdnd_action_copy, text_uri_list, primary;
     } atoms;
 }
 mg_xlib_platform;
@@ -1382,6 +1440,18 @@ int32_t mg_app_run(const mg_app_init_info *info)
     }
  
     mg_app_state.screen = DefaultScreen(mg_app_state.display);
+
+    mg_app_state.atoms.xdnd_aware      = XInternAtom(mg_app_state.display, "XdndAware", False);
+    mg_app_state.atoms.xdnd_enter      = XInternAtom(mg_app_state.display, "XdndEnter", False);
+    mg_app_state.atoms.xdnd_position   = XInternAtom(mg_app_state.display, "XdndPosition", False);
+    mg_app_state.atoms.xdnd_status     = XInternAtom(mg_app_state.display, "XdndStatus", False);
+    mg_app_state.atoms.xdnd_drop       = XInternAtom(mg_app_state.display, "XdndDrop", False);
+    mg_app_state.atoms.xdnd_finished   = XInternAtom(mg_app_state.display, "XdndFinished", False);
+    mg_app_state.atoms.xdnd_selection  = XInternAtom(mg_app_state.display, "XdndSelection", False);
+    mg_app_state.atoms.xdnd_type_list  = XInternAtom(mg_app_state.display, "XdndTypeList", False);
+    mg_app_state.atoms.xdnd_action_copy= XInternAtom(mg_app_state.display, "XdndActionCopy", False);
+    mg_app_state.atoms.text_uri_list   = XInternAtom(mg_app_state.display, "text/uri-list", False);
+    mg_app_state.atoms.primary         = XInternAtom(mg_app_state.display, "PRIMARY", False);
  
     const int32_t width  = info->width  ? (int32_t)info->width  : 800;
     const int32_t height = info->height ? (int32_t)info->height : 600;
@@ -1435,6 +1505,16 @@ int32_t mg_app_run(const mg_app_init_info *info)
  
     XMapWindow(mg_app_state.display, mg_app_state.window);
     XFlush(mg_app_state.display);
+
+    {
+        const uint32_t xdnd_version = 5;
+        XChangeProperty(
+            mg_app_state.display, mg_app_state.window,
+            mg_app_state.atoms.xdnd_aware, XA_ATOM,
+            32, PropModeReplace,
+            (unsigned char *)&xdnd_version, 1
+        );
+    }
 
     // creating the hidden cursor
     {
@@ -1634,9 +1714,181 @@ int32_t mg_app_run(const mg_app_init_info *info)
                 break;
  
                 case ClientMessage:
+                {
                     if ((Atom)xev.xclient.data.l[0] == mg_app_state.wm_delete_window)
+                    {
                         mg_app_state.running = false;
-                    break;
+                        break;
+                    }
+
+                    if (xev.xclient.message_type == mg_app_state.atoms.xdnd_enter)
+                    {
+                        mg_app_state.xdnd_source  = (Window)xev.xclient.data.l[0];
+                        mg_app_state.xdnd_version = (int32_t)(xev.xclient.data.l[1] >> 24);
+                        mg_app_state.xdnd_type    = None;
+
+                        bool more_than_3 = (xev.xclient.data.l[1] & 1) != 0;
+                        Atom offered[3] = {
+                            (Atom)xev.xclient.data.l[2],
+                            (Atom)xev.xclient.data.l[3],
+                            (Atom)xev.xclient.data.l[4]
+                        };
+
+                        if (more_than_3)
+                        {
+                            Atom actual_type;
+                            int actual_format;
+                            unsigned long nitems, bytes_after;
+                            unsigned char *prop = NULL;
+
+                            if (XGetWindowProperty(
+                                    mg_app_state.display, mg_app_state.xdnd_source,
+                                    mg_app_state.atoms.xdnd_type_list,
+                                    0, 1024, False, XA_ATOM,
+                                    &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success && prop)
+                            {
+                                Atom *types = (Atom*)prop;
+                                for (unsigned long i = 0; i < nitems; i++)
+                                {
+                                    if (types[i] == mg_app_state.atoms.text_uri_list)
+                                    {
+                                        mg_app_state.xdnd_type = types[i];
+                                        break;
+                                    }
+                                }
+                                XFree(prop);
+                            }
+                        }
+                        else
+                        {
+                            for (int i = 0; i < 3; i++)
+                            {
+                                if (offered[i] == mg_app_state.atoms.text_uri_list)
+                                {
+                                    mg_app_state.xdnd_type = offered[i];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    else if (xev.xclient.message_type == mg_app_state.atoms.xdnd_position)
+                    {
+                        Window source = (Window)xev.xclient.data.l[0];
+
+                        XEvent reply = {0};
+                        reply.xclient.type = ClientMessage;
+                        reply.xclient.display = mg_app_state.display;
+                        reply.xclient.window = source;
+                        reply.xclient.message_type = mg_app_state.atoms.xdnd_status;
+                        reply.xclient.format = 32;
+                        reply.xclient.data.l[0] = mg_app_state.window;
+                        reply.xclient.data.l[1] = (mg_app_state.xdnd_type != None) ? 1 : 0;
+                        reply.xclient.data.l[2] = 0;
+                        reply.xclient.data.l[3] = 0;
+                        reply.xclient.data.l[4] = (mg_app_state.xdnd_type != None)
+                            ? (long)mg_app_state.atoms.xdnd_action_copy : None;
+
+                        XSendEvent(mg_app_state.display, source, False, NoEventMask, &reply);
+                        XFlush(mg_app_state.display);
+                    }
+                    else if (xev.xclient.message_type == mg_app_state.atoms.xdnd_drop)
+                    {
+                        Window source = (Window)xev.xclient.data.l[0];
+                        Time timestamp = (mg_app_state.xdnd_version >= 1)
+                            ? (Time)xev.xclient.data.l[2] : CurrentTime;
+
+                        if (mg_app_state.xdnd_type != None)
+                        {
+                            XConvertSelection(
+                                mg_app_state.display,
+                                mg_app_state.atoms.xdnd_selection,
+                                mg_app_state.xdnd_type,
+                                mg_app_state.atoms.primary,
+                                mg_app_state.window,
+                                timestamp
+                            );
+                        }
+                        else
+                        {
+                            XEvent reply = {0};
+                            reply.xclient.type = ClientMessage;
+                            reply.xclient.display = mg_app_state.display;
+                            reply.xclient.window = source;
+                            reply.xclient.message_type = mg_app_state.atoms.xdnd_finished;
+                            reply.xclient.format = 32;
+                            reply.xclient.data.l[0] = mg_app_state.window;
+                            reply.xclient.data.l[1] = 0;
+                            reply.xclient.data.l[2] = None;
+                            XSendEvent(mg_app_state.display, source, False, NoEventMask, &reply);
+                            XFlush(mg_app_state.display);
+
+                            mg_app_state.xdnd_source = None;
+                        }
+                    }
+                }
+                break;
+
+                case SelectionNotify:
+                {
+                    if (xev.xselection.property == mg_app_state.atoms.primary &&
+                        mg_app_state.xdnd_source != None)
+                    {
+                        Atom actual_type;
+                        int actual_format;
+                        unsigned long nitems, bytes_after;
+                        unsigned char *data = NULL;
+
+                        if (XGetWindowProperty(
+                                mg_app_state.display, mg_app_state.window,
+                                mg_app_state.atoms.primary,
+                                0, 65536, True, AnyPropertyType,
+                                &actual_type, &actual_format, &nitems, &bytes_after, &data) == Success && data)
+                        {
+                            #define MG_MAX_DROP_FILES 64
+                            static const char *paths[MG_MAX_DROP_FILES];
+                            int32_t count = 0;
+
+                            char *text = (char*)data;
+                            char *sp = NULL;
+                            for (char *l = strtok_r(text, "\r\n", &sp);
+                                 l && count < MG_MAX_DROP_FILES;
+                                 l = strtok_r(NULL, "\r\n", &sp))
+                            {
+                                if (strncmp(l, "file://", 7) == 0)
+                                    paths[count++] = l + 7; // strip scheme, points into `data`
+                            }
+
+                            if (count > 0)
+                            {
+                                mg_app_event event = {
+                                    .file_drop = {
+                                        .paths = paths,
+                                        .path_count = count
+                                    },
+                                    .type = MG_APP_EVENT_FILE_DROP
+                                };
+                                mg_app_call_event(&event);
+                            }
+
+                            XFree(data);
+                        }
+
+                        XEvent reply = {0};
+                        reply.xclient.type = ClientMessage;
+                        reply.xclient.display = mg_app_state.display;
+                        reply.xclient.window = mg_app_state.xdnd_source;
+                        reply.xclient.message_type = mg_app_state.atoms.xdnd_finished;
+                        reply.xclient.format = 32;
+                        reply.xclient.data.l[0] = mg_app_state.window;
+                        reply.xclient.data.l[1] = 1; // we accepted
+                        reply.xclient.data.l[2] = (long)mg_app_state.atoms.xdnd_action_copy;
+                        XSendEvent(mg_app_state.display, mg_app_state.xdnd_source, False, NoEventMask, &reply);
+                        XFlush(mg_app_state.display);
+
+                        mg_app_state.xdnd_source = None;
+                    }
+                }
+                break;
  
                 default:
                     break;

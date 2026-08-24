@@ -149,3 +149,11 @@ void naui_app_update(void)
 	naui_render_panels_and_viewport();
     uph_ui_widgets_flush();
 }
+
+void naui_app_event(const Naui_AppEventData *data)
+{
+    if (data->type == NAUI_APP_EVENT_FILE_DROP)
+    {
+        uph_resources_add_sample_from_file(NAUI_PATH(data->file_drop.paths[0]));
+    }
+}
