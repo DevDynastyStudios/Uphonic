@@ -94,6 +94,11 @@ extern "C" {
             (uint8_t)((hex >>  0) & 0xFF)
         };
     }
+
+    static inline bool leaf_id_valid(Leaf_ID id)
+    {
+        return id.value != 0;
+    }
     
     typedef struct
     {
