@@ -409,19 +409,20 @@ extern "C" {
     typedef Leaf_Dimensions (*Leaf_MeasureTextFn)(const char *text, uint32_t length, float resolved_font_size, const Leaf_TextConfig *config);
     
     // All the avaliable space in the parent (IMPORTANT: Does NOT apply to floating elements. Consider using LEAF_SIZE_FULL)
-#define LEAF_SIZE_GROW              (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW }
-#define LEAF_SIZE_GROW_MIN(v)       (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW, .size.min_max.min = (v) }
-#define LEAF_SIZE_GROW_MAX(v)       (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW, .size.min_max.max = (v) }
-#define LEAF_SIZE_FIT               (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIT  }
-#define LEAF_SIZE_FIT_MIN(v)        (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIT,     .size.min_max.min = (v) }
-#define LEAF_SIZE_FIXED(v)          (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIXED,   .size.min_max.min = (v) }
-#define LEAF_SIZE_PERCENT(v)        (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (v) }
+#define LEAF_SIZE_GROW                  (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW }
+#define LEAF_SIZE_GROW_MIN(v)           (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW, .size.min_max.min = (v) }
+#define LEAF_SIZE_GROW_MAX(v)           (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW, .size.min_max.max = (v) }
+#define LEAF_SIZE_GROW_MIN_MAX(mn, mx)  (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW, .size.min_max.min = (mn), .size.min_max.max = (mx) }
+#define LEAF_SIZE_FIT                   (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIT  }
+#define LEAF_SIZE_FIT_MIN(v)            (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIT,     .size.min_max.min = (v) }
+#define LEAF_SIZE_FIXED(v)              (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIXED,   .size.min_max.min = (v) }
+#define LEAF_SIZE_PERCENT(v)            (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (v) }
     // Full size of the parent (Regardless of how much free space it has)
-#define LEAF_SIZE_FULL              (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (1.0f) }
-#define LEAF_SIZE_PERCENT_MIN(p, m) (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (p), .size.min_max.min = (m) }
-#define LEAF_SIZE_PERCENT_MAX(p, m) (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent = (p), .size.min_max.max = (m) }
+#define LEAF_SIZE_FULL                  (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (1.0f) }
+#define LEAF_SIZE_PERCENT_MIN(p, m)     (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent     = (p), .size.min_max.min = (m) }
+#define LEAF_SIZE_PERCENT_MAX(p, m)     (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent = (p), .size.min_max.max = (m) }
 #define LEAF_SIZE_PERCENT_MIN_MAX(p, mn, mx) (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_PERCENT, .size.percent = (p), .size.min_max.min = (mn), .size.min_max.max = (mx) }
-#define LEAF_SIZE_DERIVED           (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_DERIVED }
+#define LEAF_SIZE_DERIVED               (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_DERIVED }
     
     typedef struct { Leaf_ElementConfig wrapped; } Leaf_ElementConfigWrapper;
 #define leaf(...) \
