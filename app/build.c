@@ -19,9 +19,11 @@
 #include "core/project_manager.c"
 
 #include "ui/titlebar.h"
+#include "ui/waveform.h"
 #include "ui/widgets.h"
 
 #include "ui/titlebar.c"
+#include "ui/waveform.c"
 #include "ui/widgets.c"
 
 #include "panels/song_timeline.c"

@@ -595,8 +595,9 @@ Naui_Path naui_directory_get(Naui_Dir directory)
 			if (s_downloads[0])
 				return path_from(s_downloads);
 
-			const char* home = naui_directory_get(NAUI_DIR_HOME).data;
-			if (home[0])
+			Naui_Path home_path = naui_directory_get(NAUI_DIR_HOME);
+			const char* home = home_path.data;
+			if (*home)
 				snprintf(s_downloads, NAUI_PATH_MAX, "%s\\Downloads", home);
 
 			return path_from(s_downloads);

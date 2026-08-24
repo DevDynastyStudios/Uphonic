@@ -101,7 +101,6 @@ typedef struct
 	double start_beat;
 	double start_offset_beats;
 	double length_beats;
-    double stretch_scale;
     Uph_ResourceIndex resource_index;
     Uph_TimelineBlockType type;
 }
@@ -136,6 +135,7 @@ Uph_SampleData;
 typedef struct
 {
 	Naui_String name;
+	double stretch_scale;
 	Uph_ResourceIndex data_index;
 }
 Uph_Sample;

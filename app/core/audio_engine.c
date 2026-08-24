@@ -86,7 +86,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
             Uph_Sample *sample = &project->samples[block->resource_index];
             Uph_SampleData *sample_data = &project->sample_data[sample->data_index];
 
-            double stretch_scale = (block->stretch_scale > 0.0) ? block->stretch_scale : 1.0;
+            double stretch_scale = (sample->stretch_scale > 0.0) ? sample->stretch_scale : 1.0;
 
             for (uint32_t f = 0; f < frame_count; f++)
             {

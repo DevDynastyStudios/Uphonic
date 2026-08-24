@@ -1,4 +1,4 @@
-typedef struct
+typedef struct _Naui_Vec2
 {
 	float x, y;
 } Naui_Vec2;
