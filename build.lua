@@ -1,3 +1,5 @@
+#!/usr/bin/lua
+
 local config = require("config")
 
 local IS_WINDOWS = package.config:sub(1, 1) == "\\"
