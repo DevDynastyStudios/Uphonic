@@ -613,6 +613,7 @@ void *mg_app_primary_handle(void)
 
 #include <windows.h>
 #include <windowsx.h>
+#include <shellapi.h>
 #pragma comment(lib, "user32")
 
 typedef struct mg_win32_platform
