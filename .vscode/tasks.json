@@ -1,0 +1,61 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build release",
+            "type": "shell",
+            "command": "lua",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "args": [
+                "build.lua",
+                "build",
+                "release"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build debug",
+            "type": "shell",
+            "command": "lua",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "args": [
+                "build.lua",
+                "build",
+                "debug"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run release",
+            "type": "shell",
+            "command": "lua",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "args": [
+                "build.lua",
+                "build_run",
+                "release"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Run debug",
+            "type": "shell",
+            "command": "lua",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "args": [
+                "build.lua",
+                "build_run",
+                "debug"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

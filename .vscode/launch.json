@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug (cpp-tools)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "preLaunchTask": "Build debug",
+            "program": "${workspaceFolder}/bin/Debug/Uphonic.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "console": "internalConsole"
+        },
+        {
+            "name": "Debug (gdb)",
+            "type": "cppdbg",
+            "request": "launch",
+            "preLaunchTask": "Build debug",
+            "program": "${workspaceFolder}/bin/Debug/Uphonic.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+                {
+                    "description": "Set Disassembly Flavor to Intel",
+                    "text": "-gdb-set disassembly-flavor intel",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}
