@@ -219,6 +219,8 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     );
 }
 
+#include <stdio.h>
+
 void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placeholder)
 {
     static Uph_TextfieldData data;
@@ -272,12 +274,12 @@ void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placehol
             naui_string_append_char_at(data.value, (char)codepoint, data.cursor++);
             break;
         }
-    }
 
-    if (naui_key_pressed(NAUI_KEY_LEFT))
-        data.cursor = NAUI_MAX(data.cursor--, 0);
-    else if (naui_key_pressed(NAUI_KEY_RIGHT))
-        data.cursor = NAUI_MIN(data.cursor++, data.value->length);
+        if (naui_key_pressed(NAUI_KEY_LEFT))
+            data.cursor = NAUI_MAX(data.cursor - 1, 0);
+        else if (naui_key_pressed(NAUI_KEY_RIGHT))
+            data.cursor = NAUI_MIN(data.cursor + 1, data.value->length);
+    }
 
     const float font_size = naui_theme_float("uph_ui_font_size");
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
