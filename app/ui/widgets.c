@@ -4,7 +4,8 @@ typedef struct
     // flags
     Naui_String* value;
     size_t cursor;
-} Uph_TextfieldData;
+}
+Uph_TextfieldData;
 
 typedef struct
 {
@@ -15,8 +16,6 @@ typedef struct
 
     bool dropdown_opened_this_frame;
     bool any_widget_hovered;
-
-    Uph_TextfieldData textfield_data;
 }
 Uph_GlobalWidgetData;
 static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
@@ -32,57 +31,6 @@ static bool uph_ui_widget_hovered(const Leaf_ID id)
 bool uph_ui_any_widget_hovered(void)
 {
     return uph_global_widget_data.any_widget_hovered;
-}
-
-static void uph_ui_on_char_event_textfield(char ch) {
-    Uph_TextfieldData* data = &uph_global_widget_data.textfield_data;
-    if (data->value)
-    {
-        switch (ch)
-        {
-        // BACKSPACE
-        case '\b':
-            naui_string_remove(data->value, data->cursor, 1);
-            if (data->cursor) data->cursor--;
-            break;
-        // ESC
-        case '\x1b':
-            data->id.value = 0;
-            data->value = NULL;
-            break;
-        // RIGHT ARROW
-        case '\x1b[C':
-            data->cursor = NAUI_MAX(data->cursor++, SIZE_MAX);
-            break;
-        // LEFT ARROW
-        case '\x1b[D':
-            data->cursor = NAUI_MIN(data->cursor--, 0);
-            break;
-        default:
-            naui_string_append_char_at(data->value, ch, data->cursor++);
-            break;
-        }
-
-        /*
-        ESC: "\x1b"
-        Up: ESC [ A → "\x1b[A"
-        Down: ESC [ B → "\x1b[B"
-        Right: ESC [ C → "\x1b[C"
-        Left: ESC [ D → "\x1b[D"
-        */
-
-        // BACKSPACE - 8 (\b)
-        if (ch == '\b')
-        {
-            
-
-            return;
-        }
-    }
-}
-
-void uph_ui_on_char_event(char ch) {
-    uph_ui_on_char_event_textfield(ch);
 }
 
 void uph_ui_widgets_flush(void)
@@ -170,7 +118,7 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
     })
     {
         leaf_text(string, {
-            .font_size = NAUI_DPI(13.5f),
+            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
             .color = text_color
         });
     }
@@ -200,7 +148,7 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabl
     })
     {
         leaf_text(string, {
-            .font_size = NAUI_DPI(13.5f),
+            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
             .color = text_color
         });
     }
@@ -244,7 +192,7 @@ void uph_ui_menu(const char *label, const Leaf_ID id, Uph_UIMenuFlags flags, Uph
     })
     {
         leaf_text(label, {
-            .font_size = NAUI_DPI(13.5f),
+            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
             .color = naui_theme_color("uph_ui_text_color")
         });
     }
@@ -252,65 +200,123 @@ void uph_ui_menu(const char *label, const Leaf_ID id, Uph_UIMenuFlags flags, Uph
 
 static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
 {
-    const Uph_TextfieldData* data = &uph_global_widget_data.textfield_data;
-    const Naui_Vec2 text_size = naui_measure_text(data->value->data, data->cursor, NAUI_DPI(13.0f), 0 );
+    const Uph_TextfieldData* data = (Uph_TextfieldData*)user_data;
+
+    const Naui_Vec2 text_size = naui_measure_text(data->value->data, data->cursor, NAUI_DPI(naui_theme_float("uph_ui_font_size")), 0);
 
     naui_fill_rect(
         (Naui_Vec2) {
-            text_size.x + box.x,
+            box.x + text_size.x,
             box.y
         },
         (Naui_Vec2) {
-            1.0f,
+            NAUI_DPI(2.0f),
             box.height
         },
-        LEAF_COLOR_WHITE,
+        naui_theme_color("uph_ui_text_color"),
         0.0f,
         NAUI_CORNER_NONE
     );
 }
 
-void uph_ui_textfield(Naui_String* value)
+void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placeholder)
 {
-    const Leaf_ID id = leaf_id("test");
+    static Uph_TextfieldData data;
+
     const bool hovered = uph_ui_widget_hovered(id);
 
-    Uph_TextfieldData* data = &uph_global_widget_data.textfield_data;
-
-    bool active = data->id.value == id.value;
+    bool active = data.id.value == id.value;
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        if (active)
+        if (hovered)
         {
-            data->id.value = 0;
-            data->value = NULL;
-
-            active = false;
-        }
-        else if (hovered)
-        {
-            data->id.value = id.value;
-            data->value = value;
-            data->cursor = NAUI_MAX((int64_t)value->length - 1, 0);
+            data.id.value = id.value;
+            data.value = value;
+            data.cursor = NAUI_MAX((int64_t)value->length, 0);
 
             active = true;
         }
+        else if (active)
+        {
+            data.id.value = 0;
+            data.value = NULL;
+
+            active = false;
+        }
     }
 
+    if (active)
+    {
+        uint32_t codepoint = naui_app_char_pressed();
+        switch (codepoint)
+        {
+        case 0: break;
+        // Backspace
+        case '\b':
+            if (data.cursor > 0)
+                naui_string_remove(data.value, --data.cursor, 1);
+            break;
+        case '\t':
+            naui_string_append_char_at(data.value, ' ', data.cursor++);
+            break;
+        // Delete
+        case 0x7F:
+            naui_string_remove(data.value, data.cursor, 1);
+            break;
+        // ESC
+        case '\x1b':
+            data.id.value = 0;
+            data.value = NULL;
+            break;
+        default:
+            naui_string_append_char_at(data.value, (char)codepoint, data.cursor++);
+            break;
+        }
+    }
+
+    if (naui_key_pressed(NAUI_KEY_LEFT))
+        data.cursor = NAUI_MAX(data.cursor--, 0);
+    else if (naui_key_pressed(NAUI_KEY_RIGHT))
+        data.cursor = NAUI_MIN(data.cursor++, data.value->length);
+
+    const float font_size = naui_theme_float("uph_ui_font_size");
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     leaf({
         .id = id,
-        .custom_draw = active ? uph_ui_textfield_cursor : NULL,
         .size = {
             .width = LEAF_SIZE_GROW,
-            .height = LEAF_SIZE_FIXED(NAUI_DPI(13.0f))
+            .height = LEAF_SIZE_FIXED(NAUI_DPI(font_size))
         },
-        .padding = LEAF_PADDING_ALL(NAUI_DPI(2.0f)),
-        .color = leaf_rgb(255, 0, 0)
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = naui_theme_color("uph_ui_frame_bg_color")
     })
     {
-        leaf_text(value->data, {
-            .color = LEAF_COLOR_WHITE,
-            .font_size = NAUI_DPI(13.0f)
+        if (value->length)
+        {
+            leaf_text(value->data, {
+                .color = naui_theme_color("uph_ui_text_color"),
+                .font_size = NAUI_DPI(font_size)
+            });
+        }
+        else
+        {
+            leaf_text(placeholder, {
+                .color = naui_theme_color("uph_ui_text_disabled_color"),
+                .font_size = NAUI_DPI(font_size)
+            });
+        }
+        leaf({
+            .custom_draw = active ? uph_ui_textfield_cursor : NULL,
+            .custom_draw_data = LEAF_DATA_SLICE(data),
+            .size = {
+                .width = LEAF_SIZE_FULL,
+                .height = LEAF_SIZE_FULL
+            },
+            .floating = {
+                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            },
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
         });
     }
 }

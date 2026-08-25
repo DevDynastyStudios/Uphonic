@@ -642,7 +642,7 @@ static void uph_song_timeline_on_update(void)
     uph_song_timeline_data.panel_bounding_box = leaf_get_bounding_box(track_section_id);
     uph_song_timeline_data.panel_hovered = naui_panel_hovered(naui_current_panel());
 
-    if (naui_key_pressed(NAUI_KEY_SPACE))
+    if (naui_key_pressed(NAUI_KEY_SPACE) && uph_song_timeline_data.panel_hovered)
         uph_state.interact.song_timeline_playing = !uph_state.interact.song_timeline_playing;
     
     uph_song_timeline_update_input();

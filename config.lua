@@ -10,7 +10,7 @@ return {
 
     links = {
         windows = { "shell32", "user32", "dxgi", "d3d11", "d3dcompiler", "dxguid" },
-        linux = { "X11", "vulkan", "m" },
+        linux = { "X11", "EGL", "m" },
         macos = { "m" }
     },
 
@@ -20,7 +20,7 @@ return {
 
     defines = {
         windows = { "MGFX_D3D11" },
-        linux = { "MGFX_VULKAN" },
+        linux = { "MGFX_OPENGL" },
         macos = { "MGFX_METAL" }
     }
 }

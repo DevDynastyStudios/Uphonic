@@ -234,7 +234,7 @@ typedef struct
         int8_t scroll_delta;
         mg_key key;
         mg_mouse_button mouse_button;
-        char ch;
+        uint32_t codepoint;
     };
     
     mg_app_event_type type;
@@ -282,6 +282,7 @@ MG_APP_API void mg_app_set_cursor(mg_cursor cursor);
 
 MG_APP_API bool mg_app_key_down(mg_key key);
 MG_APP_API bool mg_app_key_pressed(mg_key key);
+MG_APP_API uint32_t mg_app_char_pressed(void);
 
 MG_APP_API bool mg_app_mouse_down(mg_mouse_button button);
 MG_APP_API bool mg_app_mouse_pressed(mg_mouse_button button);
@@ -374,123 +375,131 @@ typedef struct
         bool buttons_double_clicked[4];
     }
     mouse;
+
+    uint32_t char_codepoint;
 }
 mg_app_input_state;
 
-static mg_app_input_state input_state;
+static mg_app_input_state mg_input_state;
 
 static inline void mg_app_input_process_key(mg_key key, bool pressed)
 {
-    if (pressed && !input_state.keyboard.keys[key])
-        input_state.keyboard.keys_pressed[key] = true;
-    input_state.keyboard.keys[key] = pressed;
+    if (pressed && !mg_input_state.keyboard.keys[key])
+        mg_input_state.keyboard.keys_pressed[key] = true;
+    mg_input_state.keyboard.keys[key] = pressed;
 }
 
 static inline void mg_app_input_process_mouse_button(mg_mouse_button button, bool pressed, float time_now)
 {
-    if (pressed && !input_state.mouse.buttons[button])
+    if (pressed && !mg_input_state.mouse.buttons[button])
     {
-        input_state.mouse.buttons_pressed[button] = true;
-        input_state.mouse.down_time[button] = time_now;
-        input_state.mouse.down_x[button] = input_state.mouse.x;
-        input_state.mouse.down_y[button] = input_state.mouse.y;
+        mg_input_state.mouse.buttons_pressed[button] = true;
+        mg_input_state.mouse.down_time[button] = time_now;
+        mg_input_state.mouse.down_x[button] = mg_input_state.mouse.x;
+        mg_input_state.mouse.down_y[button] = mg_input_state.mouse.y;
     }
 
-    if (!pressed && input_state.mouse.buttons[button])
+    if (!pressed && mg_input_state.mouse.buttons[button])
     {
-        input_state.mouse.buttons_released[button] = true;
+        mg_input_state.mouse.buttons_released[button] = true;
 
-        float held = time_now - input_state.mouse.down_time[button];
-        int16_t dx = input_state.mouse.x - input_state.mouse.down_x[button];
-        int16_t dy = input_state.mouse.y - input_state.mouse.down_y[button];
+        float held = time_now - mg_input_state.mouse.down_time[button];
+        int16_t dx = mg_input_state.mouse.x - mg_input_state.mouse.down_x[button];
+        int16_t dy = mg_input_state.mouse.y - mg_input_state.mouse.down_y[button];
         int32_t move_sq = (int32_t)dx * dx + (int32_t)dy * dy;
 
         if (held <= MG_CLICK_TIME_THRESHOLD &&
             move_sq <= (MG_CLICK_MOVE_THRESHOLD * MG_CLICK_MOVE_THRESHOLD))
         {
-            input_state.mouse.buttons_clicked[button] = true;
+            mg_input_state.mouse.buttons_clicked[button] = true;
 
-            float since_last = time_now - input_state.mouse.last_click_time[button];
-            int16_t ldx = input_state.mouse.x - input_state.mouse.last_click_x[button];
-            int16_t ldy = input_state.mouse.y - input_state.mouse.last_click_y[button];
+            float since_last = time_now - mg_input_state.mouse.last_click_time[button];
+            int16_t ldx = mg_input_state.mouse.x - mg_input_state.mouse.last_click_x[button];
+            int16_t ldy = mg_input_state.mouse.y - mg_input_state.mouse.last_click_y[button];
             int32_t last_move_sq = (int32_t)ldx * ldx + (int32_t)ldy * ldy;
 
             if (since_last <= MG_DOUBLE_CLICK_TIME_THRESHOLD &&
                 last_move_sq <= (MG_DOUBLE_CLICK_MOVE_THRESHOLD * MG_DOUBLE_CLICK_MOVE_THRESHOLD))
             {
-                input_state.mouse.buttons_double_clicked[button] = true;
-                input_state.mouse.last_click_time[button] = -1000.0f;
+                mg_input_state.mouse.buttons_double_clicked[button] = true;
+                mg_input_state.mouse.last_click_time[button] = -1000.0f;
             }
             else
             {
-                input_state.mouse.last_click_time[button] = time_now;
-                input_state.mouse.last_click_x[button] = input_state.mouse.x;
-                input_state.mouse.last_click_y[button] = input_state.mouse.y;
+                mg_input_state.mouse.last_click_time[button] = time_now;
+                mg_input_state.mouse.last_click_x[button] = mg_input_state.mouse.x;
+                mg_input_state.mouse.last_click_y[button] = mg_input_state.mouse.y;
             }
         }
     }
 
-    input_state.mouse.buttons[button] = pressed;
+    mg_input_state.mouse.buttons[button] = pressed;
 }
 
 static inline void mg_app_input_frame(void)
 {
-    input_state.mouse.delta = 0;
-    memset(input_state.keyboard.keys_pressed, 0, sizeof(input_state.keyboard.keys_pressed));
-    memset(input_state.mouse.buttons_pressed, 0, sizeof(input_state.mouse.buttons_pressed));
-    memset(input_state.mouse.buttons_released, 0, sizeof(input_state.mouse.buttons_released));
-    memset(input_state.mouse.buttons_clicked, 0, sizeof(input_state.mouse.buttons_clicked));
-    memset(input_state.mouse.buttons_double_clicked, 0, sizeof(input_state.mouse.buttons_double_clicked));
+    mg_input_state.mouse.delta = 0;
+    mg_input_state.char_codepoint = 0;
+    memset(mg_input_state.keyboard.keys_pressed, 0, sizeof(mg_input_state.keyboard.keys_pressed));
+    memset(mg_input_state.mouse.buttons_pressed, 0, sizeof(mg_input_state.mouse.buttons_pressed));
+    memset(mg_input_state.mouse.buttons_released, 0, sizeof(mg_input_state.mouse.buttons_released));
+    memset(mg_input_state.mouse.buttons_clicked, 0, sizeof(mg_input_state.mouse.buttons_clicked));
+    memset(mg_input_state.mouse.buttons_double_clicked, 0, sizeof(mg_input_state.mouse.buttons_double_clicked));
 }
 
 bool mg_app_key_down(mg_key key)
 {
-    return input_state.keyboard.keys[key];
+    return mg_input_state.keyboard.keys[key];
 }
 
 bool mg_app_key_pressed(mg_key key)
 {
-    return input_state.keyboard.keys_pressed[key];
+    return mg_input_state.keyboard.keys_pressed[key];
+}
+
+uint32_t mg_app_char_pressed(void)
+{
+    return mg_input_state.char_codepoint;
 }
 
 bool mg_app_mouse_down(mg_mouse_button button)
 {
-    return input_state.mouse.buttons[button];
+    return mg_input_state.mouse.buttons[button];
 }
 
 bool mg_app_mouse_pressed(mg_mouse_button button)
 {
-    return input_state.mouse.buttons_pressed[button];
+    return mg_input_state.mouse.buttons_pressed[button];
 }
 
 bool mg_app_mouse_released(mg_mouse_button button)
 {
-    return input_state.mouse.buttons_released[button];
+    return mg_input_state.mouse.buttons_released[button];
 }
 
 bool mg_app_mouse_clicked(mg_mouse_button button)
 {
-    return input_state.mouse.buttons_clicked[button];
+    return mg_input_state.mouse.buttons_clicked[button];
 }
 
 bool mg_app_mouse_double_clicked(mg_mouse_button button)
 {
-    return input_state.mouse.buttons_double_clicked[button];
+    return mg_input_state.mouse.buttons_double_clicked[button];
 }
 
 int8_t mg_app_mouse_scroll_delta(void)
 {
-    return input_state.mouse.delta;
+    return mg_input_state.mouse.delta;
 }
 
 int32_t mg_app_mouse_x(void)
 {
-    return input_state.mouse.x;
+    return mg_input_state.mouse.x;
 }
 
 int32_t mg_app_mouse_y(void)
 {
-    return input_state.mouse.y;
+    return mg_input_state.mouse.y;
 }
 
 #if defined(__EMSCRIPTEN__)
@@ -618,6 +627,8 @@ void *mg_app_primary_handle(void)
 
 typedef struct mg_win32_platform
 {
+    const mg_app_init_info *info;
+
     HWND hwnd;
     HINSTANCE hinstace;
     int32_t window_width, window_height;
@@ -633,7 +644,7 @@ typedef struct mg_win32_platform
     WNDPROC original_proc;
     int32_t caption_x, caption_y, caption_width, caption_height;
 
-    const mg_app_init_info *info;
+    uint16_t pending_high_surrogate;
 }
 mg_win32_platform;
 
@@ -714,19 +725,42 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         }
         case WM_CHAR:
         {
+            uint16_t unit = (uint16_t)w_param;
+
+            if (unit >= 0xD800 && unit <= 0xDBFF)
+            {
+                mg_app_state.pending_high_surrogate = unit;
+                break;
+            }
+
+            uint32_t codepoint;
+            if (unit >= 0xDC00 && unit <= 0xDFFF && mg_app_state.pending_high_surrogate)
+            {
+                uint32_t high = mg_app_state.pending_high_surrogate;
+                uint32_t low  = unit;
+                codepoint = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
+                mg_app_state.pending_high_surrogate = 0;
+            }
+            else
+            {
+                codepoint = unit;
+                mg_app_state.pending_high_surrogate = 0;
+            }
+
             mg_app_event event = {
-                .ch = (char)w_param,
+                .codepoint = codepoint,
                 .type = MG_APP_EVENT_CHAR
             };
+            mg_input_state.char_codepoint = codepoint;
             mg_app_call_event(&event);
-        break;
+            break;
         }
         case WM_MOUSEMOVE:
         {
             int32_t x = GET_X_LPARAM(l_param);
             int32_t y = GET_Y_LPARAM(l_param);
-            input_state.mouse.x = x;
-            input_state.mouse.y = y;
+            mg_input_state.mouse.x = x;
+            mg_input_state.mouse.y = y;
             mg_app_event event = {
                 .mouse_x = x,
                 .mouse_y = y,
@@ -741,7 +775,7 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
             if (delta != 0)
             {
                 delta = (delta < 0) ? -1 : 1;
-                input_state.mouse.delta = (int8_t)delta;
+                mg_input_state.mouse.delta = (int8_t)delta;
                 mg_app_event event = {
                     .scroll_delta = (int8_t)delta,
                     .type = MG_APP_EVENT_MOUSE_SCROLL
@@ -878,8 +912,8 @@ static LRESULT CALLBACK mg_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_
         {
             POINT pt = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
             ScreenToClient(mg_app_state.hwnd, &pt);
-            input_state.mouse.x = (int16_t)pt.x;
-            input_state.mouse.y = (int16_t)pt.y;
+            mg_input_state.mouse.x = (int16_t)pt.x;
+            mg_input_state.mouse.y = (int16_t)pt.y;
             mg_app_event event = {
                 .mouse_x = pt.x,
                 .mouse_y = pt.y,
@@ -1431,6 +1465,28 @@ static uint32_t mg_xlib_query_dpi(Display *display, int screen)
     return 96;
 }
 
+static uint32_t mg_xlib_utf8_decode(const char *buf, int len)
+{
+    if (len <= 0) return 0;
+
+    unsigned char b0 = (unsigned char)buf[0];
+
+    if (b0 < 0x80)
+        return b0;
+
+    if ((b0 & 0xE0) == 0xC0 && len >= 2)
+        return ((b0 & 0x1F) << 6) | ((unsigned char)buf[1] & 0x3F);
+
+    if ((b0 & 0xF0) == 0xE0 && len >= 3)
+        return ((b0 & 0x0F) << 12) | (((unsigned char)buf[1] & 0x3F) << 6) | ((unsigned char)buf[2] & 0x3F);
+
+    if ((b0 & 0xF8) == 0xF0 && len >= 4)
+        return ((b0 & 0x07) << 18) | (((unsigned char)buf[1] & 0x3F) << 12) |
+               (((unsigned char)buf[2] & 0x3F) << 6) | ((unsigned char)buf[3] & 0x3F);
+
+    return 0;
+}
+
 int32_t mg_app_run(const mg_app_init_info *info)
 {
     mg_app_state.display = XOpenDisplay(NULL);
@@ -1638,14 +1694,20 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
                     if (pressed)
                     {
-                        char buf[4] = {0};
-                        int len = XLookupString(&xev.xkey, buf, sizeof(buf), NULL, NULL);
-                        if (len == 1 && (unsigned char)buf[0] >= 32) {
-                            mg_app_event event = {
-                                .ch   = buf[0],
-                                .type = MG_APP_EVENT_CHAR
-                            };
-                            mg_app_call_event(&event);
+                        char buf[8] = {0};
+                        int len = XLookupString(&xev.xkey, buf, sizeof(buf) - 1, NULL, NULL);
+                        if (len > 0)
+                        {
+                            uint32_t codepoint = mg_xlib_utf8_decode(buf, len);
+                            if (codepoint != 0)
+                            {
+                                mg_app_event event = {
+                                    .codepoint = codepoint,
+                                    .type = MG_APP_EVENT_CHAR
+                                };
+                                mg_input_state.char_codepoint = codepoint;
+                                mg_app_call_event(&event);
+                            }
                         }
                     }
                 }
@@ -1661,7 +1723,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
                         if (pressed)
                         {
                             int8_t delta = (xev.xbutton.button == Button4) ? 1 : -1;
-                            input_state.mouse.delta = delta;
+                            mg_input_state.mouse.delta = delta;
                             mg_app_event event = {
                                 .scroll_delta = delta,
                                 .type         = MG_APP_EVENT_MOUSE_SCROLL
@@ -1703,8 +1765,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
                 case MotionNotify:
                 {
-                    input_state.mouse.x = xev.xmotion.x;
-                    input_state.mouse.y = xev.xmotion.y;
+                    mg_input_state.mouse.x = xev.xmotion.x;
+                    mg_input_state.mouse.y = xev.xmotion.y;
                     mg_app_event event = {
                         .mouse_x = xev.xmotion.x,
                         .mouse_y = xev.xmotion.y,

@@ -10,11 +10,6 @@ static int naui__char_eq(char a, char b, bool case_sensitive)
     return naui__tolower(a) == naui__tolower(b);
 }
 
-static size_t naui__min_size(size_t a, size_t b)
-{
-    return a < b ? a : b;
-}
-
 static size_t naui__clamp_start_len(size_t total_len, size_t start, size_t len, size_t *out_start)
 {
     if (start > total_len)
@@ -38,7 +33,7 @@ Naui_String naui_string_from_cstr(const char *cstr)
         return result;
 
     size_t src_len = strlen(cstr);
-    size_t copy_len = naui__min_size(src_len, NAUI_STRING_MAX_SIZE - 1);
+    size_t copy_len = NAUI_MIN(src_len, NAUI_STRING_MAX_SIZE - 1);
 
     memcpy(result.data, cstr, copy_len);
     result.data[copy_len] = '\0';
@@ -72,7 +67,7 @@ Naui_String naui_view_to_string(Naui_StringView view)
     if (!view.data || view.length == 0)
         return result;
 
-    size_t copy_len = naui__min_size(view.length, NAUI_STRING_MAX_SIZE - 1);
+    size_t copy_len = NAUI_MIN(view.length, NAUI_STRING_MAX_SIZE - 1);
 
     memcpy(result.data, view.data, copy_len);
     result.data[copy_len] = '\0';
@@ -147,7 +142,7 @@ void naui_string_append_view(Naui_String *dest, Naui_StringView view)
         return;
 
     size_t space_left = (NAUI_STRING_MAX_SIZE - 1) - dest->length;
-    size_t copy_len = naui__min_size(view.length, space_left);
+    size_t copy_len = NAUI_MIN(view.length, space_left);
 
     if (copy_len == 0)
         return;
@@ -199,8 +194,9 @@ void naui_string_append_char(Naui_String *dest, char ch)
     dest->data[dest->length] = '\0';
 }
 
-void naui_string_append_char_at(Naui_String *dest, char ch, size_t index) {
-    if (index > dest->length)
+void naui_string_append_char_at(Naui_String *dest, char ch, size_t index)
+{
+    if (dest->length >= NAUI_STRING_MAX_SIZE - 1 || index > dest->length)
         return;
 
     if (dest->length)

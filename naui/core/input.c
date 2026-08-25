@@ -8,6 +8,11 @@ bool naui_key_pressed(Naui_Key key)
     return mg_app_key_pressed((mg_key)key);
 }
 
+uint32_t naui_app_char_pressed(void)
+{
+    return mg_app_char_pressed();
+}
+
 bool naui_mouse_down(Naui_MouseButton button)
 {
     return mg_app_mouse_down((mg_mouse_button)button);
