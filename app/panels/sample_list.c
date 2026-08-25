@@ -89,7 +89,7 @@ static void uph_sample_list_on_update(void)
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL)
         }) {
             leaf({
-                .image = naui_get_image("uph_icon_plus"),
+                .image = naui_asset_image("uph_icon_plus"),
                 .size = {
                     .width = LEAF_SIZE_PERCENT(0.1f),
                     .height = LEAF_SIZE_DERIVED

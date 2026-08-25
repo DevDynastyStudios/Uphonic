@@ -64,19 +64,19 @@ void naui_app_update(void)
         })
         {
             /*naui_image_button(
-                naui_get_image("uph_icon_select"),
+                naui_asset_image("uph_icon_select"),
                 naui_vec2(15.0f, 15.0f),
                 tool_icon_color
             );
 
             naui_image_button(
-                naui_get_image("uph_icon_draw"),
+                naui_asset_image("uph_icon_draw"),
                 naui_vec2(15.0f, 15.0f),
                 tool_icon_color
             );
 
             naui_image_button(
-                naui_get_image("uph_icon_cut"),
+                naui_asset_image("uph_icon_cut"),
                 naui_vec2(15.0f, 15.0f),
                 tool_icon_color
             );*/
@@ -89,7 +89,7 @@ void naui_app_update(void)
         })
         {
             /*if (naui_image_button(
-                naui_get_image(uph_state.interact.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
+                naui_asset_image(uph_state.interact.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
                 naui_vec2(15.0f, 15.0f),
                 uph_state.interact.song_timeline_playing ?  pause_icon_color : play_icon_color
             ))
@@ -98,7 +98,7 @@ void naui_app_update(void)
             }
 
             if (naui_image_button(
-                naui_get_image("uph_icon_stop"),
+                naui_asset_image("uph_icon_stop"),
                 naui_vec2(15.0f, 15.0f),
                 stop_icon_color
             ))

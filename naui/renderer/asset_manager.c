@@ -126,7 +126,7 @@ void naui_asset_manager_free(void)
     naui_strmap_free(image_hm);
 }
 
-Naui_Image *naui_get_image(const char *const name)
+Naui_Image *naui_asset_image(const char *const name)
 {
     const ptrdiff_t index = naui_strmap_get_index(image_hm, name);
     if (index < 0)

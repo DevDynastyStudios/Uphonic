@@ -682,7 +682,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(8.0f), LEAF_CORNER_ALL)
     })
     {
-        Naui_Image *icon = naui_get_image(NAUI_CLOSE_ICON_TAG);
+        Naui_Image *icon = naui_asset_image(NAUI_CLOSE_ICON_TAG);
         leaf({
             .size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.8f)},
             .color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG),
