@@ -554,9 +554,7 @@ static void uph_song_timeline_render_track_header(uint32_t track_index)
             .child_gap = NAUI_DPI(8.0f)
         })
         {
-            static Naui_String rename_value;
             static int32_t current_rename_index = -1;
-
             Leaf_ID name_id = leaf_id_indexed("uph_track_name", track_index);
 
             if (current_rename_index == track_index)
