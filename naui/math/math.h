@@ -6,23 +6,9 @@
 #define NAUI_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NAUI_MAX(a, b) ((a) > (b) ? (a) : (b))
 
-static inline float naui_lerp(float a, float b, float t)
-{
-	return a + t * (b - a);
-}
+#define NAUI_LERP(a, b, t) ((a) + (t) * ((b) - (a)))
 
-static inline float naui_clamp(float x, float min, float max)
-{
-	return fmaxf(min, fminf(x, max));
-}
+#define NAUI_CLAMP(x, lo, hi) ((x) < (lo) ? (lo) : ((x) > (hi) ? (hi) : (x)))
+#define NAUI_CLAMP01(x) ((x) < 0.0f ? 0.0f : ((x) > 1.0f ? 1.0f : (x)))
 
-static inline float naui_clamp01(float x)
-{
-	return fmaxf(0.0f, fminf(x, 1.0f));
-}
-
-static inline float naui_wrap(float x, float min, float max)
-{
-	float range = max - min;
-	return x - range * floorf((x - min) / range);
-}
+#define NAUI_WRAP(x, lo, hi) ((x) - ((hi) - (lo)) * floorf(((x) - (lo)) / ((hi) - (lo))))

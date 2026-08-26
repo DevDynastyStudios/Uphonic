@@ -120,7 +120,7 @@ static inline uint32_t naui_pack_color(Naui_Color c)
     return ((uint32_t)c.a << 24) | ((uint32_t)c.b << 16) | ((uint32_t)c.g << 8) | (uint32_t)c.r;
 }
 
-static inline Naui_Color naui_lerp_color(Naui_Color a, Naui_Color b, float t)
+static inline Naui_Color NAUI_LERP_color(Naui_Color a, Naui_Color b, float t)
 {
     return (Naui_Color){
         (uint8_t)(a.r + (b.r - a.r) * t),
@@ -210,7 +210,7 @@ static Naui_GradientAxis naui_gradient_axis(Naui_Vec2 tl, Naui_Vec2 br, float an
 static inline float naui_gradient_axis_t(const Naui_GradientAxis *axis, float px, float py)
 {
     float t = (px * axis->dx + py * axis->dy - axis->mn) / axis->range;
-    return naui_clamp01(t);
+    return NAUI_CLAMP01(t);
 }
 
 static inline uint32_t naui_gradient_color_at(const Naui_Gradient *g, const Naui_GradientAxis *axis, float px, float py)
@@ -225,10 +225,10 @@ static inline uint32_t naui_gradient_color_at(const Naui_Gradient *g, const Naui
     else
     {
         t = (t - p1) / (p2 - p1);
-        t = naui_clamp01(t);
+        t = NAUI_CLAMP01(t);
     }
 
-    return naui_pack_color(naui_lerp_color(g->color1, g->color2, t));
+    return naui_pack_color(NAUI_LERP_color(g->color1, g->color2, t));
 }
 
 static inline Naui_ClipRect naui_current_clip(void)
@@ -422,7 +422,7 @@ static Naui_GradientPoly naui_clip_poly_by_t(const Naui_GradientPoly *in, const 
         {
             float denom = t_next - t_cur;
             float f = (fabsf(denom) < 1e-8f) ? 0.0f : (line_t - t_cur) / denom;
-            f = naui_clamp01(f);
+            f = NAUI_CLAMP01(f);
 
             Naui_Vec2 ix = { cur.x + (next.x - cur.x) * f, cur.y + (next.y - cur.y) * f };
             if (out.count < NAUI_GRADIENT_CLIP_MAX_VERTS)
@@ -469,8 +469,8 @@ static void naui_push_gradient_convex(const Naui_Vec2 *verts, int vert_count, co
     Naui_GradientPoly src = { .count = vert_count };
     for (int i = 0; i < vert_count; i++) src.p[i] = verts[i];
 
-    float p1 = naui_clamp01(g->percent1);
-    float p2 = naui_clamp01(g->percent2);
+    float p1 = NAUI_CLAMP01(g->percent1);
+    float p2 = NAUI_CLAMP01(g->percent2);
 
     uint32_t c1 = naui_pack_color(g->color1);
     uint32_t c2 = naui_pack_color(g->color2);
@@ -1353,7 +1353,7 @@ static Naui_TexGradientPoly naui_tex_clip_poly_by_t(const Naui_TexGradientPoly *
         {
             float denom = t_next - t_cur;
             float f = (fabsf(denom) < 1e-8f) ? 0.0f : (line_t - t_cur) / denom;
-            f = naui_clamp01(f);
+            f = NAUI_CLAMP01(f);
 
             Naui_TexGradientVert ix;
             ix.pos.x = cur.pos.x + (next.pos.x - cur.pos.x) * f;
@@ -1432,8 +1432,8 @@ static void naui_push_gradient_convex_textured(const Naui_TexGradientVert *verts
     Naui_TexGradientPoly src = { .count = vert_count };
     for (int i = 0; i < vert_count; i++) src.v[i] = verts[i];
 
-    float p1 = naui_clamp01(g->percent1);
-    float p2 = naui_clamp01(g->percent2);
+    float p1 = NAUI_CLAMP01(g->percent1);
+    float p2 = NAUI_CLAMP01(g->percent2);
 
     uint32_t c1 = naui_pack_color(g->color1);
     uint32_t c2 = naui_pack_color(g->color2);

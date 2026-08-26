@@ -156,13 +156,20 @@ void naui_string_remove(Naui_String *dest, size_t index, size_t size)
 {
     if (index + size > dest->length)
         return;
-    
+
     memmove(
         &dest->data[index],
-        &dest->data[index+size],
+        &dest->data[index + size],
         dest->length - index - size + 1
     );
+
     dest->length -= size;
+
+    memset(
+        &dest->data[dest->length + 1],
+        0,
+        size
+    );
 }
 
 void naui_string_append(Naui_String *dest, Naui_String str)

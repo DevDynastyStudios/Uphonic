@@ -63,8 +63,8 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
         uint64_t block_count = naui_list_len(track->blocks);
 
-        float volume = naui_clamp01(track->volume);
-        float pan = naui_clamp(track->pan, -1.0f, 1.0f);
+        float volume = NAUI_CLAMP01(track->volume);
+        float pan = NAUI_CLAMP(track->pan, -1.0f, 1.0f);
 
         float pan_angle = (pan + 1.0f) * 0.25f * (float)NAUI_PI;
         float gain_left  = volume * cosf(pan_angle) * NAUI_SQRT2;

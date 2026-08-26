@@ -559,8 +559,12 @@ static void uph_song_timeline_render_track_header(uint32_t track_index)
 
             if (current_rename_index == track_index)
             {
-                if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_START_ACTIVE, NULL))
+                if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Untitled Track"))
+                {
+                    if (!track->name.length)
+                        track->name = naui_string_from_cstr("Untitled Track");
                     current_rename_index = -1;
+                }
             }
             else
             {
@@ -652,7 +656,7 @@ static void uph_song_timeline_update_input(void)
                 ((double)naui_mouse_x() + uph_song_timeline_data.scroll.x) / old_zoom_x;
 
             float new_zoom_x = old_zoom_x * (1.0f + wheel_y * UPH_SONG_TIMELINE_ZOOM_SPEED);
-            new_zoom_x = naui_clamp(new_zoom_x, UPH_SONG_TIMELINE_ZOOM_X_MIN, UPH_SONG_TIMELINE_ZOOM_X_MAX);
+            new_zoom_x = NAUI_CLAMP(new_zoom_x, UPH_SONG_TIMELINE_ZOOM_X_MIN, UPH_SONG_TIMELINE_ZOOM_X_MAX);
 
             uph_song_timeline_data.zoom.x = new_zoom_x;
 
@@ -663,7 +667,7 @@ static void uph_song_timeline_update_input(void)
         else if (wheel_y != 0.0f)
         {
             uph_song_timeline_data.scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
-            uph_song_timeline_data.scroll.y = naui_clamp(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
+            uph_song_timeline_data.scroll.y = NAUI_CLAMP(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
         }
     }
 
@@ -685,7 +689,7 @@ static void uph_song_timeline_update_input(void)
         uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
 
         uph_song_timeline_data.scroll.y -= delta.y * UPH_SONG_TIMELINE_PAN_SPEED;
-        uph_song_timeline_data.scroll.y = naui_clamp(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
+        uph_song_timeline_data.scroll.y = NAUI_CLAMP(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
 
         pan_last_mouse = current;
 

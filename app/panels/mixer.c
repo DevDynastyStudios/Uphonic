@@ -67,8 +67,8 @@ static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_
     bool playing = uph_state.shared.song_timeline_playing;
     const float gap = NAUI_DPI(1.0f);
 
-    track->smooth_peak_left  = naui_lerp(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
-    track->smooth_peak_right = naui_lerp(track->smooth_peak_right, playing ? track->peak_right : 0.0f, naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
+    track->smooth_peak_left  = NAUI_LERP(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
+    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, playing ? track->peak_right : 0.0f, naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
 
     float half_width = box.width * 0.5f;
     float bar_width  = half_width - gap * 0.5f;
@@ -100,9 +100,9 @@ static void uph_mixer_render_track(Uph_Track *track)
                 .corners = LEAF_CORNER_ALL
             }
         });
-        leaf_text(track->name.data, {
+        leaf_text(track->name.length ? track->name.data : "Untitled Track", {
             .font_size = NAUI_DPI(12.0f),
-            .color = LEAF_COLOR_WHITE
+            .color = track->name.length ? naui_theme_color("uph_ui_text_color") : naui_theme_color("uph_ui_text_disabled_color")
         });
 
         leaf({

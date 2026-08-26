@@ -135,10 +135,12 @@ void naui_app_update(void)
 
             const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
 
-            leaf_text(bpm.data, {
+            /*leaf_text(bpm.data, {
                 .font_size = NAUI_DPI(13.0f),
                 .color = tool_icon_color
-            });
+            });*/
+
+            uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 10.0f, 1000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
 
             /*leaf_text("Zoom: 10.5%", {
                 .font_size = NAUI_DPI(13.0f),
