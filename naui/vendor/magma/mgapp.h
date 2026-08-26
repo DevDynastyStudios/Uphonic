@@ -1918,7 +1918,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
                                  l = strtok_r(NULL, "\r\n", &sp))
                             {
                                 if (strncmp(l, "file://", 7) == 0)
-                                    paths[count++] = l + 7; // strip scheme, points into `data`
+                                    paths[count++] = l + 7;
                             }
 
                             if (count > 0)
