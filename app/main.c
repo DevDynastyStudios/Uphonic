@@ -89,12 +89,12 @@ void naui_app_update(void)
         })
         {
             /*if (naui_image_button(
-                naui_asset_image(uph_state.interact.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
+                naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
                 naui_vec2(15.0f, 15.0f),
-                uph_state.interact.song_timeline_playing ?  pause_icon_color : play_icon_color
+                uph_state.shared.song_timeline_playing ?  pause_icon_color : play_icon_color
             ))
             {
-                uph_state.interact.song_timeline_playing = !uph_state.interact.song_timeline_playing;
+                uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
             }
 
             if (naui_image_button(
@@ -103,8 +103,8 @@ void naui_app_update(void)
                 stop_icon_color
             ))
             {
-                uph_state.interact.song_timeline_playing = false;
-                uph_state.interact.song_timeline_playhead_position = 0.0;
+                uph_state.shared.song_timeline_playing = false;
+                uph_state.shared.song_timeline_playhead_position = 0.0;
             }*/
         }
 

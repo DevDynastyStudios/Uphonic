@@ -64,7 +64,7 @@ static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_
     Uph_VolumePeaksCustomDrawData *data = (Uph_VolumePeaksCustomDrawData*)user_data;
     Uph_Track *track = data->track;
 
-    bool playing = uph_state.interact.song_timeline_playing;
+    bool playing = uph_state.shared.song_timeline_playing;
     const float gap = NAUI_DPI(1.0f);
 
     track->smooth_peak_left  = naui_lerp(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
@@ -128,7 +128,7 @@ static void uph_mixer_render_track(Uph_Track *track)
 
 static void uph_mixer_on_update(void)
 {
-    /*leaf({
+    leaf({
         .direction = LEAF_DIRECTION_HORIZONTAL,
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
     })
@@ -138,9 +138,5 @@ static void uph_mixer_on_update(void)
             Uph_Track *track = &uph_state.project.tracks[i];
             uph_mixer_render_track(track);
         }
-    }*/
-   static Naui_String str;
-   uph_ui_textfield(&str, leaf_id("hii"), "hiii");
-   static Naui_String str2;
-   uph_ui_textfield(&str2, leaf_id("hii2"), "hiii :3");
+    }
 }

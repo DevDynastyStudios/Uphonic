@@ -127,14 +127,14 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
 
     float *out = (float*)output;
 
-    if (!uph_state.interact.song_timeline_playing)
+    if (!uph_state.shared.song_timeline_playing)
     {
         memset(out, 0, sizeof(float) * 2 * frame_count);
         return;
     }
 
     uint32_t engine_sample_rate = device->sampleRate;
-    double playhead_start_beat = uph_state.interact.song_timeline_playhead_position;
+    double playhead_start_beat = uph_state.shared.song_timeline_playhead_position;
 
     uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count);
 
@@ -142,7 +142,7 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     if (bpm > 0.0f)
     {
         double buffer_beats = uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
-        uph_state.interact.song_timeline_playhead_position = playhead_start_beat + buffer_beats;
+        uph_state.shared.song_timeline_playhead_position = playhead_start_beat + buffer_beats;
     }
 }
 

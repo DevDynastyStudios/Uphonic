@@ -20,7 +20,7 @@ typedef struct
 Uph_GlobalWidgetData;
 static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
-static bool uph_ui_widget_hovered(const Leaf_ID id)
+bool uph_ui_widget_hovered(const Leaf_ID id)
 {
     const bool result = !uph_ui_any_widget_hovered() && (!naui_current_panel() || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
     if (result)
@@ -219,11 +219,11 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     );
 }
 
-#include <stdio.h>
-
-void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placeholder)
+bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
 {
     static Uph_TextfieldData data;
+
+    bool result = false;
 
     const bool hovered = uph_ui_widget_hovered(id);
 
@@ -269,13 +269,16 @@ void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placehol
         case '\x1b':
             data.id.value = 0;
             data.value = NULL;
+            active = false;
             break;
         default:
             naui_string_append_char_at(data.value, (char)codepoint, data.cursor++);
             break;
         }
 
-        if (naui_key_pressed(NAUI_KEY_LEFT))
+        if (naui_key_pressed(NAUI_KEY_ENTER))
+            result = true;
+        else if (naui_key_pressed(NAUI_KEY_LEFT))
             data.cursor = NAUI_MAX(data.cursor - 1, 0);
         else if (naui_key_pressed(NAUI_KEY_RIGHT))
             data.cursor = NAUI_MIN(data.cursor + 1, data.value->length);
@@ -300,7 +303,7 @@ void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placehol
                 .font_size = NAUI_DPI(font_size)
             });
         }
-        else
+        else if (placeholder)
         {
             leaf_text(placeholder, {
                 .color = naui_theme_color("uph_ui_text_disabled_color"),
@@ -321,4 +324,6 @@ void uph_ui_textfield(Naui_String* value, const Leaf_ID id, const char *placehol
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
         });
     }
+
+    return result;
 }

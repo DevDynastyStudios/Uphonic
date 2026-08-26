@@ -230,13 +230,13 @@ typedef struct
     double song_timeline_playhead_position;
     bool song_timeline_playing;
 }
-Uph_InteractionState;
+Uph_SharedState;
 
 typedef struct
 {
 	Uph_Project project;
 	Uph_Settings settings;
-	Uph_InteractionState interact;
+	Uph_SharedState shared;
 
 	uint64_t _last_autosave_time;
 	uint64_t _last_modified_time;
