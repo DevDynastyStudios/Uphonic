@@ -477,19 +477,14 @@ bool naui_string_view_is_empty(Naui_StringView view)
 
 Naui_String naui_string_format(char *const fmt, ...)
 {
-    Naui_String result;
+    Naui_String result = { 0 };
 
     va_list ap;
     va_start(ap, fmt);
     int written = vsnprintf(result.data, NAUI_STRING_MAX_SIZE, fmt, ap);
     va_end(ap);
 
-    if (written < 0)
-    {
-        result.length = 0;
-        result.data[0] = '\0';
-    }
-    else
+    if (written > 0)
         result.length = (size_t)NAUI_MIN(written, NAUI_STRING_MAX_SIZE - 1);
 
     return result;
