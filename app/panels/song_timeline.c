@@ -34,6 +34,7 @@ typedef struct
     Uph_DraggingBlockState drag;
     Leaf_BoundingBox panel_bounding_box;
     bool panel_hovered;
+    bool disable_space_to_play;
 }
 Uph_SongTimelineData;
 
@@ -563,13 +564,17 @@ static void uph_song_timeline_render_track_header(uint32_t track_index)
                 {
                     if (!track->name.length)
                         track->name = naui_string_from_cstr("Untitled Track");
+                    uph_song_timeline_data.disable_space_to_play = false;
                     current_rename_index = -1;
                 }
             }
             else
             {
                 if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_ui_widget_hovered(name_id))
+                {
+                    uph_song_timeline_data.disable_space_to_play = true;
                     current_rename_index = track_index;
+                }
 
                 leaf({
                     .id = name_id
@@ -723,7 +728,7 @@ static void uph_song_timeline_on_update(void)
     uph_song_timeline_data.panel_bounding_box = leaf_get_bounding_box(track_section_id);
     uph_song_timeline_data.panel_hovered = naui_panel_hovered(naui_current_panel());
 
-    if (naui_key_pressed(NAUI_KEY_SPACE) && uph_song_timeline_data.panel_hovered)
+    if (naui_key_pressed(NAUI_KEY_SPACE) && !uph_song_timeline_data.disable_space_to_play && uph_song_timeline_data.panel_hovered)
         uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
     
     uph_song_timeline_update_input();

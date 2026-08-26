@@ -25,9 +25,7 @@ static size_t naui__clamp_start_len(size_t total_len, size_t start, size_t len, 
 
 Naui_String naui_string_from_cstr(const char *cstr)
 {
-    Naui_String result;
-    result.length = 0;
-    result.data[0] = '\0';
+    Naui_String result = { 0 };
 
     if (!cstr)
         return result;
@@ -36,7 +34,6 @@ Naui_String naui_string_from_cstr(const char *cstr)
     size_t copy_len = NAUI_MIN(src_len, NAUI_STRING_MAX_SIZE - 1);
 
     memcpy(result.data, cstr, copy_len);
-    result.data[copy_len] = '\0';
     result.length = copy_len;
 
     return result;
@@ -484,8 +481,16 @@ Naui_String naui_string_format(char *const fmt, ...)
 
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(result.data, NAUI_STRING_MAX_SIZE, fmt, ap);
+    int written = vsnprintf(result.data, NAUI_STRING_MAX_SIZE, fmt, ap);
     va_end(ap);
+
+    if (written < 0)
+    {
+        result.length = 0;
+        result.data[0] = '\0';
+    }
+    else
+        result.length = (size_t)NAUI_MIN(written, NAUI_STRING_MAX_SIZE - 1);
 
     return result;
 }

@@ -27,6 +27,7 @@
     "uph_ui_text_disabled_color": "#404044",
 
     "uph_ui_selection_color": "#6D5CCF",
+    "uph_ui_slider_fill_color": "#6D5CCF",
 
     "uph_ui_dropdown_shadow_color": "#00000025",
     "uph_ui_dropdown_bg_color": "#121214",
