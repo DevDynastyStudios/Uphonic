@@ -75,7 +75,7 @@
 #endif
 
 typedef uint64_t Naui_PanelID;
-typedef void(*NauiPanelEvent)(void *data);
+typedef void(*Naui_PanelEvent)(void);
 
 typedef uint8_t Naui_DockDirection;
 enum
@@ -89,9 +89,11 @@ enum
 
 typedef struct
 {
-    NauiPanelEvent on_attach;
-    NauiPanelEvent on_detach;
-    NauiPanelEvent on_update;
+    Naui_PanelEvent on_attach;
+    Naui_PanelEvent on_detach;
+    Naui_PanelEvent on_open;
+    Naui_PanelEvent on_close;
+    Naui_PanelEvent on_update;
     size_t user_data_size;
     const char *type_name;
 }
@@ -117,8 +119,12 @@ enum
 #define NAUI_FIND_PANEL_OF_TYPE(type_name) naui_find_panel_of_type(#type_name)
 
 NAUI_API Naui_PanelID       naui_attach_panel               (const char *type_name);
-NAUI_API void               naui_detach_panel               (Naui_PanelID id);
+NAUI_API void               naui_detach_panel               (Naui_PanelID panel_id);
 NAUI_API void               naui_register_panel_type        (const char *name, Naui_PanelType type);
+
+NAUI_API void               naui_open_panel                 (Naui_PanelID panel_id);
+NAUI_API void               naui_close_panel                (Naui_PanelID panel_id);
+NAUI_API bool               naui_panel_closed               (Naui_PanelID panel_id);
 
 NAUI_API void               naui_panel_set_title            (Naui_PanelID panel_id, const char *title);
 NAUI_API void               naui_panel_set_size             (Naui_PanelID panel_id, Naui_Vec2 size);
@@ -160,11 +166,15 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
 #define __NAUI_DEFINE_PANEL_TYPE(name, data_size) \
     static void name##_on_attach(void); \
     static void name##_on_detach(void); \
+    static void name##_on_open(void); \
+    static void name##_on_close(void); \
     static void name##_on_update(void); \
     static Naui_PanelType _##name##_events = { \
-        (NauiPanelEvent)name##_on_attach, \
-        (NauiPanelEvent)name##_on_detach, \
-        (NauiPanelEvent)name##_on_update, \
+        (Naui_PanelEvent)name##_on_attach, \
+        (Naui_PanelEvent)name##_on_detach, \
+        (Naui_PanelEvent)name##_on_open, \
+        (Naui_PanelEvent)name##_on_close, \
+        (Naui_PanelEvent)name##_on_update, \
         data_size, \
         #name \
     }; \

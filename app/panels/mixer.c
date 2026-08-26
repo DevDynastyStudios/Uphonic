@@ -17,6 +17,16 @@ static void uph_mixer_on_detach(void)
     
 }
 
+static void uph_mixer_on_open(void)
+{
+    
+}
+
+static void uph_mixer_on_close(void)
+{
+    
+}
+
 static Naui_Gradient uph_mixer_peak_gradient(void)
 {
     return (Naui_Gradient) {

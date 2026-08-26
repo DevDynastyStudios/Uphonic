@@ -45,6 +45,7 @@ struct Naui_PanelNode
     float           split_ratio;
     Naui_SplitAxis  split_axis;
     bool            occluded;
+    bool            closed;
     bool            close_hovered;
 };
 
@@ -115,7 +116,7 @@ Naui_PanelID naui_attach_panel(const char *type_name)
     Naui_PanelNode *prev = naui_panel_manager.current_panel;
     naui_panel_manager.current_panel = node;
     if (node->type.on_attach)
-        node->type.on_attach(node->user_data);
+        node->type.on_attach();
     naui_panel_manager.current_panel = prev;
 
     return (Naui_PanelID)node;
@@ -144,6 +145,35 @@ void naui_panel_enable_flags(Naui_PanelID panel_id, Naui_PanelFlags flags)
 void naui_panel_disable_flags(Naui_PanelID panel_id, Naui_PanelFlags flags)
 {
     ((Naui_PanelNode*)panel_id)->flags &= ~flags;
+}
+
+void naui_open_panel(Naui_PanelID panel_id)
+{
+    Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
+    if (!node->closed)
+        return;
+
+    node->closed = false;
+    if (node->type.on_open)
+        node->type.on_open();
+}
+
+void naui_close_panel(Naui_PanelID panel_id)
+{
+    Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
+    if (node->closed)
+        return;
+
+    node->closed = true;
+    naui_undock_panel(panel_id);
+
+    if (node->type.on_close)
+        node->type.on_close();
+}
+
+bool naui_panel_closed(Naui_PanelID panel_id)
+{
+    return ((Naui_PanelNode*)panel_id)->closed;
 }
 
 void naui_occlude_all_panels(void)
@@ -449,7 +479,7 @@ static void naui_detach_panel_immediate(Naui_PanelNodeWrapper *wrapper)
     Naui_PanelNode *prev = naui_panel_manager.current_panel;
     naui_panel_manager.current_panel = node;
     if (node->type.on_detach)
-        node->type.on_detach(node->user_data);
+        node->type.on_detach();
     naui_panel_manager.current_panel = prev;
 
     if (node->user_data)
@@ -459,9 +489,9 @@ static void naui_detach_panel_immediate(Naui_PanelNodeWrapper *wrapper)
     naui_free_panel_node(node);
 }
 
-void naui_detach_panel(Naui_PanelID id)
+void naui_detach_panel(Naui_PanelID panel_id)
 {
-    Naui_PanelNodeWrapper node_wrapper = { (Naui_PanelNode*)id };
+    Naui_PanelNodeWrapper node_wrapper = { (Naui_PanelNode*)panel_id };
     naui_defer((Naui_DeferredEvent)naui_detach_panel_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
 }
 
@@ -667,7 +697,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
 
     if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT) && naui_panel_hovered((Naui_PanelID)occlusion_node))
     {
-        naui_detach_panel((Naui_PanelID)node);
+        naui_close_panel((Naui_PanelID)node);
         naui_panel_manager.dragging_node = NULL;
     }
 
@@ -749,6 +779,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIXED(font_size)},
         .padding = LEAF_PADDING_AXES(padding.x, padding.y),
         .rounding = { NAUI_DPI(rounding), LEAF_CORNER_TL | LEAF_CORNER_TR },
+        .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .color = bg_color,
         .child_gap = NAUI_DPI(2.0f)
     })
@@ -829,7 +860,7 @@ static inline void naui_render_panel_body(Naui_PanelNode *node)
         Naui_PanelNode *tab = node->tabs ? node->tabs[node->active_tab] : node;
         naui_panel_manager.current_panel = tab;
         if (tab->type.on_update)
-            tab->type.on_update(tab->user_data);
+            tab->type.on_update();
         if (naui_can_show_dock_guides(node))
             naui_render_dock_guides(node);
     }
@@ -1332,7 +1363,8 @@ void naui_render_panels_and_viewport(void)
         naui_update_splits_only(naui_panel_manager.main_viewport);
 
     for (int32_t i = (int32_t)naui_list_len(naui_panel_manager.root_nodes); i-- > 0;)
-        naui_update_panel(naui_panel_manager.root_nodes[i]);
+        if (!naui_panel_manager.root_nodes[i]->closed)
+            naui_update_panel(naui_panel_manager.root_nodes[i]);
     naui_update_main_viewport();
 
     naui_panel_manager.dock_guide_area = (Leaf_BoundingBox){0};
@@ -1345,7 +1377,8 @@ void naui_render_panels_and_viewport(void)
 
     naui_render_main_viewport();
     for (int32_t i = 0; i < (int32_t)naui_list_len(naui_panel_manager.root_nodes); i++)
-        naui_render_panel(naui_panel_manager.root_nodes[i]);
+        if (!naui_panel_manager.root_nodes[i]->closed)
+            naui_render_panel(naui_panel_manager.root_nodes[i]);
 
     naui_render_dock_guide_area();
     naui_panel_manager.current_panel = NULL;

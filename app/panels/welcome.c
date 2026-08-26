@@ -49,6 +49,16 @@ static void uph_welcome_on_detach(void)
 
 }
 
+static void uph_welcome_on_open(void)
+{
+    
+}
+
+static void uph_welcome_on_close(void)
+{
+    
+}
+
 static void uph_welcome_on_update(void)
 {
 	leaf({

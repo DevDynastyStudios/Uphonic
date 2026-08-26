@@ -11,6 +11,16 @@ static void uph_sample_list_on_detach(void)
     
 }
 
+static void uph_sample_list_on_open(void)
+{
+    
+}
+
+static void uph_sample_list_on_close(void)
+{
+    
+}
+
 static void uph_sample_list_waveform(Leaf_BoundingBox box, void **user_data) {
     Uph_Sample* sample = (Uph_Sample*)*user_data;
 

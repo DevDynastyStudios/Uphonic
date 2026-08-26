@@ -87,6 +87,16 @@ static void uph_song_timeline_on_detach(void)
 
 }
 
+static void uph_song_timeline_on_open(void)
+{
+    
+}
+
+static void uph_song_timeline_on_close(void)
+{
+    
+}
+
 static void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x)
 {
     const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");

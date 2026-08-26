@@ -42,8 +42,30 @@ static void uph_menu_edit_dropdown(void)
 
 static void uph_menu_windows_dropdown(void)
 {
-	uph_ui_text_button("Song Timeline", leaf_id("uph_windows_menu_song_timeline"));
-	uph_ui_text_button("Midi Editor", leaf_id("uph_windows_menu_midi_editor"));
+	if (uph_ui_text_button("Song Timeline", leaf_id("uph_windows_menu_song_timeline")))
+	{
+		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_song_timeline);
+		naui_open_panel(panel_id);
+		uph_ui_close_dropdown();
+	}
+	if (uph_ui_text_button("Midi Editor", leaf_id("uph_windows_menu_midi_editor")))
+	{
+		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_midi_editor);
+		naui_open_panel(panel_id);
+		uph_ui_close_dropdown();
+	}
+	if (uph_ui_text_button("Pattern List", leaf_id("uph_windows_menu_pattern_list")))
+	{
+		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_pattern_list);
+		naui_open_panel(panel_id);
+		uph_ui_close_dropdown();
+	}
+	if (uph_ui_text_button("Sample List", leaf_id("uph_windows_menu_sample_list")))
+	{
+		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_sample_list);
+		naui_open_panel(panel_id);
+		uph_ui_close_dropdown();
+	}
 }
 
 void uph_render_main_titlebar(void)

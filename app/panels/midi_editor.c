@@ -77,6 +77,16 @@ static void uph_midi_editor_on_detach(void)
     
 }
 
+static void uph_midi_editor_on_open(void)
+{
+
+}
+
+static void uph_midi_editor_on_close(void)
+{
+
+}
+
 static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_data)
 {
 

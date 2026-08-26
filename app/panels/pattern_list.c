@@ -11,6 +11,16 @@ static void uph_pattern_list_on_detach(void)
     
 }
 
+static void uph_pattern_list_on_open(void)
+{
+    
+}
+
+static void uph_pattern_list_on_close(void)
+{
+    
+}
+
 static void uph_pattern_list_on_update(void)
 {
     
