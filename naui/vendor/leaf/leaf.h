@@ -258,6 +258,15 @@ extern "C" {
         Leaf_Vec2 offset;
     }
     Leaf_Floating;
+
+    typedef uint8_t Leaf_UniformSizing;
+    enum
+    {
+        LEAF_UNIFORM_SIZING_NONE,
+        LEAF_UNIFORM_SIZING_WIDTH,
+        LEAF_UNIFORM_SIZING_HEIGHT,
+        LEAF_UNIFORM_SIZING_BOTH
+    };
     
     typedef struct
     {
@@ -285,6 +294,7 @@ extern "C" {
         float child_cross_gap;
         float aspect_ratio;
         
+        Leaf_UniformSizing uniform_children;
         Leaf_LayoutDirection direction;
         Leaf_Positioning positioning;
         
@@ -1315,6 +1325,64 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
             if (fit_h && !h) parent->bounding_box.height += gap;
         }
     }
+
+    static void leaf_apply_uniform_sizing(Leaf_Node *parent)
+    {
+        const Leaf_ElementConfig *cfg = &parent->element.config;
+        if (cfg->uniform_children == LEAF_UNIFORM_SIZING_NONE)
+            return;
+
+        bool do_w = cfg->uniform_children == LEAF_UNIFORM_SIZING_WIDTH  || cfg->uniform_children == LEAF_UNIFORM_SIZING_BOTH;
+        bool do_h = cfg->uniform_children == LEAF_UNIFORM_SIZING_HEIGHT || cfg->uniform_children == LEAF_UNIFORM_SIZING_BOTH;
+
+        float max_w = 0.0f, max_h = 0.0f;
+
+        LEAF_FOREACH_CHILD(child, parent)
+        {
+            if (child->type != LEAF_NODE_TYPE_ELEMENT) continue;
+            if (child->element.config.positioning != LEAF_POSITIONING_RELATIVE) continue;
+            if (child->element.config.size.width.type  == LEAF_SIZE_TYPE_GROW ||
+                child->element.config.size.width.type  == LEAF_SIZE_TYPE_PERCENT) { /* skip from width vote, still gets stretched below */ }
+            max_w = LEAF_MAX(max_w, child->bounding_box.width);
+            max_h = LEAF_MAX(max_h, child->bounding_box.height);
+        }
+
+        LEAF_FOREACH_CHILD(child, parent)
+        {
+            if (child->type != LEAF_NODE_TYPE_ELEMENT) continue;
+            if (child->element.config.positioning != LEAF_POSITIONING_RELATIVE) continue;
+            const Leaf_ElementConfig *cc = &child->element.config;
+
+            if (do_w && cc->size.width.type != LEAF_SIZE_TYPE_GROW && cc->size.width.type != LEAF_SIZE_TYPE_PERCENT)
+            {
+                child->bounding_box.width = max_w;
+                leaf_element_clamp_min_max(child, cc);
+            }
+            if (do_h && cc->size.height.type != LEAF_SIZE_TYPE_GROW && cc->size.height.type != LEAF_SIZE_TYPE_PERCENT)
+            {
+                child->bounding_box.height = max_h;
+                leaf_element_clamp_min_max(child, cc);
+            }
+        }
+
+        // If the parent direction matches the unified axis and parent is FIT, its size
+        // was summed from pre-unification children — recompute it from the new uniform width.
+        if (do_w && cfg->size.width.type == LEAF_SIZE_TYPE_FIT)
+        {
+            int32_t rel = parent->element.relative_child_count;
+            if (cfg->direction == LEAF_DIRECTION_HORIZONTAL)
+                parent->bounding_box.width = max_w * rel + LEAF_MAX(rel - 1, 0) * cfg->child_gap
+                                            + cfg->padding.left + cfg->padding.right;
+            // vertical case: width already correctly == max_w from recompute_fit, nothing to do
+        }
+        if (do_h && cfg->size.height.type == LEAF_SIZE_TYPE_FIT)
+        {
+            int32_t rel = parent->element.relative_child_count;
+            if (cfg->direction == LEAF_DIRECTION_VERTICAL)
+                parent->bounding_box.height = max_h * rel + LEAF_MAX(rel - 1, 0) * cfg->child_gap
+                                            + cfg->padding.top + cfg->padding.bottom;
+        }
+    }
     
     static void leaf_size_pass(Leaf_Node *parent)
     {
@@ -1421,6 +1489,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_wrap_text_children(parent);
         leaf_resolve_aspect_ratio(parent);
         leaf_recompute_fit(parent);
+        leaf_apply_uniform_sizing(parent);
     }
     
     static void leaf_assign_wrap_offsets(Leaf_Node *parent)

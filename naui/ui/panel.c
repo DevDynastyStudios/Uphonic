@@ -1293,6 +1293,12 @@ static void naui_update_splits_only(Naui_PanelNode *node)
 
 static inline void naui_calculate_and_cache_panel_occlusion(Naui_PanelNode *node)
 {
+    if (naui_panel_manager.occlude_all)
+    {
+        node->occluded = true;
+        return;
+    }
+
     Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed(NAUI_CHILD_PANEL_ID, (Naui_PanelID)node));
     float mx = (float)naui_mouse_x(), my = (float)naui_mouse_y();
     bool in_bounds = mx >= box.x && mx <= box.x + box.width && my >= box.y && my <= box.y + box.height;

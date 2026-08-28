@@ -29,20 +29,28 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
 
         int white_index = uph_white_key_index_before(i);
 
+        const float y_position = box.y + white_index * note_height;
+        if (y_position > box.y + box.height || y_position < box.y)
+            continue;
+
         naui_fill_rect(
             naui_vec2(box.x, box.y + white_index * note_height),
             naui_vec2(box.width, note_height),
             LEAF_COLOR_WHITE,
-            NAUI_DPI(3.0f),
-            LEAF_CORNER_TR | LEAF_CORNER_BR
+            0.0f,
+            LEAF_CORNER_NONE
+            //NAUI_DPI(3.0f),
+            //LEAF_CORNER_TR | LEAF_CORNER_BR
         );
         naui_draw_gradient_rect(
             naui_vec2(box.x, box.y + white_index * note_height),
             naui_vec2(box.width, note_height),
             (Naui_Gradient) { .color1 = leaf_rgb(120, 120, 120), .color2 = LEAF_COLOR_WHITE, .percent1 = 0.8f, .percent2 = 1.0f },
             1.0f,
-            NAUI_DPI(3.0f),
-            LEAF_CORNER_TR | LEAF_CORNER_BR,
+            0.0f,
+            LEAF_CORNER_NONE,
+            //NAUI_DPI(3.0f),
+            //LEAF_CORNER_TR | LEAF_CORNER_BR,
             NAUI_SIDE_TOP | NAUI_SIDE_BOTTOM | NAUI_SIDE_RIGHT
         );
     }
@@ -60,8 +68,10 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
             naui_vec2(box.x, key_y),
             naui_vec2(black_key_width, black_key_height),
             (Naui_Gradient){ .color1 = leaf_rgb(20, 20, 20), .color2 = leaf_rgb(60, 60, 60), .percent1 = 0.75f, .percent2 = 1.0f },
-            NAUI_DPI(2.0f),
-            LEAF_CORNER_TR | LEAF_CORNER_BR
+            //NAUI_DPI(2.0f),
+            0.0f,
+            LEAF_CORNER_NONE
+            //LEAF_CORNER_TR | LEAF_CORNER_BR
         );
     }
 }

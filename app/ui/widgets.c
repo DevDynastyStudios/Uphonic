@@ -58,7 +58,7 @@ static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
-    const bool result = !uph_ui_any_widget_hovered() && (!naui_current_panel() || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
+    const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
     if (result)
         uph_global_widget_data.any_widget_hovered = true;
     return result;
@@ -71,21 +71,33 @@ bool uph_ui_any_widget_hovered(void)
 
 static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
 {
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+
     leaf({
         .id = node->element_id,
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+        .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_X_CENTER},
+        .color = leaf_hovered(node->element_id) ?
+            naui_theme_color("uph_ui_frame_hovered_bg_color") :
+            LEAF_COLOR_TRANSPARENT,
+        .child_gap = NAUI_DPI(8.0f),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
-    {
+    {    
         leaf_text(node->text, {
-            .color = naui_theme_color("uph_ui_text_color"),
+            .color = text_color,
             .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
         });
         if (node->first_child)
+        {
             leaf({
                 .size = {LEAF_SIZE_FIXED(8.0f), LEAF_SIZE_FIXED(8.0f)},
-                .color = LEAF_COLOR_WHITE
+                .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
+                .color = text_color
             });
+        }
     }
 }
 
@@ -109,11 +121,16 @@ static bool uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
 static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset)
 {
     leaf({
-        .color = LEAF_COLOR_BLACK,
-        .size = {LEAF_SIZE_FIXED(NAUI_DPI(100.0f)), LEAF_SIZE_FIT},
+        .color = naui_theme_color("uph_ui_dropdown_bg_color"),
         .floating = {
             .offset = {position_offset.x, position_offset.y}
         },
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+        .shadow = {
+            .blur_radius = NAUI_DPI(16.0f),
+            .color = naui_theme_color("uph_ui_dropdown_shadow_color")
+        },
+        .uniform_children = LEAF_UNIFORM_SIZING_WIDTH,
         .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
     })
     {
@@ -172,13 +189,17 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
     menu->element_id = element_id;
 
-    if (data->current_open_menu && uph_ui_widget_hovered(element_id))
-        data->current_open_menu = menu;
-    else if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_ui_widget_hovered(element_id))
+    const bool hovered = uph_ui_widget_hovered(element_id);
+    if ((data->current_open_menu || naui_mouse_pressed(NAUI_MOUSE_LEFT)) && hovered)
         data->current_open_menu = menu;
 
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     leaf({
-        .id = element_id
+        .id = element_id,
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = (data->current_open_menu == menu || hovered) ?
+            naui_theme_color("uph_ui_frame_hovered_bg_color") : LEAF_COLOR_TRANSPARENT,
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL)
     })
     {
         leaf_text(name, {
