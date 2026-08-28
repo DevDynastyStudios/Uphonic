@@ -42,6 +42,37 @@ static Uph_SongTimelineData uph_song_timeline_data;
 
 NAUI_PANEL(uph_song_timeline)
 
+static double uph_snap_beat_to_grid(double beat, uint32_t time_sig_numerator, uint32_t beat_snap_interval)
+{
+	double grid_size = (double)time_sig_numerator / (double)beat_snap_interval;
+	double snapped = ceil(beat / grid_size) * grid_size;
+	return snapped;
+}
+
+static Uph_TimelineBlock uph_song_timeline_create_block(double start_beat, uint32_t resource_index, Uph_TimelineBlockType block_type)
+{
+	Uph_TimelineBlock block = {
+		.start_beat = start_beat,
+		.resource_index = resource_index,
+		.type = block_type
+	};
+
+	switch(block_type)
+	{
+		case UPH_TIMELINE_BLOCK_SAMPLE:
+		    Uph_Sample *sample = &uph_state.project.samples[resource_index];
+            Uph_SampleData *sample_data = &uph_state.project.sample_data[sample->data_index];
+			double beats = ceil(uph_frames_to_beats(sample_data->frame_count, uph_state.settings.audio.sample_rate, uph_state.project.bpm));
+			block.length_beats = beats;
+		break;
+
+		case UPH_TIMELINE_BLOCK_PATTERN:
+		break;
+	}
+
+	return block;
+}
+
 static void uph_song_timeline_on_attach(void)
 {
     Naui_PanelID panel = naui_current_panel();
@@ -69,14 +100,9 @@ static void uph_song_timeline_on_attach(void)
     track.color = naui_theme_color("uph_palette_color_8");
     naui_list_push(uph_state.project.tracks, track);
 
-    uph_resources_add_sample_from_file(NAUI_PATH("change this to your sample"));
+    uph_resources_add_sample_from_file(NAUI_PATH("C:\\Users\\champ\\Music\\Toby Fox\\Deltarune OST： 13 - Field of Hopes and Dreams.wav"));
+    Uph_TimelineBlock block = uph_song_timeline_create_block(0.0, 0, UPH_TIMELINE_BLOCK_SAMPLE);
 
-    Uph_TimelineBlock block = {
-        .start_beat = 3.0f,
-        .length_beats = 5.0f,
-        .resource_index = 0,
-        .type = UPH_TIMELINE_BLOCK_SAMPLE
-    };
     naui_list_push(uph_state.project.tracks[0].blocks, block);
 
     uph_song_timeline_data.scroll = naui_vec2(0.0f, 0.0f);
