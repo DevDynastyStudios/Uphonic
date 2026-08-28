@@ -100,10 +100,8 @@ static void uph_song_timeline_on_attach(void)
     track.color = naui_theme_color("uph_palette_color_8");
     naui_list_push(uph_state.project.tracks, track);
 
-    uph_resources_add_sample_from_file(NAUI_PATH("C:\\Users\\champ\\Music\\Toby Fox\\Deltarune OST： 13 - Field of Hopes and Dreams.wav"));
-    Uph_TimelineBlock block = uph_song_timeline_create_block(0.0, 0, UPH_TIMELINE_BLOCK_SAMPLE);
-
-    naui_list_push(uph_state.project.tracks[0].blocks, block);
+    uph_resources_add_sample_from_file(NAUI_PATH("/home/box/Downloads/Project_24_2.flac"));
+    naui_list_push(uph_state.project.tracks[0].blocks, uph_song_timeline_create_block(0.0, 0, UPH_TIMELINE_BLOCK_SAMPLE));
 
     uph_song_timeline_data.scroll = naui_vec2(0.0f, 0.0f);
     uph_song_timeline_data.zoom = naui_vec2(32.0f, 90.0f);

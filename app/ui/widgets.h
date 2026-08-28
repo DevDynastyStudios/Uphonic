@@ -32,7 +32,10 @@ Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, c
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
 
 bool uph_ui_text_button(const char *string, const Leaf_ID id);
+bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint);
+
 bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabled);
+bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, bool *enabled);
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder);
 

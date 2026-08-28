@@ -132,11 +132,19 @@ typedef struct
 }
 Uph_SampleData;
 
+typedef uint8_t Uph_SampleMode;
+enum
+{
+	UPH_SAMPLE_RESAMPLE,
+	UPH_SAMPLE_STRETCH
+};
+
 typedef struct
 {
 	Naui_String name;
-	double stretch_scale;
+	double time_scale;
 	Uph_ResourceIndex data_index;
+	Uph_SampleMode mode;
 }
 Uph_Sample;
 

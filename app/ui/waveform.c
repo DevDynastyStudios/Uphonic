@@ -18,7 +18,7 @@ void uph_ui_waveform_zoomable(
     if (peak_count == 0)
         return;
 
-    const double stretch_scale = (sample->stretch_scale > 0.0) ? sample->stretch_scale : 1.0;
+    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
     const float bpm = uph_state.project.bpm;
     if (bpm <= 0.0f)
         return;
@@ -47,7 +47,7 @@ void uph_ui_waveform_zoomable(
     for (int32_t x = x_start; x < x_end; x++)
     {
         double normalized_zoom = (double)(x) / zoom;
-        double source_beats = normalized_zoom / stretch_scale + start_offset;
+        double source_beats = normalized_zoom / time_scale + start_offset;
         double source_seconds = uph_beats_to_seconds(source_beats, bpm);
         double source_frame_pos = source_seconds * (double)sample_rate;
 

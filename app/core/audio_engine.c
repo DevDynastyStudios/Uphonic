@@ -86,7 +86,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
             Uph_Sample *sample = &project->samples[block->resource_index];
             Uph_SampleData *sample_data = &project->sample_data[sample->data_index];
 
-            double stretch_scale = (sample->stretch_scale > 0.0) ? sample->stretch_scale : 1.0;
+            double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
 
             for (uint32_t f = 0; f < frame_count; f++)
             {
@@ -96,7 +96,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
                 if (beats_into_block < 0.0 || beats_into_block >= block->length_beats)
                     continue;
 
-                double source_beats = beats_into_block / stretch_scale + block->start_offset_beats;
+                double source_beats = beats_into_block / time_scale + block->start_offset_beats;
                 double source_seconds = uph_beats_to_seconds(source_beats, bpm);
                 double source_frame_pos = source_seconds * (double)uph_state.settings.audio.sample_rate;
 
