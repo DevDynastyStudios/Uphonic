@@ -326,47 +326,6 @@ static char* find_last_char(Naui_StringView sv, char c)
 	return NULL;
 }
 
-Naui_StringView naui_file_filename(const Naui_Path* path)
-{
-	const char* start = path->data;
-	const char* last_sep = NULL;
-	const char* p = start;
-	for (; *p; ++p)
-	{
-		if (is_separator(*p))
-			last_sep = p;
-	}
-
-	const char* filename_start = last_sep ? last_sep + 1 : start; 
-	return (Naui_StringView){
-		.data = (char*)filename_start,
-		.length = (size_t)(p - filename_start)
-	};
-}
-
-Naui_StringView naui_file_stem(const Naui_Path *path)
-{
-	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = find_last_char(filename, '.');
-
-	if (!dot || dot == filename.data)
-		return filename;
-
-	return naui_sub_string_view(filename, 0, (size_t)(dot - filename.data));
-}
-
-Naui_StringView naui_file_extension(const Naui_Path *path)
-{
-	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = find_last_char(filename, '.');
-
-	if (!dot || dot == filename.data)
-		return (Naui_StringView){ 0 };
-
-	size_t offset = (size_t)(dot - filename.data);
-	return naui_sub_string_view(filename, offset, filename.length - offset);
-}
-
 bool naui_directory_create(const Naui_Path path)
 {
 	return mkdir(path.data, 0755) == 0 || errno == EEXIST;
@@ -437,6 +396,7 @@ Naui_Path naui_directory_get(const Naui_Dir directory)
 	static char s_home[NAUI_PATH_MAX] = {0};
 	static char s_bin[NAUI_PATH_MAX] = {0};
 	static char s_appdata[NAUI_PATH_MAX] = {0};
+	static char s_roaming[NAUI_PATH_MAX] = {0};
 	static char s_downloads[NAUI_PATH_MAX] = {0};
 	static char s_temp[NAUI_PATH_MAX] = {0};
 
@@ -490,23 +450,46 @@ Naui_Path naui_directory_get(const Naui_Dir directory)
 		{
 			if (s_appdata[0])
 				return path_from(s_appdata);
-
-#ifdef __APPLE__
+		
+		#ifdef __APPLE__
 			const char* h = getenv("HOME");
 			if (h)
-				snprintf(s_appdata, sizeof(s_appdata), "%s/Library/Application Support", h);
-#else
-			const char* xdg = getenv("XDG_DATA_HOME");
+				snprintf(s_appdata, sizeof(s_appdata), "%s/Library/Caches", h);
+		#else
+			const char* xdg = getenv("XDG_CACHE_HOME");
 			if (xdg)
 				snprintf(s_appdata, sizeof(s_appdata), "%s", xdg);
 			else
 			{
 				const char* h = getenv("HOME");
 				if (h)
-					snprintf(s_appdata, sizeof(s_appdata), "%s/.local/share", h);
+					snprintf(s_appdata, sizeof(s_appdata), "%s/.cache", h);
+			}
+		#endif
+		
+			return path_from(s_appdata);
+		}
+		case NAUI_DIR_ROAMING:
+		{
+			if (s_roaming[0])
+				return path_from(s_roaming);
+
+#ifdef __APPLE__
+			const char* h = getenv("HOME");
+			if (h)
+				snprintf(s_roaming, sizeof(s_roaming), "%s/Library/Application Support", h);
+#else
+			const char* xdg = getenv("XDG_DATA_HOME");
+			if (xdg)
+				snprintf(s_roaming, sizeof(s_roaming), "%s", xdg);
+			else
+			{
+				const char* h = getenv("HOME");
+				if (h)
+					snprintf(s_roaming, sizeof(s_roaming), "%s/.local/share", h);
 			}
 #endif
-			return path_from(s_appdata);
+			return path_from(s_roaming);
 		}
 		case NAUI_DIR_DOWNLOADS:
 		{
@@ -582,12 +565,6 @@ Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char*
 	return list;
 }
 
-void naui_directory_filter_free(Naui_List(Naui_DirEntry) list)
-{
-	if (list)
-		naui_list_free(list);
-}
-
 bool naui_path_set_current(const Naui_Path path)
 {
 	if (path.data[0] == '\0')
@@ -613,24 +590,6 @@ bool naui_path_is_directory(const Naui_Path path)
 		return false;
 
 	return S_ISDIR(st.st_mode);
-}
-
-bool naui_path_is_empty(const Naui_Path path)
-{
-	return path.data[0] == '\0';
-}
-
-Naui_Path naui_path_from_cstr(const char* str)
-{
-	Naui_Path p;
-	if (!str)
-	{
-		p.data[0] = '\0';
-		return p;
-	}
-
-	snprintf(p.data, NAUI_PATH_MAX, "%s", str);
-	return p;
 }
 
 Naui_Path naui_path_parent(const Naui_Path path)
@@ -661,71 +620,6 @@ Naui_Path naui_path_parent(const Naui_Path path)
 	Naui_Path result;
 	memcpy(result.data, path.data, parent_len);
 	result.data[parent_len] = '\0';
-	return result;
-}
-
-Naui_Path naui_path_join(const Naui_Path a, const Naui_Path b)
-{
-	const char* parts[] = { a.data, b.data, NULL };
-	return naui_path_join_parts(parts);
-}
- 
-Naui_Path naui_path_join_parts(const char** parts)
-{
-	Naui_Path result;
-	result.data[0] = '\0';
-	if (!parts)
-		return result;
- 
-	size_t out_len = 0;
-	for (int i = 0; parts[i] != NULL; ++i)
-	{
-		const char* part = parts[i];
-		if (!part)
-			continue;
- 
-		size_t part_len = strlen(part);
-		if (part_len == 0)
-			continue;
- 
-		size_t start = 0;
-		if (out_len > 0)
-		{
-			while (start < part_len && is_separator(part[start]))
-			{
-				++start;
-			}
-		}
- 
-		size_t end = part_len;
-		while (end > start && is_separator(part[end - 1]))
-		{
-			--end;
-		}
- 
-		if (start >= end)
-			continue;
- 
-		if (out_len > 0 && !is_separator(result.data[out_len - 1]))
-		{
-			if (out_len + 1 >= NAUI_PATH_MAX)
-				break;
- 
-			result.data[out_len++] = '/';
-		}
- 
-		size_t copy_len = end - start;
-		if (out_len + copy_len >= NAUI_PATH_MAX)
-			copy_len = NAUI_PATH_MAX - 1 - out_len;
- 
-		memcpy(result.data + out_len, part + start, copy_len);
-		out_len += copy_len;
- 
-		if (out_len >= NAUI_PATH_MAX - 1)
-			break;
-	}
- 
-	result.data[out_len] = '\0';
 	return result;
 }
 

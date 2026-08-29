@@ -1,8 +1,10 @@
 #ifndef NAUI_PATH_MAX
 #if defined(_WIN32) || defined(_WIN64)
 #	define NAUI_PATH_MAX 1024
+#	define NAUI_PATH_SEP '\\'
 #else
 #	define NAUI_PATH_MAX 4096
+#	define NAUI_PATH_SEP '/'
 #endif
 #endif
 
@@ -20,6 +22,7 @@ enum
 	NAUI_DIR_BIN,
 	NAUI_DIR_WORKING,
 	NAUI_DIR_APPDATA,
+	NAUI_DIR_ROAMING,
 	NAUI_DIR_DOWNLOADS,
 	NAUI_DIR_TEMP,
 	NAUI_DIR_CACHE,
@@ -66,6 +69,8 @@ bool naui_file_is_valid(const Naui_FileHandle* handle);
 
 void naui_file_close(Naui_FileHandle* handle);
 
+bool naui_file_copy(const Naui_Path file_path, const Naui_Path dest_path);
+
 /* Returns file size in bytes, or 0 on error. */
 size_t naui_file_size(const Naui_Path path);
 
@@ -99,6 +104,7 @@ bool naui_directory_create(const Naui_Path path);
 bool naui_directory_remove(const Naui_Path path);
 bool naui_directory_remove_all(const Naui_Path path);
 bool naui_directory_rename(const Naui_Path old_path, const Naui_Path new_path);
+bool naui_directories_create(const Naui_Path path);
 
 /* Returns a Naui_Path for a well-known directory.
  * Returns an empty Naui_Path on failure. */
@@ -114,6 +120,8 @@ Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, c
 
 /* Frees the list returned by naui_directory_filter. */
 void naui_directory_filter_free(Naui_List(Naui_DirEntry) list);
+
+bool naui_directories_create(const Naui_Path path);
 
 bool naui_path_set_current(const Naui_Path current_directory);
 
