@@ -114,6 +114,7 @@
 #include "filesystem/filesystem_win32.c"
 #include "filesystem/iterator_win32.c"
 #include "filesystem/filesystem_unix.c"
+#include "filesystem/filesystem_common.c"
 #include "filesystem/archive.c"
 
 #include "localization/localization.c"
