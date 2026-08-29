@@ -21,15 +21,36 @@ static void uph_sample_list_on_close(void)
     
 }
 
-static void uph_sample_list_waveform(Leaf_BoundingBox box, void **user_data) {
+static void uph_sample_list_waveform(Leaf_BoundingBox box, void **user_data)
+{
     Uph_Sample* sample = (Uph_Sample*)*user_data;
+    Uph_SampleData *sample_data = &uph_state.project.sample_data[sample->data_index];
+
+    if (!sample_data || sample_data->frame_count == 0)
+        return;
+
+    const float bpm = uph_state.project.bpm;
+    if (bpm <= 0.0f || box.width <= 0.0f)
+        return;
+
+    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const uint32_t sample_rate = uph_state.settings.audio.sample_rate;
+
+    const double total_seconds = (double)sample_data->frame_count / (double)sample_rate;
+    const double total_beats = uph_seconds_to_beats(total_seconds, bpm);
+
+    if (total_beats <= 0.0)
+        return;
+
+    const double zoom = (double)box.width / (total_beats * time_scale);
+    const double start_offset = 0.0;
 
     uph_ui_waveform_zoomable(
         (Naui_Vec2) { box.x, box.y },
         (Naui_Vec2) { box.width, box.height },
         LEAF_COLOR_WHITE,
-        1.0,
-        0.0,
+        zoom,
+        start_offset,
         box,
         sample
     );
@@ -53,6 +74,12 @@ static void uph_sample_list_on_update(void)
             Uph_Sample *sample = &uph_state.project.samples[i];
 
             const Leaf_ID sample_id = leaf_id_indexed("uph_sample_list_sample", i);
+            if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_ui_widget_hovered(sample_id))
+            {
+                uph_state.shared.selected_resource.index = i;
+                uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+            }
+
             leaf({
                 .id = sample_id,
                 .custom_draw = (Leaf_CustomDrawFn)uph_sample_list_waveform,
@@ -64,7 +91,7 @@ static void uph_sample_list_on_update(void)
                 .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
                 .aspect_ratio = 2.2f,
                 .border = {
-                    .width = NAUI_DPI(1.0f),
+                    .width = NAUI_DPI(uph_state.shared.selected_resource.index == i ? 3.0f : 1.0f),
                     .sides = LEAF_SIDE_ALL,
                     .color = leaf_rgb(145, 111, 205)
                 },

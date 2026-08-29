@@ -89,11 +89,13 @@ enum
 typedef uint32_t Uph_ResourceIndex;
 
 // :project
-typedef uint8_t Uph_TimelineBlockType;
+typedef uint8_t Uph_ResourceType;
 enum
 {
-    UPH_TIMELINE_BLOCK_SAMPLE,
-    UPH_TIMELINE_BLOCK_PATTERN
+	UPH_RESOURCE_NONE,
+	UPH_RESOURCE_SAMPLE,
+	UPH_RESOURCE_PATTERN,
+	UPH_RESOURCE_AUTOMATION
 };
 
 typedef struct
@@ -102,7 +104,7 @@ typedef struct
 	double start_offset_beats;
 	double length_beats;
     Uph_ResourceIndex resource_index;
-    Uph_TimelineBlockType type;
+    Uph_ResourceType type;
 }
 Uph_TimelineBlock;
 
@@ -165,14 +167,6 @@ typedef struct
 }
 Uph_MidiPattern;
 
-typedef enum
-{
-	UPH_TRACK_NONE,
-	UPH_TRACK_AUDIO,
-	UPH_TRACK_MIDI
-}
-Uph_TrackType;
-
 typedef uint8_t Uph_TrackState;
 enum
 {
@@ -186,7 +180,7 @@ typedef struct
 {
 	Naui_String name;
 	Naui_Color color;
-	Uph_TrackType type;
+	Uph_ResourceType type;
 	Naui_List(Uph_TimelineBlock) blocks;
 	// Add Effects
 	float volume;
@@ -242,10 +236,24 @@ typedef struct
 }
 Uph_Settings;
 
+typedef uint8_t Uph_ActionMode;
+enum
+{
+	UPH_ACTION_SELECT,
+	UPH_ACTION_DRAW,
+	UPH_ACTION_CUT
+};
+
 typedef struct
 {
     double song_timeline_playhead_position;
     bool song_timeline_playing;
+	struct
+	{
+		Uph_ResourceIndex index;
+		Uph_ResourceType type;
+	}
+	selected_resource;
 }
 Uph_SharedState;
 

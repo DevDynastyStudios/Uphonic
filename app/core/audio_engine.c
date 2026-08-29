@@ -77,7 +77,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         {
             Uph_TimelineBlock *block = &track->blocks[b];
 
-            if (block->type != UPH_TIMELINE_BLOCK_SAMPLE)
+            if (block->type != UPH_RESOURCE_SAMPLE)
                 continue;
 
             if (block->resource_index >= naui_list_len(project->samples))

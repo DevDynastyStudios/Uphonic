@@ -1,5 +1,6 @@
-#define NAUI_RENDERER_MAX_VERTICES (1 << 18)
-#define NAUI_RENDERER_MAX_INDICES (NAUI_RENDERER_MAX_VERTICES * 6 / 4)
+#define NAUI_RENDERER_INITIAL_VERTICES (1 << 13)
+#define NAUI_RENDERER_INITIAL_INDICES  (NAUI_RENDERER_INITIAL_VERTICES * 6 / 4)
+
 #define NAUI_RENDERER_CORNER_SEGMENTS 8
 
 #define NAUI_FONT_MAX_SLOTS         4
@@ -79,13 +80,15 @@ Naui_FontBake;
 
 typedef struct
 {
-    Naui_BatchVertex vertices[NAUI_RENDERER_MAX_VERTICES];
+    Naui_BatchVertex *vertices;
     uint32_t vertex_count;
     uint32_t vertex_offset;
+    uint32_t vertex_capacity;
 
-    uint32_t indices[NAUI_RENDERER_MAX_INDICES];
+    uint32_t *indices;
     uint32_t index_count;
     uint32_t index_offset;
+    uint32_t index_capacity;
 
     mgfx_pipeline base_pipeline;
     mgfx_buffer batch_vb, batch_ib;
@@ -262,10 +265,66 @@ static void naui_renderer_flush(void)
     rdata->index_offset = rdata->index_count;
 }
 
+static bool naui_renderer_grow_vertices(uint32_t need_count)
+{
+    uint32_t new_cap = rdata->vertex_capacity;
+    while (new_cap < need_count)
+        new_cap *= 2;
+
+    Naui_BatchVertex *new_verts = realloc(rdata->vertices, new_cap * sizeof(Naui_BatchVertex));
+    if (!new_verts)
+        return false;
+    rdata->vertices = new_verts;
+    rdata->vertex_capacity = new_cap;
+
+    mgfx_destroy_buffer(rdata->batch_vb);
+    rdata->batch_vb = mgfx_create_buffer(&(mgfx_buffer_create_info){
+        .usage  = MGFX_BUFFER_USAGE_VERTEX,
+        .memory = MGFX_MEMORY_SHARED,
+        .size   = new_cap * sizeof(Naui_BatchVertex)
+    });
+    mgfx_bind_vertex_buffer(rdata->batch_vb);
+    return true;
+}
+
+static bool naui_renderer_grow_indices(uint32_t need_count)
+{
+    uint32_t new_cap = rdata->index_capacity;
+    while (new_cap < need_count)
+        new_cap *= 2;
+
+    uint32_t *new_idx = realloc(rdata->indices, new_cap * sizeof(uint32_t));
+    if (!new_idx)
+        return false;
+    rdata->indices = new_idx;
+    rdata->index_capacity = new_cap;
+
+    mgfx_destroy_buffer(rdata->batch_ib);
+    rdata->batch_ib = mgfx_create_buffer(&(mgfx_buffer_create_info){
+        .usage  = MGFX_BUFFER_USAGE_INDEX,
+        .memory = MGFX_MEMORY_SHARED,
+        .size   = new_cap * sizeof(uint32_t)
+    });
+    mgfx_bind_index_buffer(rdata->batch_ib, MGFX_INDEX_TYPE_UINT32);
+    return true;
+}
+
 static inline bool naui_renderer_reserve(uint32_t vert_needed, uint32_t idx_needed)
 {
-    if (rdata->vertex_count + vert_needed > NAUI_RENDERER_MAX_VERTICES) return false;
-    if (rdata->index_count  + idx_needed  > NAUI_RENDERER_MAX_INDICES)  return false;
+    uint32_t need_v = rdata->vertex_count + vert_needed;
+    uint32_t need_i = rdata->index_count  + idx_needed;
+
+    if (need_v <= rdata->vertex_capacity && need_i <= rdata->index_capacity)
+        return true;
+
+    naui_renderer_flush();
+
+    if (need_v > rdata->vertex_capacity)
+        if (!naui_renderer_grow_vertices(need_v)) return false;
+
+    if (need_i > rdata->index_capacity)
+        if (!naui_renderer_grow_indices(need_i)) return false;
+
     return true;
 }
 
@@ -574,16 +633,22 @@ void naui_renderer_initialize(void)
         s_sin[i] = sinf(a);
     }
 
+    rdata->vertex_capacity = NAUI_RENDERER_INITIAL_VERTICES;
+    rdata->vertices = malloc(rdata->vertex_capacity * sizeof(Naui_BatchVertex));
+
+    rdata->index_capacity = NAUI_RENDERER_INITIAL_INDICES;
+    rdata->indices = malloc(rdata->index_capacity * sizeof(uint32_t));
+
     rdata->batch_vb = mgfx_create_buffer(&(mgfx_buffer_create_info){
         .usage  = MGFX_BUFFER_USAGE_VERTEX,
         .memory = MGFX_MEMORY_SHARED,
-        .size   = sizeof(rdata->vertices)
+        .size   = rdata->vertex_capacity * sizeof(Naui_BatchVertex)
     });
 
     rdata->batch_ib = mgfx_create_buffer(&(mgfx_buffer_create_info){
         .usage  = MGFX_BUFFER_USAGE_INDEX,
         .memory = MGFX_MEMORY_SHARED,
-        .size   = sizeof(rdata->indices)
+        .size   = rdata->index_capacity * sizeof(uint32_t)
     });
 
     rdata->base_pipeline = mgfx_create_pipeline(&(mgfx_pipeline_create_info){
@@ -652,6 +717,8 @@ void naui_renderer_shutdown(void)
     mgfx_destroy_buffer(rdata->batch_ib);
     mgfx_destroy_pipeline(rdata->base_pipeline);
     mgfx_shutdown();
+    free(rdata->vertices);
+    free(rdata->indices);
     free(rdata);
 }
 

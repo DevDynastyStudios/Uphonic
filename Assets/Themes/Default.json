@@ -52,7 +52,8 @@
 	"uph_track_bg2_color": "#141416",
 
 	"uph_track_text_color": "#D9D9DE",
-	"uph_track_font_size": 12.0,
+	"uph_track_font_size": 14.0,
+	"uph_track_icon_size": 18.0,
 
     "uph_track_grid_beat_color": "#2A2A3045",
     "uph_track_grid_bar_color": "#33333CB0",
