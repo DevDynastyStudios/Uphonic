@@ -94,6 +94,7 @@ void naui_app_start(void)
 		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
 	));
 
+	uph_project_create(naui_string_from_cstr("Test Project"));
 }
 
 void naui_app_end(void)
@@ -150,44 +151,23 @@ void naui_app_update(void)
 			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 			.child_gap = NAUI_DPI(4.0f)
-		})
-		{
-			/*if (naui_image_button(
-				naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
-				naui_vec2(15.0f, 15.0f),
-				uph_state.shared.song_timeline_playing ?  pause_icon_color : play_icon_color
-			))
-			{
-				uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
-			}
-
-			if (naui_image_button(
-				naui_asset_image("uph_icon_stop"),
-				naui_vec2(15.0f, 15.0f),
-				stop_icon_color
-			))
-			{
-				uph_state.shared.song_timeline_playing = false;
-				uph_state.shared.song_timeline_playhead_position = 0.0;
-			}*/
-		}
+		});
 
 
 		leaf({
 			.direction = LEAF_DIRECTION_HORIZONTAL,
 			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(10.0f)
+			.child_gap = NAUI_DPI(8.0f)
 		})
 		{
-			// metronome
-			// TODO(doomguy): replace text with metronome icon
 			{
 				static bool metronome_enabled;
 				const bool metronome_was_enabled = metronome_enabled;
+				const Naui_Vec2 icon_size = { 16, 16 };
 
 				if (metronome_enabled) {
-					if (uph_ui_text_button("bpm button", leaf_id("uph_bpm_button"))) {
+					if (uph_ui_widget_button(naui_asset_image("uph_icon_tappad"), leaf_id("uph_bpm_button"), naui_vec2_scale(icon_size, 2.0f), tool_icon_color, NAUI_CURSOR_HAND)) {
 						float bpm;
 						if (_uph_metronome_tap(&bpm)) {
 							uph_state.project.bpm = bpm;
@@ -195,7 +175,7 @@ void naui_app_update(void)
 					}
 				}
 
-				if (uph_ui_text_toggle_button("metronome enable", leaf_id("uph_metronome_toggle"), metronome_enabled))
+				if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_metronome"), leaf_id("uph_metronome_toggle"), icon_size, tool_icon_color, metronome_enabled))
 					metronome_enabled = !metronome_enabled;
 
 				if (metronome_enabled && !metronome_was_enabled) {
@@ -203,21 +183,17 @@ void naui_app_update(void)
 				}
 			}
 
-			const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
-
-			/*leaf_text(bpm.data, {
-				.font_size = NAUI_DPI(13.0f),
-				.color = tool_icon_color
-			});*/
-
-			uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 10.0f, 1000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
-
-			/*leaf_text("Zoom: 10.5%", {
-				.font_size = NAUI_DPI(13.0f),
-				.color = tool_icon_color
-			});*/
+			leaf({
+				.size = { LEAF_SIZE_FIXED(50), LEAF_SIZE_GROW },
+				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+			})
+			{
+				const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
+				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
+			}
 		}
 	}
+
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();
 }
