@@ -54,7 +54,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     for (uint64_t t = 0; t < track_count; t++)
     {
         Uph_Track *track = &project->tracks[t];
-        if(track->muted || track->silenced)
+        if((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED))
         {
             track->peak_right = 0.0f;
             track->peak_left = 0.0f;
@@ -308,7 +308,7 @@ double uph_audio_engine_get_song_length_beats(void)
 
     for (uint64_t t = 0; t < track_count; t++)
     {
-		if(project->tracks[t].muted || project->tracks[t].silenced)
+		if((project->tracks[t].state & UPH_TRACK_MUTED) || (project->tracks[t].state & UPH_TRACK_SILENCED))
 			continue;
 
         Uph_Track *track = &project->tracks[t];

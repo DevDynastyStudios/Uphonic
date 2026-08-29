@@ -190,8 +190,14 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     menu->element_id = element_id;
 
     const bool hovered = uph_ui_widget_hovered(element_id);
-    if ((data->current_open_menu || naui_mouse_pressed(NAUI_MOUSE_LEFT)) && hovered)
-        data->current_open_menu = menu;
+    if (hovered)
+    {
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+            data->current_open_menu = data->current_open_menu ? NULL : menu;
+        else if (data->current_open_menu)
+            data->current_open_menu = menu;
+    }
+
 
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     leaf({
@@ -296,7 +302,7 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint)
+bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint)
 {
     const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
@@ -326,15 +332,15 @@ bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Color t
     })
     {
         leaf({
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(image->width)), LEAF_SIZE_FIXED(NAUI_DPI(image->height))},
+            .size = {LEAF_SIZE_FIXED(size.x), LEAF_SIZE_FIXED(size.y)},
             .color = tint,
-            .image = image
+            .image = (void*)image
         });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabled)
+bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enabled)
 {
     const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
@@ -347,7 +353,7 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabl
 
     const bool hovered = uph_ui_widget_hovered(id);
 
-    Leaf_Color color = (*enabled) ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
+    Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
     leaf({
         .id = id,
@@ -364,14 +370,14 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool *enabl
 
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        *enabled = !(*enabled);
+        //*enabled = !(*enabled);
         return true;
     }
 
     return false;
 }
 
-bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, bool *enabled)
+bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled)
 {
     const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
@@ -384,7 +390,7 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
 
     const bool hovered = uph_ui_widget_hovered(id);
 
-    Leaf_Color color = (*enabled) ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
+    Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
     leaf({
         .id = id,
@@ -394,15 +400,15 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
     })
     {
         leaf({
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(image->width)), LEAF_SIZE_FIXED(NAUI_DPI(image->height))},
+            .size = {LEAF_SIZE_FIXED(size.x), LEAF_SIZE_FIXED(size.y)},
             .color = tint,
-            .image = image
+            .image = (void*)image
         });
     }
 
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        *enabled = !(*enabled);
+        //*enabled = !(*enabled);
         return true;
     }
 

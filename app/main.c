@@ -195,7 +195,8 @@ void naui_app_update(void)
 					}
 				}
 
-				uph_ui_text_toggle_button("metronome enable", leaf_id("uph_metronome_toggle"), &metronome_enabled);
+				if (uph_ui_text_toggle_button("metronome enable", leaf_id("uph_metronome_toggle"), metronome_enabled))
+					metronome_enabled = !metronome_enabled;
 
 				if (metronome_enabled && !metronome_was_enabled) {
 					_uph_metronome_reset();

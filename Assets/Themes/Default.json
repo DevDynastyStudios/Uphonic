@@ -40,6 +40,8 @@
     "uph_ui_frame_rounding": 6.0,
     "uph_ui_frame_padding": [6.0, 6.0],
 
+    "uph_toolbox_bg_color": "#18181A",
+
     "uph_track_header_color": "#1C1C1F",
 	"uph_track_header_width": 144.0,
 	"uph_track_header_padding": [10.0, 10.0],
@@ -65,8 +67,10 @@
     "uph_palette_color_7": "#FF4FA3",
     "uph_palette_color_8": "#E040FB",
 
-	"uph_tool_icon_color": "#C4C4C9",
-	"uph_play_icon_color": "#4ADE80",
-	"uph_pause_icon_color": "#FBBF24",
-	"uph_stop_icon_color": "#F87171"
+	"uph_tool_icon_color": "#D9D9DE",
+    "uph_play_icon_color": "#5FCB8A",
+    "uph_pause_icon_color": "#D9A94E",
+    "uph_stop_icon_color": "#D9636B",
+
+    "uph_playhead_color": "#F2F2F5"
 }

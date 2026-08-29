@@ -173,6 +173,15 @@ typedef enum
 }
 Uph_TrackType;
 
+typedef uint8_t Uph_TrackState;
+enum
+{
+	UPH_TRACK_MUTED = 1 << 0,
+	UPH_TRACK_SOLOED = 1 << 1,
+	UPH_TRACK_ARMED = 1 << 2,
+	UPH_TRACK_SILENCED = 1 << 3
+};
+
 typedef struct
 {
 	Naui_String name;
@@ -186,7 +195,7 @@ typedef struct
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
 
-	bool muted, soloed, armed, silenced;
+	Uph_TrackState state;
 }
 Uph_Track;
 
