@@ -14,6 +14,14 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.project.title = project_name;
 	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4};
 	naui_list_clear(uph_state.project.tracks);
+
+    Uph_Track track = {
+        .name = naui_string_from_cstr("Untitled Track"),
+        .volume = 1.0f,
+        .color = naui_theme_color("uph_palette_color_1")
+    };
+    naui_list_push(uph_state.project.tracks, track);
+
 	naui_path_lock(project_dest);
 	return true;
 }

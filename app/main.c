@@ -71,7 +71,6 @@ void naui_app_start(void)
 	uph_state.settings.audio = (Uph_AudioSettings){
 		.sample_rate = 48000
 	};
-	uph_state.project.bpm = 120.0f;
 
 	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
