@@ -1,12 +1,7 @@
-typedef struct _Naui_Vec2
+typedef struct
 {
 	float x, y;
 } Naui_Vec2;
-
-static inline Naui_Vec2 naui_vec2(float x, float y)
-{
-	return (Naui_Vec2){ x, y };
-}
 
 static inline Naui_Vec2 naui_vec2_add(const Naui_Vec2 a, const Naui_Vec2 b)
 {

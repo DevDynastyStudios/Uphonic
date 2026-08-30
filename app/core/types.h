@@ -163,7 +163,6 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
-	Naui_Color color;
 }
 Uph_MidiPattern;
 

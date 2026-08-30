@@ -3,11 +3,6 @@ typedef struct
 	float x, y, z, w;
 } Naui_Vec4;
 
-static inline Naui_Vec4 naui_vec4(float x, float y, float z, float w)
-{
-	return (Naui_Vec4){ x, y, z, w };
-}
-
 static inline Naui_Vec4 naui_vec4_add(const Naui_Vec4 a, const Naui_Vec4 b)
 {
 	return (Naui_Vec4){ a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w };

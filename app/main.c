@@ -129,19 +129,19 @@ void naui_app_update(void)
 		{
 			/*naui_image_button(
 				naui_asset_image("uph_icon_select"),
-				naui_vec2(15.0f, 15.0f),
+				(Naui_Vec2) { 15.0f, 15.0f },
 				tool_icon_color
 			);
 
 			naui_image_button(
 				naui_asset_image("uph_icon_draw"),
-				naui_vec2(15.0f, 15.0f),
+				(Naui_Vec2) { 15.0f, 15.0f },
 				tool_icon_color
 			);
 
 			naui_image_button(
 				naui_asset_image("uph_icon_cut"),
-				naui_vec2(15.0f, 15.0f),
+				(Naui_Vec2) { 15.0f, 15.0f },
 				tool_icon_color
 			);*/
 		}

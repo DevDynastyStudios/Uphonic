@@ -92,8 +92,8 @@ static void uph_song_timeline_on_attach(void)
 
     naui_panel_set_title(panel, "Song Timeline");
 
-    uph_song_timeline_data.scroll = naui_vec2(0.0f, 0.0f);
-    uph_song_timeline_data.zoom = naui_vec2(32.0f, 90.0f);
+    uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
+    uph_song_timeline_data.zoom = (Naui_Vec2) { 32.0f, 90.0f };
 }
 
 static void uph_song_timeline_on_detach(void)
@@ -134,8 +134,8 @@ static void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, 
         const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
 
         naui_draw_line(
-            naui_vec2(x, bbox.y),
-            naui_vec2(x, bbox.y + bbox.height),
+            (Naui_Vec2) { x, bbox.y },
+            (Naui_Vec2) { x, bbox.y + bbox.height },
             line_color,
             1.0f
         );
@@ -155,8 +155,8 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
     static bool dragging_playhead;
 
     const bool mouse_over_ruler = upb_song_timeline_vec4_contains_vec2(
-        naui_vec4(bbox.x, bbox.y, bbox.width, bbox.height),
-        naui_vec2((float)naui_mouse_x(), (float)naui_mouse_y())
+        (Naui_Vec4) { bbox.x, bbox.y, bbox.width, bbox.height },
+        (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }
     );
 
     if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -215,8 +215,8 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox)
         const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
 
         naui_draw_line(
-            naui_vec2(x, bbox.y + bbox.height * (is_downbeat ? 0.4f : 0.6f)),
-            naui_vec2(x, bbox.y + bbox.height),
+            (Naui_Vec2) { x, bbox.y + bbox.height * (is_downbeat ? 0.4f : 0.6f)},
+            (Naui_Vec2) { x, bbox.y + bbox.height },
             line_color,
             1.0f
         );
@@ -225,10 +225,69 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox)
         {
             char label[16];
             snprintf(label, sizeof(label), "%d", line_index / 4);
-            naui_draw_text(naui_vec2(x + 4.0f, bbox.y + bbox.height * 0.4f), label, NAUI_DPI(13.0f), 0, number_color);
+            naui_draw_text((Naui_Vec2) { x + 4.0f, bbox.y + bbox.height * 0.4f }, label, NAUI_DPI(13.0f), 0, number_color);
         }
     }
     naui_pop_clip_rect();
+}
+
+static void uph_song_timeline_render_midi_pattern(
+    Naui_Vec2 position,
+    Naui_Vec2 size,
+    Naui_Color color,
+    double start_offset,
+    Leaf_BoundingBox visible_bbox,
+    Uph_MidiPattern* pattern
+)
+{
+    const uint32_t note_count = (uint32_t)naui_list_len(pattern->notes);
+
+    if (note_count == 0)
+        return;
+
+    uint8_t lowest_key = UINT8_MAX;
+    uint8_t highest_key = 0;
+
+    for (uint32_t i = 0; i < note_count; i++)
+    {
+        const Uph_MidiNote *note = &pattern->notes[i];
+        if (note->key_number < lowest_key)
+            lowest_key = note->key_number;
+        if (note->key_number > highest_key)
+            highest_key = note->key_number;
+    }
+
+    const uint32_t key_range = (uint32_t)(highest_key - lowest_key) + 1;
+
+    const float slot_height = size.y / (float)key_range;
+    const float note_height = fmaxf(slot_height, 1.0f);
+
+    for (uint32_t i = 0; i < note_count; i++)
+    {
+        const Uph_MidiNote *note = &pattern->notes[i];
+
+        const double note_start_beat = note->start_beat - start_offset;
+
+        if (note_start_beat + note->length_beats < 0.0)
+            continue;
+
+        const float x = position.x + (float)(note_start_beat * uph_song_timeline_data.zoom.x);
+        const float width = (float)(note->length_beats * uph_song_timeline_data.zoom.x);
+
+        if (x + width < visible_bbox.x || x > visible_bbox.x + visible_bbox.width)
+            continue;
+
+        const uint32_t key_offset_from_top = (uint32_t)(highest_key - note->key_number);
+        const float y = position.y + (float)key_offset_from_top * slot_height;
+
+        naui_fill_rect(
+            (Naui_Vec2) { x, y },
+            (Naui_Vec2) { fmaxf(width, 1.0f), note_height },
+            color,
+            0,
+            NAUI_CORNER_NONE
+        );
+    }
 }
 
 static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, float opacity, const Uph_TimelineBlock *block, Leaf_BoundingBox visible_bbox)
@@ -242,38 +301,57 @@ static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec
 
     naui_fill_rect(
         position,
-        naui_vec2(size.x, title_height),
+        (Naui_Vec2) { size.x, title_height },
         leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)),
         rounding,
         NAUI_CORNER_TL | NAUI_CORNER_TR
     );
 
     naui_fill_rect(
-        naui_vec2(position.x, position.y + title_height),
-        naui_vec2(size.x, size.y - title_height),
+        (Naui_Vec2) { position.x, position.y + title_height },
+        (Naui_Vec2) { size.x, size.y - title_height },
         leaf_rgba(color.r, color.g, color.b, (uint8_t)(60 * opacity)),
         rounding,
         NAUI_CORNER_BL | NAUI_CORNER_BR
     );
 
-    naui_draw_text(
-        naui_vec2(position.x + title_padding, position.y + title_padding),
-        uph_state.project.samples[block->resource_index].name.data,
-        font_size,
-        0,
-        leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity))
-    );
-
     if (block->type == UPH_RESOURCE_SAMPLE)
     {
+        naui_draw_text(
+            (Naui_Vec2) { position.x + title_padding, position.y + title_padding },
+            uph_state.project.samples[block->resource_index].name.data,
+            font_size,
+            0,
+            leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity))
+        );
+
         uph_ui_waveform_zoomable(
-            naui_vec2(position.x, position.y + title_height),
-            naui_vec2(size.x, size.y - title_height),
+            (Naui_Vec2) { position.x, position.y + title_height },
+            (Naui_Vec2) { size.x, size.y - title_height },
             leaf_rgba(color.r, color.g, color.b, (uint8_t)(255 * opacity)),
             uph_song_timeline_data.zoom.x,
             block->start_offset_beats,
             visible_bbox,
             &uph_state.project.samples[block->resource_index]
+        );
+    }
+    else if (block->type == UPH_RESOURCE_PATTERN)
+    {
+        naui_draw_text(
+            (Naui_Vec2) { position.x + title_padding, position.y + title_padding },
+            uph_state.project.midi_patterns[block->resource_index].name.data,
+            font_size,
+            0,
+            leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity))
+        );
+
+        uph_song_timeline_render_midi_pattern(
+            (Naui_Vec2) { position.x, position.y + title_height },
+            (Naui_Vec2) { size.x, size.y - title_height },
+            leaf_rgba(color.r, color.g, color.b, (uint8_t)(255 * opacity)),
+            block->start_offset_beats,
+            visible_bbox,
+            &uph_state.project.midi_patterns[block->resource_index]
         );
     }
 
@@ -414,14 +492,14 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             if (clamped_right <= clamped_left)
                 continue;
 
-            Naui_Vec4 hover_box = naui_vec4(
+            Naui_Vec4 hover_box = (Naui_Vec4){
                 clamped_left,
                 bbox.y,
                 clamped_right - clamped_left,
                 bbox.height
-            );
+            };
 
-            if (upb_song_timeline_vec4_contains_vec2(hover_box, naui_vec2((float)naui_mouse_x(), (float)naui_mouse_y())))
+            if (upb_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
             {
                 Uph_BlockInteractionMode hover_mode =
                     uph_song_timeline_classify_hover(hover_box, (float)naui_mouse_x());
@@ -470,8 +548,8 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
             continue;
 
         uph_song_timeline_render_timeline_block(
-            naui_vec2(bbox.x + zoom_x * blocks[i].start_beat - scroll_x, bbox.y),
-            naui_vec2(zoom_x * blocks[i].length_beats, bbox.height),
+            (Naui_Vec2) { bbox.x + zoom_x * blocks[i].start_beat - scroll_x, bbox.y },
+            (Naui_Vec2) { zoom_x * blocks[i].length_beats, bbox.height },
             track->color,
             opacity,
             &blocks[i],
@@ -756,18 +834,19 @@ static void uph_song_timeline_render_toolbox(void)
 {
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32.0f))},
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x), 0.0f),
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
         .color = naui_theme_color("uph_ui_toolbox_bg_color"),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+        .child_gap = NAUI_DPI(16.0f),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        const float button_size = NAUI_DPI(15.0f);
+        const float button_size = NAUI_DPI(14.0f);
         const float button_gap = NAUI_DPI(2.0f);
         const Naui_Color bg_color = naui_theme_color("uph_ui_frame_secondary_bg_color");
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
         })
         {
@@ -804,9 +883,8 @@ static void uph_song_timeline_render_toolbox(void)
         }
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-            .child_gap = button_gap
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
         })
         {
             if (uph_ui_image_button_ex(
@@ -814,8 +892,8 @@ static void uph_song_timeline_render_toolbox(void)
                 leaf_id("uph_song_timeline_play"),
                 (Naui_Vec2){button_size, button_size},
                 naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
-                LEAF_COLOR_TRANSPARENT,
-                NAUI_CORNER_ALL
+                bg_color,
+                NAUI_CORNER_TL | NAUI_CORNER_BL
             ))
             {
                 uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
@@ -826,22 +904,13 @@ static void uph_song_timeline_render_toolbox(void)
                 leaf_id("uph_song_timeline_stop"),
                 (Naui_Vec2){button_size, button_size},
                 naui_theme_color("uph_stop_icon_color"),
-                LEAF_COLOR_TRANSPARENT,
-                NAUI_CORNER_ALL
+                bg_color,
+                NAUI_CORNER_TR | NAUI_CORNER_BR
             ))
             {
                 uph_state.shared.song_timeline_playing = false;
                 uph_state.shared.song_timeline_playhead_position = 0.0;
             }
-        }
-        leaf({
-            .direction = LEAF_DIRECTION_HORIZONTAL,
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-            .child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER},
-            .child_gap = button_gap
-        })
-        {
-
         }
     }
 }
@@ -929,13 +998,13 @@ static void uph_song_timeline_update_input(void)
     if (uph_song_timeline_data.panel_hovered && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
     {
         panning = true;
-        pan_last_mouse = naui_vec2((float)naui_mouse_x(), (float)naui_mouse_y());
+        pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
     }
 
     if (panning)
     {
-        Naui_Vec2 current = naui_vec2((float)naui_mouse_x(), (float)naui_mouse_y());
-        Naui_Vec2 delta = naui_vec2(current.x - pan_last_mouse.x, current.y - pan_last_mouse.y);
+        Naui_Vec2 current = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
+        Naui_Vec2 delta = (Naui_Vec2) { current.x - pan_last_mouse.x, current.y - pan_last_mouse.y };
 
         uph_song_timeline_data.scroll.x -= delta.x * UPH_SONG_TIMELINE_PAN_SPEED;
         uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
@@ -969,8 +1038,8 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
         const float x = bbox.x + x_offset + (float)(cut_beat * uph_song_timeline_data.zoom.x) - uph_song_timeline_data.scroll.x;
 
         naui_draw_line(
-            naui_vec2(x, bbox.y + playhead_size * 2.0f),
-            naui_vec2(x, bbox.y + bbox.height),
+            (Naui_Vec2) { x, bbox.y + playhead_size * 2.0f },
+            (Naui_Vec2) { x, bbox.y + bbox.height },
             color,
             NAUI_DPI(1.0f)
         );
@@ -980,8 +1049,8 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
     {
         const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * uph_song_timeline_data.zoom.x - uph_song_timeline_data.scroll.x;
         naui_draw_line(
-            naui_vec2(x, bbox.y + playhead_size),
-            naui_vec2(x, bbox.y + bbox.height),
+            (Naui_Vec2) { x, bbox.y + playhead_size },
+            (Naui_Vec2) { x, bbox.y + bbox.height },
             color,
             NAUI_DPI(1.0f)
         );

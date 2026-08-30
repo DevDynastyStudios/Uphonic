@@ -41,16 +41,16 @@ static Naui_Gradient uph_mixer_peak_gradient(void)
 static void uph_mixer_draw_peak_bar(Leaf_BoundingBox box, float x, float width, float peak)
 {
     naui_fill_rect(
-        naui_vec2(x, box.y),
-        naui_vec2(width, box.height),
+        (Naui_Vec2) { x, box.y },
+        (Naui_Vec2) { width, box.height },
         naui_theme_color("uph_track_header_border_color"),
         0.0f,
         NAUI_CORNER_NONE
     );
     naui_push_clip_rect(x, box.y + box.height * (1.0f - peak), width, box.height);
     naui_fill_gradient_rect(
-        naui_vec2(x, box.y),
-        naui_vec2(width, box.height),
+        (Naui_Vec2) { x, box.y },
+        (Naui_Vec2) { width, box.height },
         uph_mixer_peak_gradient(),
         0.0f,
         NAUI_CORNER_NONE

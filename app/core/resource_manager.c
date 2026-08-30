@@ -49,3 +49,12 @@ void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
 
     naui_list_remove(uph_state.project.samples, sample_index);
 }
+
+void uph_resources_add_pattern(void)
+{
+    Uph_MidiPattern pattern = {
+        .name = naui_string_from_cstr("Untitled Pattern")
+    };
+
+    naui_list_push(uph_state.project.midi_patterns, pattern);
+}
