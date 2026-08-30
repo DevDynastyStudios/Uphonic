@@ -112,10 +112,21 @@ void uph_render_main_titlebar(void)
 
 				// uph_ui_menu is for menu bar menus (calling uph_ui_menu puts a leaf ui element to render the menu button also. it is not just an assignment)
 				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")))
+				{
 
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")));
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")));
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")));
+				}
+
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")))
+				{
+
+				}
+
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")))
+				{
+
+				}
+
 
 				Uph_UIMenuID import_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.import"), leaf_id("uph_file_import_menu"));
 				if (uph_ui_menu_item(import_menu, NAUI_TR("menu.file.import.midi"), leaf_id("uph_file_export_ogg")))
@@ -154,8 +165,16 @@ void uph_render_main_titlebar(void)
 
 
 				Uph_UIMenuID edit_menu = uph_ui_menu(NAUI_TR("menu.edit"), leaf_id("uph_edit_menu"));
-				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.undo"), leaf_id("uph_edit_menu_undo")));
-				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.redo"), leaf_id("uph_edit_menu_redo")));
+				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.undo"), leaf_id("uph_edit_menu_undo")))
+				{
+
+				}
+
+				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.redo"), leaf_id("uph_edit_menu_redo")))
+				{
+
+				}
+
 
 				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("song_timeline.title"), leaf_id("uph_windows_menu_song_timeline")))
