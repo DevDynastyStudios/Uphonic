@@ -74,6 +74,8 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+
     leaf({
         .id = node->element_id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
@@ -88,13 +90,14 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
     {    
         leaf_text(node->text, {
             .color = text_color,
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
+            .font_size = font_size
         });
         if (node->first_child)
         {
             leaf({
-                .size = {LEAF_SIZE_FIXED(8.0f), LEAF_SIZE_FIXED(8.0f)},
+                .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
                 .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
+                .image = naui_asset_image("uph_icon_dropdown"),
                 .color = text_color
             });
         }
