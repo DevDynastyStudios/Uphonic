@@ -33,6 +33,7 @@
     "uph_ui_dropdown_bg_color": "#0A0A0B",
 
     "uph_ui_frame_bg_color": "#121214",
+    "uph_ui_frame_secondary_bg_color": "#242428",
     "uph_ui_frame_hovered_bg_color": "#46464E",
     "uph_ui_frame_pressed_bg_color": "#5C5C66",
     "uph_ui_frame_toggled_bg_color": "#38383F",

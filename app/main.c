@@ -166,7 +166,7 @@ void naui_app_update(void)
 				const Naui_Vec2 icon_size = { 16, 16 };
 
 				if (metronome_enabled) {
-					if (uph_ui_widget_button(naui_asset_image("uph_icon_tappad"), leaf_id("uph_bpm_button"), naui_vec2_scale(icon_size, 2.0f), tool_icon_color, NAUI_CURSOR_HAND)) {
+					if (uph_ui_image_button(naui_asset_image("uph_icon_tappad"), leaf_id("uph_bpm_button"), naui_vec2_scale(icon_size, 2.0f), tool_icon_color)) {
 						float bpm;
 						if (_uph_metronome_tap(&bpm)) {
 							uph_state.project.bpm = bpm;

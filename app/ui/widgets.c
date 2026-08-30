@@ -305,9 +305,8 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint)
+bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
     const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
 
@@ -331,7 +330,7 @@ bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 si
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .color = color,
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
     })
     {
         leaf({
@@ -343,45 +342,9 @@ bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 si
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-static bool uph_ui_widget_button(const Naui_Image* image, Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Cursor select_cursor)
+bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint)
 {
-	const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
-	const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
-
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-	const float rounding = naui_theme_float("uph_ui_frame_rounding");
-
-	const bool hovered = uph_ui_widget_hovered(id);
-
-	Leaf_Color color;
-	if (hovered)
-	{
-		if (naui_mouse_down(NAUI_MOUSE_LEFT))
-			color = pressed_bg_color;
-		else color = hovered_bg_color;
-
-		naui_set_cursor(select_cursor);
-	}
-	else
-	{
-		color = leaf_rgba(0, 0, 0, 0);
-		naui_set_cursor(NAUI_CURSOR_ARROW);
-	}
-	
-	leaf({
-		.id = id,
-		.color = color,
-		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
-	})
-	{
-		leaf({
-			.size = { LEAF_SIZE_FIXED(size.x), LEAF_SIZE_FIXED(size.y) },
-			.color = tint,
-			.image = (void*)image
-		});
-	}
-
-	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
+    return uph_ui_image_button_ex(image, id, size, tint, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL);
 }
 
 bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enabled)
@@ -413,17 +376,13 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
     }
 
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
-    {
-        //*enabled = !(*enabled);
         return true;
-    }
 
     return false;
 }
 
-bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled)
+bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled)
 {
-    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
     const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
 
@@ -440,7 +399,7 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .color = color,
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
     })
     {
         leaf({
@@ -451,12 +410,14 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
     }
 
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
-    {
-        //*enabled = !(*enabled);
         return true;
-    }
 
     return false;
+}
+
+bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled)
+{
+    return uph_ui_image_toggle_button_ex(image, id, size, tint, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL, enabled);
 }
 
 static bool uph_ui__is_word_char(char c)
