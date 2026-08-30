@@ -1,11 +1,13 @@
 #define NAUI_LOCALIZATION_NAME_SIZE 128
+#define NAUI_LOCALIZATION_FOLDER_NAME "Localization"
+#define NAUI_LOCALIZATION_EXTENSION ".lang"
 
 static Naui_Language g_current_language;
 static Naui_List(Naui_LanguageMeta) g_meta_cache = NULL;
 static bool g_current_loaded = false;
 static bool g_meta_cache_init = false;
 
-static char* naui_strdup_(const char* s)
+static char* _naui_strdup(const char* s)
 {
 	if (!s)
 		return NULL;
@@ -18,7 +20,7 @@ static char* naui_strdup_(const char* s)
 	return copy;
 }
 
-static Naui_TextDirection naui_parse_direction_(const char* dir)
+static Naui_TextDirection _naui_parse_direction(const char* dir)
 {
 	if (dir && strcmp(dir, "rtl") == 0)
 		return NAUI_TEXT_RTL;
@@ -26,7 +28,7 @@ static Naui_TextDirection naui_parse_direction_(const char* dir)
 	return NAUI_TEXT_LTR;
 }
 
-static void naui_split_locale_(const char* code, char** out_lang, char** out_region)
+static void _naui_split_locale(const char* code, char** out_lang, char** out_region)
 {
 	*out_lang = NULL;
 	*out_region = NULL;
@@ -37,7 +39,7 @@ static void naui_split_locale_(const char* code, char** out_lang, char** out_reg
 	const char* dash = strchr(code, '-');
 	if (!dash)
 	{
-		*out_lang = naui_strdup_(code);
+		*out_lang = _naui_strdup(code);
 		return;
 	}
 
@@ -50,10 +52,10 @@ static void naui_split_locale_(const char* code, char** out_lang, char** out_reg
 	}
 
 	*out_lang = lang;
-	*out_region = naui_strdup_(dash + 1);
+	*out_region = _naui_strdup(dash + 1);
 }
 
-static void naui_meta_free_(Naui_LanguageMeta* meta)
+static void _naui_meta_free(Naui_LanguageMeta* meta)
 {
 	if (!meta)
 		return;
@@ -65,51 +67,48 @@ static void naui_meta_free_(Naui_LanguageMeta* meta)
 	memset(meta, 0, sizeof(*meta));
 }
 
-static void naui_meta_copy_(Naui_LanguageMeta* dst, const Naui_LanguageMeta* src)
+static void _naui_meta_copy(Naui_LanguageMeta* dst, const Naui_LanguageMeta* src)
 {
-	dst->filename = naui_strdup_(src->filename);
-	dst->language_code = naui_strdup_(src->language_code);
-	dst->region_code = naui_strdup_(src->region_code);
-	dst->display_name = naui_strdup_(src->display_name);
+	dst->filename = _naui_strdup(src->filename);
+	dst->language_code = _naui_strdup(src->language_code);
+	dst->region_code = _naui_strdup(src->region_code);
+	dst->display_name = _naui_strdup(src->display_name);
 	dst->text_direction = src->text_direction;
 }
 
-static Naui_Path naui_localization_build_path_(const char* code)
+static Naui_Path _naui_localization_build_path(const char* code)
 {
-	Naui_Path bin_dir = naui_directory_get(NAUI_DIR_BIN);
-	Naui_Path lang_dir = naui_path_join(bin_dir, naui_path_from_cstr("Language"));
-
+	Naui_Path assets_dir = naui_directory_get(NAUI_DIR_ASSETS);
+	Naui_Path lang_dir = naui_path_join(assets_dir, naui_path_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
 	char filename[NAUI_LOCALIZATION_NAME_SIZE];
-	snprintf(filename, sizeof(filename), "%s.lang", code);
-
-	Naui_Path result = naui_path_join(lang_dir, naui_path_from_cstr(filename));
-	return result;
+	snprintf(filename, sizeof(filename), "%s%s", code, NAUI_LOCALIZATION_EXTENSION);
+	return naui_path_join(lang_dir, naui_path_from_cstr(filename));
 }
 
-bool naui_localization_load_file(const char* path, Naui_Language* out_language)
+bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_language)
 {
-	if (!path || !out_language)
+	if (naui_path_is_empty(path) || !out_language)
 		return false;
 
 	memset(out_language, 0, sizeof(*out_language));
-
-	Naui_Path json_path = naui_path_from_cstr(path);
-	Naui_Json json = naui_json_parse_file(json_path);
+	Naui_Json json = naui_json_parse_file(path);
 
 	if (!json.root || json.error)
 	{
+		naui_log(NAUI_LOG_ERROR, "Failed to parse localization file: %s", path.data);
 		naui_json_free(&json);
 		return false;
 	}
 
 	if (json.root->type != NAUI_JSON_OBJECT)
 	{
+		naui_log(NAUI_LOG_ERROR, "Localization file root is not an object: %s", path.data);
 		naui_json_free(&json);
 		return false;
 	}
 
 	out_language->table = NULL;
-	out_language->meta.filename = naui_strdup_(path);
+	out_language->meta.filename = _naui_strdup(path.data);
 	out_language->meta.language_code = NULL;
 	out_language->meta.region_code = NULL;
 	out_language->meta.display_name = NULL;
@@ -140,14 +139,14 @@ bool naui_localization_load_file(const char* path, Naui_Language* out_language)
 				naui_json_copy_string(lang_v, lang_code_buf, sizeof(lang_code_buf));
 				free(out_language->meta.language_code);
 				free(out_language->meta.region_code);
-				naui_split_locale_(lang_code_buf, &out_language->meta.language_code, &out_language->meta.region_code);
+				_naui_split_locale(lang_code_buf, &out_language->meta.language_code, &out_language->meta.region_code);
 			}
 		
 			if (dir_v && dir_v->type == NAUI_JSON_STRING)
 			{
 				char dir_buf[16];
 				naui_json_copy_string(dir_v, dir_buf, sizeof(dir_buf));
-				out_language->meta.text_direction = naui_parse_direction_(dir_buf);
+				out_language->meta.text_direction = _naui_parse_direction(dir_buf);
 			}
 		
 			if (name_v && name_v->type == NAUI_JSON_STRING)
@@ -155,7 +154,7 @@ bool naui_localization_load_file(const char* path, Naui_Language* out_language)
 				char name_buf[256];
 				naui_json_copy_string(name_v, name_buf, sizeof(name_buf));
 				free(out_language->meta.display_name);
-				out_language->meta.display_name = naui_strdup_(name_buf);
+				out_language->meta.display_name = _naui_strdup(name_buf);
 			}
 		
 			continue;
@@ -199,11 +198,11 @@ bool naui_localization_load_file(const char* path, Naui_Language* out_language)
 	naui_json_free(&json);
 	if (!out_language->meta.language_code)
 	{
-		const char* base = strrchr(path, '/');
+		const char* base = strrchr(path.data, '/');
 		if (!base)
-			base = strrchr(path, '\\');
-		base = base ? base + 1 : path;
+			base = strrchr(path.data, '\\');
 
+		base = base ? base + 1 : path.data;
 		char derived[64];
 		size_t i = 0;
 		while (base[i] && base[i] != '.' && i < sizeof(derived) - 1)
@@ -213,32 +212,38 @@ bool naui_localization_load_file(const char* path, Naui_Language* out_language)
 		}
 
 		derived[i] = '\0';
-		naui_split_locale_(derived, &out_language->meta.language_code, &out_language->meta.region_code);
+		_naui_split_locale(derived, &out_language->meta.language_code, &out_language->meta.region_code);
 	}
 
 	return true;
 }
 
-bool naui_localization_load(const char* language_code, Naui_Language* out_language)
+bool naui_localization_load(const Naui_String language_code, Naui_Language* out_language)
 {
-	if (!language_code || !out_language)
+	if (naui_string_is_empty(language_code) || !out_language)
 		return false;
 
-	Naui_Path path = naui_localization_build_path_(language_code);
-	bool ok = naui_localization_load_file(path.data, out_language);
+	Naui_Path path = _naui_localization_build_path(language_code.data);
+	bool ok = naui_localization_load_file(path, out_language);
 	return ok;
 }
 
-void naui_localization_set_current(const char* language_code)
+void naui_localization_set_current(const Naui_String language_code)
 {
 	Naui_Language new_lang;
 	bool ok = naui_localization_load(language_code, &new_lang);
 
-	if (!ok && (!language_code || strcmp(language_code, "en-US") != 0))
-		ok = naui_localization_load("en-US", &new_lang);
-
 	if (!ok)
-		return;
+	{
+		bool already_en_us = !naui_string_is_empty(language_code) && strcmp(language_code.data, "en-US") == 0;
+		if (already_en_us)
+			return;
+
+		naui_log(NAUI_LOG_ERROR, "Unable to load localization file for '%s'. Falling back to en-US", naui_string_is_empty(language_code) ? "" : language_code.data);
+		ok = naui_localization_load(naui_string_from_cstr("en-US"), &new_lang);
+		if (!ok)
+			return;
+	}
 
 	if (g_current_loaded)
 		naui_localization_free(&g_current_language);
@@ -274,7 +279,7 @@ void naui_localization_reload_meta_cache(void)
 	{
 		for (ptrdiff_t i = 0; i < naui_list_len(g_meta_cache); ++i)
 		{
-			naui_meta_free_(&g_meta_cache[i]);
+			_naui_meta_free(&g_meta_cache[i]);
 		}
 
 		naui_list_free(g_meta_cache);
@@ -282,13 +287,13 @@ void naui_localization_reload_meta_cache(void)
 	}
 
 	g_meta_cache_init = true;
-	Naui_Path bin_dir = naui_directory_get(NAUI_DIR_BIN);
-	Naui_Path lang_dir = naui_path_join(bin_dir, naui_path_from_cstr("Language"));
+	Naui_Path assets_dir = naui_directory_get(NAUI_DIR_ASSETS);
+	Naui_Path lang_dir = naui_path_join(assets_dir, naui_path_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
 
 	if (!naui_path_exists(lang_dir))
 		return;
 
-	Naui_List(Naui_DirEntry) entries = naui_directory_filter(lang_dir, NULL, NAUI_EXTENSIONS(".lang"));
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter(lang_dir, NULL, NAUI_EXTENSIONS(NAUI_LOCALIZATION_EXTENSION));
 	for (ptrdiff_t i = 0; i < naui_list_len(entries); ++i)
 	{
 		if (entries[i].is_directory)
@@ -297,13 +302,13 @@ void naui_localization_reload_meta_cache(void)
 		const char* full_path = entries[i].path.data;
 
 		Naui_Language lang;
-		if (!naui_localization_load_file(full_path, &lang))
+		if (!naui_localization_load_file(NAUI_PATH(full_path), &lang))
 			continue;
 
 		Naui_LanguageMeta meta;
-		naui_meta_copy_(&meta, &lang.meta);
+		_naui_meta_copy(&meta, &lang.meta);
 		free(meta.filename);
-		meta.filename = naui_strdup_(full_path);
+		meta.filename = _naui_strdup(full_path);
 		naui_list_push(g_meta_cache, meta);
 		naui_localization_free(&lang);
 	}
@@ -448,5 +453,5 @@ void naui_localization_free(Naui_Language* language)
 
 	naui_strmap_free(language->table);
 	language->table = NULL;
-	naui_meta_free_(&language->meta);
+	_naui_meta_free(&language->meta);
 }

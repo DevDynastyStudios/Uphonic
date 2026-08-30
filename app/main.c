@@ -61,7 +61,6 @@ static bool _uph_metronome_tap(float *out_bpm)
 	_metronome_avg_interval += (since_last - _metronome_avg_interval) / (float)n;
 	_metronome_count = n;
 	_metronome_last_tap_time = current_time;
-
 	*out_bpm = 60.0f / _metronome_avg_interval;
 	return true;
 }
@@ -71,6 +70,14 @@ void naui_app_start(void)
 	uph_state.settings.audio = (Uph_AudioSettings){
 		.sample_rate = 48000
 	};
+
+	uph_state.settings.general = (Uph_GeneralSettings){
+		.language_code = naui_string_from_cstr("en"),
+		.region_code = naui_string_from_cstr("US"),
+		.copy_resources = false
+	};
+
+	naui_localization_set_current(naui_string_format("%s-%s", uph_state.settings.general.language_code, uph_state.settings.general.region_code));
 
 	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
@@ -125,26 +132,8 @@ void naui_app_update(void)
 			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 			.child_gap = NAUI_DPI(4.0f)
-		})
-		{
-			/*naui_image_button(
-				naui_asset_image("uph_icon_select"),
-				(Naui_Vec2) { 15.0f, 15.0f },
-				tool_icon_color
-			);
+		});
 
-			naui_image_button(
-				naui_asset_image("uph_icon_draw"),
-				(Naui_Vec2) { 15.0f, 15.0f },
-				tool_icon_color
-			);
-
-			naui_image_button(
-				naui_asset_image("uph_icon_cut"),
-				(Naui_Vec2) { 15.0f, 15.0f },
-				tool_icon_color
-			);*/
-		}
 		leaf({
 			.direction = LEAF_DIRECTION_HORIZONTAL,
 			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
@@ -201,6 +190,6 @@ void naui_app_event(const Naui_AppEventData *data)
 {
 	if (data->type == NAUI_APP_EVENT_FILE_DROP)
 	{
-		uph_resources_add_sample_from_file(NAUI_PATH(data->file_drop.paths[0]));
+		uph_project_add_file(&uph_state.project, NAUI_PATH(data->file_drop.paths[0]));
 	}
 }

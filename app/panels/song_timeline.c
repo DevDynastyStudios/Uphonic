@@ -90,7 +90,7 @@ static void uph_song_timeline_on_attach(void)
 {
     Naui_PanelID panel = naui_current_panel();
 
-    naui_panel_set_title(panel, "Song Timeline");
+    naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
     uph_song_timeline_data.zoom = (Naui_Vec2) { 32.0f, 90.0f };
@@ -766,10 +766,10 @@ static void uph_song_timeline_render_track_header(uint32_t track_index)
 
                 if (current_rename_index == track_index)
                 {
-                    if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Untitled Track"))
+                    if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, NAUI_TR("song_timeline.track.title")))
                     {
                         if (!track->name.length)
-                            track->name = naui_string_from_cstr("Untitled Track");
+                            track->name = naui_string_from_cstr(NAUI_TR("song_timeline.track.title"));
                         uph_song_timeline_data.disable_space_to_play = false;
                         current_rename_index = -1;
                     }

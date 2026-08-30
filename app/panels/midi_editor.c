@@ -79,7 +79,7 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
 static void uph_midi_editor_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
-    naui_panel_set_title(this, "Midi Editor");
+    naui_panel_set_title(this, NAUI_TR("midi_editor.title"));
 }
 
 static void uph_midi_editor_on_detach(void)

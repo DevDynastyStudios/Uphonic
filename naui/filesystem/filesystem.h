@@ -26,7 +26,9 @@ enum
 	NAUI_DIR_DOWNLOADS,
 	NAUI_DIR_TEMP,
 	NAUI_DIR_CACHE,
-	NAUI_DIR_CONFIG
+	NAUI_DIR_CONFIG,
+	NAUI_DIR_ASSETS,
+	NAUI_DIR_MAX_COUNT
 };
 
 typedef uint8_t Naui_FileMode;
@@ -35,6 +37,13 @@ enum
 	NAUI_FILE_READ,
 	NAUI_FILE_WRITE,
 	NAUI_FILE_APPEND
+};
+
+typedef uint8_t Naui_FileCopyMode;
+enum
+{
+	NAUI_FILE_COPY_OVERRIDE,
+	NAUI_FILE_COPY_UNIQUE
 };
 
 #define NAUI_FILE_HANDLE_SIZE 64
@@ -69,7 +78,9 @@ bool naui_file_is_valid(const Naui_FileHandle* handle);
 
 void naui_file_close(Naui_FileHandle* handle);
 
-bool naui_file_copy(const Naui_Path file_path, const Naui_Path dest_path);
+bool naui_file_copy(const Naui_Path file_path, const Naui_Path dest_path, Naui_FileCopyMode copy_mode);
+
+Naui_Path naui_file_unique_name(const Naui_Path src_path, const Naui_Path dest_path);
 
 /* Returns file size in bytes, or 0 on error. */
 size_t naui_file_size(const Naui_Path path);

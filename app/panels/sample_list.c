@@ -3,7 +3,7 @@ NAUI_PANEL(uph_sample_list)
 static void uph_sample_list_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
-    naui_panel_set_title(this, "Samples");
+    naui_panel_set_title(this, NAUI_TR("samples.title"));
 }
 
 static void uph_sample_list_on_detach(void)

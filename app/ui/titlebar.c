@@ -111,37 +111,65 @@ void uph_render_main_titlebar(void)
 				// let's say we are gonna have a max sub menu depth of 4 for now
 
 				// uph_ui_menu is for menu bar menus (calling uph_ui_menu puts a leaf ui element to render the menu button also. it is not just an assignment)
-				Uph_UIMenuID file_menu = uph_ui_menu("File", leaf_id("uph_file_menu"));
+				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
 
-				if (uph_ui_menu_item(file_menu, "New File", leaf_id("uph_file_menu_new_file")));
-				if (uph_ui_menu_item(file_menu, "Save", leaf_id("uph_file_menu_save")));
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")));
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")));
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")));
 
-				Uph_UIMenuID edit_menu = uph_ui_menu("Edit", leaf_id("uph_edit_menu"));
-				if (uph_ui_menu_item(edit_menu, "Undo", leaf_id("uph_edit_menu_undo")));
-				if (uph_ui_menu_item(edit_menu, "Redo", leaf_id("uph_edit_menu_redo")));
+				Uph_UIMenuID import_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.import"), leaf_id("uph_file_import_menu"));
+				if (uph_ui_menu_item(import_menu, NAUI_TR("menu.file.import.midi"), leaf_id("uph_file_export_ogg")))
+				{
 
-				Uph_UIMenuID windows_menu = uph_ui_menu("Windows", leaf_id("uph_windows_menu"));
-				if (uph_ui_menu_item(windows_menu, "Song Timeline", leaf_id("uph_windows_menu_song_timeline")))
+				}
+
+				Uph_UIMenuID export_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.export"), leaf_id("uph_file_export_menu"));
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.wav"), leaf_id("uph_file_export_wav")))
+					uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
+
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.ogg"), leaf_id("uph_file_export_ogg")))
+				{
+
+				}
+					
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.mp3"), leaf_id("uph_file_export_mp3")))
+				{
+
+				}
+
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.flac"), leaf_id("uph_file_export_flac")))
+				{
+
+				}
+
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.m4a"), leaf_id("uph_file_export_m4a")))
+				{
+
+				}
+
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.midi"), leaf_id("uph_file_export_midi")))
+				{
+
+				}
+
+
+				Uph_UIMenuID edit_menu = uph_ui_menu(NAUI_TR("menu.edit"), leaf_id("uph_edit_menu"));
+				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.undo"), leaf_id("uph_edit_menu_undo")));
+				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.redo"), leaf_id("uph_edit_menu_redo")));
+
+				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("song_timeline.title"), leaf_id("uph_windows_menu_song_timeline")))
 					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_song_timeline));
-				if (uph_ui_menu_item(windows_menu, "Midi Editor", leaf_id("uph_windows_menu_midi_editor")))
+
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("midi_editor.title"), leaf_id("uph_windows_menu_midi_editor")))
 					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_midi_editor));
-				if (uph_ui_menu_item(windows_menu, "Pattern List", leaf_id("uph_windows_menu_pattern_list")))
+
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("patterns.title"), leaf_id("uph_windows_menu_pattern_list")))
 					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_pattern_list));
-				if (uph_ui_menu_item(windows_menu, "Sample List", leaf_id("uph_windows_menu_sample_list")))
+
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("samples.title"), leaf_id("uph_windows_menu_sample_list")))
 					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_sample_list));
 
-				Uph_UIMenuID export_menu = uph_ui_submenu(file_menu, "Export", leaf_id("uph_file_export_menu"));
-				if (uph_ui_menu_item(export_menu, "Wav", leaf_id("uph_file_export_wav")))
-					uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
-				if (uph_ui_menu_item(export_menu, "Mp3", leaf_id("uph_file_export_mp3")))
-				{
-
-				}
-				Uph_UIMenuID other_export_menu = uph_ui_submenu(export_menu, "Other", leaf_id("uph_file_other_export_menu"));
-				if (uph_ui_menu_item(other_export_menu, "Hiii :3", leaf_id("uph_file_export_hiii")))
-				{
-
-				}
 			}
 		}
 
@@ -150,7 +178,7 @@ void uph_render_main_titlebar(void)
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
 		})
-		leaf_text("Uphonic", {
+		leaf_text(NAUI_TR("uphonic.title"), {
 			.font_size = naui_theme_float(NAUI_PANEL_FONT_SIZE_TAG) * dpi_scale,
 			.color = text_color,
 			.alignment = LEAF_TEXT_ALIGN_CENTER
