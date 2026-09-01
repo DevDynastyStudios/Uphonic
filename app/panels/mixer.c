@@ -9,7 +9,7 @@ Uph_VolumePeaksCustomDrawData;
 static void uph_mixer_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
-    naui_panel_set_title(this, "Mixer");
+    naui_panel_set_title(this, NAUI_TR("mixer.title"));
 }
 
 static void uph_mixer_on_detach(void)

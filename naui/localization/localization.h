@@ -31,7 +31,7 @@ typedef struct
 
 /* Set the active language by code. Scans the language subfolder file names.
  * Attempts fall back to en-US if the requested code fails. */
-void naui_localization_set_current(const char* language_code);
+void naui_localization_set_current(const Naui_String language_code);
 
 void naui_localization_set_current_lang(Naui_Language* language);
 
@@ -47,10 +47,10 @@ Naui_List(Naui_LanguageMeta) naui_localization_get_languages(void);
 
 /* Load a language by code into out_language.
  * Returns false if the file cannot be found or parsed. */
-bool naui_localization_load(const char* language_code, Naui_Language* out_language);
+bool naui_localization_load(const Naui_String language_code, Naui_Language* out_language);
 
 /* Load directly from a file stored in the Localization folder */
-bool naui_localization_load_file(const char* path, Naui_Language* out_language);
+bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_language);
 
 /* Look up a key. Returns the key itself if not found (never NULL). */
 const char* naui_localization_get(const Naui_Language* language, const char* key);

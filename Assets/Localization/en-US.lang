@@ -1,0 +1,74 @@
+{
+    "_meta": {
+        "language": "en",
+        "region": "US",
+        "direction": "ltr",
+		"name": "English (United States)"
+    },
+
+	"uphonic.title": "Uphonic",
+
+	"midi_editor.title": "Midi Editor",
+
+	"mixer.title": "Mixer Rack",
+
+	"song_timeline.title": "Song Timeline",
+	"song_timeline.track.title": "Untitled Track",
+
+	"recovery.title": "Recover Project",
+	"recovery.project_found": "An unsaved project was found. Would you like to restore or discard it?",
+	"recovery.restore": "Restore",
+	"recovery.discard": "Discard",
+
+    "menu.file": "File",
+	"menu.file.new": "New Project",
+	"menu.file.open": "Open",
+	"menu.file.save": "Save",
+	"menu.file.import": "Import",
+	"menu.file.import.midi": "MIDI",
+	"menu.file.export": "Export",
+	"menu.file.export.wav": "Wave file...",
+	"menu.file.export.ogg": "Ogg file...",
+	"menu.file.export.mp3": "Mp3 file...",
+	"menu.file.export.flac": "FLAC file...",
+	"menu.file.export.m4a": "M4A file...",
+	"menu.file.export.midi": "MIDI file...",
+
+    "menu.edit": "Edit",
+	"menu.edit.undo": "Undo",
+	"menu.edit.redo": "Redo",
+	"menu.edit.cut": "Cut",
+	"menu.edit.copy": "Copy",
+	"menu.edit.paste": "Paste",
+	"menu.edit.settings": "Settings",
+
+	"menu.windows": "Windows",
+	"menu.windows.show": "Show All",
+	"menu.windows.hide": "Hide All",
+
+	"menu.layout": "Layouts",
+	"menu.layout.save": "Save Layout As...",
+	"menu.layout.delete": "Delete Layout",
+	"menu.layout.popup.save": "Save Layout As",
+	"menu.layout.popup.override": "Override Layout?",
+	"menu.layout.popup.save_btn": "Save",
+	"menu.layout.popup.cancel_btn": "Cancel",
+	"menu.layout.popup.overwrite": "Overwrite",
+	"menu.layout.popup.cancel": "Cancel",
+
+	"menu.help": "Help",
+	"menu.help.tutorials": "Tutorials",
+	"menu.help.about": "About",
+
+	"patterns.title": "Patterns",
+	"patterns.new": "+ New Pattern",
+
+	"samples.title": "Samples",
+	"samples.import": "Import",
+	"samples.import_text": "Drag & drop audio files here to import them into your project.",
+
+	"settings.title": "Settings",
+
+    "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",
+    "file.count": "$You have {0} files selected."
+}

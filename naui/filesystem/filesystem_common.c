@@ -1,3 +1,14 @@
+static char* _naui_find_last_char(Naui_StringView sv, char c)
+{
+	for (size_t i = sv.length; i > 0; i--)
+	{
+		if(sv.data[i - 1] == c)
+			return sv.data + (i - 1);
+	}
+
+	return NULL;
+}
+
 Naui_StringView naui_file_filename(const Naui_Path* path)
 {
 	const char* start = path->data;
@@ -19,7 +30,7 @@ Naui_StringView naui_file_filename(const Naui_Path* path)
 Naui_StringView naui_file_stem(const Naui_Path* path)
 {
 	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = find_last_char(filename, '.');
+	const char* dot = _naui_find_last_char(filename, '.');
 
 	if (!dot || dot == filename.data)
 		return filename;
@@ -30,7 +41,7 @@ Naui_StringView naui_file_stem(const Naui_Path* path)
 Naui_StringView naui_file_extension(const Naui_Path* path)
 {
 	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = find_last_char(filename, '.');
+	const char* dot = _naui_find_last_char(filename, '.');
 
 	if (!dot || dot == filename.data)
 		return (Naui_StringView){ 0 };
@@ -50,19 +61,29 @@ bool naui_file_create(const Naui_Path path)
 	return true;
 }
 
-bool naui_file_copy(const Naui_Path src_path, const Naui_Path dest_path)
+bool naui_file_copy(const Naui_Path src_path, const Naui_Path dest_path, Naui_FileCopyMode copy_mode)
 {
+	if (naui_path_is_directory(src_path))
+		return false;
+ 
+	Naui_Path result_dest = dest_path;
+	if (naui_path_is_directory(dest_path))
+		result_dest = naui_path_join(dest_path, NAUI_PATH(naui_file_filename(&src_path).data));
+ 
+	if (copy_mode == NAUI_FILE_COPY_UNIQUE && naui_path_exists(result_dest))
+		result_dest = naui_file_unique_name(src_path, dest_path);
+ 
 	Naui_FileHandle src_handle = NAUI_FILE_HANDLE_INIT;
 	Naui_FileHandle dest_handle = NAUI_FILE_HANDLE_INIT;
 	if (!naui_file_open(&src_handle, src_path, NAUI_FILE_READ))
 		return false;
-
-	if (!naui_file_open(&dest_handle, dest_path, NAUI_FILE_WRITE))
+ 
+	if (!naui_file_open(&dest_handle, result_dest, NAUI_FILE_WRITE))
 	{
 		naui_file_close(&src_handle);
 		return false;
 	}
-
+ 
 	bool success = true;
 	char buffer[4096];
 	size_t bytes;
@@ -74,10 +95,33 @@ bool naui_file_copy(const Naui_Path src_path, const Naui_Path dest_path)
 			break;
 		}
 	}
-
+ 
 	naui_file_close(&src_handle);
 	naui_file_close(&dest_handle);
 	return success;
+}
+
+Naui_Path naui_file_unique_name(const Naui_Path src_path, const Naui_Path dest_path)
+{
+	if (naui_path_is_directory(src_path))
+		return (Naui_Path){ .data = '\0' };
+ 
+	Naui_Path result_dest = dest_path;
+	if (naui_path_is_directory(dest_path))
+		result_dest = naui_path_join(dest_path, NAUI_PATH(naui_file_filename(&src_path).data));
+
+	const Naui_String stem = naui_view_to_string(naui_file_stem(&result_dest));
+	const Naui_String ext = naui_view_to_string(naui_file_extension(&result_dest));
+	const Naui_Path parent = naui_path_parent(result_dest);
+	int32_t counter = 1;
+	while (naui_path_exists(result_dest))
+	{
+		const Naui_String new_name = naui_string_format("%s (%d)%s", stem.data, counter, ext.data);
+		result_dest = naui_path_join(parent, naui_path_from_cstr(new_name.data));
+		counter++;
+	}
+
+	return result_dest;
 }
 
 void naui_directory_filter_free(Naui_List(Naui_DirEntry) list)

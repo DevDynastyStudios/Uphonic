@@ -49,7 +49,7 @@ static bool is_separator(char c)
 	return c == '/' || c == '\\';
 }
 
-static Naui_FileInternal* file_internal(const Naui_FileHandle* handle)
+static Naui_FileInternal* _naui_file_internal(const Naui_FileHandle* handle)
 {
 	return (Naui_FileInternal*)(void*)handle->_opaque;
 }
@@ -94,7 +94,7 @@ static bool match_extensions(const char* name, const char** exts, int ext_count)
 	return false;
 }
 
-static void filter_recursive_impl_w(const char* path, const char* filter, const char** extensions, int ext_count, Naui_List(Naui_DirEntry)* list)
+static void _naui_filter_recursive_impl_w(const char* path, const char* filter, const char** extensions, int ext_count, Naui_List(Naui_DirEntry)* list)
 {
 	wchar_t wsearch[NAUI_PATH_MAX];
 	{
@@ -130,7 +130,7 @@ static void filter_recursive_impl_w(const char* path, const char* filter, const 
 			de.is_directory = true;
 			de.size = 0;
 			naui_list_push(*list, de);
-			filter_recursive_impl_w(child, filter, extensions, ext_count, list);
+			_naui_filter_recursive_impl_w(child, filter, extensions, ext_count, list);
 		}
 		else
 		{
@@ -156,7 +156,7 @@ static void filter_recursive_impl_w(const char* path, const char* filter, const 
 	FindClose(h);
 }
 
-static void resolve_lock_target(const char* path, char* out)
+static void _naui_resolve_lock_target(const char* path, char* out)
 {
 	wchar_t wpath[NAUI_PATH_MAX];
 	if (MultiByteToWideChar(CP_UTF8, 0, path, -1, wpath, NAUI_PATH_MAX) > 0)
@@ -210,7 +210,7 @@ bool naui_file_open(Naui_FileHandle* handle, const Naui_Path path, Naui_FileMode
 	if (mode == NAUI_FILE_APPEND)
 		SetFilePointer(h, 0, NULL, FILE_END);
 
-	file_internal(handle)->h = h;
+	_naui_file_internal(handle)->h = h;
 	return true;
 }
 
@@ -219,7 +219,7 @@ size_t naui_file_read(const Naui_FileHandle* handle, void* buffer, size_t size)
 	if (!handle || !buffer)
 		return 0;
 
-	HANDLE h = file_internal(handle)->h;
+	HANDLE h = _naui_file_internal(handle)->h;
 	if (!h || h == INVALID_HANDLE_VALUE)
 		return 0;
 
@@ -233,7 +233,7 @@ size_t naui_file_write(const Naui_FileHandle* handle, const void* buffer, size_t
 	if (!handle || !buffer)
 		return 0;
 
-	HANDLE h = file_internal(handle)->h;
+	HANDLE h = _naui_file_internal(handle)->h;
 	if (!h || h == INVALID_HANDLE_VALUE)
 		return 0;
 
@@ -247,7 +247,7 @@ bool naui_file_seek(Naui_FileHandle* handle, long offset, int origin)
 	if (!handle)
 		return false;
 
-	HANDLE h = file_internal(handle)->h;
+	HANDLE h = _naui_file_internal(handle)->h;
 	if (!h || h == INVALID_HANDLE_VALUE)
 		return false;
 
@@ -278,7 +278,7 @@ bool naui_file_is_valid(const Naui_FileHandle* handle)
 	if (!handle)
 		return false;
 
-	HANDLE h = file_internal(handle)->h;
+	HANDLE h = _naui_file_internal(handle)->h;
 	return h && h != INVALID_HANDLE_VALUE;
 }
 
@@ -287,7 +287,7 @@ void naui_file_close(Naui_FileHandle* handle)
 	if (!handle)
 		return;
 
-	Naui_FileInternal* fi = file_internal(handle);
+	Naui_FileInternal* fi = _naui_file_internal(handle);
 	if (fi->h && fi->h != INVALID_HANDLE_VALUE)
 	{
 		CloseHandle(fi->h);
@@ -317,7 +317,7 @@ char* naui_file_read_all(const Naui_Path path, size_t* out_size)
 	if (!naui_file_open(&handle, path, NAUI_FILE_READ))
 		return NULL;
 
-	HANDLE h = file_internal(&handle)->h;
+	HANDLE h = _naui_file_internal(&handle)->h;
 	LARGE_INTEGER file_size;
 	if (!GetFileSizeEx(h, &file_size))
 	{
@@ -417,17 +417,6 @@ bool naui_file_is_hidden(const Naui_Path *path)
 	return (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
 }
 
-static char* find_last_char(Naui_StringView sv, char c)
-{
-	for (size_t i = sv.length; i > 0; i--)
-	{
-		if(sv.data[i - 1] == c)
-			return sv.data + (i - 1);
-	}
-
-	return NULL;
-}
-
 bool naui_directory_create(const Naui_Path path)
 {
 	wchar_t wpath[NAUI_PATH_MAX];
@@ -446,7 +435,7 @@ bool naui_directory_remove(const Naui_Path path)
 	return RemoveDirectoryW(wpath) != 0;
 }
 
-static bool remove_all_recursive(wchar_t* wpath)
+static bool _naui_remove_all_recursive(wchar_t* wpath)
 {
 	wchar_t search[NAUI_PATH_MAX];
 	_snwprintf(search, NAUI_PATH_MAX, L"%s\\*", wpath);
@@ -464,7 +453,7 @@ static bool remove_all_recursive(wchar_t* wpath)
 
 		wchar_t child[NAUI_PATH_MAX];
 		_snwprintf(child, NAUI_PATH_MAX, L"%s\\%s", wpath, fd.cFileName);
-		ok &= (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? remove_all_recursive(child) : (DeleteFileW(child) != 0);
+		ok &= (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? _naui_remove_all_recursive(child) : (DeleteFileW(child) != 0);
 	} while (FindNextFileW(h, &fd));
 
 	FindClose(h);
@@ -480,44 +469,56 @@ bool naui_directory_remove_all(const Naui_Path path)
 	if (!to_wide(path.data, wpath))
 		return false;
 
-	return remove_all_recursive(wpath);
+	return _naui_remove_all_recursive(wpath);
 }
 
 bool naui_directory_rename(const Naui_Path old_path, const Naui_Path new_path)
 {
-
-	// Add new named folder and moving logic to get around weird Windows quirks.
 	return naui_file_rename(old_path, new_path);
 }
 
-static char s_working[NAUI_PATH_MAX] = {0}; // Used in `naui_directory_get` and `naui_path_set_current`
+static char* s_dir_cache[NAUI_DIR_MAX_COUNT] = {0};
+
+static char* _naui_heap_dup(const char* s)
+{
+	if (!s)
+		return NULL;
+
+	size_t len = strlen(s) + 1;
+	char* copy = (char*)malloc(len);
+	if (copy)
+		memcpy(copy, s, len);
+
+	return copy;
+}
+
+static void _naui_dir_cache_set(Naui_Dir directory, const char* value)
+{
+	if (directory >= NAUI_DIR_MAX_COUNT || !value || !value[0])
+		return;
+
+	free(s_dir_cache[directory]);
+	s_dir_cache[directory] = _naui_heap_dup(value);
+}
+
 Naui_Path naui_directory_get(Naui_Dir directory)
 {
-	static char s_home[NAUI_PATH_MAX] = {0};
-	static char s_bin[NAUI_PATH_MAX] = {0};
-	static char s_appdata[NAUI_PATH_MAX] = {0};
-	static char s_roaming[NAUI_PATH_MAX] = {0};
-	static char s_downloads[NAUI_PATH_MAX] = {0};
-	static char s_temp[NAUI_PATH_MAX] = {0};
+	if (directory < NAUI_DIR_MAX_COUNT && s_dir_cache[directory])
+		return path_from(s_dir_cache[directory]);
 
+	char resolved[NAUI_PATH_MAX] = {0};
 	switch (directory)
 	{
 		case NAUI_DIR_HOME:
 		{
-			if (s_home[0])
-				return path_from(s_home);
-
 			wchar_t w[NAUI_PATH_MAX];
 			if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, 0, w)))
-				to_utf8(w, s_home);
+				to_utf8(w, resolved);
 
-			return path_from(s_home);
+			break;
 		}
 		case NAUI_DIR_BIN:
 		{
-			if (s_bin[0])
-				return path_from(s_bin);
-
 			wchar_t w[NAUI_PATH_MAX];
 			if (GetModuleFileNameW(NULL, w, NAUI_PATH_MAX))
 			{
@@ -525,61 +526,45 @@ Naui_Path naui_directory_get(Naui_Dir directory)
 				if (last)
 					*last = L'\0';
 
-				to_utf8(w, s_bin);
+				to_utf8(w, resolved);
 			}
 
-			return path_from(s_bin);
+			break;
 		}
 		case NAUI_DIR_WORKING:
 		{
-			if (s_working[0])
-				return path_from(s_working);
-
 			wchar_t w[NAUI_PATH_MAX];
 			if (GetCurrentDirectoryW(NAUI_PATH_MAX, w))
-				to_utf8(w, s_working);
+				to_utf8(w, resolved);
 
-			return path_from(s_working);
+			break;
 		}
 		case NAUI_DIR_APPDATA:
 		{
-			if (s_appdata[0])
-				return path_from(s_appdata);
-		
 			wchar_t w[NAUI_PATH_MAX];
 			if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_LOCAL_APPDATA, NULL, 0, w)))
-				to_utf8(w, s_appdata);
-		
-			return path_from(s_appdata);
+				to_utf8(w, resolved);
+
+			break;
 		}
 		case NAUI_DIR_ROAMING:
 		{
-			if (s_roaming[0])
-				return path_from(s_roaming);
-
 			wchar_t w[NAUI_PATH_MAX];
 			if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_APPDATA, NULL, 0, w)))
-				to_utf8(w, s_roaming);
+				to_utf8(w, resolved);
 
-			return path_from(s_roaming);
+			break;
 		}
 		case NAUI_DIR_DOWNLOADS:
 		{
-			if (s_downloads[0])
-				return path_from(s_downloads);
-
 			Naui_Path home_path = naui_directory_get(NAUI_DIR_HOME);
-			const char* home = home_path.data;
-			if (*home)
-				snprintf(s_downloads, NAUI_PATH_MAX, "%s\\Downloads", home);
+			if (home_path.data[0])
+				snprintf(resolved, sizeof(resolved), "%s\\Downloads", home_path.data);
 
-			return path_from(s_downloads);
+			break;
 		}
 		case NAUI_DIR_TEMP:
 		{
-			if(s_temp[0])
-				return path_from(s_temp);
-
 			wchar_t w[NAUI_PATH_MAX];
 			DWORD len = GetTempPathW(NAUI_PATH_MAX, w);
 			if(len > 0 && len < NAUI_PATH_MAX)
@@ -587,14 +572,28 @@ Naui_Path naui_directory_get(Naui_Dir directory)
 				if (len > 1 && (w[len - 1] == L'\\' || w[len - 1] == L'/'))
 					w[len - 1] = L'\0';
 
-				to_utf8(w, s_temp);
+				to_utf8(w, resolved);
 			}
 
-			return path_from(s_temp);
+			break;
 		}
+		case NAUI_DIR_ASSETS:
+		{
+			Naui_Path bin_path = naui_directory_get(NAUI_DIR_WORKING);
+			if (bin_path.data[0])
+			{
+				Naui_Path joined = naui_path_join(bin_path, naui_path_from_cstr("Assets"));
+				snprintf(resolved, sizeof(resolved), "%s", joined.data);
+			}
+
+			break;
+		}
+		default:
+			return path_empty();
 	}
 
-	return path_empty();
+	_naui_dir_cache_set(directory, resolved);
+	return path_from(resolved);
 }
 
 Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char* filter, const char** extensions)
@@ -669,7 +668,7 @@ Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, c
 		ext_count++;
 	}
 
-	filter_recursive_impl_w(path.data, filter, extensions, ext_count, &list);
+	_naui_filter_recursive_impl_w(path.data, filter, extensions, ext_count, &list);
 	return list;
 }
 
@@ -685,7 +684,7 @@ bool naui_path_set_current(const Naui_Path path)
 	if (!SetCurrentDirectoryW(wpath))
 		return false;
 
-	memcpy(s_working, path.data, NAUI_PATH_MAX);
+	_naui_dir_cache_set(NAUI_DIR_WORKING, path.data);
 	return true;
 }
 
@@ -868,7 +867,7 @@ bool naui_path_lock(const Naui_Path path)
 		return false;
 
 	char target[NAUI_PATH_MAX];
-	resolve_lock_target(path.data, target);
+	_naui_resolve_lock_target(path.data, target);
 	for (int i = 0; i < s_lock_count; ++i)
 	{
 		if (_stricmp(s_locks[i].path, target) == 0)
@@ -923,7 +922,7 @@ bool naui_path_is_locked(const Naui_Path path)
 		return false;
 
 	char target[NAUI_PATH_MAX];
-	resolve_lock_target(path.data, target);
+	_naui_resolve_lock_target(path.data, target);
 	for (int i = 0; i < s_lock_count; ++i)
 	{
 		if (_stricmp(s_locks[i].path, target) == 0)
@@ -960,7 +959,7 @@ void naui_path_unlock(const Naui_Path path)
 		return;
 
 	char target[NAUI_PATH_MAX];
-	resolve_lock_target(path.data, target);
+	_naui_resolve_lock_target(path.data, target);
 
 	for (int i = 0; i < s_lock_count; ++i)
 	{

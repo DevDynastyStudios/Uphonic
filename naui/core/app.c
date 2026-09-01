@@ -134,7 +134,7 @@ static void __naui_app_start(void)
 {
     naui_arena_init(naui_arena_frame(), 2 * 1024 * 1024); // 2mb should be enough for most string operations
     naui_renderer_initialize();
-    naui_asset_manager_load_images("Assets/Images");
+    naui_asset_manager_load_images(naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Images")).data);
     naui_themes_initialize();
     leaf_init();
     leaf_set_measure_text(measure_text_bridge);

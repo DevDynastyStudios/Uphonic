@@ -23,7 +23,7 @@ Install [Visual Studio](https://visualstudio.microsoft.com/) with the following 
 > [!IMPORTANT]  
 > Visual Studio does not add these compilers to the system PATH; you will have to do that yourself. By default, they are only accessible through Developer PowerShell for Visual Studio.
 
-You will also need to install [lua 5.5](https://sourceforge.net/projects/luabinaries/files/5.5.0/)  or newer and add it to path.
+You will also need to install [lua 5.5](https://sourceforge.net/projects/luabinaries/files/5.5.0/)  or newer and add it to PATH.
 
 ### Linux
 
@@ -65,7 +65,7 @@ lua build.lua <mode> <configuration>
 ```
 
 Modes:
- - run = Only runs an allready built binary.
+ - run = Only runs an already built binary.
  - build = Builds the project.
  - build_run = Builds and runs the project.
 

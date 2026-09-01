@@ -1,8 +1,8 @@
-void uph_resources_add_sample_from_file(Naui_Path path)
+bool uph_resources_add_sample_from_file(Naui_Path path)
 {
     Uph_SampleData data = uph_audio_engine_load_sample_data(path);
     if (!uph_audio_engine_sample_data_valid(&data))
-        return;
+        return false;
 
     data.ref_count = 1;
 
@@ -13,6 +13,7 @@ void uph_resources_add_sample_from_file(Naui_Path path)
 
     naui_list_push(uph_state.project.sample_data, data);
     naui_list_push(uph_state.project.samples, sample);
+	return true;
 }
 
 void uph_resources_copy_sample(Uph_ResourceIndex sample_index)

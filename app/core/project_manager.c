@@ -3,8 +3,17 @@
 bool uph_project_create(Naui_String project_name)
 {
 	Naui_Path project_dest = naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project_name.data));
-	if (naui_path_exists(project_dest))
+	// if (naui_path_exists(project_dest))
+	// {
+	// 	naui_log(NAUI_LOG_ERROR, "Project name already exists: %s", project_name.data);
+	// 	return false;
+	// }
+
+	if (!naui_directories_create(project_dest))
+	{
+		naui_log(NAUI_LOG_ERROR, "Failed to create new Uphonic project: %s", project_name.data);
 		return false;
+	}
 
 	uint64_t current_time = naui_unix_time();
 	uph_state.project.bpm = 120.0f;
@@ -15,13 +24,15 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4};
 	naui_list_clear(uph_state.project.tracks);
 
-    Uph_Track track = {
-        .name = naui_string_from_cstr("Untitled Track"),
-        .volume = 1.0f,
-        .color = naui_theme_color("uph_palette_color_1")
-    };
-    naui_list_push(uph_state.project.tracks, track);
+	Uph_Track track = {
+		.name = naui_string_from_cstr(NAUI_TR("song_timeline.track.title")),
+		.volume = 1.0f,
+		.color = naui_theme_color("uph_palette_color_1")
+	};
+	naui_list_push(uph_state.project.tracks, track);
 
+	// uph_io_save_project(&uph_state.project, project_dest);
+	naui_file_create(naui_path_join(project_dest, NAUI_PATH(".lock")));
 	naui_path_lock(project_dest);
 	return true;
 }
@@ -108,22 +119,26 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 
 bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 {
-	if (!naui_path_exists(file_path) || naui_path_is_directory(file_path))
+	if (!naui_path_exists(file_path) || naui_path_is_directory(file_path) || naui_string_is_empty(project->title))
 		return false;
 
+	naui_log(NAUI_LOG_INFO, "(%s) Adding sample link: %s", project->title, file_path.data);
 	Naui_Path res_dest = file_path;
-	if (!uph_state.settings.general.copy_resources)
+	if (uph_state.settings.general.copy_resources)
 	{
+		naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
 		Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp"));
-		// Copy Audio into this folder
-		// res_dest = Audio Path Here
+		naui_directories_create(copy_path);
+
+		// Use override since unique will do more work while not returning the file dest
+		Naui_Path file_dest = naui_file_unique_name(file_path, copy_path);
+		naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE);
+		res_dest = file_dest;
 	}
 
-	// TODO (from box to chimpchi): If you are gonna do this do it with the new sample data implementation in mind
-	// You can use the resource manager I added or drag the code from it in the project manager if you don't want them separate
+	if (!uph_resources_add_sample_from_file(res_dest))	// Inefficient, but works
+		naui_file_delete(res_dest);
 
-	//Uph_Sample sample_resource = uph_audio_engine_load_sample(res_dest);
-    //naui_list_push(uph_state.project.samples, sample_resource);
 	return true;
 }
 
