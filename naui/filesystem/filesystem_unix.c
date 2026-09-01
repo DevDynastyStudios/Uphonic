@@ -379,6 +379,7 @@ bool naui_directory_rename(const Naui_Path old_path, const Naui_Path new_path)
 	return naui_file_rename(old_path, new_path);
 }
 
+#define NAUI_DIR_COUNT 64
 static char* s_dir_cache[NAUI_DIR_COUNT] = {0};
 
 static char* heap_dup(const char* s)
