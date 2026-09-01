@@ -21,10 +21,12 @@
 #include "ui/titlebar.h"
 #include "ui/waveform.h"
 #include "ui/widgets.h"
+#include "ui/list_box.h"
 
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
 #include "ui/widgets.c"
+#include "ui/list_box.c"
 
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"

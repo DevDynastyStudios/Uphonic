@@ -69,71 +69,25 @@ static void uph_sample_list_on_update(void)
         .direction = LEAF_DIRECTION_HORIZONTAL,
         .wrap_children = true
     }) {
-        uint32_t sampleCount = (uint32_t)naui_list_len(uph_state.project.samples);
-        for (uint32_t i = 0; i < sampleCount; i++) {
+        uint32_t sample_count = (uint32_t)naui_list_len(uph_state.project.samples);
+        for (uint32_t i = 0; i < sample_count; i++) {
             Uph_Sample *sample = &uph_state.project.samples[i];
 
-            const Leaf_ID sample_id = leaf_id_indexed("uph_sample_list_sample", i);
-            if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_ui_widget_hovered(sample_id))
+            const Leaf_ID id = leaf_id_indexed("uph_sample_list_sample", i);
+            if (uph_ui_list_box(
+                sample->name.data,
+                (Leaf_CustomDrawFn)uph_sample_list_waveform,
+                LEAF_DATA_SLICE(sample),
+                id,
+                uph_state.shared.selected_resource.index == i
+            ))
             {
                 uph_state.shared.selected_resource.index = i;
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
             }
-
-            leaf({
-                .id = sample_id,
-                .custom_draw = (Leaf_CustomDrawFn)uph_sample_list_waveform,
-                .custom_draw_data = LEAF_DATA_SLICE(sample),
-                .size = {
-                    .width = LEAF_SIZE_FIXED(NAUI_DPI(150)),
-                    .height = LEAF_SIZE_DERIVED
-                },
-                .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
-                .aspect_ratio = 2.2f,
-                .border = {
-                    .width = NAUI_DPI(uph_state.shared.selected_resource.index == i ? 3.0f : 1.0f),
-                    .sides = LEAF_SIDE_ALL,
-                    .color = leaf_rgb(145, 111, 205)
-                },
-                .color = leaf_rgb(108, 83, 154),
-                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
-                .clip_children = true
-            }) {
-                leaf_text(sample->name.data, {
-                    .color = LEAF_COLOR_WHITE,
-                    .font_size = NAUI_DPI(13.0f)
-                });
-            }
         }
 
-        leaf({
-            .size = {
-                .width = LEAF_SIZE_FIXED(NAUI_DPI(150)),
-                .height = LEAF_SIZE_DERIVED
-            },
-            .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
-            .aspect_ratio = 2.2f,
-            .border = {
-                .width = NAUI_DPI(1.0f),
-                .sides = LEAF_SIDE_ALL,
-                .color = naui_theme_color("uph_ui_frame_border")
-            },
-            .color = naui_theme_color("uph_ui_frame_bg_color"),
-            .child_alignment = {
-                LEAF_ALIGN_X_CENTER,
-                LEAF_ALIGN_Y_CENTER
-            },
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL)
-        }) {
-            leaf({
-                .image = naui_asset_image("uph_icon_plus"),
-                .size = {
-                    .width = LEAF_SIZE_PERCENT(0.1f),
-                    .height = LEAF_SIZE_DERIVED
-                },
-                .color = naui_theme_color("uph_ui_frame_border"),
-                .aspect_ratio = 1.0f
-            }) { }
-        }
+        const Leaf_ID plus_id = leaf_id("uph_sample_list_plus");
+        uph_ui_list_plus_box(plus_id);
     }
 }
