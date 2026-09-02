@@ -106,11 +106,6 @@ void uph_render_main_titlebar(void)
 				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
 			})
 			{
-				// records a command list that will be defered to render in the flush instead of a callback
-				// this means we will no longer be able to put any type of widget in the menus, only menu items and sub menus
-				// let's say we are gonna have a max sub menu depth of 4 for now
-
-				// uph_ui_menu is for menu bar menus (calling uph_ui_menu puts a leaf ui element to render the menu button also. it is not just an assignment)
 				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")))
 				{
@@ -129,7 +124,7 @@ void uph_render_main_titlebar(void)
 
 
 				Uph_UIMenuID import_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.import"), leaf_id("uph_file_import_menu"));
-				if (uph_ui_menu_item(import_menu, NAUI_TR("menu.file.import.midi"), leaf_id("uph_file_export_ogg")))
+				if (uph_ui_menu_item(import_menu, NAUI_TR("menu.file.import.midi"), leaf_id("uph_file_import_midi")))
 				{
 
 				}

@@ -379,8 +379,7 @@ bool naui_directory_rename(const Naui_Path old_path, const Naui_Path new_path)
 	return naui_file_rename(old_path, new_path);
 }
 
-#define NAUI_DIR_COUNT 64
-static char* s_dir_cache[NAUI_DIR_COUNT] = {0};
+static char* s_dir_cache[NAUI_DIR_MAX_COUNT] = {0};
 
 static char* heap_dup(const char* s)
 {
@@ -397,7 +396,7 @@ static char* heap_dup(const char* s)
 
 static void _naui_dir_cache_set(Naui_Dir directory, const char* value)
 {
-	if (directory >= NAUI_DIR_COUNT || !value || !value[0])
+	if (directory >= NAUI_DIR_MAX_COUNT || !value || !value[0])
 		return;
 
 	free(s_dir_cache[directory]);
@@ -406,7 +405,7 @@ static void _naui_dir_cache_set(Naui_Dir directory, const char* value)
 
 Naui_Path naui_directory_get(const Naui_Dir directory)
 {
-	if (directory < NAUI_DIR_COUNT && s_dir_cache[directory])
+	if (directory < NAUI_DIR_MAX_COUNT && s_dir_cache[directory])
 		return path_from(s_dir_cache[directory]);
 
 	char resolved[NAUI_PATH_MAX] = {0};

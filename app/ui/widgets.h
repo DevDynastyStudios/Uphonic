@@ -31,6 +31,9 @@ Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id)
 Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
 
+Uph_UIMenuID    uph_ui_context_menu (const Leaf_ID element_id);
+void            uph_ui_open_context_menu (Uph_UIMenuID *menu);
+
 bool uph_ui_text_button(const char *string, const Leaf_ID id);
 bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint);
 bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners);

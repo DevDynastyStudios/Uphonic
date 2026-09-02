@@ -220,6 +220,30 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     return (Uph_UIMenuID)menu;
 }
 
+Uph_UIMenuID uph_ui_context_menu(const Leaf_ID element_id)
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+
+    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    menu->element_id = element_id;
+
+    return (Uph_UIMenuID)menu;
+}
+
+void uph_ui_open_context_menu(Uph_UIMenuID *menu)
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_UIMenuNode *node = (Uph_UIMenuNode*)menu;
+    leaf({
+        .id = node->element_id,
+        .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
+        .floating = {
+            .offset = {naui_mouse_x(), naui_mouse_y()}
+        }
+    });
+    data->current_open_menu = node;
+}
+
 static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
 {
     if (!parent->first_child)
