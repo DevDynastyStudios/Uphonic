@@ -68,9 +68,11 @@ static void uph_pattern_list_on_update(void)
 
         if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_pattern_remove")))
         {
-            naui_list_remove(uph_state.project.midi_patterns, uph_state.shared.selected_resource.index);
+            uph_resources_remove_pattern(uph_state.shared.selected_resource.index);
             if (uph_state.shared.selected_resource.index > 0 && uph_state.shared.selected_resource.index == naui_list_len(uph_state.project.midi_patterns))
                 uph_state.shared.selected_resource.index--;
+            else if (naui_list_len(uph_state.project.midi_patterns) == 0)
+                uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
         }
         if (uph_ui_menu_item(context_menu, "Duplicate", leaf_id("uph_pattern_duplicate")))
             uph_resources_copy_pattern(uph_state.shared.selected_resource.index);

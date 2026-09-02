@@ -858,7 +858,7 @@ static inline void naui_render_panel_body(Naui_PanelNode *node)
     })
     {
         Naui_PanelNode *tab = node->tabs ? node->tabs[node->active_tab] : node;
-        naui_panel_manager.current_panel = tab;
+        naui_panel_manager.current_panel = node;
         if (tab->type.on_update)
             tab->type.on_update();
         if (naui_can_show_dock_guides(node))

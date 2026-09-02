@@ -34,7 +34,14 @@ static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType t
         for (uint32_t j = 0; j < (uint32_t)naui_list_len(blocks); j++)
         {
             if (blocks[j].resource_index == resource_index)
+            {
                 naui_list_uremove(blocks, j);
+                j--;
+            }
+            else if (blocks[j].resource_index > resource_index)
+            {
+                blocks[j].resource_index--;
+            }
         }
     }
 }
@@ -64,4 +71,11 @@ void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 {
     Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
     naui_list_push(uph_state.project.midi_patterns, pattern);
+}
+
+void uph_resources_remove_pattern(Uph_ResourceIndex pattern_index)
+{
+    Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
+    uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_PATTERN, pattern_index);
+    naui_list_remove(uph_state.project.midi_patterns, pattern_index);
 }

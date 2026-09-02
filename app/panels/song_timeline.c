@@ -546,6 +546,9 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                     double mouse_beat = ((double)naui_mouse_x() - bbox.x + scroll_x) / zoom_x;
                     drag->initial_drag_beat_offset = blocks[i].start_beat - mouse_beat;
+
+                    uph_state.shared.selected_resource.type = blocks[i].type;
+                    uph_state.shared.selected_resource.index = blocks[i].resource_index;
                 }
 
                 naui_set_cursor(
@@ -570,7 +573,7 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
     const float zoom_x = uph_song_timeline_data.zoom.x;
     const float scroll_x = uph_song_timeline_data.scroll.x;
 
-    const float opacity = ((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED)) ? 0.35f : 1.0f;
+    const float opacity = ((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED)) ? 0.25f : 1.0f;
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
     {

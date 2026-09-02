@@ -4,3 +4,4 @@ void uph_resources_remove_sample(Uph_ResourceIndex sample_index);
 
 void uph_resources_add_pattern(void);
 void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index);
+void uph_resources_remove_pattern(Uph_ResourceIndex pattern_index);
