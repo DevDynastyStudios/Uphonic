@@ -1,0 +1,80 @@
+{
+"naui_panel_border_color": "#151518",
+"naui_panel_body_bg_color": "#0F0F11",
+"naui_panel_tab_bg_color": "#0F0F11",
+"naui_panel_title_bg_color": "#161619",
+"naui_panel_title_text_color": "#D0D0D5",
+"naui_panel_text_color": "#A6A6AC",
+"naui_panel_text_disabled_color": "#3A3A3F",
+"naui_panel_shadow_color": "#00000025",
+"naui_panel_inner_shadow_color": "#00000008",
+"naui_panel_button_hovered_bg_color": "#343439",
+"naui_panel_close_hovered_bg_color": "#C43C3CFF",
+
+"naui_dock_guide_color": "#1464A040",
+"naui_dock_guide_hovered_color": "#1E8FD060",
+"naui_dock_guide_outline_color": "#1E8FD090",
+
+"naui_viewport_bg_color": "#0F0F11",
+
+"naui_panel_title_padding": [8.0, 8.0],
+"naui_panel_font_size": 13.5,
+"naui_panel_border_width": 1.0,
+"naui_panel_rounding": 6.0,
+
+"uph_ui_font_size": 13.5,
+"uph_ui_text_color": "#E2E2E7",
+"uph_ui_text_disabled_color": "#3A3A3F",
+
+"uph_ui_selection_color": "#7564D8",
+"uph_ui_slider_fill_color": "#7564D8",
+
+"uph_ui_dropdown_shadow_color": "#00000035",
+"uph_ui_dropdown_bg_color": "#080809",
+
+"uph_ui_frame_bg_color": "#0D0D0F",
+"uph_ui_frame_secondary_bg_color": "#202024",
+"uph_ui_frame_hovered_bg_color": "#3A3A42",
+"uph_ui_frame_pressed_bg_color": "#50505A",
+"uph_ui_frame_toggled_bg_color": "#303037",
+"uph_ui_frame_border": "#17171A",
+"uph_ui_frame_rounding": 6.0,
+"uph_ui_frame_padding": [6.0, 6.0],
+
+"uph_toolbox_bg_color": "#131315",
+
+"uph_track_header_color": "#17171A",
+"uph_track_header_width": 150.0,
+"uph_track_header_padding": [10.0, 10.0],
+
+"uph_track_header_border_color": "#0B0B0D",
+"uph_track_border_color": "#18181B",
+"uph_track_bg1_color": "#0C0C0E",
+"uph_track_bg2_color": "#101012",
+
+"uph_track_text_color": "#E2E2E7",
+"uph_track_font_size": 14.0,
+"uph_track_icon_size": 18.0,
+
+"uph_track_grid_beat_color": "#29292F60",
+"uph_track_grid_bar_color": "#393941C0",
+"uph_track_grid_text_color": "#707077",
+
+"uph_palette_color_1": "#B388FF",
+"uph_palette_color_2": "#40C4FF",
+"uph_palette_color_3": "#1DE9B6",
+"uph_palette_color_4": "#B2FF59",
+"uph_palette_color_5": "#FFD740",
+"uph_palette_color_6": "#FF9E40",
+"uph_palette_color_7": "#FF4FA3",
+"uph_palette_color_8": "#E040FB",
+
+"uph_tool_icon_color": "#E2E2E7",
+"uph_play_icon_color": "#63D493",
+"uph_pause_icon_color": "#DDB052",
+"uph_stop_icon_color": "#E06A72",
+
+"uph_playhead_color": "#FAFAFC"
+
+
+}

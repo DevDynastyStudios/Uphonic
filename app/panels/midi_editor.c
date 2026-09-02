@@ -747,6 +747,21 @@ static void uph_midi_editor_on_update(void)
 {
     const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
 
+    if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            leaf_text("No midi pattern is selected.", {
+                .color = naui_theme_color("uph_ui_text_color"),
+                .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
+            });
+        }
+        return;
+    }
+
     uph_midi_editor_data.panel_hovered = naui_panel_hovered(naui_current_panel());
     uph_midi_editor_data.lanes_hovered = leaf_hovered(lanes_id) && uph_midi_editor_data.panel_hovered;
     uph_midi_editor_data.lanes_bounding_box = leaf_get_bounding_box(lanes_id);

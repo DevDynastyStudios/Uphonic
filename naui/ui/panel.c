@@ -1293,7 +1293,10 @@ static void naui_update_splits_only(Naui_PanelNode *node)
 
 static inline void naui_calculate_and_cache_panel_occlusion(Naui_PanelNode *node)
 {
-    if (naui_panel_manager.occlude_all)
+    if (naui_panel_manager.occlude_all ||
+        naui_panel_manager.resizing_node ||
+        naui_panel_manager.split_resizing_node
+    )
     {
         node->occluded = true;
         return;
