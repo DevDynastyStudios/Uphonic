@@ -103,6 +103,7 @@ typedef struct
 	double start_beat;
 	double start_offset_beats;
 	double length_beats;
+	float visual_lifetime;
     Uph_ResourceIndex resource_index;
     Uph_ResourceType type;
 }

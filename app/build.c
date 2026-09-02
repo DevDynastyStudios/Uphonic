@@ -1,8 +1,6 @@
 #include <naui/build.c>
 
-#define STB_VORBIS_IMPLEMENTATION
 #include <vendor/stb/stb_vorbis.h>
-
 #define MINIAUDIO_IMPLEMENTATION
 #include <vendor/miniaudio/miniaudio.h>
 

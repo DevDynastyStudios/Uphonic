@@ -59,3 +59,9 @@ void uph_resources_add_pattern(void)
 
     naui_list_push(uph_state.project.midi_patterns, pattern);
 }
+
+void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
+{
+    Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
+    naui_list_push(uph_state.project.midi_patterns, pattern);
+}
