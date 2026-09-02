@@ -22,6 +22,7 @@ enum
 
 typedef uint64_t Uph_UIMenuID;
 
+void uph_ui_widgets_init(void);
 void uph_ui_widgets_flush(void);
 
 bool uph_ui_widget_hovered(const Leaf_ID id);

@@ -82,6 +82,8 @@ void naui_app_start(void)
 	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
 	uph_audio_engine_init();
+	uph_ui_widgets_init();
+
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(
 			NAUI_ATTACH_PANEL(uph_song_timeline),

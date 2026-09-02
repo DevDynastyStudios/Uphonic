@@ -188,6 +188,12 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
     }
 }
 
+void uph_ui_widgets_init(void)
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    naui_arena_init(&data->menu_arena, (1 << 14));
+}
+
 void uph_ui_widgets_flush(void)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
