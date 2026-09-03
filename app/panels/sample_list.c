@@ -69,11 +69,20 @@ static void uph_sample_list_on_update(void)
         .direction = LEAF_DIRECTION_HORIZONTAL,
         .wrap_children = true
     }) {
+        Uph_UIMenuID context_menu = uph_ui_context_menu();
+
         uint32_t sample_count = (uint32_t)naui_list_len(uph_state.project.samples);
         for (uint32_t i = 0; i < sample_count; i++) {
             Uph_Sample *sample = &uph_state.project.samples[i];
 
             const Leaf_ID id = leaf_id_indexed("uph_sample_list_sample", i);
+            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_ui_widget_hovered(id))
+            {
+                uph_state.shared.selected_resource.index = i;
+                uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+                uph_ui_open_context_menu(context_menu);
+            }
+
             if (uph_ui_list_box(
                 sample->name.data,
                 (Leaf_CustomDrawFn)uph_sample_list_waveform,
@@ -84,8 +93,24 @@ static void uph_sample_list_on_update(void)
             {
                 uph_state.shared.selected_resource.index = i;
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+
+                Uph_Sample *sample = &uph_state.project.samples[i];
+                Uph_SampleData *sample_data = &uph_state.project.sample_data[sample->data_index];
+                double beats = ceil(uph_frames_to_beats(sample_data->frame_count, uph_state.settings.audio.sample_rate, uph_state.project.bpm));
+                uph_state.shared.song_timeline_current_block_length = beats;
             }
         }
+
+        if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_sample_remove")))
+        {
+            uph_resources_remove_sample(uph_state.shared.selected_resource.index);
+            if (uph_state.shared.selected_resource.index > 0 && uph_state.shared.selected_resource.index == naui_list_len(uph_state.project.samples))
+                uph_state.shared.selected_resource.index--;
+            else if (naui_list_len(uph_state.project.samples) == 0)
+                uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
+        }
+        if (uph_ui_menu_item(context_menu, "Duplicate", leaf_id("uph_sample_duplicate")))
+            uph_resources_copy_sample(uph_state.shared.selected_resource.index);
 
         const Leaf_ID plus_id = leaf_id("uph_sample_list_plus");
         uph_ui_list_plus_box(plus_id);

@@ -46,6 +46,9 @@
 	"menu.windows.show": "Show All",
 	"menu.windows.hide": "Hide All",
 
+	"menu.track": "Track",
+	"menu.track.new": "New Track",
+
 	"menu.layout": "Layouts",
 	"menu.layout.save": "Save Layout As...",
 	"menu.layout.delete": "Delete Layout",

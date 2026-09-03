@@ -54,38 +54,16 @@ static Uph_SongTimelineData uph_song_timeline_data;
 
 NAUI_PANEL(uph_song_timeline)
 
-static double uph_snap_beat_to_grid(double beat, uint32_t time_sig_numerator, uint32_t beat_snap_interval)
-{
-	double grid_size = (double)time_sig_numerator / (double)beat_snap_interval;
-	double snapped = ceil(beat / grid_size) * grid_size;
-	return snapped;
-}
-
 static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_t resource_index, Uph_ResourceType block_type)
 {
 	Uph_TimelineBlock block = {
 		.start_beat = start_beat,
+        .start_offset_beats = uph_state.shared.song_timeline_current_block_start_offset,
+        .length_beats = uph_state.shared.song_timeline_current_block_length,
 		.resource_index = resource_index,
 		.type = block_type
 	};
-
-	switch(block_type)
-	{
-		case UPH_RESOURCE_SAMPLE:
-        {
-            Uph_Sample *sample = &uph_state.project.samples[resource_index];
-            Uph_SampleData *sample_data = &uph_state.project.sample_data[sample->data_index];
-            double beats = ceil(uph_frames_to_beats(sample_data->frame_count, uph_state.settings.audio.sample_rate, uph_state.project.bpm));
-            block.length_beats = beats;
-            break;
-        }
-
-		case UPH_RESOURCE_PATTERN:
-            block.length_beats = 4;
-		break;
-	}
-
-	return block;
+    return block;
 }
 
 static void uph_song_timeline_on_attach(void)
@@ -490,12 +468,18 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 blocks[i].length_beats = end_beat - new_start;
                 blocks[i].start_offset_beats = drag->initial_start_offset_beats + delta_beats;
 
+                uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
+                uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
+
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
             {
                 double new_length = ceil(mouse_beat) - blocks[i].start_beat;
                 blocks[i].length_beats = fmax(1.0, new_length);
+
+                uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
+                uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
 
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
@@ -550,6 +534,9 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                     uph_state.shared.selected_resource.type = blocks[i].type;
                     uph_state.shared.selected_resource.index = blocks[i].resource_index;
+
+                    uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
+                    uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
                 }
 
                 naui_set_cursor(
@@ -988,19 +975,7 @@ static void uph_song_timeline_render_top_bar(void)
         leaf({
             .size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width + header_padding.x * 2.0f)), LEAF_SIZE_FULL},
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-        })
-        {
-            const Leaf_Color text_color = naui_theme_color("uph_track_text_color");
-            if (uph_ui_text_button("Add Track", leaf_id("uph_add_track")))
-            {
-                Uph_Track track = {
-                    .name = naui_string_from_cstr("New Track"),
-                    .volume = 1.0f,
-                    .color = naui_theme_color("uph_palette_color_1")
-                };
-                naui_list_push(uph_state.project.tracks, track);
-            }
-        }
+        });
         leaf({
             .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
             .custom_draw = (Leaf_CustomDrawFn)uph_song_timeline_render_top_ruler

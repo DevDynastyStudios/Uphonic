@@ -246,8 +246,12 @@ enum
 
 typedef struct
 {
+	double song_timeline_current_block_length;
+	double song_timeline_current_block_start_offset;
+
     double song_timeline_playhead_position;
     bool song_timeline_playing;
+
 	struct
 	{
 		Uph_ResourceIndex index;

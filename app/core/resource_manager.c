@@ -43,6 +43,9 @@ static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType t
                 blocks[j].resource_index--;
             }
         }
+
+        if (naui_list_len(blocks) == 0)
+            uph_state.project.tracks[i].type = UPH_RESOURCE_NONE;
     }
 }
 
