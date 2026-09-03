@@ -57,41 +57,52 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 {
 	if (format == UPH_EXPORT_UPH)
 	{
-		bool created_dest_path;
-		if (!naui_path_exists(output_path))
-			created_dest_path = naui_directory_create(output_path);
+		naui_log(NAUI_LOG_INFO, "Making UPH file: %s", output_path.data);
 
-		if (!created_dest_path)
+		Naui_Path output_parent = naui_path_parent(output_path);
+		if (!naui_directories_create(output_parent))
+		{
+			naui_log(NAUI_LOG_ERROR, "Failed to create UPH directory.");
 			return false;
-	
+		}
+
 		const Naui_Path canonical_save = uph_project_get_path(project);
 		const Naui_Path temp_save = naui_path_join(canonical_save, NAUI_PATH(".temp"));
 		naui_path_unlock(canonical_save);
+
+		bool success = true;
 		Naui_Archive archive = NAUI_ARCHIVE_INIT;
 		naui_archive_open(&archive, output_path, NAUI_ARCHIVE_MODE_WRITE);
-
-		if (naui_archive_is_valid(&archive))
+		if (!naui_archive_is_valid(&archive))
 		{
 			naui_log(NAUI_LOG_ERROR, "Failed to create archive");
-			naui_directory_remove_all(output_path);
-			return false;
+			success = false;
 		}
 
-		if (!naui_archive_add_folder(&archive, canonical_save, NAUI_PATH("")))
+		if (success && !naui_archive_add_folder(&archive, canonical_save, NAUI_PATH(""), NAUI_ARCHIVE_EXCLUDES(".temp", ".lock")))
 		{
 			naui_log(NAUI_LOG_ERROR, "Failed to add canonical folder to archive");
-			naui_directory_remove_all(output_path);
-			return false;
+			success = false;
 		}
 
-		if (naui_path_exists(temp_save) && !naui_archive_add_folder(&archive, temp_save, NAUI_PATH("")))
+		if (success && naui_path_exists(temp_save) && !naui_archive_add_folder(&archive, temp_save, NAUI_PATH(""), NULL))
 		{
 			naui_log(NAUI_LOG_ERROR, "Failed to add temp folder to archive");
-			naui_directory_remove_all(output_path);
+			success = false;
+		}
+
+		naui_archive_close(&archive);
+		// if (success && !naui_archive_compact(output_path))
+		// 	naui_log(NAUI_LOG_WARNING, "Failed to compact exported archive at: %s", output_path.data);
+
+		naui_path_lock(canonical_save);
+
+		if (!success)
+		{
+			naui_file_delete(output_path);
 			return false;
 		}
 
-		naui_path_lock(canonical_save);
 		naui_log(NAUI_LOG_INFO, "Project(%s) saved to: %s", project->title.data, output_path.data);
 		return true;
 	}
@@ -123,26 +134,26 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 		return false;
 
 	naui_log(NAUI_LOG_INFO, "(%s) Adding sample link: %s", project->title, file_path.data);
-	Naui_Path res_dest = file_path;
-	if (uph_state.settings.general.copy_resources)
+	if (!uph_state.settings.general.copy_resources)
+		return uph_resources_add_sample_from_file(file_path);
+
+	naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
+	Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp"));
+	naui_directories_create(copy_path);
+
+	// Use override since unique will do more work while not returning the file dest
+	Naui_Path file_dest = naui_file_unique_name(file_path, copy_path);
+	naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE);
+	if (!uph_resources_add_sample_from_file(file_dest))	// Inefficient, but works
 	{
-		naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
-		Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp"));
-		naui_directories_create(copy_path);
-
-		// Use override since unique will do more work while not returning the file dest
-		Naui_Path file_dest = naui_file_unique_name(file_path, copy_path);
-		naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE);
-		res_dest = file_dest;
+		naui_file_delete(file_dest);
+		return false;
 	}
-
-	if (!uph_resources_add_sample_from_file(res_dest))	// Inefficient, but works
-		naui_file_delete(res_dest);
 
 	return true;
 }
 
-Naui_Path uph_project_get_path(Uph_Project* project)
+Naui_Path uph_project_get_path(const Uph_Project* project)
 {
 	return naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project->title.data));
 }
