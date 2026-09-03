@@ -130,6 +130,48 @@ void naui_directory_filter_free(Naui_List(Naui_DirEntry) list)
 		naui_list_free(list);
 }
 
+bool naui_directory_merge(const Naui_Path src, const Naui_Path dest, Naui_FileCopyMode mode)
+{
+	if (!naui_path_is_directory(src))
+		return false;
+ 
+	if (!naui_directories_create(dest))
+		return false;
+ 
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(src, NULL, NULL);
+	if (!entries)
+		return true;
+ 
+	bool success = true;
+	for (size_t i = 0; i < naui_list_len(entries); i++)
+	{
+		if (entries[i].is_directory)
+			continue;
+ 
+		const char* full = entries[i].path.data;
+		const char* rel = full + strlen(src.data);
+		if (*rel == '/' || *rel == '\\')
+			rel++;
+ 
+		Naui_Path dest_path = naui_path_join(dest, naui_path_from_cstr(rel));
+		Naui_Path dest_parent = naui_path_parent(dest_path);
+		if (!naui_directories_create(dest_parent))
+		{
+			success = false;
+			break;
+		}
+ 
+		if (!naui_file_copy(entries[i].path, dest_path, mode))
+		{
+			success = false;
+			break;
+		}
+	}
+ 
+	naui_directory_filter_free(entries);
+	return success;
+}
+
 bool naui_directories_create(const Naui_Path path)
 {
 	if (naui_path_is_empty(path))

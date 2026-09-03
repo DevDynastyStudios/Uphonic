@@ -132,6 +132,8 @@ Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, c
 /* Frees the list returned by naui_directory_filter. */
 void naui_directory_filter_free(Naui_List(Naui_DirEntry) list);
 
+bool naui_directory_merge(const Naui_Path src, const Naui_Path dst, Naui_FileCopyMode mode);
+
 bool naui_directories_create(const Naui_Path path);
 
 bool naui_path_set_current(const Naui_Path current_directory);
