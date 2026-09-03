@@ -74,6 +74,7 @@ static void uph_song_timeline_on_attach(void)
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
     uph_song_timeline_data.zoom = (Naui_Vec2) { 32.0f, 90.0f };
+    uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
 }
 
 static void uph_song_timeline_on_detach(void)
@@ -1129,9 +1130,24 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
 static void uph_song_timeline_on_update(void)
 {
-    const Leaf_ID track_section_id = leaf_id("uph_track_section");
-
     Uph_SongTimelineData *data = &uph_song_timeline_data;
+    
+    if (naui_list_len(uph_state.project.tracks) == 0)
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            leaf_text("No tracks are present.", {
+                .color = naui_theme_color("uph_ui_text_color"),
+                .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
+            });
+        }
+        return;
+    }
+
+    const Leaf_ID track_section_id = leaf_id("uph_track_section");
 
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
     data->panel_hovered = naui_panel_hovered(naui_current_panel());
