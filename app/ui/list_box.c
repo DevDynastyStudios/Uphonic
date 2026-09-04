@@ -60,5 +60,9 @@ bool uph_ui_list_plus_box(Leaf_ID id)
         });
     }
 
-    return naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_ui_widget_hovered(id);
+	bool hovered = uph_ui_widget_hovered(id);
+	if (hovered)
+		naui_request_cursor(NAUI_CURSOR_HAND);
+
+    return naui_mouse_pressed(NAUI_MOUSE_LEFT) && hovered;
 }

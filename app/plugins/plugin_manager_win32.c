@@ -7,7 +7,7 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
     return effect;
 }
 
-void uph_unload_plugin_effect(Uph_PluginEffect effect)
+void uph_unload_plugin_effect(Uph_PluginEffect *effect)
 {
     
 }
