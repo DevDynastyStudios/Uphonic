@@ -4,4 +4,4 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 bool uph_project_load(Uph_Project* project, const Naui_Path project_path);
 
 bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path);	// Add a file to the project (ie. mp3, midi, ogg, etc.)
-Naui_Path uph_project_get_path(Uph_Project* project);
+Naui_Path uph_project_get_path(const Uph_Project* project);

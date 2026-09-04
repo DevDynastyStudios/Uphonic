@@ -31,6 +31,11 @@ static bool zip_add_file(mz_zip_archive* zip, const char* dest, const char* sour
 	return mz_zip_writer_add_file(zip, dest, source, NULL, 0, MZ_BEST_SPEED) != 0;
 }
 
+static bool zip_add_mem(mz_zip_archive* zip, const char* dest, const void* data, size_t size)
+{
+	return mz_zip_writer_add_mem(zip, dest, data, size, MZ_BEST_SPEED) != 0;
+}
+
 static int zip_entry_count(mz_zip_archive* zip)
 {
 	return (int)mz_zip_reader_get_num_files(zip);
@@ -56,6 +61,75 @@ static bool zip_extract_to_file(mz_zip_archive* zip, int index, const char* dest
 static bool zip_extract_entry_to_file(mz_zip_archive* zip, const char* entry, const char* dest)
 {
 	return mz_zip_reader_extract_file_to_file(zip, entry, dest, 0) != 0;
+}
+
+static void* zip_extract_to_heap(mz_zip_archive* zip, int index, size_t* out_size)
+{
+	return mz_zip_reader_extract_to_heap(zip, (mz_uint)index, out_size, 0);
+}
+
+static Zip_EntryStat* zip_stat_all(mz_zip_archive* zip, int* out_count)
+{
+	int count = zip_entry_count(zip);
+	*out_count = count;
+ 
+	if (count <= 0)
+		return NULL;
+ 
+	Zip_EntryStat* stats = (Zip_EntryStat*)malloc((size_t)count * sizeof(Zip_EntryStat));
+	if (!stats)
+	{
+		*out_count = 0;
+		return NULL;
+	}
+ 
+	for (int i = 0; i < count; ++i)
+	{
+		if (!zip_entry_stat(zip, i, &stats[i]))
+		{
+			stats[i].name[0] = '\0';
+			stats[i].size = 0;
+			stats[i].is_directory = false;
+		}
+	}
+ 
+	return stats;
+}
+
+static bool zip_stat_is_winner(const Zip_EntryStat* stats, int count, int index)
+{
+	if (stats[index].is_directory)
+		return true;
+ 
+	for (int j = index + 1; j < count; ++j)
+	{
+		if (stats[j].is_directory)
+			continue;
+ 
+		if (strcmp(stats[j].name, stats[index].name) == 0)
+			return false;
+ 
+	}
+ 
+	return true;
+}
+
+static bool zip_path_is_excluded(const char* rel, const char** excludes)
+{
+	if (!excludes)
+		return false;
+ 
+	for (int i = 0; excludes[i]; ++i)
+	{
+		size_t len = strlen(excludes[i]);
+		if (strncmp(rel, excludes[i], len) == 0 &&
+			(rel[len] == '/' || rel[len] == '\\' || rel[len] == '\0'))
+		{
+			return true;
+		}
+	}
+ 
+	return false;
 }
 
 bool naui_archive_open(Naui_Archive* archive, const Naui_Path path, Naui_ArchiveMode mode)
@@ -109,39 +183,42 @@ bool naui_archive_add_file(Naui_Archive* archive, const Naui_Path source, const 
 	return zip_add_file(&archive->zip, dest_in_archive.data, source.data);
 }
 
-bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive)
+bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive, const char** excludes)
 {
 	if (!archive->is_valid || archive->mode != NAUI_ARCHIVE_MODE_WRITE)
 		return false;
-
+ 
 	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL);
 	if (!entries)
 		return true;
-
+ 
 	bool ok = true;
-	for (ptrdiff_t i = 0; i < naui_list_len(entries); ++i)
+	for (size_t i = 0; i < naui_list_len(entries); i++)
 	{
 		if (entries[i].is_directory)
 			continue;
-
+ 
 		const char* full = entries[i].path.data;
 		const char* rel = full + strlen(folder.data);
 		if (*rel == '/' || *rel == '\\')
-			++rel;
-
+			rel++;
+ 
+		if (zip_path_is_excluded(rel, excludes))
+			continue;
+ 
 		Naui_Path dest;
 		if (root_in_archive.data[0] != '\0')
 			snprintf(dest.data, NAUI_PATH_MAX, "%s/%s", root_in_archive.data, rel);
 		else
 			snprintf(dest.data, NAUI_PATH_MAX, "%s", rel);
-
+ 
 		if (!naui_archive_add_file(archive, entries[i].path, dest))
 		{
 			ok = false;
 			break;
 		}
 	}
-
+ 
 	naui_directory_filter_free(entries);
 	return ok;
 }
@@ -343,6 +420,67 @@ bool naui_archive_create_custom(const Naui_Path folder, const Naui_Path archive_
 	free(blob);
 	free(index);
 	return true;
+}
+
+bool naui_archive_compact(const Naui_Path path)
+{
+	Naui_Archive src = NAUI_ARCHIVE_INIT;
+	if (!naui_archive_open(&src, path, NAUI_ARCHIVE_MODE_READ))
+		return false;
+ 
+	int count = 0;
+	Zip_EntryStat* stats = zip_stat_all(&src.zip, &count);
+	if (count > 0 && !stats)
+	{
+		naui_archive_close(&src);
+		return false;
+	}
+ 
+	Naui_Path tmp_path;
+	snprintf(tmp_path.data, NAUI_PATH_MAX, "%s.tmp", path.data);
+	Naui_Archive dst = NAUI_ARCHIVE_INIT;
+	if (!naui_archive_open(&dst, tmp_path, NAUI_ARCHIVE_MODE_WRITE))
+	{
+		free(stats);
+		naui_archive_close(&src);
+		return false;
+	}
+ 
+	bool ok = true;
+	for (int i = 0; i < count && ok; ++i)
+	{
+		if (stats[i].is_directory)
+			continue;
+ 
+		if (!zip_stat_is_winner(stats, count, i))
+			continue;
+ 
+		size_t data_size = 0;
+		void* data = zip_extract_to_heap(&src.zip, i, &data_size);
+		if (!data)
+		{
+			ok = false;
+			break;
+		}
+ 
+		bool added = zip_add_mem(&dst.zip, stats[i].name, data, data_size);
+		free(data);
+ 
+		if (!added)
+			ok = false;
+	}
+ 
+	free(stats);
+	naui_archive_close(&src);
+	naui_archive_close(&dst);
+ 
+	if (!ok)
+	{
+		naui_file_delete(tmp_path);
+		return false;
+	}
+ 
+	return naui_file_rename(tmp_path, path);
 }
 
 bool naui_archive_extract_custom(const Naui_Path archive_path, const Naui_Path output_folder)

@@ -5,6 +5,7 @@
 #define NAUI_ARCHIVE_VERSION 1
 
 #define NAUI_ARCHIVE_INIT { {0}, 0, false }
+#define NAUI_ARCHIVE_EXCLUDES(...) (const char*[]){ __VA_ARGS__, NULL }
 
 typedef uint8_t Naui_ArchiveMode;
 enum
@@ -33,7 +34,7 @@ void naui_archive_close(Naui_Archive* archive);
 bool naui_archive_is_valid(const Naui_Archive* archive);
 
 /* Add all files under folder recursively, prefixed with root_in_archive. */
-bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive);
+bool naui_archive_add_folder(Naui_Archive* archive, const Naui_Path folder, const Naui_Path root_in_archive, const char** excludes);
 
 /* Add a single file into the archive at dest_in_archive. */
 bool naui_archive_add_file(Naui_Archive* archive, const Naui_Path source, const Naui_Path dest_in_archive);
@@ -48,6 +49,9 @@ bool naui_archive_extract_file(Naui_Archive* archive, const Naui_Path entry, con
  * Call naui_archive_list_free() when done. */
 Naui_List(Naui_ArchiveEntry) naui_archive_list_entries(Naui_Archive* archive);
 void naui_archive_list_free(Naui_List(Naui_ArchiveEntry) list);
+
+/* Removes duplicate entries with the latest file versions */
+bool naui_archive_compact(const Naui_Path path);
 
 bool naui_archive_create_custom(const Naui_Path folder, const Naui_Path archive_path);
 bool naui_archive_extract_custom(const Naui_Path archive_path, const Naui_Path output_folder);

@@ -28,6 +28,7 @@
 	"menu.file.import": "Import",
 	"menu.file.import.midi": "MIDI",
 	"menu.file.export": "Export",
+	"menu.file.export.uph": "UPH file...",
 	"menu.file.export.wav": "Wave file...",
 	"menu.file.export.ogg": "Ogg file...",
 	"menu.file.export.mp3": "Mp3 file...",

@@ -130,6 +130,12 @@ void uph_render_main_titlebar(void)
 				}
 
 				Uph_UIMenuID export_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.export"), leaf_id("uph_file_export_menu"));
+				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.uph"), leaf_id("uph_file_export_uph")))
+				{
+					Naui_Path archive_path = naui_path_normalize(naui_path_join(naui_directory_get(NAUI_DIR_APPDATA), NAUI_PATH("Uphonic/test.uph")));
+					uph_project_export(&uph_state.project, archive_path, UPH_EXPORT_UPH);	
+				}
+
 				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.wav"), leaf_id("uph_file_export_wav")))
 					uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
 

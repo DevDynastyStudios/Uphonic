@@ -618,9 +618,12 @@ Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char*
 		return list;
 
 	uint32_t ext_count = 0;
-	while (extensions[ext_count] != NULL)
+	if (extensions)
 	{
-		ext_count++;
+		while (extensions[ext_count] != NULL)
+		{
+			ext_count++;
+		}
 	}
 
 	do
@@ -663,9 +666,12 @@ Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, c
 		return list;
 
 	uint32_t ext_count = 0;
-	while(extensions[ext_count] != NULL)
+	if (extensions)
 	{
-		ext_count++;
+		while (extensions[ext_count] != NULL)
+		{
+			ext_count++;
+		}
 	}
 
 	_naui_filter_recursive_impl_w(path.data, filter, extensions, ext_count, &list);
