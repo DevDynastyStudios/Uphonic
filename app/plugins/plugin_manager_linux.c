@@ -28,6 +28,7 @@ typedef struct
 
     Window window;
     Display *display;
+    Atom wm_delete_window;
 }
 Uph_PluginInternalHandle;
 
@@ -230,7 +231,7 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
 
     Window parent = (Window)mg_app_primary_handle();
-    Display *dpy = (Display*)mg_app_secondary_handle();
+    Display *dpy = (Display*)XOpenDisplay(NULL);
 
     int screen = DefaultScreen(dpy);
     Window root = RootWindow(dpy, screen);
@@ -262,9 +263,41 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
     XMapWindow(dpy, child);
     XFlush(dpy);
 
-    Atom wm_window_type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-    Atom wm_window_type_dialog = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DIALOG", False);
-    XChangeProperty(dpy, child, wm_window_type, XA_ATOM, 32, PropModeReplace, (unsigned char *)&wm_window_type_dialog, 1);
+    Atom wm_window_type = XInternAtom(
+        dpy,
+        "_NET_WM_WINDOW_TYPE",
+        False
+    );
+
+    Atom wm_window_type_dialog = XInternAtom(
+        dpy,
+        "_NET_WM_WINDOW_TYPE_DIALOG",
+        False
+    );
+
+    XChangeProperty(
+        dpy,
+        child,
+        wm_window_type,
+        XA_ATOM,
+        32,
+        PropModeReplace,
+        (unsigned char *)&wm_window_type_dialog,
+        1
+    );
+
+    internal_handle->wm_delete_window = XInternAtom(
+        dpy,
+        "WM_DELETE_WINDOW",
+        False
+    );
+
+    XSetWMProtocols(
+        dpy,
+        child,
+        &internal_handle->wm_delete_window,
+        1
+    );
 
     internal_handle->window = child;
     internal_handle->display = dpy;
@@ -303,14 +336,57 @@ static inline long uph_ms_since(struct timespec *then)
     return (now.tv_sec - then->tv_sec) * 1000 + (now.tv_nsec - then->tv_nsec) / 1000000;
 }
 
+static inline void uph_poll_plugin_window_events(Uph_PluginInternalHandle *internal_handle)
+{
+    Display *dpy = internal_handle->display;
+    Window win = internal_handle->window;
+
+    while (XPending(dpy) > 0)
+    {
+        XEvent event;
+        XPeekEvent(dpy, &event);
+
+        if (event.xany.window != win)
+            break;
+
+        XNextEvent(dpy, &event);
+
+        switch (event.type)
+        {
+            case ConfigureNotify:
+                break;
+
+            case FocusIn:
+            case FocusOut:
+                break;
+
+            case ClientMessage:
+                if ((Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
+                {
+                    
+                }
+
+                break;
+
+            case DestroyNotify:
+                break;
+
+            default:
+                break;
+        }
+    }
+}
+
 void uph_update_plugin_effect(Uph_PluginEffect *effect)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)effect->internal_handle;
 
+    uph_poll_plugin_window_events(internal_handle);
+
     if (!internal_handle->clap.timer_support)
         return;
-    
+
     for (int i = 0; i < UPH_MAX_PLUGIN_TIMERS; i++)
     {
         Uph_ClapTimer *t = &internal_handle->clap.timers[i];

@@ -1137,7 +1137,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
     if (uph_ui_menu_item(track_options_context_menu, "Add Instrument", leaf_id("uph_track_options_add_instrument"))) 
     {
-
+        //track->instrument = uph_load_plugin_effect(NAUI_PATH("/home/box/Downloads/VitalInstaller/lib/clap/Vital.clap"));
         track->type = UPH_RESOURCE_PATTERN;
     }
 
