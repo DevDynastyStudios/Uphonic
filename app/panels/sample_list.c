@@ -76,7 +76,12 @@ static void uph_sample_list_on_update(void)
             Uph_Sample *sample = &uph_state.project.samples[i];
 
             const Leaf_ID id = leaf_id_indexed("uph_sample_list_sample", i);
-            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_ui_widget_hovered(id))
+			bool hovered = uph_ui_widget_hovered(id);
+
+			if (hovered)
+				naui_request_cursor(NAUI_CURSOR_HAND);
+
+            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && hovered)
             {
                 uph_state.shared.selected_resource.index = i;
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
