@@ -506,3 +506,41 @@ Naui_String naui_string_format(char *const fmt, ...)
 
     return result;
 }
+
+void naui_string_builder_append_view(Naui_StringBuilder builder, Naui_StringView view)
+{
+    if (!builder || !view.data || view.length == 0)
+        return;
+
+    naui_list_reserve(builder, (size_t)naui_list_len(builder) + view.length);
+    for (size_t i = 0; i < view.length; ++i)
+    {
+        naui_list_push(builder, view.data[i]);
+    }
+}
+ 
+void naui_string_builder_append(Naui_StringBuilder builder, Naui_String str)
+{
+    naui_string_builder_append_view(builder, naui_string_to_view(&str));
+}
+ 
+void naui_string_builder_append_builder(Naui_StringBuilder dest_builder, Naui_StringBuilder src_builder)
+{
+    naui_string_builder_append_view(dest_builder, naui_string_builder_to_view(src_builder));
+}
+ 
+void naui_string_builder_append_char(Naui_StringBuilder builder, char c)
+{
+    if (!builder)
+        return;
+ 
+    naui_list_push(builder, c);
+}
+ 
+Naui_StringView naui_string_builder_to_view(Naui_StringBuilder builder)
+{
+    Naui_StringView view;
+    view.data = builder;
+    view.length = (size_t)naui_list_len(builder);
+    return view;
+}

@@ -69,8 +69,8 @@ NAUI_API bool                naui_string_view_is_empty          (Naui_StringView
 
 NAUI_API Naui_String         naui_string_format                 (char *const fmt, ...);
 
-// typedef Naui_List(char) Naui_StringBuilder;
-/*static inline void        naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
+typedef Naui_List(char) Naui_StringBuilder;
+static inline void          naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
 static inline void          naui_string_builder_clear           (Naui_StringBuilder builder) { naui_list_clear(builder); }
 static inline void          naui_string_builder_free            (Naui_StringBuilder builder) { naui_list_free(builder); }
 static inline size_t        naui_string_builder_len             (Naui_StringBuilder builder) { return naui_list_len(builder); }
@@ -79,4 +79,4 @@ NAUI_API void               naui_string_builder_append          (Naui_StringBuil
 NAUI_API void               naui_string_builder_append_builder  (Naui_StringBuilder dest_builder, Naui_StringBuilder src_builder);
 NAUI_API void               naui_string_builder_append_view     (Naui_StringBuilder builder, Naui_StringView view);
 NAUI_API void               naui_string_builder_append_char     (Naui_StringBuilder builder, char c);
-NAUI_API Naui_StringView    naui_string_builder_to_view         (Naui_StringBuilder builder);*/
+NAUI_API Naui_StringView    naui_string_builder_to_view         (Naui_StringBuilder builder);
