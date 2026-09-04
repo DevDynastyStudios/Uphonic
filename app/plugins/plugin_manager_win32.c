@@ -17,6 +17,16 @@ void uph_update_plugin_effect(Uph_PluginEffect *effect)
     
 }
 
+void uph_hide_plugin_window(Uph_PluginEffect *effect)
+{
+
+}
+
+void uph_show_plugin_window(Uph_PluginEffect *effect)
+{
+
+}
+
 void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float **outputs, uint32_t frame_count)
 {
 

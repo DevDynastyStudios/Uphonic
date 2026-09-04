@@ -29,6 +29,7 @@ typedef struct
     Window window;
     Display *display;
     Atom wm_delete_window;
+    bool visible;
 }
 Uph_PluginInternalHandle;
 
@@ -78,11 +79,59 @@ static const clap_host_timer_support_t uph_clap_host_timer_support = {
     .unregister_timer = uph_clap_timer_unregister,
 };
 
+static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width, uint32_t height)
+{
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)host->host_data;
+    if (!internal_handle)
+        return false;
+
+    XResizeWindow(internal_handle->display, internal_handle->window, width, height);
+
+    XSizeHints *size_hints = XAllocSizeHints();
+    size_hints->flags = PMinSize | PMaxSize;
+    size_hints->min_width = width;
+    size_hints->max_width = width;
+    size_hints->min_height = height;
+    size_hints->max_height = height;
+    XSetWMNormalHints(internal_handle->display, internal_handle->window, size_hints);
+    XFree(size_hints);
+
+    XFlush(internal_handle->display);
+
+    return true;
+}
+
+static bool uph_clap_gui_request_show(const clap_host_t *host)
+{
+    (void)host;
+    return true;
+}
+
+static bool uph_clap_gui_request_hide(const clap_host_t *host)
+{
+    (void)host;
+    return true;
+}
+
+static void uph_clap_gui_resize_hints_changed(const clap_host_t *host)
+{
+    (void)host;
+}
+
+static const clap_host_gui_t uph_clap_host_gui = {
+    .resize_hints_changed = uph_clap_gui_resize_hints_changed,
+    .request_resize = uph_clap_gui_request_resize,
+    .request_show = uph_clap_gui_request_show,
+    .request_hide = uph_clap_gui_request_hide,
+};
+
 static const void *uph_clap_get_extension(const clap_host_t *host, const char *extension_id)
 {
     (void)host;
     if (strcmp(extension_id, CLAP_EXT_TIMER_SUPPORT) == 0)
         return &uph_clap_host_timer_support;
+    if (strcmp(extension_id, CLAP_EXT_GUI) == 0)
+        return &uph_clap_host_gui;
     return NULL;
 }
 
@@ -301,6 +350,7 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
 
     internal_handle->window = child;
     internal_handle->display = dpy;
+    internal_handle->visible = true;
 
     switch (effect.type)
     {
@@ -315,18 +365,37 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
 
 void uph_unload_plugin_effect(Uph_PluginEffect *effect)
 {
-    Uph_PluginInternalHandle *internal_handle = 
+    if (!effect->loaded)
+        return;
+
+    effect->loaded = false;
+
+    Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)effect->internal_handle;
+    if (!internal_handle)
+        return;
 
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
-    plugin->stop_processing(plugin);
-    plugin->deactivate(plugin);
-    plugin->destroy(plugin);
-    dlclose(internal_handle->clap.dl_handle);
+    if (plugin)
+    {
+        plugin->stop_processing(plugin);
+        plugin->deactivate(plugin);
 
-    XDestroyWindow(internal_handle->display, internal_handle->window);
-    XFlush(internal_handle->display);
+        if (internal_handle->clap.gui)
+            internal_handle->clap.gui->destroy(plugin);
+
+        plugin->destroy(plugin);
+    }
+
+    if (internal_handle->display)
+    {
+        XDestroyWindow(internal_handle->display, internal_handle->window);
+        XFlush(internal_handle->display);
+        XCloseDisplay(internal_handle->display);
+    }
+
     free(effect->internal_handle);
+    effect->internal_handle = NULL;
 }
 
 static inline long uph_ms_since(struct timespec *then)
@@ -336,8 +405,52 @@ static inline long uph_ms_since(struct timespec *then)
     return (now.tv_sec - then->tv_sec) * 1000 + (now.tv_nsec - then->tv_nsec) / 1000000;
 }
 
-static inline void uph_poll_plugin_window_events(Uph_PluginInternalHandle *internal_handle)
+void uph_hide_plugin_window(Uph_PluginEffect *effect)
 {
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+
+    if (!internal_handle->visible)
+        return;
+
+    if (internal_handle->clap.gui)
+        internal_handle->clap.gui->hide(internal_handle->clap.plugin);
+
+    XUnmapWindow(internal_handle->display, internal_handle->window);
+    XFlush(internal_handle->display);
+
+    internal_handle->visible = false;
+}
+
+void uph_show_plugin_window(Uph_PluginEffect *effect)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+
+    if (internal_handle->visible)
+        return;
+
+    if (internal_handle->clap.gui)
+        internal_handle->clap.gui->show(internal_handle->clap.plugin);
+    
+    XMapWindow(internal_handle->display, internal_handle->window);
+    XFlush(internal_handle->display);
+
+    internal_handle->visible = true;
+}
+
+bool uph_plugin_window_visible(Uph_PluginEffect *effect)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+    return internal_handle->visible;
+}
+
+static inline void uph_poll_plugin_window_events(Uph_PluginEffect *effect)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+
     Display *dpy = internal_handle->display;
     Window win = internal_handle->window;
 
@@ -362,10 +475,7 @@ static inline void uph_poll_plugin_window_events(Uph_PluginInternalHandle *inter
 
             case ClientMessage:
                 if ((Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
-                {
-                    
-                }
-
+                    uph_hide_plugin_window(effect);
                 break;
 
             case DestroyNotify:
@@ -382,7 +492,7 @@ void uph_update_plugin_effect(Uph_PluginEffect *effect)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)effect->internal_handle;
 
-    uph_poll_plugin_window_events(internal_handle);
+    uph_poll_plugin_window_events(effect);
 
     if (!internal_handle->clap.timer_support)
         return;

@@ -1135,14 +1135,49 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
             track->color = naui_theme_color("uph_palette_color_8");
     }
 
-    if (uph_ui_menu_item(track_options_context_menu, "Add Instrument", leaf_id("uph_track_options_add_instrument"))) 
+    if (track->instrument.loaded)
     {
-        //track->instrument = uph_load_plugin_effect(NAUI_PATH("/home/box/Downloads/VitalInstaller/lib/clap/Vital.clap"));
-        track->type = UPH_RESOURCE_PATTERN;
+        const bool visible = uph_plugin_window_visible(&track->instrument);
+        if (uph_ui_menu_item(track_options_context_menu, visible ? "Hide Instrument" : "Show Instrument", leaf_id("uph_track_options_show_instrument"))) 
+        {
+            if (visible)
+                uph_hide_plugin_window(&track->instrument);
+            else uph_show_plugin_window(&track->instrument);
+        }
+
+        if (uph_ui_menu_item(track_options_context_menu, "Remove Instrument", leaf_id("uph_track_options_remove_instrument"))) 
+        {
+            uph_unload_plugin_effect(&track->instrument);
+            if (naui_list_len(track->blocks) == 0)
+                track->type = UPH_RESOURCE_NONE;
+        }
     }
+    else
+    {
+        Uph_UIMenuID instrument_menu = uph_ui_submenu(track_options_context_menu, "Load Instrument", leaf_id("uph_track_options_load_instrument"));
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
+        {
+            Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
+            static Naui_List(Naui_DirEntry) entries = NULL;
+            if (!entries)
+            {
+                entries = naui_directory_filter_recursive(parent_path, "*", NAUI_EXTENSIONS(".clap", ".vst3"));
+            }
+            for (uint32_t j = 0; j < (uint32_t)naui_list_len(entries); j++)
+            {
+                if (uph_ui_menu_item(instrument_menu, naui_view_to_string(naui_file_stem(&entries[j].path)).data, leaf_id_indexed("uph_track_options_instrument", j))) 
+                {
+                    track->instrument = uph_load_plugin_effect(entries[j].path);
+                    track->type = UPH_RESOURCE_PATTERN;
+                }
+            }
+        }
+    }
+
 
     if (uph_ui_menu_item(track_options_context_menu, "Remove", leaf_id("uph_track_options_remove"))) 
     {
+        uph_unload_plugin_effect(&track->instrument);
         naui_list_free(track->blocks);
         naui_list_remove(uph_state.project.tracks, data->current_options_track_index);
     }
