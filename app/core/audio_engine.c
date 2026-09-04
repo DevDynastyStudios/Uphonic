@@ -4,7 +4,7 @@ typedef struct
 }
 Uph_AudioEngineData;
 
-static Uph_AudioEngineData data;
+static Uph_AudioEngineData uph_audio_engine_data;
 
 static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, float *out_left, float *out_right)
 {
@@ -41,6 +41,77 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, floa
     }
 }
 
+static void uph_queue_pattern_block_notes(
+    Uph_Track *track,
+    Uph_TimelineBlock *block,
+    double buffer_start_beat,
+    double buffer_end_beat,
+    uint32_t engine_sample_rate,
+    float bpm
+)
+{
+    Uph_Project *project = &uph_state.project;
+
+    if (block->resource_index >= naui_list_len(project->midi_patterns))
+        return;
+
+    Uph_MidiPattern *pattern = &project->midi_patterns[block->resource_index];
+    uint64_t note_count = naui_list_len(pattern->notes);
+
+    for (uint64_t n = 0; n < note_count; n++)
+    {
+        Uph_MidiNote *note = &pattern->notes[n];
+
+        double note_start_beat = block->start_beat
+            + (note->start_beat - block->start_offset_beats);
+        double note_end_beat = note_start_beat + note->length_beats;
+
+        double block_end_beat = block->start_beat + block->length_beats;
+        if (note_start_beat < block->start_beat)
+            note_start_beat = block->start_beat;
+        if (note_end_beat > block_end_beat)
+            note_end_beat = block_end_beat;
+
+        if (note_end_beat <= note_start_beat)
+            continue;
+
+        if (note_start_beat >= buffer_start_beat && note_start_beat < buffer_end_beat)
+        {
+            if (!uph_plugin_note_active(&track->instrument, note->key_number))
+            {
+                double beats_from_buffer_start = note_start_beat - buffer_start_beat;
+                double seconds_from_buffer_start = uph_beats_to_seconds(beats_from_buffer_start, bpm);
+                uint32_t sample_offset = (uint32_t)(seconds_from_buffer_start * (double)engine_sample_rate);
+
+                uph_plugin_queue_note_event(
+                    &track->instrument,
+                    true,
+                    note->key_number,
+                    0,
+                    note->velocity,
+                    sample_offset
+                );
+            }
+        }
+
+        if (note_end_beat >= buffer_start_beat && note_end_beat < buffer_end_beat)
+        {
+            double beats_from_buffer_start = note_end_beat - buffer_start_beat;
+            double seconds_from_buffer_start = uph_beats_to_seconds(beats_from_buffer_start, bpm);
+            uint32_t sample_offset = (uint32_t)(seconds_from_buffer_start * (double)engine_sample_rate);
+
+            uph_plugin_queue_note_event(
+                &track->instrument,
+                false,
+                note->key_number,
+                0,
+                note->velocity,
+                sample_offset
+            );
+        }
+    }
+}
+
 static void uph_render_track_instrument(
     Uph_Track *track,
     ma_uint32 frame_count,
@@ -48,7 +119,9 @@ static void uph_render_track_instrument(
     float gain_right,
     float *out,
     float *track_peak_left,
-    float *track_peak_right
+    float *track_peak_right,
+    double playhead_beat,
+    bool is_playing
 )
 {
     float input_l[UPH_SAMPLE_FRAME_COUNT] = { 0 };
@@ -59,7 +132,15 @@ static void uph_render_track_instrument(
 
     float *inputs[2]  = { input_l, input_r };
     float *outputs[2] = { output_l, output_r };
-    uph_process_plugin_effect(&track->instrument, (float**)inputs, (float**)outputs, frame_count);
+
+    uph_process_plugin_effect(
+        &track->instrument,
+        (float**)inputs,
+        (float**)outputs,
+        frame_count,
+        playhead_beat,
+        is_playing
+    );
 
     for (ma_uint32 f = 0; f < frame_count; f++)
     {
@@ -76,7 +157,46 @@ static void uph_render_track_instrument(
     }
 }
 
-static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count)
+static void uph_mark_block_held_notes(
+    Uph_Track *track,
+    Uph_TimelineBlock *block,
+    double buffer_end_beat,
+    bool should_be_held[128]
+)
+{
+    (void)track;
+    Uph_Project *project = &uph_state.project;
+
+    if (block->resource_index >= naui_list_len(project->midi_patterns))
+        return;
+
+    Uph_MidiPattern *pattern = &project->midi_patterns[block->resource_index];
+    uint64_t note_count = naui_list_len(pattern->notes);
+
+    double block_end_beat = block->start_beat + block->length_beats;
+
+    for (uint64_t n = 0; n < note_count; n++)
+    {
+        Uph_MidiNote *note = &pattern->notes[n];
+
+        double note_start_beat = block->start_beat
+            + (note->start_beat - block->start_offset_beats);
+        double note_end_beat = note_start_beat + note->length_beats;
+
+        if (note_start_beat < block->start_beat)
+            note_start_beat = block->start_beat;
+        if (note_end_beat > block_end_beat)
+            note_end_beat = block_end_beat;
+
+        if (note_end_beat <= note_start_beat)
+            continue;
+
+        if (note_start_beat < buffer_end_beat && note_end_beat >= buffer_end_beat)
+            should_be_held[note->key_number] = true;
+    }
+}
+
+static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count, bool timeline_playing)
 {
     memset(out, 0, sizeof(float) * 2 * frame_count);
 
@@ -84,8 +204,6 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     float bpm = project->bpm;
     if (bpm <= 0.0f)
         return;
-
-    bool timeline_playing = uph_state.shared.song_timeline_playing;
 
     uint64_t track_count = naui_list_len(project->tracks);
     for (uint64_t t = 0; t < track_count; t++)
@@ -158,7 +276,47 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         else if (track->type == UPH_RESOURCE_PATTERN)
         {
             if (track->instrument.loaded)
-                uph_render_track_instrument(track, frame_count, gain_left, gain_right, out, &track_peak_left, &track_peak_right);
+            {
+                if (timeline_playing)
+                {
+                    double buffer_start_beat = playhead_start_beat;
+                    double buffer_end_beat = playhead_start_beat
+                        + uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
+
+                    bool should_be_held[128] = { false };
+
+                    for (uint64_t b = 0; b < block_count; b++)
+                    {
+                        Uph_TimelineBlock *block = &track->blocks[b];
+                        if (block->type != UPH_RESOURCE_PATTERN)
+                            continue;
+
+                        uph_queue_pattern_block_notes(
+                            track, block,
+                            buffer_start_beat, buffer_end_beat,
+                            engine_sample_rate, bpm
+                        );
+
+                        uph_mark_block_held_notes(
+                            track, block,
+                            buffer_end_beat,
+                            should_be_held
+                        );
+                    }
+
+                    for (int key = 0; key < 128; key++)
+                    {
+                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key])
+                            uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
+                    }
+                }
+
+                uph_render_track_instrument(
+                    track, frame_count, gain_left, gain_right, out,
+                    &track_peak_left, &track_peak_right,
+                    playhead_start_beat, timeline_playing
+                );
+            }
         }
 
         track->peak_left  = track_peak_left;
@@ -173,8 +331,9 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     float *out = (float*)output;
     uint32_t engine_sample_rate = device->sampleRate;
     double playhead_start_beat = uph_state.shared.song_timeline_playhead_position;
+    bool is_playing = uph_state.shared.song_timeline_playing;
 
-    uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count);
+    uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count, is_playing);
 
     if (!uph_state.shared.song_timeline_playing)
         return;
@@ -198,7 +357,7 @@ void uph_audio_engine_init(void)
     config.dataCallback      = uph_data_callback;
     config.periodSizeInFrames = UPH_SAMPLE_FRAME_COUNT;
 
-    ma_result result = ma_device_init(NULL, &config, &data.device);
+    ma_result result = ma_device_init(NULL, &config, &uph_audio_engine_data.device);
     if (result != MA_SUCCESS)
     {
         // TODO: route through your logging system instead
@@ -206,32 +365,32 @@ void uph_audio_engine_init(void)
         return;
     }
 
-    ma_device_start(&data.device);
+    ma_device_start(&uph_audio_engine_data.device);
 }
 
 void uph_audio_engine_shutdown(void)
 {
-    ma_device_uninit(&data.device);
+    ma_device_uninit(&uph_audio_engine_data.device);
 }
 
-static void uph_build_waveform_peaks(Uph_SampleData *data)
+static void uph_build_waveform_peaks(Uph_SampleData *uph_audio_engine_data)
 {
-    if (!data->frames || data->frame_count == 0)
+    if (!uph_audio_engine_data->frames || uph_audio_engine_data->frame_count == 0)
         return;
 
-    const float *samples = (const float*)data->frames;
-    const int channel_count = (data->channel_type == UPH_SAMPLE_STEREO) ? 2 : 1;
+    const float *samples = (const float*)uph_audio_engine_data->frames;
+    const int channel_count = (uph_audio_engine_data->channel_type == UPH_SAMPLE_STEREO) ? 2 : 1;
 
-    const uint64_t bin_count = (data->frame_count + UPH_SAMPLE_FRAME_COUNT - 1) / UPH_SAMPLE_FRAME_COUNT;
+    const uint64_t bin_count = (uph_audio_engine_data->frame_count + UPH_SAMPLE_FRAME_COUNT - 1) / UPH_SAMPLE_FRAME_COUNT;
 
-    naui_list_reserve(data->waveform_peaks, bin_count);
+    naui_list_reserve(uph_audio_engine_data->waveform_peaks, bin_count);
 
     for (uint64_t bin = 0; bin < bin_count; bin++)
     {
         uint64_t frame_start = bin * UPH_SAMPLE_FRAME_COUNT;
         uint64_t frame_end = frame_start + UPH_SAMPLE_FRAME_COUNT;
-        if (frame_end > data->frame_count)
-            frame_end = data->frame_count;
+        if (frame_end > uph_audio_engine_data->frame_count)
+            frame_end = uph_audio_engine_data->frame_count;
 
         float min_v = 1.0f;
         float max_v = -1.0f;
@@ -253,7 +412,7 @@ static void uph_build_waveform_peaks(Uph_SampleData *data)
             .min = uph_waveform_encode_uint16(min_v),
             .max = uph_waveform_encode_uint16(max_v),
         };
-        naui_list_push(data->waveform_peaks, peak);
+        naui_list_push(uph_audio_engine_data->waveform_peaks, peak);
     }
 }
 
@@ -272,7 +431,7 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
         return sample_data;
     }
 
-    uint32_t original_sample_rate = data.device.sampleRate;
+    uint32_t original_sample_rate = uph_audio_engine_data.device.sampleRate;
     if (ma_decoder_init_memory(file_data, file_size, &temp_config, &temp_decoder) == MA_SUCCESS)
     {
         original_sample_rate = temp_decoder.outputSampleRate;
@@ -283,7 +442,7 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
     ma_decoder_config decoder_config = ma_decoder_config_init(
         ma_format_f32,
         0,
-        data.device.sampleRate
+        uph_audio_engine_data.device.sampleRate
     );
 
     ma_result result = ma_decoder_init_memory(file_data, file_size, &decoder_config, &decoder);
@@ -398,7 +557,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
     double duration_beats   = end_beat - start_beat;
     double duration_seconds = uph_beats_to_seconds(duration_beats, bpm);
 
-    uint32_t sample_rate = data.device.sampleRate;
+    uint32_t sample_rate = uph_audio_engine_data.device.sampleRate;
     uint64_t total_frames = (uint64_t)(duration_seconds * (double)sample_rate);
 
     ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 2, sample_rate);
@@ -409,7 +568,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
         return false;
     }
 
-    const ma_uint32 chunk_frames = 1024;
+    const ma_uint32 chunk_frames = UPH_SAMPLE_FRAME_COUNT;
     float *buffer = (float*)malloc(sizeof(float) * 2 * chunk_frames);
     if (!buffer)
     {
@@ -421,6 +580,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
     uint64_t frames_processed = 0;
     bool ok = true;
 
+    ma_device_stop(&uph_audio_engine_data.device);
     while (frames_processed < total_frames)
     {
         ma_uint32 frames_to_process = (ma_uint32)((total_frames - frames_processed) < chunk_frames
@@ -429,7 +589,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
 
         double playhead_beat = start_beat + uph_seconds_to_beats((double)frames_processed / (double)sample_rate, bpm);
 
-        uph_render_audio(playhead_beat, sample_rate, buffer, frames_to_process);
+        uph_render_audio(playhead_beat, sample_rate, buffer, frames_to_process, true);
 
         ma_uint64 frames_written = 0;
         if (ma_encoder_write_pcm_frames(&encoder, buffer, frames_to_process, &frames_written) != MA_SUCCESS)
@@ -444,6 +604,9 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
 
     free(buffer);
     ma_encoder_uninit(&encoder);
+    ma_device_start(&uph_audio_engine_data.device);
+
+    uph_audio_engine_stop_all_notes();
 
     if (ok)
         fprintf(stdout, "uph_audio_engine_export_to_wav: exported %llu frames to '%s'\n",
@@ -452,15 +615,31 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
     return ok;
 }
 
-void uph_audio_engine_unload_sample_data(Uph_SampleData *data)
+void uph_audio_engine_unload_sample_data(Uph_SampleData *uph_audio_engine_data)
 {
-    if (!data)
+    if (!uph_audio_engine_data)
         return;
-    free(data->frames);
-    naui_list_free(data->waveform_peaks);
+    free(uph_audio_engine_data->frames);
+    naui_list_free(uph_audio_engine_data->waveform_peaks);
 }
 
-bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data)
+bool uph_audio_engine_sample_data_valid(const Uph_SampleData *uph_audio_engine_data)
 {
-    return data->frame_count != 0;
+    return uph_audio_engine_data->frame_count != 0;
+}
+
+void uph_audio_engine_stop_all_notes(void)
+{
+    Uph_Project *project = &uph_state.project;
+    uint64_t track_count = naui_list_len(project->tracks);
+
+    for (uint64_t t = 0; t < track_count; t++)
+    {
+        Uph_Track *track = &project->tracks[t];
+
+        if (track->type != UPH_RESOURCE_PATTERN || !track->instrument.loaded)
+            continue;
+
+        uph_plugin_queue_stop_all(&track->instrument, 0);
+    }
 }

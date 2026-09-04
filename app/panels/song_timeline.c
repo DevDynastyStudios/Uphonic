@@ -942,6 +942,8 @@ static void uph_song_timeline_render_toolbox(void)
             ))
             {
                 uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
+                if (!uph_state.shared.song_timeline_playing)
+                    uph_audio_engine_stop_all_notes();
             }
 
             if (uph_ui_image_button_ex(
@@ -955,6 +957,7 @@ static void uph_song_timeline_render_toolbox(void)
             {
                 uph_state.shared.song_timeline_playing = false;
                 uph_state.shared.song_timeline_playhead_position = 0.0;
+                uph_audio_engine_stop_all_notes();
             }
         }
     }
@@ -1160,9 +1163,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
             Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
             static Naui_List(Naui_DirEntry) entries = NULL;
             if (!entries)
-            {
                 entries = naui_directory_filter_recursive(parent_path, "*", NAUI_EXTENSIONS(".clap", ".vst3"));
-            }
             for (uint32_t j = 0; j < (uint32_t)naui_list_len(entries); j++)
             {
                 if (uph_ui_menu_item(instrument_menu, naui_view_to_string(naui_file_stem(&entries[j].path)).data, leaf_id_indexed("uph_track_options_instrument", j))) 
@@ -1186,21 +1187,6 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 static void uph_song_timeline_on_update(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
-    
-    if (naui_list_len(uph_state.project.tracks) == 0)
-    {
-        leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-        })
-        {
-            leaf_text("No tracks are present.", {
-                .color = naui_theme_color("uph_ui_text_color"),
-                .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
-            });
-        }
-        return;
-    }
 
     const Leaf_ID track_section_id = leaf_id("uph_track_section");
 
@@ -1210,7 +1196,11 @@ static void uph_song_timeline_on_update(void)
     data->hovered_block.active = false;
 
     if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_hovered)
+    {
         uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
+        if (!uph_state.shared.song_timeline_playing)
+            uph_audio_engine_stop_all_notes();
+    }
     
     uph_song_timeline_update_input();
     uph_song_timeline_update_drag_track_switch();
@@ -1232,9 +1222,7 @@ static void uph_song_timeline_on_update(void)
         })
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-            {
                 uph_song_timeline_render_track(i, track_options_context_menu);                    
-            }
         }
         leaf({
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,

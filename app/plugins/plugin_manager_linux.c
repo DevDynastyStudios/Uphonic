@@ -1,5 +1,35 @@
 #if NAUI_LINUX
 
+#define UPH_MAX_NOTE_EVENTS 128
+
+typedef struct
+{
+    clap_event_note_t events[UPH_MAX_NOTE_EVENTS];
+    uint32_t count;
+}
+Uph_ClapNoteEventQueue;
+
+typedef struct
+{
+    clap_input_events_t iface;
+    Uph_ClapNoteEventQueue *queue;
+}
+Uph_ClapInEvents;
+
+static uint32_t uph_in_events_size(const clap_input_events_t *list)
+{
+    const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
+    return self->queue->count;
+}
+
+static const clap_event_header_t *uph_in_events_get(const clap_input_events_t *list, uint32_t index)
+{
+    const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
+    if (index >= self->queue->count)
+        return NULL;
+    return &self->queue->events[index].header;
+}
+
 #define UPH_MAX_PLUGIN_TIMERS 8
 
 typedef struct
@@ -22,6 +52,11 @@ typedef struct
         void *dl_handle;
 
         Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
+        Uph_ClapNoteEventQueue pending_notes;
+
+        bool active_notes[128];
+        int16_t active_note_channels[128];
+
         clap_id next_timer_id;
     }
     clap;
@@ -57,13 +92,87 @@ static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms,
     return false;
 }
 
+void uph_plugin_queue_note_event(
+    Uph_PluginEffect *effect,
+    bool note_on,
+    uint8_t key,
+    int16_t channel,
+    uint8_t velocity,
+    uint32_t sample_offset
+)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+
+    Uph_ClapNoteEventQueue *q = &internal_handle->clap.pending_notes;
+
+    if (q->count >= UPH_MAX_NOTE_EVENTS)
+        return;
+
+    clap_event_note_t *ev = &q->events[q->count++];
+    ev->header.size = sizeof(clap_event_note_t);
+    ev->header.time = sample_offset;
+    ev->header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    ev->header.type = note_on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF;
+    ev->header.flags = 0;
+
+    ev->note_id = -1;
+    ev->port_index = 0;
+    ev->channel = channel;
+    ev->key = key;
+    ev->velocity = velocity / 127.0;
+
+    internal_handle->clap.active_notes[key] = note_on;
+    if (note_on)
+        internal_handle->clap.active_note_channels[key] = channel;
+}
+
+void uph_plugin_queue_stop_all(Uph_PluginEffect *effect, uint32_t sample_offset)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+
+    Uph_ClapNoteEventQueue *q = &internal_handle->clap.pending_notes;
+
+    for (int key = 0; key < 128; key++)
+    {
+        if (!internal_handle->clap.active_notes[key])
+            continue;
+
+        if (q->count >= UPH_MAX_NOTE_EVENTS)
+            break;
+
+        clap_event_note_t *ev = &q->events[q->count++];
+        ev->header.size = sizeof(clap_event_note_t);
+        ev->header.time = sample_offset;
+        ev->header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        ev->header.type = CLAP_EVENT_NOTE_OFF;
+        ev->header.flags = 0;
+
+        ev->note_id = -1;
+        ev->port_index = 0;
+        ev->channel = internal_handle->clap.active_note_channels[key];
+        ev->key = (int16_t)key;
+        ev->velocity = 0.0;
+
+        internal_handle->clap.active_notes[key] = false;
+    }
+}
+
+bool uph_plugin_note_active(Uph_PluginEffect *effect, uint8_t key)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)effect->internal_handle;
+    return internal_handle->clap.active_notes[key];
+}
+
 static bool uph_clap_timer_unregister(const clap_host_t *host, clap_id timer_id)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)host->host_data;
     if (!internal_handle)
         return false;
 
-    for (int i = 0; i < UPH_MAX_PLUGIN_TIMERS; i++)
+    for (uint32_t i = 0; i < UPH_MAX_PLUGIN_TIMERS; i++)
     {
         if (internal_handle->clap.timers[i].active && internal_handle->clap.timers[i].id == timer_id)
         {
@@ -511,26 +620,30 @@ void uph_update_plugin_effect(Uph_PluginEffect *effect)
     }
 }
 
-static uint32_t uph_in_events_size(const clap_input_events_t *list) {
-    return 0; // or your real queued event count
+static bool uph_out_events_try_push(const clap_output_events_t *list, const clap_event_header_t *event)
+{
+    return true;
 }
 
-static const clap_event_header_t *uph_in_events_get(const clap_input_events_t *list, uint32_t index) {
-    return NULL; // or your real event
-}
-
-static bool uph_out_events_try_push(const clap_output_events_t *list, const clap_event_header_t *event) {
-    return true; // or actually store it
-}
-
-void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float **outputs, uint32_t frame_count)
+void uph_process_plugin_effect(
+    Uph_PluginEffect *effect,
+    float **inputs,
+    float **outputs,
+    uint32_t frame_count,
+    double playhead_beat,
+    bool is_playing
+)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)effect->internal_handle;
 
-    clap_input_events_t in_iface = {
-        .size = uph_in_events_size,
-        .get = uph_in_events_get
+    Uph_ClapInEvents in_events = {
+        .iface = {
+            .ctx = NULL,
+            .size = uph_in_events_size,
+            .get = uph_in_events_get
+        },
+        .queue = &internal_handle->clap.pending_notes
     };
 
     clap_output_events_t out_iface = {
@@ -553,7 +666,7 @@ void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float *
         .constant_mask = 0
     };
 
-    clap_beattime song_pos_beats = (clap_beattime)(uph_state.shared.song_timeline_playhead_position * CLAP_BEATTIME_FACTOR);
+    clap_beattime song_pos_beats = (clap_beattime)(playhead_beat * CLAP_BEATTIME_FACTOR);
 
     clap_event_transport_t transport = {
         .header = {
@@ -565,7 +678,7 @@ void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float *
         },
         .flags = CLAP_TRANSPORT_HAS_TEMPO
             | CLAP_TRANSPORT_HAS_BEATS_TIMELINE
-            | (uph_state.shared.song_timeline_playing ? CLAP_TRANSPORT_IS_PLAYING : 0),
+            | (is_playing ? CLAP_TRANSPORT_IS_PLAYING : 0),
         .song_pos_beats = song_pos_beats,
         .song_pos_seconds = 0,
         .tempo = uph_state.project.bpm,
@@ -592,12 +705,14 @@ void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float *
         .audio_inputs_count = 1,
         .audio_outputs_count = 1,
 
-        .in_events = &in_iface,
+        .in_events = &in_events.iface,
         .out_events = &out_iface
     };
 
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
     plugin->process(plugin, &process);
+
+    internal_handle->clap.pending_notes.count = 0;
 }
 
 #endif

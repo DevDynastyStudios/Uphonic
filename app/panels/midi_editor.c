@@ -537,6 +537,7 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
 
     const float note_label_font_size = fminf(NAUI_DPI(11.0f), lane_height * 0.8f);
     const float note_label_padding = NAUI_DPI(3.0f);
+    const float note_rounding = NAUI_DPI(3.0f);
     const Leaf_Color note_label_color = leaf_rgba(0, 0, 0, 180);
 
     for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
@@ -555,8 +556,8 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
             (Naui_Vec2) { note_x, y_position },
             (Naui_Vec2) { note_width, lane_height },
             LEAF_COLOR_WHITE,
-            0.0f,
-            LEAF_CORNER_NONE
+            note_rounding,
+            LEAF_CORNER_ALL
         );
 
         if (note_label_font_size >= NAUI_DPI(6.0f))

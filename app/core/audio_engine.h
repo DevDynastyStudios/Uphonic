@@ -55,6 +55,8 @@ void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 
 bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data);
 
+void uph_audio_engine_stop_all_notes(void);
+
 double uph_audio_engine_get_song_length_beats(void);
 double uph_audio_engine_get_song_length_seconds(void);
 bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat);
