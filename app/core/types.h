@@ -176,11 +176,27 @@ enum
 	UPH_TRACK_SILENCED = 1 << 3
 };
 
+typedef uint8_t Uph_PluginType;
+enum
+{
+	UPH_PLUGIN_CLAP,
+	UPH_PLUGIN_VST3
+};
+
+typedef struct
+{
+	Naui_Path file_path;
+	void *internal_handle;
+	Uph_PluginType type;
+	bool loaded;
+}
+Uph_PluginEffect;
+
 typedef struct
 {
 	Naui_String name;
 	Naui_Color color;
-	Uph_ResourceType type;
+	Uph_PluginEffect instrument;
 	Naui_List(Uph_TimelineBlock) blocks;
 	// Add Effects
 	float volume;
@@ -189,6 +205,7 @@ typedef struct
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
 
+	Uph_ResourceType type;
 	Uph_TrackState state;
 }
 Uph_Track;

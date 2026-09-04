@@ -308,9 +308,8 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     return result;
 }
 
-bool uph_ui_text_button(const char *string, const Leaf_ID id)
+bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
     const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
 
@@ -343,6 +342,11 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
         });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
+}
+
+bool uph_ui_text_button(const char *string, const Leaf_ID id)
+{
+    return uph_ui_text_button_ex(string, id, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL);
 }
 
 bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)

@@ -41,6 +41,41 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, floa
     }
 }
 
+static void uph_render_track_instrument(
+    Uph_Track *track,
+    ma_uint32 frame_count,
+    float gain_left,
+    float gain_right,
+    float *out,
+    float *track_peak_left,
+    float *track_peak_right
+)
+{
+    float input_l[UPH_SAMPLE_FRAME_COUNT] = { 0 };
+    float input_r[UPH_SAMPLE_FRAME_COUNT] = { 0 };
+
+    float output_l[UPH_SAMPLE_FRAME_COUNT] = { 0 };
+    float output_r[UPH_SAMPLE_FRAME_COUNT] = { 0 };
+
+    float *inputs[2]  = { input_l, input_r };
+    float *outputs[2] = { output_l, output_r };
+    uph_process_plugin_effect(&track->instrument, (float**)inputs, (float**)outputs, frame_count);
+
+    for (ma_uint32 f = 0; f < frame_count; f++)
+    {
+        float out_left  = output_l[f] * gain_left;
+        float out_right = output_r[f] * gain_right;
+
+        out[f * 2 + 0] += out_left;
+        out[f * 2 + 1] += out_right;
+
+        float abs_left  = fabsf(out_left);
+        float abs_right = fabsf(out_right);
+        if (abs_left  > *track_peak_left)  *track_peak_left  = abs_left;
+        if (abs_right > *track_peak_right) *track_peak_right = abs_right;
+    }
+}
+
 static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count)
 {
     memset(out, 0, sizeof(float) * 2 * frame_count);
@@ -49,6 +84,8 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     float bpm = project->bpm;
     if (bpm <= 0.0f)
         return;
+
+    bool timeline_playing = uph_state.shared.song_timeline_playing;
 
     uint64_t track_count = naui_list_len(project->tracks);
     for (uint64_t t = 0; t < track_count; t++)
@@ -73,47 +110,55 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         float track_peak_left = 0.0f;
         float track_peak_right = 0.0f;
 
-        for (uint64_t b = 0; b < block_count; b++)
+        if (track->type == UPH_RESOURCE_SAMPLE)
         {
-            Uph_TimelineBlock *block = &track->blocks[b];
-
-            if (block->type != UPH_RESOURCE_SAMPLE)
+            if (!timeline_playing)
                 continue;
 
-            if (block->resource_index >= naui_list_len(project->samples))
-                continue;
-
-            Uph_Sample *sample = &project->samples[block->resource_index];
-            Uph_SampleData *sample_data = &project->sample_data[sample->data_index];
-
-            double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
-
-            for (uint32_t f = 0; f < frame_count; f++)
+            for (uint64_t b = 0; b < block_count; b++)
             {
-                double frame_beat = playhead_start_beat + uph_seconds_to_beats((double)f / (double)engine_sample_rate, bpm);
+                Uph_TimelineBlock *block = &track->blocks[b];
 
-                double beats_into_block = frame_beat - block->start_beat;
-                if (beats_into_block < 0.0 || beats_into_block >= block->length_beats)
+                if (block->resource_index >= naui_list_len(project->samples))
                     continue;
 
-                double source_beats = beats_into_block / time_scale + block->start_offset_beats;
-                double source_seconds = uph_beats_to_seconds(source_beats, bpm);
-                double source_frame_pos = source_seconds * (double)uph_state.settings.audio.sample_rate;
+                Uph_Sample *sample = &project->samples[block->resource_index];
+                Uph_SampleData *sample_data = &project->sample_data[sample->data_index];
 
-                float left, right;
-                uph_read_sample_frame(sample_data, source_frame_pos, &left, &right);
+                double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
 
-                float out_left  = left  * gain_left;
-                float out_right = right * gain_right;
+                for (uint32_t f = 0; f < frame_count; f++)
+                {
+                    double frame_beat = playhead_start_beat + uph_seconds_to_beats((double)f / (double)engine_sample_rate, bpm);
 
-                out[f * 2 + 0] += out_left;
-                out[f * 2 + 1] += out_right;
+                    double beats_into_block = frame_beat - block->start_beat;
+                    if (beats_into_block < 0.0 || beats_into_block >= block->length_beats)
+                        continue;
 
-                float abs_left  = fabsf(out_left);
-                float abs_right = fabsf(out_right);
-                if (abs_left  > track_peak_left)  track_peak_left  = abs_left;
-                if (abs_right > track_peak_right) track_peak_right = abs_right;
+                    double source_beats = beats_into_block / time_scale + block->start_offset_beats;
+                    double source_seconds = uph_beats_to_seconds(source_beats, bpm);
+                    double source_frame_pos = source_seconds * (double)uph_state.settings.audio.sample_rate;
+
+                    float left, right;
+                    uph_read_sample_frame(sample_data, source_frame_pos, &left, &right);
+
+                    float out_left  = left  * gain_left;
+                    float out_right = right * gain_right;
+
+                    out[f * 2 + 0] += out_left;
+                    out[f * 2 + 1] += out_right;
+
+                    float abs_left  = fabsf(out_left);
+                    float abs_right = fabsf(out_right);
+                    if (abs_left  > track_peak_left)  track_peak_left  = abs_left;
+                    if (abs_right > track_peak_right) track_peak_right = abs_right;
+                }
             }
+        }
+        else if (track->type == UPH_RESOURCE_PATTERN)
+        {
+            if (track->instrument.loaded)
+                uph_render_track_instrument(track, frame_count, gain_left, gain_right, out, &track_peak_left, &track_peak_right);
         }
 
         track->peak_left  = track_peak_left;
@@ -126,17 +171,13 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     (void)input;
 
     float *out = (float*)output;
-
-    if (!uph_state.shared.song_timeline_playing)
-    {
-        memset(out, 0, sizeof(float) * 2 * frame_count);
-        return;
-    }
-
     uint32_t engine_sample_rate = device->sampleRate;
     double playhead_start_beat = uph_state.shared.song_timeline_playhead_position;
 
     uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count);
+
+    if (!uph_state.shared.song_timeline_playing)
+        return;
 
     float bpm = uph_state.project.bpm;
     if (bpm > 0.0f)
@@ -155,6 +196,7 @@ void uph_audio_engine_init(void)
     config.playback.channels = 2;
     config.sampleRate        = settings.sample_rate;
     config.dataCallback      = uph_data_callback;
+    config.periodSizeInFrames = UPH_SAMPLE_FRAME_COUNT;
 
     ma_result result = ma_device_init(NULL, &config, &data.device);
     if (result != MA_SUCCESS)

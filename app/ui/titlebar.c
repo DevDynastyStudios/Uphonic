@@ -183,17 +183,6 @@ void uph_render_main_titlebar(void)
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("samples.title"), leaf_id("uph_windows_menu_sample_list")))
 					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_sample_list));
-
-				Uph_UIMenuID track_menu = uph_ui_menu(NAUI_TR("menu.track"), leaf_id("uph_track_menu"));
-				if (uph_ui_menu_item(track_menu, NAUI_TR("menu.track.new"), leaf_id("uph_track_menu_new")))
-				{
-					Uph_Track track = {
-						.name = naui_string_from_cstr("New Track"),
-						.volume = 1.0f,
-						.color = naui_theme_color("uph_palette_color_1")
-					};
-					naui_list_push(uph_state.project.tracks, track);
-				}
 			}
 		}
 

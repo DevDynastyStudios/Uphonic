@@ -275,6 +275,23 @@ bool naui_strings_equal(Naui_String str1, Naui_String str2, bool case_sensitive)
     return naui_string_views_equal(naui_string_to_view(&str1), naui_string_to_view(&str2), case_sensitive);
 }
 
+bool naui_string_view_equals_cstr(Naui_StringView view, const char *cstr, bool case_sensitive)
+{
+    if (!cstr)
+        return view.data == NULL && view.length == 0;
+
+    Naui_StringView cstr_view;
+    cstr_view.data = (char *)cstr;
+    cstr_view.length = strlen(cstr);
+
+    return naui_string_views_equal(view, cstr_view, case_sensitive);
+}
+
+bool naui_string_equals_cstr(Naui_String str, const char *cstr, bool case_sensitive)
+{
+    return naui_string_view_equals_cstr(naui_string_to_view(&str), cstr, case_sensitive);
+}
+
 static bool naui__is_space(char c)
 {
     return isspace((unsigned char)c) != 0;

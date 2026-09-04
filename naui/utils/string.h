@@ -13,6 +13,9 @@ typedef struct
 }
 Naui_String;
 
+#define NAUI_STRING_VIEW_FMT(view) (int)(view).length, (view).data
+#define NAUI_STRING_VIEW_PRINT "%.*s"
+
 NAUI_API Naui_String        naui_string_from_cstr               (const char *cstr);
 NAUI_API Naui_StringView    naui_string_to_view                 (const Naui_String *str);
 NAUI_API Naui_String        naui_view_to_string                 (Naui_StringView view);
@@ -35,6 +38,8 @@ NAUI_API bool               naui_string_contains                (Naui_String hay
 
 NAUI_API bool               naui_strings_equal                  (Naui_String str1, Naui_String str2, bool case_sensitive);
 NAUI_API bool               naui_string_views_equal             (Naui_StringView view1, Naui_StringView view2, bool case_sensitive);
+NAUI_API bool               naui_string_view_equals_cstr        (Naui_StringView view, const char *cstr, bool case_sensitive);
+NAUI_API bool               naui_string_equals_cstr             (Naui_String str, const char *cstr, bool case_sensitive);
 
 NAUI_API Naui_StringView    naui_string_view_trim               (Naui_StringView view);
 NAUI_API Naui_StringView    naui_string_view_trim_left          (Naui_StringView view);

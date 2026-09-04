@@ -1622,7 +1622,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
         {
             XEvent xev;
             XNextEvent(mg_app_state.display, &xev);
- 
+
             switch (xev.type)
             {
                 case ConfigureNotify:

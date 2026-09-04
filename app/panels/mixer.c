@@ -64,11 +64,10 @@ static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_
     Uph_VolumePeaksCustomDrawData *data = (Uph_VolumePeaksCustomDrawData*)user_data;
     Uph_Track *track = data->track;
 
-    bool playing = uph_state.shared.song_timeline_playing;
     const float gap = NAUI_DPI(1.0f);
 
-    track->smooth_peak_left  = NAUI_LERP(track->smooth_peak_left,  playing ? track->peak_left : 0.0f,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
-    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, playing ? track->peak_right : 0.0f, naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
+    track->smooth_peak_left  = NAUI_LERP(track->smooth_peak_left,  track->peak_left,  naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
+    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, naui_delta_time() * uph_mixer_PEAK_SMOOTH_RATE);
 
     float half_width = box.width * 0.5f;
     float bar_width  = half_width - gap * 0.5f;

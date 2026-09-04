@@ -9,6 +9,12 @@
 #include "io/serialization.h"
 #include "io/serialization.c"
 
+#include <vendor/clap/clap.h>
+
+#include "plugins/plugin_manager.h"
+#include "plugins/plugin_manager_win32.c"
+#include "plugins/plugin_manager_linux.c"
+
 #include "core/audio_engine.h"
 #include "core/audio_engine.c"
 #include "core/resource_manager.h"
