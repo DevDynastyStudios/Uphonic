@@ -32,4 +32,9 @@ void uph_process_plugin_effect(Uph_PluginEffect *effect, float **inputs, float *
 
 }
 
+bool uph_plugin_window_visible(Uph_PluginEffect *effect)
+{
+	return false;
+}
+
 #endif
