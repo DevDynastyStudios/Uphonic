@@ -7,73 +7,12 @@ static Naui_List(Naui_LanguageMeta) g_meta_cache = NULL;
 static bool g_current_loaded = false;
 static bool g_meta_cache_init = false;
 
-static char* _naui_strdup(const char* s)
-{
-	if (!s)
-		return NULL;
-
-	size_t len = strlen(s) + 1;
-	char* copy = (char*)malloc(len);
-	if (copy)
-		memcpy(copy, s, len);
-
-	return copy;
-}
-
 static Naui_TextDirection _naui_parse_direction(const char* dir)
 {
 	if (dir && strcmp(dir, "rtl") == 0)
 		return NAUI_TEXT_RTL;
 
 	return NAUI_TEXT_LTR;
-}
-
-static void _naui_split_locale(const char* code, char** out_lang, char** out_region)
-{
-	*out_lang = NULL;
-	*out_region = NULL;
-
-	if (!code)
-		return;
-
-	const char* dash = strchr(code, '-');
-	if (!dash)
-	{
-		*out_lang = _naui_strdup(code);
-		return;
-	}
-
-	size_t lang_len = (size_t)(dash - code);
-	char* lang = (char*)malloc(lang_len + 1);
-	if (lang)
-	{
-		memcpy(lang, code, lang_len);
-		lang[lang_len] = '\0';
-	}
-
-	*out_lang = lang;
-	*out_region = _naui_strdup(dash + 1);
-}
-
-static void _naui_meta_free(Naui_LanguageMeta* meta)
-{
-	if (!meta)
-		return;
-
-	free(meta->filename);
-	free(meta->language_code);
-	free(meta->region_code);
-	free(meta->display_name);
-	memset(meta, 0, sizeof(*meta));
-}
-
-static void _naui_meta_copy(Naui_LanguageMeta* dst, const Naui_LanguageMeta* src)
-{
-	dst->filename = _naui_strdup(src->filename);
-	dst->language_code = _naui_strdup(src->language_code);
-	dst->region_code = _naui_strdup(src->region_code);
-	dst->display_name = _naui_strdup(src->display_name);
-	dst->text_direction = src->text_direction;
 }
 
 static Naui_Path _naui_localization_build_path(const char* code)
@@ -90,7 +29,8 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	if (naui_path_is_empty(path) || !out_language)
 		return false;
 
-	memset(out_language, 0, sizeof(*out_language));
+	out_language->table = NULL;
+	out_language->meta.language_code = (Naui_String){0};
 	Naui_Json json = naui_json_parse_file(path);
 
 	if (!json.root || json.error)
@@ -107,87 +47,58 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 		return false;
 	}
 
-	out_language->table = NULL;
-	out_language->meta.filename = _naui_strdup(path.data);
-	out_language->meta.language_code = NULL;
-	out_language->meta.region_code = NULL;
-	out_language->meta.display_name = NULL;
+	size_t file_size = naui_file_size(path);
+	naui_arena_init(&out_language->arena, file_size > 0 ? file_size : 1024);
+	out_language->meta.filename = path;
 	out_language->meta.text_direction = NAUI_TEXT_LTR;
 
 	NAUI_JSON_FOREACH(json.root, key, value)
 	{
-		char key_buf[256];
-		size_t key_len = key->string.len;
-		if (key_len >= sizeof(key_buf))
-			key_len = sizeof(key_buf) - 1;
-
-		memcpy(key_buf, key->string.ptr, key_len);
-		key_buf[key_len] = '\0';
-
-		if (strcmp(key_buf, "_meta") == 0)
+		if (strcmp(key->string.ptr, "_meta") == 0)
 		{
 			if (value->type != NAUI_JSON_OBJECT)
 				continue;
-		
+
 			const Naui_JsonValue* lang_v = naui_json_object_get(value, "language");
 			const Naui_JsonValue* dir_v = naui_json_object_get(value, "direction");
 			const Naui_JsonValue* name_v = naui_json_object_get(value, "name");
-		
 			if (lang_v && lang_v->type == NAUI_JSON_STRING)
 			{
 				char lang_code_buf[64];
-				naui_json_copy_string(lang_v, lang_code_buf, sizeof(lang_code_buf));
-				free(out_language->meta.language_code);
-				free(out_language->meta.region_code);
-				_naui_split_locale(lang_code_buf, &out_language->meta.language_code, &out_language->meta.region_code);
+				naui_json_copy_cstr(lang_v, lang_code_buf, sizeof(lang_code_buf));
+				naui_localization_split_locale(lang_code_buf, &out_language->meta.language_code, &out_language->meta.region_code);
 			}
-		
+
 			if (dir_v && dir_v->type == NAUI_JSON_STRING)
 			{
 				char dir_buf[16];
-				naui_json_copy_string(dir_v, dir_buf, sizeof(dir_buf));
+				naui_json_copy_cstr(dir_v, dir_buf, sizeof(dir_buf));
 				out_language->meta.text_direction = _naui_parse_direction(dir_buf);
 			}
-		
+
 			if (name_v && name_v->type == NAUI_JSON_STRING)
-			{
-				char name_buf[256];
-				naui_json_copy_string(name_v, name_buf, sizeof(name_buf));
-				free(out_language->meta.display_name);
-				out_language->meta.display_name = _naui_strdup(name_buf);
-			}
-		
+				naui_json_copy_string(name_v, &out_language->meta.display_name);
+
 			continue;
 		}
 
 		if (value->type != NAUI_JSON_STRING)
 			continue;
 
-		size_t val_len = value->string.len;
-		bool is_interpolated = (val_len > 0 && value->string.ptr[0] == '$');
-		const char* val_start = value->string.ptr;
-		size_t copy_len = val_len;
-
-		if (is_interpolated)
-		{
-			val_start += 1;
-			copy_len -= 1;
-		}
-
-		char* entry_value = (char*)malloc(copy_len + 1);
-		if (!entry_value)
+		size_t val_cap = value->string.len + 1;
+		char* raw_value = (char*)naui_arena_alloc(&out_language->arena, val_cap);
+		if (!raw_value)
 			continue;
 
-		memcpy(entry_value, val_start, copy_len);
-		entry_value[copy_len] = '\0';
-		char* entry_key = (char*)malloc(key_len + 1);
+		naui_json_copy_cstr(value, raw_value, val_cap);
+		bool is_interpolated = (raw_value[0] == '$');
+		char* entry_value = is_interpolated ? raw_value + 1 : raw_value;
+
+		char* entry_key = (char*)naui_arena_alloc(&out_language->arena, key->string.len + 1);
 		if (!entry_key)
-		{
-			free(entry_value);
 			continue;
-		}
 
-		memcpy(entry_key, key_buf, key_len + 1);
+		naui_json_copy_cstr(key, entry_key, key->string.len + 1);
 		Naui_LanguageEntry entry;
 		entry.key = entry_key;
 		entry.value = entry_value;
@@ -196,26 +107,32 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	}
 
 	naui_json_free(&json);
-	if (!out_language->meta.language_code)
+	if (naui_string_is_empty(out_language->meta.language_code))
 	{
-		const char* base = strrchr(path.data, '/');
-		if (!base)
-			base = strrchr(path.data, '\\');
-
-		base = base ? base + 1 : path.data;
-		char derived[64];
-		size_t i = 0;
-		while (base[i] && base[i] != '.' && i < sizeof(derived) - 1)
-		{
-			derived[i] = base[i];
-			++i;
-		}
-
-		derived[i] = '\0';
-		_naui_split_locale(derived, &out_language->meta.language_code, &out_language->meta.region_code);
+		Naui_String stem = naui_view_to_string(naui_file_stem(&path));
+		naui_localization_split_locale(stem.data, &out_language->meta.language_code, &out_language->meta.region_code);
 	}
 
 	return true;
+}
+
+void naui_localization_split_locale(const char* code, Naui_String* out_lang, Naui_String* out_region)
+{
+	*out_lang = (Naui_String){0};
+	*out_region = (Naui_String){0};
+
+	if (!code || !code[0])
+		return;
+
+	Naui_String code_str = naui_string_from_cstr(code);
+	Naui_StringView code_view = naui_string_to_view(&code_str);
+	Naui_StringView parts[2];
+	size_t n = naui_string_view_split(code_view, '-', parts, 2);
+	if (n >= 1)
+		*out_lang = naui_view_to_string(parts[0]);
+
+	if (n >= 2)
+		*out_region = naui_view_to_string(parts[1]);
 }
 
 bool naui_localization_load(const Naui_String language_code, Naui_Language* out_language)
@@ -224,12 +141,12 @@ bool naui_localization_load(const Naui_String language_code, Naui_Language* out_
 		return false;
 
 	Naui_Path path = _naui_localization_build_path(language_code.data);
-	bool ok = naui_localization_load_file(path, out_language);
-	return ok;
+	return naui_localization_load_file(path, out_language);
 }
 
 void naui_localization_set_current(const Naui_String language_code)
 {
+	naui_log(NAUI_LOG_INFO, "Loading language file: %s", language_code.data);
 	Naui_Language new_lang;
 	bool ok = naui_localization_load(language_code, &new_lang);
 
@@ -237,12 +154,20 @@ void naui_localization_set_current(const Naui_String language_code)
 	{
 		bool already_en_us = !naui_string_is_empty(language_code) && strcmp(language_code.data, "en-US") == 0;
 		if (already_en_us)
+		{
+			naui_log(NAUI_LOG_ERROR, "Failed to load language file en-US. Is the file missing?");
 			return;
+		}
 
 		naui_log(NAUI_LOG_ERROR, "Unable to load localization file for '%s'. Falling back to en-US", naui_string_is_empty(language_code) ? "" : language_code.data);
 		ok = naui_localization_load(naui_string_from_cstr("en-US"), &new_lang);
 		if (!ok)
+		{
+			Naui_String language_folder = naui_string_from_cstr(naui_directory_get(NAUI_DIR_ASSETS).data);
+			naui_string_append(&language_folder, naui_string_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
+			naui_log(NAUI_LOG_ERROR, "Failed all attempts to load language file at: %s", language_folder);
 			return;
+		}
 	}
 
 	if (g_current_loaded)
@@ -250,6 +175,7 @@ void naui_localization_set_current(const Naui_String language_code)
 
 	g_current_language = new_lang;
 	g_current_loaded = true;
+	naui_log(NAUI_LOG_INFO, "Successfully loaded: %s-%s", new_lang.meta.language_code.data, new_lang.meta.region_code.data);
 }
 
 void naui_localization_set_current_lang(Naui_Language* lang)
@@ -277,11 +203,6 @@ void naui_localization_reload_meta_cache(void)
 {
 	if (g_meta_cache_init)
 	{
-		for (ptrdiff_t i = 0; i < naui_list_len(g_meta_cache); ++i)
-		{
-			_naui_meta_free(&g_meta_cache[i]);
-		}
-
 		naui_list_free(g_meta_cache);
 		g_meta_cache = NULL;
 	}
@@ -289,7 +210,6 @@ void naui_localization_reload_meta_cache(void)
 	g_meta_cache_init = true;
 	Naui_Path assets_dir = naui_directory_get(NAUI_DIR_ASSETS);
 	Naui_Path lang_dir = naui_path_join(assets_dir, naui_path_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
-
 	if (!naui_path_exists(lang_dir))
 		return;
 
@@ -299,17 +219,11 @@ void naui_localization_reload_meta_cache(void)
 		if (entries[i].is_directory)
 			continue;
 
-		const char* full_path = entries[i].path.data;
-
 		Naui_Language lang;
-		if (!naui_localization_load_file(NAUI_PATH(full_path), &lang))
+		if (!naui_localization_load_file(entries[i].path, &lang))
 			continue;
 
-		Naui_LanguageMeta meta;
-		_naui_meta_copy(&meta, &lang.meta);
-		free(meta.filename);
-		meta.filename = _naui_strdup(full_path);
-		naui_list_push(g_meta_cache, meta);
+		naui_list_push(g_meta_cache, lang.meta);
 		naui_localization_free(&lang);
 	}
 
@@ -354,9 +268,9 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 
 	const char* src = entry->value;
 	size_t src_len = strlen(src);
-	size_t out_len = 0;
+	Naui_StringBuilder builder = NULL;
+	naui_string_builder_reserve(builder, src_len);
 	size_t i = 0;
-
 	while (i < src_len)
 	{
 		if (src[i] == '{')
@@ -372,71 +286,37 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 					const char* name = args[a];
 					if (name && strlen(name) == name_len && memcmp(name, src + i + 1, name_len) == 0)
 					{
-						out_len += strlen(args[a + 1]);
+						Naui_StringView val_view = { (char*)args[a + 1], strlen(args[a + 1]) };
+						naui_string_builder_append_view(builder, val_view);
 						matched = true;
 						break;
 					}
 				}
 
 				if (!matched)
-					out_len += (size_t)(close - src + 1) - i;
+				{
+					Naui_StringView placeholder_view = { (char*)(src + i), (size_t)(close - src + 1) - i };
+					naui_string_builder_append_view(builder, placeholder_view);
+				}
 
 				i = (size_t)(close - src) + 1;
 				continue;
 			}
 		}
 
-		++out_len;
+		naui_string_builder_append_char(builder, src[i]);
 		++i;
 	}
 
-	char* result = (char*)malloc(out_len + 1);
-	if (!result)
-		return NULL;
-
-	size_t out_pos = 0;
-	i = 0;
-	while (i < src_len)
+	size_t final_len = (size_t)naui_string_builder_len(builder);
+	char* result = (char*)malloc(final_len + 1);
+	if (result)
 	{
-		if (src[i] == '{')
-		{
-			const char* close = strchr(src + i, '}');
-			if (close)
-			{
-				size_t name_len = (size_t)(close - (src + i + 1));
-				bool matched = false;
-
-				for (int a = 0; a < arg_count; a += 2)
-				{
-					const char* name = args[a];
-					if (name && strlen(name) == name_len && memcmp(name, src + i + 1, name_len) == 0)
-					{
-						const char* val = args[a + 1];
-						size_t val_len = strlen(val);
-						memcpy(result + out_pos, val, val_len);
-						out_pos += val_len;
-						matched = true;
-						break;
-					}
-				}
-
-				if (!matched)
-				{
-					size_t span = (size_t)(close - src + 1) - i;
-					memcpy(result + out_pos, src + i, span);
-					out_pos += span;
-				}
-
-				i = (size_t)(close - src) + 1;
-				continue;
-			}
-		}
-
-		result[out_pos++] = src[i];
-		++i;
+		memcpy(result, builder, final_len);
+		result[final_len] = '\0';
 	}
 
-	result[out_pos] = '\0';
+	naui_string_builder_free(builder);
 	return result;
 }
 
@@ -445,13 +325,6 @@ void naui_localization_free(Naui_Language* language)
 	if (!language)
 		return;
 
-	for (ptrdiff_t i = 0; i < naui_strmap_len(language->table); ++i)
-	{
-		free(language->table[i].key);
-		free(language->table[i].value);
-	}
-
 	naui_strmap_free(language->table);
-	language->table = NULL;
-	_naui_meta_free(&language->meta);
+	naui_arena_free(&language->arena);
 }
