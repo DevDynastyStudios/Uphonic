@@ -478,7 +478,22 @@ const char* naui_json_get_string(const Naui_JsonValue* value, const char* defaul
 	return value->string.ptr;
 }
 
-int naui_json_copy_string(const Naui_JsonValue* value, char* dest, size_t dest_size)
+int naui_json_copy_string(const Naui_JsonValue* value, Naui_String* out_string)
+{
+    if (!value || value->type != NAUI_JSON_STRING)
+        return -1;
+
+    Naui_JsonReader tmp;
+    naui_json_reader_init(&tmp, value->string.ptr, value->string.len);
+    tmp.token = NAUI_JSON_TOKEN_STRING;
+    tmp.str = value->string.ptr;
+    tmp.len = value->string.len;
+    out_string->length = (size_t)naui_json_reader_copy_str(&tmp, out_string->data, NAUI_STRING_MAX_SIZE);
+    out_string->data[NAUI_STRING_MAX_SIZE - 1] = '\0';
+    return (int)out_string->length;
+}
+
+int naui_json_copy_cstr(const Naui_JsonValue* value, char* dest, size_t dest_size)
 {
     if (!value || value->type != NAUI_JSON_STRING || !dest || dest_size == 0)
         return -1;

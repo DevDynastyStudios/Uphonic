@@ -9,10 +9,10 @@ enum
 
 typedef struct
 {
-	char* filename;
-	char* language_code;
-	char* region_code;
-	char* display_name;
+	Naui_Path filename;
+	Naui_String language_code;
+	Naui_String region_code;
+	Naui_String display_name;
 	Naui_TextDirection text_direction;
 } Naui_LanguageMeta;
 
@@ -27,6 +27,7 @@ typedef struct
 {
 	Naui_Map(Naui_LanguageEntry) table;
 	Naui_LanguageMeta meta;
+	Naui_Arena arena;
 } Naui_Language;
 
 /* Set the active language by code. Scans the language subfolder file names.
@@ -44,6 +45,9 @@ void naui_localization_reload_meta_cache(void);
 /* Return the cached list of available languages.
  * Valid until the next naui_localization_reload_meta_cache() call. */
 Naui_List(Naui_LanguageMeta) naui_localization_get_languages(void);
+
+/* Splits language/region code into separate strings */ 
+void naui_localization_split_locale(const char* code, Naui_String* out_lang, Naui_String* out_region);
 
 /* Load a language by code into out_language.
  * Returns false if the file cannot be found or parsed. */

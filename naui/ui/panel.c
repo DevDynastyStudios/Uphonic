@@ -1489,20 +1489,20 @@ static Naui_PanelNode *naui_deserialize_panel_node(Naui_JsonValue *json_parent)
 {
     Naui_JsonValue *kind = naui_json_object_get(json_parent, "kind");
     char kind_name[8];
-    naui_json_copy_string(kind, kind_name, sizeof(kind_name));
+    naui_json_copy_cstr(kind, kind_name, sizeof(kind_name));
 
     if (!strncmp(kind_name, "panel", sizeof(kind_name)))
     {
         Naui_JsonValue *type = naui_json_object_get(json_parent, "type");
         char type_name[64];
-        naui_json_copy_string(type, type_name, sizeof(type_name));
+        naui_json_copy_cstr(type, type_name, sizeof(type_name));
         return naui_find_root_panel_of_type(type_name);
     }
     else if (!strncmp(kind_name, "split", sizeof(kind_name)))
     {
         Naui_JsonValue *axis = naui_json_object_get(json_parent, "axis");
         char axis_name[16];
-        naui_json_copy_string(axis, axis_name, sizeof(axis_name));
+        naui_json_copy_cstr(axis, axis_name, sizeof(axis_name));
 
         float split_ratio = (float)naui_json_get_number(naui_json_object_get(json_parent, "ratio"), 0.5f);
 
@@ -1526,12 +1526,12 @@ static Naui_PanelNode *naui_deserialize_panel_node(Naui_JsonValue *json_parent)
         size_t tab_count = (tabs_arr && tabs_arr->type == NAUI_JSON_ARRAY) ? tabs_arr->array.count : 0;
 
         char tab_type_name[64] = {0};
-        naui_json_copy_string(naui_json_array_get(tabs_arr, 0), tab_type_name, sizeof(tab_type_name));
+        naui_json_copy_cstr(naui_json_array_get(tabs_arr, 0), tab_type_name, sizeof(tab_type_name));
         Naui_PanelNode *main_tab = naui_find_root_panel_of_type(tab_type_name);
 
         for (size_t i = 1; i < tab_count; i++)
         {
-            naui_json_copy_string(naui_json_array_get(tabs_arr, i), tab_type_name, sizeof(tab_type_name));
+            naui_json_copy_cstr(naui_json_array_get(tabs_arr, i), tab_type_name, sizeof(tab_type_name));
             naui_dock_panel(
                 (Naui_PanelID)main_tab, (Naui_PanelID)naui_find_root_panel_of_type(tab_type_name),
                 NAUI_DOCK_DIRECTION_CENTER, 0.0f);
