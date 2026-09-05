@@ -907,8 +907,10 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         Leaf_Node *node = leaf_stack_top();
         const Leaf_ElementConfig *config = &node->element.config;
         
-        node->bounding_box.width += config->padding.left + config->padding.right;
-        node->bounding_box.height += config->padding.top + config->padding.bottom;
+        if (config->size.width.type != LEAF_SIZE_TYPE_FIT)
+            node->bounding_box.width += config->padding.left + config->padding.right;
+        if (config->size.height.type != LEAF_SIZE_TYPE_FIT)
+            node->bounding_box.height += config->padding.top + config->padding.bottom;
         
         const float child_gap = LEAF_MAX(node->element.relative_child_count - 1, 0) * config->child_gap;
         if (config->size.width.type == LEAF_SIZE_TYPE_FIT && config->direction == LEAF_DIRECTION_HORIZONTAL)

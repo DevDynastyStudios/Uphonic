@@ -563,6 +563,7 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
 
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
 
+    naui_push_clip_rect(box.x, box.y, box.width, box.height);
     if (draw_data->value->length)
     {
         naui_draw_text(
@@ -583,6 +584,7 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
             naui_theme_color("uph_ui_text_disabled_color")
         );
     }
+    naui_pop_clip_rect();
 }
 
 static void uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_data)
