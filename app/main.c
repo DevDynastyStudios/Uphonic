@@ -161,7 +161,7 @@ void naui_app_update(void)
 				if (metronome_enabled) {
 					Leaf_ID bpm_btn_id = leaf_id("uph_bpm_button");
 					if (leaf_hovered(bpm_btn_id))
-						naui_request_cursor(NAUI_CURSOR_HAND);
+						naui_set_cursor(NAUI_CURSOR_HAND);
 
 					if (uph_ui_image_button(naui_asset_image("uph_icon_tappad"), bpm_btn_id, naui_vec2_scale(icon_size, 2.0f), tool_icon_color)) {
 						float bpm;

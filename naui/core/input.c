@@ -53,18 +53,9 @@ int32_t naui_mouse_y(void)
     return mg_app_mouse_y();
 }
 
-static Naui_Cursor s_naui_cursor = NAUI_CURSOR_ARROW;
 void naui_set_cursor(Naui_Cursor cursor)
 {
-	s_naui_cursor = cursor;
     mg_app_set_cursor((mg_cursor)cursor);
-}
-
-static bool s_naui_cursor_requested = false;
-void naui_request_cursor(Naui_Cursor cursor)
-{
-	s_naui_cursor_requested = true;
-	s_naui_cursor = cursor;
 }
 
 static bool s_dragging[MG_MOUSE_BUTTON_MAX];
@@ -95,12 +86,6 @@ void naui_input_update(void)
             s_dragging[i] = false;
         }
     }
-
-	if (s_naui_cursor_requested)
-	{
-		s_naui_cursor_requested = false;
-		mg_app_set_cursor(s_naui_cursor);
-	}
 }
 
 bool naui_mouse_dragging(Naui_MouseButton button)

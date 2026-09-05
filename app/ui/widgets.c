@@ -299,8 +299,13 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     item->text = name;
     uph_ui_append_menu_child(parent, item);
 
+    bool hovered = leaf_hovered(element_id);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
     bool result;
-    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && leaf_hovered(element_id))
+    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
         uph_global_widget_data.current_open_menu = NULL;
         result = true;
@@ -321,6 +326,9 @@ bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_c
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
     const bool hovered = uph_ui_widget_hovered(id);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
 
     Leaf_Color color;
     if (hovered)
@@ -362,6 +370,9 @@ bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
     const bool hovered = uph_ui_widget_hovered(id);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
 
     Leaf_Color color;
     if (hovered)
@@ -406,6 +417,9 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
 
     const bool hovered = uph_ui_widget_hovered(id);
 
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
     leaf({
@@ -438,6 +452,9 @@ bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Na
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
     const bool hovered = uph_ui_widget_hovered(id);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
 
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
@@ -676,6 +693,9 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         uph_ui__begin_text_edit(data, id, value, value->length);
         active = true;
     }
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_IBEAM);
 
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
@@ -939,6 +959,9 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
     const bool hovered = uph_ui_widget_hovered(id);
     const bool dragging_this = (ddata->id.value == id.value);
 
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
         if (is_float)
@@ -1100,6 +1123,9 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
     const bool hovered = uph_ui_widget_hovered(id);
 
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
         if (is_float)
@@ -1247,6 +1273,9 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
 
     const float size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
 
     leaf({
         .id = id,

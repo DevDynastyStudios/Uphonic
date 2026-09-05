@@ -115,14 +115,13 @@ static void uph_pattern_list_on_update(void)
 			bool hovered = uph_ui_widget_hovered(id);
 
 			if (hovered)
-				naui_request_cursor(NAUI_CURSOR_HAND);
+				naui_set_cursor(NAUI_CURSOR_HAND);
 
             if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && hovered)
             {
                 uph_state.shared.selected_resource.index = i;
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
                 uph_ui_open_context_menu(context_menu);
-				naui_request_cursor(NAUI_CURSOR_HAND);
             }
 
             if (uph_ui_list_box(
@@ -130,6 +129,7 @@ static void uph_pattern_list_on_update(void)
                 (Leaf_CustomDrawFn)uph_pattern_list_custom_draw,
                 LEAF_DATA_SLICE(pattern),
                 id,
+                hovered,
                 uph_state.shared.selected_resource.index == i
             ))
             {

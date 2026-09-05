@@ -79,7 +79,7 @@ static void uph_sample_list_on_update(void)
 			bool hovered = uph_ui_widget_hovered(id);
 
 			if (hovered)
-				naui_request_cursor(NAUI_CURSOR_HAND);
+				naui_set_cursor(NAUI_CURSOR_HAND);
 
             if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && hovered)
             {
@@ -93,6 +93,7 @@ static void uph_sample_list_on_update(void)
                 (Leaf_CustomDrawFn)uph_sample_list_waveform,
                 LEAF_DATA_SLICE(sample),
                 id,
+                hovered,
                 uph_state.shared.selected_resource.index == i
             ))
             {

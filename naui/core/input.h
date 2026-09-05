@@ -194,4 +194,3 @@ NAUI_API int32_t naui_mouse_x(void);
 NAUI_API int32_t naui_mouse_y(void);
 NAUI_API bool naui_mouse_dragging(Naui_MouseButton button);
 NAUI_API void naui_set_cursor(Naui_Cursor cursor);
-NAUI_API void naui_request_cursor(Naui_Cursor cursor);

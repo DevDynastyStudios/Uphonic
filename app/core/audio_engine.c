@@ -329,6 +329,8 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
 {
     (void)input;
 
+    static bool was_playing = false;
+
     float *out = (float*)output;
     uint32_t engine_sample_rate = device->sampleRate;
     double playhead_start_beat = uph_state.shared.song_timeline_playhead_position;
@@ -336,7 +338,11 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
 
     uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count, is_playing);
 
-    if (!uph_state.shared.song_timeline_playing)
+    if (was_playing && !is_playing)
+        uph_audio_engine_stop_all_notes();
+    was_playing = is_playing;
+
+    if (!is_playing)
         return;
 
     float bpm = uph_state.project.bpm;
