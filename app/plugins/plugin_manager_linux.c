@@ -36,7 +36,7 @@ typedef struct
 {
     clap_id id;
     uint32_t period_ms;
-    struct timespec last_fire;
+    float last_fire;
     bool active;
 }
 Uph_ClapTimer;
@@ -49,7 +49,7 @@ typedef struct
         const clap_plugin_gui_t *gui;
         const clap_plugin_t *plugin;
         const clap_plugin_timer_support_t *timer_support;
-        void *dl_handle;
+        void *library_handle;
 
         Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
         Uph_ClapNoteEventQueue pending_notes;
@@ -81,7 +81,7 @@ static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms,
         {
             t->id = internal_handle->clap.next_timer_id++;
             t->period_ms = period_ms;
-            clock_gettime(CLOCK_MONOTONIC, &t->last_fire);
+            t->last_fire = naui_time();
             t->active = true;
             *timer_id = t->id;
             return true;
@@ -342,7 +342,7 @@ static inline void uph_load_clap_plugin_internal(Uph_PluginEffect *effect, uint3
 
     internal_handle->clap.gui = gui;
     internal_handle->clap.plugin = plugin;
-    internal_handle->clap.dl_handle = handle;
+    internal_handle->clap.library_handle = handle;
     internal_handle->clap.timer_support = timer_support;
     internal_handle->clap.next_timer_id = 1;
 
@@ -609,15 +609,17 @@ void uph_update_plugin_effect(Uph_PluginEffect *effect)
     if (!internal_handle->clap.timer_support)
         return;
 
+    float now = naui_time();
     for (int i = 0; i < UPH_MAX_PLUGIN_TIMERS; i++)
     {
         Uph_ClapTimer *t = &internal_handle->clap.timers[i];
         if (!t->active)
             continue;
 
-        if (uph_ms_since(&t->last_fire) >= (long)t->period_ms)
+        float period_s = t->period_ms / 1000.0f;
+        if (now - t->last_fire >= period_s)
         {
-            clock_gettime(CLOCK_MONOTONIC, &t->last_fire);
+            t->last_fire = now;
             internal_handle->clap.timer_support->on_timer(internal_handle->clap.plugin, t->id);
         }
     }
