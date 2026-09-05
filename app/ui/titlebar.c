@@ -109,7 +109,7 @@ void uph_render_main_titlebar(void)
 				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")))
 				{
-
+					uph_project_create(naui_string_from_cstr("Test Project")); // Change to where name is given from prompt
 				}
 
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")))

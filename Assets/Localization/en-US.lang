@@ -64,6 +64,7 @@
 
 	"patterns.title": "Patterns",
 	"patterns.new": "+ New Pattern",
+	"patterns.default.name": "Untitled Pattern",
 
 	"samples.title": "Samples",
 	"samples.import": "Import",
