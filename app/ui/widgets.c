@@ -201,7 +201,9 @@ void uph_ui_widgets_flush(void)
 
     data->id_counter = 0;
     data->any_widget_hovered = false;
-    naui_arena_reset(&data->menu_arena);
+
+    if (!data->current_open_menu)
+        naui_arena_reset(&data->menu_arena);
 }
 
 Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
