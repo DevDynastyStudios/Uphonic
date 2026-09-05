@@ -75,11 +75,12 @@ static void uph_queue_pattern_block_notes(
         if (note_end_beat <= note_start_beat)
             continue;
 
-        if (note_start_beat >= buffer_start_beat && note_start_beat < buffer_end_beat)
+        if (note_start_beat < buffer_end_beat && note_end_beat > buffer_start_beat)
         {
             if (!uph_plugin_note_active(&track->instrument, note->key_number))
             {
-                double beats_from_buffer_start = note_start_beat - buffer_start_beat;
+                double trigger_beat = (note_start_beat > buffer_start_beat) ? note_start_beat : buffer_start_beat;
+                double beats_from_buffer_start = trigger_beat - buffer_start_beat;
                 double seconds_from_buffer_start = uph_beats_to_seconds(beats_from_buffer_start, bpm);
                 uint32_t sample_offset = (uint32_t)(seconds_from_buffer_start * (double)engine_sample_rate);
 

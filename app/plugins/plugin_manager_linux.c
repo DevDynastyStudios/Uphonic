@@ -603,6 +603,9 @@ void uph_update_plugin_effect(Uph_PluginEffect *effect)
 
     uph_poll_plugin_window_events(effect);
 
+    if (!internal_handle->visible)
+        return;
+
     if (!internal_handle->clap.timer_support)
         return;
 
