@@ -79,7 +79,7 @@ void naui_app_start(void)
 
 	naui_list_push(uph_state.settings.plugin.plugin_paths, NAUI_PATH("/home/box/.clap/"));
 
-	naui_localization_set_current(naui_string_format("%s-%s", uph_state.settings.general.language_code, uph_state.settings.general.region_code));
+	naui_localization_set_current(naui_string_format("%s-%s", uph_state.settings.general.language_code.data, uph_state.settings.general.region_code.data));
 
 	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
