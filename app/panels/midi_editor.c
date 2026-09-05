@@ -244,6 +244,8 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                 const int32_t new_row = mouse_row_now + drag->initial_drag_key_offset;
                 const int32_t new_key = 127 - new_row;
                 note->key_number = (uint8_t)NAUI_CLAMP(new_key, 0, 127);
+                
+                uph_state.shared.current_pattern_updated = true;
 
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
@@ -260,6 +262,8 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                 uph_midi_editor_data.last_note_length = note->length_beats;
                 uph_midi_editor_data.last_note_velocity = note->velocity;
 
+                uph_state.shared.current_pattern_updated = true;
+
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
             else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_RIGHT)
@@ -269,6 +273,8 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
 
                 uph_midi_editor_data.last_note_length = note->length_beats;
                 uph_midi_editor_data.last_note_velocity = note->velocity;
+
+                uph_state.shared.current_pattern_updated = true;
 
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
@@ -370,6 +376,7 @@ static void uph_midi_editor_update_draw_input(Leaf_BoundingBox box, Uph_MidiPatt
     uph_midi_editor_data.drag.initial_start_beat = note.start_beat;
     uph_midi_editor_data.drag.initial_length_beats = note.length_beats;
     uph_midi_editor_data.drag.initial_key_number = note.key_number;
+    uph_state.shared.current_pattern_updated = true;
 
     naui_list_push(pattern->notes, note);
 }
@@ -420,6 +427,7 @@ static void uph_midi_editor_update_delete_input(Uph_MidiPattern *pattern)
         return;
 
     naui_list_uremove(pattern->notes, uph_midi_editor_data.hovered_note.note_index);
+    uph_state.shared.current_pattern_updated = true;
 }
 
 static void uph_midi_editor_render_beat_grid(Leaf_BoundingBox box)

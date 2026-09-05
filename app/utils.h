@@ -1,0 +1,1 @@
+double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);

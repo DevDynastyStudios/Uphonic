@@ -56,6 +56,14 @@ NAUI_PANEL(uph_song_timeline)
 
 static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_t resource_index, Uph_ResourceType block_type)
 {
+    if (uph_state.shared.current_pattern_updated && block_type == UPH_RESOURCE_PATTERN)
+    {
+        uph_state.shared.song_timeline_current_block_start_offset = 0.0;
+        uph_state.shared.song_timeline_current_block_length =
+            uph_calculate_pattern_length(&uph_state.project.midi_patterns[resource_index]);
+        uph_state.shared.current_pattern_updated = false;
+    }
+
 	Uph_TimelineBlock block = {
 		.start_beat = start_beat,
         .start_offset_beats = uph_state.shared.song_timeline_current_block_start_offset,
@@ -63,6 +71,7 @@ static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_
 		.resource_index = resource_index,
 		.type = block_type
 	};
+
     return block;
 }
 

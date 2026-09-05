@@ -6,6 +6,9 @@
 
 #include "core/types.h"
 
+#include "utils.h"
+#include "utils.c"
+
 #include "io/serialization.h"
 #include "io/serialization.c"
 

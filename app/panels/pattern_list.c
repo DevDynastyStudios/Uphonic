@@ -80,18 +80,6 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     }
 }
 
-static double uph_pattern_list_calculate_pattern_length(const Uph_MidiPattern *pattern)
-{
-    double length = 4.0; // minimum size
-    for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
-    {
-        const double note_end = pattern->notes[i].start_beat + pattern->notes[i].length_beats;
-        if (note_end > length)
-            length = note_end;
-    }
-    return length;
-}
-
 static void uph_pattern_list_on_update(void)
 {
     leaf({
@@ -138,7 +126,7 @@ static void uph_pattern_list_on_update(void)
 
                 Uph_MidiPattern *pattern = &uph_state.project.midi_patterns[i];
                 uph_state.shared.song_timeline_current_block_start_offset = 0;
-                uph_state.shared.song_timeline_current_block_length = uph_pattern_list_calculate_pattern_length(pattern);
+                uph_state.shared.song_timeline_current_block_length = uph_calculate_pattern_length(pattern);
             }
         }
 
