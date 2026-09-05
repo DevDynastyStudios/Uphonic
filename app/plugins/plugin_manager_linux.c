@@ -43,23 +43,26 @@ Uph_ClapTimer;
 
 typedef struct
 {
-    struct
+    union
     {
-        clap_host_t host;
-        const clap_plugin_gui_t *gui;
-        const clap_plugin_t *plugin;
-        const clap_plugin_timer_support_t *timer_support;
-        void *library_handle;
+        struct
+        {
+            clap_host_t host;
+            const clap_plugin_gui_t *gui;
+            const clap_plugin_t *plugin;
+            const clap_plugin_timer_support_t *timer_support;
+            void *library_handle;
 
-        Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
-        Uph_ClapNoteEventQueue pending_notes;
+            Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
+            Uph_ClapNoteEventQueue pending_notes;
 
-        bool active_notes[128];
-        int16_t active_note_channels[128];
+            bool active_notes[128];
+            int16_t active_note_channels[128];
 
-        clap_id next_timer_id;
-    }
-    clap;
+            clap_id next_timer_id;
+        }
+        clap;
+    };
 
     Window window;
     Display *display;

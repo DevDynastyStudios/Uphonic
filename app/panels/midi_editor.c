@@ -244,8 +244,6 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                 const int32_t new_row = mouse_row_now + drag->initial_drag_key_offset;
                 const int32_t new_key = 127 - new_row;
                 note->key_number = (uint8_t)NAUI_CLAMP(new_key, 0, 127);
-                
-                uph_state.shared.current_pattern_updated = true;
 
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
@@ -325,6 +323,8 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                         
                         uph_midi_editor_data.last_note_length = note->length_beats;
                         uph_midi_editor_data.last_note_velocity = note->velocity;
+
+                        uph_state.shared.current_pattern_updated = true;
                     }
 
                     naui_set_cursor(

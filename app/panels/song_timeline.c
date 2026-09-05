@@ -459,7 +459,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             {
                 blocks[i].start_beat =
                     fmax(0.0, floor(mouse_beat + drag->initial_drag_beat_offset));
-
+                
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
@@ -481,6 +481,8 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
 
+                uph_state.shared.current_pattern_updated = false;
+
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
@@ -490,6 +492,8 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
+
+                uph_state.shared.current_pattern_updated = false;
 
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
@@ -547,6 +551,8 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                     uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                     uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
+
+                    uph_state.shared.current_pattern_updated = false;
                 }
 
                 naui_set_cursor(
