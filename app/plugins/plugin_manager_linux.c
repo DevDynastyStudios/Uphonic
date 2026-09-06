@@ -96,7 +96,7 @@ static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms,
 }
 
 void uph_plugin_queue_note_event(
-    Uph_PluginEffect *effect,
+    Uph_Plugin *plug,
     bool note_on,
     uint8_t key,
     int16_t channel,
@@ -105,7 +105,7 @@ void uph_plugin_queue_note_event(
 )
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     Uph_ClapNoteEventQueue *q = &internal_handle->clap.pending_notes;
 
@@ -130,10 +130,10 @@ void uph_plugin_queue_note_event(
         internal_handle->clap.active_note_channels[key] = channel;
 }
 
-void uph_plugin_queue_stop_all(Uph_PluginEffect *effect, uint32_t sample_offset)
+void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     Uph_ClapNoteEventQueue *q = &internal_handle->clap.pending_notes;
 
@@ -162,10 +162,10 @@ void uph_plugin_queue_stop_all(Uph_PluginEffect *effect, uint32_t sample_offset)
     }
 }
 
-bool uph_plugin_note_active(Uph_PluginEffect *effect, uint8_t key)
+bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
     return internal_handle->clap.active_notes[key];
 }
 
@@ -262,9 +262,9 @@ static void uph_clap_request_callback(const clap_host_t *host)
     (void)host;
 }
 
-static inline void uph_load_clap_plugin_internal(Uph_PluginEffect *effect, uint32_t *width, uint32_t *height)
+static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
 {
-    void *handle = dlopen(effect->file_path.data, RTLD_LOCAL | RTLD_LAZY);
+    void *handle = dlopen(plug->file_path.data, RTLD_LOCAL | RTLD_LAZY);
     if (!handle) { fprintf(stderr, "dlopen failed: %s\n", dlerror()); return; }
 
     const clap_plugin_entry_t *entry = (const clap_plugin_entry_t *)dlsym(handle, "clap_entry");
@@ -275,7 +275,7 @@ static inline void uph_load_clap_plugin_internal(Uph_PluginEffect *effect, uint3
         return;
     }
 
-    if (!entry->init(effect->file_path.data))
+    if (!entry->init(plug->file_path.data))
     {
         fprintf(stderr, "entry->init failed\n");
         return;
@@ -349,12 +349,12 @@ static inline void uph_load_clap_plugin_internal(Uph_PluginEffect *effect, uint3
     internal_handle->clap.timer_support = timer_support;
     internal_handle->clap.next_timer_id = 1;
 
-    effect->internal_handle = internal_handle;
+    plug->internal_handle = internal_handle;
 }
 
-static inline void uph_assign_clap_plugin_gui_internal(Uph_PluginEffect *effect)
+static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 {
-    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect->internal_handle;
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     clap_window_t window = { .api = CLAP_WINDOW_API_X11, .x11 = internal_handle->window };
     
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
@@ -373,9 +373,9 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_PluginEffect *effect)
     plugin->start_processing(plugin);
 }
 
-Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
+Uph_Plugin uph_load_plugin_effect(Naui_Path path)
 {
-    Uph_PluginEffect effect = { 0 };
+    Uph_Plugin effect = { 0 };
 
     const Naui_StringView extension = naui_file_extension(&path);
     if (naui_string_view_equals_cstr(extension, ".clap", false))
@@ -475,15 +475,15 @@ Uph_PluginEffect uph_load_plugin_effect(Naui_Path path)
     return effect;
 }
 
-void uph_unload_plugin_effect(Uph_PluginEffect *effect)
+void uph_unload_plugin_effect(Uph_Plugin *plug)
 {
-    if (!effect->loaded)
+    if (!plug->loaded)
         return;
 
-    effect->loaded = false;
+    plug->loaded = false;
 
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)
         return;
 
@@ -506,8 +506,8 @@ void uph_unload_plugin_effect(Uph_PluginEffect *effect)
         XCloseDisplay(internal_handle->display);
     }
 
-    free(effect->internal_handle);
-    effect->internal_handle = NULL;
+    free(plug->internal_handle);
+    plug->internal_handle = NULL;
 }
 
 static inline long uph_ms_since(struct timespec *then)
@@ -517,10 +517,10 @@ static inline long uph_ms_since(struct timespec *then)
     return (now.tv_sec - then->tv_sec) * 1000 + (now.tv_nsec - then->tv_nsec) / 1000000;
 }
 
-void uph_hide_plugin_window(Uph_PluginEffect *effect)
+void uph_hide_plugin_window(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     if (!internal_handle->visible)
         return;
@@ -534,10 +534,10 @@ void uph_hide_plugin_window(Uph_PluginEffect *effect)
     internal_handle->visible = false;
 }
 
-void uph_show_plugin_window(Uph_PluginEffect *effect)
+void uph_show_plugin_window(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     if (internal_handle->visible)
         return;
@@ -551,17 +551,17 @@ void uph_show_plugin_window(Uph_PluginEffect *effect)
     internal_handle->visible = true;
 }
 
-bool uph_plugin_window_visible(Uph_PluginEffect *effect)
+bool uph_plugin_window_visible(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
     return internal_handle->visible;
 }
 
-static inline void uph_poll_plugin_window_events(Uph_PluginEffect *effect)
+static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     Display *dpy = internal_handle->display;
     Window win = internal_handle->window;
@@ -587,7 +587,7 @@ static inline void uph_poll_plugin_window_events(Uph_PluginEffect *effect)
 
             case ClientMessage:
                 if ((Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
-                    uph_hide_plugin_window(effect);
+                    uph_hide_plugin_window(plug);
                 break;
 
             case DestroyNotify:
@@ -599,12 +599,12 @@ static inline void uph_poll_plugin_window_events(Uph_PluginEffect *effect)
     }
 }
 
-void uph_update_plugin_effect(Uph_PluginEffect *effect)
+void uph_update_plugin_effect(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
-    uph_poll_plugin_window_events(effect);
+    uph_poll_plugin_window_events(plug);
 
     if (!internal_handle->visible)
         return;
@@ -634,7 +634,7 @@ static bool uph_out_events_try_push(const clap_output_events_t *list, const clap
 }
 
 void uph_process_plugin_effect(
-    Uph_PluginEffect *effect,
+    Uph_Plugin *plug,
     float **inputs,
     float **outputs,
     uint32_t frame_count,
@@ -643,7 +643,7 @@ void uph_process_plugin_effect(
 )
 {
     Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)effect->internal_handle;
+        (Uph_PluginInternalHandle*)plug->internal_handle;
 
     Uph_ClapInEvents in_events = {
         .iface = {

@@ -190,15 +190,20 @@ typedef struct
 	Uph_PluginType type;
 	bool loaded;
 }
-Uph_PluginEffect;
+Uph_Plugin;
 
-typedef struct
+typedef struct Uph_Track Uph_Track;
+struct Uph_Track
 {
 	Naui_String name;
 	Naui_Color color;
-	Uph_PluginEffect instrument;
+
+	Uph_Plugin instrument;
+	Naui_List(Uph_Plugin) effects;
+
 	Naui_List(Uph_TimelineBlock) blocks;
-	// Add Effects
+	Naui_List(Uph_Track) subtracks;
+
 	float volume;
 	float pan;
 	float peak_left, peak_right;
@@ -207,8 +212,7 @@ typedef struct
 
 	Uph_ResourceType type;
 	Uph_TrackState state;
-}
-Uph_Track;
+};
 
 typedef struct
 {
