@@ -604,7 +604,7 @@ static inline bool naui_can_show_dock_guides(Naui_PanelNode *node)
 static inline void naui_render_dock_guide_slot(const char *label, Naui_PanelNode *node, Leaf_BoundingBox bb, Naui_DockDirection direciton, bool horizontal, bool occluded)
 {
     Leaf_ID id = occluded ? (Leaf_ID){0}: leaf_id_indexed(label, (Naui_PanelID)node);
-    bool hovered = occluded ? 0 : naui_internal_panel_child_hovered(id);
+    bool hovered = occluded ? false : leaf_hovered(id);
     leaf({
         .id = id,
         .size = horizontal ?
@@ -692,7 +692,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
 {
     Leaf_ID id = leaf_id_indexed(NAUI_CLOSE_BUTTON_ID, (Naui_PanelID)node);
 
-    bool hovered = naui_panel_manager.resizing_node ? false : naui_internal_panel_child_hovered(id);
+    bool hovered = node->occluded ? false : leaf_hovered(id);
     node->close_hovered = hovered;
 
     if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT) && naui_panel_hovered((Naui_PanelID)occlusion_node))
@@ -785,7 +785,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
     })
     {
         leaf_text(node->title, { .font_size = font_size, .color = text_color });
-        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !naui_panel_manager.resizing_node && naui_internal_panel_child_hovered(id))
+        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !node->occluded && leaf_hovered(id))
             naui_render_close_button(node, group, font_size);
         else
         {

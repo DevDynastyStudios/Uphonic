@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 135.46666 135.46667"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   sodipodi:docname="automation.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="0.76167929"
+     inkscape:cx="173.30129"
+     inkscape:cy="317.06258"
+     inkscape:window-width="1920"
+     inkscape:window-height="1057"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g6"
+       transform="matrix(1,0,0,1.0009168,-5.1607156,-0.7996533)"
+       inkscape:label="sliders">
+      <g
+         id="g3"
+         transform="translate(-0.73687969,0.24562656)"
+         inkscape:label="slider-1">
+        <rect
+           style="fill:#000000;stroke-width:0.264583"
+           id="rect1"
+           width="13.755087"
+           height="110.0407"
+           x="28.532269"
+           y="12.712981"
+           ry="6.8775434" />
+        <circle
+           style="fill:#000000;stroke-width:0.262908"
+           id="path3"
+           cx="35.409813"
+           cy="35.330639"
+           r="13.057794" />
+      </g>
+      <g
+         id="g4"
+         transform="translate(37.484235,0.24562656)"
+         inkscape:label="slider-2">
+        <rect
+           style="fill:#000000;stroke-width:0.264583"
+           id="rect3"
+           width="13.755087"
+           height="110.0407"
+           x="28.532269"
+           y="12.712981"
+           ry="6.8775434" />
+        <circle
+           style="fill:#000000;stroke-width:0.262908"
+           id="circle3"
+           cx="35.409813"
+           cy="94.281013"
+           r="13.057794" />
+      </g>
+      <g
+         id="g5"
+         transform="translate(75.70535,1.2281328)"
+         inkscape:label="slider-3">
+        <rect
+           style="fill:#000000;stroke-width:0.264583"
+           id="rect4"
+           width="13.755087"
+           height="110.0407"
+           x="28.532269"
+           y="12.712981"
+           ry="6.8775434" />
+        <circle
+           style="fill:#000000;stroke-width:0.262908"
+           id="circle4"
+           cx="35.409813"
+           cy="60.384548"
+           r="13.057794" />
+      </g>
+    </g>
+  </g>
+</svg>

@@ -39,5 +39,6 @@
 #include "panels/mixer.c"
 #include "panels/pattern_list.c"
 #include "panels/sample_list.c"
+#include "panels/automation_list.c"
 #include "panels/midi_editor.c"
 #include "main.c"

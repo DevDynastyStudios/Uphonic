@@ -13,15 +13,15 @@ bool uph_ui_list_box(const char *text, Leaf_CustomDrawFn content_draw, Leaf_Data
         .border = {
             .width = NAUI_DPI(selected ? 3.0f : 1.0f),
             .sides = LEAF_SIDE_ALL,
-            .color = leaf_rgb(145, 111, 205)
+            .color = {leaf_rgb(145, 111, 205)}
         },
-        .color = leaf_rgb(108, 83, 154),
+        .color = {leaf_rgb(108, 83, 154)},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
         .clip_children = true
     }) {
         leaf_text(text, {
-            .color = LEAF_COLOR_WHITE,
-            .font_size = NAUI_DPI(13.0f)
+            .color = {LEAF_COLOR_WHITE},
+            .font_size = {NAUI_DPI(13)}
         });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
@@ -38,11 +38,11 @@ bool uph_ui_list_plus_box(Leaf_ID id)
         .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
         .aspect_ratio = 2.2f,
         .border = {
-            .width = NAUI_DPI(1.0f),
+            .width = NAUI_DPI(1),
             .sides = LEAF_SIDE_ALL,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = {naui_theme_color("uph_ui_frame_border")}
         },
-        .color = naui_theme_color("uph_ui_frame_bg_color"),
+        .color = {naui_theme_color("uph_ui_frame_bg_color")},
         .child_alignment = {
             LEAF_ALIGN_X_CENTER,
             LEAF_ALIGN_Y_CENTER

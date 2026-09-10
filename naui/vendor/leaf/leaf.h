@@ -158,7 +158,7 @@ extern "C" {
     {
         struct
         {
-            struct { float min, max; } min_max;
+            struct { int32_t min, max; } min_max;
             float percent;
         }
         size;
@@ -175,7 +175,7 @@ extern "C" {
     
     typedef struct
     {
-        float left, right, top, bottom;
+        int32_t left, right, top, bottom;
     }
     Leaf_Padding;
 #define LEAF_PADDING_ALL(v) (Leaf_Padding) { v, v, v, v }
@@ -194,7 +194,7 @@ extern "C" {
     
     typedef struct
     {
-        float width;
+        int32_t width;
         Leaf_Sides sides;
         Leaf_ColorFill color;
     }
@@ -210,7 +210,7 @@ extern "C" {
         LEAF_CORNER_TR = 1 << 1,
         LEAF_CORNER_BR = 1 << 2,
         LEAF_CORNER_BL = 1 << 3,
-        LEAF_CORNER_ALL = LEAF_CORNER_TL | LEAF_CORNER_TR | LEAF_CORNER_BR | LEAF_CORNER_BL,
+        LEAF_CORNER_ALL = LEAF_CORNER_TL | LEAF_CORNER_TR | LEAF_CORNER_BR | LEAF_CORNER_BL
     };
     
     typedef uint8_t Leaf_RoundingType;
@@ -222,7 +222,7 @@ extern "C" {
     
     typedef struct
     {
-        float value;
+        int32_t value;
         Leaf_Corners corners;
         Leaf_RoundingType type;
     }
@@ -290,8 +290,8 @@ extern "C" {
 #endif
         Leaf_Rounding rounding;
         
-        float child_gap;
-        float child_cross_gap;
+        int32_t child_gap;
+        int32_t child_cross_gap;
         float aspect_ratio;
         
         Leaf_UniformSizing uniform_children;

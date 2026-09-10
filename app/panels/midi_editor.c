@@ -9,8 +9,8 @@
 #define UPH_MIDI_EDITOR_PAN_SPEED 1.0f
 #define UPH_MIDI_EDITOR_SCROLL_Y_SPEED 40.0f
 #define UPH_MIDI_EDITOR_ZOOM_SPEED 0.1f
-#define UPH_MIDI_EDITOR_PIANO_WIDTH 80.0f
-#define UPH_MIDI_EDITOR_TOP_RULER_HEIGHT 32.0f
+#define UPH_MIDI_EDITOR_PIANO_WIDTH 80
+#define UPH_MIDI_EDITOR_TOP_RULER_HEIGHT 32
 
 typedef uint8_t Uph_NoteInteractionMode;
 enum
@@ -635,15 +635,15 @@ static void uph_midi_editor_render_top_ruler(Leaf_BoundingBox bbox)
 static void uph_midi_editor_render_toolbox(void)
 {
     leaf({
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32.0f))},
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
-        .color = naui_theme_color("uph_ui_toolbox_bg_color"),
+        .color = {naui_theme_color("uph_ui_toolbox_bg_color")},
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-        .child_gap = NAUI_DPI(16.0f),
+        .child_gap = NAUI_DPI(16),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        const float button_size = NAUI_DPI(14.0f);
+        const int32_t button_size = NAUI_DPI(14);
         const Naui_Color bg_color = naui_theme_color("uph_ui_frame_secondary_bg_color");
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -764,8 +764,8 @@ static void uph_midi_editor_on_update(void)
         })
         {
             leaf_text("No midi pattern is selected.", {
-                .color = naui_theme_color("uph_ui_text_color"),
-                .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
+                .color = {naui_theme_color("uph_ui_text_color")},
+                .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
             });
         }
         return;

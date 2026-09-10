@@ -84,15 +84,15 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_X_CENTER},
-        .color = leaf_hovered(node->element_id) ?
+        .color = {leaf_hovered(node->element_id) ?
             naui_theme_color("uph_ui_frame_hovered_bg_color") :
-            LEAF_COLOR_TRANSPARENT,
+            LEAF_COLOR_TRANSPARENT},
         .child_gap = NAUI_DPI(8.0f),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {    
         leaf_text(node->text, {
-            .color = text_color,
+            .color = {text_color},
             .font_size = font_size
         });
         if (node->first_child)
@@ -101,7 +101,7 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
                 .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
                 .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
                 .image = naui_asset_image("uph_icon_dropdown"),
-                .color = text_color
+                .color = {text_color}
             });
         }
     }
@@ -127,7 +127,7 @@ static bool uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
 static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset)
 {
     leaf({
-        .color = naui_theme_color("uph_ui_dropdown_bg_color"),
+        .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
         .floating = {
             .offset = {position_offset.x, position_offset.y}
         },
@@ -231,14 +231,14 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     leaf({
         .id = element_id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = (data->current_open_menu == menu || hovered) ?
-            naui_theme_color("uph_ui_frame_hovered_bg_color") : LEAF_COLOR_TRANSPARENT,
+        .color = {(data->current_open_menu == menu || hovered) ?
+            naui_theme_color("uph_ui_frame_hovered_bg_color") : LEAF_COLOR_TRANSPARENT},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL)
     })
     {
         leaf_text(name, {
-            .color = naui_theme_color("uph_ui_text_color"),
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"))
+            .color = {naui_theme_color("uph_ui_text_color")},
+            .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
         });
     }
 
@@ -342,13 +342,13 @@ bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_c
     leaf({
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = color,
+        .color = {color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
         leaf_text(string, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
-            .color = text_color
+            .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))},
+            .color = {text_color}
         });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
@@ -363,8 +363,6 @@ bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2
 {
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
     const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
-
-    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
@@ -386,13 +384,13 @@ bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2
     leaf({
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = color,
+        .color = {color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
     })
     {
         leaf({
             .size = {LEAF_SIZE_FIXED(size.x), LEAF_SIZE_FIXED(size.y)},
-            .color = tint,
+            .color = {tint},
             .image = (void*)image
         });
     }
@@ -425,13 +423,13 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
     leaf({
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = color,
+        .color = {color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
         leaf_text(string, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
-            .color = text_color
+            .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))},
+            .color = {text_color}
         });
     }
 
@@ -446,8 +444,6 @@ bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Na
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
     const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
 
-    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
 
@@ -461,13 +457,13 @@ bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Na
     leaf({
         .id = id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = color,
+        .color = {color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
     })
     {
         leaf({
             .size = {LEAF_SIZE_FIXED(size.x), LEAF_SIZE_FIXED(size.y)},
-            .color = tint,
+            .color = {tint},
             .image = (void*)image
         });
     }
@@ -888,7 +884,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             .height = LEAF_SIZE_FIXED(font_size)
         },
         .padding = LEAF_PADDING_AXES(padding_x, padding_y),
-        .color = naui_theme_color("uph_ui_frame_bg_color"),
+        .color = {naui_theme_color("uph_ui_frame_bg_color")},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
     })
     {
@@ -1089,13 +1085,13 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
             .height = LEAF_SIZE_FIXED(font_size)
         },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = color,
+        .color = {color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
 		.clip_children = true
     })
     {
         leaf_text(display.data, {
-            .color = naui_theme_color("uph_ui_text_color"),
+            .color = {naui_theme_color("uph_ui_text_color")},
             .font_size = font_size
         });
     }
@@ -1218,14 +1214,14 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
             .width = LEAF_SIZE_GROW,
             .height = LEAF_SIZE_FIXED(font_size + NAUI_DPI(padding.y) * 2.0f)
         },
-        .color = naui_theme_color("uph_ui_frame_bg_color"),
+        .color = {naui_theme_color("uph_ui_frame_bg_color")},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
         leaf({
             .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_PERCENT(t) }
                 : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FULL },
-            .color = naui_theme_color("uph_ui_slider_fill_color"),
+            .color = {naui_theme_color("uph_ui_slider_fill_color")},
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL),
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
             .floating = {
@@ -1246,7 +1242,7 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
         })
         {
             leaf_text(display.data, {
-                .color = naui_theme_color("uph_ui_text_color"),
+                .color = {naui_theme_color("uph_ui_text_color")},
                 .font_size = font_size
             });
         }
@@ -1282,7 +1278,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
     leaf({
         .id = id,
         .size = { .width = LEAF_SIZE_FIXED(size), .height = LEAF_SIZE_FIXED(size) },
-        .color = hovered ? hovered_bg_color : bg_color,
+        .color = {hovered ? hovered_bg_color : bg_color},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
@@ -1290,7 +1286,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
         {
             leaf({
                 .size = { .width = LEAF_SIZE_PERCENT(0.6f), .height = LEAF_SIZE_PERCENT(0.6f) },
-                .color = check_color,
+                .color = {check_color},
                 .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding) * 0.5f, NAUI_CORNER_ALL),
                 .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
                 .floating = {

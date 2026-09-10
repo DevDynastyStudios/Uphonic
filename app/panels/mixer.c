@@ -79,37 +79,37 @@ static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_
 static void uph_mixer_render_track(Uph_Track *track)
 {
     leaf({
-        .size = {LEAF_SIZE_FIXED(NAUI_DPI(80.0f)), LEAF_SIZE_FULL},
+        .size = {LEAF_SIZE_FIXED(NAUI_DPI(80)), LEAF_SIZE_FULL},
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(10.0f), NAUI_DPI(10.0f)),
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(10), NAUI_DPI(10)),
         .color = naui_theme_color("uph_track_header_color"),
-        .child_gap = NAUI_DPI(12.0f),
+        .child_gap = NAUI_DPI(12),
         .border = {
-            .width = 1.0f,
-            .color = naui_theme_color("uph_track_header_border_color"),
+            .width = 1,
+            .color = {naui_theme_color("uph_track_header_border_color")},
             .sides = LEAF_SIDE_ALL
         },
     })
     {
         leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(4.0f))},
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(4))},
             .color = track->color,
             .rounding = {
-                .value = NAUI_DPI(4.0f),
+                .value = NAUI_DPI(4),
                 .corners = LEAF_CORNER_ALL
             }
         });
         leaf_text(track->name.length ? track->name.data : "Untitled Track", {
-            .font_size = NAUI_DPI(12.0f),
-            .color = track->name.length ? naui_theme_color("uph_ui_text_color") : naui_theme_color("uph_ui_text_disabled_color")
+            .font_size = NAUI_DPI(12),
+            .color = {track->name.length ? naui_theme_color("uph_ui_text_color") : naui_theme_color("uph_ui_text_disabled_color")}
         });
 
         leaf({
             .size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED},
             .aspect_ratio = 1.0f,
-            .color = naui_theme_color("uph_track_header_border_color"),
+            .color = {naui_theme_color("uph_track_header_border_color")},
             .rounding = {
-                .value = (float)INT_MAX,
+                .value = INT_MAX,
                 .corners = LEAF_CORNER_ALL
             }
         });

@@ -1,7 +1,7 @@
 void uph_resources_add_track(Naui_String name)
 {
     Uph_Track track = {
-        .name = naui_string_from_cstr("New Track"),
+        .name = name,
         .color = naui_theme_color("uph_palette_color_1"),
         .volume = 1.0f,
         .index = naui_list_len(uph_state.project.tracks)
@@ -9,6 +9,19 @@ void uph_resources_add_track(Naui_String name)
     naui_list_push(uph_state.project.tracks, track);
 }
 
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name)
+{
+    Uph_Track track = {
+        .name = name,
+        .type = UPH_RESOURCE_AUTOMATION,
+        .color = naui_theme_color("uph_palette_color_1"),
+        .index = naui_list_len(parent->subtracks),
+        .parent = parent
+    };
+    naui_list_push(parent->subtracks, track);
+}
+
+// TODO: make this recursive
 void uph_resources_remove_track(Uph_Track *track)
 {
     Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
@@ -22,10 +35,17 @@ void uph_resources_remove_track(Uph_Track *track)
         list[i].index--;
 }
 
+static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
+{
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
+        uph_resources_clear_tracks_recursive(&list[i]);
+	naui_list_clear(list);
+	naui_list_free(list);
+}
+
 void uph_resources_clear_tracks(void)
 {
-    // TODO: make this recursive
-	naui_list_clear(uph_state.project.tracks);
+    uph_resources_clear_tracks_recursive(uph_state.project.tracks);
 }
 
 bool uph_resources_add_sample_from_file(Naui_Path path)
@@ -116,7 +136,33 @@ void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 
 void uph_resources_remove_pattern(Uph_ResourceIndex pattern_index)
 {
-    Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
     uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_PATTERN, pattern_index);
     naui_list_remove(uph_state.project.midi_patterns, pattern_index);
+}
+
+void uph_resources_add_automation(void)
+{
+    Uph_Automation automation = {
+        .name = naui_string_from_cstr(NAUI_TR("automation.default.name"))
+    };
+
+    const Uph_AutomationPoint point1 = (Uph_AutomationPoint){.beat = 0.0, .value = 0.5f};
+    const Uph_AutomationPoint point2 = (Uph_AutomationPoint){.beat = 4.0, .value = 0.5f};
+
+    naui_list_push(automation.points, point1);
+    naui_list_push(automation.points, point2);
+
+    naui_list_push(uph_state.project.automations, automation);
+}
+
+void uph_resources_copy_automation(Uph_ResourceIndex automation_index)
+{
+    Uph_Automation automation = uph_state.project.automations[automation_index];
+    naui_list_push(uph_state.project.automations, automation);
+}
+
+void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
+{
+    uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
+    naui_list_remove(uph_state.project.automations, automation_index);
 }

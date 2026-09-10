@@ -234,6 +234,20 @@ Uph_Version;
 
 typedef struct
 {
+	double beat;
+	float value;
+}
+Uph_AutomationPoint;
+
+typedef struct
+{
+	Naui_String name;
+	Naui_List(Uph_AutomationPoint) points;
+}
+Uph_Automation;
+
+typedef struct
+{
 	Naui_String title;
 	Uph_Version project_version;
 	Uph_TimeSignature time_signature;
@@ -242,6 +256,7 @@ typedef struct
     Naui_List(Uph_MidiPattern) midi_patterns;
     Naui_List(Uph_Sample) samples;
     Naui_List(Uph_SampleData) sample_data;
+    Naui_List(Uph_Automation) automations;
 
 	uint64_t time_created;
 	uint64_t last_accessed;

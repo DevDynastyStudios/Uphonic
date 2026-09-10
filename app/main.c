@@ -89,11 +89,12 @@ void naui_app_start(void)
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(
 			NAUI_ATTACH_PANEL(uph_song_timeline),
-			naui_dock_panel(
+			naui_dock_panel(naui_dock_panel(
 				NAUI_ATTACH_PANEL(uph_pattern_list),
 				NAUI_ATTACH_PANEL(uph_sample_list),
 				NAUI_DOCK_DIRECTION_CENTER, 0.0f
-			),
+			), NAUI_ATTACH_PANEL(uph_automation_list),
+			NAUI_DOCK_DIRECTION_CENTER, 0.0f),
 			NAUI_DOCK_DIRECTION_RIGHT, 0.8f
 		),
 		naui_dock_panel(
@@ -118,16 +119,13 @@ void naui_app_update(void)
 
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
 	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
-	const Leaf_Color play_icon_color = naui_theme_color("uph_play_icon_color");
-	const Leaf_Color pause_icon_color = naui_theme_color("uph_pause_icon_color");
-	const Leaf_Color stop_icon_color = naui_theme_color("uph_stop_icon_color");
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(15.0f))},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(12.0f), NAUI_DPI(8.0f)),
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(15))},
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(12), NAUI_DPI(8)),
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-		.color = bg_color,
+		.color = {bg_color},
 		.child_gap = NAUI_DPI(10.0f)
 	})
 	{

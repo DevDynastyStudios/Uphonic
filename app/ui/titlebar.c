@@ -27,43 +27,6 @@ static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_
 static inline void minimize(void) { naui_defer((Naui_DeferredEvent)naui_app_minimize, NULL, 0); }
 static inline void maximize(void) { naui_defer(naui_app_maximized() ? (Naui_DeferredEvent)naui_app_restore : (Naui_DeferredEvent)naui_app_maximize, NULL, 0); }
 
-static void uph_menu_file_dropdown(void)
-{
-	uph_ui_text_button("New File", leaf_id("uph_file_menu_new_file"));
-	if (uph_ui_text_button("Export Wav", leaf_id("uph_file_menu_export_wav")))
-		uph_project_export(&uph_state.project, NAUI_PATH("test.wav"), UPH_EXPORT_WAV);
-}
-
-static void uph_menu_edit_dropdown(void)
-{
-	uph_ui_text_button("Undo", leaf_id("uph_edit_menu_undo"));
-	uph_ui_text_button("Redo", leaf_id("uph_edit_menu_redo"));
-}
-
-static void uph_menu_windows_dropdown(void)
-{
-	if (uph_ui_text_button("Song Timeline", leaf_id("uph_windows_menu_song_timeline")))
-	{
-		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_song_timeline);
-		naui_open_panel(panel_id);
-	}
-	if (uph_ui_text_button("Midi Editor", leaf_id("uph_windows_menu_midi_editor")))
-	{
-		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_midi_editor);
-		naui_open_panel(panel_id);
-	}
-	if (uph_ui_text_button("Pattern List", leaf_id("uph_windows_menu_pattern_list")))
-	{
-		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_pattern_list);
-		naui_open_panel(panel_id);
-	}
-	if (uph_ui_text_button("Sample List", leaf_id("uph_windows_menu_sample_list")))
-	{
-		Naui_PanelID panel_id = NAUI_FIND_PANEL_OF_TYPE(uph_sample_list);
-		naui_open_panel(panel_id);
-	}
-}
-
 void uph_render_main_titlebar(void)
 {
 	Leaf_ID left_area_id = leaf_id("uph_titlebar_left_area");
@@ -96,7 +59,7 @@ void uph_render_main_titlebar(void)
 			leaf({
 				.size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.5f)},
 				.image = naui_asset_image("uph_logo_small"),
-				.color = LEAF_COLOR_WHITE,
+				.color = {LEAF_COLOR_WHITE},
 				.aspect_ratio = 1.0f
 			});
 			leaf({
@@ -198,8 +161,8 @@ void uph_render_main_titlebar(void)
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
 		})
 		leaf_text(NAUI_TR("uphonic.title"), {
-			.font_size = naui_theme_float(NAUI_PANEL_FONT_SIZE_TAG) * dpi_scale,
-			.color = text_color,
+			.font_size = {NAUI_DPI(naui_theme_float(NAUI_PANEL_FONT_SIZE_TAG))},
+			.color = {text_color},
 			.alignment = LEAF_TEXT_ALIGN_CENTER
 		});
 		leaf({
