@@ -297,25 +297,38 @@ static void uph_song_timeline_render_automation(
     const int32_t point_size = NAUI_DPI(6);
     const int32_t half_point_size = point_size / 2;
 
-    for (uint32_t i = 1; i < point_count; i++)
-    {
-        const Uph_AutomationPoint *prev_point = &automation->points[i - 1];
-        const Uph_AutomationPoint *point = &automation->points[i];
+    const Naui_Color fill_color = {
+        color.r, color.g, color.b, (uint8_t)(color.a * 0.25f)
+    };
 
-        const Naui_Vec2 prev_point_position = {position.x + prev_point->beat * zoom_x, position.y + size.y - prev_point->value * size.y};
-        const Naui_Vec2 point_position = {position.x + point->beat * zoom_x, position.y + size.y - point->value * size.y};
+    const float baseline_y = position.y + size.y;
+
+    for (uint32_t i = 0; i < point_count - 1; i++)
+    {
+        const Uph_AutomationPoint *prev_point = &automation->points[i];
+        const Uph_AutomationPoint *point = &automation->points[i + 1];
+
+        const Naui_Vec2 prev_point_position = { position.x + prev_point->beat * zoom_x, position.y + size.y - prev_point->value * size.y };
+        const Naui_Vec2 point_position = { position.x + point->beat * zoom_x, position.y + size.y - point->value * size.y };
+
+        const Naui_Vec2 fill_poly[4] = {
+            prev_point_position,
+            point_position,
+            (Naui_Vec2) { point_position.x, baseline_y },
+            (Naui_Vec2) { prev_point_position.x, baseline_y },
+        };
+        naui_fill_polygon(fill_poly, 4, fill_color);
 
         naui_draw_line(
             prev_point_position,
             point_position,
-            LEAF_COLOR_WHITE,
+            color,
             1.0f
         );
-    
         naui_fill_rect(
             (Naui_Vec2) { point_position.x - half_point_size, point_position.y - half_point_size },
             (Naui_Vec2) { point_size, point_size },
-            LEAF_COLOR_WHITE,
+            color,
             INT32_MAX,
             NAUI_CORNER_ALL
         );
