@@ -304,6 +304,9 @@ static void uph_song_timeline_render_automation(
     const uint32_t point_count = (uint32_t)naui_list_len(automation->points);
     const float zoom_x = uph_song_timeline_data.zoom.x;
 
+    if (point_count == 0)
+        return;
+
     const int32_t point_size = NAUI_DPI(6);
     const int32_t half_point_size = point_size / 2;
 
@@ -313,13 +316,29 @@ static void uph_song_timeline_render_automation(
 
     const float baseline_y = position.y + size.y;
 
+    {
+        const Uph_AutomationPoint *first_point = &automation->points[0];
+        const Naui_Vec2 first_point_position = {
+            position.x + (float)(first_point->beat - start_offset) * zoom_x,
+            position.y + size.y - first_point->value * size.y
+        };
+
+        naui_fill_rect(
+            (Naui_Vec2) { first_point_position.x - half_point_size, first_point_position.y - half_point_size },
+            (Naui_Vec2) { point_size, point_size },
+            color,
+            INT32_MAX,
+            NAUI_CORNER_ALL
+        );
+    }
+
     for (uint32_t i = 0; i < point_count - 1; i++)
     {
         const Uph_AutomationPoint *prev_point = &automation->points[i];
         const Uph_AutomationPoint *point = &automation->points[i + 1];
 
-        const Naui_Vec2 prev_point_position = { position.x + prev_point->beat * zoom_x, position.y + size.y - prev_point->value * size.y };
-        const Naui_Vec2 point_position = { position.x + point->beat * zoom_x, position.y + size.y - point->value * size.y };
+        const Naui_Vec2 prev_point_position = { position.x + (float)(prev_point->beat - start_offset) * zoom_x, position.y + size.y - prev_point->value * size.y };
+        const Naui_Vec2 point_position = { position.x + (float)(point->beat - start_offset) * zoom_x, position.y + size.y - point->value * size.y };
 
         const Naui_Vec2 fill_poly[4] = {
             prev_point_position,
