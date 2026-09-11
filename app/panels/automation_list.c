@@ -64,7 +64,8 @@ static void uph_automation_list_on_update(void)
                 LEAF_DATA_SLICE(automation),
                 id,
                 hovered,
-                uph_state.shared.selected_resource.index == i
+                uph_state.shared.selected_resource.index == i &&
+                uph_state.shared.selected_resource.type == UPH_RESOURCE_AUTOMATION
             ))
             {
                 uph_state.shared.selected_resource.index = i;

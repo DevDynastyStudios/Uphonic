@@ -94,7 +94,8 @@ static void uph_sample_list_on_update(void)
                 LEAF_DATA_SLICE(sample),
                 id,
                 hovered,
-                uph_state.shared.selected_resource.index == i
+                uph_state.shared.selected_resource.index == i &&
+                uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE
             ))
             {
                 uph_state.shared.selected_resource.index = i;

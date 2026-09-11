@@ -31,6 +31,15 @@ typedef struct
 {
     uint32_t block_index;
     Uph_Track *track;
+    int32_t dragging_point_index;
+    bool active;
+}
+Uph_AutomationEditState;
+
+typedef struct
+{
+    uint32_t block_index;
+    Uph_Track *track;
     bool active;
 }
 Uph_HoveredBlockState;
@@ -41,6 +50,7 @@ typedef struct
     Naui_Vec2 zoom;
     Uph_DraggingBlockState drag;
     Uph_HoveredBlockState hovered_block;
+    Uph_AutomationEditState automation_edit;
     Leaf_BoundingBox panel_bounding_box;
     Uph_Track *current_options_track;
     Uph_Track *current_hovered_track;
@@ -507,6 +517,126 @@ static inline bool uph_song_timeline_block_is_visible(double start_beat, double 
     return true;
 }
 
+static void uph_song_timeline_update_automation_point_drag(
+    Naui_Vec2 position,
+    Naui_Vec2 size,
+    Uph_Track *track,
+    uint32_t block_index,
+    double start_offset,
+    Uph_Automation *automation
+)
+{
+    Uph_AutomationEditState *edit = &uph_song_timeline_data.automation_edit;
+    const float zoom_x = uph_song_timeline_data.zoom.x;
+    const float scroll_x = uph_song_timeline_data.scroll.x;
+    const int32_t point_size = NAUI_DPI(6);
+    const int32_t hit_radius = point_size;
+
+    const bool is_target_block = (edit->track == track && edit->block_index == block_index);
+
+    if (is_target_block && edit->dragging_point_index >= 0)
+    {
+        const uint32_t point_count = (uint32_t)naui_list_len(automation->points);
+        const int32_t idx = edit->dragging_point_index;
+        Uph_AutomationPoint *point = &automation->points[idx];
+
+        const float mouse_y = (float)naui_mouse_y();
+        const float clamped_y = fminf(fmaxf(mouse_y, position.y), position.y + size.y);
+        point->value = 1.0f - (double)((clamped_y - position.y) / size.y);
+        point->value = fmax(0.0, fmin(1.0, point->value));
+
+        if (idx != 0)
+        {
+            const double mouse_beat_raw =
+                ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
+            double snapped_beat = round(mouse_beat_raw);
+
+            const double prev_beat = automation->points[idx - 1].beat;
+            snapped_beat = fmax(snapped_beat, prev_beat);
+
+            if ((uint32_t)idx + 1 < point_count)
+            {
+                const double next_beat = automation->points[idx + 1].beat;
+                snapped_beat = fmin(snapped_beat, next_beat);
+            }
+
+            point->beat = snapped_beat;
+        }
+
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
+        if (naui_mouse_released(NAUI_MOUSE_LEFT))
+            edit->dragging_point_index = -1;
+
+        return;
+    }
+
+    const uint32_t point_count = (uint32_t)naui_list_len(automation->points);
+    bool hovering_existing_point = false;
+
+    for (uint32_t i = 0; i < point_count; i++)
+    {
+        Uph_AutomationPoint *point = &automation->points[i];
+
+        const float px = position.x + (float)((point->beat - start_offset) * zoom_x);
+        const float py = position.y + size.y - (float)(point->value * size.y);
+
+        const float dx = (float)naui_mouse_x() - px;
+        const float dy = (float)naui_mouse_y() - py;
+
+        if (dx * dx + dy * dy <= (float)(hit_radius * hit_radius))
+        {
+            hovering_existing_point = true;
+
+            naui_set_cursor(NAUI_CURSOR_HAND);
+
+            if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+            {
+                edit->track = track;
+                edit->block_index = block_index;
+                edit->dragging_point_index = (int32_t)i;
+            }
+
+            break;
+        }
+    }
+
+    if (!hovering_existing_point &&
+        naui_mouse_pressed(NAUI_MOUSE_LEFT) &&
+        upb_song_timeline_vec4_contains_vec2(
+            (Naui_Vec4) { position.x, position.y, size.x, size.y },
+            (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }
+        ))
+    {
+        const double mouse_beat_raw =
+            ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
+        double new_beat = round(mouse_beat_raw);
+        new_beat = fmax(new_beat, 0.0);
+
+        const float mouse_y = (float)naui_mouse_y();
+        const float clamped_y = fminf(fmaxf(mouse_y, position.y), position.y + size.y);
+        double new_value = 1.0f - (double)((clamped_y - position.y) / size.y);
+        new_value = fmax(0.0, fmin(1.0, new_value));
+
+        uint32_t insert_index = point_count;
+        for (uint32_t i = 0; i < point_count; i++)
+        {
+            if (new_beat < automation->points[i].beat)
+            {
+                insert_index = i;
+                break;
+            }
+        }
+
+        Uph_AutomationPoint new_point = { .beat = new_beat, .value = new_value };
+        naui_list_insert(automation->points, new_point, insert_index);
+
+        edit->track = track;
+        edit->block_index = block_index;
+        edit->dragging_point_index = (int32_t)insert_index;
+    }
+}
+
 static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, Uph_Track *track)
 {
     Uph_DraggingBlockState *drag = &uph_song_timeline_data.drag;
@@ -639,6 +769,28 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 uph_song_timeline_data.hovered_block.track = track;
                 uph_song_timeline_data.hovered_block.active = true;
             }
+
+            if (blocks[i].type == UPH_RESOURCE_AUTOMATION)
+            {
+                hover_box.y += title_height;
+                hover_box.w = bbox.height - title_height;
+
+                if (upb_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
+                {
+                    Naui_Vec2 automation_pos = { clamped_left, bbox.y + title_height };
+                    Naui_Vec2 automation_size = { clamped_right - clamped_left, bbox.height - title_height };
+
+                    uph_song_timeline_update_automation_point_drag(
+                        automation_pos,
+                        automation_size,
+                        track,
+                        i,
+                        blocks[i].start_offset_beats,
+                        &uph_state.project.automations[blocks[i].resource_index]
+                    );
+                    uph_song_timeline_data.automation_edit.active = true;
+                }
+            }
         }
     }
 }
@@ -673,7 +825,10 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 {
     if (!uph_song_timeline_data.tracks_hovered)
         return;
-    
+
+    if (uph_song_timeline_data.automation_edit.active)
+        return;
+
     if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_song_timeline_data.hovered_block.active && uph_song_timeline_data.hovered_block.track == track)
     {
         naui_list_uremove(track->blocks, uph_song_timeline_data.hovered_block.block_index);
@@ -695,7 +850,9 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
             return;
 
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !uph_song_timeline_data.hovered_block.active &&
-            (track->type == UPH_RESOURCE_NONE || track->type == uph_state.shared.selected_resource.type))
+            (uph_state.shared.selected_resource.type == UPH_RESOURCE_AUTOMATION
+                ? track->type == UPH_RESOURCE_AUTOMATION
+                : (track->type == UPH_RESOURCE_NONE || track->type == uph_state.shared.selected_resource.type)))
         {
             if (upb_song_timeline_vec4_contains_vec2(
                 (Naui_Vec4) {bbox.x, bbox.y, bbox.width, bbox.height},
@@ -1299,6 +1456,12 @@ static void uph_song_timeline_on_update(void)
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
     data->panel_hovered = naui_panel_hovered(naui_current_panel());
     data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
+    if (data->automation_edit.dragging_point_index < 0)
+    {
+        data->automation_edit.block_index = -1;
+        data->automation_edit.track = NULL;
+    }
+    data->automation_edit.active = false;
     data->hovered_block.active = false;
     data->visual_row_counter = 0;
 

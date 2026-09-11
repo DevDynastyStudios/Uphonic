@@ -118,7 +118,8 @@ static void uph_pattern_list_on_update(void)
                 LEAF_DATA_SLICE(pattern),
                 id,
                 hovered,
-                uph_state.shared.selected_resource.index == i
+                uph_state.shared.selected_resource.index == i &&
+                uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN
             ))
             {
                 uph_state.shared.selected_resource.index = i;
