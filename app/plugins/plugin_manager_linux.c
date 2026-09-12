@@ -51,6 +51,7 @@ typedef struct
             const clap_plugin_gui_t *gui;
             const clap_plugin_t *plugin;
             const clap_plugin_timer_support_t *timer_support;
+            const clap_plugin_params_t *params;
             void *library_handle;
 
             Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
@@ -262,6 +263,47 @@ static void uph_clap_request_callback(const clap_host_t *host)
     (void)host;
 }
 
+static Naui_List(Uph_PluginParam) uph_clap_get_param_list(Uph_Plugin *plug)
+{
+    Naui_List(Uph_PluginParam) list = NULL;
+
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)plug->internal_handle;
+
+    if (!internal_handle || !internal_handle->clap.params)
+        return list;
+
+    const clap_plugin_params_t *params = internal_handle->clap.params;
+    const clap_plugin_t *plugin = internal_handle->clap.plugin;
+
+    uint32_t count = params->count(plugin);
+    naui_list_reserve(list, count);
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        clap_param_info_t info;
+        if (!params->get_info(plugin, i, &info))
+            continue;
+
+        double current_value = info.default_value;
+        params->get_value(plugin, info.id, &current_value);
+
+        Uph_PluginParam p = {
+            .id = info.id,
+            .name = naui_string_from_cstr(info.name),
+            .module = naui_string_from_cstr(info.module),
+            .min_value = info.min_value,
+            .max_value = info.max_value,
+            .default_value = info.default_value,
+            .current_value = current_value
+        };
+
+        naui_list_push(list, p);
+    }
+
+    return list;
+}
+
 static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
 {
     void *handle = dlopen(plug->file_path.data, RTLD_LOCAL | RTLD_LAZY);
@@ -343,13 +385,19 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
     const clap_plugin_timer_support_t *timer_support =
         (const clap_plugin_timer_support_t *)plugin->get_extension(plugin, CLAP_EXT_TIMER_SUPPORT);
 
+    const clap_plugin_params_t *params =
+        (const clap_plugin_params_t *)plugin->get_extension(plugin, CLAP_EXT_PARAMS);
+
     internal_handle->clap.gui = gui;
     internal_handle->clap.plugin = plugin;
     internal_handle->clap.library_handle = handle;
     internal_handle->clap.timer_support = timer_support;
     internal_handle->clap.next_timer_id = 1;
+    internal_handle->clap.params = params;
 
     plug->internal_handle = internal_handle;
+
+    uph_clap_get_param_list(plug);
 }
 
 static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)

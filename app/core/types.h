@@ -185,9 +185,22 @@ enum
 
 typedef struct
 {
+    uint64_t id;
+    Naui_String name;
+    Naui_String module;
+    double min_value;
+    double max_value;
+    double default_value;
+    double current_value;
+}
+Uph_PluginParam;
+
+typedef struct
+{
 	Naui_Path file_path;
 	void *internal_handle;
 	Uph_PluginType type;
+	Naui_List(Uph_PluginParam) params;
 	bool loaded;
 }
 Uph_Plugin;
