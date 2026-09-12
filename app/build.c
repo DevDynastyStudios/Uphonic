@@ -1,4 +1,6 @@
 #include <naui/build.c>
+
+#include <stdatomic.h>
 #include <float.h>
 
 #include <vendor/stb/stb_vorbis.h>
@@ -15,6 +17,7 @@
 
 #include <vendor/clap/clap.h>
 
+#include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"
 #include "plugins/plugin_manager_win32.c"
 #include "plugins/plugin_manager_linux.c"

@@ -51,7 +51,35 @@ static uint32_t cmidi_get_device_id_at(int index, cmidi_device_type type)
 
 static void _uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
-	naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
+	if (!uph_state.project.tracks || !uph_state.project.tracks[0].instrument.loaded)
+		return;
+
+	if (event->type == CMIDI_NOTE_ON)
+	{
+		uph_plugin_queue_note_event(
+			&uph_state.project.tracks[0].instrument,
+			true,
+			event->note,
+			event->channel,
+			event->velocity,
+			0
+		);
+		naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
+
+	}
+	else if (event->type == CMIDI_NOTE_OFF)
+	{
+		uph_plugin_queue_note_event(
+			&uph_state.project.tracks[0].instrument,
+			false,
+			event->note,
+			event->channel,
+			event->velocity,
+			0
+		);
+		naui_log(NAUI_LOG_INFO, "[CMIDI] Released Note: %i", event->note);
+
+	}
 	//cmidi_play_note(uph_state.settings.midi.output, 1, 60, 100);
 }
 
@@ -151,8 +179,8 @@ void naui_app_start(void)
 	int device_count = cmidi_get_devices(devices, CMIDI_MAX_DEVICES);
 
 	Uph_MIDISettings* midi = &uph_state.settings.midi;
-	midi->input = cmidi_open_input(cmidi_get_device_id_at(0, CMIDI_DEVICE_INPUT), _uph_midi_on_input, NULL);
-	midi->output = cmidi_open_output(cmidi_get_device_id_at(0, CMIDI_DEVICE_OUTPUT));
+	//midi->input = cmidi_open_input(cmidi_get_device_id_at(4, CMIDI_DEVICE_INPUT), _uph_midi_on_input, NULL);
+	//midi->output = cmidi_open_output(cmidi_get_device_id_at(0, CMIDI_DEVICE_OUTPUT));
 	cmidi_set_thru(midi->input, midi->output);
 
 	uph_project_create(naui_string_from_cstr("Test Project"));
