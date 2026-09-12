@@ -321,7 +321,7 @@ bool uph_ui_combo(const char *const *items, uint32_t item_count, uint32_t *curre
     Uph_UIMenuID menu_id = uph_ui_menu(items[*current_index], id);
     for (uint32_t i = 0; i < item_count; i++)
     {
-        if (uph_ui_menu_item(menu_id, items[i], leaf_id_indexed("uph_widget_combo_item", i)))
+        if (uph_ui_menu_item(menu_id, items[i], (Leaf_ID){.value = id.value + i + 1}))
         {
             *current_index = i;
             result = true;

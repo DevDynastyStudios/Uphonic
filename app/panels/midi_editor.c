@@ -732,7 +732,7 @@ static void uph_midi_editor_render_toolbox(void)
                 "Snap Beat", "Snap 1/2", "Snap 1/4", "Snap 1/8", "Snap 1/16"
             };
 
-            uph_ui_combo(snap_options, 5, (uint32_t*)&uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
+            uph_ui_combo(snap_options, 5, &uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
         }
     }
 }
