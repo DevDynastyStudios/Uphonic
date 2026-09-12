@@ -27,11 +27,6 @@ void uph_show_plugin_window(Uph_Plugin *plugin)
 
 }
 
-void uph_process_plugin(Uph_Plugin *plugin, float **inputs, float **outputs, uint32_t frame_count, double playhead_beat, bool is_playing)
-{
-
-}
-
 bool uph_plugin_window_visible(Uph_Plugin *plugin)
 {
 	return false;
@@ -47,11 +42,6 @@ void uph_unload_plugin_effect(Uph_Plugin *plug)
 
 }
 
-void uph_update_plugin(Uph_Plugin *plug)
-{
-	
-}
-
 void uph_process_plugin(Uph_Plugin *plug, float **inputs, float **outputs, uint32_t frame_count, double playhead_beat, bool is_playing)
 {
 
@@ -60,6 +50,11 @@ void uph_process_plugin(Uph_Plugin *plug, float **inputs, float **outputs, uint3
 void uph_plugin_queue_note_event(Uph_Plugin *plugin, bool note_on, uint8_t key, int16_t channel, uint8_t velocity, uint32_t sample_offset)
 {
 
+}
+
+void uph_plugin_queue_param_change(Uph_Plugin *plug, clap_id param_id, double value, uint32_t sample_offset)
+{
+	
 }
 
 void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset)

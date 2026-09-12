@@ -46,7 +46,8 @@ Uph_UISettings;
 
 typedef struct Uph_MIDISettings
 {
-	Naui_String midi_input_device_id;
+	cmidi_port_t* input;
+	cmidi_port_t* output;
 	uint32_t record_quantize_grid;
 	uint32_t count_in_bars;
 	uint32_t grid_division;

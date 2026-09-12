@@ -5,6 +5,7 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <vendor/miniaudio/miniaudio.h>
 
+#define CMIDI_IMPLEMENTATION
 #include <vendor/cmidi/cmidi.h>
 
 #include "core/types.h"
