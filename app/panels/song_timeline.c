@@ -55,7 +55,7 @@ typedef struct
     Uph_Track *current_options_track;
     Uph_Track *current_hovered_track;
     uint32_t visual_row_counter;
-    uint32_t snap_resolution;
+    Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
     bool panel_hovered;
     bool tracks_hovered;
@@ -66,12 +66,6 @@ Uph_SongTimelineData;
 static Uph_SongTimelineData uph_song_timeline_data;
 
 NAUI_PANEL(uph_song_timeline)
-
-static double uph_song_timeline_snap_beat(double beat)
-{
-    const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-    return round(beat / division) * division;
-}
 
 static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_t resource_index, Uph_ResourceType block_type)
 {
@@ -102,6 +96,7 @@ static void uph_song_timeline_on_attach(void)
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
     uph_song_timeline_data.zoom = (Naui_Vec2) { 32.0f, 100.0f };
+    uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
     uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
 }
 
@@ -124,30 +119,40 @@ static void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, 
 {
     const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");
     const Leaf_Color bar_color = naui_theme_color("uph_track_grid_bar_color");
+    const Leaf_Color sub_color = naui_theme_color("uph_track_grid_subbeat_color");
 
-    const int32_t first_line = (int32_t)(scroll_x / zoom_x);
-    const uint32_t line_count = (uint32_t)(bbox.width / zoom_x) + 2;
+    const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+    const float division_px = (float)(division * zoom_x);
+    const bool draw_subdivisions = division < 1.0 && division_px >= 3.0f;
 
-    for (uint32_t i = 0; i < line_count; i++)
+    const int64_t first_div = (int64_t)floor((double)scroll_x / division_px);
+    const uint32_t div_count = (uint32_t)(bbox.width / division_px) + 2;
+
+    for (uint32_t i = 0; i < div_count; i++)
     {
-        const int32_t line_index = first_line + (int32_t)i;
-        if (line_index < 0)
+        const int64_t div_index = first_div + (int64_t)i;
+        if (div_index < 0)
             continue;
 
-        const float x = bbox.x + (float)line_index * zoom_x - scroll_x;
-
+        const float x = bbox.x + (float)div_index * division_px - scroll_x;
         if (x < bbox.x || x > bbox.x + bbox.width)
             continue;
 
-        const bool is_downbeat = (line_index % 4) == 0;
+        const double divs_per_beat = 1.0 / division;
+        const bool is_beat = fmod((double)div_index, divs_per_beat) < 0.5;
+
+        if (!is_beat)
+        {
+            if (draw_subdivisions)
+                naui_draw_line((Naui_Vec2){x, bbox.y}, (Naui_Vec2){x, bbox.y + bbox.height}, sub_color, 1.0f);
+            continue;
+        }
+
+        const int64_t beat_index = (int64_t)llround((double)div_index / divs_per_beat);
+        const bool is_downbeat = (beat_index % 4) == 0;
         const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
 
-        naui_draw_line(
-            (Naui_Vec2) { x, bbox.y },
-            (Naui_Vec2) { x, bbox.y + bbox.height },
-            line_color,
-            1.0f
-        );
+        naui_draw_line((Naui_Vec2){x, bbox.y}, (Naui_Vec2){x, bbox.y + bbox.height}, line_color, 1.0f);
     }
 }
 
@@ -201,26 +206,51 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox)
 {
     const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");
     const Leaf_Color bar_color = naui_theme_color("uph_track_grid_bar_color");
+    const Leaf_Color sub_color = naui_theme_color("uph_track_grid_subbeat_color");
     const Leaf_Color number_color = naui_theme_color("uph_track_grid_text_color");
 
-    const int32_t first_line = (int32_t)(uph_song_timeline_data.scroll.x / uph_song_timeline_data.zoom.x);
-    const uint32_t line_count = (uint32_t)(bbox.width / uph_song_timeline_data.zoom.x) + 2;
+    const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+    const float division_px = (float)(division * uph_song_timeline_data.zoom.x);
+    const bool draw_subdivisions = division < 1.0 && division_px >= 3.0f;
+    const double divs_per_beat = 1.0 / division;
+
+    const float scroll_x = uph_song_timeline_data.scroll.x;
+
+    const int64_t first_div = (int64_t)floor((double)scroll_x / division_px);
+    const uint32_t div_count = (uint32_t)(bbox.width / division_px) + 2;
 
     uph_song_timeline_update_playhead_drag(bbox);
 
     naui_push_clip_rect(bbox.x - 0.5f, bbox.y, bbox.width, bbox.height);
-    for (uint32_t i = 0; i < line_count; i++)
+    for (uint32_t i = 0; i < div_count; i++)
     {
-        const int32_t line_index = first_line + (int32_t)i;
-        if (line_index < 0)
+        const int64_t div_index = first_div + (int64_t)i;
+        if (div_index < 0)
             continue;
 
-        const float x = bbox.x + (float)line_index * uph_song_timeline_data.zoom.x - uph_song_timeline_data.scroll.x;
+        const float x = bbox.x + (float)div_index * division_px - scroll_x;
 
-        if (x < bbox.x - uph_song_timeline_data.zoom.x || x > bbox.x + bbox.width)
+        if (x < bbox.x - division_px || x > bbox.x + bbox.width)
             continue;
 
-        const bool is_downbeat = (line_index % 4) == 0;
+        const bool is_beat = fmod((double)div_index, divs_per_beat) < 0.5;
+
+        if (!is_beat)
+        {
+            if (draw_subdivisions)
+            {
+                naui_draw_line(
+                    (Naui_Vec2) { x, bbox.y + bbox.height * 0.6f },
+                    (Naui_Vec2) { x, bbox.y + bbox.height },
+                    sub_color,
+                    1.0f
+                );
+            }
+            continue;
+        }
+
+        const int64_t beat_index = (int64_t)llround((double)div_index / divs_per_beat);
+        const bool is_downbeat = (beat_index % 4) == 0;
         const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
 
         naui_draw_line(
@@ -233,7 +263,7 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox)
         if (is_downbeat)
         {
             char label[16];
-            snprintf(label, sizeof(label), "%d", line_index / 4);
+            snprintf(label, sizeof(label), "%d", (int)(beat_index / 4));
             naui_draw_text((Naui_Vec2) { x + 4.0f, bbox.y + bbox.height * 0.4f }, label, NAUI_DPI(13.0f), 0, number_color);
         }
     }
@@ -575,7 +605,7 @@ static void uph_song_timeline_update_automation_point_drag(
         {
             const double mouse_beat_raw =
                 ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
-            double snapped_beat = round(mouse_beat_raw);
+            double snapped_beat = uph_snap_beat(mouse_beat_raw, uph_song_timeline_data.snap_resolution);
 
             const double prev_beat = automation->points[idx - 1].beat;
             snapped_beat = fmax(snapped_beat, prev_beat);
@@ -641,7 +671,7 @@ static void uph_song_timeline_update_automation_point_drag(
     {
         const double mouse_beat_raw =
             ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
-        double new_beat = round(mouse_beat_raw);
+        double new_beat = uph_snap_beat(mouse_beat_raw, uph_song_timeline_data.snap_resolution);
         new_beat = fmax(new_beat, 0.0);
 
         const float mouse_y = (float)naui_mouse_y();
@@ -714,7 +744,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
             {
             blocks[i].start_beat =
-                fmax(0.0, uph_song_timeline_snap_beat(mouse_beat + drag->initial_drag_beat_offset));
+                fmax(0.0, uph_snap_beat(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
                 
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
@@ -722,7 +752,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             {
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
 
-                double new_start = uph_song_timeline_snap_beat(mouse_beat);
+                double new_start = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
                 double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
                 const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
@@ -748,7 +778,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
 
                 double raw_length = mouse_beat - blocks[i].start_beat;
-                double snapped_end = uph_song_timeline_snap_beat(blocks[i].start_beat + raw_length);
+                double snapped_end = uph_snap_beat(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution);
                 double new_length = snapped_end - blocks[i].start_beat;
 
                 new_length = fmax(division, new_length);
@@ -926,7 +956,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
                 uph_song_timeline_data.drag.track = track;
                 uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;
                 uph_song_timeline_data.drag.initial_drag_beat_offset = 0.0;
-                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_song_timeline_snap_beat(beat), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_snap_beat(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
                 if (track->type == UPH_RESOURCE_NONE)
                     track->type = uph_state.shared.selected_resource.type;
             }
@@ -942,7 +972,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
             Uph_TimelineBlock *block = &track->blocks[block_index];
 
             const double mouse_beat = ((double)naui_mouse_x() - bbox.x + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-            const double cut_beat = uph_song_timeline_snap_beat(mouse_beat);
+            const double cut_beat = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
 
             const double left_length = cut_beat - block->start_beat;
             const double right_length = block->length_beats - left_length;

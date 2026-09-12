@@ -172,6 +172,7 @@ void uph_resources_add_automation(void)
 void uph_resources_copy_automation(Uph_ResourceIndex automation_index)
 {
     Uph_Automation automation = uph_state.project.automations[automation_index];
+    automation.points = naui_list_clone(automation.points);
     naui_list_push(uph_state.project.automations, automation);
 }
 
