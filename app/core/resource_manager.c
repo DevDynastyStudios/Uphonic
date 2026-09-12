@@ -23,12 +23,23 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
     naui_list_push(parent->subtracks, track);
 }
 
-// TODO: make this recursive
+static void uph_resources_remove_track_children(Uph_Track *track)
+{
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+    {
+        uph_resources_remove_track_children(&track->subtracks[i]);
+        uph_unload_plugin_effect(&track->subtracks[i].instrument);
+        naui_list_free(track->subtracks[i].blocks);
+    }
+    naui_list_clear(track->subtracks);
+}
+
 void uph_resources_remove_track(Uph_Track *track)
 {
     Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
     uint32_t removed_index = track->index;
 
+    uph_resources_remove_track_children(track);
     uph_unload_plugin_effect(&track->instrument);
     naui_list_free(track->blocks);
     naui_list_remove(list, removed_index);
@@ -40,7 +51,7 @@ void uph_resources_remove_track(Uph_Track *track)
 static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 {
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
-        uph_resources_clear_tracks_recursive(&list[i]);
+        uph_resources_clear_tracks_recursive(list[i].subtracks);
 	naui_list_clear(list);
 	naui_list_free(list);
 }
