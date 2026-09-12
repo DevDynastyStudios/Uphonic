@@ -29,8 +29,6 @@ void uph_plugin_queue_param_change(
 void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset);
 bool uph_plugin_note_active(Uph_Plugin *plugin, uint8_t key);
 
-void uph_update_plugin(Uph_Plugin *plug);
-
 void uph_process_plugin(
     Uph_Plugin *plug,
     float **inputs,

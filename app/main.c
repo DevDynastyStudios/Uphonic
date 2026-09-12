@@ -14,6 +14,47 @@ static uint32_t _metronome_count = 0;
 
 Uph_State uph_state = { 0 };
 
+typedef enum
+{
+	CMIDI_DEVICE_INPUT,
+	CMIDI_DEVICE_OUTPUT
+} cmidi_device_type;
+
+static uint32_t cmidi_get_device_id_at(int index, cmidi_device_type type)
+{
+	cmidi_device_t devices[CMIDI_MAX_DEVICES];
+	int device_count = cmidi_get_devices(devices, CMIDI_MAX_DEVICES);
+	int found = 0;
+
+	if (type == CMIDI_DEVICE_INPUT)
+	{
+		for (int i = 0; i < device_count; i++)
+		{
+			found += devices[i].can_input ? 1 : 0;
+
+			if (found >= index)
+				return devices[i].id;
+		}
+	} else
+	{
+		for (int i = 0; i < device_count; i++)
+		{
+			found += devices[i].can_output ? 1 : 0;
+
+			if (found >= index)
+				return devices[i].id;
+		}
+	}
+
+	return 0;
+}
+
+static void _uph_midi_on_input(const cmidi_event_t* event, void* userdata)
+{
+	naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
+	//cmidi_play_note(uph_state.settings.midi.output, 1, 60, 100);
+}
+
 static void _uph_metronome_reset()
 {
 	_metronome_active = false;
@@ -105,11 +146,27 @@ void naui_app_start(void)
 		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
 	));
 
+
+	cmidi_device_t devices[CMIDI_MAX_DEVICES];
+	int device_count = cmidi_get_devices(devices, CMIDI_MAX_DEVICES);
+
+	Uph_MIDISettings* midi = &uph_state.settings.midi;
+	midi->input = cmidi_open_input(cmidi_get_device_id_at(0, CMIDI_DEVICE_INPUT), _uph_midi_on_input, NULL);
+	midi->output = cmidi_open_output(cmidi_get_device_id_at(0, CMIDI_DEVICE_OUTPUT));
+	cmidi_set_thru(midi->input, midi->output);
+
 	uph_project_create(naui_string_from_cstr("Test Project"));
 }
 
 void naui_app_end(void)
 {
+	Uph_MIDISettings* midi = &uph_state.settings.midi;
+	if (midi->input)
+		cmidi_close(midi->input);
+
+	if (midi->output)
+		cmidi_close(midi->output);
+
 	uph_audio_engine_shutdown();
 }
 
@@ -142,7 +199,6 @@ void naui_app_update(void)
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 			.child_gap = NAUI_DPI(4.0f)
 		});
-
 
 		leaf({
 			.direction = LEAF_DIRECTION_HORIZONTAL,

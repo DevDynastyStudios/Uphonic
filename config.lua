@@ -15,7 +15,7 @@ return {
     },
 
     frameworks = {
-        macos = { "Cocoa", "Metal", "QuartzCore" }
+        macos = { "Cocoa", "Metal", "QuartzCore", "CoreMIDI.framework", "CoreFoundation.framework" }
     },
 
     defines = {
