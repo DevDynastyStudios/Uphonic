@@ -111,7 +111,7 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
     }
 }
 
-static void render(void)
+static void __naui_app_render(void)
 {
     if (!naui_renderer_begin())
         return;
@@ -132,7 +132,6 @@ static void __naui_app_event(const mg_app_event* event)
 
 static void __naui_app_start(void)
 {
-    naui_arena_init(naui_arena_frame(), 2 * 1024 * 1024); // 2mb should be enough for most string operations
     naui_renderer_initialize();
     naui_asset_manager_load_images(naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Images")).data);
     naui_themes_initialize();
@@ -140,7 +139,7 @@ static void __naui_app_start(void)
     leaf_set_measure_text(measure_text_bridge);
     naui_arena_init(&_naui_app_state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
     _naui_app_state.events.start();
-    render();
+    __naui_app_render();
     mg_app_show(true);
 }
 
@@ -152,7 +151,6 @@ static void __naui_app_end(void)
     naui_themes_shutdown();
     naui_list_free(_naui_app_state.deferred_entries);
     naui_arena_free(&_naui_app_state.deferred_arg_arena);
-    naui_arena_free(naui_arena_frame());
 }
 
 static inline void naui_process_deferred(void)
@@ -168,11 +166,10 @@ static inline void naui_process_deferred(void)
 
 static void __naui_app_update(void)
 {
-    naui_arena_reset(naui_arena_frame());
     naui_process_deferred();
     naui_input_update();
 	naui_shortcut_update();
-    render();
+    __naui_app_render();
 }
 
 void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)

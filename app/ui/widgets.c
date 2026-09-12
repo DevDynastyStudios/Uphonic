@@ -202,8 +202,7 @@ void uph_ui_widgets_flush(void)
     data->id_counter = 0;
     data->any_widget_hovered = false;
 
-    if (!data->current_open_menu)
-        naui_arena_reset(&data->menu_arena);
+    naui_arena_reset(&data->menu_arena);
 }
 
 Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
@@ -295,6 +294,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
 
     Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
     Uph_UIMenuNode *item = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+
     item->element_id = element_id;
     item->text = name;
     uph_ui_append_menu_child(parent, item);

@@ -639,13 +639,13 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
     if (!internal_handle->visible)
         return;
 
+    internal_handle->visible = false;
+
     if (internal_handle->clap.gui)
         internal_handle->clap.gui->hide(internal_handle->clap.plugin);
 
     XUnmapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
-
-    internal_handle->visible = false;
 }
 
 void uph_show_plugin_window(Uph_Plugin *plug)

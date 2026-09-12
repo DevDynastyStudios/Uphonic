@@ -90,9 +90,3 @@ void* naui_arena_alloc(Naui_Arena* arena, size_t size)
 
 	return (char*)(new_block + 1);
 }
-
-static Naui_Arena frame_arena = {0};
-
-NAUI_API Naui_Arena *naui_arena_frame(void) {
-    return &frame_arena;
-}

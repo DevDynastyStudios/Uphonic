@@ -615,6 +615,11 @@ static void uph_song_timeline_update_automation_point_drag(
                 edit->block_index = block_index;
                 edit->dragging_point_index = (int32_t)i;
             }
+            else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+            {
+                naui_list_remove(automation->points, i);
+                break;
+            }
 
             break;
         }
@@ -1483,7 +1488,8 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
         {
             Uph_UIMenuID automate_menu = uph_ui_submenu(track_options_context_menu, "Automate", leaf_id("uph_track_options_automate"));
 
-            for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->instrument.params); i++)
+            // TODO: make this a separate menu with filtering and stuff
+            for (uint32_t i = 0; i < 100u && i < (uint32_t)naui_list_len(track->instrument.params); i++)
             {
                 if (uph_ui_menu_item(automate_menu, track->instrument.params[i].name.data, leaf_id_indexed("uph_track_options_automate_param", i)))
                 {
