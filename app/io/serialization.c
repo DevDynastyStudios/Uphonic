@@ -260,14 +260,14 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		if(!value || value->type != NAUI_JSON_OBJECT)
 			continue;
 
-		const Naui_JsonValue* file_path = naui_json_object_get(value, "path");
-		if(!file_path || file_path->type != NAUI_JSON_STRING)
+		const Naui_JsonValue* jvalue_path = naui_json_object_get(value, "path");
+		if(!jvalue_path || jvalue_path->type != NAUI_JSON_STRING)
 		{
 			naui_log(NAUI_LOG_WARNING, "Found malformed path in sample data, skipping...");
 			continue;
 		}
 
-		Naui_Path sample_path = naui_path_from_cstr(file_path->string.data);
+		Naui_Path sample_path = naui_path_from_cstr(jvalue_path->string.data);
 		if(!uph_resources_add_sample_from_file(sample_path))
 		{
 			naui_log(NAUI_LOG_ERROR, "Resource Engine failed to load sample: %s", sample_path.data);
@@ -277,9 +277,9 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		Uph_Sample* sample = &project->samples[sample_counter++];
 		Naui_JsonValue* name = naui_json_object_get(value, "name");
 		Naui_JsonValue* time_scale = naui_json_object_get(value, "time_scale");
-		Naui_StringView file_name = naui_file_filename(file_path);
+		Naui_StringView file_name = naui_file_filename(&sample_path);
 
-		const char* file_name_cstr = naui_json_get_string(file_name.data, NAUI_TR("samples.default.name"));
+		const char* file_name_cstr = naui_json_get_string(jvalue_path, NAUI_TR("samples.default.name"));
 		sample->name = naui_string_from_cstr(naui_json_get_string(name, file_name_cstr));
 		sample->time_scale = naui_json_get_number(time_scale, 0);
 	}
