@@ -54,7 +54,7 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 
 	NAUI_JSON_FOREACH(json.root, key, value)
 	{
-		if (strcmp(key->string.ptr, "_meta") == 0)
+		if (strcmp(key->string.data, "_meta") == 0)
 		{
 			if (value->type != NAUI_JSON_OBJECT)
 				continue;
@@ -85,7 +85,7 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 		if (value->type != NAUI_JSON_STRING)
 			continue;
 
-		size_t val_cap = value->string.len + 1;
+		size_t val_cap = value->string.length + 1;
 		char* raw_value = (char*)naui_arena_alloc(&out_language->arena, val_cap);
 		if (!raw_value)
 			continue;
@@ -94,11 +94,11 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 		bool is_interpolated = (raw_value[0] == '$');
 		char* entry_value = is_interpolated ? raw_value + 1 : raw_value;
 
-		char* entry_key = (char*)naui_arena_alloc(&out_language->arena, key->string.len + 1);
+		char* entry_key = (char*)naui_arena_alloc(&out_language->arena, key->string.length + 1);
 		if (!entry_key)
 			continue;
 
-		naui_json_copy_cstr(key, entry_key, key->string.len + 1);
+		naui_json_copy_cstr(key, entry_key, key->string.length + 1);
 		Naui_LanguageEntry entry;
 		entry.key = entry_key;
 		entry.value = entry_value;

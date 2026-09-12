@@ -37,6 +37,26 @@ bool uph_plugin_window_visible(Uph_Plugin *plugin)
 	return false;
 }
 
+Uph_Plugin uph_load_plugin_effect(Naui_Path path)
+{
+	return (Uph_Plugin){0};
+}
+
+void uph_unload_plugin_effect(Uph_Plugin *plug)
+{
+
+}
+
+void uph_update_plugin_effect(Uph_Plugin *plug)
+{
+	
+}
+
+void uph_process_plugin_effect(Uph_Plugin *plug, float **inputs, float **outputs, uint32_t frame_count, double playhead_beat, bool is_playing)
+{
+
+}
+
 void uph_plugin_queue_note_event(Uph_Plugin *plugin, bool note_on, uint8_t key, int16_t channel, uint8_t velocity, uint32_t sample_offset)
 {
 

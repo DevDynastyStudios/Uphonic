@@ -77,12 +77,12 @@ void uph_render_main_titlebar(void)
 
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")))
 				{
-
+					uph_project_load(&uph_state.project, uph_project_get_path(&uph_state.project));
 				}
 
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")))
 				{
-
+					uph_project_save(&uph_state.project, UPH_SAVE_TYPE_CANONICAL);
 				}
 
 

@@ -21,11 +21,7 @@ struct Naui_JsonValue
 	{
 		bool boolean;
 		double number;
-		struct
-		{
-			const char* ptr;
-			size_t len;
-		} string;
+		Naui_StringView string;
 
 		struct
 		{
@@ -65,17 +61,17 @@ bool naui_json_is_null(const Naui_JsonValue* v);
 bool naui_json_get_bool(const Naui_JsonValue* v, bool default_value);
 double naui_json_get_number(const Naui_JsonValue* v, double default_value);
 int naui_json_get_int(const Naui_JsonValue* v, int default_value);
-const char* naui_json_get_string(const Naui_JsonValue* v, const char* default_value);
 
+/* Returns the value's decoded string directly, NULL TERMINATED.
+ * Valid for as long as the owning Naui_Json is alive. DO NOT FREE. */
+const char* naui_json_get_string(const Naui_JsonValue* value, const char* default_value);
 
-/* Copies token to Naui_String.
+/* Copies the string into out_string.
  * Returns bytes written or -1 on type mismatch. */
 int naui_json_copy_string(const Naui_JsonValue* value, Naui_String* out_string);
 
-/*
- * Copy a string to destination. Null-terminated and with escape sequences resolved.
- * Returns bytes written or -1 on type mismatch.
- */
+/* Copies the string into dest, NULL TERMINATED.
+ * Returns bytes written or -1 on type mismatch. */
 int naui_json_copy_cstr(const Naui_JsonValue* v, char* dest, size_t dest_size);
 
 Naui_Json naui_json_result_create(void);
@@ -98,9 +94,7 @@ void naui_json_push_string(Naui_Json* json, Naui_JsonValue* arr, const char* val
 Naui_JsonValue* naui_json_push_object(Naui_Json* json, Naui_JsonValue* arr);
 Naui_JsonValue* naui_json_push_array(Naui_Json* json, Naui_JsonValue* arr);
 
-/*
- * Serialize to a fixed buffer. Returns bytes written or -1.
- * Pass NULL to measure the required size first.
- */
+/* Serialize to a fixed buffer. Returns bytes written or -1.
+ * Pass NULL to measure the required size first. */
 int naui_json_write(const Naui_JsonValue* root, char* dest, size_t dest_size, bool pretty);
 bool naui_json_write_file(const Naui_JsonValue* root, const Naui_Path path, bool pretty);
