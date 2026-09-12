@@ -1479,7 +1479,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
             }
         }
 
-        /*if (track->instrument.params)
+        if (track->instrument.params)
         {
             Uph_UIMenuID automate_menu = uph_ui_submenu(track_options_context_menu, "Automate", leaf_id("uph_track_options_automate"));
 
@@ -1490,7 +1490,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
                     uph_resources_add_automation_track(track, track->instrument.params[i].name, -1, track->instrument.params[i].id);
                 }
             }
-        }*/
+        }
     }
 
     if (uph_ui_menu_item(track_options_context_menu, "Remove", leaf_id("uph_track_options_remove"))) 

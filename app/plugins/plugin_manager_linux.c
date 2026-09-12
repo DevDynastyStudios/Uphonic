@@ -584,7 +584,6 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
         case UPH_PLUGIN_CLAP: uph_assign_clap_plugin_gui_internal(&effect); break;
     }
 
-    XSelectInput(dpy, child, StructureNotifyMask | FocusChangeMask);
     effect.loaded = true;
 
     return effect;
@@ -657,12 +656,12 @@ void uph_show_plugin_window(Uph_Plugin *plug)
     if (internal_handle->visible)
         return;
 
-    if (internal_handle->clap.gui)
-        internal_handle->clap.gui->show(internal_handle->clap.plugin);
-    
     XMapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
 
+    if (internal_handle->clap.gui)
+        internal_handle->clap.gui->show(internal_handle->clap.plugin);
+    
     internal_handle->visible = true;
 }
 
