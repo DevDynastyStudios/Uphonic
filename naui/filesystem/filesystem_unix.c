@@ -469,6 +469,33 @@ Naui_Path naui_directory_get(const Naui_Dir directory)
 		#endif
 			break;
 		}
+		case NAUI_DIR_PROGRAMS:
+		{
+		#ifdef __APPLE__
+			snprintf(resolved, sizeof(resolved), "/Applications");
+		#else
+			snprintf(resolved, sizeof(resolved), "/opt");
+		#endif
+			break;
+		}
+		case NAUI_DIR_PROGRAMS_X86:
+		{
+		#ifdef __APPLE__
+			snprintf(resolved, sizeof(resolved), "/Applications");
+		#else
+			snprintf(resolved, sizeof(resolved), "/opt");
+		#endif
+			break;
+		}
+		case NAUI_DIR_PROGRAMS_NATIVE:
+		{
+		#ifdef __APPLE__
+			snprintf(resolved, sizeof(resolved), "/Applications");
+		#else
+			snprintf(resolved, sizeof(resolved), "/opt");
+		#endif
+			break;
+		}
 		case NAUI_DIR_ROAMING:
 		{
 #ifdef __APPLE__

@@ -1,12 +1,5 @@
 #define UPHONIC_FOLDER naui_path_join(naui_directory_get(NAUI_DIR_APPDATA), NAUI_PATH("Uphonic"))
 
-// static void uph_add_pattern(Uph_Track* track, const Uph_MidiPattern* pattern, double start_beat)
-// {
-// 	Uph_TimelineBlock block = uph_song_timeline_init_block();
-
-// 	naui_list_push(track.blocks, block);
-// }
-
 bool uph_project_create(Naui_String project_name)
 {
 	Naui_Path project_dest = naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project_name.data));
@@ -40,7 +33,6 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
 	uph_state.shared.song_timeline_current_block_length = 4;
 
-	// uph_io_save_project(&uph_state.project, project_dest);
 	naui_file_create(naui_path_join(project_dest, NAUI_PATH(".lock")));
 	naui_path_lock(project_dest);
 	return true;
@@ -49,7 +41,8 @@ bool uph_project_create(Naui_String project_name)
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
 	const Naui_Path project_folder = uph_project_get_path(project);
-	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : naui_path_join(project_folder, NAUI_PATH(".temp"));
+	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(".temp")); // May not exist. CHECK!
+	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : temp_folder;
 	
 	if (save_type == UPH_SAVE_TYPE_CANONICAL)
 	{
@@ -57,7 +50,11 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 		uph_state._last_autosave_time = current_time;
 		uph_state._last_modified_time = current_time;
 		
-		// Merge folders into one project
+		if(naui_path_exists(temp_folder))
+		{
+			naui_directory_merge(temp_folder, project_folder, NAUI_FILE_COPY_OVERRIDE);
+			naui_directory_remove_all(temp_folder);
+		}
 	}
 	
 	return uph_io_save_project(project, save_dest);
@@ -136,12 +133,16 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 {
 	Naui_Path load_path = project_path;
 	Naui_Archive archive = NAUI_ARCHIVE_INIT;
-	naui_archive_open(&archive, project_path, NAUI_ARCHIVE_MODE_READ);
+
+	if (!naui_path_is_directory(project_path))
+		naui_archive_open(&archive, project_path, NAUI_ARCHIVE_MODE_READ);
+
 	if (naui_archive_is_valid(&archive))
 	{
 		// Create Uphonic Project Folder
 		// Extract contents to new folder
 		// Success, update load_path
+		naui_log(NAUI_LOG_ERROR, "Uph Loading Not Supported...");
 	}
 
 	return uph_io_load_project(project, load_path);
@@ -157,12 +158,11 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 		return uph_resources_add_sample_from_file(file_path);
 
 	naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
-	Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp"));
+	Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp", UPH_IO_FOLDER_SAMPLES));
 	naui_directories_create(copy_path);
 
-	// Use override since unique will do more work while not returning the file dest
 	Naui_Path file_dest = naui_file_unique_name(file_path, copy_path);
-	naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE);
+	naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE); 	// Use override since unique will do more work while not returning the file dest
 	if (!uph_resources_add_sample_from_file(file_dest))	// Inefficient, but works
 	{
 		naui_file_delete(file_dest);

@@ -30,3 +30,10 @@
 #endif // _WIN32
 #pragma clang diagnostic ignored "-Wc99-designator"
 #endif // __clang__
+
+
+#if defined(_WIN64) || defined(__x86_64__) || defined(__ppc64__) || defined(__aarch64__)
+#	define NAUI_PLATFORM_64 1
+#else
+#	define NAUI_PLATFORM_32 1
+#endif

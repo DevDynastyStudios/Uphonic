@@ -563,6 +563,36 @@ Naui_Path naui_directory_get(Naui_Dir directory)
 
 			break;
 		}
+		case NAUI_DIR_PROGRAMS:
+		{
+			wchar_t w[NAUI_PATH_MAX];
+			if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAM_FILES, NULL, 0, w)))
+				to_utf8(w, resolved);
+
+			break;
+		}
+		case NAUI_DIR_PROGRAMS_X86:
+		{
+			wchar_t w[NAUI_PATH_MAX];
+			if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAM_FILESX86, NULL, 0, w)))
+				to_utf8(w, resolved);
+
+			break;
+		}
+		case NAUI_DIR_PROGRAMS_NATIVE:
+		{
+			wchar_t w[NAUI_PATH_MAX];
+		
+			#if NAUI_PLATFORM_64
+				if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAM_FILES, NULL, 0, w)))
+					to_utf8(w, resolved);
+			#else
+				if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAM_FILESX86, NULL, 0, w)))
+					to_utf8(w, resolved);
+			#endif
+
+			break;
+		}
 		case NAUI_DIR_TEMP:
 		{
 			wchar_t w[NAUI_PATH_MAX];

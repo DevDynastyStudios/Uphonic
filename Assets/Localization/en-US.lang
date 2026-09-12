@@ -69,6 +69,7 @@
 	"samples.title": "Samples",
 	"samples.import": "Import",
 	"samples.import_text": "Drag & drop audio files here to import them into your project.",
+	"samples.default.name": "Untitled Sample",
 
 	"automations.title": "Automations",
 	"automation.default.name": "Untitled Automation",
