@@ -315,6 +315,21 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     return result;
 }
 
+bool uph_ui_combo(const char *const *items, uint32_t item_count, uint32_t *current_index, const Leaf_ID id)
+{
+    bool result = false;
+    Uph_UIMenuID menu_id = uph_ui_menu(items[*current_index], id);
+    for (uint32_t i = 0; i < item_count; i++)
+    {
+        if (uph_ui_menu_item(menu_id, items[i], leaf_id_indexed("uph_widget_combo_item", i)))
+        {
+            *current_index = i;
+            result = true;
+        }
+    }
+    return result;
+}
+
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)
 {
     const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");

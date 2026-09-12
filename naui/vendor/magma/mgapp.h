@@ -641,7 +641,7 @@ typedef struct mg_win32_platform
     float dpi_scale;
 
     void (*on_event_call)(const mg_app_event *event);
-    float time, delta_time;
+    float frame_time, delta_time;
 
     HCURSOR cursors[MG_CURSOR_MAX];
     mg_cursor current_cursor;

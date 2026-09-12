@@ -55,6 +55,7 @@ typedef struct
     Uph_Track *current_options_track;
     Uph_Track *current_hovered_track;
     uint32_t visual_row_counter;
+    uint32_t snap_resolution;
 	Uph_ActionMode current_action_mode;
     bool panel_hovered;
     bool tracks_hovered;
@@ -65,6 +66,12 @@ Uph_SongTimelineData;
 static Uph_SongTimelineData uph_song_timeline_data;
 
 NAUI_PANEL(uph_song_timeline)
+
+static double uph_song_timeline_snap_beat(double beat)
+{
+    const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+    return round(beat / division) * division;
+}
 
 static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_t resource_index, Uph_ResourceType block_type)
 {
@@ -706,27 +713,29 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
             if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
             {
-                blocks[i].start_beat =
-                    fmax(0.0, floor(mouse_beat + drag->initial_drag_beat_offset));
+            blocks[i].start_beat =
+                fmax(0.0, uph_song_timeline_snap_beat(mouse_beat + drag->initial_drag_beat_offset));
                 
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
             {
-                double new_start = fmax(0.0, floor(mouse_beat));
+                const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+
+                double new_start = uph_song_timeline_snap_beat(mouse_beat);
                 double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
                 const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
                 new_start = fmax(new_start, earliest_start_beat);
 
-                new_start = fmin(new_start, end_beat - 1.0);
+                new_start = fmin(new_start, end_beat - division);
 
                 const double delta_beats = new_start - drag->initial_start_beat;
 
                 blocks[i].start_beat = new_start;
                 blocks[i].length_beats = end_beat - new_start;
                 blocks[i].start_offset_beats = drag->initial_start_offset_beats + delta_beats;
-
+                
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
 
@@ -736,8 +745,15 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
             {
-                double new_length = ceil(mouse_beat) - blocks[i].start_beat;
-                blocks[i].length_beats = fmax(1.0, new_length);
+                const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+
+                double raw_length = mouse_beat - blocks[i].start_beat;
+                double snapped_end = uph_song_timeline_snap_beat(blocks[i].start_beat + raw_length);
+                double new_length = snapped_end - blocks[i].start_beat;
+
+                new_length = fmax(division, new_length);
+
+                blocks[i].length_beats = new_length;
 
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
@@ -910,7 +926,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
                 uph_song_timeline_data.drag.track = track;
                 uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;
                 uph_song_timeline_data.drag.initial_drag_beat_offset = 0.0;
-                naui_list_push(track->blocks, uph_song_timeline_init_block(floor(beat), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_song_timeline_snap_beat(beat), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
                 if (track->type == UPH_RESOURCE_NONE)
                     track->type = uph_state.shared.selected_resource.type;
             }
@@ -926,7 +942,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
             Uph_TimelineBlock *block = &track->blocks[block_index];
 
             const double mouse_beat = ((double)naui_mouse_x() - bbox.x + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-            const double cut_beat = floor(mouse_beat);
+            const double cut_beat = uph_song_timeline_snap_beat(mouse_beat);
 
             const double left_length = cut_beat - block->start_beat;
             const double right_length = block->length_beats - left_length;
@@ -1197,6 +1213,8 @@ static void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph
 
 static void uph_song_timeline_render_toolbox(void)
 {
+    Uph_SongTimelineData *data = &uph_song_timeline_data;
+
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(40.0f))},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
@@ -1214,7 +1232,6 @@ static void uph_song_timeline_render_toolbox(void)
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
         })
         {
-            Uph_SongTimelineData *data = &uph_song_timeline_data;
             const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
             if (uph_ui_image_toggle_button_ex(
                 naui_asset_image("uph_icon_select"),
@@ -1276,6 +1293,16 @@ static void uph_song_timeline_render_toolbox(void)
                 uph_state.shared.song_timeline_playing = false;
                 uph_state.shared.song_timeline_playhead_position = 0.0;
             }
+
+            static const char *options[] = {
+                "Snap Beat",
+                "Snap 1/2",
+                "Snap 1/4",
+                "Snap 1/8",
+                "Snap 1/16"
+            };
+
+            uph_ui_combo(options, 5, &data->snap_resolution, leaf_id("uph_song_timeline_snap"));
         }
     }
 }
