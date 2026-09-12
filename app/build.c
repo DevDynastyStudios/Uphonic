@@ -1,4 +1,5 @@
 #include <naui/build.c>
+#include <float.h>
 
 #include <vendor/stb/stb_vorbis.h>
 #define MINIAUDIO_IMPLEMENTATION

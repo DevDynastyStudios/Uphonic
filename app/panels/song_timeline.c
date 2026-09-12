@@ -327,7 +327,7 @@ static void uph_song_timeline_render_automation(
             (Naui_Vec2) { first_point_position.x - half_point_size, first_point_position.y - half_point_size },
             (Naui_Vec2) { point_size, point_size },
             color,
-            INT32_MAX,
+            FLT_MAX,
             NAUI_CORNER_ALL
         );
     }
@@ -358,7 +358,7 @@ static void uph_song_timeline_render_automation(
             (Naui_Vec2) { point_position.x - half_point_size, point_position.y - half_point_size },
             (Naui_Vec2) { point_size, point_size },
             color,
-            INT32_MAX,
+            FLT_MAX,
             NAUI_CORNER_ALL
         );
     }
@@ -659,6 +659,7 @@ static void uph_song_timeline_update_automation_point_drag(
 static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, Uph_Track *track)
 {
     Uph_DraggingBlockState *drag = &uph_song_timeline_data.drag;
+    Uph_AutomationEditState *automation_edit = &uph_song_timeline_data.automation_edit;
     Naui_List(Uph_TimelineBlock) blocks = track->blocks;
     const float zoom_x = uph_song_timeline_data.zoom.x;
     const float scroll_x = uph_song_timeline_data.scroll.x;
@@ -666,6 +667,26 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
     const float title_padding = NAUI_DPI(2.0f);
     const float font_size = NAUI_DPI(13.0f);
     const float title_height = font_size + title_padding * 2.0f;
+
+    if (automation_edit->dragging_point_index >= 0 && automation_edit->track == track)
+    {
+        const uint32_t i = automation_edit->block_index;
+        const float block_left = bbox.x + zoom_x * blocks[i].start_beat - scroll_x;
+
+        Naui_Vec2 automation_pos = { block_left, bbox.y + title_height };
+        Naui_Vec2 automation_size = { zoom_x * blocks[i].length_beats, bbox.height - title_height };
+
+        uph_song_timeline_update_automation_point_drag(
+            automation_pos,
+            automation_size,
+            track,
+            i,
+            blocks[i].start_offset_beats,
+            &uph_state.project.automations[blocks[i].resource_index]
+        );
+        automation_edit->active = true;
+        return;
+    }
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
     {
@@ -807,7 +828,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                         blocks[i].start_offset_beats,
                         &uph_state.project.automations[blocks[i].resource_index]
                     );
-                    uph_song_timeline_data.automation_edit.active = true;
+                    automation_edit->active = true;
                 }
             }
         }
