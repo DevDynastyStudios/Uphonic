@@ -47,12 +47,12 @@ void uph_unload_plugin_effect(Uph_Plugin *plug)
 
 }
 
-void uph_update_plugin_effect(Uph_Plugin *plug)
+void uph_update_plugin(Uph_Plugin *plug)
 {
 	
 }
 
-void uph_process_plugin_effect(Uph_Plugin *plug, float **inputs, float **outputs, uint32_t frame_count, double playhead_beat, bool is_playing)
+void uph_process_plugin(Uph_Plugin *plug, float **inputs, float **outputs, uint32_t frame_count, double playhead_beat, bool is_playing)
 {
 
 }

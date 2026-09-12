@@ -198,6 +198,7 @@ Uph_PluginParam;
 typedef struct
 {
 	Naui_Path file_path;
+	Naui_String name;
 	void *internal_handle;
 	Uph_PluginType type;
 	Naui_List(Uph_PluginParam) params;
@@ -225,6 +226,9 @@ struct Uph_Track
 	float peak_left, peak_right;
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
+
+    uint64_t automation_param_id;
+    int32_t automation_target_effect_index;
 
 	Uph_ResourceType type;
 	Uph_TrackState state;

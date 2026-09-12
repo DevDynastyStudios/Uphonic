@@ -9,25 +9,60 @@ typedef struct
 }
 Uph_ClapNoteEventQueue;
 
+#define UPH_MAX_PARAM_EVENTS 256
+
+typedef struct
+{
+    clap_event_param_value_t events[UPH_MAX_PARAM_EVENTS];
+    uint32_t count;
+}
+Uph_ClapParamEventQueue;
+
 typedef struct
 {
     clap_input_events_t iface;
-    Uph_ClapNoteEventQueue *queue;
+    Uph_ClapNoteEventQueue *note_queue;
+    Uph_ClapParamEventQueue *param_queue;
 }
 Uph_ClapInEvents;
 
 static uint32_t uph_in_events_size(const clap_input_events_t *list)
 {
     const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
-    return self->queue->count;
+    return self->note_queue->count + self->param_queue->count;
 }
 
 static const clap_event_header_t *uph_in_events_get(const clap_input_events_t *list, uint32_t index)
 {
     const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
-    if (index >= self->queue->count)
+
+    uint32_t note_count = self->note_queue->count;
+    uint32_t param_count = self->param_queue->count;
+
+    if (index >= note_count + param_count)
         return NULL;
-    return &self->queue->events[index].header;
+
+    uint32_t ni = 0, pi = 0;
+    for (uint32_t i = 0; i <= index; i++)
+    {
+        bool take_note;
+
+        if (ni >= note_count)
+            take_note = false;
+        else if (pi >= param_count)
+            take_note = true;
+        else
+            take_note = self->note_queue->events[ni].header.time
+                <= self->param_queue->events[pi].header.time;
+
+        if (i == index)
+            return take_note ? &self->note_queue->events[ni].header
+                : &self->param_queue->events[pi].header;
+
+        if (take_note) ni++; else pi++;
+    }
+
+    return NULL;
 }
 
 #define UPH_MAX_PLUGIN_TIMERS 8
@@ -56,6 +91,7 @@ typedef struct
 
             Uph_ClapTimer timers[UPH_MAX_PLUGIN_TIMERS];
             Uph_ClapNoteEventQueue pending_notes;
+            Uph_ClapParamEventQueue pending_params;
 
             bool active_notes[128];
             int16_t active_note_channels[128];
@@ -131,6 +167,35 @@ void uph_plugin_queue_note_event(
         internal_handle->clap.active_note_channels[key] = channel;
 }
 
+void uph_plugin_queue_param_change(
+    Uph_Plugin *plug,
+    clap_id param_id,
+    double value,
+    uint32_t sample_offset
+)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    Uph_ClapParamEventQueue *q = &ih->clap.pending_params;
+
+    if (q->count >= UPH_MAX_PARAM_EVENTS)
+        return;
+
+    clap_event_param_value_t *ev = &q->events[q->count++];
+    ev->header.size = sizeof(clap_event_param_value_t);
+    ev->header.time = sample_offset;
+    ev->header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    ev->header.type = CLAP_EVENT_PARAM_VALUE;
+    ev->header.flags = 0;
+
+    ev->param_id = param_id;
+    ev->cookie = NULL;
+    ev->note_id = -1;
+    ev->port_index = -1;
+    ev->channel = -1;
+    ev->key = -1;
+    ev->value = value;
+}
+
 void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 {
     Uph_PluginInternalHandle *internal_handle =
@@ -190,6 +255,16 @@ static bool uph_clap_timer_unregister(const clap_host_t *host, clap_id timer_id)
 static const clap_host_timer_support_t uph_clap_host_timer_support = {
     .register_timer = uph_clap_timer_register,
     .unregister_timer = uph_clap_timer_unregister,
+};
+
+static void uph_clap_params_rescan(const clap_host_t *host, clap_param_rescan_flags flags) { (void)host; (void)flags; }
+static void uph_clap_params_clear(const clap_host_t *host, clap_id param_id, clap_param_clear_flags flags) { (void)host; (void)param_id; (void)flags; }
+static void uph_clap_params_request_flush(const clap_host_t *host) { (void)host; }
+
+static const clap_host_params_t uph_clap_host_params = {
+    .rescan = uph_clap_params_rescan,
+    .clear = uph_clap_params_clear,
+    .request_flush = uph_clap_params_request_flush,
 };
 
 static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width, uint32_t height)
@@ -396,8 +471,7 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
     internal_handle->clap.params = params;
 
     plug->internal_handle = internal_handle;
-
-    uph_clap_get_param_list(plug);
+    plug->params = uph_clap_get_param_list(plug);
 }
 
 static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
@@ -647,7 +721,7 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
     }
 }
 
-void uph_update_plugin_effect(Uph_Plugin *plug)
+void uph_update_plugin(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
@@ -681,7 +755,7 @@ static bool uph_out_events_try_push(const clap_output_events_t *list, const clap
     return true;
 }
 
-void uph_process_plugin_effect(
+void uph_process_plugin(
     Uph_Plugin *plug,
     float **inputs,
     float **outputs,
@@ -699,7 +773,8 @@ void uph_process_plugin_effect(
             .size = uph_in_events_size,
             .get = uph_in_events_get
         },
-        .queue = &internal_handle->clap.pending_notes
+        .note_queue = &internal_handle->clap.pending_notes,
+        .param_queue = &internal_handle->clap.pending_params
     };
 
     clap_output_events_t out_iface = {
@@ -766,9 +841,10 @@ void uph_process_plugin_effect(
     };
 
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
-    plugin->process(plugin, &process);
+    //plugin->process(plugin, &process);
 
     internal_handle->clap.pending_notes.count = 0;
+    internal_handle->clap.pending_params.count = 0;
 }
 
 #endif

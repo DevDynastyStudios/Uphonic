@@ -9,14 +9,16 @@ void uph_resources_add_track(Naui_String name)
     naui_list_push(uph_state.project.tracks, track);
 }
 
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name)
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int32_t effect_index, uint64_t param_id)
 {
     Uph_Track track = {
         .name = name,
         .type = UPH_RESOURCE_AUTOMATION,
         .color = naui_theme_color("uph_palette_color_1"),
         .index = naui_list_len(parent->subtracks),
-        .parent = parent
+        .parent = parent,
+        .automation_param_id = param_id,
+        .automation_target_effect_index = effect_index
     };
     naui_list_push(parent->subtracks, track);
 }
@@ -131,6 +133,7 @@ void uph_resources_add_pattern(void)
 void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 {
     Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
+    pattern.notes = naui_list_clone(pattern.notes);
     naui_list_push(uph_state.project.midi_patterns, pattern);
 }
 

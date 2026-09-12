@@ -1,5 +1,5 @@
 void uph_resources_add_track(Naui_String name);
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name);
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int32_t effect_index, uint64_t param_id);
 
 void uph_resources_remove_track(Uph_Track *track);
 void uph_resources_clear_tracks(void);

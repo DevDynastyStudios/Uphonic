@@ -134,7 +134,7 @@ static void uph_render_track_instrument(
     float *inputs[2]  = { input_l, input_r };
     float *outputs[2] = { output_l, output_r };
 
-    uph_process_plugin_effect(
+    uph_process_plugin(
         &track->instrument,
         (float**)inputs,
         (float**)outputs,
@@ -194,6 +194,92 @@ static void uph_mark_block_held_notes(
 
         if (note_start_beat < buffer_end_beat && note_end_beat >= buffer_end_beat)
             should_be_held[note->key_number] = true;
+    }
+}
+
+static bool uph_automation_value_at_beat(Uph_Automation *automation, double beat, float *out_value)
+{
+    uint64_t count = naui_list_len(automation->points);
+    if (count == 0)
+        return false;
+
+    if (beat <= automation->points[0].beat)
+    {
+        *out_value = automation->points[0].value;
+        return true;
+    }
+    if (beat >= automation->points[count - 1].beat)
+    {
+        *out_value = automation->points[count - 1].value;
+        return true;
+    }
+
+    for (uint64_t i = 0; i + 1 < count; i++)
+    {
+        Uph_AutomationPoint *a = &automation->points[i];
+        Uph_AutomationPoint *b = &automation->points[i + 1];
+
+        if (beat >= a->beat && beat <= b->beat)
+        {
+            double span = b->beat - a->beat;
+            double t = (span > 0.0) ? (beat - a->beat) / span : 0.0;
+            *out_value = (float)(a->value + (b->value - a->value) * t);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static void uph_queue_automation_block_params(
+    Uph_Track *automation_track,
+    Uph_Track *parent_track,
+    Uph_TimelineBlock *block,
+    double buffer_start_beat,
+    double buffer_end_beat,
+    uint32_t engine_sample_rate,
+    float bpm,
+    uint32_t samples_per_control_point
+)
+{
+    Uph_Project *project = &uph_state.project;
+
+    if (block->resource_index >= naui_list_len(project->automations))
+        return;
+
+    Uph_Automation *automation = &project->automations[block->resource_index];
+
+    Uph_Plugin *target_plugin = (automation_track->automation_target_effect_index < 0)
+        ? &parent_track->instrument
+        : &parent_track->effects[automation_track->automation_target_effect_index];
+
+    if (!target_plugin->loaded)
+        return;
+
+    double block_end_beat = block->start_beat + block->length_beats;
+
+    for (uint32_t offset = 0; offset < UPH_SAMPLE_FRAME_COUNT; offset += samples_per_control_point)
+    {
+        double frame_beat = buffer_start_beat
+            + uph_seconds_to_beats((double)offset / (double)engine_sample_rate, bpm);
+
+        if (frame_beat < block->start_beat || frame_beat >= block_end_beat)
+            continue;
+        if (frame_beat < buffer_start_beat || frame_beat >= buffer_end_beat)
+            continue;
+
+        double automation_beat = (frame_beat - block->start_beat) + block->start_offset_beats;
+
+        float value;
+        if (!uph_automation_value_at_beat(automation, automation_beat, &value))
+            continue;
+
+        uph_plugin_queue_param_change(
+            target_plugin,
+            automation_track->automation_param_id,
+            (double)value,
+            offset
+        );
     }
 }
 
@@ -309,6 +395,29 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
                     {
                         if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key])
                             uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
+                    }
+
+                    uint64_t subtrack_count = naui_list_len(track->subtracks);
+                    for (uint64_t s = 0; s < subtrack_count; s++)
+                    {
+                        Uph_Track *sub = &track->subtracks[s];
+                        if (sub->type != UPH_RESOURCE_AUTOMATION)
+                            continue;
+
+                        uint64_t automation_block_count = naui_list_len(sub->blocks);
+                        for (uint64_t b = 0; b < automation_block_count; b++)
+                        {
+                            Uph_TimelineBlock *block = &sub->blocks[b];
+                            if (block->type != UPH_RESOURCE_AUTOMATION)
+                                continue;
+
+                            uph_queue_automation_block_params(
+                                sub, track, block,
+                                buffer_start_beat, buffer_end_beat,
+                                engine_sample_rate, bpm,
+                                32
+                            );
+                        }
                     }
                 }
 

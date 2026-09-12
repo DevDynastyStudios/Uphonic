@@ -194,7 +194,7 @@ void naui_app_update(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
     {
         if (uph_state.project.tracks[i].instrument.loaded)
-            uph_update_plugin_effect(&uph_state.project.tracks[i].instrument);
+            uph_update_plugin(&uph_state.project.tracks[i].instrument);
     }
 }
 

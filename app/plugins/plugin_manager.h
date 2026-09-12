@@ -19,21 +19,19 @@ void uph_plugin_queue_note_event(
     uint32_t sample_offset
 );
 
+void uph_plugin_queue_param_change(
+    Uph_Plugin *plug,
+    clap_id param_id,
+    double value,
+    uint32_t sample_offset
+);
+
 void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset);
 bool uph_plugin_note_active(Uph_Plugin *plugin, uint8_t key);
 
+void uph_update_plugin(Uph_Plugin *plug);
+
 void uph_process_plugin(
-    Uph_Plugin *effect,
-    float **inputs,
-    float **outputs,
-    uint32_t frame_count,
-    double playhead_beat,
-    bool is_playing
-);
-
-void uph_update_plugin_effect(Uph_Plugin *plug);
-
-void uph_process_plugin_effect(
     Uph_Plugin *plug,
     float **inputs,
     float **outputs,

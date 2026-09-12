@@ -1479,8 +1479,18 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
             }
         }
 
-        if (uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_track_options_automate")))
-            uph_resources_add_automation_track(track, naui_string_from_cstr("Property name"));
+        /*if (track->instrument.params)
+        {
+            Uph_UIMenuID automate_menu = uph_ui_submenu(track_options_context_menu, "Automate", leaf_id("uph_track_options_automate"));
+
+            for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->instrument.params); i++)
+            {
+                if (uph_ui_menu_item(automate_menu, track->instrument.params[i].name.data, leaf_id_indexed("uph_track_options_automate_param", i)))
+                {
+                    uph_resources_add_automation_track(track, track->instrument.params[i].name, -1, track->instrument.params[i].id);
+                }
+            }
+        }*/
     }
 
     if (uph_ui_menu_item(track_options_context_menu, "Remove", leaf_id("uph_track_options_remove"))) 
