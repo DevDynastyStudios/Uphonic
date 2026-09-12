@@ -176,7 +176,7 @@ static void update_sequence(Naui_RegisteredShortcut *s)
 {
 	if(s->sequence_timeout >= 0.0f && s->step > 0)
 	{
-		if(naui_time() - s->last_step_time > s->sequence_timeout)
+		if(naui_frame_time() - s->last_step_time > s->sequence_timeout)
 			reset_sequence(s);
 	}
 
@@ -187,7 +187,7 @@ static void update_sequence(Naui_RegisteredShortcut *s)
 	if(naui_key_pressed(expected))
 	{
 		s->step++;
-		s->last_step_time = naui_time();
+		s->last_step_time = naui_frame_time();
 		if(s->step == naui_list_len(s->keys))
 		{
 			reset_sequence(s);

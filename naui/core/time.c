@@ -3,6 +3,11 @@ float naui_time(void)
     return mg_app_time();
 }
 
+float naui_frame_time(void)
+{
+    return mg_app_frame_time();
+}
+
 float naui_delta_time(void)
 {
     return mg_app_delta_time();

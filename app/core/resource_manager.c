@@ -151,13 +151,9 @@ void uph_resources_add_automation(void)
 
     const Uph_AutomationPoint point1 = (Uph_AutomationPoint){.beat = 0.0, .value = 0.5f};
     const Uph_AutomationPoint point2 = (Uph_AutomationPoint){.beat = 4.0, .value = 0.5f};
-    const Uph_AutomationPoint point3 = (Uph_AutomationPoint){.beat = 6.0, .value = 0.8f};
-    const Uph_AutomationPoint point4 = (Uph_AutomationPoint){.beat = 12.0, .value = 0.2f};
 
     naui_list_push(automation.points, point1);
     naui_list_push(automation.points, point2);
-    naui_list_push(automation.points, point3);
-    naui_list_push(automation.points, point4);
 
     naui_list_push(uph_state.project.automations, automation);
 }

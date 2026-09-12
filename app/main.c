@@ -23,7 +23,7 @@ static void _uph_metronome_reset()
 
 static bool _uph_metronome_tap(float *out_bpm)
 {
-	const float current_time = naui_time();
+	const float current_time = naui_frame_time();
 
 	if (!_metronome_active)
 	{

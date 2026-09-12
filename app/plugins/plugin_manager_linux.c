@@ -121,7 +121,7 @@ static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms,
         {
             t->id = internal_handle->clap.next_timer_id++;
             t->period_ms = period_ms;
-            t->last_fire = naui_time();
+            t->last_fire = naui_frame_time();
             t->active = true;
             *timer_id = t->id;
             return true;
@@ -726,15 +726,15 @@ void uph_update_plugin(Uph_Plugin *plug)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-    uph_poll_plugin_window_events(plug);
-
     if (!internal_handle->visible)
         return;
+
+    uph_poll_plugin_window_events(plug);
 
     if (!internal_handle->clap.timer_support)
         return;
 
-    float now = naui_time();
+    float now = naui_frame_time();
     for (int i = 0; i < UPH_MAX_PLUGIN_TIMERS; i++)
     {
         Uph_ClapTimer *t = &internal_handle->clap.timers[i];

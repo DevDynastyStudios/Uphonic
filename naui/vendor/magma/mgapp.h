@@ -272,7 +272,7 @@ MG_APP_API void mg_app_maximize(void);
 MG_APP_API void mg_app_restore(void);
 MG_APP_API bool mg_app_maximized(void);
 
-MG_APP_API float mg_app_time(void);
+MG_APP_API float mg_app_frame_time(void);
 MG_APP_API float mg_app_delta_time(void);
 
 MG_APP_API int32_t mg_app_width(void);
@@ -546,8 +546,8 @@ static EM_BOOL mg_em_resize_callback(int event_type, const EmscriptenUiEvent *ui
 static void mg_em_frame(void *user_data)
 {
     double now = emscripten_get_now() * 0.001;
-    mg_app_state.delta_time = (float)(now - mg_app_state.time);
-    mg_app_state.time = (float)now;
+    mg_app_state.delta_time = (float)(now - mg_app_state.frame_time);
+    mg_app_state.frame_time = (float)now;
 
     if (mg_app_state.info->events.update)
         mg_app_state.info->events.update();
@@ -568,7 +568,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mg_em_resize_callback);
 
-    mg_app_state.time = (float)(emscripten_get_now() * 0.001);
+    mg_app_state.frame_time = (float)(emscripten_get_now() * 0.001);
     mg_app_state.delta_time = 0.0f;
 
     if (info->events.start)
@@ -595,7 +595,12 @@ void mg_app_set_cursor(mg_cursor cursor)
 
 float mg_app_time(void)
 {
-    return mg_app_state.time;
+    return 0.0f;
+}
+
+float mg_app_frame_time(void)
+{
+    return mg_app_state.frame_time;
 }
 
 float mg_app_delta_time(void)
@@ -809,7 +814,7 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                     break;
             }
 
-            mg_app_input_process_mouse_button(mouse_button, pressed, mg_app_state.time);
+            mg_app_input_process_mouse_button(mouse_button, pressed, mg_app_state.frame_time);
             mg_app_event event = {
                 .mouse_button = mouse_button,
                 .type = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
@@ -855,8 +860,8 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                 LARGE_INTEGER now_time;
                 QueryPerformanceCounter(&now_time);
                 float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-                mg_app_state.delta_time = new_time - mg_app_state.time;
-                mg_app_state.time = new_time;
+                mg_app_state.delta_time = new_time - mg_app_state.frame_time;
+                mg_app_state.frame_time = new_time;
 
                 if (mg_app_state.info && mg_app_state.info->events.update)
                     mg_app_state.info->events.update();
@@ -1078,8 +1083,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
         LARGE_INTEGER now_time;
         QueryPerformanceCounter(&now_time);
         float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-        mg_app_state.delta_time = new_time - mg_app_state.time;
-        mg_app_state.time = new_time;
+        mg_app_state.delta_time = new_time - mg_app_state.frame_time;
+        mg_app_state.frame_time = new_time;
 
         mg_app_set_cursor(MG_CURSOR_ARROW);
 
@@ -1143,7 +1148,15 @@ void mg_app_set_cursor(mg_cursor cursor)
 
 float mg_app_time(void)
 {
-    return mg_app_state.time;
+    LARGE_INTEGER now_time;
+    QueryPerformanceCounter(&now_time);
+    float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
+    return new_time;
+}
+
+float mg_app_frame_time(void)
+{
+    return mg_app_state.frame_time;
 }
 
 float mg_app_delta_time(void)
@@ -1211,7 +1224,7 @@ typedef struct mg_xlib_platform
     void (*on_event_call)(const mg_app_event *event);
     int screen;
     int32_t window_width, window_height;
-    float time, delta_time;
+    float frame_time, delta_time;
     uint32_t dpi;
     float dpi_scale;
     bool running;
@@ -1603,7 +1616,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
     mg_app_state.on_event_call = info->events.event;
     mg_app_state.running = true;
  
-    mg_app_state.time = mg_xlib_get_time();
+    mg_app_state.frame_time = mg_xlib_get_time();
     mg_app_state.delta_time = 0.0f;
 
     mg_app_state.dpi = mg_xlib_query_dpi(mg_app_state.display, mg_app_state.screen);
@@ -1652,8 +1665,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
                         mg_app_call_event(&event);
 
                         float resize_time = mg_xlib_get_time();
-                        mg_app_state.delta_time = resize_time - mg_app_state.time;
-                        mg_app_state.time = resize_time;
+                        mg_app_state.delta_time = resize_time - mg_app_state.frame_time;
+                        mg_app_state.frame_time = resize_time;
 
                         mg_app_input_frame();
                     }
@@ -1753,7 +1766,7 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
                     if (mb != MG_MOUSE_BUTTON_MAX)
                     {
-                        mg_app_input_process_mouse_button(mb, pressed, mg_app_state.time);
+                        mg_app_input_process_mouse_button(mb, pressed, mg_app_state.frame_time);
                         mg_app_event event = {
                             .mouse_button = mb,
                             .type         = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
@@ -1959,8 +1972,8 @@ int32_t mg_app_run(const mg_app_init_info *info)
         }
  
         float new_time = mg_xlib_get_time();
-        mg_app_state.delta_time = new_time - mg_app_state.time;
-        mg_app_state.time = new_time;
+        mg_app_state.delta_time = new_time - mg_app_state.frame_time;
+        mg_app_state.frame_time = new_time;
 
         mg_app_set_cursor(MG_CURSOR_ARROW);
  
@@ -1990,10 +2003,15 @@ void mg_app_set_cursor(mg_cursor cursor)
     mg_app_state.current_cursor = cursor;
     XDefineCursor(mg_app_state.display, mg_app_state.window, mg_app_state.cursors[cursor]);
 }
- 
+
 float mg_app_time(void)
 {
-    return mg_app_state.time;
+    return mg_xlib_get_time();
+}
+
+float mg_app_frame_time(void)
+{
+    return mg_app_state.frame_time;
 }
  
 float mg_app_delta_time(void)
