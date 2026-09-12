@@ -4,13 +4,12 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include <vendor/miniaudio/miniaudio.h>
 
+#include <vendor/cmidi/cmidi.h>
+
 #include "core/types.h"
 
 #include "utils.h"
 #include "utils.c"
-
-#include "io/serialization.h"
-#include "io/serialization.c"
 
 #include <vendor/clap/clap.h>
 
@@ -22,6 +21,8 @@
 #include "core/audio_engine.c"
 #include "core/resource_manager.h"
 #include "core/resource_manager.c"
+#include "io/serialization.h"
+#include "io/serialization.c"
 #include "core/project_manager.h"
 #include "core/project_manager.c"
 
