@@ -1323,16 +1323,26 @@ static void uph_song_timeline_render_toolbox(void)
                 uph_state.shared.song_timeline_playing = false;
                 uph_state.shared.song_timeline_playhead_position = 0.0;
             }
-
-            static const char *options[] = {
-                "Snap Beat",
-                "Snap 1/2",
-                "Snap 1/4",
-                "Snap 1/8",
-                "Snap 1/16"
+        }
+        leaf({
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            leaf_text("Snap: ", {
+                .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+                .color = naui_theme_color("uph_ui_text_color")
+            });
+            static const char *snap_options[] = {
+                "Beat",
+                "1/2",
+                "1/4",
+                "1/8",
+                "1/16"
             };
 
-            uph_ui_combo(options, 5, &data->snap_resolution, leaf_id("uph_song_timeline_snap"));
+            uph_ui_combo(snap_options, 5, &data->snap_resolution, leaf_id("uph_song_timeline_snap"));
         }
     }
 }
