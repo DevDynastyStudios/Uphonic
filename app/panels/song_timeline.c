@@ -860,8 +860,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 uph_song_timeline_data.hovered_block.track = track;
                 uph_song_timeline_data.hovered_block.active = true;
             }
-
-            if (blocks[i].type == UPH_RESOURCE_AUTOMATION)
+            else if (blocks[i].type == UPH_RESOURCE_AUTOMATION)
             {
                 hover_box.y += title_height;
                 hover_box.w = bbox.height - title_height;
@@ -917,6 +916,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
     if (!uph_song_timeline_data.tracks_hovered)
         return;
 
+    fprintf(stderr, "%i\n", uph_song_timeline_data.automation_edit.active);
     if (uph_song_timeline_data.automation_edit.active)
         return;
 
