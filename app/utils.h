@@ -24,7 +24,7 @@ static inline double uph_snap_division(Uph_SnapResolution res)
 static inline double uph_snap_beat(double beat, Uph_SnapResolution resolution)
 {
     const double division = uph_snap_division(resolution);
-    return round(beat / division) * division;
+    return floor(beat / division) * division;
 }
 
 double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);

@@ -158,7 +158,7 @@ static void uph_midi_editor_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
     naui_panel_set_title(this, NAUI_TR("midi_editor.title"));
-    uph_midi_editor_data.zoom = (Naui_Vec2){30.0f, 30.0f};
+    uph_midi_editor_data.zoom = (Naui_Vec2){100.0f, 30.0f};
     uph_midi_editor_data.scroll = (Naui_Vec2){0.0f, 0.0f};
     uph_midi_editor_data.snap_resolution = UPH_SNAP_QUARTER;
     uph_midi_editor_data.current_action_mode = UPH_ACTION_DRAW;

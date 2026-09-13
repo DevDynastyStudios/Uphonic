@@ -95,7 +95,7 @@ static void uph_song_timeline_on_attach(void)
     naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
-    uph_song_timeline_data.zoom = (Naui_Vec2) { 32.0f, 100.0f };
+    uph_song_timeline_data.zoom = (Naui_Vec2) { 64.0f, 100.0f };
     uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
     uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
 }
