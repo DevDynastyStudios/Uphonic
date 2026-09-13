@@ -418,7 +418,7 @@ float easeOutElastic(float x) {
 }
 
 
-static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, float opacity, const Uph_TimelineBlock *block, Leaf_BoundingBox visible_bbox)
+static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, float opacity, bool selected, const Uph_TimelineBlock *block, Leaf_BoundingBox visible_bbox)
 {
     const float anim_scale = NAUI_DPI(30.0f);
     position.x += size.x * 0.5f;
@@ -508,6 +508,11 @@ static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec
             visible_bbox,
             &uph_state.project.automations[block->resource_index]
         );
+    }
+
+    if (selected)
+    {
+        naui_draw_rect(position, size, color, NAUI_DPI(1.0f), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
     }
 
     naui_pop_clip_rect();
@@ -905,6 +910,7 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
             (Naui_Vec2) { zoom_x * blocks[i].length_beats, bbox.height },
             track->color,
             opacity,
+            false,
             &blocks[i],
             bbox
         );

@@ -59,6 +59,7 @@ static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 void uph_resources_clear_tracks(void)
 {
     uph_resources_clear_tracks_recursive(uph_state.project.tracks);
+    uph_state.project.tracks = NULL;
 }
 
 bool uph_resources_add_sample_from_file(Naui_Path path)
