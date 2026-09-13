@@ -916,7 +916,6 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
     if (!uph_song_timeline_data.tracks_hovered)
         return;
 
-    fprintf(stderr, "%i\n", uph_song_timeline_data.automation_edit.active);
     if (uph_song_timeline_data.automation_edit.active)
         return;
 
