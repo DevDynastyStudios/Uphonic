@@ -99,6 +99,12 @@ typedef enum
     CMIDI_SCHED_END_OF_TRACK = 0x02,
 } cmidi_sched_type_t;
 
+typedef enum
+{
+	CMIDI_DEVICE_INPUT,
+	CMIDI_DEVICE_OUTPUT
+} cmidi_device_type_t;
+
 typedef struct
 {
     uint32_t tick;
@@ -135,6 +141,8 @@ typedef void (*cmidi_input_callback_t)(const cmidi_event_t* event, void* userdat
 typedef struct cmidi_port cmidi_port_t;
 
 int cmidi_get_devices(cmidi_device_t* out, int max_count);
+
+int cmidi_get_device_id_at(int index, cmidi_device_type_t type);
 
 // Open a MIDI input port. Returns NULL on failure.
 cmidi_port_t* cmidi_open_input(uint32_t device_id, cmidi_input_callback_t callback, void* userdata);
@@ -291,6 +299,10 @@ int cmidi_scheduler_is_playing(const cmidi_scheduler_t* sched);
 // Return the current playback position in ticks, or 0 if stopped.
 uint32_t cmidi_scheduler_current_tick(const cmidi_scheduler_t* sched);
 
+void cmidi_scheduler_stop_all(void);
+
+void cmidi_shutdown(void);
+
 // Returns wall-clock time in milliseconds.
 double cmidi_time_now_ms(void);
 
@@ -345,6 +357,34 @@ static struct
 } s_thru[CMIDI_MAX_THRU];
 
 static int s_thru_count = 0;
+
+#define MAX_TRACKED_PORTS CMIDI_MAX_DEVICES
+
+static cmidi_port_t* s_ports[MAX_TRACKED_PORTS];
+static int s_port_count = 0;
+
+static void _cmidi_track_port(cmidi_port_t* port)
+{
+	if (port && s_port_count < MAX_TRACKED_PORTS)
+		s_ports[s_port_count++] = port;
+}
+
+static void _cmidi_untrack_port(cmidi_port_t* port)
+{
+	for (int i = 0; i < s_port_count; ++i)
+	{
+		if (s_ports[i] != port)
+			continue;
+
+		for (int j = i; j < s_port_count - 1; ++j)
+		{
+			s_ports[j] = s_ports[j + 1];
+		}
+
+		--s_port_count;
+		return;
+	}
+}
 
 static cmidi_port_t* find_thru_output(cmidi_port_t* input)
 {
@@ -491,13 +531,17 @@ cmidi_port_t* cmidi_open_input(uint32_t device_id, cmidi_input_callback_t callba
         return NULL;
     }
 
-    return cmidi_platform_open_input(device_id, callback, userdata);
+	cmidi_port_t* port = cmidi_platform_open_input(device_id, callback, userdata);
+	_cmidi_track_port(port);
+    return port;
 }
 
 cmidi_port_t* cmidi_open_output(uint32_t device_id)
 {
     s_error[0] = '\0';
-    return cmidi_platform_open_output(device_id);
+	cmidi_port_t* port = cmidi_platform_open_output(device_id);
+	_cmidi_track_port(port);
+    return port;
 }
 
 void cmidi_close(cmidi_port_t* port)
@@ -505,6 +549,7 @@ void cmidi_close(cmidi_port_t* port)
     if (!port)
         return;
 
+	_cmidi_untrack_port(port);
     cmidi_clear_thru(port);
     cmidi_platform_close(port);
 }
@@ -626,6 +671,39 @@ const char* cmidi_last_error(void)
 {
     return s_error[0] ? s_error : NULL;
 }
+
+int cmidi_get_device_id_at(int index, cmidi_device_type_t type)
+{
+	if (index < 0)
+		return -1;
+
+	cmidi_device_t devices[CMIDI_MAX_DEVICES];
+	int count = cmidi_get_devices(devices, CMIDI_MAX_DEVICES);
+
+	int seen = 0;
+	for (int i = 0; i < count; ++i)
+	{
+		int matches = (type == CMIDI_DEVICE_INPUT) ? devices[i].can_input : devices[i].can_output;
+		if (!matches)
+			continue;
+
+		if (seen == index)
+			return (int)devices[i].id;
+
+		++seen;
+	}
+
+	return -1;
+}
+
+void cmidi_shutdown(void)
+{
+	while (s_port_count > 0)
+	{
+		cmidi_close(s_ports[0]);
+	}
+}
+
 
 #if defined(LINUX) || defined(__linux__)
 
@@ -2916,6 +2994,34 @@ static void* thread_proc(void* arg)
 }
 #endif
 
+#define MAX_TRACKED_SCHEDULERS 64
+
+static cmidi_scheduler_t* s_schedulers[MAX_TRACKED_SCHEDULERS];
+static int s_scheduler_count = 0;
+
+static void _cmidi_track_scheduler(cmidi_scheduler_t* scheduler)
+{
+	if (scheduler && s_scheduler_count < MAX_TRACKED_SCHEDULERS)
+		s_schedulers[s_scheduler_count++] = scheduler;
+}
+
+static void _cmidi_untrack_scheduler(cmidi_scheduler_t* scheduler)
+{
+	for (int i = 0; i < s_scheduler_count; ++i)
+	{
+		if (s_schedulers[i] != scheduler)
+			continue;
+
+		for (int j = i; j < s_scheduler_count - 1; ++j)
+		{
+			s_schedulers[j] = s_schedulers[j + 1];
+		}
+
+		--s_scheduler_count;
+		return;
+	}
+}
+
 cmidi_scheduler_t* cmidi_scheduler_create(cmidi_port_t* port)
 {
 	cmidi_scheduler_t* scheduler = (cmidi_scheduler_t*)malloc(sizeof(*scheduler));
@@ -2931,6 +3037,7 @@ cmidi_scheduler_t* cmidi_scheduler_create(cmidi_port_t* port)
 		.tempo_count = 1
 	};
 
+	_cmidi_track_scheduler(scheduler);
 	mutex_init(&scheduler->mutex);
 	cond_init(&scheduler->done_cond);
 	return scheduler;
@@ -2946,6 +3053,7 @@ void cmidi_scheduler_destroy(cmidi_scheduler_t* scheduler)
 	free(scheduler->sysex_pool);
 	cond_destroy(&scheduler->done_cond);
 	mutex_destroy(&scheduler->mutex);
+	_cmidi_untrack_scheduler(scheduler);
 	free(scheduler);
 }
 
@@ -3009,6 +3117,14 @@ int cmidi_scheduler_set_events(cmidi_scheduler_t* scheduler, const cmidi_sched_e
 	qsort(scheduler->events, (size_t)count, sizeof(*scheduler->events), event_cmp);
 	build_tempo_map(scheduler);
 	return 1;
+}
+
+void cmidi_scheduler_stop_all(void)
+{
+	while (s_scheduler_count > 0)
+	{
+		cmidi_scheduler_destroy(s_schedulers[0]);
+	}
 }
 
 const uint8_t* cmidi_scheduler_sysex_pool(const cmidi_scheduler_t* scheduler)

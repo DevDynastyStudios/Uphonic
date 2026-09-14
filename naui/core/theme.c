@@ -50,7 +50,7 @@ void naui_load_theme(const char *file_name)
     char final_file_name[64];
     strncpy(final_file_name, file_name, strlen(file_name) + 1);
     strncat(final_file_name, ".json", sizeof(final_file_name) - 1);
-	Naui_Path json_path = NAUI_PATH("Assets/Themes", final_file_name);
+	Naui_Path json_path = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Themes", final_file_name));
     Naui_Json json = naui_json_parse_file(json_path);
 
     NAUI_JSON_FOREACH(json.root, key, val)

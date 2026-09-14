@@ -75,5 +75,15 @@
     "uph_pause_icon_color": "#D9A94E",
     "uph_stop_icon_color": "#D9636B",
 
-    "uph_playhead_color": "#F2F2F5"
+    "uph_playhead_color": "#F2F2F5",
+
+  	"uph_piano_natural_color": "#FFFDF7",
+  	"uph_piano_natural_gradient": "#D9D0BE",
+  	"uph_piano_natural_pressed_color": "#C8BFAF",
+  	"uph_piano_natural_pressed_gradient": "#9F9583",
+
+  	"uph_piano_sharp_color": "#3A3530",
+  	"uph_piano_sharp_gradient": "#0D0C0B",
+  	"uph_piano_sharp_pressed_color": "#5A5148",
+  	"uph_piano_sharp_pressed_gradient": "#302A25"
 }

@@ -12,6 +12,11 @@
 #define UPH_MIDI_EDITOR_PIANO_WIDTH 80
 #define UPH_MIDI_EDITOR_TOP_RULER_HEIGHT 32
 
+#define UPH_MIDI_EDITOR_NOTE_COUNT 128
+
+#define UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD (sizeof(uint64_t) * 8)
+#define UPH_MIDI_EDITOR_KEY_BITSET_WORD_COUNT ((UPH_MIDI_EDITOR_NOTE_COUNT + UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD - 1) / UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD)
+
 typedef uint8_t Uph_NoteInteractionMode;
 enum
 {
@@ -41,6 +46,46 @@ typedef struct
 }
 Uph_HoveredNoteState;
 
+typedef uint64_t Uph_KeyBitset[UPH_MIDI_EDITOR_KEY_BITSET_WORD_COUNT];
+
+static inline bool uph_key_bitset_get(const Uph_KeyBitset set, uint8_t key)
+{
+    return (set[key / UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD] >> (key % UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD)) & 1u;
+}
+
+static inline void uph_key_bitset_set(Uph_KeyBitset set, uint8_t key, bool pressed)
+{
+    const uint64_t mask = (uint64_t)1u << (key % UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD);
+    uint64_t *word = &set[key / UPH_MIDI_EDITOR_KEY_BITSET_BITS_PER_WORD];
+	*word = pressed ? (*word | mask) : (*word & ~mask);
+}
+
+static inline void uph_key_bitset_clear(Uph_KeyBitset set)
+{
+    for (uint32_t i = 0; i < UPH_MIDI_EDITOR_KEY_BITSET_WORD_COUNT; i++)
+	{
+        set[i] = 0;
+	}
+}
+
+static inline void uph_key_bitset_copy(Uph_KeyBitset dst, const Uph_KeyBitset src)
+{
+    for (uint32_t i = 0; i < UPH_MIDI_EDITOR_KEY_BITSET_WORD_COUNT; i++)
+	{
+        dst[i] = src[i];
+	}
+}
+
+static inline bool uph_key_bitset_was_pressed(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+    return !uph_key_bitset_get(prev, key) && uph_key_bitset_get(current, key);
+}
+
+static inline bool uph_key_bitset_was_released(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+    return uph_key_bitset_get(prev, key) && !uph_key_bitset_get(current, key);
+}
+
 typedef struct
 {
     Naui_Vec2 scroll;
@@ -54,8 +99,13 @@ typedef struct
     Uph_SnapResolution snap_resolution;
     bool lanes_hovered;
     bool panel_hovered;
+    bool piano_hovered;
+    bool piano_mouse_active;
+    Uph_KeyBitset active_keys;
+    //Uph_KeyBitset active_keys_prev;    
 }
 Uph_MidiEditorData;
+
 static Uph_MidiEditorData uph_midi_editor_data;
 
 NAUI_PANEL(uph_midi_editor)
@@ -87,18 +137,110 @@ static inline void uph_midi_key_name(uint8_t key_number, char *out, size_t out_s
     snprintf(out, out_size, "%s%d", names[semitone], octave);
 }
 
-static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *user_data)
+static bool uph_midi_editor_piano_hit_test(Leaf_BoundingBox box, float mouse_x, float mouse_y, uint8_t *out_key)
 {
+    if (mouse_x < box.x || mouse_x > box.x + box.width || mouse_y < box.y || mouse_y > box.y + box.height)
+        return false;
+
     const float note_height = uph_midi_editor_data.zoom.y;
     const float black_key_width_ratio = 0.6f;
     const float black_key_height_ratio = 0.6f;
     const float black_key_width = box.width * black_key_width_ratio;
     const float black_key_height = note_height * black_key_height_ratio;
     const int white_total = uph_white_key_total_count();
-    const float half_lane_height = uph_midi_editor_data.zoom.x * 7.0f / 24.0f;
-    const float scroll_y = uph_midi_editor_data.scroll.y + half_lane_height;
+	const float half_lane_height = note_height * 0.5f;
+	const float scroll_y = uph_midi_editor_data.scroll.y + half_lane_height;
 
-    for (uint8_t i = 0; i < 128; i++)
+    for (uint8_t i = 0; i < UPH_MIDI_EDITOR_NOTE_COUNT; i++)
+    {
+        if (!uph_is_black_key(i))
+            continue;
+
+        int white_index = uph_white_key_index_before(i);
+        int row_from_top = (white_total - 1) - white_index;
+        float boundary_y = box.y + row_from_top * note_height - scroll_y;
+        float key_y = boundary_y - black_key_height * 0.5f;
+
+        if (mouse_x <= box.x + black_key_width && mouse_y >= key_y && mouse_y <= key_y + black_key_height)
+        {
+            *out_key = i;
+            return true;
+        }
+    }
+
+    for (uint8_t i = 0; i < UPH_MIDI_EDITOR_NOTE_COUNT; i++)
+    {
+        if (uph_is_black_key(i))
+            continue;
+
+        int white_index = uph_white_key_index_before(i);
+        int row_from_top = (white_total - 1) - white_index;
+        float y_position = box.y + row_from_top * note_height - scroll_y;
+
+        if (mouse_y >= y_position && mouse_y <= y_position + note_height)
+        {
+            *out_key = i;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+static int mouse_last_key = -1;
+static void uph_midi_editor_update_piano_input(Leaf_BoundingBox box)
+{
+    Uph_MidiEditorData *editor = &uph_midi_editor_data;
+    //uph_key_bitset_copy(editor->active_keys_prev, editor->active_keys);
+
+    if (editor->piano_hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        editor->piano_mouse_active = true;
+
+    if (naui_mouse_released(NAUI_MOUSE_LEFT))
+        editor->piano_mouse_active = false;
+
+    uint8_t mouse_key = 0;
+    const bool mouse_hit = editor->piano_mouse_active && uph_midi_editor_piano_hit_test(box, (float)naui_mouse_x(), (float)naui_mouse_y(), &mouse_key);
+    //uph_key_bitset_clear(editor->active_keys);
+
+    if (mouse_hit)
+    {
+        uph_key_bitset_set(editor->active_keys, mouse_key, true);
+
+        if (mouse_last_key != -1 && mouse_last_key != mouse_key)
+		{
+            cmidi_stop_note(uph_state.settings.midi.output, 1, mouse_last_key);
+			uph_key_bitset_set(editor->active_keys, mouse_last_key, false);
+		}
+
+        if (mouse_last_key != mouse_key)
+        {
+            cmidi_play_note(uph_state.settings.midi.output, 1, mouse_key, 127);
+            mouse_last_key = mouse_key;
+        }
+    }
+    else if (mouse_last_key != -1)
+    {
+        cmidi_stop_note(uph_state.settings.midi.output, 1, mouse_last_key);
+		uph_key_bitset_set(editor->active_keys, mouse_last_key, false);
+        mouse_last_key = -1;
+    }
+
+}
+
+static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *user_data)
+{
+    uph_midi_editor_update_piano_input(box);
+    const float note_height = uph_midi_editor_data.zoom.y;
+    const float black_key_width_ratio = 0.6f;
+    const float black_key_height_ratio = 0.6f;
+    const float black_key_width = box.width * black_key_width_ratio;
+    const float black_key_height = note_height * black_key_height_ratio;
+    const int white_total = uph_white_key_total_count();
+	const float half_lane_height = note_height * 0.5f;
+	const float scroll_y = uph_midi_editor_data.scroll.y + half_lane_height;
+
+    for (uint8_t i = 0; i < UPH_MIDI_EDITOR_NOTE_COUNT; i++)
     {
         if (uph_is_black_key(i))
             continue;
@@ -110,15 +252,16 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
         if (y_position > box.y + box.height || y_position < box.y - note_height)
             continue;
 
+		Leaf_Color natural_color = uph_key_bitset_get(uph_midi_editor_data.active_keys, i) ? naui_theme_color("uph_piano_natural_pressed_color") : naui_theme_color("uph_piano_natural_color");
+		// Leaf_Color natural_gradient = uph_key_bitset_get(uph_midi_editor_data.active_keys, i) ? naui_theme_color("uph_piano_natural_pressed_gradient") : naui_theme_color("uph_piano_natural_gradient");
         naui_fill_rect(
             (Naui_Vec2) { box.x, y_position },
             (Naui_Vec2) { box.width, note_height },
-            LEAF_COLOR_WHITE,
+            natural_color,
             0.0f,
             LEAF_CORNER_NONE
-            //NAUI_DPI(3.0f),
-            //LEAF_CORNER_TR | LEAF_CORNER_BR
         );
+
         naui_draw_gradient_rect(
             (Naui_Vec2) { box.x, y_position },
             (Naui_Vec2) { box.width, note_height },
@@ -132,7 +275,7 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
         );
     }
 
-    for (uint8_t i = 0; i < 128; i++)
+    for (uint8_t i = 0; i < UPH_MIDI_EDITOR_NOTE_COUNT; i++)
     {
         if (!uph_is_black_key(i))
             continue;
@@ -142,10 +285,12 @@ static void uph_midi_editor_side_piano_custom_draw(Leaf_BoundingBox box, void *u
         float boundary_y = box.y + row_from_top * note_height - scroll_y;
         float key_y = boundary_y - black_key_height * 0.5f;
 
+        Leaf_Color sharp_color = uph_key_bitset_get(uph_midi_editor_data.active_keys, i) ? naui_theme_color("uph_piano_sharp_pressed_color") : naui_theme_color("uph_piano_sharp_color");
+		Leaf_Color sharp_gradient = uph_key_bitset_get(uph_midi_editor_data.active_keys, i) ? naui_theme_color("uph_piano_sharp_pressed_gradient") : naui_theme_color("uph_piano_sharp_gradient");
         naui_fill_gradient_rect(
             (Naui_Vec2) { box.x, key_y },
             (Naui_Vec2) { black_key_width, black_key_height },
-            (Naui_Gradient){ .color1 = leaf_rgb(20, 20, 20), .color2 = leaf_rgb(60, 60, 60), .percent1 = 0.75f, .percent2 = 1.0f },
+            (Naui_Gradient){ .color1 = sharp_color, .color2 = sharp_gradient, .percent1 = 0.75f, .percent2 = 1.0f },
             //NAUI_DPI(2.0f),
             0.0f,
             LEAF_CORNER_NONE
@@ -164,6 +309,10 @@ static void uph_midi_editor_on_attach(void)
     uph_midi_editor_data.current_action_mode = UPH_ACTION_DRAW;
     uph_midi_editor_data.last_note_length = UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH;
     uph_midi_editor_data.last_note_velocity = UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY;
+
+    //uph_key_bitset_clear(uph_midi_editor_data.active_keys);
+    //uph_key_bitset_clear(uph_midi_editor_data.active_keys_prev);
+    uph_midi_editor_data.piano_mouse_active = false;
 
     const float lane_height = uph_midi_editor_data.zoom.y * 7.0f / 12.0f;
     const uint32_t row_from_top = 57u;
@@ -198,7 +347,6 @@ static inline Naui_Vec4 uph_midi_editor_note_screen_box(Leaf_BoundingBox box, co
     const float scroll_y = uph_midi_editor_data.scroll.y;
 
     const uint32_t row_from_top = 127u - note->key_number;
-
     const float y_position = box.y + row_from_top * lane_height - scroll_y;
     const float x_position = box.x + (float)(note->start_beat * zoom_x) - scroll_x;
     const float width = (float)(note->length_beats * zoom_x);
@@ -435,7 +583,7 @@ static void uph_midi_editor_update_delete_input(Uph_MidiPattern *pattern)
     if (!uph_midi_editor_data.hovered_note.active)
         return;
 
-    if (!naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+    if (!naui_mouse_down(NAUI_MOUSE_RIGHT))
         return;
 
     naui_list_uremove(pattern->notes, uph_midi_editor_data.hovered_note.note_index);
@@ -516,7 +664,6 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
     const float zoom_x = uph_midi_editor_data.zoom.x;
     const float zoom_y = uph_midi_editor_data.zoom.y;
     const float scroll_y = uph_midi_editor_data.scroll.y;
-
     const float lane_height = zoom_y * 7.0f / 12.0f;
 
     for (uint8_t i = 0; i < 128; i++)
@@ -530,6 +677,27 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
             (Naui_Vec2) { box.x, y_position },
             (Naui_Vec2) { box.width, lane_height },
             uph_is_black_key(i) ? leaf_rgba(0, 0, 0, 50) : LEAF_COLOR_TRANSPARENT,
+            0.0f,
+            LEAF_CORNER_NONE
+        );
+    }
+
+    for (uint8_t i = 0; i < UPH_MIDI_EDITOR_NOTE_COUNT; i++)
+    {
+        if (!uph_key_bitset_get(uph_midi_editor_data.active_keys, i))
+            continue;
+
+        const uint32_t row_from_top = 127u - i;
+        const float y_position = box.y + row_from_top * lane_height - scroll_y;
+        if (y_position > box.y + box.height || y_position < box.y - lane_height)
+            continue;
+
+		// Change this to use the grid's own color
+		Leaf_Color sharp_color = uph_key_bitset_get(uph_midi_editor_data.active_keys, i) ? naui_theme_color("uph_piano_sharp_pressed_color") : naui_theme_color("uph_piano_sharp_color");
+        naui_fill_rect(
+            (Naui_Vec2) { box.x, y_position },
+            (Naui_Vec2) { box.width, lane_height },
+            sharp_color,
             0.0f,
             LEAF_CORNER_NONE
         );
@@ -746,7 +914,7 @@ static void uph_midi_editor_render_toolbox(void)
                 "1/16"
             };
 
-            uph_ui_combo(snap_options, 5, &uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
+            uph_ui_combo(snap_options, 5, (uint32_t*)&uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
         }
     }
 }
@@ -821,6 +989,7 @@ static void uph_midi_editor_update_input(Leaf_BoundingBox box)
 static void uph_midi_editor_on_update(void)
 {
     const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
+    const Leaf_ID piano_id = leaf_id("uph_midi_editor_piano");
 
     if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
     {
@@ -839,6 +1008,7 @@ static void uph_midi_editor_on_update(void)
 
     uph_midi_editor_data.panel_hovered = naui_panel_hovered(naui_current_panel());
     uph_midi_editor_data.lanes_hovered = leaf_hovered(lanes_id) && uph_midi_editor_data.panel_hovered;
+    uph_midi_editor_data.piano_hovered = leaf_hovered(piano_id) && uph_midi_editor_data.panel_hovered;
     uph_midi_editor_data.lanes_bounding_box = leaf_get_bounding_box(lanes_id);
 
     uph_midi_editor_update_input(uph_midi_editor_data.lanes_bounding_box);
@@ -868,6 +1038,7 @@ static void uph_midi_editor_on_update(void)
     })
     {
         leaf({
+            .id = piano_id,
             .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_PIANO_WIDTH)), LEAF_SIZE_FULL},
             .custom_draw = uph_midi_editor_side_piano_custom_draw
         });
