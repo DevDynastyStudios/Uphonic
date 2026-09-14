@@ -1285,6 +1285,7 @@ struct cmidi_port
     uint32_t sysex_len;
     uint32_t sysex_cap;
     int is_input;
+	volatile int closing;
     uint8_t sysex_hdr_buf[1024];
     char name[CMIDI_MAX_DEVICE_NAME];
 };
@@ -1332,7 +1333,10 @@ static void CALLBACK winmm_input_proc(HMIDIIN hMidi, UINT msg, DWORD_PTR instanc
         }
 
         hdr->dwBytesRecorded = 0;
-        midiInAddBuffer(hMidi, hdr, sizeof(MIDIHDR));
+
+		if(!port->closing)
+        	midiInAddBuffer(hMidi, hdr, sizeof(MIDIHDR));
+			
         return;
     }
 
@@ -1506,6 +1510,7 @@ void cmidi_platform_close(cmidi_port_t* port)
 
     if (port->is_input)
     {
+		port->closing = 1;
         midiInStop(port->handle.in);
         midiInReset(port->handle.in);
         midiInUnprepareHeader(port->handle.in, &port->sysex_hdr, sizeof(MIDIHDR));
