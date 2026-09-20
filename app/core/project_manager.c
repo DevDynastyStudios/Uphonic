@@ -1,4 +1,6 @@
 #define UPHONIC_FOLDER naui_path_join(naui_directory_get(NAUI_DIR_APPDATA), NAUI_PATH("Uphonic"))
+#define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("Workspace"))
+#define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
 
 bool uph_project_create(Naui_String project_name)
 {
@@ -145,7 +147,13 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		naui_log(NAUI_LOG_ERROR, "Uph Loading Not Supported...");
 	}
 
-	return uph_io_load_project(project, load_path);
+	naui_list_clear(project->midi_patterns);
+	uph_resources_clear_tracks();
+	bool loaded = uph_io_load_project(project, load_path);
+	if (!loaded || loaded && naui_list_len(project->tracks) == 0)
+		uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
+		
+	return loaded;
 }
 
 bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)

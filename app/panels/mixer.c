@@ -78,6 +78,8 @@ static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_
 
 static void uph_mixer_render_track(Uph_Track *track)
 {
+	Naui_Color color = naui_theme_color(naui_string_format("uph_palette_color_%i", track->color_index).data);
+
     leaf({
         .size = {LEAF_SIZE_FIXED(NAUI_DPI(80)), LEAF_SIZE_FULL},
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
@@ -93,7 +95,7 @@ static void uph_mixer_render_track(Uph_Track *track)
     {
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(4))},
-            .color = track->color,
+            .color = color,
             .rounding = {
                 .value = NAUI_DPI(4),
                 .corners = LEAF_CORNER_ALL

@@ -139,6 +139,8 @@ void uph_render_main_titlebar(void)
 
 				}
 
+				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.settings"), leaf_id("uph_edit_menu_settings")))
+					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_settings));
 
 				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("song_timeline.title"), leaf_id("uph_windows_menu_song_timeline")))

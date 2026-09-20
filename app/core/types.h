@@ -1,7 +1,7 @@
 #define UPH_VERSION (Uph_Version) { .major = 0, .minor = 0, .patch = 1 };
 #define UPH_SAMPLE_FRAME_COUNT 512
 
-// :settings
+#pragma region Settings
 typedef struct Uph_GeneralSettings
 {
 	Naui_String theme;
@@ -48,6 +48,8 @@ typedef struct Uph_MIDISettings
 {
 	cmidi_port_t* input;
 	cmidi_port_t* output;
+	Naui_String input_device;
+	Naui_String output_device;
 	uint32_t record_quantize_grid;
 	uint32_t count_in_bars;
 	uint32_t grid_division;
@@ -88,8 +90,8 @@ enum
 };
 
 typedef uint32_t Uph_ResourceIndex;
-
-// :project
+#pragma endregion
+#pragma region Project
 typedef uint8_t Uph_ResourceType;
 enum
 {
@@ -211,7 +213,7 @@ typedef struct Uph_Track Uph_Track;
 struct Uph_Track
 {
 	Naui_String name;
-	Naui_Color color;
+	int32_t color_index;
 
 	Uph_Plugin instrument;
 	Naui_List(Uph_Plugin) effects;
@@ -333,3 +335,5 @@ typedef struct
 Uph_State;
 
 extern Uph_State uph_state;
+
+#pragma endregion

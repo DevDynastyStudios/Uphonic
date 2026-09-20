@@ -14,7 +14,7 @@ static uint32_t _metronome_count = 0;
 
 Uph_State uph_state = { 0 };
 
-static void _uph_midi_on_input(const cmidi_event_t* event, void* userdata)
+void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
 	uph_key_bitset_set(uph_midi_editor_data.active_keys, event->note, event->type == CMIDI_NOTE_ON);
 
@@ -75,21 +75,12 @@ static bool _uph_metronome_tap(float *out_bpm)
 
 void naui_app_start(void)
 {
-	uph_state.settings.audio = (Uph_AudioSettings){
-		.sample_rate = 48000
-	};
-
-	uph_state.settings.general = (Uph_GeneralSettings){
-		.language_code = naui_string_from_cstr("en"),
-		.region_code = naui_string_from_cstr("US"),
-		.copy_resources = false
-	};
-
-	naui_list_push(uph_state.settings.plugin.plugin_paths, NAUI_PATH("/home/box/.clap/"));
+	uph_settings_set_defaults();
+	const bool settings_loaded = uph_settings_load();
+	uph_settings_sanitize();
 
 	naui_localization_set_current(naui_string_format("%s-%s", uph_state.settings.general.language_code.data, uph_state.settings.general.region_code.data));
 
-	naui_load_theme("Default");
 	naui_load_font(0, "MYRIADPRO-REGULAR");
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
@@ -113,20 +104,16 @@ void naui_app_start(void)
 		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
 	));
 
+	naui_close_panel(NAUI_ATTACH_PANEL(uph_settings));
 
-	cmidi_device_t devices[CMIDI_MAX_DEVICES];
-	int device_count = cmidi_get_devices(devices, CMIDI_MAX_DEVICES);
-
-	Uph_MIDISettings* midi = &uph_state.settings.midi;
-	midi->input = cmidi_open_input(cmidi_get_device_id_at(0, CMIDI_DEVICE_INPUT), _uph_midi_on_input, NULL);
-	midi->output = cmidi_open_output(cmidi_get_device_id_at(0, CMIDI_DEVICE_OUTPUT));
-	cmidi_set_thru(midi->input, midi->output);
-
+	uph_settings_open_midi_ports(!settings_loaded);
 	uph_project_create(naui_string_from_cstr("Test Project"));
 }
 
 void naui_app_end(void)
 {
+	uph_settings_save();
+
 	cmidi_scheduler_stop_all();
 	cmidi_shutdown();
 

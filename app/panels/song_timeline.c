@@ -896,9 +896,9 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
 
     const float zoom_x = uph_song_timeline_data.zoom.x;
     const float scroll_x = uph_song_timeline_data.scroll.x;
-
     const float opacity = ((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED)) ? 0.25f : 1.0f;
 
+	Naui_Color color = naui_theme_color(naui_string_format("uph_palette_color_%i", track->color_index).data);
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
     {
         if (!uph_song_timeline_block_is_visible(blocks[i].start_beat, blocks[i].length_beats, zoom_x, scroll_x, bbox.width))
@@ -908,7 +908,7 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
         uph_song_timeline_render_timeline_block(
             (Naui_Vec2) { bbox.x + zoom_x * blocks[i].start_beat - scroll_x, bbox.y },
             (Naui_Vec2) { zoom_x * blocks[i].length_beats, bbox.height },
-            track->color,
+            color,
             opacity,
             false,
             &blocks[i],
@@ -1090,6 +1090,7 @@ static void uph_song_timeline_render_track_header(Uph_Track *track, uint32_t dep
     const float header_width = naui_theme_float("uph_track_header_width");
 
     uint64_t track_id = (uint64_t)track;
+	Naui_Color color = naui_theme_color(naui_string_format("uph_palette_color_%i", track->color_index).data);
 
     leaf({
         .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -1115,7 +1116,7 @@ static void uph_song_timeline_render_track_header(Uph_Track *track, uint32_t dep
 
             leaf({
                 .size = {LEAF_SIZE_FIXED(NAUI_DPI(5)), LEAF_SIZE_FULL},
-                .color = {track->color},
+                .color = color,
                 .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
             });
 
@@ -1347,7 +1348,7 @@ static void uph_song_timeline_render_toolbox(void)
                 "1/16"
             };
 
-            uph_ui_combo(snap_options, 5, &data->snap_resolution, leaf_id("uph_song_timeline_snap"));
+            uph_ui_combo(snap_options, 5, (uint32_t*)&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
         }
     }
 }
@@ -1499,22 +1500,12 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
     {
         Uph_UIMenuID color_menu = uph_ui_submenu(track_options_context_menu, "Color", leaf_id("uph_track_options_color"));
-        if (uph_ui_menu_item(color_menu, "Color 1", leaf_id("uph_track_options_color_1")))
-            track->color = naui_theme_color("uph_palette_color_1");
-        if (uph_ui_menu_item(color_menu, "Color 2", leaf_id("uph_track_options_color_2")))
-            track->color = naui_theme_color("uph_palette_color_2");
-        if (uph_ui_menu_item(color_menu, "Color 3", leaf_id("uph_track_options_color_3")))
-            track->color = naui_theme_color("uph_palette_color_3");
-        if (uph_ui_menu_item(color_menu, "Color 4", leaf_id("uph_track_options_color_4")))
-            track->color = naui_theme_color("uph_palette_color_4");
-        if (uph_ui_menu_item(color_menu, "Color 5", leaf_id("uph_track_options_color_5")))
-            track->color = naui_theme_color("uph_palette_color_5");
-        if (uph_ui_menu_item(color_menu, "Color 6", leaf_id("uph_track_options_color_6")))
-            track->color = naui_theme_color("uph_palette_color_6");
-        if (uph_ui_menu_item(color_menu, "Color 7", leaf_id("uph_track_options_color_7")))
-            track->color = naui_theme_color("uph_palette_color_7");
-        if (uph_ui_menu_item(color_menu, "Color 8", leaf_id("uph_track_options_color_8")))
-            track->color = naui_theme_color("uph_palette_color_8");
+		for (uint32_t i = 0; i < 8; i++)
+		{
+			if (uph_ui_menu_item(color_menu, naui_string_format("Color %i", i).data, leaf_id_indexed("uph_track_options_color_", i)))
+            	track->color_index = i;
+		}
+       
     }
 
     if (track->type != UPH_RESOURCE_AUTOMATION)

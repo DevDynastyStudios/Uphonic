@@ -2,7 +2,7 @@ void uph_resources_add_track(Naui_String name)
 {
     Uph_Track track = {
         .name = name,
-        .color = naui_theme_color("uph_palette_color_1"),
+        .color_index = 0,
         .volume = 1.0f,
         .index = naui_list_len(uph_state.project.tracks)
     };
@@ -14,7 +14,7 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
     Uph_Track track = {
         .name = name,
         .type = UPH_RESOURCE_AUTOMATION,
-        .color = naui_theme_color("uph_palette_color_1"),
+        .color_index = 0,
         .index = naui_list_len(parent->subtracks),
         .parent = parent,
         .automation_param_id = param_id,

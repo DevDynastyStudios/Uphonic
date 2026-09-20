@@ -1320,3 +1320,100 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
 
     return false;
 }
+
+static void uph_ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
+{
+    const Leaf_Color color = *(const Leaf_Color*)user_data;
+
+    const float width = box.width * 0.7f;
+    const float height = width * 0.55f;
+    const float center_x = box.x + box.width * 0.5f;
+    const float center_y = box.y + box.height * 0.5f;
+
+    const Naui_Vec2 points[3] =
+    {
+        { center_x - width * 0.5f, center_y - height * 0.5f },
+        { center_x + width * 0.5f, center_y - height * 0.5f },
+        { center_x,                center_y + height * 0.5f }
+    };
+    naui_fill_polygon(points, 3, color);
+}
+
+bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id)
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    menu->element_id = id;
+    bool result = false;
+
+    const bool was_open = data->current_open_menu == menu;
+    const bool hovered = uph_ui_widget_hovered(id) || (was_open && leaf_hovered(id));
+
+    if (hovered)
+    {
+        naui_set_cursor(NAUI_CURSOR_HAND);
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        {
+            data->current_open_menu = was_open ? NULL : menu;
+            data->is_current_menu_context = false;
+            data->menu_opened_last_frame = false;
+        }
+    }
+
+    const bool open = data->current_open_menu == menu;
+
+    const uint32_t shown_index = (*current_index < item_count) ? *current_index : 0;
+    const char *shown_text = item_count > 0 ? items[shown_index] : "";
+
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const float rounding = naui_theme_float("uph_ui_frame_rounding");
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+    Leaf_Color arrow_color = text_color;
+
+    Leaf_Color background = naui_theme_color("uph_ui_frame_bg_color");
+    if (open)
+        background = naui_theme_color("uph_ui_frame_pressed_bg_color");
+    else if (hovered)
+        background = naui_theme_color("uph_ui_frame_hovered_bg_color");
+
+    leaf({
+        .id = id,
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(font_size) },
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+        .child_gap = NAUI_DPI(6.0f),
+        .color = { background },
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
+    })
+    {
+        leaf({
+            .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+            .clip_children = true
+        })
+        {
+            leaf_text(shown_text, {
+                .color = { text_color },
+                .font_size = { font_size }
+            });
+        }
+
+        leaf({
+            .size = { .width = LEAF_SIZE_FIXED(font_size), .height = LEAF_SIZE_FIXED(font_size) },
+            .custom_draw = uph_ui_dropdown_arrow_draw,
+            .custom_draw_data = LEAF_DATA_SLICE(arrow_color)
+        });
+    }
+
+    for (uint32_t i = 0; i < item_count; i++)
+    {
+        if (uph_ui_menu_item((Uph_UIMenuID)menu, items[i], (Leaf_ID){ .value = id.value + i + 1 }) && i != shown_index)
+        {
+            *current_index = i;
+            result = true;
+        }
+    }
+
+    return result;
+}
