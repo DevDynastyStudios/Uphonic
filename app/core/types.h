@@ -107,8 +107,8 @@ typedef struct
 	double start_offset_beats;
 	double length_beats;
 	float visual_lifetime;
-    Uph_ResourceIndex resource_index;
-    Uph_ResourceType type;
+	Uph_ResourceIndex resource_index;
+	Uph_ResourceType type;
 }
 Uph_TimelineBlock;
 
@@ -121,8 +121,8 @@ enum
 
 typedef struct
 {
-    uint16_t min;
-    uint16_t max;
+	uint16_t min;
+	uint16_t max;
 }
 Uph_WaveformPeak;
 
@@ -188,13 +188,13 @@ enum
 
 typedef struct
 {
-    uint64_t id;
-    Naui_String name;
-    Naui_String module;
-    double min_value;
-    double max_value;
-    double default_value;
-    double current_value;
+	uint64_t id;
+	Naui_String name;
+	Naui_String module;
+	double min_value;
+	double max_value;
+	double default_value;
+	double current_value;
 }
 Uph_PluginParam;
 
@@ -227,11 +227,12 @@ struct Uph_Track
 	float volume;
 	float pan;
 	float peak_left, peak_right;
+	float peak_cap_left, peak_cap_right;
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
 
-    uint64_t automation_param_id;
-    int32_t automation_target_effect_index;
+	uint64_t automation_param_id;
+	int32_t automation_target_effect_index;
 
 	Uph_ResourceType type;
 	Uph_TrackState state;
@@ -272,11 +273,11 @@ typedef struct
 	Uph_Version project_version;
 	Uph_TimeSignature time_signature;
 
-    Naui_List(Uph_Track) tracks;
-    Naui_List(Uph_MidiPattern) midi_patterns;
-    Naui_List(Uph_Sample) samples;
-    Naui_List(Uph_SampleData) sample_data;
-    Naui_List(Uph_Automation) automations;
+	Naui_List(Uph_Track) tracks;
+	Naui_List(Uph_MidiPattern) midi_patterns;
+	Naui_List(Uph_Sample) samples;
+	Naui_List(Uph_SampleData) sample_data;
+	Naui_List(Uph_Automation) automations;
 
 	uint64_t time_created;
 	uint64_t last_accessed;
@@ -308,8 +309,8 @@ typedef struct
 	double song_timeline_current_block_length;
 	double song_timeline_current_block_start_offset;
 	
-    double song_timeline_playhead_position;
-    bool song_timeline_playing;
+	double song_timeline_playhead_position;
+	bool song_timeline_playing;
 
 	bool current_pattern_updated;
 

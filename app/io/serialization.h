@@ -3,6 +3,7 @@
 #define UPH_IO_FOLDER_PATTERNS "patterns"
 #define UPH_IO_FOLDER_AUTOMATION "automation"
 #define UPH_IO_FOLDER_TRACKS "tracks"
+#define UPH_IO_FOLDER_SUBTRACKS "subtracks"
 
 #define UPH_IO_FILE_PROJECT "project.json"
 #define UPH_IO_FILE_SAMPLES "samples.json"
@@ -13,6 +14,7 @@
 #define UPH_IO_FILE_INSTRUMENT "instrument.json"
 #define UPH_IO_FILE_META "metadata.json"
 #define UPH_IO_FILE_SETTINGS "settings.json"
+#define UPH_IO_FILE_EFFECTS "effects.json"
 
 #define UPH_IO_FORMAT_VERSION 1
 
@@ -23,10 +25,13 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 static bool uph_io_save_automation(const Uph_Project* project, const Naui_Path save_path);
 
 static bool uph_io_save_tracks(const Uph_Project* project, const Naui_Path save_path);
+static bool uph_io_save_track_list(Naui_List(Uph_Track) tracks, const Naui_Path list_dir);
 static bool uph_io_save_track(const Uph_Track* track, const Naui_Path track_dir);
 static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track_dir);
 static bool uph_io_save_track_blocks(const Uph_Track* track, const Naui_Path track_dir);
-static bool uph_io_save_track_automation(const Uph_Track* track, const Naui_Path track_dir);
+static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object, const Uph_Track* track);
+static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path track_dir);
+static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin);
 
 static bool uph_io_save_editor_settings(const Uph_State* state, const Naui_Path save_path);
 static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue* object, const Uph_GeneralSettings* general);
@@ -39,12 +44,15 @@ static bool uph_io_load_project(Uph_Project* project, const Naui_Path load_path)
 static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path);
 static bool uph_io_load_patterns(Uph_Project* project, const Naui_Path load_path);
 static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path);
+static bool uph_io_load_automation(Uph_Project* project, const Naui_Path load_path);
 
 static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path);
-static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir);
+static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete);
+static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete);
 static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir);
-static bool uph_io_load_track_blocks(Uph_Track* track, const Naui_Path load_dir);
-static bool uph_io_load_track_automation(Uph_Track* track, const Naui_Path load_dir);
+static bool uph_io_load_track_blocks(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete);
+static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir, bool* complete);
+static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue* object);
 
 static bool uph_io_load_editor_settings(Uph_State* state, const Naui_Path load_path);
 static void uph_io_load_editor_settings_general(Uph_GeneralSettings* general, const Naui_JsonValue* object);
