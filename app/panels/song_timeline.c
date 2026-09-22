@@ -173,7 +173,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
         (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }
     );
 
-    if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+    if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(uph_state.panels.song_timeline))
         dragging_playhead = true;
 
     if (!dragging_playhead)
@@ -1529,21 +1529,11 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
         }
         else
         {
-            Uph_UIMenuID instrument_menu = uph_ui_submenu(track_options_context_menu, "Load Instrument", leaf_id("uph_track_options_load_instrument"));
-            for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
+            if (uph_ui_menu_item(track_options_context_menu, "Load Instrument", leaf_id("uph_track_options_load_instrument")))
             {
-                Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
-                static Naui_List(Naui_DirEntry) entries = NULL;
-                if (!entries)
-                    entries = naui_directory_filter_recursive(parent_path, "*", NAUI_EXTENSIONS(".clap", ".vst3"));
-                for (uint32_t j = 0; j < (uint32_t)naui_list_len(entries); j++)
-                {
-                    if (uph_ui_menu_item(instrument_menu, entries[j].path.data, leaf_id_indexed("uph_track_options_instrument", j))) 
-                    {
-                        track->instrument = uph_load_plugin_effect(entries[j].path);
-                        track->type = UPH_RESOURCE_PATTERN;
-                    }
-                }
+                uph_state.shared.plugin_list_for_track_instrument = true;
+                uph_state.shared.current_plugin_list_track = track;
+                naui_open_panel(uph_state.panels.plugin_list);
             }
         }
 

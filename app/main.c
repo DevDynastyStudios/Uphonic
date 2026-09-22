@@ -92,6 +92,7 @@ void naui_app_start(void)
 	uph_state.panels.mixer = NAUI_ATTACH_PANEL(uph_mixer);
 	uph_state.panels.resource_editor = NAUI_ATTACH_PANEL(uph_midi_editor);
 	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
+	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(

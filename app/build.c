@@ -47,6 +47,7 @@
 #include "panels/pattern_list.c"
 #include "panels/sample_list.c"
 #include "panels/automation_list.c"
+#include "panels/plugin_list.c"
 #include "panels/resource_editor.c"
 #include "panels/settings.c"
 #include "main.c"
