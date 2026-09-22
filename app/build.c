@@ -19,8 +19,7 @@
 
 #include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"
-#include "plugins/plugin_manager_win32.c"
-#include "plugins/plugin_manager_linux.c"
+#include "plugins/plugin_manager.c"
 
 #include "core/audio_engine.h"
 #include "core/audio_engine.c"
@@ -48,6 +47,6 @@
 #include "panels/pattern_list.c"
 #include "panels/sample_list.c"
 #include "panels/automation_list.c"
-#include "panels/midi_editor.c"
+#include "panels/resource_editor.c"
 #include "panels/settings.c"
 #include "main.c"

@@ -1,4 +1,4 @@
-#if NAUI_LINUX
+#if NAUI_LINUX || NAUI_WINDOWS
 
 typedef struct
 {
@@ -86,10 +86,15 @@ typedef struct
         clap;
     };
 
+#if NAUI_LINUX
     Window window;
     Display *display;
     Atom wm_delete_window;
+#elif NAUI_WINDOWS
+    HWND window;
+#endif
     bool visible;
+    Naui_String display_name; /* copy of desc->name, used as the window title */
 }
 Uph_PluginInternalHandle;
 
@@ -263,6 +268,7 @@ static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width,
     if (!internal_handle)
         return false;
 
+#if NAUI_LINUX
     XResizeWindow(internal_handle->display, internal_handle->window, width, height);
 
     XSizeHints *size_hints = XAllocSizeHints();
@@ -275,6 +281,23 @@ static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width,
     XFree(size_hints);
 
     XFlush(internal_handle->display);
+#elif NAUI_WINDOWS
+    /* width/height from CLAP are client-area size; adjust so the client
+       area ends up matching exactly, same intent as the X11 min/max hints. */
+    RECT rect = { 0, 0, (LONG)width, (LONG)height };
+    DWORD style = (DWORD)GetWindowLongA(internal_handle->window, GWL_STYLE);
+    DWORD ex_style = (DWORD)GetWindowLongA(internal_handle->window, GWL_EXSTYLE);
+    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+
+    SetWindowPos(
+        internal_handle->window,
+        NULL,
+        0, 0,
+        rect.right - rect.left,
+        rect.bottom - rect.top,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
+    );
+#endif
 
     return true;
 }
@@ -369,8 +392,66 @@ static Naui_List(Uph_PluginParam) uph_clap_get_param_list(Uph_Plugin *plug)
     return list;
 }
 
+#if NAUI_WINDOWS
+static void uph_hide_plugin_window_internal(Uph_PluginInternalHandle *internal_handle)
+{
+    if (!internal_handle->visible)
+        return;
+
+    internal_handle->visible = false;
+
+    if (internal_handle->clap.gui)
+        internal_handle->clap.gui->hide(internal_handle->clap.plugin);
+
+    ShowWindow(internal_handle->window, SW_HIDE);
+}
+
+static LRESULT CALLBACK uph_plugin_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)(uintptr_t)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+
+    switch (msg)
+    {
+        case WM_CLOSE:
+            /* internal_handle is only attached after CreateWindowExA returns
+               (see uph_load_plugin_effect), so it can still be NULL here if
+               something manages to close the window before then. */
+            if (internal_handle)
+                uph_hide_plugin_window_internal(internal_handle);
+            return 0;
+
+        default:
+            return DefWindowProcA(hwnd, msg, wparam, lparam);
+    }
+}
+
+static ATOM uph_register_plugin_wnd_class(void)
+{
+    static ATOM cls = 0;
+    if (cls)
+        return cls;
+
+    WNDCLASSEXA wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXA);
+    wc.style = CS_HREDRAW | CS_VREDRAW;
+    wc.lpfnWndProc = uph_plugin_wnd_proc;
+    wc.hInstance = GetModuleHandleA(NULL);
+    wc.hCursor = LoadCursorA(NULL, (LPCSTR)IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = "UphPluginChildWindow";
+
+    cls = RegisterClassExA(&wc);
+    if (!cls)
+        fprintf(stderr, "uph: RegisterClassExA failed: %lu\n", GetLastError());
+
+    return cls;
+}
+#endif
+
 static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
 {
+#if NAUI_LINUX
     void *handle = dlopen(plug->file_path.data, RTLD_LOCAL | RTLD_LAZY);
     if (!handle) { fprintf(stderr, "dlopen failed: %s\n", dlerror()); return; }
 
@@ -381,6 +462,18 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
         dlclose(handle);
         return;
     }
+#elif NAUI_WINDOWS
+    HMODULE handle = LoadLibraryA(plug->file_path.data);
+    if (!handle) { fprintf(stderr, "LoadLibraryA failed: %lu\n", GetLastError()); return; }
+
+    const clap_plugin_entry_t *entry = (const clap_plugin_entry_t *)GetProcAddress(handle, "clap_entry");
+    if (!entry)
+    {
+        fprintf(stderr, "no clap_entry symbol\n");
+        FreeLibrary(handle);
+        return;
+    }
+#endif
 
     if (!entry->init(plug->file_path.data))
     {
@@ -403,6 +496,10 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
 
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)calloc(1, sizeof(Uph_PluginInternalHandle));
+
+    /* desc->name is owned by the plugin bundle; copy it so we have a
+       stable string to use as the window title after this call returns. */
+    internal_handle->display_name = naui_string_from_cstr(desc->name);
 
     uph_note_ring_init(&internal_handle->clap.pending_notes);
     uph_param_ring_init(&internal_handle->clap.pending_params);
@@ -434,20 +531,29 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
 
     const clap_plugin_gui_t *gui =
         (const clap_plugin_gui_t *)plugin->get_extension(plugin, CLAP_EXT_GUI);
-    
+
     if (!gui)
     {
         fprintf(stderr, "gui init failed\n");
         return;
     }
 
+#if NAUI_LINUX
     if (!gui->is_api_supported(plugin, CLAP_WINDOW_API_X11, false))
     {
         fprintf(stderr, "gui not supported on X11\n");
         return;
     }
-
     gui->create(plugin, CLAP_WINDOW_API_X11, false);
+#elif NAUI_WINDOWS
+    if (!gui->is_api_supported(plugin, CLAP_WINDOW_API_WIN32, false))
+    {
+        fprintf(stderr, "gui not supported on Win32\n");
+        return;
+    }
+    gui->create(plugin, CLAP_WINDOW_API_WIN32, false);
+#endif
+
     gui->get_size(plugin, width, height);
 
     const clap_plugin_timer_support_t *timer_support =
@@ -470,10 +576,15 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
 static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    clap_window_t window = { .api = CLAP_WINDOW_API_X11, .x11 = internal_handle->window };
-    
+
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
     const clap_plugin_gui_t *gui = internal_handle->clap.gui;
+
+#if NAUI_LINUX
+    clap_window_t window = { .api = CLAP_WINDOW_API_X11, .x11 = internal_handle->window };
+#elif NAUI_WINDOWS
+    clap_window_t window = { .api = CLAP_WINDOW_API_WIN32, .win32 = internal_handle->window };
+#endif
 
     gui->set_parent(plugin, &window);
     gui->show(plugin);
@@ -506,6 +617,7 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
 
+#if NAUI_LINUX
     Window parent = (Window)mg_app_primary_handle();
     Display *dpy = (Display*)XOpenDisplay(NULL);
 
@@ -534,7 +646,7 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
     XFree(size_hints);
 
     XSetTransientForHint(dpy, child, parent);
-    XStoreName(dpy, child, "Child Window");
+    XStoreName(dpy, child, internal_handle->display_name.data);
 
     XMapWindow(dpy, child);
     XFlush(dpy);
@@ -578,6 +690,52 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
     internal_handle->window = child;
     internal_handle->display = dpy;
     internal_handle->visible = true;
+#elif NAUI_WINDOWS
+    HWND parent = (HWND)mg_app_primary_handle();
+
+    uph_register_plugin_wnd_class();
+
+    /* WS_POPUP + WS_CAPTION/WS_SYSMENU gives a normal-looking dialog-ish
+       frame without WS_THICKFRAME, so the CLAP plugin's fixed size is
+       respected (mirrors the X11 PMinSize|PMaxSize hint behavior). */
+    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
+    DWORD ex_style = WS_EX_DLGMODALFRAME;
+
+    RECT rect = { 0, 0, (LONG)width, (LONG)height };
+    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+
+    HWND child = CreateWindowExA(
+        ex_style,
+        "UphPluginChildWindow",
+        internal_handle->display_name.data,
+        style,
+        100, 100,
+        rect.right - rect.left,
+        rect.bottom - rect.top,
+        parent,
+        NULL,
+        GetModuleHandleA(NULL),
+        NULL
+    );
+
+    if (!child)
+    {
+        fprintf(stderr, "uph: CreateWindowExA failed: %lu\n", GetLastError());
+        return effect;
+    }
+
+    /* Store the heap-owned internal handle here, not a pointer to the local
+       `effect` — `effect` is returned by value below and its address is
+       dead the moment this function returns, which was the actual bug
+       behind the close button silently doing nothing. */
+    SetWindowLongPtrA(child, GWLP_USERDATA, (LONG_PTR)internal_handle);
+
+    ShowWindow(child, SW_SHOW);
+    UpdateWindow(child);
+
+    internal_handle->window = child;
+    internal_handle->visible = true;
+#endif
 
     switch (effect.type)
     {
@@ -613,22 +771,28 @@ void uph_unload_plugin_effect(Uph_Plugin *plug)
         plugin->destroy(plugin);
     }
 
+#if NAUI_LINUX
     if (internal_handle->display)
     {
         XDestroyWindow(internal_handle->display, internal_handle->window);
         XFlush(internal_handle->display);
         XCloseDisplay(internal_handle->display);
     }
+#elif NAUI_WINDOWS
+    if (internal_handle->window)
+        DestroyWindow(internal_handle->window);
+
+    if (internal_handle->clap.library_handle)
+        FreeLibrary((HMODULE)internal_handle->clap.library_handle);
+#endif
 
     free(plug->internal_handle);
     plug->internal_handle = NULL;
 }
 
-static inline long uph_ms_since(struct timespec *then)
+static inline long uph_ms_since(float then)
 {
-    struct timespec now;
-    clock_gettime(CLOCK_MONOTONIC, &now);
-    return (now.tv_sec - then->tv_sec) * 1000 + (now.tv_nsec - then->tv_nsec) / 1000000;
+    return (long)((naui_time() - then) * 1000.0f);
 }
 
 void uph_hide_plugin_window(Uph_Plugin *plug)
@@ -636,6 +800,7 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
+#if NAUI_LINUX
     if (!internal_handle->visible)
         return;
 
@@ -646,6 +811,9 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
 
     XUnmapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
+#elif NAUI_WINDOWS
+    uph_hide_plugin_window_internal(internal_handle);
+#endif
 }
 
 void uph_show_plugin_window(Uph_Plugin *plug)
@@ -656,12 +824,17 @@ void uph_show_plugin_window(Uph_Plugin *plug)
     if (internal_handle->visible)
         return;
 
+#if NAUI_LINUX
     XMapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
+#elif NAUI_WINDOWS
+    ShowWindow(internal_handle->window, SW_SHOW);
+    UpdateWindow(internal_handle->window);
+#endif
 
     if (internal_handle->clap.gui)
         internal_handle->clap.gui->show(internal_handle->clap.plugin);
-    
+
     internal_handle->visible = true;
 }
 
@@ -677,6 +850,7 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
+#if NAUI_LINUX
     Display *dpy = internal_handle->display;
     Window win = internal_handle->window;
 
@@ -711,6 +885,18 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
                 break;
         }
     }
+#elif NAUI_WINDOWS
+    MSG msg;
+    HWND win = internal_handle->window;
+
+    /* PM_REMOVE + filtering by hwnd keeps this scoped to just the plugin
+       child window, mirroring the X11 "peek then bail if not ours" loop. */
+    while (PeekMessageA(&msg, win, 0, 0, PM_REMOVE))
+    {
+        TranslateMessage(&msg);
+        DispatchMessageA(&msg);
+    }
+#endif
 }
 
 void uph_update_plugin(Uph_Plugin *plug)

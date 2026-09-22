@@ -140,20 +140,20 @@ void uph_render_main_titlebar(void)
 				}
 
 				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.settings"), leaf_id("uph_edit_menu_settings")))
-					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_settings));
+					naui_open_panel(uph_state.panels.settings);
 
 				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("song_timeline.title"), leaf_id("uph_windows_menu_song_timeline")))
-					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_song_timeline));
+					naui_open_panel(uph_state.panels.song_timeline);
 
-				if (uph_ui_menu_item(windows_menu, NAUI_TR("midi_editor.title"), leaf_id("uph_windows_menu_midi_editor")))
-					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_midi_editor));
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_editor.title"), leaf_id("uph_windows_menu_midi_editor")))
+					naui_open_panel(uph_state.panels.resource_editor);
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("patterns.title"), leaf_id("uph_windows_menu_pattern_list")))
-					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_pattern_list));
+					naui_open_panel(uph_state.panels.pattern_list);
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("samples.title"), leaf_id("uph_windows_menu_sample_list")))
-					naui_open_panel(NAUI_FIND_PANEL_OF_TYPE(uph_sample_list));
+					naui_open_panel(uph_state.panels.sample_list);
 			}
 		}
 

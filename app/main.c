@@ -85,26 +85,32 @@ void naui_app_start(void)
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
 
+	uph_state.panels.song_timeline = NAUI_ATTACH_PANEL(uph_song_timeline);
+	uph_state.panels.pattern_list = NAUI_ATTACH_PANEL(uph_pattern_list);
+	uph_state.panels.sample_list = NAUI_ATTACH_PANEL(uph_sample_list);
+	uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list);
+	uph_state.panels.mixer = NAUI_ATTACH_PANEL(uph_mixer);
+	uph_state.panels.resource_editor = NAUI_ATTACH_PANEL(uph_midi_editor);
+	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
+
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(
-			NAUI_ATTACH_PANEL(uph_song_timeline),
+			uph_state.panels.song_timeline,
 			naui_dock_panel(naui_dock_panel(
-				NAUI_ATTACH_PANEL(uph_pattern_list),
-				NAUI_ATTACH_PANEL(uph_sample_list),
+				uph_state.panels.pattern_list,
+				uph_state.panels.sample_list,
 				NAUI_DOCK_DIRECTION_CENTER, 0.0f
-			), NAUI_ATTACH_PANEL(uph_automation_list),
+			), uph_state.panels.automation_list,
 			NAUI_DOCK_DIRECTION_CENTER, 0.0f),
 			NAUI_DOCK_DIRECTION_RIGHT, 0.8f
 		),
 		naui_dock_panel(
-			NAUI_ATTACH_PANEL(uph_mixer),
-			NAUI_ATTACH_PANEL(uph_midi_editor),
+			uph_state.panels.mixer,
+			uph_state.panels.resource_editor,
 			NAUI_DOCK_DIRECTION_LEFT, 0.7f
 		),
 		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
 	));
-
-	naui_close_panel(NAUI_ATTACH_PANEL(uph_settings));
 
 	uph_settings_open_midi_ports(!settings_loaded);
 	uph_project_create(naui_string_from_cstr("Test Project"));
