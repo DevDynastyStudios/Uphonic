@@ -1538,7 +1538,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
                     entries = naui_directory_filter_recursive(parent_path, "*", NAUI_EXTENSIONS(".clap", ".vst3"));
                 for (uint32_t j = 0; j < (uint32_t)naui_list_len(entries); j++)
                 {
-                    if (uph_ui_menu_item(instrument_menu, naui_view_to_string(naui_file_stem(&entries[j].path)).data, leaf_id_indexed("uph_track_options_instrument", j))) 
+                    if (uph_ui_menu_item(instrument_menu, entries[j].path.data, leaf_id_indexed("uph_track_options_instrument", j))) 
                     {
                         track->instrument = uph_load_plugin_effect(entries[j].path);
                         track->type = UPH_RESOURCE_PATTERN;
