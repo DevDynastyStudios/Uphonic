@@ -1371,7 +1371,7 @@ static void uph_song_timeline_render_top_bar(void)
         {
             const Naui_Color bg_color = naui_theme_color("uph_ui_frame_secondary_bg_color");
             if (uph_ui_text_button_ex(NAUI_TR("song_timeline.add.track"), leaf_id("uph_song_timeline_add_track"), bg_color, NAUI_CORNER_ALL))
-                uph_resources_add_track(naui_string_from_cstr("New Track"));
+                uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
         }
 
         leaf({

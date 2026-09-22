@@ -346,7 +346,7 @@ static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track
 	//uph_io_color_to_hex(track->color, color);
 
 	naui_json_set_string(&json, root, "name", track->name.data);
-	//naui_json_set_string(&json, root, "color", color);
+	naui_json_set_int(&json, root, "color_index", track->color_index);
 	naui_json_set_string(&json, root, "type", uph_io_resource_type_name(track->type));
 	naui_json_set_number(&json, root, "volume", uph_io_float_json(track->volume));
 	naui_json_set_number(&json, root, "pan", uph_io_float_json(track->pan));
@@ -1006,7 +1006,10 @@ static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir)
 
 	const Naui_JsonValue* root = json.root;
 	track->name = naui_string_from_cstr(naui_json_get_string(naui_json_object_get(root, "name"), NAUI_TR("song_timeline.track.title")));
-	//track->color = uph_io_color_from_hex(naui_json_get_string(naui_json_object_get(root, "color"), NULL), naui_theme_color("uph_palette_color_1")); // Is now color index
+	uph_io_read_int32(root, "color_index", &track->color_index);
+	if (track->color_index < 0)	// Wait for colors to have a way to get size to loop index
+		track->color_index = 0;
+
 	track->type = uph_io_resource_type_from_name(naui_json_get_string(naui_json_object_get(root, "type"), "none"));
 
 	float volume = 1.0f;
