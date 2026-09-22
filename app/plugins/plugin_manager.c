@@ -1,5 +1,3 @@
-#if NAUI_LINUX || NAUI_WINDOWS
-
 typedef struct
 {
     clap_input_events_t iface;
@@ -94,7 +92,7 @@ typedef struct
     HWND window;
 #endif
     bool visible;
-    Naui_String display_name; /* copy of desc->name, used as the window title */
+    Naui_String display_name;
 }
 Uph_PluginInternalHandle;
 
@@ -282,8 +280,6 @@ static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width,
 
     XFlush(internal_handle->display);
 #elif NAUI_WINDOWS
-    /* width/height from CLAP are client-area size; adjust so the client
-       area ends up matching exactly, same intent as the X11 min/max hints. */
     RECT rect = { 0, 0, (LONG)width, (LONG)height };
     DWORD style = (DWORD)GetWindowLongA(internal_handle->window, GWL_STYLE);
     DWORD ex_style = (DWORD)GetWindowLongA(internal_handle->window, GWL_EXSTYLE);
@@ -414,9 +410,6 @@ static LRESULT CALLBACK uph_plugin_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, 
     switch (msg)
     {
         case WM_CLOSE:
-            /* internal_handle is only attached after CreateWindowExA returns
-               (see uph_load_plugin_effect), so it can still be NULL here if
-               something manages to close the window before then. */
             if (internal_handle)
                 uph_hide_plugin_window_internal(internal_handle);
             return 0;
@@ -497,8 +490,6 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)calloc(1, sizeof(Uph_PluginInternalHandle));
 
-    /* desc->name is owned by the plugin bundle; copy it so we have a
-       stable string to use as the window title after this call returns. */
     internal_handle->display_name = naui_string_from_cstr(desc->name);
 
     uph_note_ring_init(&internal_handle->clap.pending_notes);
@@ -695,9 +686,6 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
 
     uph_register_plugin_wnd_class();
 
-    /* WS_POPUP + WS_CAPTION/WS_SYSMENU gives a normal-looking dialog-ish
-       frame without WS_THICKFRAME, so the CLAP plugin's fixed size is
-       respected (mirrors the X11 PMinSize|PMaxSize hint behavior). */
     DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
     DWORD ex_style = WS_EX_DLGMODALFRAME;
 
@@ -724,10 +712,6 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
         return effect;
     }
 
-    /* Store the heap-owned internal handle here, not a pointer to the local
-       `effect` — `effect` is returned by value below and its address is
-       dead the moment this function returns, which was the actual bug
-       behind the close button silently doing nothing. */
     SetWindowLongPtrA(child, GWLP_USERDATA, (LONG_PTR)internal_handle);
 
     ShowWindow(child, SW_SHOW);
@@ -889,8 +873,6 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
     MSG msg;
     HWND win = internal_handle->window;
 
-    /* PM_REMOVE + filtering by hwnd keeps this scoped to just the plugin
-       child window, mirroring the X11 "peek then bail if not ours" loop. */
     while (PeekMessageA(&msg, win, 0, 0, PM_REMOVE))
     {
         TranslateMessage(&msg);
@@ -1030,4 +1012,127 @@ void uph_process_plugin(
     uph_param_ring_advance(&internal_handle->clap.pending_params, param_snapshot);
 }
 
-#endif
+typedef struct
+{
+    clap_ostream_t iface;
+    uint8_t *data;
+    size_t size;
+    size_t capacity;
+}
+Uph_ClapSaveStream;
+
+static int64_t uph_clap_stream_write(const clap_ostream_t *stream, const void *buffer, uint64_t size)
+{
+    Uph_ClapSaveStream *self = (Uph_ClapSaveStream*)stream;
+
+    if (self->size + size > self->capacity)
+    {
+        size_t new_capacity = self->capacity ? self->capacity * 2 : 4096;
+        while (new_capacity < self->size + size)
+            new_capacity *= 2;
+
+        uint8_t *new_data = (uint8_t*)realloc(self->data, new_capacity);
+        if (!new_data)
+            return -1;
+
+        self->data = new_data;
+        self->capacity = new_capacity;
+    }
+
+    memcpy(self->data + self->size, buffer, size);
+    self->size += size;
+    return (int64_t)size;
+}
+
+typedef struct
+{
+    clap_istream_t iface;
+    const uint8_t *data;
+    size_t size;
+    size_t pos;
+}
+Uph_ClapLoadStream;
+
+static int64_t uph_clap_stream_read(const clap_istream_t *stream, void *buffer, uint64_t size)
+{
+    Uph_ClapLoadStream *self = (Uph_ClapLoadStream*)stream;
+
+    size_t remaining = self->size - self->pos;
+    size_t to_read = size < remaining ? (size_t)size : remaining;
+
+    memcpy(buffer, self->data + self->pos, to_read);
+    self->pos += to_read;
+    return (int64_t)to_read;
+}
+
+bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
+{
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!internal_handle || !internal_handle->clap.plugin)
+        return false;
+
+    const clap_plugin_state_t *state =
+        (const clap_plugin_state_t*)internal_handle->clap.plugin->get_extension(
+            internal_handle->clap.plugin, CLAP_EXT_STATE);
+
+    if (!state)
+    {
+        fprintf(stderr, "uph_plugin_save_state: plugin has no state extension\n");
+        return false;
+    }
+
+    Uph_ClapSaveStream stream = {
+        .iface = { .ctx = &stream, .write = uph_clap_stream_write },
+        .data = NULL,
+        .size = 0,
+        .capacity = 0
+    };
+
+    bool ok = state->save(internal_handle->clap.plugin, &stream.iface);
+    if (ok)
+        ok = naui_file_write_all(path, stream.data, stream.size);
+
+    free(stream.data);
+    return ok;
+}
+
+bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
+{
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!internal_handle || !internal_handle->clap.plugin)
+        return false;
+
+    const clap_plugin_state_t *state =
+        (const clap_plugin_state_t*)internal_handle->clap.plugin->get_extension(
+            internal_handle->clap.plugin, CLAP_EXT_STATE);
+
+    if (!state)
+    {
+        fprintf(stderr, "uph_plugin_load_state: plugin has no state extension\n");
+        return false;
+    }
+
+    size_t size = 0;
+    char *data = naui_file_read_all(path, &size);
+    if (!data)
+    {
+        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
+        return false;
+    }
+
+    Uph_ClapLoadStream stream = {
+        .iface = { .ctx = &stream, .read = uph_clap_stream_read },
+        .data = (const uint8_t*)data,
+        .size = size,
+        .pos = 0
+    };
+
+    bool ok = state->load(internal_handle->clap.plugin, &stream.iface);
+
+    free(data);
+
+    if (ok)
+        plug->params = uph_clap_get_param_list(plug);
+
+    return ok;
+}
