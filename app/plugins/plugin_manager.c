@@ -8,13 +8,13 @@ typedef struct
 }
 Uph_ClapInEvents;
 
-static uint32_t uph_in_events_size(const clap_input_events_t *list)
+static uint32_t uph_clap_in_events_size(const clap_input_events_t *list)
 {
     const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
     return self->note_count_snapshot + self->param_count_snapshot;
 }
 
-static const clap_event_header_t *uph_in_events_get(const clap_input_events_t *list, uint32_t index)
+static const clap_event_header_t *uph_clap_in_events_get(const clap_input_events_t *list, uint32_t index)
 {
     const Uph_ClapInEvents *self = (const Uph_ClapInEvents*)list;
 
@@ -48,6 +48,99 @@ static const clap_event_header_t *uph_in_events_get(const clap_input_events_t *l
     return NULL;
 }
 
+static bool uph_vst3_iid_equal(const Steinberg_TUID a, const Steinberg_TUID b)
+{
+    return memcmp(a, b, sizeof(Steinberg_TUID)) == 0;
+}
+
+typedef struct
+{
+    Steinberg_Vst_IHostApplication iface;
+}
+Uph_Vst3Host;
+
+typedef struct
+{
+    Steinberg_Vst_IComponentHandler iface;
+    struct Uph_PluginInternalHandle_ *owner;
+}
+Uph_Vst3Handler;
+
+#define UPH_VST3_MAX_FD_HANDLERS 8
+#define UPH_VST3_MAX_TIMERS      8
+
+typedef struct
+{
+    Steinberg_Linux_IEventHandler *handler;
+    int fd;
+}
+Uph_Vst3FdHandler;
+
+typedef struct
+{
+    Steinberg_Linux_ITimerHandler *handler;
+    uint64_t period_ms;
+    float last_fire;
+}
+Uph_Vst3Timer;
+
+typedef struct
+{
+    Steinberg_Linux_IRunLoop iface;
+    Uph_Vst3FdHandler fds[UPH_VST3_MAX_FD_HANDLERS];
+    Uph_Vst3Timer timers[UPH_VST3_MAX_TIMERS];
+}
+Uph_Vst3RunLoop;
+
+typedef struct
+{
+    Steinberg_IPlugFrame iface;
+    Uph_Vst3RunLoop *run_loop;
+    struct Uph_PluginInternalHandle_ *owner;
+}
+Uph_Vst3Frame;
+
+#define UPH_VST3_MAX_EVENTS (UPH_NOTE_RING_CAPACITY)
+#define UPH_VST3_MAX_PARAM_QUEUES 64
+#define UPH_VST3_MAX_POINTS_PER_QUEUE 64
+
+typedef struct
+{
+    Steinberg_Vst_IEventList iface;
+    struct Steinberg_Vst_Event events[UPH_VST3_MAX_EVENTS];
+    int32_t count;
+}
+Uph_Vst3EventList;
+
+typedef struct
+{
+    Steinberg_Vst_IParamValueQueue iface;
+    Steinberg_Vst_ParamID id;
+    int32_t count;
+    int32_t offsets[UPH_VST3_MAX_POINTS_PER_QUEUE];
+    double values[UPH_VST3_MAX_POINTS_PER_QUEUE];
+}
+Uph_Vst3ParamQueue;
+
+typedef struct
+{
+    Steinberg_Vst_IParameterChanges iface;
+    Uph_Vst3ParamQueue queues[UPH_VST3_MAX_PARAM_QUEUES];
+    int32_t count;
+}
+Uph_Vst3ParamChanges;
+
+typedef struct
+{
+    Steinberg_IBStream iface;
+    uint8_t *data;
+    int64_t size;
+    int64_t capacity;
+    int64_t pos;
+    bool owns_data;
+}
+Uph_Vst3MemStream;
+
 #define UPH_MAX_PLUGIN_TIMERS 8
 
 typedef struct
@@ -59,7 +152,7 @@ typedef struct
 }
 Uph_ClapTimer;
 
-typedef struct
+typedef struct Uph_PluginInternalHandle_
 {
     union
     {
@@ -82,6 +175,36 @@ typedef struct
             clap_id next_timer_id;
         }
         clap;
+
+        struct
+        {
+            Steinberg_Vst_IComponent *component;
+            Steinberg_Vst_IAudioProcessor *processor;
+            Steinberg_Vst_IEditController *controller;
+            Steinberg_Vst_IConnectionPoint *component_cp;
+            Steinberg_Vst_IConnectionPoint *controller_cp;
+            Steinberg_IPlugView *view;
+            Steinberg_IPluginFactory *factory;
+            void *library_handle;
+            bool controller_is_component;
+
+            Uph_Vst3Host host_app;
+            Uph_Vst3Handler handler;
+            Uph_Vst3Frame frame;
+            Uph_Vst3RunLoop run_loop;
+
+            Uph_NoteEventRing pending_notes;
+            Uph_ParamEventRing pending_params;
+
+            bool active_notes[128];
+            int16_t active_note_channels[128];
+
+            uint32_t width, height;
+            bool has_event_input;
+            int32_t next_note_id;
+            int32_t note_ids[128];
+        }
+        vst3;
     };
 
 #if NAUI_LINUX
@@ -95,6 +218,1259 @@ typedef struct
     Naui_String display_name;
 }
 Uph_PluginInternalHandle;
+
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE uph_vst3_static_add_ref(void *self)  { (void)self; return 1; }
+static Steinberg_uint32 SMTG_STDMETHODCALLTYPE uph_vst3_static_release(void *self)  { (void)self; return 1; }
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_stream_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_IBStream_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_stream_read(void *self, void *buffer, Steinberg_int32 num_bytes, Steinberg_int32 *num_read)
+{
+    Uph_Vst3MemStream *s = (Uph_Vst3MemStream*)self;
+    int64_t remaining = s->size - s->pos;
+    int64_t n = num_bytes < remaining ? num_bytes : remaining;
+    if (n < 0) n = 0;
+
+    if (n > 0)
+        memcpy(buffer, s->data + s->pos, (size_t)n);
+    s->pos += n;
+
+    if (num_read)
+        *num_read = (Steinberg_int32)n;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_stream_write(void *self, void *buffer, Steinberg_int32 num_bytes, Steinberg_int32 *num_written)
+{
+    Uph_Vst3MemStream *s = (Uph_Vst3MemStream*)self;
+    if (num_bytes < 0)
+        return Steinberg_kInvalidArgument;
+
+    int64_t end = s->pos + num_bytes;
+    if (end > s->capacity)
+    {
+        int64_t new_cap = s->capacity ? s->capacity * 2 : 4096;
+        while (new_cap < end)
+            new_cap *= 2;
+
+        uint8_t *p = (uint8_t*)realloc(s->data, (size_t)new_cap);
+        if (!p)
+            return Steinberg_kOutOfMemory;
+        s->data = p;
+        s->capacity = new_cap;
+    }
+
+    memcpy(s->data + s->pos, buffer, (size_t)num_bytes);
+    s->pos = end;
+    if (end > s->size)
+        s->size = end;
+
+    if (num_written)
+        *num_written = num_bytes;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_stream_seek(void *self, Steinberg_int64 pos, Steinberg_int32 mode, Steinberg_int64 *result)
+{
+    Uph_Vst3MemStream *s = (Uph_Vst3MemStream*)self;
+    int64_t np;
+
+    switch (mode)
+    {
+        case Steinberg_IBStream_IStreamSeekMode_kIBSeekSet: np = pos; break;
+        case Steinberg_IBStream_IStreamSeekMode_kIBSeekCur: np = s->pos + pos; break;
+        case Steinberg_IBStream_IStreamSeekMode_kIBSeekEnd: np = s->size + pos; break;
+        default: return Steinberg_kInvalidArgument;
+    }
+
+    if (np < 0 || np > s->size)
+        return Steinberg_kResultFalse;
+
+    s->pos = np;
+    if (result)
+        *result = np;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_stream_tell(void *self, Steinberg_int64 *pos)
+{
+    Uph_Vst3MemStream *s = (Uph_Vst3MemStream*)self;
+    if (pos)
+        *pos = s->pos;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_IBStreamVtbl uph_vst3_stream_vtbl = {
+    uph_vst3_stream_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_stream_read,
+    uph_vst3_stream_write,
+    uph_vst3_stream_seek,
+    uph_vst3_stream_tell,
+};
+
+static void uph_vst3_stream_init_write(Uph_Vst3MemStream *s)
+{
+    memset(s, 0, sizeof(*s));
+    s->iface.lpVtbl = &uph_vst3_stream_vtbl;
+    s->owns_data = true;
+}
+
+static void uph_vst3_stream_init_read(Uph_Vst3MemStream *s, const uint8_t *data, int64_t size)
+{
+    memset(s, 0, sizeof(*s));
+    s->iface.lpVtbl = &uph_vst3_stream_vtbl;
+    s->data = (uint8_t*)data;
+    s->size = size;
+    s->capacity = size;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_host_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Vst_IHostApplication_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_host_get_name(void *self, Steinberg_Vst_String128 name)
+{
+    (void)self;
+    static const char host_name[] = "Uphonic";
+    for (size_t i = 0; i < sizeof(host_name); i++)
+        name[i] = (Steinberg_Vst_TChar)host_name[i];
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_host_create_instance(void *self, Steinberg_TUID cid, Steinberg_TUID iid, void **obj)
+{
+    (void)self; (void)cid; (void)iid;
+    *obj = NULL;
+    return Steinberg_kNotImplemented;
+}
+
+static Steinberg_Vst_IHostApplicationVtbl uph_vst3_host_vtbl = {
+    uph_vst3_host_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_host_get_name,
+    uph_vst3_host_create_instance,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Vst_IComponentHandler_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_begin_edit(void *self, Steinberg_Vst_ParamID id)
+{
+    (void)self; (void)id;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_perform_edit(void *self, Steinberg_Vst_ParamID id, Steinberg_Vst_ParamValue value)
+{
+    Uph_Vst3Handler *h = (Uph_Vst3Handler*)self;
+    if (!h->owner)
+        return Steinberg_kResultOk;
+
+    clap_event_param_value_t ev = {0};
+    ev.header.size = sizeof(ev);
+    ev.header.time = 0;
+    ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    ev.header.type = CLAP_EVENT_PARAM_VALUE;
+    ev.param_id = id;
+    ev.note_id = -1;
+    ev.port_index = -1;
+    ev.channel = -1;
+    ev.key = -1;
+    ev.value = value;
+
+    uph_param_ring_push(&h->owner->vst3.pending_params, &ev);
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_end_edit(void *self, Steinberg_Vst_ParamID id)
+{
+    (void)self; (void)id;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_restart_component(void *self, Steinberg_int32 flags)
+{
+    (void)self; (void)flags;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_Vst_IComponentHandlerVtbl uph_vst3_handler_vtbl = {
+    uph_vst3_handler_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_handler_begin_edit,
+    uph_vst3_handler_perform_edit,
+    uph_vst3_handler_end_edit,
+    uph_vst3_handler_restart_component,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_runloop_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Linux_IRunLoop_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_runloop_register_event_handler(void *self, Steinberg_Linux_IEventHandler *handler, Steinberg_Linux_FileDescriptor fd)
+{
+    Uph_Vst3RunLoop *rl = (Uph_Vst3RunLoop*)self;
+    for (int i = 0; i < UPH_VST3_MAX_FD_HANDLERS; i++)
+    {
+        if (!rl->fds[i].handler)
+        {
+            rl->fds[i].handler = handler;
+            rl->fds[i].fd = fd;
+            return Steinberg_kResultOk;
+        }
+    }
+    return Steinberg_kOutOfMemory;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_runloop_unregister_event_handler(void *self, Steinberg_Linux_IEventHandler *handler)
+{
+    Uph_Vst3RunLoop *rl = (Uph_Vst3RunLoop*)self;
+    for (int i = 0; i < UPH_VST3_MAX_FD_HANDLERS; i++)
+        if (rl->fds[i].handler == handler)
+            rl->fds[i].handler = NULL;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_runloop_register_timer(void *self, Steinberg_Linux_ITimerHandler *handler, Steinberg_Linux_TimerInterval ms)
+{
+    Uph_Vst3RunLoop *rl = (Uph_Vst3RunLoop*)self;
+    for (int i = 0; i < UPH_VST3_MAX_TIMERS; i++)
+    {
+        if (!rl->timers[i].handler)
+        {
+            rl->timers[i].handler = handler;
+            rl->timers[i].period_ms = ms ? ms : 1;
+            rl->timers[i].last_fire = naui_frame_time();
+            return Steinberg_kResultOk;
+        }
+    }
+    return Steinberg_kOutOfMemory;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_runloop_unregister_timer(void *self, Steinberg_Linux_ITimerHandler *handler)
+{
+    Uph_Vst3RunLoop *rl = (Uph_Vst3RunLoop*)self;
+    for (int i = 0; i < UPH_VST3_MAX_TIMERS; i++)
+        if (rl->timers[i].handler == handler)
+            rl->timers[i].handler = NULL;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_Linux_IRunLoopVtbl uph_vst3_runloop_vtbl = {
+    uph_vst3_runloop_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_runloop_register_event_handler,
+    uph_vst3_runloop_unregister_event_handler,
+    uph_vst3_runloop_register_timer,
+    uph_vst3_runloop_unregister_timer,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    Uph_Vst3Frame *f = (Uph_Vst3Frame*)self;
+
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_IPlugFrame_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+#if NAUI_LINUX
+    if (uph_vst3_iid_equal(iid, Steinberg_Linux_IRunLoop_iid))
+    {
+        *obj = &f->run_loop->iface;
+        return Steinberg_kResultOk;
+    }
+#else
+    (void)f;
+#endif
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_resize_view(void *self, struct Steinberg_IPlugView *view, struct Steinberg_ViewRect *new_size)
+{
+    Uph_Vst3Frame *f = (Uph_Vst3Frame*)self;
+    if (!f->owner || !new_size)
+        return Steinberg_kInvalidArgument;
+
+    uint32_t w = (uint32_t)(new_size->right - new_size->left);
+    uint32_t h = (uint32_t)(new_size->bottom - new_size->top);
+
+#if NAUI_LINUX
+    XResizeWindow(f->owner->display, f->owner->window, w, h);
+
+    XSizeHints *hints = XAllocSizeHints();
+    hints->flags = PMinSize | PMaxSize;
+    hints->min_width = hints->max_width = (int)w;
+    hints->min_height = hints->max_height = (int)h;
+    XSetWMNormalHints(f->owner->display, f->owner->window, hints);
+    XFree(hints);
+    XFlush(f->owner->display);
+#elif NAUI_WINDOWS
+    RECT rect = { 0, 0, (LONG)w, (LONG)h };
+    DWORD style = (DWORD)GetWindowLongA(f->owner->window, GWL_STYLE);
+    DWORD ex_style = (DWORD)GetWindowLongA(f->owner->window, GWL_EXSTYLE);
+    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
+    SetWindowPos(f->owner->window, NULL, 0, 0,
+        rect.right - rect.left, rect.bottom - rect.top,
+        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+#endif
+
+    f->owner->vst3.width = w;
+    f->owner->vst3.height = h;
+
+    view->lpVtbl->onSize(view, new_size);
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_IPlugFrameVtbl uph_vst3_frame_vtbl = {
+    uph_vst3_frame_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_frame_resize_view,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_events_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Vst_IEventList_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_int32 SMTG_STDMETHODCALLTYPE uph_vst3_events_get_count(void *self)
+{
+    return ((Uph_Vst3EventList*)self)->count;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_events_get_event(void *self, Steinberg_int32 index, struct Steinberg_Vst_Event *e)
+{
+    Uph_Vst3EventList *l = (Uph_Vst3EventList*)self;
+    if (index < 0 || index >= l->count)
+        return Steinberg_kInvalidArgument;
+    *e = l->events[index];
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_events_add_event(void *self, struct Steinberg_Vst_Event *e)
+{
+    (void)self; (void)e;
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_Vst_IEventListVtbl uph_vst3_events_vtbl = {
+    uph_vst3_events_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_events_get_count,
+    uph_vst3_events_get_event,
+    uph_vst3_events_add_event,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_pq_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Vst_IParamValueQueue_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_Vst_ParamID SMTG_STDMETHODCALLTYPE uph_vst3_pq_get_parameter_id(void *self)
+{
+    return ((Uph_Vst3ParamQueue*)self)->id;
+}
+
+static Steinberg_int32 SMTG_STDMETHODCALLTYPE uph_vst3_pq_get_point_count(void *self)
+{
+    return ((Uph_Vst3ParamQueue*)self)->count;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_pq_get_point(void *self, Steinberg_int32 index, Steinberg_int32 *sample_offset, Steinberg_Vst_ParamValue *value)
+{
+    Uph_Vst3ParamQueue *q = (Uph_Vst3ParamQueue*)self;
+    if (index < 0 || index >= q->count)
+        return Steinberg_kInvalidArgument;
+    *sample_offset = q->offsets[index];
+    *value = q->values[index];
+    return Steinberg_kResultOk;
+}
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_pq_add_point(void *self, Steinberg_int32 sample_offset, Steinberg_Vst_ParamValue value, Steinberg_int32 *index)
+{
+    (void)self; (void)sample_offset; (void)value; (void)index;
+    return Steinberg_kResultFalse;
+}
+
+static Steinberg_Vst_IParamValueQueueVtbl uph_vst3_pq_vtbl = {
+    uph_vst3_pq_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_pq_get_parameter_id,
+    uph_vst3_pq_get_point_count,
+    uph_vst3_pq_get_point,
+    uph_vst3_pq_add_point,
+};
+
+static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_pc_query_interface(void *self, const Steinberg_TUID iid, void **obj)
+{
+    if (uph_vst3_iid_equal(iid, Steinberg_FUnknown_iid) || uph_vst3_iid_equal(iid, Steinberg_Vst_IParameterChanges_iid))
+    {
+        *obj = self;
+        return Steinberg_kResultOk;
+    }
+    *obj = NULL;
+    return Steinberg_kNoInterface;
+}
+
+static Steinberg_int32 SMTG_STDMETHODCALLTYPE uph_vst3_pc_get_parameter_count(void *self)
+{
+    return ((Uph_Vst3ParamChanges*)self)->count;
+}
+
+static struct Steinberg_Vst_IParamValueQueue* SMTG_STDMETHODCALLTYPE uph_vst3_pc_get_parameter_data(void *self, Steinberg_int32 index)
+{
+    Uph_Vst3ParamChanges *c = (Uph_Vst3ParamChanges*)self;
+    if (index < 0 || index >= c->count)
+        return NULL;
+    return &c->queues[index].iface;
+}
+
+static struct Steinberg_Vst_IParamValueQueue* SMTG_STDMETHODCALLTYPE uph_vst3_pc_add_parameter_data(void *self, const Steinberg_Vst_ParamID *id, Steinberg_int32 *index)
+{
+    Uph_Vst3ParamChanges *c = (Uph_Vst3ParamChanges*)self;
+
+    for (int32_t i = 0; i < c->count; i++)
+    {
+        if (c->queues[i].id == *id)
+        {
+            if (index) *index = i;
+            return &c->queues[i].iface;
+        }
+    }
+
+    if (c->count >= UPH_VST3_MAX_PARAM_QUEUES)
+        return NULL;
+
+    Uph_Vst3ParamQueue *q = &c->queues[c->count];
+    q->iface.lpVtbl = &uph_vst3_pq_vtbl;
+    q->id = *id;
+    q->count = 0;
+    if (index) *index = c->count;
+    c->count++;
+    return &q->iface;
+}
+
+static Steinberg_Vst_IParameterChangesVtbl uph_vst3_pc_vtbl = {
+    uph_vst3_pc_query_interface,
+    uph_vst3_static_add_ref,
+    uph_vst3_static_release,
+    uph_vst3_pc_get_parameter_count,
+    uph_vst3_pc_get_parameter_data,
+    uph_vst3_pc_add_parameter_data,
+};
+
+static void uph_vst3_param_changes_reset(Uph_Vst3ParamChanges *c)
+{
+    c->iface.lpVtbl = &uph_vst3_pc_vtbl;
+    c->count = 0;
+}
+
+static void uph_vst3_param_changes_add(Uph_Vst3ParamChanges *c, Steinberg_Vst_ParamID id, int32_t offset, double value)
+{
+    Uph_Vst3ParamQueue *q = NULL;
+    for (int32_t i = 0; i < c->count; i++)
+        if (c->queues[i].id == id) { q = &c->queues[i]; break; }
+
+    if (!q)
+    {
+        if (c->count >= UPH_VST3_MAX_PARAM_QUEUES)
+            return;
+        q = &c->queues[c->count++];
+        q->iface.lpVtbl = &uph_vst3_pq_vtbl;
+        q->id = id;
+        q->count = 0;
+    }
+
+    if (q->count >= UPH_VST3_MAX_POINTS_PER_QUEUE)
+    {
+        q->offsets[q->count - 1] = offset;
+        q->values[q->count - 1] = value;
+        return;
+    }
+
+    q->offsets[q->count] = offset;
+    q->values[q->count] = value;
+    q->count++;
+}
+
+static void uph_vst3_string128_to_utf8(const Steinberg_Vst_String128 src, char *dst, size_t dst_size)
+{
+    size_t o = 0;
+    for (size_t i = 0; i < 128 && src[i] && o + 4 < dst_size; i++)
+    {
+        uint32_t c = (uint16_t)src[i];
+
+        if (c >= 0xD800 && c <= 0xDBFF && i + 1 < 128 && (uint16_t)src[i + 1] >= 0xDC00 && (uint16_t)src[i + 1] <= 0xDFFF)
+        {
+            c = 0x10000 + ((c - 0xD800) << 10) + ((uint16_t)src[i + 1] - 0xDC00);
+            i++;
+        }
+
+        if (c < 0x80) dst[o++] = (char)c;
+        else if (c < 0x800)
+        {
+            dst[o++] = (char)(0xC0 | (c >> 6));
+            dst[o++] = (char)(0x80 | (c & 0x3F));
+        }
+        else if (c < 0x10000)
+        {
+            dst[o++] = (char)(0xE0 | (c >> 12));
+            dst[o++] = (char)(0x80 | ((c >> 6) & 0x3F));
+            dst[o++] = (char)(0x80 | (c & 0x3F));
+        }
+        else
+        {
+            dst[o++] = (char)(0xF0 | (c >> 18));
+            dst[o++] = (char)(0x80 | ((c >> 12) & 0x3F));
+            dst[o++] = (char)(0x80 | ((c >> 6) & 0x3F));
+            dst[o++] = (char)(0x80 | (c & 0x3F));
+        }
+    }
+    dst[o] = '\0';
+}
+
+static Naui_List(Uph_PluginParam) uph_vst3_get_param_list(Uph_Plugin *plug)
+{
+    Naui_List(Uph_PluginParam) list = NULL;
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!ih || !ih->vst3.controller)
+        return list;
+
+    Steinberg_Vst_IEditController *ctrl = ih->vst3.controller;
+    Steinberg_int32 count = ctrl->lpVtbl->getParameterCount(ctrl);
+    naui_list_reserve(list, (size_t)count);
+
+    for (Steinberg_int32 i = 0; i < count; i++)
+    {
+        struct Steinberg_Vst_ParameterInfo info;
+        if (ctrl->lpVtbl->getParameterInfo(ctrl, i, &info) != Steinberg_kResultOk)
+            continue;
+
+        if (info.flags & Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden)
+            continue;
+
+        char name[256], module[256];
+        uph_vst3_string128_to_utf8(info.title, name, sizeof(name));
+        uph_vst3_string128_to_utf8(info.units, module, sizeof(module));
+
+        Uph_PluginParam p = {
+            .id = info.id,
+            .name = naui_string_from_cstr(name),
+            .module = naui_string_from_cstr(module),
+            .min_value = 0.0,
+            .max_value = 1.0,
+            .default_value = info.defaultNormalizedValue,
+            .current_value = ctrl->lpVtbl->getParamNormalized(ctrl, info.id)
+        };
+
+        naui_list_push(list, p);
+    }
+
+    return list;
+}
+
+typedef Steinberg_IPluginFactory* (*Uph_Vst3GetFactoryFn)(void);
+typedef bool (*Uph_Vst3ModuleEntryFn)(void *handle);
+typedef bool (*Uph_Vst3ModuleExitFn)(void);
+typedef bool (*Uph_Vst3InitDllFn)(void);
+typedef bool (*Uph_Vst3ExitDllFn)(void);
+
+static bool uph_vst3_resolve_binary(const char *path, char *out, size_t out_size)
+{
+#if NAUI_LINUX
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return false;
+
+    if (!S_ISDIR(st.st_mode))
+    {
+        snprintf(out, out_size, "%s", path);
+        return true;
+    }
+
+    const char *end = path + strlen(path);
+    while (end > path && (end[-1] == '/' || end[-1] == '\\')) end--;
+    const char *base = end;
+    while (base > path && base[-1] != '/' && base[-1] != '\\') base--;
+
+    char stem[256];
+    size_t n = (size_t)(end - base);
+    if (n >= sizeof(stem)) n = sizeof(stem) - 1;
+    memcpy(stem, base, n);
+    stem[n] = '\0';
+    char *dot = strrchr(stem, '.');
+    if (dot) *dot = '\0';
+
+    snprintf(out, out_size, "%.*s/Contents/x86_64-linux/%s.so", (int)(end - path), path, stem);
+    return stat(out, &st) == 0;
+#elif NAUI_WINDOWS
+    DWORD attrs = GetFileAttributesA(path);
+    if (attrs == INVALID_FILE_ATTRIBUTES)
+        return false;
+
+    if (!(attrs & FILE_ATTRIBUTE_DIRECTORY))
+    {
+        snprintf(out, out_size, "%s", path);
+        return true;
+    }
+
+    const char *end = path + strlen(path);
+    while (end > path && (end[-1] == '/' || end[-1] == '\\')) end--;
+    const char *base = end;
+    while (base > path && base[-1] != '/' && base[-1] != '\\') base--;
+
+    snprintf(out, out_size, "%.*s\\Contents\\x86_64-win\\%.*s",
+        (int)(end - path), path, (int)(end - base), base);
+    return GetFileAttributesA(out) != INVALID_FILE_ATTRIBUTES;
+#endif
+}
+
+static void uph_vst3_free_partial(Uph_PluginInternalHandle *ih)
+{
+    if (ih->vst3.view)         ih->vst3.view->lpVtbl->release(ih->vst3.view);
+    if (ih->vst3.controller_cp) ih->vst3.controller_cp->lpVtbl->release(ih->vst3.controller_cp);
+    if (ih->vst3.component_cp)  ih->vst3.component_cp->lpVtbl->release(ih->vst3.component_cp);
+
+    if (ih->vst3.controller && !ih->vst3.controller_is_component)
+    {
+        ih->vst3.controller->lpVtbl->setComponentHandler(ih->vst3.controller, NULL);
+        ((Steinberg_IPluginBase*)ih->vst3.controller)->lpVtbl->terminate(ih->vst3.controller);
+        ih->vst3.controller->lpVtbl->release(ih->vst3.controller);
+    }
+    else if (ih->vst3.controller)
+    {
+        ih->vst3.controller->lpVtbl->setComponentHandler(ih->vst3.controller, NULL);
+        ih->vst3.controller->lpVtbl->release(ih->vst3.controller);
+    }
+
+    if (ih->vst3.processor) ih->vst3.processor->lpVtbl->release(ih->vst3.processor);
+
+    if (ih->vst3.component)
+    {
+        ((Steinberg_IPluginBase*)ih->vst3.component)->lpVtbl->terminate(ih->vst3.component);
+        ih->vst3.component->lpVtbl->release(ih->vst3.component);
+    }
+
+    if (ih->vst3.factory) ih->vst3.factory->lpVtbl->release(ih->vst3.factory);
+
+    if (ih->vst3.library_handle)
+    {
+#if NAUI_LINUX
+        Uph_Vst3ModuleExitFn exit_fn = (Uph_Vst3ModuleExitFn)dlsym(ih->vst3.library_handle, "ModuleExit");
+        if (exit_fn) exit_fn();
+        dlclose(ih->vst3.library_handle);
+#elif NAUI_WINDOWS
+        Uph_Vst3ExitDllFn exit_fn = (Uph_Vst3ExitDllFn)GetProcAddress((HMODULE)ih->vst3.library_handle, "ExitDll");
+        if (exit_fn) exit_fn();
+        FreeLibrary((HMODULE)ih->vst3.library_handle);
+#endif
+    }
+}
+
+static inline void uph_load_vst3_plugin_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
+{
+    char binary[1024];
+    if (!uph_vst3_resolve_binary(plug->file_path.data, binary, sizeof(binary)))
+    {
+        fprintf(stderr, "uph vst3: could not resolve binary for %s\n", plug->file_path.data);
+        return;
+    }
+
+    void *lib = NULL;
+    Uph_Vst3GetFactoryFn get_factory = NULL;
+
+#if NAUI_LINUX
+    lib = dlopen(binary, RTLD_LOCAL | RTLD_LAZY);
+    if (!lib) { fprintf(stderr, "uph vst3: dlopen failed: %s\n", dlerror()); return; }
+
+    Uph_Vst3ModuleEntryFn entry = (Uph_Vst3ModuleEntryFn)dlsym(lib, "ModuleEntry");
+    if (entry) entry(lib);
+    get_factory = (Uph_Vst3GetFactoryFn)dlsym(lib, "GetPluginFactory");
+#elif NAUI_WINDOWS
+    lib = (void*)LoadLibraryA(binary);
+    if (!lib) { fprintf(stderr, "uph vst3: LoadLibraryA failed: %lu\n", GetLastError()); return; }
+
+    Uph_Vst3InitDllFn init_dll = (Uph_Vst3InitDllFn)GetProcAddress((HMODULE)lib, "InitDll");
+    if (init_dll) init_dll();
+    get_factory = (Uph_Vst3GetFactoryFn)GetProcAddress((HMODULE)lib, "GetPluginFactory");
+#endif
+
+    if (!get_factory)
+    {
+        fprintf(stderr, "uph vst3: no GetPluginFactory export\n");
+#if NAUI_LINUX
+        dlclose(lib);
+#elif NAUI_WINDOWS
+        FreeLibrary((HMODULE)lib);
+#endif
+        return;
+    }
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)calloc(1, sizeof(Uph_PluginInternalHandle));
+    ih->vst3.library_handle = lib;
+    ih->vst3.factory = get_factory();
+    if (!ih->vst3.factory)
+    {
+        fprintf(stderr, "uph vst3: GetPluginFactory returned NULL\n");
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    uph_note_ring_init(&ih->vst3.pending_notes);
+    uph_param_ring_init(&ih->vst3.pending_params);
+
+    ih->vst3.host_app.iface.lpVtbl = &uph_vst3_host_vtbl;
+    ih->vst3.handler.iface.lpVtbl = &uph_vst3_handler_vtbl;
+    ih->vst3.handler.owner = ih;
+    ih->vst3.run_loop.iface.lpVtbl = &uph_vst3_runloop_vtbl;
+    ih->vst3.frame.iface.lpVtbl = &uph_vst3_frame_vtbl;
+    ih->vst3.frame.run_loop = &ih->vst3.run_loop;
+    ih->vst3.frame.owner = ih;
+
+    Steinberg_IPluginFactory3 *factory3 = NULL;
+    if (ih->vst3.factory->lpVtbl->queryInterface(ih->vst3.factory, Steinberg_IPluginFactory3_iid, (void**)&factory3) == Steinberg_kResultOk && factory3)
+    {
+        factory3->lpVtbl->setHostContext(factory3, (struct Steinberg_FUnknown*)&ih->vst3.host_app);
+        factory3->lpVtbl->release(factory3);
+    }
+
+    Steinberg_int32 class_count = ih->vst3.factory->lpVtbl->countClasses(ih->vst3.factory);
+    struct Steinberg_PClassInfo class_info;
+    bool found = false;
+
+    for (Steinberg_int32 i = 0; i < class_count; i++)
+    {
+        if (ih->vst3.factory->lpVtbl->getClassInfo(ih->vst3.factory, i, &class_info) != Steinberg_kResultOk)
+            continue;
+        if (strcmp(class_info.category, "Audio Module Class") == 0)
+        {
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+    {
+        fprintf(stderr, "uph vst3: no Audio Module Class in %s\n", plug->file_path.data);
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    printf("loading vst3 plugin: %s\n", class_info.name);
+    ih->display_name = naui_string_from_cstr(class_info.name);
+
+    if (ih->vst3.factory->lpVtbl->createInstance(
+            ih->vst3.factory, class_info.cid, Steinberg_Vst_IComponent_iid, (void**)&ih->vst3.component) != Steinberg_kResultOk
+        || !ih->vst3.component)
+    {
+        fprintf(stderr, "uph vst3: createInstance(IComponent) failed\n");
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    if (((Steinberg_IPluginBase*)ih->vst3.component)->lpVtbl->initialize(
+            ih->vst3.component, (struct Steinberg_FUnknown*)&ih->vst3.host_app) != Steinberg_kResultOk)
+    {
+        fprintf(stderr, "uph vst3: component initialize failed\n");
+        ih->vst3.component->lpVtbl->release(ih->vst3.component);
+        ih->vst3.component = NULL;
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    if (ih->vst3.component->lpVtbl->queryInterface(
+            ih->vst3.component, Steinberg_Vst_IAudioProcessor_iid, (void**)&ih->vst3.processor) != Steinberg_kResultOk
+        || !ih->vst3.processor)
+    {
+        fprintf(stderr, "uph vst3: component has no IAudioProcessor\n");
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    if (ih->vst3.component->lpVtbl->queryInterface(
+            ih->vst3.component, Steinberg_Vst_IEditController_iid, (void**)&ih->vst3.controller) == Steinberg_kResultOk
+        && ih->vst3.controller)
+    {
+        ih->vst3.controller_is_component = true;
+    }
+    else
+    {
+        ih->vst3.controller = NULL;
+        Steinberg_TUID controller_cid;
+        if (ih->vst3.component->lpVtbl->getControllerClassId(ih->vst3.component, controller_cid) == Steinberg_kResultOk)
+        {
+            if (ih->vst3.factory->lpVtbl->createInstance(
+                    ih->vst3.factory, controller_cid, Steinberg_Vst_IEditController_iid, (void**)&ih->vst3.controller) == Steinberg_kResultOk
+                && ih->vst3.controller)
+            {
+                if (((Steinberg_IPluginBase*)ih->vst3.controller)->lpVtbl->initialize(
+                        ih->vst3.controller, (struct Steinberg_FUnknown*)&ih->vst3.host_app) != Steinberg_kResultOk)
+                {
+                    fprintf(stderr, "uph vst3: controller initialize failed\n");
+                    ih->vst3.controller->lpVtbl->release(ih->vst3.controller);
+                    ih->vst3.controller = NULL;
+                }
+            }
+        }
+    }
+
+    if (!ih->vst3.controller)
+    {
+        fprintf(stderr, "uph vst3: plug-in has no edit controller\n");
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    ih->vst3.controller->lpVtbl->setComponentHandler(
+        ih->vst3.controller, (struct Steinberg_Vst_IComponentHandler*)&ih->vst3.handler);
+
+    if (!ih->vst3.controller_is_component)
+    {
+        ih->vst3.component->lpVtbl->queryInterface(
+            ih->vst3.component, Steinberg_Vst_IConnectionPoint_iid, (void**)&ih->vst3.component_cp);
+        ih->vst3.controller->lpVtbl->queryInterface(
+            ih->vst3.controller, Steinberg_Vst_IConnectionPoint_iid, (void**)&ih->vst3.controller_cp);
+
+        if (ih->vst3.component_cp && ih->vst3.controller_cp)
+        {
+            ih->vst3.component_cp->lpVtbl->connect(ih->vst3.component_cp, ih->vst3.controller_cp);
+            ih->vst3.controller_cp->lpVtbl->connect(ih->vst3.controller_cp, ih->vst3.component_cp);
+        }
+
+        Uph_Vst3MemStream st;
+        uph_vst3_stream_init_write(&st);
+        if (ih->vst3.component->lpVtbl->getState(ih->vst3.component, &st.iface) == Steinberg_kResultOk)
+        {
+            st.pos = 0;
+            ih->vst3.controller->lpVtbl->setComponentState(ih->vst3.controller, &st.iface);
+        }
+        free(st.data);
+    }
+
+    Steinberg_int32 audio_in  = ih->vst3.component->lpVtbl->getBusCount(ih->vst3.component, Steinberg_Vst_MediaTypes_kAudio, Steinberg_Vst_BusDirections_kInput);
+    Steinberg_int32 audio_out = ih->vst3.component->lpVtbl->getBusCount(ih->vst3.component, Steinberg_Vst_MediaTypes_kAudio, Steinberg_Vst_BusDirections_kOutput);
+    Steinberg_int32 event_in  = ih->vst3.component->lpVtbl->getBusCount(ih->vst3.component, Steinberg_Vst_MediaTypes_kEvent, Steinberg_Vst_BusDirections_kInput);
+
+    Steinberg_Vst_SpeakerArrangement stereo = Steinberg_Vst_SpeakerArr_kStereo;
+    ih->vst3.processor->lpVtbl->setBusArrangements(
+        ih->vst3.processor,
+        audio_in  > 0 ? &stereo : NULL, audio_in  > 0 ? 1 : 0,
+        audio_out > 0 ? &stereo : NULL, audio_out > 0 ? 1 : 0);
+
+    if (audio_in > 0)
+        ih->vst3.component->lpVtbl->activateBus(ih->vst3.component, Steinberg_Vst_MediaTypes_kAudio, Steinberg_Vst_BusDirections_kInput, 0, 1);
+    if (audio_out > 0)
+        ih->vst3.component->lpVtbl->activateBus(ih->vst3.component, Steinberg_Vst_MediaTypes_kAudio, Steinberg_Vst_BusDirections_kOutput, 0, 1);
+    if (event_in > 0)
+    {
+        ih->vst3.component->lpVtbl->activateBus(ih->vst3.component, Steinberg_Vst_MediaTypes_kEvent, Steinberg_Vst_BusDirections_kInput, 0, 1);
+        ih->vst3.has_event_input = true;
+    }
+
+    ih->vst3.view = ih->vst3.controller->lpVtbl->createView(ih->vst3.controller, Steinberg_Vst_ViewType_kEditor);
+    if (!ih->vst3.view)
+    {
+        fprintf(stderr, "uph vst3: plug-in has no editor view\n");
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+#if NAUI_LINUX
+    const char *platform = Steinberg_kPlatformTypeX11EmbedWindowID;
+#elif NAUI_WINDOWS
+    const char *platform = Steinberg_kPlatformTypeHWND;
+#endif
+
+    if (ih->vst3.view->lpVtbl->isPlatformTypeSupported(ih->vst3.view, platform) != Steinberg_kResultTrue)
+    {
+        fprintf(stderr, "uph vst3: view doesn't support %s\n", platform);
+        uph_vst3_free_partial(ih);
+        free(ih);
+        return;
+    }
+
+    struct Steinberg_ViewRect rect = {0};
+    if (ih->vst3.view->lpVtbl->getSize(ih->vst3.view, &rect) == Steinberg_kResultOk)
+    {
+        *width  = (uint32_t)(rect.right - rect.left);
+        *height = (uint32_t)(rect.bottom - rect.top);
+    }
+    else
+    {
+        *width = 800;
+        *height = 600;
+    }
+
+    ih->vst3.width = *width;
+    ih->vst3.height = *height;
+
+    plug->internal_handle = ih;
+    plug->params = uph_vst3_get_param_list(plug);
+}
+
+static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+
+    Steinberg_IPlugView *view = ih->vst3.view;
+    view->lpVtbl->setFrame(view, (struct Steinberg_IPlugFrame*)&ih->vst3.frame);
+
+#if NAUI_LINUX
+    view->lpVtbl->attached(view, (void*)(uintptr_t)ih->window, Steinberg_kPlatformTypeX11EmbedWindowID);
+#elif NAUI_WINDOWS
+    view->lpVtbl->attached(view, (void*)ih->window, Steinberg_kPlatformTypeHWND);
+#endif
+
+    struct Steinberg_Vst_ProcessSetup setup = {
+        .processMode = Steinberg_Vst_ProcessModes_kRealtime,
+        .symbolicSampleSize = Steinberg_Vst_SymbolicSampleSizes_kSample32,
+        .maxSamplesPerBlock = (Steinberg_int32)UPH_SAMPLE_FRAME_COUNT,
+        .sampleRate = (double)uph_state.settings.audio.sample_rate
+    };
+
+    ih->vst3.processor->lpVtbl->setupProcessing(ih->vst3.processor, &setup);
+    ih->vst3.component->lpVtbl->setActive(ih->vst3.component, 1);
+    ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 1);
+}
+
+static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
+{
+    if (ih->vst3.processor)
+        ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 0);
+    if (ih->vst3.component)
+        ih->vst3.component->lpVtbl->setActive(ih->vst3.component, 0);
+
+    if (ih->vst3.view)
+    {
+        ih->vst3.view->lpVtbl->removed(ih->vst3.view);
+        ih->vst3.view->lpVtbl->setFrame(ih->vst3.view, NULL);
+    }
+
+#if NAUI_LINUX
+    if (ih->display)
+    {
+        XDestroyWindow(ih->display, ih->window);
+        XFlush(ih->display);
+        XCloseDisplay(ih->display);
+    }
+#elif NAUI_WINDOWS
+    if (ih->window)
+        DestroyWindow(ih->window);
+#endif
+
+    uph_vst3_free_partial(ih);
+}
+
+static void uph_vst3_process(
+    Uph_PluginInternalHandle *ih,
+    float **inputs,
+    float **outputs,
+    uint32_t frame_count,
+    double playhead_beat,
+    bool is_playing
+)
+{
+    uint32_t note_snapshot  = uph_note_ring_size(&ih->vst3.pending_notes);
+    uint32_t param_snapshot = uph_param_ring_size(&ih->vst3.pending_params);
+
+    static _Thread_local Uph_Vst3EventList in_events;
+    static _Thread_local Uph_Vst3ParamChanges in_params;
+    static _Thread_local Uph_Vst3EventList out_events;
+    static _Thread_local Uph_Vst3ParamChanges out_params;
+
+    in_events.iface.lpVtbl = &uph_vst3_events_vtbl;
+    in_events.count = 0;
+    out_events.iface.lpVtbl = &uph_vst3_events_vtbl;
+    out_events.count = 0;
+    uph_vst3_param_changes_reset(&in_params);
+    uph_vst3_param_changes_reset(&out_params);
+
+    for (uint32_t i = 0; i < note_snapshot && in_events.count < UPH_VST3_MAX_EVENTS; i++)
+    {
+        const clap_event_note_t *n = uph_note_ring_peek(&ih->vst3.pending_notes, i);
+        struct Steinberg_Vst_Event *e = &in_events.events[in_events.count++];
+        memset(e, 0, sizeof(*e));
+
+        e->busIndex = 0;
+        e->sampleOffset = (Steinberg_int32)(n->header.time < frame_count ? n->header.time : (frame_count ? frame_count - 1 : 0));
+        e->ppqPosition = 0;
+        e->flags = Steinberg_Vst_Event_EventFlags_kIsLive;
+
+        int key = n->key & 0x7F;
+
+        if (n->header.type == CLAP_EVENT_NOTE_ON)
+        {
+            int32_t id = ih->vst3.next_note_id++;
+            if (ih->vst3.next_note_id < 0) ih->vst3.next_note_id = 0;
+            ih->vst3.note_ids[key] = id;
+
+            e->type = Steinberg_Vst_Event_EventTypes_kNoteOnEvent;
+            e->Steinberg_Vst_Event_noteOn.channel = (Steinberg_int16)(n->channel < 0 ? 0 : n->channel);
+            e->Steinberg_Vst_Event_noteOn.pitch = (Steinberg_int16)key;
+            e->Steinberg_Vst_Event_noteOn.velocity = (float)n->velocity;
+            e->Steinberg_Vst_Event_noteOn.tuning = 0.0f;
+            e->Steinberg_Vst_Event_noteOn.length = 0;
+            e->Steinberg_Vst_Event_noteOn.noteId = id;
+        }
+        else
+        {
+            e->type = Steinberg_Vst_Event_EventTypes_kNoteOffEvent;
+            e->Steinberg_Vst_Event_noteOff.channel = (Steinberg_int16)(n->channel < 0 ? 0 : n->channel);
+            e->Steinberg_Vst_Event_noteOff.pitch = (Steinberg_int16)key;
+            e->Steinberg_Vst_Event_noteOff.velocity = (float)n->velocity;
+            e->Steinberg_Vst_Event_noteOff.noteId = ih->vst3.note_ids[key];
+            e->Steinberg_Vst_Event_noteOff.tuning = 0.0f;
+        }
+    }
+
+    for (uint32_t i = 0; i < param_snapshot; i++)
+    {
+        const clap_event_param_value_t *p = uph_param_ring_peek(&ih->vst3.pending_params, i);
+        uph_vst3_param_changes_add(
+            &in_params,
+            (Steinberg_Vst_ParamID)p->param_id,
+            (int32_t)(p->header.time < frame_count ? p->header.time : (frame_count ? frame_count - 1 : 0)),
+            p->value);
+    }
+
+    if (ih->vst3.controller)
+    {
+        for (int32_t i = 0; i < in_params.count; i++)
+        {
+            Uph_Vst3ParamQueue *q = &in_params.queues[i];
+            if (q->count > 0)
+                ih->vst3.controller->lpVtbl->setParamNormalized(ih->vst3.controller, q->id, q->values[q->count - 1]);
+        }
+    }
+
+    struct Steinberg_Vst_ProcessContext ctx;
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.state = Steinberg_Vst_ProcessContext_StatesAndFlags_kTempoValid
+        | Steinberg_Vst_ProcessContext_StatesAndFlags_kProjectTimeMusicValid
+        | Steinberg_Vst_ProcessContext_StatesAndFlags_kTimeSigValid
+        | (is_playing ? Steinberg_Vst_ProcessContext_StatesAndFlags_kPlaying : 0);
+    ctx.sampleRate = (double)uph_state.settings.audio.sample_rate;
+    ctx.projectTimeMusic = playhead_beat;
+    ctx.tempo = uph_state.project.bpm;
+    ctx.timeSigNumerator = 4;
+    ctx.timeSigDenominator = 4;
+
+    Steinberg_Vst_Sample32 *in_channels[2]  = { inputs  ? inputs[0]  : NULL, inputs  ? inputs[1]  : NULL };
+    Steinberg_Vst_Sample32 *out_channels[2] = { outputs ? outputs[0] : NULL, outputs ? outputs[1] : NULL };
+
+    struct Steinberg_Vst_AudioBusBuffers in_bus = {0};
+    in_bus.numChannels = 2;
+    in_bus.silenceFlags = 0;
+    in_bus.Steinberg_Vst_AudioBusBuffers_channelBuffers32 = in_channels;
+
+    struct Steinberg_Vst_AudioBusBuffers out_bus = {0};
+    out_bus.numChannels = 2;
+    out_bus.silenceFlags = 0;
+    out_bus.Steinberg_Vst_AudioBusBuffers_channelBuffers32 = out_channels;
+
+    struct Steinberg_Vst_ProcessData data;
+    memset(&data, 0, sizeof(data));
+    data.processMode = Steinberg_Vst_ProcessModes_kRealtime;
+    data.symbolicSampleSize = Steinberg_Vst_SymbolicSampleSizes_kSample32;
+    data.numSamples = (Steinberg_int32)frame_count;
+    data.numInputs  = inputs ? 1 : 0;
+    data.numOutputs = 1;
+    data.inputs  = inputs ? &in_bus : NULL;
+    data.outputs = &out_bus;
+    data.inputParameterChanges  = &in_params.iface;
+    data.outputParameterChanges = &out_params.iface;
+    data.inputEvents  = ih->vst3.has_event_input ? &in_events.iface : NULL;
+    data.outputEvents = &out_events.iface;
+    data.processContext = &ctx;
+
+    ih->vst3.processor->lpVtbl->process(ih->vst3.processor, &data);
+
+    uph_note_ring_advance(&ih->vst3.pending_notes, note_snapshot);
+    uph_param_ring_advance(&ih->vst3.pending_params, param_snapshot);
+}
+
+static void uph_vst3_pump_run_loop(Uph_PluginInternalHandle *ih)
+{
+    Uph_Vst3RunLoop *rl = &ih->vst3.run_loop;
+
+#if NAUI_LINUX
+    struct pollfd pfds[UPH_VST3_MAX_FD_HANDLERS];
+    int idx[UPH_VST3_MAX_FD_HANDLERS];
+    int n = 0;
+
+    for (int i = 0; i < UPH_VST3_MAX_FD_HANDLERS; i++)
+    {
+        if (!rl->fds[i].handler)
+            continue;
+        pfds[n].fd = rl->fds[i].fd;
+        pfds[n].events = POLLIN;
+        pfds[n].revents = 0;
+        idx[n] = i;
+        n++;
+    }
+
+    if (n > 0 && poll(pfds, (nfds_t)n, 0) > 0)
+    {
+        for (int k = 0; k < n; k++)
+        {
+            if (!(pfds[k].revents & (POLLIN | POLLERR | POLLHUP)))
+                continue;
+            Uph_Vst3FdHandler *h = &rl->fds[idx[k]];
+            if (h->handler)
+                h->handler->lpVtbl->onFDIsSet(h->handler, h->fd);
+        }
+    }
+#endif
+
+    float now = naui_frame_time();
+    for (int i = 0; i < UPH_VST3_MAX_TIMERS; i++)
+    {
+        Uph_Vst3Timer *t = &rl->timers[i];
+        if (!t->handler)
+            continue;
+        if ((now - t->last_fire) * 1000.0f >= (float)t->period_ms)
+        {
+            t->last_fire = now;
+            t->handler->lpVtbl->onTimer(t->handler);
+        }
+    }
+}
+
+static bool uph_vst3_save_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+{
+    Uph_Vst3MemStream comp, ctrl;
+    uph_vst3_stream_init_write(&comp);
+    uph_vst3_stream_init_write(&ctrl);
+
+    bool ok = ih->vst3.component->lpVtbl->getState(ih->vst3.component, &comp.iface) == Steinberg_kResultOk;
+
+    if (ok && !ih->vst3.controller_is_component)
+        ih->vst3.controller->lpVtbl->getState(ih->vst3.controller, &ctrl.iface);
+
+    if (ok)
+    {
+        size_t total = 8 + (size_t)comp.size + (size_t)ctrl.size;
+        uint8_t *buf = (uint8_t*)malloc(total);
+        if (buf)
+        {
+            uint32_t cs = (uint32_t)comp.size, ks = (uint32_t)ctrl.size;
+            memcpy(buf, &cs, 4);
+            if (cs) memcpy(buf + 4, comp.data, cs);
+            memcpy(buf + 4 + cs, &ks, 4);
+            if (ks) memcpy(buf + 8 + cs, ctrl.data, ks);
+
+            ok = naui_file_write_all(path, buf, total);
+            free(buf);
+        }
+        else ok = false;
+    }
+
+    free(comp.data);
+    free(ctrl.data);
+    return ok;
+}
+
+static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+{
+    size_t size = 0;
+    uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
+    if (!data)
+    {
+        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
+        return false;
+    }
+
+    bool ok = false;
+    if (size >= 8)
+    {
+        uint32_t cs = 0, ks = 0;
+        memcpy(&cs, data, 4);
+        if ((size_t)cs + 8 <= size)
+        {
+            memcpy(&ks, data + 4 + cs, 4);
+            if ((size_t)cs + (size_t)ks + 8 <= size)
+            {
+                Uph_Vst3MemStream comp;
+                uph_vst3_stream_init_read(&comp, data + 4, cs);
+                ok = ih->vst3.component->lpVtbl->setState(ih->vst3.component, &comp.iface) == Steinberg_kResultOk;
+
+                comp.pos = 0;
+                ih->vst3.controller->lpVtbl->setComponentState(ih->vst3.controller, &comp.iface);
+
+                if (ks && !ih->vst3.controller_is_component)
+                {
+                    Uph_Vst3MemStream ctrl;
+                    uph_vst3_stream_init_read(&ctrl, data + 8 + cs, ks);
+                    ih->vst3.controller->lpVtbl->setState(ih->vst3.controller, &ctrl.iface);
+                }
+            }
+        }
+    }
+
+    free(data);
+    return ok;
+}
+
 
 static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms, clap_id *timer_id)
 {
@@ -145,16 +1521,26 @@ void uph_plugin_queue_note_event(
     ev.key = key;
     ev.velocity = velocity / 127.0;
 
-    if (!uph_note_ring_push(&internal_handle->clap.pending_notes, &ev))
+    Uph_NoteEventRing *note_ring = plug->type == UPH_PLUGIN_VST3
+        ? &internal_handle->vst3.pending_notes
+        : &internal_handle->clap.pending_notes;
+    bool *active_notes = plug->type == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.active_notes
+        : internal_handle->clap.active_notes;
+    int16_t *active_channels = plug->type == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.active_note_channels
+        : internal_handle->clap.active_note_channels;
+
+    if (!uph_note_ring_push(note_ring, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_note_event: note ring full, dropping event (key=%u on=%d)\n",
                 key, (int)note_on);
         return;
     }
 
-    internal_handle->clap.active_notes[key] = note_on;
+    active_notes[key] = note_on;
     if (note_on)
-        internal_handle->clap.active_note_channels[key] = channel;
+        active_channels[key] = channel;
 }
 
 void uph_plugin_queue_param_change(
@@ -181,7 +1567,11 @@ void uph_plugin_queue_param_change(
     ev.key = -1;
     ev.value = value;
 
-    if (!uph_param_ring_push(&ih->clap.pending_params, &ev))
+    Uph_ParamEventRing *param_ring = plug->type == UPH_PLUGIN_VST3
+        ? &ih->vst3.pending_params
+        : &ih->clap.pending_params;
+
+    if (!uph_param_ring_push(param_ring, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_param_change: param ring full, dropping event (param_id=%u)\n",
                 (unsigned)param_id);
@@ -193,9 +1583,19 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
+    bool *active_notes = plug->type == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.active_notes
+        : internal_handle->clap.active_notes;
+    int16_t *active_channels = plug->type == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.active_note_channels
+        : internal_handle->clap.active_note_channels;
+    Uph_NoteEventRing *note_ring = plug->type == UPH_PLUGIN_VST3
+        ? &internal_handle->vst3.pending_notes
+        : &internal_handle->clap.pending_notes;
+
     for (int key = 0; key < 128; key++)
     {
-        if (!internal_handle->clap.active_notes[key])
+        if (!active_notes[key])
             continue;
 
         clap_event_note_t ev = {0};
@@ -207,17 +1607,17 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 
         ev.note_id = -1;
         ev.port_index = 0;
-        ev.channel = internal_handle->clap.active_note_channels[key];
+        ev.channel = active_channels[key];
         ev.key = (int16_t)key;
         ev.velocity = 0.0;
 
-        if (!uph_note_ring_push(&internal_handle->clap.pending_notes, &ev))
+        if (!uph_note_ring_push(note_ring, &ev))
         {
             fprintf(stderr, "uph_plugin_queue_stop_all: note ring full, dropping off for key %d\n", key);
             continue;
         }
 
-        internal_handle->clap.active_notes[key] = false;
+        active_notes[key] = false;
     }
 }
 
@@ -225,7 +1625,9 @@ bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
-    return internal_handle->clap.active_notes[key];
+    return plug->type == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.active_notes[key]
+        : internal_handle->clap.active_notes[key];
 }
 
 static bool uph_clap_timer_unregister(const clap_host_t *host, clap_id timer_id)
@@ -411,7 +1813,13 @@ static LRESULT CALLBACK uph_plugin_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, 
     {
         case WM_CLOSE:
             if (internal_handle)
-                uph_hide_plugin_window_internal(internal_handle);
+            {
+                if (internal_handle->visible)
+                {
+                    internal_handle->visible = false;
+                    ShowWindow(hwnd, SW_HIDE);
+                }
+            }
             return 0;
 
         default:
@@ -597,16 +2005,20 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
     const Naui_StringView extension = naui_file_extension(&path);
     if (naui_string_view_equals_cstr(extension, ".clap", false))
         effect.type = UPH_PLUGIN_CLAP;
+    else if (naui_string_view_equals_cstr(extension, ".vst3", false))
+        effect.type = UPH_PLUGIN_VST3;
 
     effect.file_path = path;
 
-    uint32_t width, height;
-    switch (effect.type)
-    {
-        case UPH_PLUGIN_CLAP: uph_load_clap_plugin_internal(&effect, &width, &height); break;
-    }
+    uint32_t width = 0, height = 0;
+    if (effect.type == UPH_PLUGIN_CLAP)
+        uph_load_clap_plugin_internal(&effect, &width, &height);
+    else if (effect.type == UPH_PLUGIN_VST3)
+        uph_load_vst3_plugin_internal(&effect, &width, &height);
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
+    if (!internal_handle)
+        return effect;
 
 #if NAUI_LINUX
     Window parent = (Window)mg_app_primary_handle();
@@ -721,28 +2133,18 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
     internal_handle->visible = true;
 #endif
 
-    switch (effect.type)
-    {
-        case UPH_PLUGIN_CLAP: uph_assign_clap_plugin_gui_internal(&effect); break;
-    }
+    if (effect.type == UPH_PLUGIN_CLAP)
+        uph_assign_clap_plugin_gui_internal(&effect);
+    else if (effect.type == UPH_PLUGIN_VST3)
+        uph_assign_vst3_plugin_gui_internal(&effect);
 
     effect.loaded = true;
 
     return effect;
 }
 
-void uph_unload_plugin_effect(Uph_Plugin *plug)
+static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 {
-    if (!plug->loaded)
-        return;
-
-    plug->loaded = false;
-
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (!internal_handle)
-        return;
-
     const clap_plugin_t *plugin = internal_handle->clap.plugin;
     if (plugin)
     {
@@ -769,6 +2171,24 @@ void uph_unload_plugin_effect(Uph_Plugin *plug)
     if (internal_handle->clap.library_handle)
         FreeLibrary((HMODULE)internal_handle->clap.library_handle);
 #endif
+}
+
+void uph_unload_plugin_effect(Uph_Plugin *plug)
+{
+    if (!plug->loaded)
+        return;
+
+    plug->loaded = false;
+
+    Uph_PluginInternalHandle *internal_handle =
+        (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!internal_handle)
+        return;
+    
+    if (plug->type == UPH_PLUGIN_CLAP)
+        uph_unload_clap_plugin(internal_handle);
+    else if (plug->type == UPH_PLUGIN_VST3)
+        uph_unload_vst3_plugin(internal_handle);
 
     free(plug->internal_handle);
     plug->internal_handle = NULL;
@@ -790,13 +2210,22 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
 
     internal_handle->visible = false;
 
-    if (internal_handle->clap.gui)
+    if (plug->type == UPH_PLUGIN_CLAP && internal_handle->clap.gui)
         internal_handle->clap.gui->hide(internal_handle->clap.plugin);
 
     XUnmapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
 #elif NAUI_WINDOWS
-    uph_hide_plugin_window_internal(internal_handle);
+    if (plug->type == UPH_PLUGIN_VST3)
+    {
+        if (internal_handle->visible)
+        {
+            internal_handle->visible = false;
+            ShowWindow(internal_handle->window, SW_HIDE);
+        }
+    }
+    else
+        uph_hide_plugin_window_internal(internal_handle);
 #endif
 }
 
@@ -816,8 +2245,11 @@ void uph_show_plugin_window(Uph_Plugin *plug)
     UpdateWindow(internal_handle->window);
 #endif
 
-    if (internal_handle->clap.gui)
-        internal_handle->clap.gui->show(internal_handle->clap.plugin);
+    if (plug->type == UPH_PLUGIN_CLAP)
+    {
+        if (internal_handle->clap.gui)
+            internal_handle->clap.gui->show(internal_handle->clap.plugin);
+    }
 
     internal_handle->visible = true;
 }
@@ -891,6 +2323,12 @@ void uph_update_plugin(Uph_Plugin *plug)
 
     uph_poll_plugin_window_events(plug);
 
+    if (plug->type == UPH_PLUGIN_VST3)
+    {
+        uph_vst3_pump_run_loop(internal_handle);
+        return;
+    }
+
     if (!internal_handle->clap.timer_support)
         return;
 
@@ -910,7 +2348,7 @@ void uph_update_plugin(Uph_Plugin *plug)
     }
 }
 
-static bool uph_out_events_try_push(const clap_output_events_t *list, const clap_event_header_t *event)
+static bool uph_clap_out_events_try_push(const clap_output_events_t *list, const clap_event_header_t *event)
 {
     return true;
 }
@@ -927,14 +2365,20 @@ void uph_process_plugin(
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
+    if (plug->type == UPH_PLUGIN_VST3)
+    {
+        uph_vst3_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
+        return;
+    }
+
     uint32_t note_snapshot  = uph_note_ring_size(&internal_handle->clap.pending_notes);
     uint32_t param_snapshot = uph_param_ring_size(&internal_handle->clap.pending_params);
 
     Uph_ClapInEvents in_events = {
         .iface = {
             .ctx = NULL,
-            .size = uph_in_events_size,
-            .get = uph_in_events_get
+            .size = uph_clap_in_events_size,
+            .get = uph_clap_in_events_get
         },
         .note_ring = &internal_handle->clap.pending_notes,
         .param_ring = &internal_handle->clap.pending_params,
@@ -943,7 +2387,7 @@ void uph_process_plugin(
     };
 
     clap_output_events_t out_iface = {
-        .try_push = uph_out_events_try_push
+        .try_push = uph_clap_out_events_try_push
     };
 
     clap_audio_buffer_t in = {
@@ -1068,6 +2512,9 @@ static int64_t uph_clap_stream_read(const clap_istream_t *stream, void *buffer, 
 bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (internal_handle && plug->type == UPH_PLUGIN_VST3)
+        return uph_vst3_save_state(internal_handle, path);
+
     if (!internal_handle || !internal_handle->clap.plugin)
         return false;
 
@@ -1099,6 +2546,14 @@ bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (internal_handle && plug->type == UPH_PLUGIN_VST3)
+    {
+        bool ok = uph_vst3_load_state(internal_handle, path);
+        if (ok)
+            plug->params = uph_vst3_get_param_list(plug);
+        return ok;
+    }
+
     if (!internal_handle || !internal_handle->clap.plugin)
         return false;
 

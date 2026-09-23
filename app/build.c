@@ -15,6 +15,7 @@
 #include "utils.h"
 #include "utils.c"
 
+#include <vendor/vst3_c_api.h>
 #include <vendor/clap/clap.h>
 
 #include "plugins/event_ring.h"
