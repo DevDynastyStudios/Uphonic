@@ -5,6 +5,8 @@ typedef struct
     Naui_List(Uph_PluginInfo) plugin_infos;
     Naui_List(Naui_Path) plugin_paths;
 
+    Naui_String filter;
+
     int32_t current_plugin_index;
 }
 Uph_PluginListData;
@@ -61,9 +63,9 @@ static void uph_plugin_list_load(void)
     naui_close_panel(naui_current_panel());
 }
 
-static bool uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
+static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
 {
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
 
@@ -146,9 +148,18 @@ static bool uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
     }
 }
 
+static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
+{
+    if (uph_plugin_list_data.filter.length == 0)
+        return true;
+
+    return naui_string_contains(info->name, uph_plugin_list_data.filter, false)
+        || naui_string_contains(info->vendor, uph_plugin_list_data.filter, false);
+}
+
 static void uph_plugin_list_main_menu(void)
 {
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
 
@@ -187,12 +198,58 @@ static void uph_plugin_list_main_menu(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_list_data.plugin_infos); i++)
     {
         Uph_PluginInfo info = uph_plugin_list_data.plugin_infos[i];
+        if (!uph_plugin_list_matches_filter(&info))
+            continue;
         uph_plugin_list_item(&info, i);
+    }
+}
+
+static void uph_plugin_list_current_menu(void)
+{
+    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+
+    leaf({
+        .size = {LEAF_SIZE_PERCENT(0.25f), LEAF_SIZE_FULL},
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = LEAF_COLOR_BLACK
+    })
+    {
+
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+            .child_gap = NAUI_DPI(6)
+        })
+        {
+            const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
+            leaf_text(info->name.data, { .font_size = font_size * 2, .color = text_color });
+            leaf_text(info->vendor.data, { .font_size = font_size, .color = text_color });
+            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? "Instrument" : "Effect", { .font_size = font_size, .color = text_color });
+            leaf_text(info->format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP", { .font_size = font_size, .color = text_color });
+        }
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_PERCENT(0.3f)},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            if (uph_ui_text_button("Load Plugin", leaf_id("uph_plugin_list_load")))
+            {
+                uph_plugin_list_load();
+            }
+        }
     }
 }
 
 void uph_plugin_list_on_update(void)
 {
+    leaf({
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+    })
+    {
+        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAGS_NONE, "Search");
+    }
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
         .direction = LEAF_DIRECTION_HORIZONTAL
@@ -204,23 +261,6 @@ void uph_plugin_list_on_update(void)
         {
             uph_plugin_list_main_menu();
         }
-        leaf({
-            .size = {LEAF_SIZE_PERCENT(0.25f), LEAF_SIZE_FULL},
-            .color = LEAF_COLOR_BLACK
-        })
-        {
-            const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-            const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
-
-            const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
-            leaf_text(info->name.data, { .font_size = font_size, .color = text_color });
-            leaf_text(info->vendor.data, { .font_size = font_size, .color = text_color });
-            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? "Instrument" : "Effect", { .font_size = font_size, .color = text_color });
-            leaf_text(info->format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP", { .font_size = font_size, .color = text_color });
-            if (uph_ui_text_button("Load Plugin", leaf_id("uph_plugin_list_load")))
-            {
-                uph_plugin_list_load();
-            }
-        }
+        uph_plugin_list_current_menu();
     }
 }

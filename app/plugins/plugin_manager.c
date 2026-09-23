@@ -213,8 +213,12 @@ typedef struct Uph_PluginInternalHandle_
     Atom wm_delete_window;
 #elif NAUI_WINDOWS
     HWND window;
+    bool dragging;
+    POINT drag_start_cursor;
+    POINT drag_start_origin;
 #endif
     bool visible;
+    bool is_clap;
     Naui_String display_name;
 }
 Uph_PluginInternalHandle;
@@ -1806,25 +1810,96 @@ static void uph_hide_plugin_window_internal(Uph_PluginInternalHandle *internal_h
 
 static LRESULT CALLBACK uph_plugin_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    Uph_PluginInternalHandle *internal_handle =
+    Uph_PluginInternalHandle *ih =
         (Uph_PluginInternalHandle*)(uintptr_t)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
 
     switch (msg)
     {
-        case WM_CLOSE:
-            if (internal_handle)
+        case WM_NCLBUTTONDOWN:
+            // Intercept caption drags so DefWindowProc never enters its modal
+            // move loop (which would block our main loop inside DispatchMessage).
+            if (ih && wparam == HTCAPTION)
             {
-                if (internal_handle->visible)
+                GetCursorPos(&ih->drag_start_cursor);
+
+                RECT r;
+                GetWindowRect(hwnd, &r);
+                ih->drag_start_origin.x = r.left;
+                ih->drag_start_origin.y = r.top;
+
+                ih->dragging = true;
+                SetCapture(hwnd);
+
+                // Still bring the window to the front / give it focus like a normal click would
+                SetForegroundWindow(hwnd);
+                return 0;
+            }
+            break;
+
+        case WM_MOUSEMOVE:
+            if (ih && ih->dragging)
+            {
+                POINT p;
+                GetCursorPos(&p);
+
+                SetWindowPos(
+                    hwnd, NULL,
+                    ih->drag_start_origin.x + (p.x - ih->drag_start_cursor.x),
+                    ih->drag_start_origin.y + (p.y - ih->drag_start_cursor.y),
+                    0, 0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+                );
+                return 0;
+            }
+            break;
+
+        case WM_LBUTTONUP:
+            if (ih && ih->dragging)
+            {
+                ih->dragging = false;
+                ReleaseCapture();
+                return 0;
+            }
+            break;
+
+        case WM_CAPTURECHANGED:
+            // Capture stolen (alt-tab, another window grabbed it, etc.)
+            if (ih)
+                ih->dragging = false;
+            break;
+
+        case WM_KEYDOWN:
+            // Allow Esc to cancel a drag in progress
+            if (ih && ih->dragging && wparam == VK_ESCAPE)
+            {
+                SetWindowPos(
+                    hwnd, NULL,
+                    ih->drag_start_origin.x, ih->drag_start_origin.y,
+                    0, 0,
+                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
+                );
+                ih->dragging = false;
+                ReleaseCapture();
+                return 0;
+            }
+            break;
+
+        case WM_CLOSE:
+            if (ih)
+            {
+                ih->dragging = false;
+                if (ih->visible)
                 {
-                    internal_handle->visible = false;
+                    ih->visible = false;
+                    if (ih->clap.gui && ih->clap.plugin && ih->is_clap)
+                        ih->clap.gui->hide(ih->clap.plugin);
                     ShowWindow(hwnd, SW_HIDE);
                 }
             }
             return 0;
-
-        default:
-            return DefWindowProcA(hwnd, msg, wparam, lparam);
     }
+
+    return DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 
 static ATOM uph_register_plugin_wnd_class(void)
@@ -2019,6 +2094,8 @@ Uph_Plugin uph_load_plugin(Naui_Path path)
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
     if (!internal_handle)
         return effect;
+
+    internal_handle->is_clap = (effect.format == UPH_PLUGIN_CLAP);
 
 #if NAUI_LINUX
     Window parent = (Window)mg_app_primary_handle();
