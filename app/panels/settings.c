@@ -111,7 +111,7 @@ void uph_settings_set_defaults(void)
 {
 	Uph_Settings *settings = &uph_state.settings;
 
-	settings->general.theme = naui_string_from_cstr("Default");
+	settings->general.theme = naui_string_from_cstr("Dark");
 	settings->general.language_code = naui_string_from_cstr("en");
 	settings->general.region_code = naui_string_from_cstr("US");
 	settings->general.ui_scale = 1.0f;
@@ -177,7 +177,7 @@ void uph_settings_sanitize(void)
 	Uph_Settings *settings = &uph_state.settings;
 
 	if (settings->general.theme.length == 0)
-		settings->general.theme = naui_string_from_cstr("Default");
+		settings->general.theme = naui_string_from_cstr("Dark");
 
 	if (settings->general.language_code.length == 0 || settings->general.region_code.length == 0)
 	{

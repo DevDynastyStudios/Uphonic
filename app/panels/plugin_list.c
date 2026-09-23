@@ -2,7 +2,9 @@ NAUI_PANEL(uph_plugin_list)
 
 void uph_plugin_list_on_attach(void)
 {
-    naui_panel_set_title(naui_current_panel(), "Plugin List");
+    const Naui_PanelID panel_id = naui_current_panel();
+    naui_panel_set_title(panel_id, "Plugin List");
+    naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
 }
 
 void uph_plugin_list_on_detach(void)
