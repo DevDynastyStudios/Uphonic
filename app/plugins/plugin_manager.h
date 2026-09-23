@@ -7,9 +7,6 @@ void                uph_show_plugin_window      (Uph_Plugin *plugin);
 
 bool                uph_plugin_window_visible   (Uph_Plugin *plugin);
 
-Uph_Plugin			uph_load_plugin_effect		(Naui_Path path);
-void				uph_unload_plugin_effect	(Uph_Plugin *plug);
-
 void uph_plugin_queue_note_event(
     Uph_Plugin *effect,
     bool note_on,

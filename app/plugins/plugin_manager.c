@@ -1521,13 +1521,13 @@ void uph_plugin_queue_note_event(
     ev.key = key;
     ev.velocity = velocity / 127.0;
 
-    Uph_NoteEventRing *note_ring = plug->type == UPH_PLUGIN_VST3
+    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
         ? &internal_handle->vst3.pending_notes
         : &internal_handle->clap.pending_notes;
-    bool *active_notes = plug->type == UPH_PLUGIN_VST3
+    bool *active_notes = plug->format == UPH_PLUGIN_VST3
         ? internal_handle->vst3.active_notes
         : internal_handle->clap.active_notes;
-    int16_t *active_channels = plug->type == UPH_PLUGIN_VST3
+    int16_t *active_channels = plug->format == UPH_PLUGIN_VST3
         ? internal_handle->vst3.active_note_channels
         : internal_handle->clap.active_note_channels;
 
@@ -1567,7 +1567,7 @@ void uph_plugin_queue_param_change(
     ev.key = -1;
     ev.value = value;
 
-    Uph_ParamEventRing *param_ring = plug->type == UPH_PLUGIN_VST3
+    Uph_ParamEventRing *param_ring = plug->format == UPH_PLUGIN_VST3
         ? &ih->vst3.pending_params
         : &ih->clap.pending_params;
 
@@ -1583,13 +1583,13 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-    bool *active_notes = plug->type == UPH_PLUGIN_VST3
+    bool *active_notes = plug->format == UPH_PLUGIN_VST3
         ? internal_handle->vst3.active_notes
         : internal_handle->clap.active_notes;
-    int16_t *active_channels = plug->type == UPH_PLUGIN_VST3
+    int16_t *active_channels = plug->format == UPH_PLUGIN_VST3
         ? internal_handle->vst3.active_note_channels
         : internal_handle->clap.active_note_channels;
-    Uph_NoteEventRing *note_ring = plug->type == UPH_PLUGIN_VST3
+    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
         ? &internal_handle->vst3.pending_notes
         : &internal_handle->clap.pending_notes;
 
@@ -1625,7 +1625,7 @@ bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
-    return plug->type == UPH_PLUGIN_VST3
+    return plug->format == UPH_PLUGIN_VST3
         ? internal_handle->vst3.active_notes[key]
         : internal_handle->clap.active_notes[key];
 }
@@ -1998,22 +1998,22 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     plugin->start_processing(plugin);
 }
 
-Uph_Plugin uph_load_plugin_effect(Naui_Path path)
+Uph_Plugin uph_load_plugin(Naui_Path path)
 {
     Uph_Plugin effect = { 0 };
 
     const Naui_StringView extension = naui_file_extension(&path);
     if (naui_string_view_equals_cstr(extension, ".clap", false))
-        effect.type = UPH_PLUGIN_CLAP;
+        effect.format = UPH_PLUGIN_CLAP;
     else if (naui_string_view_equals_cstr(extension, ".vst3", false))
-        effect.type = UPH_PLUGIN_VST3;
+        effect.format = UPH_PLUGIN_VST3;
 
     effect.file_path = path;
 
     uint32_t width = 0, height = 0;
-    if (effect.type == UPH_PLUGIN_CLAP)
+    if (effect.format == UPH_PLUGIN_CLAP)
         uph_load_clap_plugin_internal(&effect, &width, &height);
-    else if (effect.type == UPH_PLUGIN_VST3)
+    else if (effect.format == UPH_PLUGIN_VST3)
         uph_load_vst3_plugin_internal(&effect, &width, &height);
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
@@ -2133,9 +2133,9 @@ Uph_Plugin uph_load_plugin_effect(Naui_Path path)
     internal_handle->visible = true;
 #endif
 
-    if (effect.type == UPH_PLUGIN_CLAP)
+    if (effect.format == UPH_PLUGIN_CLAP)
         uph_assign_clap_plugin_gui_internal(&effect);
-    else if (effect.type == UPH_PLUGIN_VST3)
+    else if (effect.format == UPH_PLUGIN_VST3)
         uph_assign_vst3_plugin_gui_internal(&effect);
 
     effect.loaded = true;
@@ -2173,7 +2173,7 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 #endif
 }
 
-void uph_unload_plugin_effect(Uph_Plugin *plug)
+void uph_unload_plugin(Uph_Plugin *plug)
 {
     if (!plug->loaded)
         return;
@@ -2185,9 +2185,9 @@ void uph_unload_plugin_effect(Uph_Plugin *plug)
     if (!internal_handle)
         return;
     
-    if (plug->type == UPH_PLUGIN_CLAP)
+    if (plug->format == UPH_PLUGIN_CLAP)
         uph_unload_clap_plugin(internal_handle);
-    else if (plug->type == UPH_PLUGIN_VST3)
+    else if (plug->format == UPH_PLUGIN_VST3)
         uph_unload_vst3_plugin(internal_handle);
 
     free(plug->internal_handle);
@@ -2210,13 +2210,13 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
 
     internal_handle->visible = false;
 
-    if (plug->type == UPH_PLUGIN_CLAP && internal_handle->clap.gui)
+    if (plug->format == UPH_PLUGIN_CLAP && internal_handle->clap.gui)
         internal_handle->clap.gui->hide(internal_handle->clap.plugin);
 
     XUnmapWindow(internal_handle->display, internal_handle->window);
     XFlush(internal_handle->display);
 #elif NAUI_WINDOWS
-    if (plug->type == UPH_PLUGIN_VST3)
+    if (plug->format == UPH_PLUGIN_VST3)
     {
         if (internal_handle->visible)
         {
@@ -2245,7 +2245,7 @@ void uph_show_plugin_window(Uph_Plugin *plug)
     UpdateWindow(internal_handle->window);
 #endif
 
-    if (plug->type == UPH_PLUGIN_CLAP)
+    if (plug->format == UPH_PLUGIN_CLAP)
     {
         if (internal_handle->clap.gui)
             internal_handle->clap.gui->show(internal_handle->clap.plugin);
@@ -2323,7 +2323,7 @@ void uph_update_plugin(Uph_Plugin *plug)
 
     uph_poll_plugin_window_events(plug);
 
-    if (plug->type == UPH_PLUGIN_VST3)
+    if (plug->format == UPH_PLUGIN_VST3)
     {
         uph_vst3_pump_run_loop(internal_handle);
         return;
@@ -2365,7 +2365,7 @@ void uph_process_plugin(
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-    if (plug->type == UPH_PLUGIN_VST3)
+    if (plug->format == UPH_PLUGIN_VST3)
     {
         uph_vst3_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
         return;
@@ -2512,7 +2512,7 @@ static int64_t uph_clap_stream_read(const clap_istream_t *stream, void *buffer, 
 bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (internal_handle && plug->type == UPH_PLUGIN_VST3)
+    if (internal_handle && plug->format == UPH_PLUGIN_VST3)
         return uph_vst3_save_state(internal_handle, path);
 
     if (!internal_handle || !internal_handle->clap.plugin)
@@ -2546,7 +2546,7 @@ bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (internal_handle && plug->type == UPH_PLUGIN_VST3)
+    if (internal_handle && plug->format == UPH_PLUGIN_VST3)
     {
         bool ok = uph_vst3_load_state(internal_handle, path);
         if (ok)
@@ -2590,4 +2590,197 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
         plug->params = uph_clap_get_param_list(plug);
 
     return ok;
+}
+
+static bool uph_clap_features_have(const char *const *features, const char *needle)
+{
+    if (!features)
+        return false;
+    for (; *features; features++)
+        if (strcmp(*features, needle) == 0)
+            return true;
+    return false;
+}
+
+static bool uph_get_clap_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+{
+#if NAUI_LINUX
+    void *handle = dlopen(path.data, RTLD_LOCAL | RTLD_LAZY);
+    if (!handle)
+    {
+        fprintf(stderr, "uph info: dlopen failed: %s\n", dlerror());
+        return false;
+    }
+
+    const clap_plugin_entry_t *entry = (const clap_plugin_entry_t*)dlsym(handle, "clap_entry");
+    if (!entry)
+    {
+        fprintf(stderr, "uph info: no clap_entry symbol\n");
+        dlclose(handle);
+        return false;
+    }
+#elif NAUI_WINDOWS
+    HMODULE handle = LoadLibraryA(path.data);
+    if (!handle)
+    {
+        fprintf(stderr, "uph info: LoadLibraryA failed: %lu\n", GetLastError());
+        return false;
+    }
+
+    const clap_plugin_entry_t *entry = (const clap_plugin_entry_t*)GetProcAddress(handle, "clap_entry");
+    if (!entry)
+    {
+        fprintf(stderr, "uph info: no clap_entry symbol\n");
+        FreeLibrary(handle);
+        return false;
+    }
+#endif
+
+    bool ok = false;
+
+    if (entry->init(path.data))
+    {
+        const clap_plugin_factory_t *factory =
+            (const clap_plugin_factory_t*)entry->get_factory(CLAP_PLUGIN_FACTORY_ID);
+
+        if (factory && factory->get_plugin_count(factory) > 0)
+        {
+            const clap_plugin_descriptor_t *desc = factory->get_plugin_descriptor(factory, 0);
+            if (desc)
+            {
+                out->name = naui_string_from_cstr(desc->name ? desc->name : "");
+                out->vendor = naui_string_from_cstr(desc->vendor ? desc->vendor : "");
+                out->format = UPH_PLUGIN_CLAP;
+                out->type = uph_clap_features_have(desc->features, CLAP_PLUGIN_FEATURE_INSTRUMENT)
+                    ? UPH_PLUGIN_INSTRUMENT
+                    : UPH_PLUGIN_EFFECT;
+                ok = true;
+            }
+        }
+
+        entry->deinit();
+    }
+
+#if NAUI_LINUX
+    dlclose(handle);
+#elif NAUI_WINDOWS
+    FreeLibrary(handle);
+#endif
+
+    return ok;
+}
+
+static bool uph_get_vst3_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+{
+    char binary[1024];
+    if (!uph_vst3_resolve_binary(path.data, binary, sizeof(binary)))
+    {
+        fprintf(stderr, "uph info: could not resolve binary for %s\n", path.data);
+        return false;
+    }
+
+    void *lib = NULL;
+    Uph_Vst3GetFactoryFn get_factory = NULL;
+
+#if NAUI_LINUX
+    lib = dlopen(binary, RTLD_LOCAL | RTLD_LAZY);
+    if (!lib)
+    {
+        fprintf(stderr, "uph info: dlopen failed: %s\n", dlerror());
+        return false;
+    }
+
+    Uph_Vst3ModuleEntryFn entry = (Uph_Vst3ModuleEntryFn)dlsym(lib, "ModuleEntry");
+    if (entry) entry(lib);
+    get_factory = (Uph_Vst3GetFactoryFn)dlsym(lib, "GetPluginFactory");
+#elif NAUI_WINDOWS
+    lib = (void*)LoadLibraryA(binary);
+    if (!lib)
+    {
+        fprintf(stderr, "uph info: LoadLibraryA failed: %lu\n", GetLastError());
+        return false;
+    }
+
+    Uph_Vst3InitDllFn init_dll = (Uph_Vst3InitDllFn)GetProcAddress((HMODULE)lib, "InitDll");
+    if (init_dll) init_dll();
+    get_factory = (Uph_Vst3GetFactoryFn)GetProcAddress((HMODULE)lib, "GetPluginFactory");
+#endif
+
+    bool ok = false;
+    Steinberg_IPluginFactory *factory = get_factory ? get_factory() : NULL;
+
+    if (factory)
+    {
+        struct Steinberg_PFactoryInfo factory_info;
+        memset(&factory_info, 0, sizeof(factory_info));
+        factory->lpVtbl->getFactoryInfo(factory, &factory_info);
+
+        Steinberg_IPluginFactory2 *factory2 = NULL;
+        factory->lpVtbl->queryInterface(factory, Steinberg_IPluginFactory2_iid, (void**)&factory2);
+
+        Steinberg_int32 class_count = factory->lpVtbl->countClasses(factory);
+        for (Steinberg_int32 i = 0; i < class_count; i++)
+        {
+            struct Steinberg_PClassInfo class_info;
+            if (factory->lpVtbl->getClassInfo(factory, i, &class_info) != Steinberg_kResultOk)
+                continue;
+            if (strcmp(class_info.category, "Audio Module Class") != 0)
+                continue;
+
+            const char *vendor = factory_info.vendor;
+            bool is_instrument = false;
+
+            if (factory2)
+            {
+                struct Steinberg_PClassInfo2 info2;
+                memset(&info2, 0, sizeof(info2));
+                if (factory2->lpVtbl->getClassInfo2(factory2, i, &info2) == Steinberg_kResultOk)
+                {
+                    if (info2.vendor[0])
+                        vendor = info2.vendor;
+
+                    is_instrument = strstr(info2.subCategories, "Instrument") != NULL;
+                }
+            }
+
+            out->name = naui_string_from_cstr(class_info.name);
+            out->vendor = naui_string_from_cstr(vendor);
+            out->format = UPH_PLUGIN_VST3;
+            out->type = is_instrument ? UPH_PLUGIN_INSTRUMENT : UPH_PLUGIN_EFFECT;
+            ok = true;
+            break;
+        }
+
+        if (factory2)
+            factory2->lpVtbl->release(factory2);
+        factory->lpVtbl->release(factory);
+    }
+    else
+        fprintf(stderr, "uph info: no usable plugin factory in %s\n", path.data);
+
+#if NAUI_LINUX
+    Uph_Vst3ModuleExitFn exit_fn = (Uph_Vst3ModuleExitFn)dlsym(lib, "ModuleExit");
+    if (exit_fn) exit_fn();
+    dlclose(lib);
+#elif NAUI_WINDOWS
+    Uph_Vst3ExitDllFn exit_dll = (Uph_Vst3ExitDllFn)GetProcAddress((HMODULE)lib, "ExitDll");
+    if (exit_dll) exit_dll();
+    FreeLibrary((HMODULE)lib);
+#endif
+
+    return ok;
+}
+
+bool uph_get_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+{
+    memset(out, 0, sizeof(*out));
+
+    const Naui_StringView extension = naui_file_extension(&path);
+    if (naui_string_view_equals_cstr(extension, ".clap", false))
+        return uph_get_clap_plugin_info(path, out);
+    if (naui_string_view_equals_cstr(extension, ".vst3", false))
+        return uph_get_vst3_plugin_info(path, out);
+
+    fprintf(stderr, "uph info: unrecognized plugin extension for %s\n", path.data);
+    return false;
 }

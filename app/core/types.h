@@ -182,9 +182,25 @@ enum
 typedef uint8_t Uph_PluginType;
 enum
 {
+	UPH_PLUGIN_INSTRUMENT,
+	UPH_PLUGIN_EFFECT
+};
+
+typedef uint8_t Uph_PluginFormat;
+enum
+{
 	UPH_PLUGIN_CLAP,
 	UPH_PLUGIN_VST3
 };
+
+typedef struct
+{
+	Naui_String name;
+	Naui_String vendor;
+	Uph_PluginType type;
+	Uph_PluginFormat format;
+}
+Uph_PluginInfo;
 
 typedef struct
 {
@@ -203,7 +219,7 @@ typedef struct
 	Naui_Path file_path;
 	Naui_String name;
 	void *internal_handle;
-	Uph_PluginType type;
+	Uph_PluginFormat format;
 	Naui_List(Uph_PluginParam) params;
 	bool loaded;
 }

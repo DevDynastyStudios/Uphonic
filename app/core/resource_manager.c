@@ -15,7 +15,7 @@ void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 
 void uph_resources_clear_plugin(Uph_Plugin *plugin)
 {
-	uph_unload_plugin_effect(plugin);
+	uph_unload_plugin(plugin);
 	naui_list_free(plugin->params);
 	*plugin = (Uph_Plugin){ 0 };
 }
@@ -50,7 +50,7 @@ static void uph_resources_remove_track_children(Uph_Track *track)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
 		uph_resources_remove_track_children(&track->subtracks[i]);
-		uph_unload_plugin_effect(&track->subtracks[i].instrument);
+		uph_unload_plugin(&track->subtracks[i].instrument);
 		naui_list_free(track->subtracks[i].blocks);
 	}
 	naui_list_clear(track->subtracks);
@@ -62,7 +62,7 @@ void uph_resources_remove_track(Uph_Track *track)
 	uint32_t removed_index = track->index;
 
 	uph_resources_remove_track_children(track);
-	uph_unload_plugin_effect(&track->instrument);
+	uph_unload_plugin(&track->instrument);
 	naui_list_free(track->blocks);
 	naui_list_remove(list, removed_index);
 

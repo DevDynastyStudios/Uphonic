@@ -823,7 +823,7 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object)
 
 	// const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
 	// if (path.data[0])
-	// 	plugin = uph_load_plugin_effect(path);
+	// 	plugin = uph_load_plugin(path);
 
 	// if (plugin.loaded)
 	// {

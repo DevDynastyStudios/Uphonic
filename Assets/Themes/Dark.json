@@ -77,6 +77,10 @@
 
     "uph_playhead_color": "#F2F2F5",
 
+    "uph_plugin_list_clap_color": "#A48BE0",
+    "uph_plugin_list_vst3_color": "#4DC9AB",
+    "uph_plugin_list_text_color": "#FFFFFF",
+
   	"uph_piano_natural_color": "#FFFDF7",
   	"uph_piano_natural_gradient": "#D9D0BE",
   	"uph_piano_natural_pressed_color": "#C8BFAF",

@@ -785,7 +785,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
     })
     {
         leaf_text(node->title, { .font_size = font_size, .color = text_color });
-        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !node->occluded && leaf_hovered(id))
+        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !group->occluded && leaf_hovered(id))
             naui_render_close_button(node, group, font_size);
         else
         {
@@ -1316,7 +1316,7 @@ static void naui_update_panel_tabs(Naui_PanelNode *node)
         return;
     for (int32_t i = 0; i < naui_list_len(node->tabs); i++)
     {
-        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !node->tabs[i]->close_hovered &&
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !node->occluded && !node->tabs[i]->close_hovered &&
             naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_PANEL_TAB_ID, (uintptr_t)node->tabs[i])))
         {
             node->active_tab = i;
