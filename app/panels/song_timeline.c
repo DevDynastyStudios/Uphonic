@@ -982,7 +982,8 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
             const double left_length = cut_beat - block->start_beat;
             const double right_length = block->length_beats - left_length;
 
-            if (left_length >= 1.0 && right_length >= 1.0)
+            const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+            if (left_length >= division && right_length >= division)
             {
                 Uph_TimelineBlock right_half = *block;
                 right_half.start_beat = cut_beat;
@@ -1463,7 +1464,7 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
     if (uph_song_timeline_data.current_action_mode == UPH_ACTION_CUT)
     {
         const double mouse_beat = ((double)naui_mouse_x() - (bbox.x + x_offset) + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-        const double cut_beat = floor(mouse_beat);
+        const double cut_beat = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
 
         const float x = bbox.x + x_offset + (float)(cut_beat * uph_song_timeline_data.zoom.x) - uph_song_timeline_data.scroll.x;
 
