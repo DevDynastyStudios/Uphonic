@@ -1011,7 +1011,7 @@ static inline void uph_load_vst3_plugin_internal(Uph_Plugin *plug, uint32_t *wid
         return;
     }
 
-    printf("loading vst3 plugin: %s\n", class_info.name);
+    fprintf(stderr, "loading vst3 plugin: %s\n", class_info.name);
     ih->display_name = naui_string_from_cstr(class_info.name);
 
     if (ih->vst3.factory->lpVtbl->createInstance(
@@ -1893,7 +1893,7 @@ static inline void uph_load_clap_plugin_internal(Uph_Plugin *plug, uint32_t *wid
     }
 
     const clap_plugin_descriptor_t *desc = factory->get_plugin_descriptor(factory, 0);
-    printf("loading plugin: %s (%s)\n", desc->name, desc->id);
+    fprintf(stderr, "loading plugin: %s (%s)\n", desc->name, desc->id);
 
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)calloc(1, sizeof(Uph_PluginInternalHandle));
