@@ -1,3 +1,6 @@
+#define UPH_TRACK_PALLETE_SIZE 8
+
+#pragma region Helpers
 static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track *parent)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
@@ -6,6 +9,72 @@ static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track
 		tracks[i].index = i;
 		uph_resources_link_track_list(tracks[i].subtracks, &tracks[i]);
 	}
+}
+
+static void uph_resources_remove_track_children(Uph_Track *track)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+	{
+		uph_resources_remove_track_children(&track->subtracks[i]);
+		uph_unload_plugin(&track->subtracks[i].instrument);
+		naui_list_free(track->subtracks[i].blocks);
+	}
+	naui_list_clear(track->subtracks);
+}
+
+static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
+	{
+		Uph_Track *track = &list[i];
+		uph_resources_clear_tracks_recursive(track->subtracks);
+		uph_resources_clear_plugin(&track->instrument);
+
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_resources_clear_plugin(&track->effects[e]);
+
+		naui_list_free(track->effects);
+		naui_list_free(track->blocks);
+	}
+
+	naui_list_free(list);
+}
+
+static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType track_type, Uph_ResourceIndex resource_index)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+	{
+		if (uph_state.project.tracks[i].type != track_type)
+			continue;
+
+		Naui_List(Uph_TimelineBlock) blocks = uph_state.project.tracks[i].blocks;
+		for (uint32_t j = 0; j < (uint32_t)naui_list_len(blocks); j++)
+		{
+			if (blocks[j].resource_index == resource_index)
+			{
+				naui_list_uremove(blocks, j);
+				j--;
+			}
+			else if (blocks[j].resource_index > resource_index)
+			{
+				blocks[j].resource_index--;
+			}
+		}
+
+		if (naui_list_len(blocks) == 0)
+			uph_state.project.tracks[i].type = UPH_RESOURCE_NONE;
+	}
+}
+#pragma endregion
+
+#pragma region Public API
+
+Naui_Color uph_resources_track_color(const int32_t color_index)
+{
+	const int32_t wrapped = color_index % UPH_TRACK_PALLETE_SIZE;
+	char key[32];
+	snprintf(key, sizeof(key), "uph_palette_color_%d", wrapped);
+	return naui_theme_color(key);
 }
 
 void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
@@ -45,17 +114,6 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
 	naui_list_push(parent->subtracks, track);
 }
 
-static void uph_resources_remove_track_children(Uph_Track *track)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
-	{
-		uph_resources_remove_track_children(&track->subtracks[i]);
-		uph_unload_plugin(&track->subtracks[i].instrument);
-		naui_list_free(track->subtracks[i].blocks);
-	}
-	naui_list_clear(track->subtracks);
-}
-
 void uph_resources_remove_track(Uph_Track *track)
 {
 	Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
@@ -68,24 +126,6 @@ void uph_resources_remove_track(Uph_Track *track)
 
 	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
 		list[i].index--;
-}
-
-static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
-	{
-		Uph_Track *track = &list[i];
-		uph_resources_clear_tracks_recursive(track->subtracks);
-		uph_resources_clear_plugin(&track->instrument);
-
-		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_resources_clear_plugin(&track->effects[e]);
-
-		naui_list_free(track->effects);
-		naui_list_free(track->blocks);
-	}
-
-	naui_list_free(list);
 }
 
 void uph_resources_clear_tracks(void)
@@ -117,32 +157,6 @@ void uph_resources_copy_sample(Uph_ResourceIndex sample_index)
 	Uph_Sample sample = uph_state.project.samples[sample_index];
 	uph_state.project.sample_data[sample.data_index].ref_count++;
 	naui_list_push(uph_state.project.samples, sample);
-}
-
-static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType track_type, Uph_ResourceIndex resource_index)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-	{
-		if (uph_state.project.tracks[i].type != track_type)
-			continue;
-
-		Naui_List(Uph_TimelineBlock) blocks = uph_state.project.tracks[i].blocks;
-		for (uint32_t j = 0; j < (uint32_t)naui_list_len(blocks); j++)
-		{
-			if (blocks[j].resource_index == resource_index)
-			{
-				naui_list_uremove(blocks, j);
-				j--;
-			}
-			else if (blocks[j].resource_index > resource_index)
-			{
-				blocks[j].resource_index--;
-			}
-		}
-
-		if (naui_list_len(blocks) == 0)
-			uph_state.project.tracks[i].type = UPH_RESOURCE_NONE;
-	}
 }
 
 void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
@@ -214,3 +228,4 @@ void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
 	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
 	naui_list_remove(uph_state.project.automations, automation_index);
 }
+#pragma endregion

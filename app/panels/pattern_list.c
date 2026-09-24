@@ -47,13 +47,9 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     }
 
     const uint32_t key_range = (uint32_t)(highest_key - lowest_key) + 1;
-
     const float slot_height = box.height / (float)key_range;
     const float note_height = fmaxf(slot_height, 1.0f);
-
-    const float x_scale = (furthest_beat > 0.0)
-        ? (box.width / (float)furthest_beat)
-        : 1.0f;
+    const float x_scale = (furthest_beat > 0.0) ? (box.width / (float)furthest_beat) : 1.0f;
 
     for (uint32_t i = 0; i < note_count; i++)
     {

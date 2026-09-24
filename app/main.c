@@ -94,6 +94,8 @@ void naui_app_start(void)
 	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
 	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 
+	//NAUI_ATTACH_PANEL(uph_file_dialog);
+
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(
 			uph_state.panels.song_timeline,
