@@ -11,7 +11,7 @@ typedef struct
 }
 Uph_PluginListData;
 
-static Uph_PluginListData uph_plugin_list_data;
+static Uph_PluginListData uph_plugin_list_data = { 0 };
 
 void uph_plugin_list_on_attach(void)
 {
@@ -27,6 +27,9 @@ void uph_plugin_list_on_detach(void)
 
 void uph_plugin_list_on_open(void)
 {
+    if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
+        return;
+
     naui_list_clear(uph_plugin_list_data.plugin_infos);
     naui_list_clear(uph_plugin_list_data.plugin_paths);
 
@@ -248,6 +251,19 @@ static void uph_plugin_list_current_menu(void)
 
 void uph_plugin_list_on_update(void)
 {
+    if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        }) leaf_text("No plugins detected! You can a plugin paths from the settings menu.", {
+            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_ui_font_size"))),
+            .color = {naui_theme_color("uph_ui_text_color")},
+            .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
+        });
+        return;
+    }
+
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
     })
