@@ -59,6 +59,14 @@ typedef struct
 Uph_GlobalWidgetData;
 static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
+typedef struct
+{
+    Leaf_ID id;
+    int32_t last_mouse_y;
+}
+Uph_KnobData;
+static Uph_KnobData uph_global_knob_data;
+
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
     const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
@@ -1413,6 +1421,123 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
             *current_index = i;
             result = true;
         }
+    }
+
+    return result;
+}
+
+static void uph_ui_knob_draw(Leaf_BoundingBox box, void *user_data)
+{
+    const struct { float t; Leaf_Color ring; Leaf_Color fill; Leaf_Color indicator; } *data = user_data;
+    const float cx = box.x + box.width * 0.5f;
+    const float cy = box.y + box.height * 0.5f;
+    const float radius = NAUI_MIN(box.width, box.height) * 0.5f;
+
+    naui_fill_rect((Naui_Vec2){ box.x, box.y }, (Naui_Vec2){ box.width, box.height }, data->fill, radius, NAUI_CORNER_ALL);
+    naui_draw_rect((Naui_Vec2){ box.x, box.y }, (Naui_Vec2){ box.width, box.height }, data->ring, NAUI_DPI(1.5f), radius, NAUI_CORNER_ALL, LEAF_SIDE_ALL);
+
+    const float angle = LEAF_DEG(-135.0f + data->t * 270.0f);
+    const float dx = sinf(angle), dy = -cosf(angle);
+    const float inner = radius * 0.2f, outer = radius * 0.85f;
+
+    naui_draw_line(
+        (Naui_Vec2){ cx + dx * inner, cy + dy * inner },
+        (Naui_Vec2){ cx + dx * outer, cy + dy * outer },
+        data->indicator, NAUI_DPI(2.0f)
+    );
+}
+
+bool uph_ui_knob(float *value, const Leaf_ID id, const float min, const float max, const float reset_value, const char *format)
+{
+    Uph_KnobData *kdata = &uph_global_knob_data;
+    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
+
+    bool result = false;
+    static Naui_String edit_buffer;
+    bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
+
+    const bool hovered = uph_ui_widget_hovered(id);
+    const bool dragging_this = (kdata->id.value == id.value);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
+    if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+    {
+        edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *value);
+        uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
+        tdata->target_number = value;
+        kdata->id.value = 0;
+        text_editing = true;
+    }
+
+    if (text_editing)
+    {
+        if (uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL))
+        {
+            *value = NAUI_CLAMP((float)atof(edit_buffer.data), min, max);
+            result = true;
+        }
+
+        if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
+            tdata->target_number = NULL;
+    }
+    else
+    {
+        if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT) && !dragging_this)
+        {
+            kdata->id = id;
+            kdata->last_mouse_y = naui_mouse_y();
+        }
+        else if (hovered && !dragging_this && naui_mouse_clicked(NAUI_MOUSE_RIGHT))
+        {
+            *value = NAUI_CLAMP(reset_value, min, max);
+            result = true;
+        }
+
+        if (dragging_this)
+        {
+            if (naui_mouse_down(NAUI_MOUSE_LEFT))
+            {
+                const int32_t my = naui_mouse_y();
+                const float delta = (float)(kdata->last_mouse_y - my); // up = positive
+                kdata->last_mouse_y = my;
+
+                const float new_value = NAUI_CLAMP(*value + delta * (max - min) / NAUI_DPI(150.0f), min, max);
+                if (new_value != *value)
+                {
+                    *value = new_value;
+                    result = true;
+                }
+            }
+            else
+                kdata->id.value = 0;
+        }
+    }
+
+    const float t = (max > min) ? NAUI_CLAMP((*value - min) / (max - min), 0.0f, 1.0f) : 0.5f;
+    struct { float t; Leaf_Color ring; Leaf_Color fill; Leaf_Color indicator; } draw_data = {
+        .t = t,
+        .ring = naui_theme_color("uph_track_header_border_color"),
+        .fill = naui_theme_color("uph_ui_frame_bg_color"),
+        .indicator = naui_theme_color("uph_ui_slider_fill_color")
+    };
+
+    leaf({
+        .id = id,
+        .size = { LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED },
+        .aspect_ratio = 1.0f,
+        .custom_draw = uph_ui_knob_draw,
+        .custom_draw_data = LEAF_DATA_SLICE(draw_data)
+    });
+
+    if (!text_editing)
+    {
+        const Naui_String display = naui_string_format(format ? (char*)format : "%.2f", *value);
+        leaf_text(display.data, {
+            .font_size = { NAUI_DPI(naui_theme_float("uph_ui_font_size")) * 0.85f },
+            .color = { naui_theme_color("uph_ui_text_color") }
+        });
     }
 
     return result;

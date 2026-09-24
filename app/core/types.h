@@ -243,8 +243,9 @@ struct Uph_Track
 	float volume;
 	float pan;
 	float peak_left, peak_right;
-	float peak_cap_left, peak_cap_right;
 	float smooth_peak_left, smooth_peak_right;
+	float peak_cap_left, peak_cap_right;
+	float peak_cap_hold_left, peak_cap_hold_right;
 	float glow_effect;
 
 	uint64_t automation_param_id;

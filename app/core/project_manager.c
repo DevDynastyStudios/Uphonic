@@ -1,10 +1,10 @@
 #define UPHONIC_FOLDER naui_path_join(naui_directory_get(NAUI_DIR_APPDATA), NAUI_PATH("Uphonic"))
-#define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("Workspace"))
+#define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("workspace"))
 #define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
 
 bool uph_project_create(Naui_String project_name)
 {
-	Naui_Path project_dest = naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project_name.data));
+	Naui_Path project_dest = naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project_name.data));
 	// if (naui_path_exists(project_dest))
 	// {
 	// 	naui_log(NAUI_LOG_ERROR, "Project name already exists: %s", project_name.data);
@@ -144,6 +144,13 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		// Create Uphonic Project Folder
 		// Extract contents to new folder
 		// Success, update load_path
+		load_path = naui_path_join(UPHONIC_WORKSPACE_FOLDER, naui_path_from_cstr(naui_file_stem(&project_path).data));
+		if(!naui_directories_create(load_path))
+		{
+			// Resolve false condition, duplicate project names. MUST BE UNIQUE!
+		}
+		
+		naui_archive_extract_to(&archive, load_path);
 		naui_log(NAUI_LOG_ERROR, "Uph Loading Not Supported...");
 	}
 
@@ -186,5 +193,5 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 
 Naui_Path uph_project_get_path(const Uph_Project* project)
 {
-	return naui_path_join(UPHONIC_FOLDER, NAUI_PATH(project->title.data));
+	return naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project->title.data));
 }
