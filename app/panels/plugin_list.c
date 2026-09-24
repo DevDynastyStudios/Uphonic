@@ -84,7 +84,7 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
         .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .color = (hovered || uph_plugin_list_data.current_plugin_index == item_index) ?
-            LEAF_COLOR_BLACK : LEAF_COLOR_TRANSPARENT,
+            naui_theme_color("uph_ui_frame_secondary_bg_color") : naui_theme_color("uph_ui_frame_bg_color"),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
@@ -213,7 +213,11 @@ static void uph_plugin_list_current_menu(void)
     leaf({
         .size = {LEAF_SIZE_PERCENT(0.25f), LEAF_SIZE_FULL},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = LEAF_COLOR_BLACK
+        .border = {
+            .width = 1,
+            .color = naui_theme_color("uph_ui_frame_border"),
+            .sides = LEAF_SIDE_LEFT
+        }
     })
     {
 
@@ -252,6 +256,11 @@ void uph_plugin_list_on_update(void)
     }
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+        .border = {
+            .width = 1,
+            .color = naui_theme_color("uph_ui_frame_border"),
+            .sides = LEAF_SIDE_TOP
+        },
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {

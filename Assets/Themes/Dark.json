@@ -37,7 +37,7 @@
     "uph_ui_frame_hovered_bg_color": "#46464E",
     "uph_ui_frame_pressed_bg_color": "#5C5C66",
     "uph_ui_frame_toggled_bg_color": "#38383F",
-    "uph_ui_frame_border": "#1A1A1D",
+    "uph_ui_frame_border": "#232327",
     "uph_ui_frame_rounding": 6.0,
     "uph_ui_frame_padding": [6.0, 6.0],
 
