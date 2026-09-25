@@ -127,6 +127,13 @@ void naui_app_end(void)
 	cmidi_shutdown();
 
 	uph_audio_engine_shutdown();
+
+	// Hack: Force quit to clear all uncleared plugins on unknown threads
+#if NAUI_WINDOWS
+	TerminateProcess(GetCurrentProcess(), 0);
+#elif NAUI_LINUX
+	_exit(0);
+#endif
 }
 
 void naui_app_update(void)
@@ -136,7 +143,7 @@ void naui_app_update(void)
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
 	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
 
-	leaf({
+	/*leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(15))},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(12), NAUI_DPI(8)),
@@ -191,17 +198,8 @@ void naui_app_update(void)
 					_uph_metronome_reset();
 				}
 			}
-
-			leaf({
-				.size = { LEAF_SIZE_FIXED(50), LEAF_SIZE_GROW },
-				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-			})
-			{
-				const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
-				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
-			}
 		}
-	}
+	}*/
 
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();

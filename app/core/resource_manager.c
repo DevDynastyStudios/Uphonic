@@ -120,7 +120,7 @@ void uph_resources_remove_track(Uph_Track *track)
 	uint32_t removed_index = track->index;
 
 	uph_resources_remove_track_children(track);
-	uph_unload_plugin(&track->instrument);
+	uph_resources_clear_plugin(&track->instrument);
 	naui_list_free(track->blocks);
 	naui_list_remove(list, removed_index);
 

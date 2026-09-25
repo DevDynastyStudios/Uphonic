@@ -254,45 +254,72 @@ Naui_PanelID naui_dock_panel(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
         naui_list_remove(naui_panel_manager.root_nodes, guest->root_index);
         naui_reset_root_indexes(guest->root_index);
 
-        Naui_List(Naui_PanelNode*) target_tabs;
+        Naui_PanelNode *group;
+
         if (target->parent && target->parent->tabs)
-            target_tabs = target->parent->tabs;
+        {
+            group = target->parent;
+        }
         else if (!target->tabs)
         {
-            Naui_PanelNode *target_copy = naui_alloc_panel_node();
-            *target_copy = *target;
-            target_copy->parent = target;
-            naui_list_push(target->tabs, target_copy);
-            target_tabs = target->tabs;
+            group = naui_alloc_panel_node();
+            group->position   = target->position;
+            group->size       = target->size;
+            group->min_size   = target->min_size;
+            group->root       = target->root;
+            group->root_index = target->root_index;
+            group->parent     = target->parent;
+
+            if (target->parent)
+            {
+                int slot = target->parent->children[0] == target ? 0 : 1;
+                target->parent->children[slot] = group;
+            }
+            else if (target == naui_panel_manager.main_viewport)
+            {
+                naui_panel_manager.main_viewport = group;
+                group->root = group;
+            }
+            else
+            {
+                naui_panel_manager.root_nodes[target->root_index] = group;
+                group->root = group;
+            }
+
+            target->parent = group;
+            target->occluded = false;
+            target->close_hovered = false;
+            naui_list_push(group->tabs, target);
         }
         else
-            target_tabs = target->tabs;
+        {
+            group = target;
+        }
 
         if (guest->tabs)
         {
             for (int32_t i = 0; i < naui_list_len(guest->tabs); i++)
             {
                 Naui_PanelNode *guest_tab = guest->tabs[i];
-                guest_tab->parent = target;
-                guest_tab->root = target->root;
-                naui_list_push(target_tabs, guest_tab);
+                guest_tab->parent = group;
+                guest_tab->root = group->root;
+                guest_tab->occluded = false;
+                guest_tab->close_hovered = false;
+                naui_list_push(group->tabs, guest_tab);
             }
             naui_list_free(guest->tabs);
             naui_free_panel_node(guest);
         }
         else
         {
-            guest->parent = target;
-            guest->root = target->root;
-            naui_list_push(target_tabs, guest);
+            guest->parent = group;
+            guest->root = group->root;
+            guest->occluded = false;
+            guest->close_hovered = false;
+            naui_list_push(group->tabs, guest);
         }
 
-        if (target->parent && target->parent->tabs)
-            target->parent->tabs = target_tabs;
-        else
-            target->tabs = target_tabs;
-
-        return (Naui_PanelID)target;
+        return (Naui_PanelID)group;
     }
 
     naui_list_remove(naui_panel_manager.root_nodes, guest->root_index);

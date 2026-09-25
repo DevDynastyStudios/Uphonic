@@ -2347,12 +2347,7 @@ static ATOM uph_register_plugin_wnd_class(void)
 static void uph_clap_abort_load(void *handle, const clap_plugin_entry_t *entry, bool entry_inited, Uph_PluginInternalHandle *ih, const clap_plugin_t *plugin, bool plugin_inited)
 {
     if (plugin)
-    {
-        if (plugin_inited)
-            plugin->destroy(plugin);
-        else
-            plugin->destroy(plugin);
-    }
+        plugin->destroy(plugin);
 
     if (ih)
         free(ih);

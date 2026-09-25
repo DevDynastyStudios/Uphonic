@@ -1351,6 +1351,21 @@ static void uph_song_timeline_render_toolbox(void)
 
             uph_ui_combo(snap_options, 5, (uint32_t*)&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
         }
+
+        leaf({
+            .direction = LEAF_DIRECTION_HORIZONTAL
+        })
+        {
+            leaf_text("BPM: ", {.font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")), .color = naui_theme_color("uph_ui_text_color")});
+            leaf({
+                .size = { LEAF_SIZE_FIXED(NAUI_DPI(56)), LEAF_SIZE_FULL },
+                .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            })
+            {
+                const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
+                uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
+            }
+        }
     }
 }
 
