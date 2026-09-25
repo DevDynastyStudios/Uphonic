@@ -1166,7 +1166,7 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             UINT32 codepoint;
             if (IS_LOW_SURROGATE(ch) && pending_high_surrogate)
             {
-                codepoint = 0x10000  + ((pending_high_surrogate - 0xD800) << 10)  + (ch - 0xDC00);
+                codepoint = 0x10000 + ((pending_high_surrogate - 0xD800) << 10)  + (ch - 0xDC00);
                 pending_high_surrogate = 0;
             }
             else
