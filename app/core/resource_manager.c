@@ -65,9 +65,30 @@ static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType t
 			uph_state.project.tracks[i].type = UPH_RESOURCE_NONE;
 	}
 }
+
+static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
+	{
+		Uph_Track *track = &list[i];
+
+		uph_resources_unload_plugins_recursive(track->subtracks);
+
+		uph_unload_plugin(&track->instrument);
+
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e]);
+	}
+}
+
 #pragma endregion
 
 #pragma region Public API
+
+void uph_resources_unload_all_plugins(void)
+{
+	uph_resources_unload_plugins_recursive(uph_state.project.tracks);
+}
 
 Naui_Color uph_resources_track_color(const int32_t color_index)
 {

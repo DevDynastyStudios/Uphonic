@@ -210,7 +210,8 @@ enum
     MGAPP_EVENT_MOUSE_UP,
     MGAPP_EVENT_MOUSE_MOVE,
     MGAPP_EVENT_MOUSE_SCROLL,
-    MGAPP_EVENT_FILE_DROP
+    MGAPP_EVENT_FILE_DROP,
+    MGAPP_EVENT_WINDOW_CLOSE
 };
 
 typedef struct
@@ -940,6 +941,8 @@ static void mgapp_emscripten_main_loop(void)
 
     if (!mgapp_state.running)
     {
+        mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+        mgapp_call_event(&event);
         emscripten_cancel_main_loop();
         if (mgapp_state.events.end)
             mgapp_state.events.end();
@@ -1086,6 +1089,13 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
 {
     switch (msg)
     {
+        case WM_CLOSE:
+        {
+            mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+            mgapp_call_event(&event);
+            DestroyWindow(hwnd);
+            return 0;
+        }
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
@@ -2112,7 +2122,11 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                 case ClientMessage:
                 {
                     if ((Atom)xev.xclient.data.l[0] == xlib_state->wm_delete_window)
+                    {
+                        mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+                        mgapp_call_event(&event);
                         mgapp_state.running = false;
+                    }
                     else if (mgapp_state.flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
                         mgapp_xlib_handle_xdnd_client_message(xlib_state, &xev.xclient);
                     break;
@@ -2327,6 +2341,8 @@ void mgapp_xlib_show(bool value)
 
 void mgapp_xlib_close(void)
 {
+    mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+    mgapp_call_event(&event);
     mgapp_state.running = false;
 }
 

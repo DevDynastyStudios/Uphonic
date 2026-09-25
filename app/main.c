@@ -127,7 +127,6 @@ void naui_app_end(void)
 	cmidi_shutdown();
 
 	uph_audio_engine_shutdown();
-	uph_resources_clear_tracks();
 }
 
 void naui_app_update(void)
@@ -210,5 +209,9 @@ void naui_app_event(const Naui_AppEventData *data)
 	if (data->type == NAUI_APP_EVENT_FILE_DROP)
 	{
 		uph_project_add_file(&uph_state.project, NAUI_PATH(data->file_drop.paths[0]));
+	}
+	else if (data->type == NAUI_APP_EVENT_WINDOW_CLOSE)
+	{
+		uph_resources_unload_all_plugins();
 	}
 }

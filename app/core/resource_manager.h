@@ -16,4 +16,5 @@ void uph_resources_add_automation(void);
 void uph_resources_copy_automation(Uph_ResourceIndex automation_index);
 void uph_resources_remove_automation(Uph_ResourceIndex automation_index);
 
+void uph_resources_unload_all_plugins(void);
 Naui_Color uph_resources_track_color(const int32_t color_index);
