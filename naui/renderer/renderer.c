@@ -244,7 +244,15 @@ static inline Naui_ClipRect naui_current_clip(void)
 static void naui_apply_scissor(void)
 {
     Naui_ClipRect c = naui_current_clip();
-    mgfx_scissor((int32_t)c.x0, (int32_t)c.y0, (uint32_t)(c.x1 - c.x0), (uint32_t)(c.y1 - c.y0));
+
+    float x0 = c.x0 < 0 ? 0 : c.x0;
+    float y0 = c.y0 < 0 ? 0 : c.y0;
+    float x1 = c.x1 > (float)rdata->width  ? (float)rdata->width  : c.x1;
+    float y1 = c.y1 > (float)rdata->height ? (float)rdata->height : c.y1;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
+
+    mgfx_scissor((int32_t)x0, (int32_t)y0, (uint32_t)(x1 - x0), (uint32_t)(y1 - y0));
 }
 
 static void naui_renderer_flush(void)
@@ -713,6 +721,7 @@ void naui_renderer_shutdown(void)
     }
     mgfx_destroy_sampler(rdata->linear_sampler);
     mgfx_destroy_sampler(rdata->nearest_sampler);
+    mgfx_destroy_image(rdata->image_atlas);
     mgfx_destroy_buffer(rdata->batch_vb);
     mgfx_destroy_buffer(rdata->batch_ib);
     mgfx_destroy_pipeline(rdata->base_pipeline);
@@ -747,6 +756,11 @@ bool naui_renderer_begin(void)
     mgfx_bind_index_buffer(rdata->batch_ib, MGFX_INDEX_TYPE_UINT32);
     mgfx_bind_sampled_image(rdata->image_atlas, rdata->linear_sampler, 0);
 
+    if (rdata->font_loaded[0])
+        mgfx_bind_sampled_image(rdata->font[0].atlas, rdata->linear_sampler, 1);
+    else
+        mgfx_bind_sampled_image(rdata->image_atlas, rdata->linear_sampler, 1); // dummy fallback
+
     struct { Naui_Vec2 u_resolution; } ub_data;
     ub_data.u_resolution = (Naui_Vec2){(float)rdata->width, (float)rdata->height};
     mgfx_bind_uniforms(0, sizeof(ub_data), &ub_data);
@@ -769,16 +783,16 @@ void naui_push_clip_rect(float x, float y, float width, float height)
     float x0 = x, y0 = y;
     float x1 = x0 + width, y1 = y0 + height;
 
-    if (rdata->clip_stack_depth > 0)
-    {
-        Naui_ClipRect *p = &rdata->clip_stack[rdata->clip_stack_depth - 1];
-        if (x0 < p->x0) x0 = p->x0;
-        if (y0 < p->y0) y0 = p->y0;
-        if (x1 > p->x1) x1 = p->x1;
-        if (y1 > p->y1) y1 = p->y1;
-        if (x1 < x0) x1 = x0;
-        if (y1 < y0) y1 = y0;
-    }
+    Naui_ClipRect parent = (rdata->clip_stack_depth > 0)
+        ? rdata->clip_stack[rdata->clip_stack_depth - 1]
+        : (Naui_ClipRect){ 0, 0, (float)rdata->width, (float)rdata->height };
+
+    if (x0 < parent.x0) x0 = parent.x0;
+    if (y0 < parent.y0) y0 = parent.y0;
+    if (x1 > parent.x1) x1 = parent.x1;
+    if (y1 > parent.y1) y1 = parent.y1;
+    if (x1 < x0) x1 = x0;
+    if (y1 < y0) y1 = y0;
 
     rdata->clip_stack[rdata->clip_stack_depth++] = (Naui_ClipRect){ x0, y0, x1, y1 };
     naui_apply_scissor();

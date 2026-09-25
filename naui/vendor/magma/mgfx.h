@@ -2637,6 +2637,7 @@ void mgfx_vk_bind_pipeline(mgfx_vk_pipeline *pipeline)
     vkCmdBindPipeline(mgfx_ctx.vk.command_buffer, pipeline->bind_point, pipeline->pipeline);
     mgfx_ctx.vk.current_pipeline = pipeline;
     memset(mgfx_ctx.vk.descriptor_state.bound_resources_active, 0, sizeof(mgfx_ctx.vk.descriptor_state.bound_resources_active));
+    mgfx_ctx.vk.descriptor_state.dirty = false;
 }
 
 static void mgfx_vk_transition_image_layout(VkCommandBuffer cmd, VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, int layer_count)
@@ -3033,10 +3034,16 @@ static void mgfx_vk_create_device(void)
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR,
         .dynamicRendering = VK_TRUE,
     };
+
+    VkPhysicalDeviceVulkan14Features vulkan14_features = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_4_FEATURES,
+        .pNext = &dynamic_rendering,
+        .pushDescriptor = VK_TRUE
+    };
     
     VkDeviceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &dynamic_rendering,
+        .pNext = &vulkan14_features,
         .queueCreateInfoCount = 1,
         .pQueueCreateInfos = &queue_create_info,
         .pEnabledFeatures = &device_features
@@ -3269,6 +3276,8 @@ static mgfx_result mgfx_vk_begin(void)
     }
     
     vkWaitForFences(mgfx_ctx.vk.device.handle, 1, &mgfx_ctx.vk.sync_objects.fence, VK_TRUE, UINT64_MAX);
+    mgfx_vk_recycle();
+    
     VkResult result = vkAcquireNextImageKHR(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.handle, UINT64_MAX, mgfx_ctx.vk.sync_objects.image_available_semaphore, VK_NULL_HANDLE, &mgfx_ctx.vk.swapchain.image_index);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
@@ -3340,8 +3349,6 @@ static void mgfx_vk_end(void)
     VkResult result = vkQueuePresentKHR(mgfx_ctx.vk.device.graphics_compute_queue, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         mgfx_ctx.vk.rebuild_swapchain = true;
-    
-    mgfx_vk_recycle();
 }
 
 static void mgfx_vk_viewport(int32_t x, int32_t y, uint32_t width, uint32_t height)
