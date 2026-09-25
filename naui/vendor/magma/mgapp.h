@@ -1074,16 +1074,17 @@ static inline void mgapp_win32_setup_clock(mgapp_win32_state *win32_state)
 
 static inline void mgapp_win32_load_cursors(mgapp_win32_state *win32_state)
 {
-    win32_state->cursor_table[MG_CURSOR_ARROW] = LoadCursorW(NULL, IDC_ARROW);
-    win32_state->cursor_table[MG_CURSOR_IBEAM] = LoadCursorW(NULL, IDC_IBEAM);
-    win32_state->cursor_table[MG_CURSOR_CROSSHAIR] = LoadCursorW(NULL, IDC_CROSS);
-    win32_state->cursor_table[MG_CURSOR_HAND] = LoadCursorW(NULL, IDC_HAND);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_ALL] = LoadCursorW(NULL, IDC_SIZENS);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NS] = LoadCursorW(NULL, IDC_SIZEWE);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_EW] = LoadCursorW(NULL, IDC_SIZENESW);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NESW] = LoadCursorW(NULL, IDC_SIZENWSE);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NWSE] = LoadCursorW(NULL, IDC_SIZEALL);
-    win32_state->cursor_table[MG_CURSOR_NOT_ALLOWED] = LoadCursorW(NULL, IDC_NO);
+    win32_state->cursor_table[MG_CURSOR_ARROW]        = LoadCursorW(NULL, IDC_ARROW);
+    win32_state->cursor_table[MG_CURSOR_IBEAM]        = LoadCursorW(NULL, IDC_IBEAM);
+    win32_state->cursor_table[MG_CURSOR_CROSSHAIR]    = LoadCursorW(NULL, IDC_CROSS);
+    win32_state->cursor_table[MG_CURSOR_HAND]         = LoadCursorW(NULL, IDC_HAND);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NS]    = LoadCursorW(NULL, IDC_SIZENS);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_EW]    = LoadCursorW(NULL, IDC_SIZEWE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NESW]  = LoadCursorW(NULL, IDC_SIZENESW);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NWSE]  = LoadCursorW(NULL, IDC_SIZENWSE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_ALL]   = LoadCursorW(NULL, IDC_SIZEALL);
+    win32_state->cursor_table[MG_CURSOR_NOT_ALLOWED]  = LoadCursorW(NULL, IDC_NO);
+    win32_state->cursor_table[MG_CURSOR_HIDDEN]       = NULL;
 }
 
 static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param)
