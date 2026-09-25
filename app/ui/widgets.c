@@ -763,14 +763,18 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         const bool ctrl = naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
         const bool shift = naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
 
-        uint32_t codepoint = naui_app_char_pressed();
-        if (codepoint && codepoint != '\b' && codepoint != 0x7F && codepoint != '\t' && codepoint != '\x1b' && codepoint >= 0x20)
+        uint32_t codepoint = naui_app_codepoint();
+        while (codepoint)
         {
-            if (uph_ui__char_allowed(codepoint, flags, value, data->cursor))
+            if (codepoint != '\b' && codepoint != 0x7F && codepoint != '\t' && codepoint != '\x1b' && codepoint >= 0x20)
             {
-                uph_ui__textfield_delete_selection(data);
-                naui_string_append_char_at(value, (char)codepoint, data->cursor++);
+                if (uph_ui__char_allowed(codepoint, flags, value, data->cursor))
+                {
+                    uph_ui__textfield_delete_selection(data);
+                    naui_string_append_char_at(value, (char)codepoint, data->cursor++);
+                }
             }
+            codepoint = naui_app_codepoint();
         }
 
         if (naui_key_pressed(NAUI_KEY_BACKSPACE))

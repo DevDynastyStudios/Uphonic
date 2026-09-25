@@ -273,6 +273,10 @@ typedef struct
 }
 mgapp_init_info;
 
+#ifndef MGAPP_MAX_CODEPOINTS
+    #define MGAPP_MAX_CODEPOINTS 64
+#endif
+
 MGAPP_API int32_t mgapp_run(const mgapp_init_info *info);
 MGAPP_API void mgapp_close(void);
 MGAPP_API void mgapp_show(bool value);
@@ -293,6 +297,8 @@ MGAPP_API void mgapp_set_cursor(mg_cursor cursor);
 MGAPP_API bool mgapp_key_down(mg_key key);
 MGAPP_API bool mgapp_key_pressed(mg_key key);
 MGAPP_API bool mgapp_key_released(mg_key key);
+
+MGAPP_API uint32_t mgapp_codepoint(void);
 
 MGAPP_API bool mgapp_mouse_down(mg_mouse_button button);
 MGAPP_API bool mgapp_mouse_pressed(mg_mouse_button button);
@@ -393,6 +399,14 @@ typedef struct
         mouse;
     }
     clear;
+
+    struct
+    {
+        uint32_t codepoints[MGAPP_MAX_CODEPOINTS];
+        uint32_t count;
+        uint32_t read_index;
+    }
+    text;
 }
 mgapp_input_state;
 
@@ -571,6 +585,13 @@ static inline void mgapp_input_process_key(mg_key key, bool pressed)
     mgapp_state.input.keyboard.keys[key] = pressed;
 }
 
+static inline void mgapp_input_process_char(uint32_t codepoint)
+{
+    mgapp_input_state *input_state = &mgapp_state.input;
+    if (input_state->text.count < MGAPP_MAX_CODEPOINTS)
+        input_state->text.codepoints[input_state->text.count++] = codepoint;
+}
+
 static inline void mgapp_input_process_mouse_button(mg_mouse_button button, bool pressed, float time_now)
 {
     mgapp_input_state *input_state = &mgapp_state.input;
@@ -622,6 +643,8 @@ static inline void mgapp_input_process_mouse_button(mg_mouse_button button, bool
 static inline void mgapp_input_frame(void)
 {
     mgapp_state.input.mouse.delta = 0;
+    mgapp_state.input.text.count = 0;
+    mgapp_state.input.text.read_index = 0;
     memset(&mgapp_state.input.clear, 0, sizeof(mgapp_state.input.clear));
 }
 
@@ -638,6 +661,16 @@ bool mgapp_key_pressed(mg_key key)
 bool mgapp_key_released(mg_key key)
 {
     return mgapp_state.input.clear.keyboard.keys_released[key];
+}
+
+uint32_t mgapp_codepoint(void)
+{
+    mgapp_input_state *input_state = &mgapp_state.input;
+
+    if (input_state->text.read_index >= input_state->text.count)
+        return 0;
+
+    return input_state->text.codepoints[input_state->text.read_index++];
 }
 
 bool mgapp_mouse_down(mg_mouse_button button)
@@ -825,6 +858,7 @@ static EM_BOOL mgapp_emscripten_key_callback(int32_t event_type, const Emscripte
         unsigned char c = (unsigned char)e->key[0];
         if (c >= 0x20)
         {
+            mgapp_input_process_char((uint32_t)c);
             mgapp_event event = {
                 .codepoint = (uint32_t)c,
                 .type = MGAPP_EVENT_CHAR
@@ -1127,6 +1161,7 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             {
                 codepoint = ch;
             }
+            mgapp_input_process_char(codepoint);
             mgapp_event event = {
                 .codepoint = codepoint,
                 .type = MGAPP_EVENT_CHAR
@@ -2113,6 +2148,7 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                         if (len > 0)
                         {
                             buf[len] = '\0';
+                            mgapp_input_process_char((uint32_t)(unsigned char)buf[0]);
                             mgapp_event event = {
                                 .codepoint = (uint32_t)(unsigned char)buf[0],
                                 .type = MGAPP_EVENT_CHAR
