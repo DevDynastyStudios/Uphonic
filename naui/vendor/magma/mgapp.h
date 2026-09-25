@@ -3,13 +3,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#ifndef MG_APP_API
-#if defined(_WIN32) && defined(MG_DLL) && defined(MG_APP_IMPL)
-#define MG_APP_API __declspec(dllexport)
+#ifndef MGAPP_API
+#if defined(_WIN32) && defined(MG_DLL) && (defined(MG_IMPL) || defined(MGAPP_IMPL))
+#define MGAPP_API __declspec(dllexport)
 #elif defined(_WIN32) && defined(MG_DLL)
-#define MG_APP_API __declspec(dllimport)
+#define MGAPP_API __declspec(dllimport)
 #else
-#define MG_APP_API extern
+#define MGAPP_API extern
 #endif
 #endif
 
@@ -199,18 +199,18 @@ enum
     MG_CURSOR_MAX
 };
 
-typedef uint8_t mg_app_event_type;
+typedef uint8_t mgapp_event_type;
 enum
 {
-    MG_APP_EVENT_RESIZE,
-    MG_APP_EVENT_KEY_DOWN,
-    MG_APP_EVENT_KEY_UP,
-    MG_APP_EVENT_CHAR,
-    MG_APP_EVENT_MOUSE_DOWN,
-    MG_APP_EVENT_MOUSE_UP,
-    MG_APP_EVENT_MOUSE_MOVE,
-    MG_APP_EVENT_MOUSE_SCROLL,
-    MG_APP_EVENT_FILE_DROP
+    MGAPP_EVENT_RESIZE,
+    MGAPP_EVENT_KEY_DOWN,
+    MGAPP_EVENT_KEY_UP,
+    MGAPP_EVENT_CHAR,
+    MGAPP_EVENT_MOUSE_DOWN,
+    MGAPP_EVENT_MOUSE_UP,
+    MGAPP_EVENT_MOUSE_MOVE,
+    MGAPP_EVENT_MOUSE_SCROLL,
+    MGAPP_EVENT_FILE_DROP
 };
 
 typedef struct
@@ -219,132 +219,134 @@ typedef struct
     {
         struct
         {
-            int32_t window_width, window_height;
-        };
+            int32_t width, height;
+        }
+        window;
         struct
         {
-            int32_t mouse_x, mouse_y;
-        };
+            int32_t x, y;
+            int32_t scroll;
+            mg_mouse_button button;
+        }
+        mouse;
         struct
         {
             const char **paths;
             int32_t path_count;
         }
         file_drop;
-        int8_t scroll_delta;
-        mg_key key;
-        mg_mouse_button mouse_button;
         uint32_t codepoint;
+        mg_key key;
     };
-    
-    mg_app_event_type type;
-}
-mg_app_event;
 
-typedef uint32_t mg_app_flags;
+    mgapp_event_type type;
+}
+mgapp_event;
+
+typedef uint32_t mgapp_flags;
 enum
 {
-    MG_APP_FLAG_NO_TITLEBAR = 1 << 0,
-    MG_APP_FLAG_HIDDEN = 1 << 1
+    MGAPP_FLAG_NONE = 0,
+    MGAPP_FLAG_NO_TITLEBAR = 1 << 0,
+    MGAPP_FLAG_NO_RESIZE = 1 << 1,
+    MGAPP_FLAG_NO_MINIMIZE = 1 << 2,
+    MGAPP_FLAG_NO_MAXIMIZE = 1 << 3,
+    MGAPP_FLAG_HIDE_WINDOW = 1 << 4,
+    MGAPP_FLAG_ENABLE_FILE_DROPS = 1 << 5
 };
 
 typedef struct
 {
-    const char *title;
-    mg_app_flags flags;
-    uint32_t width, height;
-    struct
-    {
-        void (*start)(void);
-        void (*end)(void);
-        void (*update)(void);
-        void (*event)(const mg_app_event *event);
-    }
-    events;
+    void (*start)(void);
+    void (*end)(void);
+    void (*update)(void);
+    void (*event)(const mgapp_event *event);
 }
-mg_app_init_info;
+mgapp_events;
 
-MG_APP_API int32_t mg_app_run(const mg_app_init_info *info);
-MG_APP_API void mg_app_close(void);
-MG_APP_API void mg_app_show(bool value);
-MG_APP_API void mg_app_minimize(void);
-MG_APP_API void mg_app_maximize(void);
-MG_APP_API void mg_app_restore(void);
-MG_APP_API bool mg_app_maximized(void);
+typedef struct
+{
+    const char *title;
+    mgapp_flags flags;
+    uint32_t width, height;
+    mgapp_events events;
+}
+mgapp_init_info;
 
-MG_APP_API float mg_app_frame_time(void);
-MG_APP_API float mg_app_delta_time(void);
+MGAPP_API int32_t mgapp_run(const mgapp_init_info *info);
+MGAPP_API void mgapp_close(void);
+MGAPP_API void mgapp_show(bool value);
+MGAPP_API void mgapp_minimize(void);
+MGAPP_API void mgapp_maximize(void);
+MGAPP_API void mgapp_restore(void);
+MGAPP_API bool mgapp_maximized(void);
 
-MG_APP_API int32_t mg_app_width(void);
-MG_APP_API int32_t mg_app_height(void);
+MGAPP_API float mgapp_time(void);
+MGAPP_API float mgapp_frame_time(void);
+MGAPP_API float mgapp_delta_time(void);
 
-MG_APP_API void mg_app_set_cursor(mg_cursor cursor);
+MGAPP_API int32_t mgapp_width(void);
+MGAPP_API int32_t mgapp_height(void);
 
-MG_APP_API bool mg_app_key_down(mg_key key);
-MG_APP_API bool mg_app_key_pressed(mg_key key);
-MG_APP_API uint32_t mg_app_char_pressed(void);
+MGAPP_API void mgapp_set_cursor(mg_cursor cursor);
 
-MG_APP_API bool mg_app_mouse_down(mg_mouse_button button);
-MG_APP_API bool mg_app_mouse_pressed(mg_mouse_button button);
-MG_APP_API bool mg_app_mouse_released(mg_mouse_button button);
-MG_APP_API bool mg_app_mouse_clicked(mg_mouse_button button);
-MG_APP_API bool mg_app_mouse_double_clicked(mg_mouse_button button);
+MGAPP_API bool mgapp_key_down(mg_key key);
+MGAPP_API bool mgapp_key_pressed(mg_key key);
+MGAPP_API bool mgapp_key_released(mg_key key);
 
-MG_APP_API int8_t mg_app_mouse_scroll_delta(void);
-MG_APP_API int32_t mg_app_mouse_x(void);
-MG_APP_API int32_t mg_app_mouse_y(void);
+MGAPP_API bool mgapp_mouse_down(mg_mouse_button button);
+MGAPP_API bool mgapp_mouse_pressed(mg_mouse_button button);
+MGAPP_API bool mgapp_mouse_released(mg_mouse_button button);
+MGAPP_API bool mgapp_mouse_clicked(mg_mouse_button button);
+MGAPP_API bool mgapp_mouse_double_clicked(mg_mouse_button button);
 
-MG_APP_API uint32_t mg_app_dpi(void);
-MG_APP_API float mg_app_dpi_scale(void);
+MGAPP_API int8_t mgapp_mouse_scroll_delta(void);
+MGAPP_API int32_t mgapp_mouse_x(void);
+MGAPP_API int32_t mgapp_mouse_y(void);
 
-MG_APP_API void mg_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height);
+MGAPP_API uint32_t mgapp_dpi(void);
+MGAPP_API float mgapp_dpi_scale(void);
 
-MG_APP_API void *mg_app_primary_handle(void);
-MG_APP_API void *mg_app_secondary_handle(void);
+MGAPP_API void mgapp_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height);
+
+MGAPP_API void *mgapp_primary_handle(void);
+MGAPP_API void *mgapp_secondary_handle(void);
 
 #ifdef __cplusplus
-} // extern "C"
-
-inline int32_t mg_app_run(const mg_app_init_info &info) { return mg_app_run(&info); }
-
-#endif
-
-#define MG_DEFINE_APP(name) \
-int main(void) { \
-    extern void mg_app_on_start(void); \
-    extern void mg_app_on_end(void); \
-    extern void mg_app_on_update(void); \
-    extern void mg_app_on_event(const mg_app_event *event); \
-    mg_app_init_info info = { \
-        .title = name, \
-        .events = { \
-            .start  = mg_app_on_start, \
-            .end    = mg_app_on_end, \
-            .update = mg_app_on_update, \
-            .event  = mg_app_on_event \
-        } \
-    }; \
-    return mg_app_run(&info); \
 }
+#endif
 
 #if defined(MG_IMPL) || defined(MGAPP_IMPL)
 
+#include <stdio.h>
 #include <string.h>
 
-#ifndef MG_CLICK_TIME_THRESHOLD
-    #define MG_CLICK_TIME_THRESHOLD 0.5f
+#define MGAPP_ERROR(msg) \
+    fprintf(stderr, "[MGAPP]: Error: %s\nLine: %d\n", msg, __LINE__);
+
+#if !defined(MGAPP_NO_ENTRY)
+int main(void)
+{
+    extern mgapp_init_info mgapp_main(void);
+    const mgapp_init_info info = mgapp_main();
+    mgapp_run(&info);
+}
 #endif
 
-#ifndef MG_CLICK_MOVE_THRESHOLD
-    #define MG_CLICK_MOVE_THRESHOLD 4
+#ifndef MGAPP_CLICK_TIME_THRESHOLD
+    #define MGAPP_CLICK_TIME_THRESHOLD 0.5f
 #endif
 
-#ifndef MG_DOUBLE_CLICK_TIME_THRESHOLD
-    #define MG_DOUBLE_CLICK_TIME_THRESHOLD 0.4f
+#ifndef MGAPP_CLICK_MOVE_THRESHOLD
+    #define MGAPP_CLICK_MOVE_THRESHOLD 4
 #endif
 
-#ifndef MG_DOUBLE_CLICK_MOVE_THRESHOLD
-    #define MG_DOUBLE_CLICK_MOVE_THRESHOLD 6
+#ifndef MGAPP_DOUBLE_CLICK_TIME_THRESHOLD
+    #define MGAPP_DOUBLE_CLICK_TIME_THRESHOLD 0.4f
+#endif
+
+#ifndef MGAPP_DOUBLE_CLICK_MOVE_THRESHOLD
+    #define MGAPP_DOUBLE_CLICK_MOVE_THRESHOLD 6
 #endif
 
 typedef struct
@@ -352,9 +354,9 @@ typedef struct
     struct
     {
         bool keys[MG_KEY_MAX];
-        bool keys_pressed[MG_KEY_MAX];
     }
     keyboard;
+
     struct
     {
         float down_time[4];
@@ -369,318 +371,687 @@ typedef struct
         int8_t delta;
 
         bool buttons[4];
-        bool buttons_pressed[4];
-        bool buttons_released[4];
-        bool buttons_clicked[4];
-        bool buttons_double_clicked[4];
     }
     mouse;
 
-    uint32_t char_codepoint;
-}
-mg_app_input_state;
-
-static mg_app_input_state mg_input_state;
-
-static inline void mg_app_input_process_key(mg_key key, bool pressed)
-{
-    if (pressed && !mg_input_state.keyboard.keys[key])
-        mg_input_state.keyboard.keys_pressed[key] = true;
-    mg_input_state.keyboard.keys[key] = pressed;
-}
-
-static inline void mg_app_input_process_mouse_button(mg_mouse_button button, bool pressed, float time_now)
-{
-    if (pressed && !mg_input_state.mouse.buttons[button])
+    struct
     {
-        mg_input_state.mouse.buttons_pressed[button] = true;
-        mg_input_state.mouse.down_time[button] = time_now;
-        mg_input_state.mouse.down_x[button] = mg_input_state.mouse.x;
-        mg_input_state.mouse.down_y[button] = mg_input_state.mouse.y;
-    }
-
-    if (!pressed && mg_input_state.mouse.buttons[button])
-    {
-        mg_input_state.mouse.buttons_released[button] = true;
-
-        float held = time_now - mg_input_state.mouse.down_time[button];
-        int16_t dx = mg_input_state.mouse.x - mg_input_state.mouse.down_x[button];
-        int16_t dy = mg_input_state.mouse.y - mg_input_state.mouse.down_y[button];
-        int32_t move_sq = (int32_t)dx * dx + (int32_t)dy * dy;
-
-        if (held <= MG_CLICK_TIME_THRESHOLD &&
-            move_sq <= (MG_CLICK_MOVE_THRESHOLD * MG_CLICK_MOVE_THRESHOLD))
+        struct
         {
-            mg_input_state.mouse.buttons_clicked[button] = true;
-
-            float since_last = time_now - mg_input_state.mouse.last_click_time[button];
-            int16_t ldx = mg_input_state.mouse.x - mg_input_state.mouse.last_click_x[button];
-            int16_t ldy = mg_input_state.mouse.y - mg_input_state.mouse.last_click_y[button];
-            int32_t last_move_sq = (int32_t)ldx * ldx + (int32_t)ldy * ldy;
-
-            if (since_last <= MG_DOUBLE_CLICK_TIME_THRESHOLD &&
-                last_move_sq <= (MG_DOUBLE_CLICK_MOVE_THRESHOLD * MG_DOUBLE_CLICK_MOVE_THRESHOLD))
-            {
-                mg_input_state.mouse.buttons_double_clicked[button] = true;
-                mg_input_state.mouse.last_click_time[button] = -1000.0f;
-            }
-            else
-            {
-                mg_input_state.mouse.last_click_time[button] = time_now;
-                mg_input_state.mouse.last_click_x[button] = mg_input_state.mouse.x;
-                mg_input_state.mouse.last_click_y[button] = mg_input_state.mouse.y;
-            }
+            bool keys_pressed[MG_KEY_MAX];
+            bool keys_released[MG_KEY_MAX];
         }
+        keyboard;
+
+        struct
+        {
+            bool buttons_pressed[4];
+            bool buttons_released[4];
+            bool buttons_clicked[4];
+            bool buttons_double_clicked[4];
+        }
+        mouse;
     }
-
-    mg_input_state.mouse.buttons[button] = pressed;
+    clear;
 }
-
-static inline void mg_app_input_frame(void)
-{
-    mg_input_state.mouse.delta = 0;
-    mg_input_state.char_codepoint = 0;
-    memset(mg_input_state.keyboard.keys_pressed, 0, sizeof(mg_input_state.keyboard.keys_pressed));
-    memset(mg_input_state.mouse.buttons_pressed, 0, sizeof(mg_input_state.mouse.buttons_pressed));
-    memset(mg_input_state.mouse.buttons_released, 0, sizeof(mg_input_state.mouse.buttons_released));
-    memset(mg_input_state.mouse.buttons_clicked, 0, sizeof(mg_input_state.mouse.buttons_clicked));
-    memset(mg_input_state.mouse.buttons_double_clicked, 0, sizeof(mg_input_state.mouse.buttons_double_clicked));
-}
-
-bool mg_app_key_down(mg_key key)
-{
-    return mg_input_state.keyboard.keys[key];
-}
-
-bool mg_app_key_pressed(mg_key key)
-{
-    return mg_input_state.keyboard.keys_pressed[key];
-}
-
-uint32_t mg_app_char_pressed(void)
-{
-    return mg_input_state.char_codepoint;
-}
-
-bool mg_app_mouse_down(mg_mouse_button button)
-{
-    return mg_input_state.mouse.buttons[button];
-}
-
-bool mg_app_mouse_pressed(mg_mouse_button button)
-{
-    return mg_input_state.mouse.buttons_pressed[button];
-}
-
-bool mg_app_mouse_released(mg_mouse_button button)
-{
-    return mg_input_state.mouse.buttons_released[button];
-}
-
-bool mg_app_mouse_clicked(mg_mouse_button button)
-{
-    return mg_input_state.mouse.buttons_clicked[button];
-}
-
-bool mg_app_mouse_double_clicked(mg_mouse_button button)
-{
-    return mg_input_state.mouse.buttons_double_clicked[button];
-}
-
-int8_t mg_app_mouse_scroll_delta(void)
-{
-    return mg_input_state.mouse.delta;
-}
-
-int32_t mg_app_mouse_x(void)
-{
-    return mg_input_state.mouse.x;
-}
-
-int32_t mg_app_mouse_y(void)
-{
-    return mg_input_state.mouse.y;
-}
+mgapp_input_state;
 
 #if defined(__EMSCRIPTEN__)
 
 #include <emscripten.h>
 #include <emscripten/html5.h>
 
-typedef struct mg_emscripten_platform
+#ifndef MGAPP_EMSCRIPTEN_CANVAS
+    #define MGAPP_EMSCRIPTEN_CANVAS "#canvas"
+#endif
+
+typedef struct
 {
-    int32_t window_width, window_height;
-    void (*on_event_call)(const mg_app_event *event);
-    float time, delta_time;
-    bool running;
-    const mg_app_init_info *info;
+    double start_time;
 }
-mg_emscripten_platform;
+mgapp_emscripten_state;
 
-static mg_emscripten_platform mg_app_state;
+#elif defined(_WIN32)
 
-static inline void mg_app_call_event(const mg_app_event *event)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <windowsx.h>
+#pragma comment(lib, "user32")
+#pragma comment(lib, "shell32")
+
+typedef struct
 {
-    if (mg_app_state.on_event_call)
-        mg_app_state.on_event_call(event);
+    HWND hwnd;
+    HINSTANCE hinstance;
+
+    WNDPROC original_proc;
+
+    HCURSOR cursor_table[MG_CURSOR_MAX];
+
+    float clock_frequency;
+    LARGE_INTEGER start_time;
 }
+mgapp_win32_state;
 
-static EM_BOOL mg_em_resize_callback(int event_type, const EmscriptenUiEvent *ui_event, void *user_data)
+#elif defined(__linux__)
+
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
+#include <X11/Xresource.h>
+#include <X11/Xutil.h>
+#include <X11/keysym.h>
+#include <X11/cursorfont.h>
+#include <stdlib.h>
+#include <time.h>
+
+typedef struct
 {
-    double w, h;
-    emscripten_get_element_css_size("#canvas", &w, &h);
+    Window window;
+    Display *display;
+    int32_t screen;
 
-    mg_app_state.window_width  = (int32_t)w;
-    mg_app_state.window_height = (int32_t)h;
+    Atom wm_delete_window;
+    Atom net_wm_state;
+    Atom net_wm_state_maximized_horz;
+    Atom net_wm_state_maximized_vert;
+    Atom motif_wm_hints;
+    Atom net_wm_moveresize;
+    Atom net_wm_allowed_actions;
+    Atom net_wm_action_resize;
+    Atom net_wm_action_minimize;
+    Atom net_wm_action_maximize_horz;
+    Atom net_wm_action_maximize_vert;
 
-    mg_app_event event = {
-        .window_width  = mg_app_state.window_width,
-        .window_height = mg_app_state.window_height,
-        .type          = MG_APP_EVENT_RESIZE
+    Atom xdnd_aware;
+    Atom xdnd_enter;
+    Atom xdnd_position;
+    Atom xdnd_status;
+    Atom xdnd_leave;
+    Atom xdnd_drop;
+    Atom xdnd_finished;
+    Atom xdnd_selection;
+    Atom xdnd_type_list;
+    Atom xdnd_action_copy;
+    Atom uri_list;
+
+    Window xdnd_source;
+    bool xdnd_pending;
+
+    Cursor cursor_table[MG_CURSOR_MAX];
+}
+mgapp_xlib_state;
+
+typedef struct
+{
+    
+}
+mgapp_wayland_state;
+
+typedef uint8_t mgapp_linux_state_type;
+enum
+{
+    MGAPP_LINUX_STATE_XLIB,
+    MGAPP_LINUX_STATE_WAYLAND
+};
+
+typedef struct
+{
+    union
+    {
+        mgapp_xlib_state xlib;
+        mgapp_wayland_state wayland;
     };
-    mg_app_call_event(&event);
+    mgapp_linux_state_type type;
+
+    int32_t (*run)(const mgapp_init_info*);
+    void *(*primary_handle)(void);
+    void *(*secondary_handle)(void);
+    void (*maximize)(void);
+    void (*minimize)(void);
+    void (*restore)(void);
+    void (*show)(bool);
+    void (*close)(void);
+    void (*set_cursor)(mg_cursor);
+
+    bool maximized;
+}
+mgapp_linux_state;
+
+#endif
+
+typedef struct
+{
+#if defined(__EMSCRIPTEN__)
+    mgapp_emscripten_state emscripten;
+#elif defined(_WIN32)
+    mgapp_win32_state win32;
+#elif defined(__linux__)
+    mgapp_linux_state _linux;
+#endif
+    mgapp_input_state input;
+
+    struct
+    {
+        int32_t x, y, width, height;
+    }
+    caption;
+
+    mgapp_events events;
+    mgapp_flags flags;
+
+    int32_t window_width, window_height;
+    float frame_time, delta_time;
+
+    float dpi_scale;
+    uint32_t dpi;
+
+    mg_cursor current_cursor;
+
+    bool running;
+}
+mgapp_core_state;
+static mgapp_core_state mgapp_state;
+
+static inline void mgapp_call_event(const mgapp_event *event)
+{
+    if (mgapp_state.events.event)
+        mgapp_state.events.event(event);
+}
+
+static inline void mgapp_input_process_key(mg_key key, bool pressed)
+{
+    if (pressed && !mgapp_state.input.keyboard.keys[key])
+        mgapp_state.input.clear.keyboard.keys_pressed[key] = true;
+
+    if (!pressed && mgapp_state.input.keyboard.keys[key])
+        mgapp_state.input.clear.keyboard.keys_released[key] = true;
+
+    mgapp_state.input.keyboard.keys[key] = pressed;
+}
+
+static inline void mgapp_input_process_mouse_button(mg_mouse_button button, bool pressed, float time_now)
+{
+    mgapp_input_state *input_state = &mgapp_state.input;
+    if (pressed && !input_state->mouse.buttons[button])
+    {
+        input_state->clear.mouse.buttons_pressed[button] = true;
+        input_state->mouse.down_time[button] = time_now;
+        input_state->mouse.down_x[button] = input_state->mouse.x;
+        input_state->mouse.down_y[button] = input_state->mouse.y;
+    }
+
+    if (!pressed && input_state->mouse.buttons[button])
+    {
+        input_state->clear.mouse.buttons_released[button] = true;
+
+        float held = time_now - input_state->mouse.down_time[button];
+        int16_t dx = input_state->mouse.x - input_state->mouse.down_x[button];
+        int16_t dy = input_state->mouse.y - input_state->mouse.down_y[button];
+        int32_t move_sq = (int32_t)dx * dx + (int32_t)dy * dy;
+
+        if (held <= MGAPP_CLICK_TIME_THRESHOLD &&
+            move_sq <= (MGAPP_CLICK_MOVE_THRESHOLD * MGAPP_CLICK_MOVE_THRESHOLD))
+        {
+            input_state->clear.mouse.buttons_clicked[button] = true;
+
+            float since_last = time_now - input_state->mouse.last_click_time[button];
+            int16_t ldx = input_state->mouse.x - input_state->mouse.last_click_x[button];
+            int16_t ldy = input_state->mouse.y - input_state->mouse.last_click_y[button];
+            int32_t last_move_sq = (int32_t)ldx * ldx + (int32_t)ldy * ldy;
+
+            if (since_last <= MGAPP_DOUBLE_CLICK_TIME_THRESHOLD &&
+                last_move_sq <= (MGAPP_DOUBLE_CLICK_MOVE_THRESHOLD * MGAPP_DOUBLE_CLICK_MOVE_THRESHOLD))
+            {
+                input_state->clear.mouse.buttons_double_clicked[button] = true;
+                input_state->mouse.last_click_time[button] = -1000.0f;
+            }
+            else
+            {
+                input_state->mouse.last_click_time[button] = time_now;
+                input_state->mouse.last_click_x[button] = input_state->mouse.x;
+                input_state->mouse.last_click_y[button] = input_state->mouse.y;
+            }
+        }
+    }
+
+    mgapp_state.input.mouse.buttons[button] = pressed;
+}
+
+static inline void mgapp_input_frame(void)
+{
+    mgapp_state.input.mouse.delta = 0;
+    memset(&mgapp_state.input.clear, 0, sizeof(mgapp_state.input.clear));
+}
+
+bool mgapp_key_down(mg_key key)
+{
+    return mgapp_state.input.keyboard.keys[key];
+}
+
+bool mgapp_key_pressed(mg_key key)
+{
+    return mgapp_state.input.clear.keyboard.keys_pressed[key];
+}
+
+bool mgapp_key_released(mg_key key)
+{
+    return mgapp_state.input.clear.keyboard.keys_released[key];
+}
+
+bool mgapp_mouse_down(mg_mouse_button button)
+{
+    return mgapp_state.input.mouse.buttons[button];
+}
+
+bool mgapp_mouse_pressed(mg_mouse_button button)
+{
+    return mgapp_state.input.clear.mouse.buttons_pressed[button];
+}
+
+bool mgapp_mouse_released(mg_mouse_button button)
+{
+    return mgapp_state.input.clear.mouse.buttons_released[button];
+}
+
+bool mgapp_mouse_clicked(mg_mouse_button button)
+{
+    return mgapp_state.input.clear.mouse.buttons_clicked[button];
+}
+
+bool mgapp_mouse_double_clicked(mg_mouse_button button)
+{
+    return mgapp_state.input.clear.mouse.buttons_double_clicked[button];
+}
+
+int8_t mgapp_mouse_scroll_delta(void)
+{
+    return mgapp_state.input.mouse.delta;
+}
+
+int32_t mgapp_mouse_x(void)
+{
+    return mgapp_state.input.mouse.x;
+}
+
+int32_t mgapp_mouse_y(void)
+{
+    return mgapp_state.input.mouse.y;
+}
+
+float mgapp_frame_time(void)
+{
+    return mgapp_state.frame_time;
+}
+ 
+float mgapp_delta_time(void)
+{
+    return mgapp_state.delta_time;
+}
+ 
+int32_t mgapp_width(void)
+{
+    return mgapp_state.window_width;
+}
+ 
+int32_t mgapp_height(void)
+{
+    return mgapp_state.window_height;
+}
+
+uint32_t mgapp_dpi(void)
+{
+    return mgapp_state.dpi;
+}
+
+float mgapp_dpi_scale(void)
+{
+    return mgapp_state.dpi_scale;
+}
+
+void mgapp_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
+{
+    mgapp_state.caption.x = x;
+    mgapp_state.caption.y = y;
+    mgapp_state.caption.width = width;
+    mgapp_state.caption.height = height;
+}
+
+#if defined(__EMSCRIPTEN__)
+
+static inline mg_key mgapp_emscripten_translate_key(const EmscriptenKeyboardEvent *e)
+{
+    const char *code = e->code;
+
+    if (strncmp(code, "Key", 3) == 0 && code[3] >= 'A' && code[3] <= 'Z')
+        return (mg_key)(MG_KEY_A + (code[3] - 'A'));
+    if (strncmp(code, "Digit", 5) == 0 && code[5] >= '0' && code[5] <= '9')
+        return (mg_key)(MG_KEY_0 + (code[5] - '0'));
+    if (strncmp(code, "Numpad", 6) == 0 && code[6] >= '0' && code[6] <= '9')
+        return (mg_key)(MG_KEY_NUMPAD0 + (code[6] - '0'));
+    if (code[0] == 'F' && code[1] >= '1' && code[1] <= '9')
+    {
+        int32_t n = atoi(code + 1);
+        if (n >= 1 && n <= 24)
+            return (mg_key)(MG_KEY_F1 + (n - 1));
+    }
+
+    if (strcmp(code, "Backspace") == 0)      return MG_KEY_BACKSPACE;
+    if (strcmp(code, "Enter") == 0)          return MG_KEY_ENTER;
+    if (strcmp(code, "NumpadEnter") == 0)    return MG_KEY_ENTER;
+    if (strcmp(code, "Tab") == 0)            return MG_KEY_TAB;
+    if (strcmp(code, "Pause") == 0)          return MG_KEY_PAUSE;
+    if (strcmp(code, "CapsLock") == 0)       return MG_KEY_CAPITAL;
+    if (strcmp(code, "Escape") == 0)         return MG_KEY_ESCAPE;
+    if (strcmp(code, "Space") == 0)          return MG_KEY_SPACE;
+    if (strcmp(code, "PageUp") == 0)         return MG_KEY_PAGE_UP;
+    if (strcmp(code, "PageDown") == 0)       return MG_KEY_PAGE_DOWN;
+    if (strcmp(code, "End") == 0)            return MG_KEY_END;
+    if (strcmp(code, "Home") == 0)           return MG_KEY_HOME;
+    if (strcmp(code, "ArrowLeft") == 0)      return MG_KEY_LEFT;
+    if (strcmp(code, "ArrowUp") == 0)        return MG_KEY_UP;
+    if (strcmp(code, "ArrowRight") == 0)     return MG_KEY_RIGHT;
+    if (strcmp(code, "ArrowDown") == 0)      return MG_KEY_DOWN;
+    if (strcmp(code, "PrintScreen") == 0)    return MG_KEY_PRINT_SCREEN;
+    if (strcmp(code, "Insert") == 0)         return MG_KEY_INSERT;
+    if (strcmp(code, "Delete") == 0)         return MG_KEY_DELETE;
+    if (strcmp(code, "Help") == 0)           return MG_KEY_HELP;
+
+    if (strcmp(code, "MetaLeft") == 0)       return MG_KEY_LSUPER;
+    if (strcmp(code, "MetaRight") == 0)      return MG_KEY_RSUPER;
+    if (strcmp(code, "ContextMenu") == 0)    return MG_KEY_APPS;
+
+    if (strcmp(code, "NumpadMultiply") == 0) return MG_KEY_MULTIPLY;
+    if (strcmp(code, "NumpadAdd") == 0)      return MG_KEY_ADD;
+    if (strcmp(code, "NumpadSubtract") == 0) return MG_KEY_SUBTRACT;
+    if (strcmp(code, "NumpadDecimal") == 0)  return MG_KEY_DECIMAL;
+    if (strcmp(code, "NumpadDivide") == 0)   return MG_KEY_DIVIDE;
+    if (strcmp(code, "NumpadEqual") == 0)    return MG_KEY_NUMPAD_EQUAL;
+
+    if (strcmp(code, "NumLock") == 0)        return MG_KEY_NUMLOCK;
+    if (strcmp(code, "ScrollLock") == 0)     return MG_KEY_SCROLL;
+
+    if (strcmp(code, "ShiftLeft") == 0)      return MG_KEY_LSHIFT;
+    if (strcmp(code, "ShiftRight") == 0)     return MG_KEY_RSHIFT;
+    if (strcmp(code, "ControlLeft") == 0)    return MG_KEY_LCONTROL;
+    if (strcmp(code, "ControlRight") == 0)   return MG_KEY_RCONTROL;
+    if (strcmp(code, "AltLeft") == 0)        return MG_KEY_LALT;
+    if (strcmp(code, "AltRight") == 0)       return MG_KEY_RALT;
+
+    if (strcmp(code, "Semicolon") == 0)      return MG_KEY_SEMICOLON;
+    if (strcmp(code, "Quote") == 0)          return MG_KEY_APOSTROPHE;
+    if (strcmp(code, "Equal") == 0)          return MG_KEY_EQUAL;
+    if (strcmp(code, "Comma") == 0)          return MG_KEY_COMMA;
+    if (strcmp(code, "Minus") == 0)          return MG_KEY_MINUS;
+    if (strcmp(code, "Period") == 0)         return MG_KEY_PERIOD;
+    if (strcmp(code, "Slash") == 0)          return MG_KEY_SLASH;
+    if (strcmp(code, "Backquote") == 0)      return MG_KEY_GRAVE;
+    if (strcmp(code, "BracketLeft") == 0)    return MG_KEY_LBRACKET;
+    if (strcmp(code, "Backslash") == 0)      return MG_KEY_PIPE;
+    if (strcmp(code, "BracketRight") == 0)   return MG_KEY_RBRACKET;
+
+    return MG_KEY_MAX;
+}
+
+static inline mg_mouse_button mgapp_emscripten_translate_button(unsigned short button)
+{
+    switch (button)
+    {
+        case 0: return MG_MOUSE_BUTTON_LEFT;
+        case 1: return MG_MOUSE_BUTTON_MIDDLE;
+        case 2: return MG_MOUSE_BUTTON_RIGHT;
+        default: return MG_MOUSE_BUTTON_MAX;
+    }
+}
+
+static EM_BOOL mgapp_emscripten_key_callback(int32_t event_type, const EmscriptenKeyboardEvent *e, void *user_data)
+{
+    bool pressed = event_type == EMSCRIPTEN_EVENT_KEYDOWN;
+    mg_key key = mgapp_emscripten_translate_key(e);
+
+    if (key != MG_KEY_MAX)
+    {
+        mgapp_input_process_key(key, pressed);
+        mgapp_event event = {
+            .key = key,
+            .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_KEY_DOWN : MGAPP_EVENT_KEY_UP)
+        };
+        mgapp_call_event(&event);
+    }
+
+    if (pressed && e->key[0] != '\0' && e->key[1] == '\0')
+    {
+        unsigned char c = (unsigned char)e->key[0];
+        if (c >= 0x20)
+        {
+            mgapp_event event = {
+                .codepoint = (uint32_t)c,
+                .type = MGAPP_EVENT_CHAR
+            };
+            mgapp_call_event(&event);
+        }
+    }
 
     return EM_TRUE;
 }
 
-static void mg_em_frame(void *user_data)
+static EM_BOOL mgapp_emscripten_mouse_button_callback(int32_t event_type, const EmscriptenMouseEvent *e, void *user_data)
 {
-    double now = emscripten_get_now() * 0.001;
-    mg_app_state.delta_time = (float)(now - mg_app_state.frame_time);
-    mg_app_state.frame_time = (float)now;
+    mg_mouse_button button = mgapp_emscripten_translate_button(e->button);
+    if (button == MG_MOUSE_BUTTON_MAX)
+        return EM_FALSE;
 
-    if (mg_app_state.info->events.update)
-        mg_app_state.info->events.update();
-
-    mg_app_input_frame();
+    bool pressed = event_type == EMSCRIPTEN_EVENT_MOUSEDOWN;
+    mgapp_input_process_mouse_button(button, pressed, mgapp_state.frame_time);
+    mgapp_event event = {
+        .mouse = { .button = button },
+        .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_MOUSE_DOWN : MGAPP_EVENT_MOUSE_UP)
+    };
+    mgapp_call_event(&event);
+    return EM_TRUE;
 }
 
-int32_t mg_app_run(const mg_app_init_info *info)
+static EM_BOOL mgapp_emscripten_mouse_move_callback(int32_t event_type, const EmscriptenMouseEvent *e, void *user_data)
 {
-    mg_app_state.info = info;
-    mg_app_state.on_event_call = info->events.event;
-    mg_app_state.running = true;
+    mgapp_state.input.mouse.x = (int16_t)e->targetX;
+    mgapp_state.input.mouse.y = (int16_t)e->targetY;
+    mgapp_event event = {
+        .mouse = {
+            .x = e->targetX,
+            .y = e->targetY
+        },
+        .type = MGAPP_EVENT_MOUSE_MOVE
+    };
+    mgapp_call_event(&event);
+    return EM_TRUE;
+}
 
-    double w, h;
-    emscripten_get_element_css_size("#canvas", &w, &h);
-    mg_app_state.window_width  = (int32_t)w;
-    mg_app_state.window_height = (int32_t)h;
+static EM_BOOL mgapp_emscripten_wheel_callback(int32_t event_type, const EmscriptenWheelEvent *e, void *user_data)
+{
+    int8_t delta = (e->deltaY < 0) ? 1 : -1;
+    mgapp_state.input.mouse.delta = delta;
+    mgapp_event event = {
+        .mouse = { .scroll = delta },
+        .type = MGAPP_EVENT_MOUSE_SCROLL
+    };
+    mgapp_call_event(&event);
+    return EM_TRUE;
+}
 
-    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mg_em_resize_callback);
+static EM_BOOL mgapp_emscripten_resize_callback(int32_t event_type, const EmscriptenUiEvent *e, void *user_data)
+{
+    int32_t w, h;
+    emscripten_get_canvas_element_size(MGAPP_EMSCRIPTEN_CANVAS, &w, &h);
+    mgapp_state.window_width = w;
+    mgapp_state.window_height = h;
+    mgapp_event event = {
+        .window = { .width = w, .height = h },
+        .type = MGAPP_EVENT_RESIZE
+    };
+    mgapp_call_event(&event);
+    return EM_TRUE;
+}
 
-    mg_app_state.frame_time = (float)(emscripten_get_now() * 0.001);
-    mg_app_state.delta_time = 0.0f;
+static void mgapp_emscripten_main_loop(void)
+{
+    const float new_time = mgapp_time();
+    mgapp_state.delta_time = new_time - mgapp_state.frame_time;
+    mgapp_state.frame_time = new_time;
+
+    if (mgapp_state.events.update)
+        mgapp_state.events.update();
+
+    mgapp_input_frame();
+
+    if (!mgapp_state.running)
+    {
+        emscripten_cancel_main_loop();
+        if (mgapp_state.events.end)
+            mgapp_state.events.end();
+    }
+}
+
+int32_t mgapp_run(const mgapp_init_info *info)
+{
+    mgapp_state.emscripten.start_time = emscripten_get_now();
+
+    int32_t width = info->width ? (int32_t)info->width : 800;
+    int32_t height = info->height ? (int32_t)info->height : 600;
+
+    emscripten_set_canvas_element_size(MGAPP_EMSCRIPTEN_CANVAS, width, height);
+    mgapp_state.window_width = width;
+    mgapp_state.window_height = height;
+
+    double css_w, css_h;
+    emscripten_get_element_css_size(MGAPP_EMSCRIPTEN_CANVAS, &css_w, &css_h);
+    mgapp_state.dpi_scale = (float)emscripten_get_device_pixel_ratio();
+    mgapp_state.dpi = (uint32_t)(96.0f * mgapp_state.dpi_scale);
+
+    mgapp_state.events = info->events;
+    mgapp_state.flags = info->flags;
+
+    emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mgapp_emscripten_key_callback);
+    emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mgapp_emscripten_key_callback);
+
+    emscripten_set_mousedown_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_button_callback);
+    emscripten_set_mouseup_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_button_callback);
+    emscripten_set_mousemove_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_move_callback);
+    emscripten_set_wheel_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_wheel_callback);
+    emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mgapp_emscripten_resize_callback);
 
     if (info->events.start)
         info->events.start();
 
-    emscripten_set_main_loop_arg(mg_em_frame, NULL, 0, 1);
+    mgapp_state.running = true;
+    mgapp_state.frame_time = mgapp_time();
+
+    emscripten_set_main_loop(mgapp_emscripten_main_loop, 0, 1);
 
     return 0;
 }
 
-void mg_app_close(void)
+void mgapp_close(void)
 {
-    emscripten_cancel_main_loop();
-    mg_app_state.running = false;
-
-    if (mg_app_state.info && mg_app_state.info->events.end)
-        mg_app_state.info->events.end();
+    mgapp_state.running = false;
 }
 
-void mg_app_set_cursor(mg_cursor cursor)
+void mgapp_show(bool value)
 {
-    // TODO (box): Implement this
+    EM_ASM({
+        var el = document.querySelector(UTF8ToString($0));
+        if (el) el.style.display = $1 ? "" : "none";
+    }, MGAPP_EMSCRIPTEN_CANVAS, value ? 1 : 0);
 }
 
-float mg_app_time(void)
+void mgapp_minimize(void)
 {
-    return 0.0f;
+    
 }
 
-float mg_app_frame_time(void)
+void mgapp_maximize(void)
 {
-    return mg_app_state.frame_time;
+    EM_ASM({
+        var el = document.querySelector(UTF8ToString($0));
+        if (el && el.requestFullscreen) el.requestFullscreen();
+    }, MGAPP_EMSCRIPTEN_CANVAS);
+    mgapp_state._unused_placeholder = 0;
 }
 
-float mg_app_delta_time(void)
+void mgapp_restore(void)
 {
-    return mg_app_state.delta_time;
+    EM_ASM({
+        if (document.exitFullscreen) document.exitFullscreen();
+    });
 }
 
-int32_t mg_app_width(void)
+bool mgapp_maximized(void)
 {
-    return mg_app_state.window_width;
+    return EM_ASM_INT({ return !!document.fullscreenElement; });
 }
 
-int32_t mg_app_height(void)
+void mgapp_set_cursor(mg_cursor cursor)
 {
-    return mg_app_state.window_height;
+    static const char *names[MG_CURSOR_MAX] = {
+        "default", "text", "crosshair", "pointer",
+        "ns-resize", "ew-resize", "nesw-resize", "nwse-resize",
+        "move", "not-allowed", "none"
+    };
+
+    if (mgapp_state.current_cursor == cursor)
+        return;
+
+    EM_ASM({
+        var el = document.querySelector(UTF8ToString($0));
+        if (el) el.style.cursor = UTF8ToString($1);
+    }, MGAPP_EMSCRIPTEN_CANVAS, names[cursor]);
+
+    mgapp_state.current_cursor = cursor;
 }
 
-void *mg_app_primary_handle(void)
+float mgapp_time(void)
+{
+    return (float)((emscripten_get_now() - mgapp_state.emscripten.start_time) / 1000.0);
+}
+
+void *mgapp_primary_handle(void)
+{
+    return (void*)MGAPP_EMSCRIPTEN_CANVAS;
+}
+
+void *mgapp_secondary_handle(void)
 {
     return NULL;
 }
 
 #elif defined(_WIN32)
 
-#include <windows.h>
-#include <windowsx.h>
-#include <shellapi.h>
-#pragma comment(lib, "user32")
-
-typedef struct mg_win32_platform
-{
-    const mg_app_init_info *info;
-
-    HWND hwnd;
-    HINSTANCE hinstace;
-    int32_t window_width, window_height;
-    uint32_t dpi;
-    float dpi_scale;
-
-    void (*on_event_call)(const mg_app_event *event);
-    float frame_time, delta_time;
-
-    HCURSOR cursors[MG_CURSOR_MAX];
-    mg_cursor current_cursor;
-
-    WNDPROC original_proc;
-    int32_t caption_x, caption_y, caption_width, caption_height;
-
-    uint16_t pending_high_surrogate;
-}
-mg_win32_platform;
-
-static mg_win32_platform mg_app_state;
-
-static float clock_frequency;
-static LARGE_INTEGER start_time;
-
-static inline void mg_app_call_event(const mg_app_event *event)
-{
-    if (mg_app_state.on_event_call)
-        mg_app_state.on_event_call(event);
-}
-
-static void mg_app_setup_clock(void)
+static inline void mgapp_win32_setup_clock(mgapp_win32_state *win32_state)
 {
     LARGE_INTEGER frequency;
     QueryPerformanceFrequency(&frequency);
-    clock_frequency = 1.0f / (float)frequency.QuadPart;
-    QueryPerformanceCounter(&start_time);
+    win32_state->clock_frequency = 1.0f / (float)frequency.QuadPart;
+    QueryPerformanceCounter(&win32_state->start_time);
 }
 
-static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param)
+static inline void mgapp_win32_load_cursors(mgapp_win32_state *win32_state)
+{
+    win32_state->cursor_table[MG_CURSOR_ARROW] = LoadCursorA(NULL, IDC_ARROW);
+    win32_state->cursor_table[MG_CURSOR_IBEAM] = LoadCursorA(NULL, IDC_IBEAM);
+    win32_state->cursor_table[MG_CURSOR_CROSSHAIR] = LoadCursorA(NULL, IDC_CROSS);
+    win32_state->cursor_table[MG_CURSOR_HAND] = LoadCursorA(NULL, IDC_HAND);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_ALL] = LoadCursorA(NULL, IDC_SIZENS);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NS] = LoadCursorA(NULL, IDC_SIZEWE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_EW] = LoadCursorA(NULL, IDC_SIZENESW);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NESW] = LoadCursorA(NULL, IDC_SIZENWSE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NWSE] = LoadCursorA(NULL, IDC_SIZEALL);
+    win32_state->cursor_table[MG_CURSOR_NOT_ALLOWED] = LoadCursorA(NULL, IDC_NO);
+}
+
+static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param)
 {
     switch (msg)
     {
-        case WM_CLOSE:
-            if (mg_app_state.info->events.end)
-                mg_app_state.info->events.end();
-            DestroyWindow(hwnd);
-            return 0;
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
@@ -688,14 +1059,16 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         {
             RECT r;
             GetClientRect(hwnd, &r);
-            mg_app_state.window_width  = r.right - r.left;
-            mg_app_state.window_height = r.bottom - r.top;
-            mg_app_event event = {
-                .window_width = mg_app_state.window_width,
-                .window_height = mg_app_state.window_height,
-                .type = MG_APP_EVENT_RESIZE
+            mgapp_state.window_width  = r.right - r.left;
+            mgapp_state.window_height = r.bottom - r.top;
+            mgapp_event event = {
+                .window = {
+                    .width = mgapp_state.window_width,
+                    .height = mgapp_state.window_height,
+                },
+                .type = MGAPP_EVENT_RESIZE
             };
-            mg_app_call_event(&event);
+            mgapp_call_event(&event);
             break;
         }
         case WM_KEYDOWN:
@@ -725,58 +1098,56 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                 }
             }
 
-            mg_app_input_process_key(key, pressed);
-            mg_app_event event = {
+            mgapp_input_process_key(key, pressed);
+            mgapp_event event = {
                 .key = key,
-                .type = (mg_app_event_type)(pressed ? MG_APP_EVENT_KEY_DOWN : MG_APP_EVENT_KEY_UP)
+                .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_KEY_DOWN : MGAPP_EVENT_KEY_UP)
             };
-            mg_app_call_event(&event);
+            mgapp_call_event(&event);
             break;
         }
         case WM_CHAR:
         {
-            uint16_t unit = (uint16_t)w_param;
+            static WCHAR pending_high_surrogate = 0;
+            WCHAR ch = (WCHAR)w_param;
 
-            if (unit >= 0xD800 && unit <= 0xDBFF)
+            if (IS_HIGH_SURROGATE(ch))
             {
-                mg_app_state.pending_high_surrogate = unit;
-                break;
+                pending_high_surrogate = ch;
+                return 0;
             }
 
-            uint32_t codepoint;
-            if (unit >= 0xDC00 && unit <= 0xDFFF && mg_app_state.pending_high_surrogate)
+            UINT32 codepoint;
+            if (IS_LOW_SURROGATE(ch) && pending_high_surrogate)
             {
-                uint32_t high = mg_app_state.pending_high_surrogate;
-                uint32_t low  = unit;
-                codepoint = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00);
-                mg_app_state.pending_high_surrogate = 0;
+                codepoint = 0x10000  + ((pending_high_surrogate - 0xD800) << 10)  + (ch - 0xDC00);
+                pending_high_surrogate = 0;
             }
             else
             {
-                codepoint = unit;
-                mg_app_state.pending_high_surrogate = 0;
+                codepoint = ch;
             }
-
-            mg_app_event event = {
+            mgapp_event event = {
                 .codepoint = codepoint,
-                .type = MG_APP_EVENT_CHAR
+                .type = MGAPP_EVENT_CHAR
             };
-            mg_input_state.char_codepoint = codepoint;
-            mg_app_call_event(&event);
-            break;
+            mgapp_call_event(&event);
+        break;
         }
         case WM_MOUSEMOVE:
         {
             int32_t x = GET_X_LPARAM(l_param);
             int32_t y = GET_Y_LPARAM(l_param);
-            mg_input_state.mouse.x = x;
-            mg_input_state.mouse.y = y;
-            mg_app_event event = {
-                .mouse_x = x,
-                .mouse_y = y,
-                .type = MG_APP_EVENT_MOUSE_MOVE
+            mgapp_state.input.mouse.x = x;
+            mgapp_state.input.mouse.y = y;
+            mgapp_event event = {
+                .mouse = {
+                    .x = x,
+                    .y = y
+                },
+                .type = MGAPP_EVENT_MOUSE_MOVE
             };
-            mg_app_call_event(&event);
+            mgapp_call_event(&event);
             break;
         }
         case WM_MOUSEWHEEL:
@@ -785,12 +1156,14 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
             if (delta != 0)
             {
                 delta = (delta < 0) ? -1 : 1;
-                mg_input_state.mouse.delta = (int8_t)delta;
-                mg_app_event event = {
-                    .scroll_delta = (int8_t)delta,
-                    .type = MG_APP_EVENT_MOUSE_SCROLL
+                mgapp_state.input.mouse.delta = (int8_t)delta;
+                mgapp_event event = {
+                    .mouse = {
+                        .scroll = delta
+                    },
+                    .type = MGAPP_EVENT_MOUSE_SCROLL
                 };
-                mg_app_call_event(&event);
+                mgapp_call_event(&event);
             }
             break;
         }
@@ -819,33 +1192,71 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
                     break;
             }
 
-            mg_app_input_process_mouse_button(mouse_button, pressed, mg_app_state.frame_time);
-            mg_app_event event = {
-                .mouse_button = mouse_button,
-                .type = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
+            mgapp_input_process_mouse_button(mouse_button, pressed, mgapp_state.frame_time);
+            mgapp_event event = {
+                .mouse = {
+                    .button = mouse_button,
+                },
+                .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_MOUSE_DOWN : MGAPP_EVENT_MOUSE_UP)
             };
-            mg_app_call_event(&event);
+            mgapp_call_event(&event);
             break;
         }
         case WM_SETCURSOR:
         {
             if (LOWORD(l_param) == HTCLIENT)
             {
-                SetCursor(mg_app_state.cursors[mg_app_state.current_cursor]);
+                SetCursor(mgapp_state.win32.cursor_table[mgapp_state.current_cursor]);
                 return TRUE;
             }
             break;
         }
         case WM_DPICHANGED:
         {
-            mg_app_state.dpi = HIWORD(w_param);
-            mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
+            mgapp_state.dpi = HIWORD(w_param);
+            mgapp_state.dpi_scale = (float)mgapp_state.dpi / 96.0f;
             RECT *suggested = (RECT*)l_param;
             SetWindowPos(hwnd, NULL,
                 suggested->left, suggested->top,
                 suggested->right - suggested->left,
                 suggested->bottom - suggested->top,
                 SWP_NOZORDER | SWP_NOACTIVATE);
+            break;
+        }
+        case WM_DROPFILES:
+        {
+            HDROP hdrop = (HDROP)w_param;
+            UINT count = DragQueryFileA(hdrop, 0xFFFFFFFF, NULL, 0);
+
+            size_t ptr_block_size = sizeof(char*) * count;
+            size_t str_block_size = (size_t)MAX_PATH * count;
+            char *block = (char*)malloc(ptr_block_size + str_block_size);
+
+            if (block)
+            {
+                char **paths = (char**)block;
+                char *strings = block + ptr_block_size;
+
+                for (UINT i = 0; i < count; i++)
+                {
+                    char *dst = strings + (size_t)i * MAX_PATH;
+                    DragQueryFileA(hdrop, i, dst, MAX_PATH);
+                    paths[i] = dst;
+                }
+
+                mgapp_event event = {
+                    .file_drop = {
+                        .paths = (const char**)paths,
+                        .path_count = (int32_t)count
+                    },
+                    .type = MGAPP_EVENT_FILE_DROP
+                };
+                mgapp_call_event(&event);
+
+                free(block);
+            }
+
+            DragFinish(hdrop);
             break;
         }
         case WM_ENTERSIZEMOVE:
@@ -862,16 +1273,13 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
         {
             if (w_param == 1)
             {
-                LARGE_INTEGER now_time;
-                QueryPerformanceCounter(&now_time);
-                float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-                mg_app_state.delta_time = new_time - mg_app_state.frame_time;
-                mg_app_state.frame_time = new_time;
+                const float new_time = mgapp_time();
+                mgapp_state.delta_time = new_time - mgapp_state.frame_time;
+                mgapp_state.frame_time = new_time;
 
-                if (mg_app_state.info && mg_app_state.info->events.update)
-                    mg_app_state.info->events.update();
-
-                mg_app_input_frame();
+                if (mgapp_state.events.update)
+                    mgapp_state.events.update();
+                mgapp_input_frame();
             }
             break;
         }
@@ -879,579 +1287,383 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
     return DefWindowProcA(hwnd, msg, w_param, l_param);
 }
 
-static LRESULT CALLBACK mg_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
+static LRESULT CALLBACK mgapp_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
 {
     switch (msg)
     {
         case WM_NCCALCSIZE:
         {
-            if (!w_param) break;
+            if (!w_param)
+                break;
             NCCALCSIZE_PARAMS *params = (NCCALCSIZE_PARAMS *)l_param;
             RECT *r = params->rgrc;
             int32_t bx = GetSystemMetrics(SM_CXFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
             int32_t by = GetSystemMetrics(SM_CYFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
-            r->left   += bx;
-            r->right  -= bx;
+            r->left += bx;
+            r->right -= bx;
             r->bottom -= by;
-            r->top    += IsZoomed(hwnd) ? by : 0;
+            r->top += IsZoomed(hwnd) ? by : 0;
             return 0;
         }
         case WM_NCHITTEST:
         {
             POINTS mp = MAKEPOINTS(l_param);
-            POINT  sp = { mp.x, mp.y };
-            RECT   wr;
+            POINT sp = { mp.x, mp.y };
+            RECT wr;
             GetWindowRect(hwnd, &wr);
             const int bw = 8;
             int rx = sp.x - wr.left;
             int ry = sp.y - wr.top;
-            int w  = wr.right  - wr.left;
-            int h  = wr.bottom - wr.top;
+            int w = wr.right  - wr.left;
+            int h = wr.bottom - wr.top;
 
-            if (ry >= h - bw) return (rx <= bw) ? HTBOTTOMLEFT : (rx >= w - bw) ? HTBOTTOMRIGHT : HTBOTTOM;
-            if (ry <= bw) return (rx <= bw) ? HTTOPLEFT : (rx >= w - bw) ? HTTOPRIGHT    : HTTOP;
-            if (rx <= bw) return HTLEFT;
-            if (rx >= w - bw) return HTRIGHT;
+            if (!(mgapp_state.flags & MGAPP_FLAG_NO_RESIZE))
+            {
+                if (ry >= h - bw)
+                    return (rx <= bw) ? HTBOTTOMLEFT :
+                        (rx >= w - bw) ? HTBOTTOMRIGHT : HTBOTTOM;
 
-            if (rx >= mg_app_state.caption_x && rx < mg_app_state.caption_x + mg_app_state.caption_width &&
-                ry >= mg_app_state.caption_y && ry < mg_app_state.caption_y + mg_app_state.caption_height)
+                if (ry <= bw)
+                    return (rx <= bw) ? HTTOPLEFT :
+                        (rx >= w - bw) ? HTTOPRIGHT : HTTOP;
+
+                if (rx <= bw)
+                    return HTLEFT;
+
+                if (rx >= w - bw)
+                    return HTRIGHT;
+            }
+
+            if (rx >= mgapp_state.caption.x && rx < mgapp_state.caption.x + mgapp_state.caption.width &&
+                ry >= mgapp_state.caption.y && ry < mgapp_state.caption.y + mgapp_state.caption.height)
                 return HTCAPTION;
-            break;
+            return HTCLIENT;
         }
         case WM_NCMOUSEMOVE:
         {
             POINT pt = { GET_X_LPARAM(l_param), GET_Y_LPARAM(l_param) };
-            ScreenToClient(mg_app_state.hwnd, &pt);
-            mg_input_state.mouse.x = (int16_t)pt.x;
-            mg_input_state.mouse.y = (int16_t)pt.y;
-            mg_app_event event = {
-                .mouse_x = pt.x,
-                .mouse_y = pt.y,
-                .type = MG_APP_EVENT_MOUSE_MOVE
+            ScreenToClient(mgapp_state.win32.hwnd, &pt);
+            mgapp_state.input.mouse.x = (int16_t)pt.x;
+            mgapp_state.input.mouse.y = (int16_t)pt.y;
+            mgapp_event event = {
+                .mouse = {
+                    .x = pt.x,
+                    .y = pt.y
+                },
+                .type = MGAPP_EVENT_MOUSE_MOVE
             };
-            mg_app_call_event(&event);
+            mgapp_call_event(&event);
             break;
-        }
-        case WM_DROPFILES:
-        {
-            HDROP drop = (HDROP)w_param;
-            UINT file_count = DragQueryFileW(drop, 0xFFFFFFFF, NULL, 0);
-
-            #define MG_MAX_DROP_FILES 64
-            #define MG_MAX_DROP_PATH 1024
-
-            if (file_count > MG_MAX_DROP_FILES)
-                file_count = MG_MAX_DROP_FILES;
-
-            static char path_buf[MG_MAX_DROP_FILES][MG_MAX_DROP_PATH];
-            static const char *paths[MG_MAX_DROP_FILES];
-            WCHAR wpath[MG_MAX_DROP_PATH];
-
-            UINT valid_count = 0;
-            for (UINT i = 0; i < file_count; i++)
-            {
-                UINT wlen = DragQueryFileW(drop, i, wpath, MG_MAX_DROP_PATH);
-                if (wlen == 0)
-                    continue;
-
-                int u8len = WideCharToMultiByte(CP_UTF8, 0, wpath, -1,
-                    path_buf[valid_count], MG_MAX_DROP_PATH, NULL, NULL);
-                if (u8len == 0)
-                    continue;
-
-                paths[valid_count] = path_buf[valid_count];
-                valid_count++;
-            }
-
-            mg_app_event event = {
-                .file_drop = { .paths = paths, .path_count = (int32_t)valid_count },
-                .type = MG_APP_EVENT_FILE_DROP
-            };
-            mg_app_call_event(&event);
-
-            DragFinish(drop);
-            break;
-            #undef MG_MAX_DROP_FILES
-            #undef MG_MAX_DROP_PATH
         }
 
         case WM_NCACTIVATE:
             break;
     }
-    return CallWindowProc(mg_app_state.original_proc, hwnd, msg, w_param, l_param);
+    return CallWindowProc(mgapp_state.win32.original_proc, hwnd, msg, w_param, l_param);
 }
 
-int32_t mg_app_run(const mg_app_init_info *info)
+int32_t mgapp_run(const mgapp_init_info *info)
 {
-    const char *CLASS_NAME = "MAGMA";
-    mg_app_state.hinstace = GetModuleHandleA(NULL);
-    mg_app_state.info = info;
+    mgapp_win32_state *win32_state = &mgapp_state.win32;
 
-    mg_app_setup_clock();
+    const char *class_name = "mgapp_window_class";
+    win32_state->hinstance = GetModuleHandleA(NULL);
+
+    mgapp_win32_setup_clock(win32_state);
+    mgapp_win32_load_cursors(win32_state);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
 
-    const LPCSTR win32_cursor_map[MG_CURSOR_MAX] = {
-        (LPCSTR)IDC_ARROW,
-        (LPCSTR)IDC_IBEAM,
-        (LPCSTR)IDC_CROSS,
-        (LPCSTR)IDC_HAND,
-        (LPCSTR)IDC_SIZENS,
-        (LPCSTR)IDC_SIZEWE,
-        (LPCSTR)IDC_SIZENESW,
-        (LPCSTR)IDC_SIZENWSE,
-        (LPCSTR)IDC_SIZEALL,
-        (LPCSTR)IDC_NO,
-        NULL
-    };
-
-    for (uint8_t i = 0; i < MG_CURSOR_MAX; i++)
-        mg_app_state.cursors[i] = win32_cursor_map[i] ? LoadCursorA(NULL, win32_cursor_map[i]) : NULL;
-
     WNDCLASSA wc = {0};
-    wc.lpfnWndProc = mg_win32_process_message;
-    wc.hInstance = mg_app_state.hinstace;
-    wc.lpszClassName = CLASS_NAME;
-    wc.hCursor = mg_app_state.cursors[MG_CURSOR_ARROW];
+    wc.lpfnWndProc = mgapp_win32_process_message;
+    wc.hInstance = win32_state->hinstance;
+    wc.lpszClassName = class_name;
+    wc.hCursor = win32_state->cursor_table[MG_CURSOR_ARROW];
 
     if (!RegisterClassA(&wc))
     {
-        MessageBoxA(NULL, "Window registration failed!", "Error", MB_OK | MB_ICONERROR);
+        MGAPP_ERROR("Window registration failed!");
         return 1;
     }
 
-    const int32_t width = info->width ? info->width : CW_USEDEFAULT;
-    const int32_t height = info->height ? info->height : CW_USEDEFAULT;
+    const int32_t width = info->width ? (int32_t)info->width : CW_USEDEFAULT;
+    const int32_t height = info->height ? (int32_t)info->height : CW_USEDEFAULT;
 
-    mg_app_state.hwnd = CreateWindowExA(
+    DWORD style = WS_OVERLAPPEDWINDOW;
+
+    if (info->flags & MGAPP_FLAG_NO_RESIZE)
+        style &= ~WS_THICKFRAME;
+
+    if (info->flags & MGAPP_FLAG_NO_MINIMIZE)
+        style &= ~WS_MINIMIZEBOX;
+
+    if (info->flags & MGAPP_FLAG_NO_MAXIMIZE)
+        style &= ~WS_MAXIMIZEBOX;
+
+    win32_state->hwnd = CreateWindowExA(
         0,
-        CLASS_NAME,
+        class_name,
         info->title,
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        width, height,
-        NULL, NULL,
-        mg_app_state.hinstace,
+        style,
+        CW_USEDEFAULT,
+        CW_USEDEFAULT,
+        width,
+        height,
+        NULL,
+        NULL,
+        win32_state->hinstance,
         NULL
     );
 
-    if (!mg_app_state.hwnd)
+    if (!win32_state->hwnd)
     {
-        MessageBoxA(NULL, "Window creation failed!", "Error", MB_OK | MB_ICONERROR);
+        MGAPP_ERROR("Window creation failed!");
         return 1;
     }
 
-    mg_app_state.dpi = GetDpiForWindow(mg_app_state.hwnd);
-    mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
-
-    if (info->flags & MG_APP_FLAG_NO_TITLEBAR)
+    if (info->flags & MGAPP_FLAG_NO_TITLEBAR)
     {
-        LONG_PTR style = GetWindowLongPtr(mg_app_state.hwnd, GWL_STYLE);
+        LONG_PTR style = GetWindowLongPtr(win32_state->hwnd, GWL_STYLE);
         style |= WS_THICKFRAME | WS_CAPTION;
-        SetWindowLongPtr(mg_app_state.hwnd, GWL_STYLE, style);
+        SetWindowLongPtr(win32_state->hwnd, GWL_STYLE, style);
 
         RECT wr;
-        GetWindowRect(mg_app_state.hwnd, &wr);
-        int w = wr.right - wr.left;
-        int h = wr.bottom - wr.top;
+        GetWindowRect(win32_state->hwnd, &wr);
+        int32_t w = wr.right - wr.left;
+        int32_t h = wr.bottom - wr.top;
 
-        mg_app_state.original_proc = (WNDPROC)GetWindowLongPtr(mg_app_state.hwnd, GWLP_WNDPROC);
-        SetWindowLongPtr(mg_app_state.hwnd, GWLP_WNDPROC, (LONG_PTR)mg_win32_no_titlebar_proc);
-        SetWindowPos(mg_app_state.hwnd, NULL, 0, 0, w, h, SWP_FRAMECHANGED | SWP_NOMOVE);
+        win32_state->original_proc = (WNDPROC)GetWindowLongPtr(win32_state->hwnd, GWLP_WNDPROC);
+        SetWindowLongPtr(win32_state->hwnd, GWLP_WNDPROC, (LONG_PTR)mgapp_win32_no_titlebar_proc);
+        SetWindowPos(win32_state->hwnd, NULL, 0, 0, w, h, SWP_FRAMECHANGED | SWP_NOMOVE);
     }
 
-    ShowWindow(mg_app_state.hwnd, info->flags & MG_APP_FLAG_HIDDEN ? SW_HIDE : SW_SHOW);
-    UpdateWindow(mg_app_state.hwnd);
+    if (!(info->flags & MGAPP_FLAG_HIDE_WINDOW))
+    {
+        ShowWindow(
+            win32_state->hwnd,
+            SW_SHOW
+        );
+    }
+    UpdateWindow(win32_state->hwnd);
 
-    DragAcceptFiles(mg_app_state.hwnd, TRUE);
+    if (info->flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
+        DragAcceptFiles(win32_state->hwnd, TRUE);
 
-    mg_app_state.on_event_call = info->events.event;
+    mgapp_state.dpi = GetDpiForWindow(win32_state->hwnd);
+    mgapp_state.dpi_scale = (float)mgapp_state.dpi / 96.0f;
+
+    mgapp_state.events = info->events;
+    mgapp_state.flags = info->flags;
 
     if (info->events.start)
         info->events.start();
 
-    bool running = true;
-    while (running)
+    mgapp_state.running = true;
+    while (mgapp_state.running)
     {
         MSG msg;
         while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
         {
             if (msg.message == WM_QUIT)
             {
-                running = false;
+                mgapp_state.running = false;
                 continue;
             }
             TranslateMessage(&msg);
             DispatchMessageA(&msg);
         }
 
-        LARGE_INTEGER now_time;
-        QueryPerformanceCounter(&now_time);
-        float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-        mg_app_state.delta_time = new_time - mg_app_state.frame_time;
-        mg_app_state.frame_time = new_time;
-
-        mg_app_set_cursor(MG_CURSOR_ARROW);
+        const float new_time = mgapp_time();
+        mgapp_state.delta_time = new_time - mgapp_state.frame_time;
+        mgapp_state.frame_time = new_time;
 
         if (info->events.update)
             info->events.update();
 
-        POINT pt;
-        GetCursorPos(&pt);
-        HWND hovered = WindowFromPoint(pt);
-        if (hovered == mg_app_state.hwnd)
-        {
-            LRESULT ht = SendMessage(mg_app_state.hwnd, WM_NCHITTEST, 0, MAKELPARAM(pt.x, pt.y));
-            SendMessage(mg_app_state.hwnd, WM_SETCURSOR, (WPARAM)mg_app_state.hwnd, MAKELPARAM(ht, WM_MOUSEMOVE));
-        }
-
-        mg_app_input_frame();
+        mgapp_input_frame();
     }
 
-    DestroyWindow(mg_app_state.hwnd);
-    UnregisterClassA(CLASS_NAME, mg_app_state.hinstace);
+    if (info->events.end)
+        info->events.end();
+
+    DestroyWindow(win32_state->hwnd);
+    UnregisterClassA(class_name, win32_state->hinstance);
     return 0;
 }
 
-void mg_app_close(void)
+void mgapp_close(void)
 {
-    PostMessage(mg_app_state.hwnd, WM_CLOSE, 0, 0);
+    PostMessage(mgapp_state.win32.hwnd, WM_CLOSE, 0, 0);
 }
 
-void mg_app_show(bool value)
+void mgapp_show(bool value)
 {
-    ShowWindow(mg_app_state.hwnd, value);
+    ShowWindow(mgapp_state.win32.hwnd, value ? SW_SHOW : SW_HIDE);
 }
 
-void mg_app_minimize(void)
+void mgapp_minimize(void)
 {
-    ShowWindow(mg_app_state.hwnd, SW_MINIMIZE);
+    ShowWindow(mgapp_state.win32.hwnd, SW_MINIMIZE);
 }
 
-void mg_app_maximize(void)
+void mgapp_maximize(void)
 {
-    ShowWindow(mg_app_state.hwnd, SW_MAXIMIZE);
+    ShowWindow(mgapp_state.win32.hwnd, SW_MAXIMIZE);
 }
 
-void mg_app_restore(void)
+void mgapp_restore(void)
 {
-    ShowWindow(mg_app_state.hwnd, SW_RESTORE);
+    ShowWindow(mgapp_state.win32.hwnd, SW_RESTORE);
 }
 
-bool mg_app_maximized(void)
+bool mgapp_maximized(void)
 {
-    return IsZoomed(mg_app_state.hwnd);
+    return IsZoomed(mgapp_state.win32.hwnd);
 }
 
-void mg_app_set_cursor(mg_cursor cursor)
+void mgapp_set_cursor(mg_cursor cursor)
 {
-    mg_app_state.current_cursor = cursor;
+    if (mgapp_state.current_cursor == cursor)
+        return;
+    SetCursor(mgapp_state.win32.cursor_table[cursor]);
+    mgapp_state.current_cursor = cursor;
 }
 
-float mg_app_time(void)
+float mgapp_time(void)
 {
     LARGE_INTEGER now_time;
     QueryPerformanceCounter(&now_time);
-    float new_time = (float)(now_time.QuadPart - start_time.QuadPart) * clock_frequency;
-    return new_time;
+    return (float)(now_time.QuadPart - mgapp_state.win32.start_time.QuadPart) * mgapp_state.win32.clock_frequency;
 }
 
-float mg_app_frame_time(void)
+void *mgapp_primary_handle(void)
 {
-    return mg_app_state.frame_time;
+    return (void*)mgapp_state.win32.hwnd;
 }
 
-float mg_app_delta_time(void)
+void *mgapp_secondary_handle(void)
 {
-    return mg_app_state.delta_time;
-}
-
-int32_t mg_app_width(void)
-{
-    return mg_app_state.window_width;
-}
-
-int32_t mg_app_height(void)
-{
-    return mg_app_state.window_height;
-}
-
-uint32_t mg_app_dpi(void)
-{
-    return mg_app_state.dpi;
-}
-
-float mg_app_dpi_scale(void)
-{
-    return mg_app_state.dpi_scale;
-}
-
-void mg_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
-{
-    mg_app_state.caption_x = x;
-    mg_app_state.caption_y = y;
-    mg_app_state.caption_width = width;
-    mg_app_state.caption_height = height;
-}
-
-void *mg_app_primary_handle(void)
-{
-    return (void*)mg_app_state.hwnd;
-}
-
-void *mg_app_secondary_handle(void)
-{
-    return (void*)mg_app_state.hinstace;
+    return (void*)mgapp_state.win32.hinstance;
 }
 
 #elif defined(__linux__)
- 
-#include <X11/Xlib.h>
-#include <X11/Xatom.h>
-#include <X11/Xresource.h>
-#include <X11/Xutil.h>
-#include <X11/keysym.h>
-#include <X11/cursorfont.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
- 
-typedef struct mg_xlib_platform
-{
-    Window window;
-    Display *display;
-    Atom wm_delete_window;
-    Cursor cursors[MG_CURSOR_MAX];
-    Cursor current_cursor;
-    void (*on_event_call)(const mg_app_event *event);
-    int screen;
-    int32_t window_width, window_height;
-    float frame_time, delta_time;
-    uint32_t dpi;
-    float dpi_scale;
-    bool running;
-    bool no_titlebar;
 
-    int32_t caption_x, caption_y, caption_width, caption_height;
-
-    Window xdnd_source;
-    Atom xdnd_type;
-    int32_t xdnd_version;
-
-    struct
-    {
-        Atom wm_state, max_horz, max_vert, moveresize, motif_hints;
-        Atom xdnd_aware, xdnd_enter, xdnd_position, xdnd_status,
-             xdnd_drop, xdnd_finished, xdnd_selection,
-             xdnd_type_list, xdnd_action_copy, text_uri_list, primary;
-    } atoms;
-}
-mg_xlib_platform;
- 
-static mg_xlib_platform mg_app_state;
- 
-static inline void mg_app_call_event(const mg_app_event *event)
+static inline mg_key mgapp_xlib_translate_key(KeySym sym)
 {
-    if (mg_app_state.on_event_call)
-        mg_app_state.on_event_call(event);
-}
- 
-static float mg_xlib_get_time(void)
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (float)ts.tv_sec + (float)ts.tv_nsec * 1e-9f;
-}
+    if (sym >= XK_a && sym <= XK_z)
+        return (mg_key)(MG_KEY_A + (sym - XK_a));
+    if (sym >= XK_A && sym <= XK_Z)
+        return (mg_key)(MG_KEY_A + (sym - XK_A));
+    if (sym >= XK_0 && sym <= XK_9)
+        return (mg_key)(MG_KEY_0 + (sym - XK_0));
+    if (sym >= XK_F1 && sym <= XK_F24)
+        return (mg_key)(MG_KEY_F1 + (sym - XK_F1));
+    if (sym >= XK_KP_0 && sym <= XK_KP_9)
+        return (mg_key)(MG_KEY_NUMPAD0 + (sym - XK_KP_0));
 
-static mg_key mg_xlib_translate_key(KeySym sym)
-{
     switch (sym)
     {
-        case XK_a: case XK_A: return MG_KEY_A;
-        case XK_b: case XK_B: return MG_KEY_B;
-        case XK_c: case XK_C: return MG_KEY_C;
-        case XK_d: case XK_D: return MG_KEY_D;
-        case XK_e: case XK_E: return MG_KEY_E;
-        case XK_f: case XK_F: return MG_KEY_F;
-        case XK_g: case XK_G: return MG_KEY_G;
-        case XK_h: case XK_H: return MG_KEY_H;
-        case XK_i: case XK_I: return MG_KEY_I;
-        case XK_j: case XK_J: return MG_KEY_J;
-        case XK_k: case XK_K: return MG_KEY_K;
-        case XK_l: case XK_L: return MG_KEY_L;
-        case XK_m: case XK_M: return MG_KEY_M;
-        case XK_n: case XK_N: return MG_KEY_N;
-        case XK_o: case XK_O: return MG_KEY_O;
-        case XK_p: case XK_P: return MG_KEY_P;
-        case XK_q: case XK_Q: return MG_KEY_Q;
-        case XK_r: case XK_R: return MG_KEY_R;
-        case XK_s: case XK_S: return MG_KEY_S;
-        case XK_t: case XK_T: return MG_KEY_T;
-        case XK_u: case XK_U: return MG_KEY_U;
-        case XK_v: case XK_V: return MG_KEY_V;
-        case XK_w: case XK_W: return MG_KEY_W;
-        case XK_x: case XK_X: return MG_KEY_X;
-        case XK_y: case XK_Y: return MG_KEY_Y;
-        case XK_z: case XK_Z: return MG_KEY_Z;
+        case XK_BackSpace:   return MG_KEY_BACKSPACE;
+        case XK_Return:      return MG_KEY_ENTER;
+        case XK_KP_Enter:    return MG_KEY_ENTER;
+        case XK_Tab:         return MG_KEY_TAB;
+        case XK_Pause:       return MG_KEY_PAUSE;
+        case XK_Caps_Lock:   return MG_KEY_CAPITAL;
+        case XK_Escape:      return MG_KEY_ESCAPE;
+        case XK_space:       return MG_KEY_SPACE;
+        case XK_Page_Up:     return MG_KEY_PAGE_UP;
+        case XK_Page_Down:   return MG_KEY_PAGE_DOWN;
+        case XK_End:         return MG_KEY_END;
+        case XK_Home:        return MG_KEY_HOME;
+        case XK_Left:        return MG_KEY_LEFT;
+        case XK_Up:          return MG_KEY_UP;
+        case XK_Right:       return MG_KEY_RIGHT;
+        case XK_Down:        return MG_KEY_DOWN;
+        case XK_Select:      return MG_KEY_SELECT;
+        case XK_Print:       return MG_KEY_PRINT;
+        case XK_Execute:     return MG_KEY_EXECUTE;
+        case XK_Insert:      return MG_KEY_INSERT;
+        case XK_Delete:      return MG_KEY_DELETE;
+        case XK_Help:        return MG_KEY_HELP;
 
-        case XK_0: return MG_KEY_0;
-        case XK_1: return MG_KEY_1;
-        case XK_2: return MG_KEY_2;
-        case XK_3: return MG_KEY_3;
-        case XK_4: return MG_KEY_4;
-        case XK_5: return MG_KEY_5;
-        case XK_6: return MG_KEY_6;
-        case XK_7: return MG_KEY_7;
-        case XK_8: return MG_KEY_8;
-        case XK_9: return MG_KEY_9;
+        case XK_Super_L:     return MG_KEY_LSUPER;
+        case XK_Super_R:     return MG_KEY_RSUPER;
+        case XK_Menu:        return MG_KEY_APPS;
 
-        case XK_F1:  return MG_KEY_F1;
-        case XK_F2:  return MG_KEY_F2;
-        case XK_F3:  return MG_KEY_F3;
-        case XK_F4:  return MG_KEY_F4;
-        case XK_F5:  return MG_KEY_F5;
-        case XK_F6:  return MG_KEY_F6;
-        case XK_F7:  return MG_KEY_F7;
-        case XK_F8:  return MG_KEY_F8;
-        case XK_F9:  return MG_KEY_F9;
-        case XK_F10: return MG_KEY_F10;
-        case XK_F11: return MG_KEY_F11;
-        case XK_F12: return MG_KEY_F12;
+        case XK_KP_Multiply: return MG_KEY_MULTIPLY;
+        case XK_KP_Add:      return MG_KEY_ADD;
+        case XK_KP_Separator:return MG_KEY_SEPARATOR;
+        case XK_KP_Subtract: return MG_KEY_SUBTRACT;
+        case XK_KP_Decimal:  return MG_KEY_DECIMAL;
+        case XK_KP_Divide:   return MG_KEY_DIVIDE;
 
-        case XK_Left:      return MG_KEY_LEFT;
-        case XK_Right:     return MG_KEY_RIGHT;
-        case XK_Up:        return MG_KEY_UP;
-        case XK_Down:      return MG_KEY_DOWN;
-        case XK_Home:      return MG_KEY_HOME;
-        case XK_End:       return MG_KEY_END;
-        case XK_Page_Up:   return MG_KEY_PAGE_UP;
-        case XK_Page_Down: return MG_KEY_PAGE_DOWN;
-        case XK_Insert:    return MG_KEY_INSERT;
-        case XK_Delete:    return MG_KEY_DELETE;
+        case XK_Num_Lock:    return MG_KEY_NUMLOCK;
+        case XK_Scroll_Lock: return MG_KEY_SCROLL;
+        case XK_KP_Equal:    return MG_KEY_NUMPAD_EQUAL;
 
-        case XK_Shift_L:   return MG_KEY_LSHIFT;
-        case XK_Shift_R:   return MG_KEY_RSHIFT;
-        case XK_Control_L: return MG_KEY_LCONTROL;
-        case XK_Control_R: return MG_KEY_RCONTROL;
-        case XK_Alt_L:     return MG_KEY_LALT;
-        case XK_Alt_R:     return MG_KEY_RALT;
-        case XK_Super_L:   return MG_KEY_LSUPER;
-        case XK_Super_R:   return MG_KEY_RSUPER;
-        case XK_Escape:    return MG_KEY_ESCAPE;
-        case XK_Tab:       return MG_KEY_TAB;
-        case XK_Return:    return MG_KEY_ENTER;
-        case XK_BackSpace: return MG_KEY_BACKSPACE;
-        case XK_space:     return MG_KEY_SPACE;
+        case XK_Shift_L:     return MG_KEY_LSHIFT;
+        case XK_Shift_R:     return MG_KEY_RSHIFT;
+        case XK_Control_L:   return MG_KEY_LCONTROL;
+        case XK_Control_R:   return MG_KEY_RCONTROL;
+        case XK_Alt_L:       return MG_KEY_LALT;
+        case XK_Alt_R:       return MG_KEY_RALT;
 
-        case XK_comma:        return MG_KEY_COMMA;
-        case XK_period:       return MG_KEY_PERIOD;
-        case XK_minus:        return MG_KEY_MINUS;
-        case XK_equal:        return MG_KEY_EQUAL;
-        case XK_semicolon:    return MG_KEY_SEMICOLON;
-        case XK_grave:        return MG_KEY_GRAVE;
-        case XK_slash:        return MG_KEY_SLASH;
-        case XK_backslash:    return MG_KEY_BACKSLASH;
-        case XK_bracketleft:  return MG_KEY_LBRACKET;
-        case XK_bracketright: return MG_KEY_RBRACKET;
-        case XK_apostrophe:   return MG_KEY_APOSTROPHE;
+        case XK_semicolon:   return MG_KEY_SEMICOLON;
+        case XK_apostrophe:  return MG_KEY_APOSTROPHE;
+        case XK_equal:       return MG_KEY_EQUAL;
+        case XK_comma:       return MG_KEY_COMMA;
+        case XK_minus:       return MG_KEY_MINUS;
+        case XK_period:      return MG_KEY_PERIOD;
+        case XK_slash:       return MG_KEY_SLASH;
+        case XK_grave:       return MG_KEY_GRAVE;
+        case XK_bracketleft: return MG_KEY_LBRACKET;
+        case XK_backslash:   return MG_KEY_PIPE;
+        case XK_bracketright:return MG_KEY_RBRACKET;
 
         default: return MG_KEY_MAX;
     }
 }
 
-typedef struct
+static inline mg_mouse_button mgapp_xlib_translate_button(uint32_t x_button)
 {
-    unsigned long flags;
-    unsigned long functions;
-    unsigned long decorations;
-    long input_mode;
-    unsigned long status;
-}
-mg_motif_wm_hints;
-
-#define MG_MWM_HINTS_DECORATIONS (1L << 1)
-
-static void mg_xlib_set_borderless(Display *display, Window window, Atom motif_hints_atom, bool borderless)
-{
-    mg_motif_wm_hints hints = {0};
-    hints.flags = MG_MWM_HINTS_DECORATIONS;
-    hints.decorations = borderless ? 0 : 1;
-
-    XChangeProperty(
-        display, window,
-        motif_hints_atom, motif_hints_atom,
-        32, PropModeReplace,
-        (unsigned char *)&hints,
-        sizeof(mg_motif_wm_hints) / sizeof(long));
+    switch (x_button)
+    {
+        case Button1: return MG_MOUSE_BUTTON_LEFT;
+        case Button2: return MG_MOUSE_BUTTON_MIDDLE;
+        case Button3: return MG_MOUSE_BUTTON_RIGHT;
+        default:      return MG_MOUSE_BUTTON_MAX;
+    }
 }
 
-enum
+static inline void mgapp_xlib_load_cursors(mgapp_xlib_state *xlib_state)
 {
-    MG_NET_WM_MOVERESIZE_SIZE_TOPLEFT = 0,
-    MG_NET_WM_MOVERESIZE_SIZE_TOP = 1,
-    MG_NET_WM_MOVERESIZE_SIZE_TOPRIGHT = 2,
-    MG_NET_WM_MOVERESIZE_SIZE_RIGHT = 3,
-    MG_NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT = 4,
-    MG_NET_WM_MOVERESIZE_SIZE_BOTTOM = 5,
-    MG_NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT = 6,
-    MG_NET_WM_MOVERESIZE_SIZE_LEFT = 7,
-    MG_NET_WM_MOVERESIZE_MOVE = 8
-};
+    xlib_state->cursor_table[MG_CURSOR_ARROW] = XCreateFontCursor(xlib_state->display, XC_left_ptr);
+    xlib_state->cursor_table[MG_CURSOR_IBEAM] = XCreateFontCursor(xlib_state->display, XC_xterm);
+    xlib_state->cursor_table[MG_CURSOR_CROSSHAIR] = XCreateFontCursor(xlib_state->display, XC_crosshair);
+    xlib_state->cursor_table[MG_CURSOR_HAND] = XCreateFontCursor(xlib_state->display, XC_hand2);
+    xlib_state->cursor_table[MG_CURSOR_RESIZE_ALL] = XCreateFontCursor(xlib_state->display, XC_fleur);
+    xlib_state->cursor_table[MG_CURSOR_RESIZE_NS] = XCreateFontCursor(xlib_state->display, XC_sb_v_double_arrow);
+    xlib_state->cursor_table[MG_CURSOR_RESIZE_EW] = XCreateFontCursor(xlib_state->display, XC_sb_h_double_arrow);
+    xlib_state->cursor_table[MG_CURSOR_RESIZE_NESW] = XCreateFontCursor(xlib_state->display, XC_bottom_left_corner);
+    xlib_state->cursor_table[MG_CURSOR_RESIZE_NWSE] = XCreateFontCursor(xlib_state->display, XC_bottom_right_corner);
+    xlib_state->cursor_table[MG_CURSOR_NOT_ALLOWED] = XCreateFontCursor(xlib_state->display, XC_pirate);
 
-static void mg_xlib_send_moveresize(int32_t root_x, int32_t root_y, int32_t direction)
-{
-    XUngrabPointer(mg_app_state.display, CurrentTime);
-    XFlush(mg_app_state.display);
+    {
+        const Pixmap cursor_pixmap = XCreatePixmap(xlib_state->display, xlib_state->window, 1, 1, 1);
+        GC gfx_ctx = XCreateGC(xlib_state->display, cursor_pixmap, 0, NULL);
+        XDrawPoint(xlib_state->display, cursor_pixmap, gfx_ctx, 0, 0);
+        XFreeGC(xlib_state->display, gfx_ctx);
 
-    XEvent e = {0};
-    e.xclient.type = ClientMessage;
-    e.xclient.window = mg_app_state.window;
-    e.xclient.message_type = mg_app_state.atoms.moveresize;
-    e.xclient.format = 32;
-    e.xclient.data.l[0] = root_x;
-    e.xclient.data.l[1] = root_y;
-    e.xclient.data.l[2] = direction;
-    e.xclient.data.l[3] = Button1;
-    e.xclient.data.l[4] = 1;
+        XColor color;
+        color.flags = DoRed | DoGreen | DoBlue;
+        color.red = color.blue = color.green = 0;
+        xlib_state->cursor_table[MG_CURSOR_HIDDEN] = XCreatePixmapCursor(xlib_state->display, cursor_pixmap, cursor_pixmap, &color, &color, 0, 0);
 
-    XSendEvent(
-        mg_app_state.display,
-        DefaultRootWindow(mg_app_state.display),
-        False,
-        SubstructureRedirectMask | SubstructureNotifyMask,
-        &e);
-
-    XFlush(mg_app_state.display);
+        XFreePixmap(xlib_state->display, cursor_pixmap);
+    }
 }
 
-static int32_t mg_xlib_hittest(int32_t x, int32_t y)
-{
-    const int32_t bw = 8;
-    int32_t w = mg_app_state.window_width;
-    int32_t h = mg_app_state.window_height;
-
-    bool left   = x <= bw;
-    bool right  = x >= w - bw;
-    bool top    = y <= bw;
-    bool bottom = y >= h - bw;
-
-    if (top && left)     return MG_NET_WM_MOVERESIZE_SIZE_TOPLEFT;
-    if (top && right)    return MG_NET_WM_MOVERESIZE_SIZE_TOPRIGHT;
-    if (bottom && left)  return MG_NET_WM_MOVERESIZE_SIZE_BOTTOMLEFT;
-    if (bottom && right) return MG_NET_WM_MOVERESIZE_SIZE_BOTTOMRIGHT;
-    if (top)              return MG_NET_WM_MOVERESIZE_SIZE_TOP;
-    if (bottom)           return MG_NET_WM_MOVERESIZE_SIZE_BOTTOM;
-    if (left)             return MG_NET_WM_MOVERESIZE_SIZE_LEFT;
-    if (right)            return MG_NET_WM_MOVERESIZE_SIZE_RIGHT;
-
-    if (x >= mg_app_state.caption_x && x < mg_app_state.caption_x + mg_app_state.caption_width &&
-        y >= mg_app_state.caption_y && y < mg_app_state.caption_y + mg_app_state.caption_height)
-        return MG_NET_WM_MOVERESIZE_MOVE;
-
-    return -1;
-}
-
-static uint32_t mg_xlib_query_dpi(Display *display, int screen)
+static inline uint32_t mgapp_xlib_query_dpi(Display *display, int32_t screen)
 {
     char *rms = XResourceManagerString(display);
     if (rms)
@@ -1472,67 +1684,271 @@ static uint32_t mg_xlib_query_dpi(Display *display, int screen)
         }
     }
 
-    int width_px  = DisplayWidth(display, screen);
-    int width_mm  = DisplayWidthMM(display, screen);
+    int32_t width_px = DisplayWidth(display, screen);
+    int32_t width_mm = DisplayWidthMM(display, screen);
     if (width_mm > 0)
         return (uint32_t)(width_px * 25.4f / (float)width_mm + 0.5f);
 
     return 96;
 }
 
-static uint32_t mg_xlib_utf8_decode(const char *buf, int len)
+static inline void mgapp_xlib_load_dpi(mgapp_xlib_state *xlib_state)
 {
-    if (len <= 0) return 0;
-
-    unsigned char b0 = (unsigned char)buf[0];
-
-    if (b0 < 0x80)
-        return b0;
-
-    if ((b0 & 0xE0) == 0xC0 && len >= 2)
-        return ((b0 & 0x1F) << 6) | ((unsigned char)buf[1] & 0x3F);
-
-    if ((b0 & 0xF0) == 0xE0 && len >= 3)
-        return ((b0 & 0x0F) << 12) | (((unsigned char)buf[1] & 0x3F) << 6) | ((unsigned char)buf[2] & 0x3F);
-
-    if ((b0 & 0xF8) == 0xF0 && len >= 4)
-        return ((b0 & 0x07) << 18) | (((unsigned char)buf[1] & 0x3F) << 12) |
-               (((unsigned char)buf[2] & 0x3F) << 6) | ((unsigned char)buf[3] & 0x3F);
-
-    return 0;
+    mgapp_state.dpi = mgapp_xlib_query_dpi(xlib_state->display, xlib_state->screen);
+    mgapp_state.dpi_scale = (float)mgapp_state.dpi / 96.0f;
 }
 
-int32_t mg_app_run(const mg_app_init_info *info)
+typedef struct
 {
-    mg_app_state.display = XOpenDisplay(NULL);
-    if (!mg_app_state.display)
+    unsigned long flags;
+    unsigned long functions;
+    unsigned long decorations;
+    long input_mode;
+    unsigned long status;
+}
+mgapp_motif_wm_hints;
+
+#define MGAPP_MWM_HINTS_DECORATIONS (1L << 1)
+#define MGAPP_MWM_DECOR_ALL (1L << 0)
+
+static inline void mgapp_xlib_set_decorated(mgapp_xlib_state *xlib_state, bool decorated)
+{
+    mgapp_motif_wm_hints hints = {0};
+    hints.flags = MGAPP_MWM_HINTS_DECORATIONS;
+    hints.decorations = decorated ? MGAPP_MWM_DECOR_ALL : 0;
+
+    XChangeProperty(
+        xlib_state->display, xlib_state->window,
+        xlib_state->motif_wm_hints, xlib_state->motif_wm_hints,
+        32, PropModeReplace,
+        (unsigned char *)&hints, 5
+    );
+}
+
+typedef enum
+{
+    MGAPP_XLIB_HIT_NONE,
+    MGAPP_XLIB_HIT_LEFT,
+    MGAPP_XLIB_HIT_RIGHT,
+    MGAPP_XLIB_HIT_TOP,
+    MGAPP_XLIB_HIT_BOTTOM,
+    MGAPP_XLIB_HIT_TOPLEFT,
+    MGAPP_XLIB_HIT_TOPRIGHT,
+    MGAPP_XLIB_HIT_BOTTOMLEFT,
+    MGAPP_XLIB_HIT_BOTTOMRIGHT
+}
+mgapp_xlib_hit_test;
+
+static inline mgapp_xlib_hit_test mgapp_xlib_test_edge(int32_t x, int32_t y, int32_t w, int32_t h)
+{
+    const int32_t bw = 8;
+    bool left = x <= bw;
+    bool right = x >= w - bw;
+    bool top = y <= bw;
+    bool bottom = y >= h - bw;
+
+    if (top && left) return MGAPP_XLIB_HIT_TOPLEFT;
+    if (top && right) return MGAPP_XLIB_HIT_TOPRIGHT;
+    if (bottom && left) return MGAPP_XLIB_HIT_BOTTOMLEFT;
+    if (bottom && right) return MGAPP_XLIB_HIT_BOTTOMRIGHT;
+    if (left) return MGAPP_XLIB_HIT_LEFT;
+    if (right) return MGAPP_XLIB_HIT_RIGHT;
+    if (top) return MGAPP_XLIB_HIT_TOP;
+    if (bottom) return MGAPP_XLIB_HIT_BOTTOM;
+    return MGAPP_XLIB_HIT_NONE;
+}
+
+static inline int32_t mgapp_xlib_hit_to_moveresize_dir(mgapp_xlib_hit_test hit)
+{
+    switch (hit)
     {
-        fprintf(stderr, "Failed to open X display\n");
+        case MGAPP_XLIB_HIT_TOPLEFT:     return 0;
+        case MGAPP_XLIB_HIT_TOP:         return 1;
+        case MGAPP_XLIB_HIT_TOPRIGHT:    return 2;
+        case MGAPP_XLIB_HIT_RIGHT:       return 3;
+        case MGAPP_XLIB_HIT_BOTTOMRIGHT: return 4;
+        case MGAPP_XLIB_HIT_BOTTOM:      return 5;
+        case MGAPP_XLIB_HIT_BOTTOMLEFT:  return 6;
+        case MGAPP_XLIB_HIT_LEFT:        return 7;
+        default:                         return -1;
+    }
+}
+
+static inline void mgapp_xlib_apply_size_hints(mgapp_xlib_state *xlib_state, mgapp_flags flags, int32_t width, int32_t height)
+{
+    XSizeHints *hints = XAllocSizeHints();
+    if (!hints)
+        return;
+
+    if (flags & MGAPP_FLAG_NO_RESIZE)
+    {
+        hints->flags = PMinSize | PMaxSize;
+        hints->min_width = hints->max_width = width;
+        hints->min_height = hints->max_height = height;
+    }
+    else
+    {
+        hints->flags = PMinSize;
+        hints->min_width = 1;
+        hints->min_height = 1;
+    }
+
+    XSetWMNormalHints(xlib_state->display, xlib_state->window, hints);
+    XFree(hints);
+}
+
+static inline void mgapp_xlib_apply_allowed_actions(mgapp_xlib_state *xlib_state, mgapp_flags flags)
+{
+    Atom actions[8];
+    int32_t count = 0;
+
+    if (!(flags & MGAPP_FLAG_NO_RESIZE))
+        actions[count++] = xlib_state->net_wm_action_resize;
+    if (!(flags & MGAPP_FLAG_NO_MINIMIZE))
+        actions[count++] = xlib_state->net_wm_action_minimize;
+    if (!(flags & MGAPP_FLAG_NO_MAXIMIZE))
+    {
+        actions[count++] = xlib_state->net_wm_action_maximize_horz;
+        actions[count++] = xlib_state->net_wm_action_maximize_vert;
+    }
+
+    XChangeProperty(
+        xlib_state->display, xlib_state->window,
+        xlib_state->net_wm_allowed_actions, XA_ATOM,
+        32, PropModeReplace,
+        (unsigned char *)actions, count
+    );
+}
+
+static inline void mgapp_xlib_handle_xdnd_client_message(mgapp_xlib_state *xlib_state, const XClientMessageEvent *cm)
+{
+    Atom type = cm->message_type;
+
+    if (type == xlib_state->xdnd_enter)
+    {
+        xlib_state->xdnd_source = (Window)cm->data.l[0];
+    }
+    else if (type == xlib_state->xdnd_position)
+    {
+        xlib_state->xdnd_source = (Window)cm->data.l[0];
+
+        XEvent reply = {0};
+        reply.type = ClientMessage;
+        reply.xclient.window = xlib_state->xdnd_source;
+        reply.xclient.message_type = xlib_state->xdnd_status;
+        reply.xclient.format = 32;
+        reply.xclient.data.l[0] = xlib_state->window;
+        reply.xclient.data.l[1] = 1;
+        reply.xclient.data.l[2] = 0;
+        reply.xclient.data.l[3] = 0;
+        reply.xclient.data.l[4] = xlib_state->xdnd_action_copy;
+
+        XSendEvent(xlib_state->display, xlib_state->xdnd_source, False, NoEventMask, &reply);
+        XFlush(xlib_state->display);
+    }
+    else if (type == xlib_state->xdnd_leave)
+    {
+        xlib_state->xdnd_source = 0;
+    }
+    else if (type == xlib_state->xdnd_drop)
+    {
+        Time drop_time = (Time)cm->data.l[2];
+
+        XConvertSelection(
+            xlib_state->display,
+            xlib_state->xdnd_selection,
+            xlib_state->uri_list,
+            xlib_state->xdnd_selection,
+            xlib_state->window,
+            drop_time
+        );
+    }
+}
+
+static inline void mgapp_xlib_handle_xdnd_selection_notify(mgapp_xlib_state *xlib_state, const XSelectionEvent *se)
+{
+    if (se->property != xlib_state->xdnd_selection)
+        return;
+
+    Atom actual_type;
+    int32_t actual_format;
+    unsigned long item_count, bytes_after;
+    unsigned char *data = NULL;
+
+    XGetWindowProperty(
+        xlib_state->display, xlib_state->window,
+        xlib_state->xdnd_selection, 0, 65536, False,
+        xlib_state->uri_list,
+        &actual_type, &actual_format, &item_count, &bytes_after, &data
+    );
+
+    if (data)
+    {
+        char **paths = (char**)malloc(sizeof(char*) * 64);
+        int32_t count = 0;
+        char *line = (char*)data;
+
+        while (*line && count < 64)
+        {
+            char *end = strstr(line, "\r\n");
+            if (end) *end = '\0';
+
+            if (strncmp(line, "file://", 7) == 0)
+                paths[count++] = line + 7;
+
+            if (!end) break;
+            line = end + 2;
+        }
+
+        if (count > 0)
+        {
+            mgapp_event event = {
+                .file_drop = {
+                    .paths = (const char**)paths,
+                    .path_count = count
+                },
+                .type = MGAPP_EVENT_FILE_DROP
+            };
+            mgapp_call_event(&event);
+        }
+
+        free(paths);
+        XFree(data);
+    }
+
+    XEvent finished = {0};
+    finished.type = ClientMessage;
+    finished.xclient.window = xlib_state->xdnd_source;
+    finished.xclient.message_type = xlib_state->xdnd_finished;
+    finished.xclient.format = 32;
+    finished.xclient.data.l[0] = xlib_state->window;
+    finished.xclient.data.l[1] = 1;
+    finished.xclient.data.l[2] = xlib_state->xdnd_action_copy;
+
+    XSendEvent(xlib_state->display, xlib_state->xdnd_source, False, NoEventMask, &finished);
+    XFlush(xlib_state->display);
+
+    xlib_state->xdnd_source = 0;
+}
+
+static int32_t mgapp_xlib_run(const mgapp_init_info *info)
+{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+
+    xlib_state->display = XOpenDisplay(NULL);
+    if (!xlib_state->display)
+    {
+        MGAPP_ERROR("Failed to open X display");
         return 1;
     }
- 
-    mg_app_state.screen = DefaultScreen(mg_app_state.display);
 
-    mg_app_state.atoms.xdnd_aware      = XInternAtom(mg_app_state.display, "XdndAware", False);
-    mg_app_state.atoms.xdnd_enter      = XInternAtom(mg_app_state.display, "XdndEnter", False);
-    mg_app_state.atoms.xdnd_position   = XInternAtom(mg_app_state.display, "XdndPosition", False);
-    mg_app_state.atoms.xdnd_status     = XInternAtom(mg_app_state.display, "XdndStatus", False);
-    mg_app_state.atoms.xdnd_drop       = XInternAtom(mg_app_state.display, "XdndDrop", False);
-    mg_app_state.atoms.xdnd_finished   = XInternAtom(mg_app_state.display, "XdndFinished", False);
-    mg_app_state.atoms.xdnd_selection  = XInternAtom(mg_app_state.display, "XdndSelection", False);
-    mg_app_state.atoms.xdnd_type_list  = XInternAtom(mg_app_state.display, "XdndTypeList", False);
-    mg_app_state.atoms.xdnd_action_copy= XInternAtom(mg_app_state.display, "XdndActionCopy", False);
-    mg_app_state.atoms.text_uri_list   = XInternAtom(mg_app_state.display, "text/uri-list", False);
-    mg_app_state.atoms.primary         = XInternAtom(mg_app_state.display, "PRIMARY", False);
- 
-    const int32_t width  = info->width  ? (int32_t)info->width  : 800;
-    const int32_t height = info->height ? (int32_t)info->height : 600;
- 
-    mg_app_state.window_width  = width;
-    mg_app_state.window_height = height;
- 
-    Window root = RootWindow(mg_app_state.display, mg_app_state.screen);
- 
+    xlib_state->screen = DefaultScreen(xlib_state->display);
+
+    const uint32_t width = info->width ? info->width : 800;
+    const uint32_t height = info->height ? info->height : 600;
+
+    Window root = RootWindow(xlib_state->display, xlib_state->screen);
+
     XSetWindowAttributes swa = {0};
     swa.background_pixmap = None;
     swa.bit_gravity = NorthWestGravity;
@@ -1542,624 +1958,456 @@ int32_t mg_app_run(const mg_app_init_info *info)
         ButtonPressMask | ButtonReleaseMask |
         PointerMotionMask;
 
-    mg_app_state.window = XCreateWindow(
-        mg_app_state.display,
+    xlib_state->window = XCreateWindow(
+        xlib_state->display,
         root,
         0, 0,
-        (unsigned int)width, (unsigned int)height,
+        width, height,
         0,
-        DefaultDepth(mg_app_state.display, mg_app_state.screen),
+        DefaultDepth(xlib_state->display, xlib_state->screen),
         InputOutput,
-        DefaultVisual(mg_app_state.display, mg_app_state.screen),
+        DefaultVisual(xlib_state->display, xlib_state->screen),
         CWBackPixmap | CWBitGravity | CWEventMask,
         &swa
     );
- 
-    if (!mg_app_state.window)
+
+    if (!xlib_state->window)
     {
-        fprintf(stderr, "Failed to create X window\n");
-        XCloseDisplay(mg_app_state.display);
+        MGAPP_ERROR("Failed to create X window");
+        XCloseDisplay(xlib_state->display);
         return 1;
     }
- 
+
     if (info->title)
-        XStoreName(mg_app_state.display, mg_app_state.window, info->title);
- 
-    mg_app_state.wm_delete_window = XInternAtom(mg_app_state.display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(mg_app_state.display, mg_app_state.window, &mg_app_state.wm_delete_window, 1);
+        XStoreName(xlib_state->display, xlib_state->window, info->title);
 
-    mg_app_state.atoms.motif_hints = XInternAtom(mg_app_state.display, "_MOTIF_WM_HINTS", False);
-    mg_app_state.atoms.moveresize  = XInternAtom(mg_app_state.display, "_NET_WM_MOVERESIZE", False);
-
-    mg_app_state.no_titlebar = (info->flags & MG_APP_FLAG_NO_TITLEBAR) != 0;
-    if (mg_app_state.no_titlebar)
-        mg_xlib_set_borderless(mg_app_state.display, mg_app_state.window, mg_app_state.atoms.motif_hints, true);
- 
-    XMapWindow(mg_app_state.display, mg_app_state.window);
-    XFlush(mg_app_state.display);
-
+    if (!(info->flags & MGAPP_FLAG_HIDE_WINDOW))
     {
-        const uint32_t xdnd_version = 5;
+        XMapWindow(xlib_state->display, xlib_state->window);
+        XFlush(xlib_state->display);
+    }
+
+    xlib_state->wm_delete_window = XInternAtom(xlib_state->display, "WM_DELETE_WINDOW", False);
+    XSetWMProtocols(xlib_state->display, xlib_state->window, &xlib_state->wm_delete_window, 1);
+
+    xlib_state->net_wm_state = XInternAtom(xlib_state->display, "_NET_WM_STATE", False);
+    xlib_state->net_wm_state_maximized_horz = XInternAtom(xlib_state->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
+    xlib_state->net_wm_state_maximized_vert = XInternAtom(xlib_state->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
+    
+    xlib_state->motif_wm_hints = XInternAtom(xlib_state->display, "_MOTIF_WM_HINTS", False);
+    xlib_state->net_wm_moveresize = XInternAtom(xlib_state->display, "_NET_WM_MOVERESIZE", False);
+    xlib_state->net_wm_allowed_actions = XInternAtom(xlib_state->display, "_NET_WM_ALLOWED_ACTIONS", False);
+    xlib_state->net_wm_action_resize = XInternAtom(xlib_state->display, "_NET_WM_ACTION_RESIZE", False);
+    xlib_state->net_wm_action_minimize = XInternAtom(xlib_state->display, "_NET_WM_ACTION_MINIMIZE", False);
+    xlib_state->net_wm_action_maximize_horz = XInternAtom(xlib_state->display, "_NET_WM_ACTION_MAXIMIZE_HORZ", False);
+    xlib_state->net_wm_action_maximize_vert = XInternAtom(xlib_state->display, "_NET_WM_ACTION_MAXIMIZE_VERT", False);
+
+    if (info->flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
+    {
+        xlib_state->xdnd_aware = XInternAtom(xlib_state->display, "XdndAware", False);
+        xlib_state->xdnd_enter = XInternAtom(xlib_state->display, "XdndEnter", False);
+        xlib_state->xdnd_position = XInternAtom(xlib_state->display, "XdndPosition", False);
+        xlib_state->xdnd_status = XInternAtom(xlib_state->display, "XdndStatus", False);
+        xlib_state->xdnd_leave = XInternAtom(xlib_state->display, "XdndLeave", False);
+        xlib_state->xdnd_drop = XInternAtom(xlib_state->display, "XdndDrop", False);
+        xlib_state->xdnd_finished = XInternAtom(xlib_state->display, "XdndFinished", False);
+        xlib_state->xdnd_selection = XInternAtom(xlib_state->display, "XdndSelection", False);
+        xlib_state->xdnd_type_list = XInternAtom(xlib_state->display, "XdndTypeList", False);
+        xlib_state->xdnd_action_copy = XInternAtom(xlib_state->display, "XdndActionCopy", False);
+        xlib_state->uri_list = XInternAtom(xlib_state->display, "text/uri-list", False);
+
+        const Atom xdnd_version = 5;
         XChangeProperty(
-            mg_app_state.display, mg_app_state.window,
-            mg_app_state.atoms.xdnd_aware, XA_ATOM,
-            32, PropModeReplace,
-            (unsigned char *)&xdnd_version, 1
+            xlib_state->display,
+            xlib_state->window,
+            xlib_state->xdnd_aware,
+            XA_ATOM,
+            32,
+            PropModeReplace,
+            (unsigned char*)&xdnd_version,
+            1
         );
     }
 
-    // creating the hidden cursor
-    {
-        const Pixmap cursor_pixmap    = XCreatePixmap(mg_app_state.display, mg_app_state.window, 1, 1, 1);
-        GC gfx_ctx = XCreateGC(mg_app_state.display, cursor_pixmap, 0, NULL);
-        XDrawPoint(mg_app_state.display, cursor_pixmap, gfx_ctx, 0, 0);
-        XFreeGC(mg_app_state.display, gfx_ctx);
+    if (info->flags & MGAPP_FLAG_NO_TITLEBAR)
+        mgapp_xlib_set_decorated(xlib_state, false);
 
-        XColor color;
-        color.flags = DoRed | DoGreen | DoBlue;
-        color.red = color.blue = color.green = 0;
-        mg_app_state.cursors[MG_CURSOR_HIDDEN] = XCreatePixmapCursor(mg_app_state.display, cursor_pixmap, cursor_pixmap, &color, &color, 0, 0);
+    mgapp_xlib_apply_size_hints(xlib_state, info->flags, (int32_t)width, (int32_t)height);
+    mgapp_xlib_apply_allowed_actions(xlib_state, info->flags);
 
-        XFreePixmap(mg_app_state.display, cursor_pixmap);
-    }
+    mgapp_xlib_load_cursors(xlib_state);
+    mgapp_xlib_load_dpi(xlib_state);
 
-    mg_app_state.cursors[MG_CURSOR_ARROW] = XCreateFontCursor(mg_app_state.display, XC_left_ptr);
-    mg_app_state.cursors[MG_CURSOR_IBEAM] = XCreateFontCursor(mg_app_state.display, XC_xterm);
-    mg_app_state.cursors[MG_CURSOR_CROSSHAIR] = XCreateFontCursor(mg_app_state.display, XC_crosshair);
-    mg_app_state.cursors[MG_CURSOR_HAND] = XCreateFontCursor(mg_app_state.display, XC_hand2);
-    mg_app_state.cursors[MG_CURSOR_RESIZE_ALL] = XCreateFontCursor(mg_app_state.display, XC_fleur);
-    mg_app_state.cursors[MG_CURSOR_RESIZE_NS] = XCreateFontCursor(mg_app_state.display, XC_sb_v_double_arrow);
-    mg_app_state.cursors[MG_CURSOR_RESIZE_EW] = XCreateFontCursor(mg_app_state.display, XC_sb_h_double_arrow);
-    mg_app_state.cursors[MG_CURSOR_RESIZE_NESW] = XCreateFontCursor(mg_app_state.display, XC_fleur);
-    mg_app_state.cursors[MG_CURSOR_RESIZE_NWSE] = XCreateFontCursor(mg_app_state.display, XC_fleur);
-    mg_app_state.cursors[MG_CURSOR_NOT_ALLOWED] = XCreateFontCursor(mg_app_state.display, XC_pirate);
-    XDefineCursor(mg_app_state.display, mg_app_state.window, mg_app_state.cursors[MG_CURSOR_ARROW]);
+    mgapp_state.window_width = (int32_t)width;
+    mgapp_state.window_height = (int32_t)height;
 
-    mg_app_state.on_event_call = info->events.event;
-    mg_app_state.running = true;
- 
-    mg_app_state.frame_time = mg_xlib_get_time();
-    mg_app_state.delta_time = 0.0f;
+    mgapp_state.running = true;
 
-    mg_app_state.dpi = mg_xlib_query_dpi(mg_app_state.display, mg_app_state.screen);
-    mg_app_state.dpi_scale = (float)mg_app_state.dpi / 96.0f;
-
-    mg_app_state.atoms.wm_state = XInternAtom(mg_app_state.display, "_NET_WM_STATE", False);
-    mg_app_state.atoms.max_horz = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-    mg_app_state.atoms.max_vert = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
- 
     if (info->events.start)
         info->events.start();
- 
-    while (mg_app_state.running)
+
+    while (mgapp_state.running)
     {
-        while (XPending(mg_app_state.display))
+        while (XPending(xlib_state->display))
         {
             XEvent xev;
-            XNextEvent(mg_app_state.display, &xev);
+            XNextEvent(xlib_state->display, &xev);
 
             switch (xev.type)
             {
                 case ConfigureNotify:
                 {
                     XConfigureEvent *ce = &xev.xconfigure;
-
-                    while (XPending(mg_app_state.display))
+                    if (ce->width != mgapp_state.window_width ||
+                        ce->height != mgapp_state.window_height)
                     {
-                        XEvent next;
-                        XPeekEvent(mg_app_state.display, &next);
-                        if (next.type != ConfigureNotify || next.xconfigure.window != ce->window)
-                            break;
-                        XNextEvent(mg_app_state.display, &xev);
-                        ce = &xev.xconfigure;
-                    }
-
-                    if (ce->width  != mg_app_state.window_width ||
-                        ce->height != mg_app_state.window_height)
-                    {
-                        mg_app_state.window_width  = ce->width;
-                        mg_app_state.window_height = ce->height;
-                        mg_app_event event = {
-                            .window_width = mg_app_state.window_width,
-                            .window_height = mg_app_state.window_height,
-                            .type = MG_APP_EVENT_RESIZE
+                        mgapp_state.window_width = ce->width;
+                        mgapp_state.window_height = ce->height;
+                        mgapp_event event = {
+                            .window = {
+                                .width = mgapp_state.window_width,
+                                .height = mgapp_state.window_height
+                            },
+                            .type = MGAPP_EVENT_RESIZE
                         };
-                        mg_app_call_event(&event);
-
-                        float resize_time = mg_xlib_get_time();
-                        mg_app_state.delta_time = resize_time - mg_app_state.frame_time;
-                        mg_app_state.frame_time = resize_time;
-
-                        mg_app_input_frame();
+                        mgapp_call_event(&event);
                     }
+                    break;
                 }
-                break;
-
+                case ClientMessage:
+                {
+                    if ((Atom)xev.xclient.data.l[0] == xlib_state->wm_delete_window)
+                        mgapp_state.running = false;
+                    else if (mgapp_state.flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
+                        mgapp_xlib_handle_xdnd_client_message(xlib_state, &xev.xclient);
+                    break;
+                }
+                case SelectionNotify:
+                {
+                    if (mgapp_state.flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
+                        mgapp_xlib_handle_xdnd_selection_notify(xlib_state, &xev.xselection);
+                    break;
+                }
                 case KeyPress:
                 case KeyRelease:
                 {
+                    bool pressed = xev.type == KeyPress;
                     KeySym sym = XLookupKeysym(&xev.xkey, 0);
-                    mg_key key = mg_xlib_translate_key(sym);
+                    mg_key key = mgapp_xlib_translate_key(sym);
 
-                    bool pressed = (xev.type == KeyPress);
-
-                    mg_app_input_process_key(key, pressed);
-
-                    switch (key)
+                    if (key != MG_KEY_MAX)
                     {
-                        case MG_KEY_LCONTROL:
-                        case MG_KEY_RCONTROL:
-                            mg_app_input_process_key(MG_KEY_CONTROL, pressed);
-                            break;
-                        case MG_KEY_LSHIFT:
-                        case MG_KEY_RSHIFT:
-                            mg_app_input_process_key(MG_KEY_SHIFT, pressed);
-                            break;
-                        case MG_KEY_LALT:
-                        case MG_KEY_RALT:
-                            mg_app_input_process_key(MG_KEY_ALT, pressed);
-                            break;
+                        mgapp_input_process_key(key, pressed);
+                        mgapp_event event = {
+                            .key = key,
+                            .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_KEY_DOWN : MGAPP_EVENT_KEY_UP)
+                        };
+                        mgapp_call_event(&event);
                     }
-
-                    mg_app_event event = {
-                        .key  = key,
-                        .type = (mg_app_event_type)(pressed ? MG_APP_EVENT_KEY_DOWN : MG_APP_EVENT_KEY_UP)
-                    };
-                    mg_app_call_event(&event);
 
                     if (pressed)
                     {
-                        char buf[8] = {0};
-                        int len = XLookupString(&xev.xkey, buf, sizeof(buf) - 1, NULL, NULL);
+                        char buf[32];
+                        KeySym ks;
+                        int32_t len = XLookupString(&xev.xkey, buf, sizeof(buf) - 1, &ks, NULL);
                         if (len > 0)
                         {
-                            uint32_t codepoint = mg_xlib_utf8_decode(buf, len);
-                            if (codepoint != 0)
-                            {
-                                mg_app_event event = {
-                                    .codepoint = codepoint,
-                                    .type = MG_APP_EVENT_CHAR
-                                };
-                                mg_input_state.char_codepoint = codepoint;
-                                mg_app_call_event(&event);
-                            }
+                            buf[len] = '\0';
+                            mgapp_event event = {
+                                .codepoint = (uint32_t)(unsigned char)buf[0],
+                                .type = MGAPP_EVENT_CHAR
+                            };
+                            mgapp_call_event(&event);
                         }
                     }
+                    break;
                 }
-                break;
-
                 case ButtonPress:
                 case ButtonRelease:
                 {
-                    bool pressed = (xev.type == ButtonPress);
+                    uint32_t xbutton = xev.xbutton.button;
 
-                    if (xev.xbutton.button == Button4 || xev.xbutton.button == Button5)
+                    if (xbutton == Button4 || xbutton == Button5)
                     {
-                        if (pressed)
+                        if (xev.type == ButtonPress)
                         {
-                            int8_t delta = (xev.xbutton.button == Button4) ? 1 : -1;
-                            mg_input_state.mouse.delta = delta;
-                            mg_app_event event = {
-                                .scroll_delta = delta,
-                                .type         = MG_APP_EVENT_MOUSE_SCROLL
+                            int8_t delta = (xbutton == Button4) ? 1 : -1;
+                            mgapp_state.input.mouse.delta = delta;
+                            mgapp_event event = {
+                                .mouse = { .scroll = delta },
+                                .type = MGAPP_EVENT_MOUSE_SCROLL
                             };
-                            mg_app_call_event(&event);
+                            mgapp_call_event(&event);
                         }
                         break;
                     }
 
-                    if (mg_app_state.no_titlebar && pressed && xev.xbutton.button == Button1)
+                    mg_mouse_button button = mgapp_xlib_translate_button(xbutton);
+                    if (button == MG_MOUSE_BUTTON_MAX)
+                        break;
+
+                    bool pressed = xev.type == ButtonPress;
+
+                    if (pressed && button == MG_MOUSE_BUTTON_LEFT && (mgapp_state.flags & MGAPP_FLAG_NO_TITLEBAR))
                     {
-                        int32_t direction = mg_xlib_hittest(xev.xbutton.x, xev.xbutton.y);
-                        if (direction != -1)
+                        int32_t dir = -1;
+
+                        if (!(mgapp_state.flags & MGAPP_FLAG_NO_RESIZE))
                         {
-                            mg_xlib_send_moveresize(xev.xbutton.x_root, xev.xbutton.y_root, direction);
+                            mgapp_xlib_hit_test hit = mgapp_xlib_test_edge(
+                                mgapp_state.input.mouse.x, mgapp_state.input.mouse.y,
+                                mgapp_state.window_width, mgapp_state.window_height);
+                            dir = mgapp_xlib_hit_to_moveresize_dir(hit);
+                        }
+
+                        bool in_caption =
+                            mgapp_state.input.mouse.x >= mgapp_state.caption.x &&
+                            mgapp_state.input.mouse.x < mgapp_state.caption.x + mgapp_state.caption.width &&
+                            mgapp_state.input.mouse.y >= mgapp_state.caption.y &&
+                            mgapp_state.input.mouse.y < mgapp_state.caption.y + mgapp_state.caption.height;
+
+                        if (dir != -1 || in_caption)
+                        {
+                            XEvent mev = {0};
+                            mev.type = ClientMessage;
+                            mev.xclient.window = xlib_state->window;
+                            mev.xclient.message_type = xlib_state->net_wm_moveresize;
+                            mev.xclient.format = 32;
+                            mev.xclient.data.l[0] = xev.xbutton.x_root;
+                            mev.xclient.data.l[1] = xev.xbutton.y_root;
+                            mev.xclient.data.l[2] = (dir != -1) ? dir : 8;
+                            mev.xclient.data.l[3] = Button1;
+                            mev.xclient.data.l[4] = 1;
+
+                            XUngrabPointer(xlib_state->display, CurrentTime);
+                            XSendEvent(xlib_state->display, RootWindow(xlib_state->display, xlib_state->screen),
+                                False, SubstructureRedirectMask | SubstructureNotifyMask, &mev);
+                            XFlush(xlib_state->display);
                             break;
                         }
                     }
 
-                    mg_mouse_button mb = MG_MOUSE_BUTTON_MAX;
-                    switch (xev.xbutton.button)
-                    {
-                        case Button1: mb = MG_MOUSE_BUTTON_LEFT;   break;
-                        case Button2: mb = MG_MOUSE_BUTTON_MIDDLE; break;
-                        case Button3: mb = MG_MOUSE_BUTTON_RIGHT;  break;
-                    }
-
-                    if (mb != MG_MOUSE_BUTTON_MAX)
-                    {
-                        mg_app_input_process_mouse_button(mb, pressed, mg_app_state.frame_time);
-                        mg_app_event event = {
-                            .mouse_button = mb,
-                            .type         = (mg_app_event_type)(pressed ? MG_APP_EVENT_MOUSE_DOWN : MG_APP_EVENT_MOUSE_UP)
-                        };
-                        mg_app_call_event(&event);
-                    }
+                    mgapp_input_process_mouse_button(button, pressed, mgapp_state.frame_time);
+                    mgapp_event event = {
+                        .mouse = { .button = button },
+                        .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_MOUSE_DOWN : MGAPP_EVENT_MOUSE_UP)
+                    };
+                    mgapp_call_event(&event);
+                    break;
                 }
-                break;
-
                 case MotionNotify:
                 {
-                    mg_input_state.mouse.x = xev.xmotion.x;
-                    mg_input_state.mouse.y = xev.xmotion.y;
-                    mg_app_event event = {
-                        .mouse_x = xev.xmotion.x,
-                        .mouse_y = xev.xmotion.y,
-                        .type    = MG_APP_EVENT_MOUSE_MOVE
+                    mgapp_state.input.mouse.x = (int16_t)xev.xmotion.x;
+                    mgapp_state.input.mouse.y = (int16_t)xev.xmotion.y;
+                    mgapp_event event = {
+                        .mouse = {
+                            .x = xev.xmotion.x,
+                            .y = xev.xmotion.y
+                        },
+                        .type = MGAPP_EVENT_MOUSE_MOVE
                     };
-                    mg_app_call_event(&event);
-                }
-                break;
- 
-                case ClientMessage:
-                {
-                    if ((Atom)xev.xclient.data.l[0] == mg_app_state.wm_delete_window)
-                    {
-                        mg_app_state.running = false;
-                        break;
-                    }
-
-                    if (xev.xclient.message_type == mg_app_state.atoms.xdnd_enter)
-                    {
-                        mg_app_state.xdnd_source  = (Window)xev.xclient.data.l[0];
-                        mg_app_state.xdnd_version = (int32_t)(xev.xclient.data.l[1] >> 24);
-                        mg_app_state.xdnd_type    = None;
-
-                        bool more_than_3 = (xev.xclient.data.l[1] & 1) != 0;
-                        Atom offered[3] = {
-                            (Atom)xev.xclient.data.l[2],
-                            (Atom)xev.xclient.data.l[3],
-                            (Atom)xev.xclient.data.l[4]
-                        };
-
-                        if (more_than_3)
-                        {
-                            Atom actual_type;
-                            int actual_format;
-                            unsigned long nitems, bytes_after;
-                            unsigned char *prop = NULL;
-
-                            if (XGetWindowProperty(
-                                    mg_app_state.display, mg_app_state.xdnd_source,
-                                    mg_app_state.atoms.xdnd_type_list,
-                                    0, 1024, False, XA_ATOM,
-                                    &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success && prop)
-                            {
-                                Atom *types = (Atom*)prop;
-                                for (unsigned long i = 0; i < nitems; i++)
-                                {
-                                    if (types[i] == mg_app_state.atoms.text_uri_list)
-                                    {
-                                        mg_app_state.xdnd_type = types[i];
-                                        break;
-                                    }
-                                }
-                                XFree(prop);
-                            }
-                        }
-                        else
-                        {
-                            for (int i = 0; i < 3; i++)
-                            {
-                                if (offered[i] == mg_app_state.atoms.text_uri_list)
-                                {
-                                    mg_app_state.xdnd_type = offered[i];
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    else if (xev.xclient.message_type == mg_app_state.atoms.xdnd_position)
-                    {
-                        Window source = (Window)xev.xclient.data.l[0];
-
-                        XEvent reply = {0};
-                        reply.xclient.type = ClientMessage;
-                        reply.xclient.display = mg_app_state.display;
-                        reply.xclient.window = source;
-                        reply.xclient.message_type = mg_app_state.atoms.xdnd_status;
-                        reply.xclient.format = 32;
-                        reply.xclient.data.l[0] = mg_app_state.window;
-                        reply.xclient.data.l[1] = (mg_app_state.xdnd_type != None) ? 1 : 0;
-                        reply.xclient.data.l[2] = 0;
-                        reply.xclient.data.l[3] = 0;
-                        reply.xclient.data.l[4] = (mg_app_state.xdnd_type != None)
-                            ? (long)mg_app_state.atoms.xdnd_action_copy : None;
-
-                        XSendEvent(mg_app_state.display, source, False, NoEventMask, &reply);
-                        XFlush(mg_app_state.display);
-                    }
-                    else if (xev.xclient.message_type == mg_app_state.atoms.xdnd_drop)
-                    {
-                        Window source = (Window)xev.xclient.data.l[0];
-                        Time timestamp = (mg_app_state.xdnd_version >= 1)
-                            ? (Time)xev.xclient.data.l[2] : CurrentTime;
-
-                        if (mg_app_state.xdnd_type != None)
-                        {
-                            XConvertSelection(
-                                mg_app_state.display,
-                                mg_app_state.atoms.xdnd_selection,
-                                mg_app_state.xdnd_type,
-                                mg_app_state.atoms.primary,
-                                mg_app_state.window,
-                                timestamp
-                            );
-                        }
-                        else
-                        {
-                            XEvent reply = {0};
-                            reply.xclient.type = ClientMessage;
-                            reply.xclient.display = mg_app_state.display;
-                            reply.xclient.window = source;
-                            reply.xclient.message_type = mg_app_state.atoms.xdnd_finished;
-                            reply.xclient.format = 32;
-                            reply.xclient.data.l[0] = mg_app_state.window;
-                            reply.xclient.data.l[1] = 0;
-                            reply.xclient.data.l[2] = None;
-                            XSendEvent(mg_app_state.display, source, False, NoEventMask, &reply);
-                            XFlush(mg_app_state.display);
-
-                            mg_app_state.xdnd_source = None;
-                        }
-                    }
-                }
-                break;
-
-                case SelectionNotify:
-                {
-                    if (xev.xselection.property == mg_app_state.atoms.primary &&
-                        mg_app_state.xdnd_source != None)
-                    {
-                        Atom actual_type;
-                        int actual_format;
-                        unsigned long nitems, bytes_after;
-                        unsigned char *data = NULL;
-
-                        if (XGetWindowProperty(
-                                mg_app_state.display, mg_app_state.window,
-                                mg_app_state.atoms.primary,
-                                0, 65536, True, AnyPropertyType,
-                                &actual_type, &actual_format, &nitems, &bytes_after, &data) == Success && data)
-                        {
-                            #define MG_MAX_DROP_FILES 64
-                            static const char *paths[MG_MAX_DROP_FILES];
-                            int32_t count = 0;
-
-                            char *text = (char*)data;
-                            char *sp = NULL;
-                            for (char *l = strtok_r(text, "\r\n", &sp);
-                                 l && count < MG_MAX_DROP_FILES;
-                                 l = strtok_r(NULL, "\r\n", &sp))
-                            {
-                                if (strncmp(l, "file://", 7) == 0)
-                                    paths[count++] = l + 7;
-                            }
-
-                            if (count > 0)
-                            {
-                                mg_app_event event = {
-                                    .file_drop = {
-                                        .paths = paths,
-                                        .path_count = count
-                                    },
-                                    .type = MG_APP_EVENT_FILE_DROP
-                                };
-                                mg_app_call_event(&event);
-                            }
-
-                            XFree(data);
-                        }
-
-                        XEvent reply = {0};
-                        reply.xclient.type = ClientMessage;
-                        reply.xclient.display = mg_app_state.display;
-                        reply.xclient.window = mg_app_state.xdnd_source;
-                        reply.xclient.message_type = mg_app_state.atoms.xdnd_finished;
-                        reply.xclient.format = 32;
-                        reply.xclient.data.l[0] = mg_app_state.window;
-                        reply.xclient.data.l[1] = 1; // we accepted
-                        reply.xclient.data.l[2] = (long)mg_app_state.atoms.xdnd_action_copy;
-                        XSendEvent(mg_app_state.display, mg_app_state.xdnd_source, False, NoEventMask, &reply);
-                        XFlush(mg_app_state.display);
-
-                        mg_app_state.xdnd_source = None;
-                    }
-                }
-                break;
- 
-                default:
+                    mgapp_call_event(&event);
                     break;
+                }
             }
         }
- 
-        float new_time = mg_xlib_get_time();
-        mg_app_state.delta_time = new_time - mg_app_state.frame_time;
-        mg_app_state.frame_time = new_time;
 
-        mg_app_set_cursor(MG_CURSOR_ARROW);
- 
+        float new_time = mgapp_time();
+        mgapp_state.delta_time = new_time - mgapp_state.frame_time;
+        mgapp_state.frame_time = new_time;
+
         if (info->events.update)
             info->events.update();
-
-        mg_app_input_frame();
+        
+        mgapp_input_frame();
     }
- 
+
     if (info->events.end)
         info->events.end();
- 
-    XDestroyWindow(mg_app_state.display, mg_app_state.window);
-    XCloseDisplay(mg_app_state.display);
+
+    XDestroyWindow(xlib_state->display, xlib_state->window);
+    XCloseDisplay(xlib_state->display);
+
     return 0;
 }
- 
-void mg_app_close(void)
+
+void mgapp_xlib_maximize(void)
 {
-    mg_app_state.running = false;
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+
+    XEvent xev = {0};
+    xev.type = ClientMessage;
+    xev.xclient.window = xlib_state->window;
+    xev.xclient.message_type = xlib_state->net_wm_state;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = 1;
+    xev.xclient.data.l[1] = (long)xlib_state->net_wm_state_maximized_horz;
+    xev.xclient.data.l[2] = (long)xlib_state->net_wm_state_maximized_vert;
+    xev.xclient.data.l[3] = 1;
+
+    XSendEvent(xlib_state->display, RootWindow(xlib_state->display, xlib_state->screen),
+        False, SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+    XFlush(xlib_state->display);
+    mgapp_state._linux.maximized = true;
 }
 
-void mg_app_set_cursor(mg_cursor cursor)
+void mgapp_xlib_minimize(void)
 {
-    if (mg_app_state.current_cursor == cursor)
-        return;
-    mg_app_state.current_cursor = cursor;
-    XDefineCursor(mg_app_state.display, mg_app_state.window, mg_app_state.cursors[cursor]);
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+    XIconifyWindow(xlib_state->display, xlib_state->window, xlib_state->screen);
+    XFlush(xlib_state->display);
 }
 
-float mg_app_time(void)
+void mgapp_xlib_restore(void)
 {
-    return mg_xlib_get_time();
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+
+    XEvent xev = {0};
+    xev.type = ClientMessage;
+    xev.xclient.window = xlib_state->window;
+    xev.xclient.message_type = xlib_state->net_wm_state;
+    xev.xclient.format = 32;
+    xev.xclient.data.l[0] = 0;
+    xev.xclient.data.l[1] = (long)xlib_state->net_wm_state_maximized_horz;
+    xev.xclient.data.l[2] = (long)xlib_state->net_wm_state_maximized_vert;
+    xev.xclient.data.l[3] = 1;
+
+    XSendEvent(xlib_state->display, RootWindow(xlib_state->display, xlib_state->screen),
+        False, SubstructureRedirectMask | SubstructureNotifyMask, &xev);
+    XMapWindow(xlib_state->display, xlib_state->window);
+    XFlush(xlib_state->display);
+    mgapp_state._linux.maximized = false;
 }
 
-float mg_app_frame_time(void)
+void mgapp_xlib_show(bool value)
 {
-    return mg_app_state.frame_time;
-}
- 
-float mg_app_delta_time(void)
-{
-    return mg_app_state.delta_time;
-}
- 
-int32_t mg_app_width(void)
-{
-    return mg_app_state.window_width;
-}
- 
-int32_t mg_app_height(void)
-{
-    return mg_app_state.window_height;
-}
- 
-void *mg_app_primary_handle(void)
-{
-    return (void*)mg_app_state.window;
-}
-
-void *mg_app_secondary_handle(void)
-{
-    return (void*)mg_app_state.display;
-}
-
-void mg_app_show(bool value)
-{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
     if (value)
-        XMapWindow(mg_app_state.display, mg_app_state.window);
+        XMapWindow(xlib_state->display, xlib_state->window);
     else
-        XUnmapWindow(mg_app_state.display, mg_app_state.window);
+        XUnmapWindow(xlib_state->display, xlib_state->window);
+    XFlush(xlib_state->display);
 }
 
-void mg_app_minimize(void)
+void mgapp_xlib_close(void)
 {
-    XIconifyWindow(mg_app_state.display, mg_app_state.window, mg_app_state.screen);
-    XFlush(mg_app_state.display);
+    mgapp_state.running = false;
 }
 
-void mg_app_maximize(void)
+void mgapp_xlib_set_cursor(mg_cursor cursor)
 {
-    XEvent e = {0};
-    e.xclient.type = ClientMessage;
-    e.xclient.window = mg_app_state.window;
-    e.xclient.message_type = mg_app_state.atoms.wm_state;
-    e.xclient.format = 32;
-    e.xclient.data.l[0] = 1; // _NET_WM_STATE_ADD
-    e.xclient.data.l[1] = mg_app_state.atoms.max_horz;
-    e.xclient.data.l[2] = mg_app_state.atoms.max_vert;
-    e.xclient.data.l[3] = 1;
-    e.xclient.data.l[4] = 0;
-
-    XSendEvent(
-        mg_app_state.display,
-        DefaultRootWindow(mg_app_state.display),
-        False,
-        SubstructureRedirectMask | SubstructureNotifyMask,
-        &e);
-
-    XFlush(mg_app_state.display);
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+    XDefineCursor(xlib_state->display, xlib_state->window, xlib_state->cursor_table[cursor]);
+    XFlush(xlib_state->display);
 }
 
-void mg_app_restore(void)
+void *mgapp_xlib_primary_handle(void)
 {
-    XEvent e = {0};
-    e.xclient.type = ClientMessage;
-    e.xclient.window = mg_app_state.window;
-    e.xclient.message_type = mg_app_state.atoms.wm_state;
-    e.xclient.format = 32;
-    e.xclient.data.l[0] = 0; // _NET_WM_STATE_REMOVE
-    e.xclient.data.l[1] = mg_app_state.atoms.max_horz;
-    e.xclient.data.l[2] = mg_app_state.atoms.max_vert;
-    e.xclient.data.l[3] = 1;
-    e.xclient.data.l[4] = 0;
-
-    XSendEvent(
-        mg_app_state.display,
-        DefaultRootWindow(mg_app_state.display),
-        False,
-        SubstructureRedirectMask | SubstructureNotifyMask,
-        &e);
-
-    XFlush(mg_app_state.display);
+    return (void*)mgapp_state._linux.xlib.window;
 }
 
-bool mg_app_maximized(void)
+void *mgapp_xlib_secondary_handle(void)
 {
-    Atom actual_type;
-    int actual_format;
-    unsigned long nitems, bytes_after;
-    unsigned char *data = NULL;
+    return (void*)mgapp_state._linux.xlib.display;
+}
 
-    if (XGetWindowProperty(mg_app_state.display, mg_app_state.window,
-        mg_app_state.atoms.wm_state,
-        0, 1024,
-        False,
-        XA_ATOM,
-        &actual_type,
-        &actual_format,
-        &nitems,
-        &bytes_after,
-        &data) == Success)
+static int32_t mgapp_wayland_run(const mgapp_init_info *info)
+{
+    return 0;
+}
+
+static inline mgapp_linux_state_type mgapp_linux_get_state_type(void)
+{
+    const char *session = getenv("XDG_SESSION_TYPE");
+    return (session && strcmp(session, "wayland") == 0)
+        ? MGAPP_LINUX_STATE_WAYLAND
+        : MGAPP_LINUX_STATE_XLIB;
+}
+
+int32_t mgapp_run(const mgapp_init_info *info)
+{
+    mgapp_linux_state *state = &mgapp_state._linux;
+    
+    state->type = mgapp_linux_get_state_type();
+
+    if (state->type == MGAPP_LINUX_STATE_XLIB)
     {
-        mg_app_state.atoms.max_horz = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
-        mg_app_state.atoms.max_vert = XInternAtom(mg_app_state.display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
-
-        int horz = 0, vert = 0;
-
-        Atom *atoms = (Atom*)data;
-        for (unsigned long i = 0; i < nitems; i++)
-        {
-            if (atoms[i] == mg_app_state.atoms.max_horz)
-                horz = 1;
-            if (atoms[i] == mg_app_state.atoms.max_vert)
-                vert = 1;
-        }
-
-        if (data)
-            XFree(data);
-
-        if (horz && vert)
-            return true;
+        state->run = mgapp_xlib_run;
+        state->primary_handle = mgapp_xlib_primary_handle;
+        state->secondary_handle = mgapp_xlib_secondary_handle;
+        state->maximize = mgapp_xlib_maximize;
+        state->minimize = mgapp_xlib_minimize;
+        state->restore = mgapp_xlib_restore;
+        state->show = mgapp_xlib_show;
+        state->close = mgapp_xlib_close;
+        state->set_cursor = mgapp_xlib_set_cursor;
     }
-    return false;
+    else if (state->type == MGAPP_LINUX_STATE_WAYLAND)
+    {
+        state->run = mgapp_wayland_run;
+    }
+    
+    mgapp_state.events = info->events;
+    mgapp_state.flags = info->flags;
+
+    return state->run(info);
 }
 
-uint32_t mg_app_dpi(void)
+void mgapp_maximize(void)
 {
-    return mg_app_state.dpi;
+    mgapp_state._linux.maximize();
 }
 
-float mg_app_dpi_scale(void)
+void mgapp_minimize(void)
 {
-    return mg_app_state.dpi_scale;
+    mgapp_state._linux.minimize();
 }
 
-void mg_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
+bool mgapp_maximized(void)
 {
-    mg_app_state.caption_x = x;
-    mg_app_state.caption_y = y;
-    mg_app_state.caption_width = width;
-    mg_app_state.caption_height = height;
+    return mgapp_state._linux.maximized;
 }
- 
-#endif // mg_app_state
 
-#endif // MGAPP_IMPL
+void mgapp_close(void)
+{
+    mgapp_state._linux.close();
+}
+
+void mgapp_show(bool value)
+{
+    mgapp_state._linux.show(value);
+}
+
+void mgapp_restore(void)
+{
+    mgapp_state._linux.restore();
+}
+
+void mgapp_set_cursor(mg_cursor cursor)
+{
+    if (mgapp_state.current_cursor == cursor)
+        return;
+    mgapp_state._linux.set_cursor(cursor);
+    mgapp_state.current_cursor = cursor;
+}
+
+void *mgapp_primary_handle(void)
+{
+    return mgapp_state._linux.primary_handle();
+}
+
+void *mgapp_secondary_handle(void)
+{
+    return mgapp_state._linux.secondary_handle();
+}
+
+float mgapp_time(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (float)ts.tv_sec + (float)ts.tv_nsec * 1e-9f;
+}
+
+#endif
+
+#endif

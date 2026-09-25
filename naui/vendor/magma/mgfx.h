@@ -48,7 +48,7 @@
 #endif
 
 #ifndef MGFX_API
-#if defined(_WIN32) && defined(MG_DLL) && defined(MGFX_IMPL)
+#if defined(_WIN32) && defined(MG_DLL) && (defined(MG_IMPL) || defined(MGFX_IMPL))
 #define MGFX_API __declspec(dllexport)
 #elif defined(_WIN32) && defined(MG_DLL)
 #define MGFX_API __declspec(dllimport)
@@ -406,7 +406,7 @@ extern "C" {
     typedef struct
     {
         mgfx_shader shader;
-        mgfx_vertex_format vertex_attributes[MGFX_MAX_VERTEX_ATTRIBUTES];
+        mgfx_vertex_format vertex_layout[MGFX_MAX_VERTEX_ATTRIBUTES];
         
         mgfx_primitive_topology primitive_topology;
         mgfx_cull_mode cull_mode;
@@ -597,6 +597,10 @@ typedef struct
 {
     VkInstance instance;
     VkSurfaceKHR surface;
+
+#ifdef MGFX_DEBUG
+    VkDebugUtilsMessengerEXT debug_messenger;
+#endif
     
     struct
     {
@@ -632,6 +636,8 @@ typedef struct
         VkDeviceMemory depth_image_memory;
         VkImageView depth_image_view;
         VkFormat depth_format;
+
+        VkExtent2D extent;
         
         uint32_t image_count;
         uint32_t image_index;
@@ -642,7 +648,7 @@ typedef struct
     {
         VkFence fence;
         VkSemaphore image_available_semaphore;
-        VkSemaphore image_rendered_semaphore;
+        VkSemaphore image_rendered_semaphores[4];
     }
     sync_objects;
     
@@ -1716,7 +1722,7 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mgfx_ctx.vk.physical_device.handle, mgfx_ctx.vk.surface, &capabilities);
     
     VkExtent2D extent = mgfx_vk_choose_swap_extent(&capabilities, mgfx_ctx.vk.width, mgfx_ctx.vk.height);
-    
+
     uint32_t image_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
         image_count = capabilities.maxImageCount;
@@ -1775,9 +1781,9 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
     }
     
     mgfx_vk_allocate_image(extent.width, extent.height, 1,
-                            VK_IMAGE_TYPE_2D, mgfx_ctx.vk.depth_formats.depth_stencil, VK_IMAGE_TILING_OPTIMAL,
-                            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-                            &mgfx_ctx.vk.swapchain.depth_image, &mgfx_ctx.vk.swapchain.depth_image_memory);
+        VK_IMAGE_TYPE_2D, mgfx_ctx.vk.depth_formats.depth_stencil, VK_IMAGE_TILING_OPTIMAL,
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &mgfx_ctx.vk.swapchain.depth_image, &mgfx_ctx.vk.swapchain.depth_image_memory);
 
     VkImageViewCreateInfo depth_view_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -1793,6 +1799,8 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
     
     result = vkCreateImageView(mgfx_ctx.vk.device.handle, &depth_view_info, NULL, &mgfx_ctx.vk.swapchain.depth_image_view);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan depth image view for the swapchain.");
+
+    mgfx_ctx.vk.swapchain.extent = extent;
 }
 
 static void mgfx_vk_cleanup_swapchain(void)
@@ -2403,9 +2411,9 @@ static void mgfx_vk_fill_graphics_pipeline(mgfx_vk_pipeline *pipeline, const mgf
     
     uint32_t attribute_count = 0;
     uint32_t stride = 0;
-    for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_attributes[attribute_count]; attribute_count++)
+    for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_layout[attribute_count]; attribute_count++)
     {
-        const mgfx_vertex_format format = create_info->vertex_attributes[attribute_count];
+        const mgfx_vertex_format format = create_info->vertex_layout[attribute_count];
         VkVertexInputAttributeDescription *desc = &attribute_descriptions[attribute_count];
         desc->format = mgfx_vk_get_vertex_format(format);
         desc->location = attribute_count;
@@ -2628,6 +2636,7 @@ void mgfx_vk_bind_pipeline(mgfx_vk_pipeline *pipeline)
 {
     vkCmdBindPipeline(mgfx_ctx.vk.command_buffer, pipeline->bind_point, pipeline->pipeline);
     mgfx_ctx.vk.current_pipeline = pipeline;
+    memset(mgfx_ctx.vk.descriptor_state.bound_resources_active, 0, sizeof(mgfx_ctx.vk.descriptor_state.bound_resources_active));
 }
 
 static void mgfx_vk_transition_image_layout(VkCommandBuffer cmd, VkImage image, VkFormat format, VkImageLayout old_layout, VkImageLayout new_layout, int layer_count)
@@ -2733,8 +2742,8 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
         mgfx_ctx.vk.inside_pass = true;
 
     VkRenderingAttachmentInfo color_attachments[MGFX_MAX_COLOR_ATTACHMENTS];
-    uint32_t actual_width  = mgfx_ctx.vk.width;
-    uint32_t actual_height = mgfx_ctx.vk.height;
+    uint32_t actual_width = mgfx_ctx.vk.swapchain.extent.width;
+    uint32_t actual_height = mgfx_ctx.vk.swapchain.extent.height;
     uint32_t color_count = 0;
 
     if (!mgfx_valid_pass(pass))
@@ -2867,6 +2876,18 @@ void mgfx_vk_create_surface(void *window, void *display)
 }
 #endif
 
+#ifdef MGFX_DEBUG
+static VKAPI_ATTR VkBool32 VKAPI_CALL mgfx_vk_debug_callback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT severity,
+    VkDebugUtilsMessageTypeFlagsEXT type,
+    const VkDebugUtilsMessengerCallbackDataEXT *callback_data,
+    void *user_data)
+{
+    fprintf(stderr, "[VULKAN VALIDATION]: %s\n", callback_data->pMessage);
+    return VK_FALSE;
+}
+#endif
+
 static void mgfx_vk_create_instance(void)
 {
     VkApplicationInfo app_info = {
@@ -2878,20 +2899,57 @@ static void mgfx_vk_create_instance(void)
         .apiVersion = VK_API_VERSION_1_4
     };
 
+#ifdef MGFX_DEBUG
+    const char *instance_extensions[] = {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        MGFX_VULKAN_SURFACE_EXTENSION_NAME,
+        VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+    };
+    const uint32_t extension_count = 3;
+
+    const char *validation_layers[] = { "VK_LAYER_KHRONOS_validation" };
+
+    VkDebugUtilsMessengerCreateInfoEXT debug_create_info = {
+        .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+        .messageSeverity =
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+        .messageType =
+            VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+            VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+        .pfnUserCallback = mgfx_vk_debug_callback
+    };
+#else
     const char *instance_extensions[] = {
         VK_KHR_SURFACE_EXTENSION_NAME,
         MGFX_VULKAN_SURFACE_EXTENSION_NAME
     };
+    const uint32_t extension_count = 2;
+#endif
 
     VkInstanceCreateInfo create_info = {
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
         .pApplicationInfo = &app_info,
-        .enabledExtensionCount = 2,
+        .enabledExtensionCount = extension_count,
         .ppEnabledExtensionNames = instance_extensions
     };
-    
+
+#ifdef MGFX_DEBUG
+    create_info.pNext = &debug_create_info;
+    create_info.enabledLayerCount = 1;
+    create_info.ppEnabledLayerNames = validation_layers;
+#endif
+
     VkResult result = vkCreateInstance(&create_info, NULL, &mgfx_ctx.vk.instance);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan instance.");
+
+#ifdef MGFX_DEBUG
+    PFN_vkCreateDebugUtilsMessengerEXT create_debug_messenger =
+        (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mgfx_ctx.vk.instance, "vkCreateDebugUtilsMessengerEXT");
+    if (create_debug_messenger)
+        create_debug_messenger(mgfx_ctx.vk.instance, &debug_create_info, NULL, &mgfx_ctx.vk.debug_messenger);
+#endif
 }
 
 static void mgfx_vk_get_physical_device(void)
@@ -3023,8 +3081,12 @@ static void mgfx_vk_create_sync_objects(void)
     VkResult result = vkCreateSemaphore(mgfx_ctx.vk.device.handle, &semaphore_info, NULL, &mgfx_ctx.vk.sync_objects.image_available_semaphore);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan avaliable image semaphore.");
     
-    result = vkCreateSemaphore(mgfx_ctx.vk.device.handle, &semaphore_info, NULL, &mgfx_ctx.vk.sync_objects.image_rendered_semaphore);
-    MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan rendered image semaphore.");
+    VkSemaphoreCreateInfo info = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    for (uint32_t i = 0; i < mgfx_ctx.vk.swapchain.image_count; i++)
+    {
+        VkResult r = vkCreateSemaphore(mgfx_ctx.vk.device.handle, &info, NULL, &mgfx_ctx.vk.sync_objects.image_rendered_semaphores[i]);
+        MGFX_ASSERT(r == VK_SUCCESS, "Failed to create vulkan rendered image semaphore.");
+    }
     
     result = vkCreateFence(mgfx_ctx.vk.device.handle, &fence_info, NULL, &mgfx_ctx.vk.sync_objects.fence);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan fence.");
@@ -3140,13 +3202,13 @@ static void mgfx_vk_init(const mgfx_init_info *init_info)
     
     mgfx_vk_create_command_pool();
     mgfx_ctx.vk.command_buffer = mgfx_vk_create_command_buffer();
-    
-    mgfx_vk_create_sync_objects();
-    
+        
     mgfx_ctx.vk.width = init_info->width;
     mgfx_ctx.vk.height = init_info->height;
     mgfx_ctx.vk.vsync = init_info->vsync;
     mgfx_vk_create_or_recreate_swapchain();
+
+    mgfx_vk_create_sync_objects();
     
     mgfx_vk_create_global_descriptor_set_layouts();
     mgfx_vk_create_descriptor_pool();
@@ -3173,8 +3235,9 @@ static void mgfx_vk_shutdown(void)
     
     mgfx_vk_cleanup_swapchain();
     
+    for (uint32_t i = 0; i < mgfx_ctx.vk.swapchain.image_count; i++)
+        vkDestroySemaphore(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.sync_objects.image_rendered_semaphores[i], NULL);
     vkDestroySemaphore(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.sync_objects.image_available_semaphore, NULL);
-    vkDestroySemaphore(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.sync_objects.image_rendered_semaphore, NULL);
     vkDestroyFence(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.sync_objects.fence, NULL);
     
     mgfx_vk_free_command_buffer(mgfx_ctx.vk.command_buffer);
@@ -3183,6 +3246,16 @@ static void mgfx_vk_shutdown(void)
     vkDestroyDevice(mgfx_ctx.vk.device.handle, NULL);
     
     vkDestroySurfaceKHR(mgfx_ctx.vk.instance, mgfx_ctx.vk.surface, NULL);
+
+#ifdef MGFX_DEBUG
+    if (mgfx_ctx.vk.debug_messenger)
+    {
+        PFN_vkDestroyDebugUtilsMessengerEXT destroy_debug_messenger =
+            (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(mgfx_ctx.vk.instance, "vkDestroyDebugUtilsMessengerEXT");
+        if (destroy_debug_messenger)
+            destroy_debug_messenger(mgfx_ctx.vk.instance, mgfx_ctx.vk.debug_messenger, NULL);
+    }
+#endif
     vkDestroyInstance(mgfx_ctx.vk.instance, NULL);
 }
 
@@ -3246,7 +3319,8 @@ static void mgfx_vk_end(void)
     submit_info.pWaitSemaphores = wait_semaphores;
     submit_info.pWaitDstStageMask = wait_stages;
     
-    VkSemaphore signal_semaphores[] = {mgfx_ctx.vk.sync_objects.image_rendered_semaphore};
+    VkSemaphore render_finished = mgfx_ctx.vk.sync_objects.image_rendered_semaphores[mgfx_ctx.vk.swapchain.image_index];
+    VkSemaphore signal_semaphores[] = {render_finished};
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = signal_semaphores;
     
@@ -3324,7 +3398,7 @@ static void mgfx_vk_bind_uniforms(uint32_t binding, size_t size, void *data)
 
 #if defined(__EMSCRIPTEN__)
 
-void _mgfx_gl_load_platform(void)
+void _mgfx_gl_load_platform(void *canvas, void*)
 {
     EmscriptenWebGLContextAttributes attrs;
     emscripten_webgl_init_context_attributes(&attrs);
@@ -3337,7 +3411,7 @@ void _mgfx_gl_load_platform(void)
     attrs.antialias = EM_TRUE;
     attrs.enableExtensionsByDefault = EM_TRUE;
     
-    mgfx_ctx.emscripten.context = emscripten_webgl_create_context("#canvas", &attrs);
+    mgfx_ctx.emscripten.context = emscripten_webgl_create_context((const char*)canvas, &attrs);
     if (mgfx_ctx.emscripten.context <= 0)
     {
         emscripten_log(EM_LOG_ERROR, "Failed to create WebGL2 context");
@@ -3629,7 +3703,7 @@ static inline GLenum mgfx_gl_get_data_usage(mgfx_memory memory)
     return GL_DYNAMIC_DRAW;
 }
 
-static void mgfx_gl_bind_vertex_attributes(void)
+static void mgfx_gl_bind_vertex_layout(void)
 {
     const mgfx_gl_pipeline *pipeline = mgfx_ctx.gl.current_pipeline;
     GLenum type;
@@ -3686,7 +3760,7 @@ static void mgfx_gl_update_buffer(mgfx_gl_buffer *buffer, size_t offset, size_t 
 static void mgfx_gl_bind_vertex_buffer(mgfx_gl_buffer *buffer)
 {
     glBindBuffer(GL_ARRAY_BUFFER, buffer->id);
-    mgfx_gl_bind_vertex_attributes();
+    mgfx_gl_bind_vertex_layout();
 }
 
 static void mgfx_gl_bind_index_buffer(mgfx_gl_buffer *buffer, mgfx_index_type index_type)
@@ -4063,13 +4137,13 @@ static void mgfx_gl_fill_graphics_pipeline(mgfx_gl_pipeline *pipeline, const mgf
     
     uint32_t attribute_count = 0;
     uint32_t stride = 0;
-    for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_attributes[attribute_count]; attribute_count++)
+    for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_layout[attribute_count]; attribute_count++)
     {
         mgfx_gl_vertex_attribute *attrb = &pipeline->vertex_layout.attributes[attribute_count];
-        attrb->format = create_info->vertex_attributes[attribute_count];
+        attrb->format = create_info->vertex_layout[attribute_count];
         attrb->location = attribute_count;
         attrb->offset = stride;
-        stride += mgfx_vertex_format_size(create_info->vertex_attributes[attribute_count]);
+        stride += mgfx_vertex_format_size(create_info->vertex_layout[attribute_count]);
     }
     
     pipeline->vertex_layout.stride = stride;
@@ -4583,7 +4657,7 @@ static void mgfx_d3d11_init(const mgfx_init_info *init_info)
     };
 
     UINT flags = 0;
-#ifdef _DEBUG
+#ifdef MGFX_DEBUG
     flags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
@@ -5187,15 +5261,15 @@ static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_creat
                     &pipeline->pixel_shader
                     );
     
-    if (create_info->vertex_attributes[0])
+    if (create_info->vertex_layout[0])
     {
         D3D11_INPUT_ELEMENT_DESC layout[MGFX_MAX_VERTEX_ATTRIBUTES];
         
         uint32_t attribute_count = 0;
         uint32_t stride = 0;
-        for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_attributes[attribute_count]; attribute_count++)
+        for (; attribute_count < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_layout[attribute_count]; attribute_count++)
         {
-            const mgfx_vertex_format format = create_info->vertex_attributes[attribute_count];
+            const mgfx_vertex_format format = create_info->vertex_layout[attribute_count];
             layout[attribute_count] = (D3D11_INPUT_ELEMENT_DESC){
                 .SemanticName = "TEXCOORD",
                 .SemanticIndex = attribute_count,

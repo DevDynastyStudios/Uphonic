@@ -619,10 +619,10 @@ void naui_renderer_initialize(void)
     rdata = calloc(1, sizeof(Naui_RendererData));
 
     mgfx_init(&(mgfx_init_info){
-        .primary_handle = mg_app_primary_handle(),
-        .secondary_handle = mg_app_secondary_handle(),
-        .width = mg_app_width(),
-        .height = mg_app_height(),
+        .primary_handle = mgapp_primary_handle(),
+        .secondary_handle = mgapp_secondary_handle(),
+        .width = mgapp_width(),
+        .height = mgapp_height(),
         .vsync = true
     });
 
@@ -653,7 +653,7 @@ void naui_renderer_initialize(void)
 
     rdata->base_pipeline = mgfx_create_pipeline(&(mgfx_pipeline_create_info){
         .shader = get_base_shader(mgfx_get_shader_lang()),
-        .vertex_attributes = {
+        .vertex_layout = {
             MGFX_VERTEX_FORMAT_FLOAT2,
             MGFX_VERTEX_FORMAT_FLOAT2,
             MGFX_VERTEX_FORMAT_UBYTE4N,
@@ -686,8 +686,8 @@ void naui_renderer_initialize(void)
         .address_mode_w = MGFX_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE
     });
 
-    rdata->width = mg_app_width();
-    rdata->height = mg_app_height();
+    rdata->width = mgapp_width();
+    rdata->height = mgapp_height();
 }
 
 static void naui_free_bake(Naui_FontBake *bake)

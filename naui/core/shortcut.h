@@ -48,4 +48,4 @@ void naui_shortcut_context_enable(Naui_ShortcutCtx context);
 void naui_shortcut_context_disable(Naui_ShortcutCtx context);
 bool naui_shortcut_context_active(Naui_ShortcutCtx context);
 
-// TODO: Add repeat key support, mg_app doesn't support it :(
+// TODO: Add repeat key support, mgapp doesn't support it :(

@@ -2557,7 +2557,7 @@ Uph_Plugin uph_load_plugin(Naui_Path path)
     internal_handle->is_clap = (effect.format == UPH_PLUGIN_CLAP);
 
 #if NAUI_LINUX
-    Window parent = (Window)mg_app_primary_handle();
+    Window parent = (Window)mgapp_primary_handle();
     Display *dpy = (Display*)XOpenDisplay(NULL);
 
     int screen = DefaultScreen(dpy);
@@ -2630,7 +2630,7 @@ Uph_Plugin uph_load_plugin(Naui_Path path)
     internal_handle->display = dpy;
     internal_handle->visible = true;
 #elif NAUI_WINDOWS
-    HWND parent = (HWND)mg_app_primary_handle();
+    HWND parent = (HWND)mgapp_primary_handle();
 
     uph_register_plugin_wnd_class();
 

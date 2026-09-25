@@ -3,7 +3,7 @@
 typedef void (*Naui_AppEvent)(void);
 typedef void (*Naui_DeferredEvent)(void*);
 
-typedef mg_app_event Naui_AppEventData;
+typedef mgapp_event Naui_AppEventData;
 typedef void (*Naui_AppOtherEvent)(const Naui_AppEventData*);
 
 typedef uint8_t Naui_AppEventType;

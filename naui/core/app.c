@@ -115,18 +115,18 @@ static void __naui_app_render(void)
 {
     if (!naui_renderer_begin())
         return;
-    leaf_begin_frame(mg_app_width(), mg_app_height());
-    leaf_set_pointer_pos((float)mg_app_mouse_x(), (float)mg_app_mouse_y());
+    leaf_begin_frame(mgapp_width(), mgapp_height());
+    leaf_set_pointer_pos((float)mgapp_mouse_x(), (float)mgapp_mouse_y());
     _naui_app_state.events.update();
     Leaf_RenderCmdList cmd_list = leaf_end_frame();
     render_leaf_cmd_list(&cmd_list);
     naui_renderer_end();
 }
 
-static void __naui_app_event(const mg_app_event* event)
+static void __naui_app_event(const mgapp_event* event)
 {
-    if (event->type == MG_APP_EVENT_RESIZE)
-        naui_renderer_resize(event->window_width, event->window_height);
+    if (event->type == MGAPP_EVENT_RESIZE)
+        naui_renderer_resize(event->window.width, event->window.height);
     _naui_app_state.events.event((const Naui_AppEventData*)event);
 }
 
@@ -140,7 +140,7 @@ static void __naui_app_start(void)
     naui_arena_init(&_naui_app_state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
     _naui_app_state.events.start();
     __naui_app_render();
-    mg_app_show(true);
+    mgapp_show(true);
 }
 
 static void __naui_app_end(void)
@@ -192,47 +192,47 @@ void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
 
 int32_t naui_app_width(void)
 {
-    return mg_app_width();
+    return mgapp_width();
 }
 
 int32_t naui_app_height(void)
 {
-    return mg_app_height();
+    return mgapp_height();
 }
 
 void naui_app_close(void)
 {
-    mg_app_close();
+    mgapp_close();
 }
 
 void naui_app_minimize(void)
 {
-    mg_app_minimize();
+    mgapp_minimize();
 }
 
 void naui_app_maximize(void)
 {
-    mg_app_maximize();
+    mgapp_maximize();
 }
 
 void naui_app_restore(void)
 {
-    mg_app_restore();
+    mgapp_restore();
 }
 
 bool naui_app_maximized(void)
 {
-    return mg_app_maximized();
+    return mgapp_maximized();
 }
 
 float naui_app_dpi_scale(void)
 {
-    return mg_app_dpi_scale();
+    return mgapp_dpi_scale();
 }
 
 void naui_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
 {
-    mg_app_set_caption_area(x, y, width, height);
+    mgapp_set_caption_area(x, y, width, height);
 }
 
 void naui_app_run(
@@ -248,9 +248,9 @@ void naui_app_run(
     _naui_app_state.events.update = update;
     _naui_app_state.events.event = event;
 
-    mg_app_run(&(mg_app_init_info){
+    mgapp_run(&(mgapp_init_info){
         .title = title,
-        .flags = MG_APP_FLAG_NO_TITLEBAR | MG_APP_FLAG_HIDDEN,
+        .flags = MGAPP_FLAG_NO_TITLEBAR | MGAPP_FLAG_HIDE_WINDOW,
         .events = {
             .start = __naui_app_start,
             .end = __naui_app_end,
