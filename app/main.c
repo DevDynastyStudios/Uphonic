@@ -127,13 +127,7 @@ void naui_app_end(void)
 	cmidi_shutdown();
 
 	uph_audio_engine_shutdown();
-
-	// Hack: Force quit to clear all uncleared plugins on unknown threads
-#if NAUI_WINDOWS
-	TerminateProcess(GetCurrentProcess(), 0);
-#elif NAUI_LINUX
-	_exit(0);
-#endif
+	uph_resources_clear_tracks();
 }
 
 void naui_app_update(void)

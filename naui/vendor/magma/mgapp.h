@@ -676,6 +676,11 @@ static LRESULT CALLBACK mg_win32_process_message(HWND hwnd, uint32_t msg, WPARAM
 {
     switch (msg)
     {
+        case WM_CLOSE:
+            if (mg_app_state.info->events.end)
+                mg_app_state.info->events.end();
+            DestroyWindow(hwnd);
+            return 0;
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
@@ -1102,9 +1107,6 @@ int32_t mg_app_run(const mg_app_init_info *info)
 
         mg_app_input_frame();
     }
-
-    if (info->events.end)
-        info->events.end();
 
     DestroyWindow(mg_app_state.hwnd);
     UnregisterClassA(CLASS_NAME, mg_app_state.hinstace);

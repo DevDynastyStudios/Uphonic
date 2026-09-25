@@ -28,10 +28,10 @@ static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 	{
 		Uph_Track *track = &list[i];
 		uph_resources_clear_tracks_recursive(track->subtracks);
-		uph_resources_clear_plugin(&track->instrument);
+		uph_unload_plugin(&track->instrument);
 
 		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_resources_clear_plugin(&track->effects[e]);
+			uph_unload_plugin(&track->effects[e]);
 
 		naui_list_free(track->effects);
 		naui_list_free(track->blocks);
@@ -82,13 +82,6 @@ void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 	uph_resources_link_track_list(tracks, NULL);
 }
 
-void uph_resources_clear_plugin(Uph_Plugin *plugin)
-{
-	uph_unload_plugin(plugin);
-	naui_list_free(plugin->params);
-	*plugin = (Uph_Plugin){ 0 };
-}
-
 void uph_resources_add_track(Naui_String name)
 {
 	Uph_Track track = {
@@ -120,7 +113,7 @@ void uph_resources_remove_track(Uph_Track *track)
 	uint32_t removed_index = track->index;
 
 	uph_resources_remove_track_children(track);
-	uph_resources_clear_plugin(&track->instrument);
+	uph_unload_plugin(&track->instrument);
 	naui_list_free(track->blocks);
 	naui_list_remove(list, removed_index);
 
