@@ -173,15 +173,12 @@ static void uph_mark_block_held_notes(
 
     Uph_MidiPattern *pattern = &project->midi_patterns[block->resource_index];
     uint64_t note_count = naui_list_len(pattern->notes);
-
     double block_end_beat = block->start_beat + block->length_beats;
 
     for (uint64_t n = 0; n < note_count; n++)
     {
         Uph_MidiNote *note = &pattern->notes[n];
-
-        double note_start_beat = block->start_beat
-            + (note->start_beat - block->start_offset_beats);
+        double note_start_beat = block->start_beat + (note->start_beat - block->start_offset_beats);
         double note_end_beat = note_start_beat + note->length_beats;
 
         if (note_start_beat < block->start_beat)
@@ -449,8 +446,8 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
 
     if (was_playing && !is_playing)
         uph_audio_engine_stop_all_notes();
-    was_playing = is_playing;
 
+    was_playing = is_playing;
     if (!is_playing)
         return;
 
@@ -458,7 +455,9 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     if (bpm > 0.0f)
     {
         double buffer_beats = uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
-        uph_state.shared.song_timeline_playhead_position = playhead_start_beat + buffer_beats;
+		double new_beat = playhead_start_beat + buffer_beats;
+		new_beat = new_beat >= uph_audio_engine_get_song_length() ? 0.0 : new_beat;
+        uph_state.shared.song_timeline_playhead_position = new_beat;
     }
 }
 
@@ -652,6 +651,14 @@ double uph_audio_engine_get_song_length_seconds(void)
         return 0.0;
 
     return uph_beats_to_seconds(uph_audio_engine_get_song_length_beats(), bpm);
+}
+
+// Return song length in beats to the ceil measure.
+double uph_audio_engine_get_song_length(void)
+{
+	const double bpm = (double)uph_state.project.time_signature.numerator;
+	double length_beats = uph_audio_engine_get_song_length_beats();
+	return length_beats > 0.0 ? ceil(length_beats / bpm) * bpm : bpm;
 }
 
 bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)

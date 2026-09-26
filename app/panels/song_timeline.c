@@ -72,8 +72,7 @@ static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_
     if (uph_state.shared.current_pattern_updated && block_type == UPH_RESOURCE_PATTERN)
     {
         uph_state.shared.song_timeline_current_block_start_offset = 0.0;
-        uph_state.shared.song_timeline_current_block_length =
-            uph_calculate_pattern_length(&uph_state.project.midi_patterns[resource_index]);
+        uph_state.shared.song_timeline_current_block_length = uph_calculate_pattern_length(&uph_state.project.midi_patterns[resource_index]);
         uph_state.shared.current_pattern_updated = false;
     }
 
@@ -762,9 +761,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                 const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
                 new_start = fmax(new_start, earliest_start_beat);
-
                 new_start = fmin(new_start, end_beat - division);
-
                 const double delta_beats = new_start - drag->initial_start_beat;
 
                 blocks[i].start_beat = new_start;
@@ -773,7 +770,6 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
-
                 uph_state.shared.current_pattern_updated = false;
 
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
@@ -785,14 +781,11 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 double raw_length = mouse_beat - blocks[i].start_beat;
                 double snapped_end = uph_snap_beat(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution);
                 double new_length = snapped_end - blocks[i].start_beat;
-
                 new_length = fmax(division, new_length);
-
                 blocks[i].length_beats = new_length;
 
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
-
                 uph_state.shared.current_pattern_updated = false;
 
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
@@ -851,7 +844,6 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                     uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                     uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
-
                     uph_state.shared.current_pattern_updated = false;
                 }
 
@@ -1575,7 +1567,6 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 static void uph_song_timeline_on_update(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
-
     const Leaf_ID track_section_id = leaf_id("uph_track_section");
 
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
@@ -1589,13 +1580,13 @@ static void uph_song_timeline_on_update(void)
     data->automation_edit.active = false;
     data->hovered_block.active = false;
     data->visual_row_counter = 0;
+	
 
     if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_hovered)
         uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
     
     uph_song_timeline_update_input();
     uph_song_timeline_update_drag_track_switch();
-
     uph_song_timeline_render_toolbox();
 
     Uph_UIMenuID track_options_context_menu = uph_ui_context_menu();
