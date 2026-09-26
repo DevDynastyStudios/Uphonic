@@ -141,17 +141,30 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 
 	if (naui_archive_is_valid(&archive))
 	{
-		// Create Uphonic Project Folder
-		// Extract contents to new folder
-		// Success, update load_path
-		load_path = naui_path_join(UPHONIC_WORKSPACE_FOLDER, naui_path_from_cstr(naui_file_stem(&project_path).data));
+		Naui_String filename = naui_view_to_string(naui_file_stem(&project_path));
+		load_path = naui_path_join(UPHONIC_WORKSPACE_FOLDER, naui_path_from_cstr(filename.data));
 		if(!naui_directories_create(load_path))
 		{
+			naui_log(NAUI_LOG_WARNING, "Project folder failed to create (%s)", load_path.data);
 			// Resolve false condition, duplicate project names. MUST BE UNIQUE!
 		}
 		
-		naui_archive_extract_to(&archive, load_path);
-		naui_log(NAUI_LOG_ERROR, "Uph Loading Not Supported...");
+		bool extracted = naui_archive_extract_to(&archive, load_path);
+		if (extracted)
+		{
+			if (!uph_io_load_project(project, load_path))
+			{
+				naui_log(NAUI_LOG_ERROR, "Failed to create project from UPH file");
+				naui_directory_remove_all(load_path);
+				return false;
+			}
+
+			naui_log(NAUI_LOG_INFO, "Successfully loaded uph file: %s", filename.data);
+		}
+		else
+			naui_log(NAUI_LOG_ERROR, "Failed to load UPH file at: %s", project_path);
+
+		return extracted;
 	}
 
 	uph_audio_engine_stop_all_notes();

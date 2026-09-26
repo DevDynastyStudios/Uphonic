@@ -73,6 +73,18 @@
 	"automations.title": "Automations",
 	"automation.default.name": "Untitled Automation",
 
+	"plugin.title": "Plugin List",
+	"plugin.menu.name": "Name",
+	"plugin.menu.vendor": "Vendor",
+	"plugin.menu.type": "Type",
+	"plugin.menu.format": "Format",
+	"plugin.menu.instrument": "Instrument",
+	"plugin.menu.effect": "Effect",
+	"plugin.menu.instrument.short": "Inst",
+	"plugin.menu.effect.short": "FX",
+	"plugin.menu.load": "Load Plugin",
+	"plugin.menu.none.detected": "No plugins detected! You can add plugin paths from the settings menu.",
+
 	"settings.title": "Settings",
 	"settings.refresh": "Refresh",
 	"settings.page.general": "General",

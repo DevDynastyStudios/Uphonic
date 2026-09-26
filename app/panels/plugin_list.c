@@ -13,10 +13,31 @@ Uph_PluginListData;
 
 static Uph_PluginListData uph_plugin_list_data = { 0 };
 
+static void _uph_plugin_scan_folder(const Naui_Path folder)
+{
+	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NAUI_EXTENSIONS(".clap", ".vst3"), true);
+	while (naui_dir_iterator_valid(&it))
+	{
+		if (it.entry.is_directory)
+			_uph_plugin_scan_folder(it.entry.path);
+
+		Uph_PluginInfo info;
+		if (uph_get_plugin_info(it.entry.path, &info))
+		{
+			naui_list_push(uph_plugin_list_data.plugin_infos, info);
+			naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
+		}
+
+		naui_dir_iterator_next(&it);
+	}
+
+	naui_dir_iterator_close(&it);
+}
+
 void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
-    naui_panel_set_title(panel_id, "Plugin List");
+    naui_panel_set_title(panel_id, NAUI_TR("plugin.title"));
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
 }
 
@@ -27,28 +48,17 @@ void uph_plugin_list_on_detach(void)
 
 void uph_plugin_list_on_open(void)
 {
-    if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
-        return;
+	if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
+		return;
 
-    naui_list_clear(uph_plugin_list_data.plugin_infos);
-    naui_list_clear(uph_plugin_list_data.plugin_paths);
+	naui_list_clear(uph_plugin_list_data.plugin_infos);
+	naui_list_clear(uph_plugin_list_data.plugin_paths);
 
-    for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
-    {
-        const Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
-        Naui_DirIterator it = naui_dir_iterator_open(parent_path, "", NAUI_EXTENSIONS(".clap", ".vst3"), true);
-        while (naui_dir_iterator_valid(&it))
-        {
-            Uph_PluginInfo info;
-            if (uph_get_plugin_info(it.entry.path, &info))
-            {
-                naui_list_push(uph_plugin_list_data.plugin_infos, info);
-                naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
-            }
-            naui_dir_iterator_next(&it);
-        }
-        naui_dir_iterator_close(&it);
-    }
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
+	{
+		const Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
+		_uph_plugin_scan_folder(parent_path);
+	}
 }
 
 void uph_plugin_list_on_close(void)
@@ -122,7 +132,7 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
             .clip_children = true
         })
         {
-            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? "Inst" : "FX", {
+            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? NAUI_TR("plugin.menu.instrument.short") : NAUI_TR("plugin.menu.effect.short"), {
                 .font_size = font_size,
                 .color = text_color
             });
@@ -177,25 +187,25 @@ static void uph_plugin_list_main_menu(void)
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .clip_children = true
-        }) leaf_text("Name", { .font_size = font_size, .color = text_color });
+        }) leaf_text(NAUI_TR("plugin.menu.name"), { .font_size = font_size, .color = text_color });
         leaf({
             .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .clip_children = true
-        }) leaf_text("Vendor", { .font_size = font_size, .color = text_color });
+        }) leaf_text(NAUI_TR("plugin.menu.vendor"), { .font_size = font_size, .color = text_color });
         leaf({
             .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .clip_children = true
-        }) leaf_text("Type", { .font_size = font_size, .color = text_color });
+        }) leaf_text(NAUI_TR("plugin.menu.type"), { .font_size = font_size, .color = text_color });
         leaf({
             .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .clip_children = true
-        }) leaf_text("Format", { .font_size = font_size, .color = text_color });
+        }) leaf_text(NAUI_TR("plugin.menu.format"), { .font_size = font_size, .color = text_color });
     }
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_list_data.plugin_infos); i++)
@@ -233,7 +243,7 @@ static void uph_plugin_list_current_menu(void)
             const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
             leaf_text(info->name.data, { .font_size = font_size * 2, .color = text_color });
             leaf_text(info->vendor.data, { .font_size = font_size, .color = text_color });
-            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? "Instrument" : "Effect", { .font_size = font_size, .color = text_color });
+            leaf_text(info->type == UPH_PLUGIN_INSTRUMENT ? NAUI_TR("plugin.menu.instrument") : NAUI_TR("plugin.menu.effect"), { .font_size = font_size, .color = text_color });
             leaf_text(info->format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP", { .font_size = font_size, .color = text_color });
         }
         leaf({
@@ -241,7 +251,7 @@ static void uph_plugin_list_current_menu(void)
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
         })
         {
-            if (uph_ui_text_button("Load Plugin", leaf_id("uph_plugin_list_load")))
+            if (uph_ui_text_button(NAUI_TR("plugin.menu.load"), leaf_id("uph_plugin_list_load")))
             {
                 uph_plugin_list_load();
             }
@@ -256,7 +266,7 @@ void uph_plugin_list_on_update(void)
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-        }) leaf_text("No plugins detected! You can a plugin paths from the settings menu.", {
+        }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_ui_font_size"))),
             .color = {naui_theme_color("uph_ui_text_color")},
             .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
