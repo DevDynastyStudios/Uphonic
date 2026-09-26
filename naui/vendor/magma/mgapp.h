@@ -578,7 +578,7 @@ static inline void mgapp_call_event(const mgapp_event *event)
 
 static inline void mgapp_input_process_key(mg_key key, bool pressed)
 {
-    if (pressed && !mgapp_state.input.keyboard.keys[key])
+    if (pressed && !mgapp_state.input.clear.keyboard.keys_released[key])
         mgapp_state.input.clear.keyboard.keys_pressed[key] = true;
 
     if (!pressed && mgapp_state.input.keyboard.keys[key])
