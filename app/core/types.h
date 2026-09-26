@@ -335,6 +335,7 @@ typedef struct
 	{
 		Uph_ResourceIndex index;
 		Uph_ResourceType type;
+		bool renaming;
 	}
 	selected_resource;
 

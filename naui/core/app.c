@@ -250,7 +250,10 @@ void naui_app_run(
 
     mgapp_run(&(mgapp_init_info){
         .title = title,
-        .flags = MGAPP_FLAG_NO_TITLEBAR | MGAPP_FLAG_HIDE_WINDOW,
+        .flags =
+            MGAPP_FLAG_NO_TITLEBAR |
+            MGAPP_FLAG_HIDE_WINDOW |
+            MGAPP_FLAG_ENABLE_FILE_DROPS,
         .events = {
             .start = __naui_app_start,
             .end = __naui_app_end,

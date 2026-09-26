@@ -732,6 +732,11 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         {
             uph_ui__end_edit(data);
             active = false;
+            result = true;
+        }
+        else
+        {
+            result = true;
         }
     }
 

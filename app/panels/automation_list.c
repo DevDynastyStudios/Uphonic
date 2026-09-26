@@ -45,27 +45,40 @@ static void uph_automation_list_on_update(void)
         for (uint32_t i = 0; i < automation_count; i++) {
             Uph_Automation *automation = &uph_state.project.automations[i];
 
+            bool is_selected = uph_state.shared.selected_resource.index == i &&
+                uph_state.shared.selected_resource.type == UPH_RESOURCE_AUTOMATION;
+            bool is_renaming = is_selected && uph_state.shared.selected_resource.renaming;
+
             const Leaf_ID id = leaf_id_indexed("uph_automation_list_automation", i);
-			bool hovered = uph_ui_widget_hovered(id);
+            bool hovered = !is_renaming && uph_ui_widget_hovered(id);
 
-			if (hovered)
-				naui_set_cursor(NAUI_CURSOR_HAND);
-
-            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && hovered)
+            if (hovered)
             {
-                uph_state.shared.selected_resource.index = i;
-                uph_state.shared.selected_resource.type = UPH_RESOURCE_AUTOMATION;
-                uph_ui_open_context_menu(context_menu);
+                naui_set_cursor(NAUI_CURSOR_HAND);
+                if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+                {
+                    uph_state.shared.selected_resource.renaming = false;
+                    uph_state.shared.selected_resource.index = i;
+                    uph_state.shared.selected_resource.type = UPH_RESOURCE_AUTOMATION;
+                    uph_ui_open_context_menu(context_menu);
+                }
+                else if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+                {
+                    uph_state.shared.selected_resource.index = i;
+                    uph_state.shared.selected_resource.type = UPH_RESOURCE_AUTOMATION;
+                    uph_state.shared.selected_resource.renaming = true;
+                }
             }
 
             if (uph_ui_list_box(
-                automation->name.data,
+                &automation->name,
                 (Leaf_CustomDrawFn)uph_automation_list_custom_draw,
                 LEAF_DATA_SLICE(automation),
                 id,
                 hovered,
-                uph_state.shared.selected_resource.index == i &&
-                uph_state.shared.selected_resource.type == UPH_RESOURCE_AUTOMATION
+                is_selected,
+                is_renaming,
+                "Untitled Automation"
             ))
             {
                 uph_state.shared.selected_resource.index = i;
@@ -77,6 +90,9 @@ static void uph_automation_list_on_update(void)
             }
         }
 
+        if (uph_ui_menu_item(context_menu, "Rename", leaf_id("uph_automation_rename")))
+            uph_state.shared.selected_resource.renaming = true;
+
         if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_automation_remove")))
         {
             uph_resources_remove_automation(uph_state.shared.selected_resource.index);
@@ -84,6 +100,7 @@ static void uph_automation_list_on_update(void)
                 uph_state.shared.selected_resource.index--;
             else if (naui_list_len(uph_state.project.automations) == 0)
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
+            uph_state.shared.selected_resource.renaming = false;
         }
         if (uph_ui_menu_item(context_menu, "Duplicate", leaf_id("uph_automation_duplicate")))
             uph_resources_copy_automation(uph_state.shared.selected_resource.index);
@@ -93,6 +110,7 @@ static void uph_automation_list_on_update(void)
         {
             uph_state.shared.selected_resource.index = naui_list_len(uph_state.project.automations);
             uph_state.shared.selected_resource.type = UPH_RESOURCE_AUTOMATION;
+            uph_state.shared.selected_resource.renaming = false;
             uph_state.shared.song_timeline_current_block_start_offset = 0;
             uph_state.shared.song_timeline_current_block_length = 4.0;
             uph_resources_add_automation();

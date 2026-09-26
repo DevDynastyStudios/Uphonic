@@ -208,6 +208,7 @@ void naui_app_event(const Naui_AppEventData *data)
 {
 	if (data->type == NAUI_APP_EVENT_FILE_DROP)
 	{
+		fprintf(stderr, "e");
 		uph_project_add_file(&uph_state.project, NAUI_PATH(data->file_drop.paths[0]));
 	}
 	else if (data->type == NAUI_APP_EVENT_WINDOW_CLOSE)

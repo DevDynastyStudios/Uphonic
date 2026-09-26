@@ -1,4 +1,4 @@
-bool uph_ui_list_box(const char *text, Leaf_CustomDrawFn content_draw, Leaf_DataSlice content_draw_data, Leaf_ID id, bool hovered, bool selected)
+bool uph_ui_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Leaf_DataSlice content_draw_data, Leaf_ID id, bool hovered, bool selected, bool renaming, const char *placeholder_name)
 {
     leaf({
         .id = id,
@@ -19,10 +19,22 @@ bool uph_ui_list_box(const char *text, Leaf_CustomDrawFn content_draw, Leaf_Data
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
         .clip_children = true
     }) {
-        leaf_text(text, {
-            .color = {LEAF_COLOR_WHITE},
-            .font_size = {NAUI_DPI(13)}
-        });
+        if (renaming)
+        {
+            if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, placeholder_name))
+            {
+                if (name->length == 0)
+                    *name = naui_string_from_cstr(placeholder_name);
+                uph_state.shared.selected_resource.renaming = false;
+            }
+        }
+        else
+        {
+            leaf_text(name->data, {
+                .color = {LEAF_COLOR_WHITE},
+                .font_size = {NAUI_DPI(13)}
+            });
+        }
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }

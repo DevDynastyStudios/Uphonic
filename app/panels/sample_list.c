@@ -75,27 +75,39 @@ static void uph_sample_list_on_update(void)
         for (uint32_t i = 0; i < sample_count; i++) {
             Uph_Sample *sample = &uph_state.project.samples[i];
 
+            bool is_selected = uph_state.shared.selected_resource.index == i &&
+                uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE;
+            bool is_renaming = is_selected && uph_state.shared.selected_resource.renaming;
+
             const Leaf_ID id = leaf_id_indexed("uph_sample_list_sample", i);
-			bool hovered = uph_ui_widget_hovered(id);
+            bool hovered = !is_renaming && uph_ui_widget_hovered(id);
 
-			if (hovered)
-				naui_set_cursor(NAUI_CURSOR_HAND);
-
-            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && hovered)
+            if (hovered)
             {
-                uph_state.shared.selected_resource.index = i;
-                uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
-                uph_ui_open_context_menu(context_menu);
+                naui_set_cursor(NAUI_CURSOR_HAND);
+                if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+                {
+                    uph_state.shared.selected_resource.index = i;
+                    uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+                    uph_ui_open_context_menu(context_menu);
+                }
+                else if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+                {
+                    uph_state.shared.selected_resource.index = i;
+                    uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+                    uph_state.shared.selected_resource.renaming = true;
+                }
             }
 
             if (uph_ui_list_box(
-                sample->name.data,
+                &sample->name,
                 (Leaf_CustomDrawFn)uph_sample_list_waveform,
                 LEAF_DATA_SLICE(sample),
                 id,
                 hovered,
-                uph_state.shared.selected_resource.index == i &&
-                uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE
+                is_selected,
+                is_renaming,
+                "Untitled Sample"
             ))
             {
                 uph_state.shared.selected_resource.index = i;
@@ -108,6 +120,9 @@ static void uph_sample_list_on_update(void)
             }
         }
 
+        if (uph_ui_menu_item(context_menu, "Rename", leaf_id("uph_sample_rename")))
+            uph_state.shared.selected_resource.renaming = true;
+
         if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_sample_remove")))
         {
             uph_resources_remove_sample(uph_state.shared.selected_resource.index);
@@ -115,6 +130,7 @@ static void uph_sample_list_on_update(void)
                 uph_state.shared.selected_resource.index--;
             else if (naui_list_len(uph_state.project.samples) == 0)
                 uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
+            uph_state.shared.selected_resource.renaming = false;
         }
         if (uph_ui_menu_item(context_menu, "Duplicate", leaf_id("uph_sample_duplicate")))
             uph_resources_copy_sample(uph_state.shared.selected_resource.index);
