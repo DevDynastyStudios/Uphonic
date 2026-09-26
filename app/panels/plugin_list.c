@@ -13,6 +13,27 @@ Uph_PluginListData;
 
 static Uph_PluginListData uph_plugin_list_data = { 0 };
 
+static void _uph_plugin_scan_folder(const Naui_Path folder)
+{
+	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NAUI_EXTENSIONS(".clap", ".vst3"), true);
+	while (naui_dir_iterator_valid(&it))
+	{
+		if (it.entry.is_directory)
+			_uph_plugin_scan_folder(it.entry.path);
+
+		Uph_PluginInfo info;
+		if (uph_get_plugin_info(it.entry.path, &info))
+		{
+			naui_list_push(uph_plugin_list_data.plugin_infos, info);
+			naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
+		}
+
+		naui_dir_iterator_next(&it);
+	}
+
+	naui_dir_iterator_close(&it);
+}
+
 void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
@@ -27,28 +48,17 @@ void uph_plugin_list_on_detach(void)
 
 void uph_plugin_list_on_open(void)
 {
-    if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
-        return;
+	if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
+		return;
 
-    naui_list_clear(uph_plugin_list_data.plugin_infos);
-    naui_list_clear(uph_plugin_list_data.plugin_paths);
+	naui_list_clear(uph_plugin_list_data.plugin_infos);
+	naui_list_clear(uph_plugin_list_data.plugin_paths);
 
-    for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
-    {
-        const Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
-        Naui_DirIterator it = naui_dir_iterator_open(parent_path, "", NAUI_EXTENSIONS(".clap", ".vst3"), true);
-        while (naui_dir_iterator_valid(&it))
-        {
-            Uph_PluginInfo info;
-            if (uph_get_plugin_info(it.entry.path, &info))
-            {
-                naui_list_push(uph_plugin_list_data.plugin_infos, info);
-                naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
-            }
-            naui_dir_iterator_next(&it);
-        }
-        naui_dir_iterator_close(&it);
-    }
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
+	{
+		const Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
+		_uph_plugin_scan_folder(parent_path);
+	}
 }
 
 void uph_plugin_list_on_close(void)
