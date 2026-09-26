@@ -782,7 +782,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             codepoint = naui_app_codepoint();
         }
 
-        if (naui_key_pressed(NAUI_KEY_BACKSPACE))
+        if (naui_key_pressed_repeat(NAUI_KEY_BACKSPACE))
         {
             if (data->select_active)
                 uph_ui__textfield_delete_selection(data);
@@ -793,7 +793,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
                 data->cursor = remove_from;
             }
         }
-        else if (naui_key_pressed(NAUI_KEY_DELETE))
+        else if (naui_key_pressed_repeat(NAUI_KEY_DELETE))
         {
             if (data->select_active)
                 uph_ui__textfield_delete_selection(data);

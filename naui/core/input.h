@@ -181,6 +181,7 @@ enum
 
 NAUI_API bool naui_key_down(Naui_Key key);
 NAUI_API bool naui_key_pressed(Naui_Key key);
+NAUI_API bool naui_key_pressed_repeat(Naui_Key key);
 NAUI_API uint32_t naui_app_codepoint(void);
 
 NAUI_API bool naui_mouse_down(Naui_MouseButton button);

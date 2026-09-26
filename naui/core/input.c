@@ -8,6 +8,11 @@ bool naui_key_pressed(Naui_Key key)
     return mgapp_key_pressed((mg_key)key);
 }
 
+bool naui_key_pressed_repeat(Naui_Key key)
+{
+    return mgapp_key_pressed_repeat((mg_key)key);
+}
+
 uint32_t naui_app_codepoint(void)
 {
     return mgapp_codepoint();

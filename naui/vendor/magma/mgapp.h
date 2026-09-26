@@ -297,6 +297,7 @@ MGAPP_API void mgapp_set_cursor(mg_cursor cursor);
 
 MGAPP_API bool mgapp_key_down(mg_key key);
 MGAPP_API bool mgapp_key_pressed(mg_key key);
+MGAPP_API bool mgapp_key_pressed_repeat(mg_key key);
 MGAPP_API bool mgapp_key_released(mg_key key);
 
 MGAPP_API uint32_t mgapp_codepoint(void);
@@ -386,6 +387,7 @@ typedef struct
         struct
         {
             bool keys_pressed[MG_KEY_MAX];
+            bool keys_pressed_repeat[MG_KEY_MAX];
             bool keys_released[MG_KEY_MAX];
         }
         keyboard;
@@ -578,8 +580,13 @@ static inline void mgapp_call_event(const mgapp_event *event)
 
 static inline void mgapp_input_process_key(mg_key key, bool pressed)
 {
-    if (pressed && !mgapp_state.input.clear.keyboard.keys_released[key])
-        mgapp_state.input.clear.keyboard.keys_pressed[key] = true;
+    if (pressed)
+    {
+        mgapp_state.input.clear.keyboard.keys_pressed_repeat[key] = true;
+
+        if (!mgapp_state.input.clear.keyboard.keys_released[key])
+            mgapp_state.input.clear.keyboard.keys_pressed[key] = true;
+    }
 
     if (!pressed && mgapp_state.input.keyboard.keys[key])
         mgapp_state.input.clear.keyboard.keys_released[key] = true;
@@ -658,6 +665,11 @@ bool mgapp_key_down(mg_key key)
 bool mgapp_key_pressed(mg_key key)
 {
     return mgapp_state.input.clear.keyboard.keys_pressed[key];
+}
+
+bool mgapp_key_pressed_repeat(mg_key key)
+{
+    return mgapp_state.input.clear.keyboard.keys_pressed_repeat[key];
 }
 
 bool mgapp_key_released(mg_key key)
