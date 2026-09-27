@@ -145,6 +145,7 @@ local function compile(release)
 
     local parts = {}
     table.insert(parts, compiler())
+    table.insert(parts, "-std=gnu11")
 
     for _, part in ipairs(opt_flags(release))     do table.insert(parts, part) end
     for _, part in ipairs(defines(release))       do table.insert(parts, part) end

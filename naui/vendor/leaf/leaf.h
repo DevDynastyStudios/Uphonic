@@ -535,7 +535,8 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
 #ifndef LEAF_CONFIG_MAX_HASH_ENTRIES
 #define LEAF_CONFIG_MAX_HASH_ENTRIES (1 << 14)
 #endif
-    
+
+#define LEAF_ARENA_ALIGNMENT 8
     typedef struct Leaf_ArenaChunk Leaf_ArenaChunk;
     struct Leaf_ArenaChunk
     {
@@ -586,21 +587,28 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
             chunk->pos = 0;
         arena->current = arena->first;
     }
+
+    static inline size_t leaf_align_up(size_t n, size_t align)
+    {
+        return (n + (align - 1)) & ~(align - 1);
+    }
     
     static inline void *leaf_arena_alloc(Leaf_Arena *arena, size_t size)
     {
         Leaf_ArenaChunk *chunk = arena->current;
-        
-        if (chunk->pos + size > chunk->size)
+
+        size_t aligned_size = leaf_align_up(size, LEAF_ARENA_ALIGNMENT);
+
+        if (chunk->pos + aligned_size > chunk->size)
         {
-            if (chunk->next && size <= chunk->next->size)
+            if (chunk->next && aligned_size <= chunk->next->size)
             {
                 chunk->next->pos = 0;
                 arena->current = chunk->next;
             }
             else
             {
-                size_t new_size = LEAF_MAX(arena->chunk_size, size);
+                size_t new_size = LEAF_MAX(arena->chunk_size, aligned_size);
                 Leaf_ArenaChunk *new_chunk = leaf_arena_new_chunk(new_size);
                 if (!new_chunk) return NULL;
                 chunk->next = new_chunk;
@@ -608,9 +616,9 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
             }
             chunk = arena->current;
         }
-        
+
         void *ptr = chunk->data + chunk->pos;
-        chunk->pos += size;
+        chunk->pos += aligned_size;
         return ptr;
     }
     
@@ -705,6 +713,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
             return (Leaf_LayoutFrameEntry){0};
         return *entry;
     }
+    
     
     static const char *leaf_cache_str(const char *src, uint32_t size)
     {
