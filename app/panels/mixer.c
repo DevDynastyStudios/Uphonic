@@ -1,114 +1,11 @@
 NAUI_PANEL(uph_mixer)
 
-#define UPH_MIXER_PEAK_GREEN_TOP 0.70f
-#define UPH_MIXER_PEAK_YELLOW_TOP 0.90f
-
-#define UPH_MIXER_PEAK_SMOOTH_RATE 30.0f
-#define UPH_MIXER_PEAK_CAP_HOLD_TIME 0.8f 
-#define UPH_MIXER_PEAK_CAP_DECAY_RATE 0.6f
-
 typedef struct
 {
-	Uph_Track *track;
+    Uph_Track *current_track;
 }
-Uph_VolumePeaksCustomDrawData;
-
-typedef struct
-{
-	Leaf_ID id;
-}
-Uph_MeterMarkerData;
-static Uph_MeterMarkerData uph_global_meter_marker_data;
-
-static void uph_mixer_meter_marker_draw(Leaf_BoundingBox box, void *user_data)
-{
-	const struct { float t; Leaf_Color color; } *data = user_data;
-	const float y = box.y + box.height * (1.0f - data->t);
-	const float size = NAUI_DPI(9.0f);
-
-	const Naui_Vec2 points[3] =
-	{
-		{ box.x + box.width, y - size * 0.5f },
-		{ box.x + box.width, y + size * 0.5f },
-		{ box.x + box.width - size, y }
-	};
-	naui_fill_polygon(points, 3, data->color);
-}
-
-bool uph_mixer_meter_gain_marker(float *value, const Leaf_ID id, const float min, const float max, const char *format)
-{
-	Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
-	Uph_MeterMarkerData *mdata = &uph_global_meter_marker_data;
-
-	bool result = false;
-	static Naui_String edit_buffer;
-	bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
-
-	const Leaf_BoundingBox box = leaf_get_bounding_box(id);
-	const bool hovered = uph_ui_widget_hovered(id);
-	const bool dragging_this = (mdata->id.value == id.value);
-
-	if (hovered)
-		naui_set_cursor(NAUI_CURSOR_HAND);
-
-	if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
-	{
-		edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *value);
-		uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
-		tdata->target_number = value;
-		mdata->id.value = 0;
-		text_editing = true;
-	}
-
-	if (text_editing)
-	{
-		if (uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL))
-		{
-			*value = NAUI_CLAMP((float)atof(edit_buffer.data), min, max);
-			result = true;
-		}
-
-		if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
-			tdata->target_number = NULL;
-
-		return result;
-	}
-
-	if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
-		mdata->id = id;
-	else if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-		mdata->id.value = 0;
-
-	if (dragging_this)
-	{
-		const float local_y = (float)naui_mouse_y() - box.y;
-		const float t = 1.0f - NAUI_CLAMP(local_y / NAUI_MAX(box.height, 1.0f), 0.0f, 1.0f);
-		const float new_value = min + t * (max - min);
-
-		if (new_value != *value)
-		{
-			*value = new_value;
-			result = true;
-		}
-	}
-
-	const float t = (max > min) ? NAUI_CLAMP((*value - min) / (max - min), 0.0f, 1.0f) : 0.0f;
-	struct { float t; Leaf_Color color; } draw_data = { .t = t, .color = naui_theme_color("uph_ui_slider_fill_color") };
-
-	leaf({
-		.id = id,
-		.size = { LEAF_SIZE_PERCENT(0.90), LEAF_SIZE_FULL },
-		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-		.floating = {
-			.parent_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_TOP },
-			.self_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_TOP }
-		},
-		.custom_draw = uph_mixer_meter_marker_draw,
-		.custom_draw_data = LEAF_DATA_SLICE(draw_data)
-	});
-
-	return result;
-}
+Uph_MixerData;
+static Uph_MixerData uph_mixer_data;
 
 static void uph_mixer_on_attach(void)
 {
@@ -131,135 +28,251 @@ static void uph_mixer_on_close(void)
 	
 }
 
-static void uph_mixer_draw_peak_bands(Leaf_BoundingBox box, float x, float width)
+static inline float uph_linear_to_db(float linear)
 {
-	const Naui_Color green = leaf_rgb(80, 210, 90);
-	const Naui_Color yellow = leaf_rgb(230, 195, 60);
-	const Naui_Color red = leaf_rgb(225, 70, 65);
-
-	naui_fill_rect((Naui_Vec2){ x, box.y + box.height * (1.0f - UPH_MIXER_PEAK_GREEN_TOP) },
-		(Naui_Vec2){ width, box.height * UPH_MIXER_PEAK_GREEN_TOP }, green, 0.0f, NAUI_CORNER_NONE);
-
-	naui_fill_rect((Naui_Vec2){ x, box.y + box.height * (1.0f - UPH_MIXER_PEAK_YELLOW_TOP) },
-		(Naui_Vec2){ width, box.height * (UPH_MIXER_PEAK_YELLOW_TOP - UPH_MIXER_PEAK_GREEN_TOP) }, yellow, 0.0f, NAUI_CORNER_NONE);
-
-	naui_fill_rect((Naui_Vec2){ x, box.y },
-		(Naui_Vec2){ width, box.height * (1.0f - UPH_MIXER_PEAK_YELLOW_TOP) }, red, 0.0f, NAUI_CORNER_NONE);
+    if (linear <= 0.0001f) return -80.0f;
+    return 20.0f * log10f(linear);
 }
 
-static void uph_mixer_draw_peak_bar(Leaf_BoundingBox box, float x, float width, float peak)
+static inline float uph_db_to_linear(float db)
 {
-	naui_fill_rect(
-		(Naui_Vec2) { x, box.y },
-		(Naui_Vec2) { width, box.height },
-		naui_theme_color("uph_track_header_border_color"),
-		0.0f,
-		NAUI_CORNER_NONE
-	);
-	naui_push_clip_rect(x, box.y + box.height * (1.0f - peak), width, box.height);
-	uph_mixer_draw_peak_bands(box, x, width);
-	naui_pop_clip_rect();
+    return powf(10.0f, db / 20.0f);
 }
 
-static void uph_mixer_update_peak_cap(float *cap, float *hold_timer, const float peak, const float dt)
+#define UPH_MIXER_DB_MIN -60.0f
+#define UPH_MIXER_DB_MAX 6.0f
+
+static inline float uph_mixer_db_to_fraction(float db)
 {
-	if (peak >= *cap)
-	{
-		*cap = peak;
-		*hold_timer = UPH_MIXER_PEAK_CAP_HOLD_TIME;
-	}
-	else if (*hold_timer > 0.0f)
-		*hold_timer -= dt;
-	else
-		*cap = NAUI_MAX(0.0f, *cap - UPH_MIXER_PEAK_CAP_DECAY_RATE * dt);
+    float normalized = (db - UPH_MIXER_DB_MIN) / (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
+    return NAUI_CLAMP(normalized, 0.0f, 1.0f);
 }
 
-static void uph_mixer_draw_peak_cap(Leaf_BoundingBox box, float x, float width, float cap)
+static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 {
-	if (cap <= NAUI_EPSILON_F)
-		return;
+    static const float db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
+    const int tick_count = sizeof(db_ticks) / sizeof(db_ticks[0]);
 
-	const float thickness = NAUI_DPI(2.0f);
-	const float y = box.y + box.height * (1.0f - cap) - thickness * 0.5f;
-	naui_fill_rect((Naui_Vec2){ x, NAUI_CLAMP(y, box.y, box.y + box.height - thickness) }, (Naui_Vec2){ width, thickness }, naui_theme_color("uph_playhead_color"), 0.0f, NAUI_CORNER_NONE);
+    const float font_size = NAUI_DPI(naui_theme_float("uph_mixer_ruler_font_size"));
+    const Naui_Color label_color = naui_theme_color("uph_mixer_ruler_color");
+    const float tick_length = NAUI_DPI(4.0f);
+    const float label_gap = NAUI_DPI(3.0f);
+
+    for (int i = 0; i < tick_count; i++)
+    {
+        float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(db_ticks[i])) * bounding_box.height;
+
+        char label[8];
+        snprintf(label, sizeof(label), "%.0f", db_ticks[i]);
+
+        Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+        float label_y = NAUI_CLAMP(y - text_size.y * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - text_size.y);
+
+        naui_draw_text(
+            (Naui_Vec2){bounding_box.x + tick_length + label_gap, label_y},
+            label, font_size, 0, label_color
+        );
+    }
 }
 
-static void uph_mixer_volume_peaks_custom_draw(Leaf_BoundingBox box, void *user_data)
+static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_Track **data)
 {
-	Uph_VolumePeaksCustomDrawData *data = (Uph_VolumePeaksCustomDrawData*)user_data;
-	Uph_Track *track = data->track;
-	const float gap = NAUI_DPI(1.0f);
-	const float dt = naui_delta_time();
+    Uph_Track *track = *data;
+    const float gap = NAUI_DPI(1.0f);
 
-	if (!uph_state.shared.song_timeline_playing)
-	{
-		track->smooth_peak_left = 0.0f;
-		track->smooth_peak_right = 0.0f;
-	}
-	else
-	{
-		track->smooth_peak_left = NAUI_LERP(track->smooth_peak_left, track->peak_left, dt * UPH_MIXER_PEAK_SMOOTH_RATE);
-		track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, dt * UPH_MIXER_PEAK_SMOOTH_RATE);
-	}
+    track->smooth_peak_left = NAUI_LERP(track->smooth_peak_left, track->peak_left, naui_delta_time() * 30.0f);
+    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, naui_delta_time() * 30.0f);
 
-	uph_mixer_update_peak_cap(&track->peak_cap_left, &track->peak_cap_hold_left, track->smooth_peak_left, dt);
-	uph_mixer_update_peak_cap(&track->peak_cap_right, &track->peak_cap_hold_right, track->smooth_peak_right, dt);
+    float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_left));
+    float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_right));
 
-	float half_width = box.width * 0.5f;
-	float bar_width = half_width - gap * 0.5f;
+    naui_fill_rect(
+        (Naui_Vec2){bounding_box.x, bounding_box.y + (1.0f - left_fraction) * bounding_box.height},
+        (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * left_fraction},
+        leaf_rgb(100, 220, 100),
+        NAUI_DPI(6.0f),
+        NAUI_CORNER_TL | NAUI_CORNER_TR
+    );
 
-	uph_mixer_draw_peak_bar(box, box.x, bar_width, track->smooth_peak_left);
-	uph_mixer_draw_peak_bar(box, box.x + half_width + gap * 0.5f, bar_width, track->smooth_peak_right);
-	uph_mixer_draw_peak_cap(box, box.x, bar_width, track->peak_cap_left);
-	uph_mixer_draw_peak_cap(box, box.x + half_width + gap * 0.5f, bar_width, track->peak_cap_right);
+    naui_fill_rect(
+        (Naui_Vec2){bounding_box.x + bounding_box.width * 0.5f + gap, bounding_box.y + (1.0f - right_fraction) * bounding_box.height},
+        (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * right_fraction},
+        leaf_rgb(100, 220, 100),
+        NAUI_DPI(6.0f),
+        NAUI_CORNER_TL | NAUI_CORNER_TR
+    );
+}
+
+typedef struct Uph_MixerVolumeArrowData
+{
+    Uph_Track *track;
+    uint64_t id;
+} Uph_MixerVolumeArrowData;
+
+static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_MixerVolumeArrowData *data)
+{
+    Uph_Track *track = data->track;
+
+    const float arrow_width = NAUI_DPI(10.0f);
+    const float arrow_height = NAUI_DPI(12.0f);
+    const float hit_padding = NAUI_DPI(4.0f);
+
+    float db = uph_linear_to_db(track->volume);
+    float fraction = uph_mixer_db_to_fraction(db);
+    float y = bounding_box.y + (1.0f - fraction) * bounding_box.height;
+
+    Leaf_BoundingBox hit_box = {
+        .x = bounding_box.x,
+        .y = y - arrow_height * 0.5f - hit_padding,
+        .width = bounding_box.width,
+        .height = arrow_height + hit_padding * 2.0f
+    };
+
+    Naui_Vec2 mouse = {naui_mouse_x(), naui_mouse_y()};
+    bool hovered =
+        mouse.x >= hit_box.x && mouse.x <= hit_box.x + hit_box.width &&
+        mouse.y >= hit_box.y && mouse.y <= hit_box.y + hit_box.height;
+
+    static uint64_t active_id = 0;
+    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        active_id = data->id;
+
+    bool dragging = (active_id == data->id);
+    if (dragging)
+    {
+        if (naui_mouse_down(NAUI_MOUSE_LEFT))
+        {
+            float t = 1.0f - NAUI_CLAMP((mouse.y - bounding_box.y) / bounding_box.height, 0.0f, 1.0f);
+            float new_db = UPH_MIXER_DB_MIN + t * (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
+            track->volume = uph_db_to_linear(new_db);
+
+            y = bounding_box.y + (1.0f - t) * bounding_box.height;
+        }
+        else
+        {
+            active_id = 0;
+        }
+    }
+
+    Naui_Color color = naui_theme_color("uph_mixer_arrow_color");
+
+    Naui_Vec2 arrow[3] = {
+        {bounding_box.x,               y},                          // tip
+        {bounding_box.x + arrow_width, y - arrow_height * 0.5f},    // top
+        {bounding_box.x + arrow_width, y + arrow_height * 0.5f}     // bottom
+    };
+    naui_fill_polygon(arrow, 3, color);
 }
 
 static void uph_mixer_render_track(Uph_Track *track)
 {
-	leaf({
-		.size = {LEAF_SIZE_FIXED(NAUI_DPI(70)), LEAF_SIZE_FULL},
-		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(10), NAUI_DPI(10)),
-		.color = naui_theme_color("uph_track_header_color"),
-		.child_gap = NAUI_DPI(12),
-		.border = {
-			.width = 1,
-			.color = {naui_theme_color("uph_track_header_border_color")},
-			.sides = LEAF_SIDE_ALL
-		},
-	})
-	{
-		leaf({
-			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(4))},
-			.color = uph_resources_track_color(track->color_index),
-			.rounding = {
-				.value = NAUI_DPI(4),
-				.corners = LEAF_CORNER_ALL
-			}
-		});
-		leaf_text(track->name.length ? track->name.data : NAUI_TR("song_timeline.track.title"), {
-			.font_size = NAUI_DPI(12),
-			.color = {track->name.length ? naui_theme_color("uph_ui_text_color") : naui_theme_color("uph_ui_text_disabled_color")}
-		});
+    uint64_t track_id = (uint64_t)track;
+    Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
-		uph_ui_knob(&track->pan, leaf_id_indexed("uph_mixer_pan", track->index), -1.0f, 1.0f, 0.0f, "%.2f");
-		leaf({
-			.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-			.child_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER }
-		})
-		{
-			Uph_VolumePeaksCustomDrawData peaks_data = {
-				.track = track
-			};
-			leaf({
-				.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FULL},
-				.custom_draw = uph_mixer_volume_peaks_custom_draw,
-				.custom_draw_data = LEAF_DATA_SLICE(peaks_data)
-			});
+    Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
+    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(naui_current_panel()) && leaf_hovered(id))
+    {
+        uph_mixer_data.current_track = track;
+    }
 
-			uph_mixer_meter_gain_marker(&track->volume, leaf_id_indexed("uph_mixer_gain", track->index), 0.0f, 2.0f, "%.2f");
-		}
-	}
+    leaf({
+        .id = id,
+        .size = {LEAF_SIZE_FIXED(NAUI_DPI(110)), LEAF_SIZE_FULL},
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
+        .color = {
+            uph_mixer_data.current_track == track ?
+            naui_theme_color("uph_mixer_track_selected_bg_color") :
+            naui_theme_color("uph_mixer_track_bg_color")
+        },
+        .border = {
+            .color = {naui_theme_color("uph_mixer_track_border_color")},
+            .width = 1,
+            .sides = LEAF_SIDE_LEFT
+        },
+        .child_gap = NAUI_DPI(8)
+    })
+    {
+        const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+        const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(6))},
+            .color = uph_resources_track_color(track->color_index),
+            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+        });
+        leaf_text(track->name.data, { .font_size = font_size, .color = text_color });
+
+        leaf({
+            .size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED},
+            .color = {naui_theme_color("uph_ui_frame_bg_color")},
+            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
+            .aspect_ratio = 1.0f
+        });
+
+        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
+            uph_ui_drag_float(&track->pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
+
+        float volume_db = uph_linear_to_db(track->volume);
+
+        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
+            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f dB", UPH_UI_DRAG_CLAMPED))
+                track->volume = uph_db_to_linear(volume_db);
+        
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .child_gap = NAUI_DPI(8)
+        })
+        {
+            leaf({
+                .size = {LEAF_SIZE_PERCENT(0.15f), LEAF_SIZE_FULL},
+                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
+            });
+            leaf({
+                .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
+                .color = {naui_theme_color("uph_ui_frame_bg_color")},
+                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
+                .custom_draw_data = LEAF_DATA_SLICE(track)
+            });
+            Uph_MixerVolumeArrowData arrow_data = {
+                .track = track,
+                .id = track_id
+            };
+            leaf({
+                .size = {LEAF_SIZE_PERCENT(0.15f), LEAF_SIZE_FULL},
+                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_volume_arrow,
+                .custom_draw_data = LEAF_DATA_SLICE(arrow_data)
+            });
+        }
+    }
+}
+
+static void uph_mixer_render_effects(void)
+{
+    Uph_Track *track = uph_mixer_data.current_track;
+    if (!track)
+        return;
+
+    const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+
+    if (uph_ui_text_button("Add Effect", leaf_id("uph_mixer_add_effect")))
+    {
+        uph_state.shared.plugin_list_for_track_instrument = false;
+        uph_state.shared.current_plugin_list_track = track;
+        naui_open_panel(uph_state.panels.plugin_list);
+    }
+
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
+    {
+        Uph_Plugin *effect = &track->effects[i];
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))}
+        })
+        {
+            leaf_text(effect->name.data, { .font_size = font_size, .color = text_color });
+        }
+    }
 }
 
 static void uph_mixer_on_update(void)
@@ -268,11 +281,23 @@ static void uph_mixer_on_update(void)
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
 	})
-	{
-		for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
-		{
-			Uph_Track *track = &uph_state.project.tracks[i];
-			uph_mixer_render_track(track);
-		}
-	}
+    {
+      	leaf({
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+        })
+        {
+            for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+            {
+                Uph_Track *track = &uph_state.project.tracks[i];
+                uph_mixer_render_track(track);
+            }
+        }
+        leaf({
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(200)), LEAF_SIZE_FULL}
+        })
+        {
+            uph_mixer_render_effects();
+        }
+    }
 }

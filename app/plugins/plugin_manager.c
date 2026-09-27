@@ -2555,6 +2555,7 @@ Uph_Plugin uph_load_plugin(Naui_Path path)
         return effect;
 
     internal_handle->is_clap = (effect.format == UPH_PLUGIN_CLAP);
+    effect.name = internal_handle->display_name;
 
 #if NAUI_LINUX
     Window parent = (Window)mgapp_primary_handle();

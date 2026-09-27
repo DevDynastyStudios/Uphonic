@@ -74,5 +74,9 @@
     "uph_pause_icon_color": "#B37F1B",
     "uph_stop_icon_color": "#C23A42",
 
-    "uph_playhead_color": "#1A1A1D"
+    "uph_playhead_color": "#1A1A1D",
+
+    "uph_mixer_track_bg_color": "#E9E9EC",
+    "uph_mixer_ruler_color": "#404044",
+    "uph_mixer_ruler_font_size": 11.0
 }

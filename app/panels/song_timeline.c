@@ -157,8 +157,8 @@ static void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, 
 
 static inline bool upb_song_timeline_vec4_contains_vec2(const Naui_Vec4 rect, const Naui_Vec2 point)
 {
-    return point.x >= rect.x && point.x <= rect.x + rect.z &&
-           point.y >= rect.y && point.y <= rect.y + rect.w;
+    return point.x >= rect.x && point.x < rect.x + rect.z &&
+           point.y >= rect.y && point.y < rect.y + rect.w;
 }
 
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
@@ -201,7 +201,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
         dragging_playhead = false;
 }
 
-static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox)
+static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)
 {
     const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");
     const Leaf_Color bar_color = naui_theme_color("uph_track_grid_bar_color");
