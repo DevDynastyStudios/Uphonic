@@ -317,8 +317,8 @@ static void uph_resource_list_on_update(void)
 {
     Uph_UIMenuID context_menu = uph_ui_context_menu();
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
-    const Naui_Color border_color = naui_theme_color("uph_ui_frame_border");
+    const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
+    const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
     leaf({
@@ -329,7 +329,9 @@ static void uph_resource_list_on_update(void)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .child_gap = NAUI_DPI(8)
     }) {
-        leaf_text("Patterns", {.font_size = font_size, .color = text_color});
+        leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
+            leaf_text("Patterns", {.font_size = font_size, .color = section_title_text_color});
+    
         leaf({
             .size = {
                 .width = LEAF_SIZE_FULL,
@@ -346,8 +348,8 @@ static void uph_resource_list_on_update(void)
             uph_resource_list_plus_box(UPH_RESOURCE_PATTERN, leaf_id("uph_pattern_list_plus"));
         }
 
-        leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(1)}, .color = border_color});
-        leaf_text("Samples", {.font_size = font_size, .color = text_color});
+        leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
+            leaf_text("Samples", {.font_size = font_size, .color = section_title_text_color});
         leaf({
             .size = {
                 .width = LEAF_SIZE_FULL,
@@ -364,8 +366,8 @@ static void uph_resource_list_on_update(void)
             uph_resource_list_plus_box(UPH_RESOURCE_SAMPLE, leaf_id("uph_sample_list_plus"));
         }
 
-        leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(1)}, .color = border_color});
-        leaf_text("Automations", {.font_size = font_size, .color = text_color});
+        leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
+            leaf_text("Automations", {.font_size = font_size, .color = section_title_text_color});
         leaf({
             .size = {
                 .width = LEAF_SIZE_FULL,

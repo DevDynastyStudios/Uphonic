@@ -96,5 +96,8 @@
     "uph_mixer_track_border_color": "#121214",
     "uph_mixer_arrow_color": "#A9A8B8",
     "uph_mixer_ruler_color": "#404044",
-    "uph_mixer_ruler_font_size": 11.0
+    "uph_mixer_ruler_font_size": 11.0,
+
+    "uph_resource_list_section_bg_color": "1B1B1E",
+    "uph_resource_list_section_text_color": "#C4C4C9"
 }
