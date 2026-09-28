@@ -577,6 +577,12 @@ static inline bool uph_song_timeline_block_is_visible(double start_beat, double 
     return true;
 }
 
+static double uph_song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
+{
+    const double raw = ((double)naui_mouse_x() - position.x) / uph_song_timeline_data.zoom.x + start_offset;
+    return uph_snap_beat(raw, uph_song_timeline_data.snap_resolution);
+}
+
 static void uph_song_timeline_update_automation_point_drag(
     Naui_Vec2 position,
     Naui_Vec2 size,
@@ -607,18 +613,13 @@ static void uph_song_timeline_update_automation_point_drag(
 
         if (idx != 0)
         {
-            const double mouse_beat_raw =
-                ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
-            double snapped_beat = uph_snap_beat(mouse_beat_raw, uph_song_timeline_data.snap_resolution);
+            double snapped_beat = uph_song_timeline_automation_mouse_beat(position, start_offset);
 
             const double prev_beat = automation->points[idx - 1].beat;
             snapped_beat = fmax(snapped_beat, prev_beat);
 
             if ((uint32_t)idx + 1 < point_count)
-            {
-                const double next_beat = automation->points[idx + 1].beat;
-                snapped_beat = fmin(snapped_beat, next_beat);
-            }
+                snapped_beat = fmin(snapped_beat, automation->points[idx + 1].beat);
 
             point->beat = snapped_beat;
         }
@@ -675,7 +676,7 @@ static void uph_song_timeline_update_automation_point_drag(
     {
         const double mouse_beat_raw =
             ((double)naui_mouse_x() - position.x + scroll_x) / zoom_x + start_offset;
-        double new_beat = uph_snap_beat(mouse_beat_raw, uph_song_timeline_data.snap_resolution);
+        double new_beat = uph_song_timeline_automation_mouse_beat(position, start_offset);
         new_beat = fmax(new_beat, 0.0);
 
         const float mouse_y = (float)naui_mouse_y();
@@ -864,8 +865,8 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
                 if (upb_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
                 {
-                    Naui_Vec2 automation_pos = { clamped_left, bbox.y + title_height };
-                    Naui_Vec2 automation_size = { clamped_right - clamped_left, bbox.height - title_height };
+                    Naui_Vec2 automation_pos = { block_left, bbox.y + title_height };
+                    Naui_Vec2 automation_size = { zoom_x * blocks[i].length_beats, bbox.height - title_height };
 
                     uph_song_timeline_update_automation_point_drag(
                         automation_pos,
