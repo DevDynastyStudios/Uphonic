@@ -149,14 +149,8 @@ void uph_render_main_titlebar(void)
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_editor.title"), leaf_id("uph_windows_menu_midi_editor")))
 					naui_open_panel(uph_state.panels.resource_editor);
 
-				if (uph_ui_menu_item(windows_menu, NAUI_TR("patterns.title"), leaf_id("uph_windows_menu_pattern_list")))
-					naui_open_panel(uph_state.panels.pattern_list);
-
-				if (uph_ui_menu_item(windows_menu, NAUI_TR("samples.title"), leaf_id("uph_windows_menu_sample_list")))
-					naui_open_panel(uph_state.panels.sample_list);
-
-				if (uph_ui_menu_item(windows_menu, NAUI_TR("automations.title"), leaf_id("uph_windows_menu_automation_list")))
-					naui_open_panel(uph_state.panels.automation_list);
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_list.title"), leaf_id("uph_windows_menu_resource_list")))
+					naui_open_panel(uph_state.panels.resource_list);
 			}
 		}
 

@@ -666,7 +666,7 @@ static bool uph_io_load_patterns(Uph_Project* project, const Naui_Path load_path
 		else
 			naui_log(NAUI_LOG_WARNING, "Found malformed pattern entry, loading it as an empty pattern");
 
-		pattern.name = naui_string_from_cstr(naui_json_get_string(jname, NAUI_TR("patterns.default.name")));
+		pattern.name = naui_string_from_cstr(naui_json_get_string(jname, NAUI_TR("pattern.default.name")));
 		naui_list_push(project->midi_patterns, pattern);
 	}
 

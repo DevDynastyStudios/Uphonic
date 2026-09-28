@@ -348,9 +348,7 @@ typedef struct
 {
 	Naui_PanelID song_timeline;
 	Naui_PanelID resource_editor;
-	Naui_PanelID pattern_list;
-	Naui_PanelID sample_list;
-	Naui_PanelID automation_list;
+	Naui_PanelID resource_list;
 	Naui_PanelID mixer;
 	Naui_PanelID settings;
 	Naui_PanelID plugin_list;
