@@ -18,7 +18,7 @@
             "type": "cppdbg",
             "request": "launch",
             "preLaunchTask": "Build debug",
-            "program": "${workspaceFolder}/bin/Debug/Uphonic.exe",
+            "program": "${workspaceFolder}/bin/Debug/Uphonic",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

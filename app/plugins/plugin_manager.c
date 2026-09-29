@@ -305,6 +305,7 @@ typedef struct Uph_PluginInternalHandle_
     Window window;
     Display *display;
     Atom wm_delete_window;
+    Atom wm_protocols;
 #elif NAUI_WINDOWS
     HWND window;
     bool dragging;
@@ -2614,6 +2615,12 @@ Uph_Plugin uph_load_plugin(Naui_Path path)
         1
     );
 
+    internal_handle->wm_protocols = XInternAtom(
+        dpy,
+        "WM_PROTOCOLS",
+        False
+    );
+
     internal_handle->wm_delete_window = XInternAtom(
         dpy,
         "WM_DELETE_WINDOW",
@@ -2763,7 +2770,7 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
         internal_handle->clap.gui->hide(internal_handle->clap.plugin);
 
     XUnmapWindow(internal_handle->display, internal_handle->window);
-    XFlush(internal_handle->display);
+    XSync(internal_handle->display, False);
 #elif NAUI_WINDOWS
     if (plug->format == UPH_PLUGIN_VST3)
     {
@@ -2822,32 +2829,14 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
     while (XPending(dpy) > 0)
     {
         XEvent event;
-        XPeekEvent(dpy, &event);
-
-        if (event.xany.window != win)
-            break;
-
         XNextEvent(dpy, &event);
+        if (event.xany.window != win) continue;
 
-        switch (event.type)
+        if (event.type == ClientMessage &&
+            event.xclient.message_type == internal_handle->wm_protocols &&
+            (Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
         {
-            case ConfigureNotify:
-                break;
-
-            case FocusIn:
-            case FocusOut:
-                break;
-
-            case ClientMessage:
-                if ((Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
-                    uph_hide_plugin_window(plug);
-                break;
-
-            case DestroyNotify:
-                break;
-
-            default:
-                break;
+            uph_hide_plugin_window(plug);
         }
     }
 #elif NAUI_WINDOWS
@@ -2866,10 +2855,10 @@ void uph_update_plugin(Uph_Plugin *plug)
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
+    uph_poll_plugin_window_events(plug);
+
     if (!internal_handle->visible)
         return;
-
-    uph_poll_plugin_window_events(plug);
 
     if (plug->format == UPH_PLUGIN_VST3)
     {
