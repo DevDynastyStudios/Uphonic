@@ -1,7 +1,7 @@
-#define UPH_ACTION_PATTERN_CREATE "PatternCreate"
-#define UPH_ACTION_TRACK_CREATE "TrackCreate"
-#define UPH_ACTION_TRACK_RENAME "TrackRename"
-#define UPH_ACTION_AUTOMATION_CREATE "AutomationCreate"
+#define UPH_ACTION_PATTERN_CREATE "Pattern Create"
+#define UPH_ACTION_TRACK_CREATE "Track Create"
+#define UPH_ACTION_TRACK_RENAME "Track Rename"
+#define UPH_ACTION_AUTOMATION_CREATE "Automation Create"
 
 typedef struct
 {

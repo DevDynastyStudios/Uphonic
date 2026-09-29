@@ -13,21 +13,32 @@ Uph_PluginListData;
 
 static Uph_PluginListData uph_plugin_list_data = { 0 };
 
+static const char* _plugin_extensions[] = {".clap", ".vst3"}; 
+static size_t _plugin_ext_count = sizeof(_plugin_extensions) / sizeof(_plugin_extensions[0]);
+
 static void _uph_plugin_scan_folder(const Naui_Path folder)
 {
-	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NAUI_EXTENSIONS(".clap", ".vst3"), true);
+	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NULL, true);
 	while (naui_dir_iterator_valid(&it))
 	{
 		if (it.entry.is_directory)
 			_uph_plugin_scan_folder(it.entry.path);
 
-		Uph_PluginInfo info;
-		if (uph_get_plugin_info(it.entry.path, &info))
+		for (size_t i = 0; i < _plugin_ext_count; i++)
 		{
-			naui_list_push(uph_plugin_list_data.plugin_infos, info);
-			naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
+			if (naui_string_view_equals_cstr(naui_file_extension(&it.entry.path), _plugin_extensions[i], true))
+			{
+				Uph_PluginInfo info;
+				if (uph_get_plugin_info(it.entry.path, &info))
+				{
+					naui_list_push(uph_plugin_list_data.plugin_infos, info);
+					naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
+				}
+			
+				break;
+			}
 		}
-
+		
 		naui_dir_iterator_next(&it);
 	}
 
