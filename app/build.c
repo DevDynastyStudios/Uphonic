@@ -44,6 +44,7 @@
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"
 #include "panels/resource_list.c"
+#include "panels/effect_list.c"
 #include "panels/plugin_list.c"
 #include "panels/resource_editor.c"
 #include "panels/settings.c"

@@ -88,6 +88,7 @@ void naui_app_start(void)
 	uph_state.panels.song_timeline = NAUI_ATTACH_PANEL(uph_song_timeline);
 	uph_state.panels.resource_list = NAUI_ATTACH_PANEL(uph_resource_list);
 	uph_state.panels.mixer = NAUI_ATTACH_PANEL(uph_mixer);
+	uph_state.panels.effect_list = NAUI_ATTACH_PANEL(uph_effect_list);
 	uph_state.panels.resource_editor = NAUI_ATTACH_PANEL(uph_midi_editor);
 	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
 	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
@@ -101,9 +102,14 @@ void naui_app_start(void)
 			NAUI_DOCK_DIRECTION_RIGHT, 0.8f
 		),
 		naui_dock_panel(
-			uph_state.panels.mixer,
+			naui_dock_panel(
+				uph_state.panels.mixer,
+				uph_state.panels.effect_list,
+				NAUI_DOCK_DIRECTION_RIGHT,
+				0.7f
+			),
 			uph_state.panels.resource_editor,
-			NAUI_DOCK_DIRECTION_LEFT, 0.7f
+			NAUI_DOCK_DIRECTION_LEFT, 0.6f
 		),
 		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
 	));

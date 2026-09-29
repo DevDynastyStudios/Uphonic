@@ -1,12 +1,5 @@
 NAUI_PANEL(uph_mixer)
 
-typedef struct
-{
-    Uph_Track *current_track;
-}
-Uph_MixerData;
-static Uph_MixerData uph_mixer_data;
-
 static void uph_mixer_on_attach(void)
 {
 	Naui_PanelID this = naui_current_panel();
@@ -130,6 +123,7 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 
     Naui_Vec2 mouse = {naui_mouse_x(), naui_mouse_y()};
     bool hovered =
+        naui_panel_hovered(uph_state.panels.mixer) &&
         mouse.x >= hit_box.x && mouse.x <= hit_box.x + hit_box.width &&
         mouse.y >= hit_box.y && mouse.y <= hit_box.y + hit_box.height;
 
@@ -172,7 +166,7 @@ static void uph_mixer_render_track(Uph_Track *track)
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(naui_current_panel()) && leaf_hovered(id))
     {
-        uph_mixer_data.current_track = track;
+        uph_state.shared.selected_mixer_track = track;
     }
 
     leaf({
@@ -181,7 +175,7 @@ static void uph_mixer_render_track(Uph_Track *track)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
         .color = {
-            uph_mixer_data.current_track == track ?
+            uph_state.shared.selected_mixer_track == track ?
             naui_theme_color("uph_mixer_track_selected_bg_color") :
             naui_theme_color("uph_mixer_track_bg_color")
         },
@@ -247,57 +241,17 @@ static void uph_mixer_render_track(Uph_Track *track)
     }
 }
 
-static void uph_mixer_render_effects(void)
-{
-    Uph_Track *track = uph_mixer_data.current_track;
-    if (!track)
-        return;
-
-    const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-
-    if (uph_ui_text_button("Add Effect", leaf_id("uph_mixer_add_effect")))
-    {
-        uph_state.shared.plugin_list_for_track_instrument = false;
-        uph_state.shared.current_plugin_list_track = track;
-        naui_open_panel(uph_state.panels.plugin_list);
-    }
-
-    for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-    {
-        Uph_Plugin *effect = &track->effects[i];
-        leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))}
-        })
-        {
-            leaf_text(effect->name.data, { .font_size = font_size, .color = text_color });
-        }
-    }
-}
-
 static void uph_mixer_on_update(void)
 {
-	leaf({
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
-	})
+    leaf({
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+    })
     {
-      	leaf({
-            .direction = LEAF_DIRECTION_HORIZONTAL,
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
-        })
+        for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
-            for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
-            {
-                Uph_Track *track = &uph_state.project.tracks[i];
-                uph_mixer_render_track(track);
-            }
-        }
-        leaf({
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(200)), LEAF_SIZE_FULL}
-        })
-        {
-            uph_mixer_render_effects();
+            Uph_Track *track = &uph_state.project.tracks[i];
+            uph_mixer_render_track(track);
         }
     }
 }

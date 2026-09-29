@@ -339,6 +339,8 @@ typedef struct
 	}
 	selected_resource;
 
+	Uph_Track *selected_mixer_track;
+
 	Uph_Track *current_plugin_list_track;
 	bool plugin_list_for_track_instrument;
 }
@@ -350,6 +352,7 @@ typedef struct
 	Naui_PanelID resource_editor;
 	Naui_PanelID resource_list;
 	Naui_PanelID mixer;
+	Naui_PanelID effect_list;
 	Naui_PanelID settings;
 	Naui_PanelID plugin_list;
 }

@@ -147,6 +147,34 @@ void naui_panel_disable_flags(Naui_PanelID panel_id, Naui_PanelFlags flags)
     ((Naui_PanelNode*)panel_id)->flags &= ~flags;
 }
 
+static void naui_panel_bring_to_front_immediate(Naui_PanelNodeWrapper *wrapper)
+{
+    Naui_PanelNode *node = wrapper->node;
+    Naui_PanelNode *root = node->root;
+
+    if (root == naui_panel_manager.main_viewport)
+        return;
+
+    uint32_t last = (uint32_t)(naui_list_len(naui_panel_manager.root_nodes) - 1);
+    if (root->root_index == last)
+        return;
+
+    for (uint32_t i = root->root_index; i < last; i++)
+    {
+        naui_panel_manager.root_nodes[i] = naui_panel_manager.root_nodes[i + 1];
+        naui_panel_manager.root_nodes[i]->root_index = i;
+    }
+
+    naui_panel_manager.root_nodes[last] = root;
+    root->root_index = last;
+}
+
+static void naui_panel_bring_to_front(Naui_PanelNode *node)
+{
+    Naui_PanelNodeWrapper node_wrapper = { node };
+    naui_defer((Naui_DeferredEvent)naui_panel_bring_to_front_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
+}
+
 void naui_open_panel(Naui_PanelID panel_id)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
@@ -154,6 +182,12 @@ void naui_open_panel(Naui_PanelID panel_id)
         return;
 
     node->closed = false;
+
+    node->position.x = NAUI_MAX(0.0f, (naui_app_width() - node->size.x) * 0.5f);
+    node->position.y = NAUI_MAX(0.0f, (naui_app_height() - node->size.y) * 0.5f);
+
+    naui_panel_bring_to_front(node);
+
     if (node->type.on_open)
         node->type.on_open();
 }
@@ -198,34 +232,6 @@ void naui_set_main_viewport(Naui_PanelID id)
 Naui_PanelID naui_get_main_viewport(void)
 {
     return (Naui_PanelID)naui_panel_manager.main_viewport;
-}
-
-static void naui_panel_bring_to_front_immediate(Naui_PanelNodeWrapper *wrapper)
-{
-    Naui_PanelNode *node = wrapper->node;
-    Naui_PanelNode *root = node->root;
-
-    if (root == naui_panel_manager.main_viewport)
-        return;
-
-    uint32_t last = (uint32_t)(naui_list_len(naui_panel_manager.root_nodes) - 1);
-    if (root->root_index == last)
-        return;
-
-    for (uint32_t i = root->root_index; i < last; i++)
-    {
-        naui_panel_manager.root_nodes[i] = naui_panel_manager.root_nodes[i + 1];
-        naui_panel_manager.root_nodes[i]->root_index = i;
-    }
-
-    naui_panel_manager.root_nodes[last] = root;
-    root->root_index = last;
-}
-
-static void naui_panel_bring_to_front(Naui_PanelNode *node)
-{
-    Naui_PanelNodeWrapper node_wrapper = { node };
-    naui_defer((Naui_DeferredEvent)naui_panel_bring_to_front_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
 }
 
 static void naui_set_root_recursive(Naui_PanelNode *node, Naui_PanelNode *new_root)
