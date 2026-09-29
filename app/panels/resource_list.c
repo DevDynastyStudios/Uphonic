@@ -147,7 +147,6 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 					.new_name = naui_string_from_cstr(placeholder_name)
 				};
 
-				naui_log(NAUI_LOG_INFO, "Rename Happend!");
 				naui_action_execute(UPH_ACTION_TRACK_RENAME, &data);
                 uph_state.shared.selected_resource.renaming = false;
             }
