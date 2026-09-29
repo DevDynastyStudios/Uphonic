@@ -115,12 +115,14 @@ void naui_app_start(void)
 	));
 
 	uph_settings_open_midi_ports(!settings_loaded);
+	uph_action_initialize();
 	uph_project_create(naui_string_from_cstr("Test Project"));
 }
 
 void naui_app_end(void)
 {
 	uph_settings_save();
+	uph_action_shutdown();
 
 	cmidi_scheduler_stop_all();
 	cmidi_shutdown();
@@ -146,6 +148,17 @@ void naui_app_update(void)
 
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
 	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
+
+	if (naui_key_down(NAUI_KEY_LCONTROL))
+	{
+		if (naui_key_pressed(NAUI_KEY_P))
+			naui_action_execute_stack(UPH_ACTION_PATTERN_CREATE, (Uph_ActionResourceCreate){0});
+
+		if (naui_key_pressed(NAUI_KEY_Z))
+			naui_action_undo();
+		else if (naui_key_pressed(NAUI_KEY_Y))
+			naui_action_redo();
+	}
 
 	/*leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,

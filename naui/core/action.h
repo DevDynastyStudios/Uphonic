@@ -24,6 +24,10 @@ void __naui_register_action(const char* name, Naui_Action type);
 // runs the named action's `execute` with `data`, then pushes it onto undo history.
 bool naui_action_execute(const char* name, void* data);
 
+// Copies `data` into internal memory. ONLY USE when data is stack allocated.
+bool __naui_action_execute_stack(const char* name, const void* data, size_t size);
+#define naui_action_execute_stack(name, data_var) __naui_action_execute_stack((name), &(data_var), sizeof(data_var))
+
 // undo/redo the most recent action or group.
 // returns false if there was nothing to undo/redo, OR if the stored undo()/redo() itself returned false
 bool naui_action_undo(void);
