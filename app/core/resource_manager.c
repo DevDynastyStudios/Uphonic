@@ -222,7 +222,7 @@ void uph_resources_add_automation(void)
 	};
 
 	const Uph_AutomationPoint point1 = (Uph_AutomationPoint){.beat = 0.0, .value = 0.5f};
-	const Uph_AutomationPoint point2 = (Uph_AutomationPoint){.beat = 4.0, .value = 0.5f};
+	const Uph_AutomationPoint point2 = (Uph_AutomationPoint){.beat = (double)uph_state.project.time_signature.denominator, .value = 0.5f};
 
 	naui_list_push(automation.points, point1);
 	naui_list_push(automation.points, point2);
