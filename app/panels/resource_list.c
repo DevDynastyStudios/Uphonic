@@ -54,7 +54,6 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     for (uint32_t i = 0; i < note_count; i++)
     {
         const Uph_MidiNote *note = &pattern->notes[i];
-
         const double note_start_beat = note->start_beat;
 
         if (note_start_beat + note->length_beats < 0.0)
@@ -142,7 +141,14 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, placeholder_name))
             {
                 if (name->length == 0)
-                    *name = naui_string_from_cstr(placeholder_name);
+					*name = naui_string_from_cstr(placeholder_name);
+
+				Uph_ActionTrackRename data = {
+					.new_name = naui_string_from_cstr(placeholder_name)
+				};
+
+				naui_log(NAUI_LOG_INFO, "Rename Happend!");
+				naui_action_execute(UPH_ACTION_TRACK_RENAME, &data);
                 uph_state.shared.selected_resource.renaming = false;
             }
         }
@@ -297,7 +303,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
             if (type == UPH_RESOURCE_PATTERN)
             {
                 uph_state.shared.selected_resource.index = naui_list_len(uph_state.project.midi_patterns);
-                uph_resources_add_pattern();
+				naui_action_execute_stack(UPH_ACTION_PATTERN_CREATE, (Uph_ActionResourceCreate){0});
             }
             else if (type == UPH_RESOURCE_SAMPLE)
             {
@@ -307,7 +313,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
             else if (type == UPH_RESOURCE_AUTOMATION)
             {
                 uph_state.shared.selected_resource.index = naui_list_len(uph_state.project.automations);
-                uph_resources_add_automation();
+				naui_action_execute_stack(UPH_ACTION_AUTOMATION_CREATE, (Uph_ActionResourceCreate){0});
             }
         }
     }

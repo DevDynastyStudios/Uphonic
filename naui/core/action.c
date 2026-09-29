@@ -31,6 +31,20 @@ void __naui_register_action(const char* name, Naui_Action action)
 	s_registered[s_registered_count++] = (Naui_RegisteredAction){ name, action };
 }
 
+bool __naui_action_execute_stack(const char* name, const void* data, size_t size)
+{
+	void* owned = malloc(size);
+	memcpy(owned, data, size);
+
+	if (!naui_action_execute(name, owned))
+	{
+		free(owned);
+		return false;
+	}
+
+	return true;
+}
+
 static const Naui_Action* find_action(const char* name)
 {
 	for(size_t i = 0; i < s_registered_count; i++)
@@ -322,16 +336,38 @@ bool naui_action_can_redo(void)
 	return s_redo_count > 0;
 }
 
-const char* naui_action_undo_name(void)
+const Naui_List(Naui_Action) naui_action_get_undo_history(void)
 {
 	ensure_initialized();
-	return s_undo_count > 0 ? s_undo_entries[undo_physical_index(s_undo_count - 1)].name : NULL;
+	Naui_List(Naui_Action) result = NULL;
+	naui_list_reserve(result, s_undo_count);
+
+	for(size_t i = s_undo_count; i > 0; i--)
+	{
+		const Naui_ActionEntry* entry = &s_undo_entries[undo_physical_index(i - 1)];
+		Naui_Action item = *entry->action;
+		item.name = naui_string_from_cstr(entry->name);
+		naui_list_push(result, item);
+	}
+
+	return result;
 }
 
-const char* naui_action_redo_name(void)
+const Naui_List(Naui_Action) naui_action_get_redo_history(void)
 {
 	ensure_initialized();
-	return s_redo_count > 0 ? s_redo_entries[s_redo_count - 1].name : NULL;
+	Naui_List(Naui_Action) result = NULL;
+	naui_list_reserve(result, s_redo_count);
+
+	for(size_t i = s_redo_count; i > 0; i--)
+	{
+		const Naui_ActionEntry* entry = &s_redo_entries[i - 1];
+		Naui_Action item = *entry->action;
+		item.name = naui_string_from_cstr(entry->name);
+		naui_list_push(result, item);
+	}
+
+	return result;
 }
 
 void naui_action_clear_history(void)

@@ -11,6 +11,7 @@
 #include <vendor/cmidi/cmidi.h>
 
 #include "core/types.h"
+#include "actions/action_manager.h"
 
 #include "utils.h"
 #include "utils.c"
@@ -41,10 +42,16 @@
 #include "ui/waveform.c"
 #include "ui/widgets.c"
 
+#include "actions/action_track.c"
+#include "actions/action_pattern.c"
+#include "actions/action_automation.c"
+#include "actions/action_manager.c"
+
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"
 #include "panels/resource_list.c"
 #include "panels/plugin_list.c"
 #include "panels/resource_editor.c"
 #include "panels/settings.c"
+
 #include "main.c"
