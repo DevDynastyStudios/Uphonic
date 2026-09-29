@@ -81,6 +81,7 @@ static void uph_plugin_list_load(void)
         );
     }
     naui_close_panel(naui_current_panel());
+    uph_plugin_list_data.filter = (Naui_String){0};
 }
 
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
