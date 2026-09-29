@@ -225,6 +225,13 @@ typedef struct
 }
 Uph_Plugin;
 
+typedef struct
+{
+	Uph_Plugin plugin;
+	bool enabled;
+}
+Uph_EffectPlugin;
+
 typedef struct Uph_Track Uph_Track;
 struct Uph_Track
 {
@@ -232,7 +239,7 @@ struct Uph_Track
 	int32_t color_index;
 
 	Uph_Plugin instrument;
-	Naui_List(Uph_Plugin) effects;
+	Naui_List(Uph_EffectPlugin) effects;
 
 	Naui_List(Uph_TimelineBlock) blocks;
 	Naui_List(Uph_Track) subtracks;

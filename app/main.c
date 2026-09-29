@@ -136,7 +136,7 @@ static void uph_update_all_track_plugins(Uph_Track *track)
 		uph_update_plugin(&track->instrument);
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-		uph_update_plugin(&track->effects[i]);
+		uph_update_plugin(&track->effects[i].plugin);
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 		uph_update_all_track_plugins(&track->subtracks[i]);

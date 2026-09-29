@@ -413,10 +413,10 @@ static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path tr
 	{
 		Naui_Json json = naui_json_result_create();
 		Naui_JsonValue* root = naui_json_array(&json);
-		for (size_t i = 0; i < (size_t)naui_list_len(track->effects); i++)
+		/*for (size_t i = 0; i < (size_t)naui_list_len(track->effects); i++)
 		{
 			uph_io_save_plugin(&json, naui_json_push_object(&json, root), &track->effects[i]);
-		}
+		}*/
 
 		saved &= naui_json_write_file(root, effects_file, true);
 		naui_json_free(&json);
@@ -1120,8 +1120,10 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 		Naui_Json json = naui_json_parse_file(effects_file);
 		if (json.root && json.root->type == NAUI_JSON_ARRAY)
 		{
-			NAUI_JSON_FOREACH(json.root, key, value)
-				naui_list_push(track->effects, uph_io_load_plugin(value));
+			// TODO: Chimpchi make this load/save Uph_PluginEffect instead of Uph_Plugin (which means you also need to save the enabled bool)
+			// Also do plugin state saving while you are at it
+			//NAUI_JSON_FOREACH(json.root, key, value)
+				//naui_list_push(track->effects, uph_io_load_plugin(value));
 		}
 		else
 		{

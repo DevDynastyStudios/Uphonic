@@ -75,9 +75,13 @@ static void uph_plugin_list_load(void)
     }
     else
     {
+        Uph_EffectPlugin effect = {
+            .plugin = uph_load_plugin(uph_plugin_list_data.plugin_paths[uph_plugin_list_data.current_plugin_index]),
+            .enabled = true
+        };
         naui_list_push(
             uph_state.shared.current_plugin_list_track->effects,
-            uph_load_plugin(uph_plugin_list_data.plugin_paths[uph_plugin_list_data.current_plugin_index])
+            effect
         );
     }
     naui_close_panel(naui_current_panel());
