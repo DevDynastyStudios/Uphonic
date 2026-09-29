@@ -194,7 +194,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             hovered,
             is_selected,
             is_renaming,
-            "Untitled Pattern"
+            NAUI_TR("pattern.default.name")
         ))
         {
             uph_state.shared.selected_resource.index = index;
@@ -215,7 +215,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             hovered,
             is_selected,
             is_renaming,
-            "Untitled Sample"
+            NAUI_TR("sample.default.name")
         ))
         {
             uph_state.shared.selected_resource.index = index;
@@ -237,7 +237,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             hovered,
             is_selected,
             is_renaming,
-            "Untitled Automation"
+            NAUI_TR("automation.default.name")
         ))
         {
             uph_state.shared.selected_resource.index = index;
@@ -330,7 +330,7 @@ static void uph_resource_list_on_update(void)
         .child_gap = NAUI_DPI(8)
     }) {
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
-            leaf_text("Patterns", {.font_size = font_size, .color = section_title_text_color});
+            leaf_text(NAUI_TR("resource_list.patterns.title"), {.font_size = font_size, .color = section_title_text_color});
     
         leaf({
             .size = {
@@ -349,7 +349,7 @@ static void uph_resource_list_on_update(void)
         }
 
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
-            leaf_text("Samples", {.font_size = font_size, .color = section_title_text_color});
+            leaf_text(NAUI_TR("resource_list.samples.title"), {.font_size = font_size, .color = section_title_text_color});
         leaf({
             .size = {
                 .width = LEAF_SIZE_FULL,
@@ -367,7 +367,7 @@ static void uph_resource_list_on_update(void)
         }
 
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
-            leaf_text("Automations", {.font_size = font_size, .color = section_title_text_color});
+            leaf_text(NAUI_TR("resource_list.automations.title"), {.font_size = font_size, .color = section_title_text_color});
         leaf({
             .size = {
                 .width = LEAF_SIZE_FULL,
@@ -385,10 +385,10 @@ static void uph_resource_list_on_update(void)
         }
     }
 
-    if (uph_ui_menu_item(context_menu, "Rename", leaf_id("uph_pattern_rename")))
+    if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.rename"), leaf_id("uph_pattern_rename")))
         uph_state.shared.selected_resource.renaming = true;
 
-    if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_pattern_remove")))
+    if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.remove"), leaf_id("uph_pattern_remove")))
     {
         uph_resources_remove_pattern(uph_state.shared.selected_resource.index);
         if (uph_state.shared.selected_resource.index > 0 && uph_state.shared.selected_resource.index == naui_list_len(uph_state.project.midi_patterns))
@@ -397,6 +397,6 @@ static void uph_resource_list_on_update(void)
             uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
         uph_state.shared.selected_resource.renaming = false;
     }
-    if (uph_ui_menu_item(context_menu, "Duplicate", leaf_id("uph_pattern_duplicate")))
+    if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.duplicate"), leaf_id("uph_pattern_duplicate")))
         uph_resources_copy_pattern(uph_state.shared.selected_resource.index);
 }
