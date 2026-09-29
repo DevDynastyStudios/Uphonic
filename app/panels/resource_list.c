@@ -293,11 +293,10 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
-
             uph_state.shared.selected_resource.type = type;
             uph_state.shared.selected_resource.renaming = false;
             uph_state.shared.song_timeline_current_block_start_offset = 0;
-            uph_state.shared.song_timeline_current_block_length = 4.0;
+            uph_state.shared.song_timeline_current_block_length = uph_state.project.time_signature.denominator;
 
             if (type == UPH_RESOURCE_PATTERN)
             {
