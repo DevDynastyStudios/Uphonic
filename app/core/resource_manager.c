@@ -140,6 +140,9 @@ void uph_resources_remove_track(Uph_Track *track)
 
 	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
 		list[i].index--;
+	
+	if (uph_state.shared.selected_mixer_track == track)
+		uph_state.shared.selected_mixer_track = NULL;
 }
 
 void uph_resources_clear_tracks(void)

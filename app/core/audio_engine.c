@@ -616,9 +616,6 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
 {
     Uph_SampleData sample_data = {0};
 
-    ma_decoder temp_decoder;
-    ma_decoder_config temp_config = ma_decoder_config_init(ma_format_f32, 0, 0);
-
     size_t file_size;
     void *file_data = naui_file_read_all(path, &file_size);
     if (!file_data)
@@ -627,69 +624,103 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
         return sample_data;
     }
 
-    uint32_t original_sample_rate = uph_audio_engine_data.device.sampleRate;
-    if (ma_decoder_init_memory(file_data, file_size, &temp_config, &temp_decoder) == MA_SUCCESS)
+    const uint32_t device_rate = uph_audio_engine_data.device.sampleRate;
+
+    uint32_t original_sample_rate = device_rate;
+    ma_uint32 native_channels = 2;
     {
-        original_sample_rate = temp_decoder.outputSampleRate;
-        ma_decoder_uninit(&temp_decoder);
+        ma_decoder probe;
+        ma_decoder_config probe_config = ma_decoder_config_init(ma_format_f32, 0, 0);
+        if (ma_decoder_init_memory(file_data, file_size, &probe_config, &probe) == MA_SUCCESS)
+        {
+            original_sample_rate = probe.outputSampleRate;
+            native_channels = probe.outputChannels;
+            ma_decoder_uninit(&probe);
+        }
     }
 
+    const ma_uint32 channels = (native_channels == 1) ? 1 : 2;
+
     ma_decoder decoder;
-    ma_decoder_config decoder_config = ma_decoder_config_init(
-        ma_format_f32,
-        0,
-        uph_audio_engine_data.device.sampleRate
-    );
+    ma_decoder_config decoder_config = ma_decoder_config_init(ma_format_f32, channels, device_rate);
 
     ma_result result = ma_decoder_init_memory(file_data, file_size, &decoder_config, &decoder);
     if (result != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_load_sample: failed to open '%s' (%s)\n", path.data, ma_result_description(result));
+        free(file_data);
         return sample_data;
     }
 
-    ma_uint64 frame_count = 0;
-    result = ma_decoder_get_length_in_pcm_frames(&decoder, &frame_count);
-    if (result != MA_SUCCESS || frame_count == 0)
+    ma_uint64 capacity = 0;
+    ma_decoder_get_length_in_pcm_frames(&decoder, &capacity);
+    capacity = capacity ? capacity + 4096 : (ma_uint64)device_rate * 10;
+
+    float *frames = (float*)malloc((size_t)(capacity * channels * sizeof(float)));
+    ma_uint64 total_frames = 0;
+
+    while (frames)
     {
-        fprintf(stderr, "uph_audio_engine_load_sample: failed to get length of '%s'\n", path.data);
-        ma_decoder_uninit(&decoder);
-        return sample_data;
+        if (total_frames == capacity)
+        {
+            capacity *= 2;
+            float *grown = (float*)realloc(frames, (size_t)(capacity * channels * sizeof(float)));
+            if (!grown)
+            {
+                free(frames);
+                frames = NULL;
+                break;
+            }
+            frames = grown;
+        }
+
+        ma_uint64 frames_read = 0;
+        result = ma_decoder_read_pcm_frames(
+            &decoder,
+            frames + total_frames * channels,
+            capacity - total_frames,
+            &frames_read
+        );
+        total_frames += frames_read;
+
+        if (result != MA_SUCCESS || frames_read == 0)
+            break;
     }
 
-    ma_uint32 channels = decoder.outputChannels;
-    ma_uint32 sample_rate = decoder.outputSampleRate;
+    const ma_uint32 sample_rate = decoder.outputSampleRate;
 
-    size_t frame_size = sizeof(float) * channels;
-    void *frames = malloc((size_t)frame_count * frame_size);
+    ma_decoder_uninit(&decoder);
+    free(file_data);
+
     if (!frames)
     {
         fprintf(stderr, "uph_audio_engine_load_sample: out of memory loading '%s'\n", path.data);
-        ma_decoder_uninit(&decoder);
         return sample_data;
     }
 
-    ma_uint64 frames_read = 0;
-    result = ma_decoder_read_pcm_frames(&decoder, frames, frame_count, &frames_read);
-    ma_decoder_uninit(&decoder);
-
-    if (result != MA_SUCCESS || frames_read != frame_count)
+    if (total_frames == 0)
     {
-        fprintf(stderr, "uph_audio_engine_load_sample: failed to fully decode '%s'\n", path.data);
+        fprintf(stderr, "uph_audio_engine_load_sample: failed to decode '%s'\n", path.data);
         free(frames);
         return sample_data;
     }
 
+    float *trimmed = (float*)realloc(frames, (size_t)(total_frames * channels * sizeof(float)));
+    if (trimmed)
+        frames = trimmed;
+
     sample_data.file_path = path;
     sample_data.frames = frames;
-    sample_data.frame_count = frames_read;
+    sample_data.frame_count = total_frames;
     sample_data.original_sample_rate = original_sample_rate;
     sample_data.channel_type = (channels == 1) ? UPH_SAMPLE_MONO : UPH_SAMPLE_STEREO;
 
     if (original_sample_rate != sample_rate)
-        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz -> %u Hz [resampled])\n", path.data, (unsigned long long)frames_read, channels, original_sample_rate, sample_rate);
+        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz -> %u Hz [resampled])\n",
+                path.data, (unsigned long long)total_frames, channels, original_sample_rate, sample_rate);
     else
-        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz)\n", path.data, (unsigned long long)frames_read, channels, sample_rate);
+        fprintf(stdout, "uph_audio_engine_load_sample: loaded '%s' (%llu frames, %u channels, %u Hz)\n",
+                path.data, (unsigned long long)total_frames, channels, sample_rate);
 
     uph_build_waveform_peaks(&sample_data);
 

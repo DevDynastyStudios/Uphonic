@@ -317,6 +317,35 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
     }
 }
 
+static void uph_resource_list_remove(void)
+{
+    Uph_ResourceType type = uph_state.shared.selected_resource.type;
+    Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
+
+    uint32_t max_length;
+    if (type == UPH_RESOURCE_PATTERN)
+    {
+        max_length = naui_list_len(uph_state.project.midi_patterns);
+        uph_resources_remove_pattern(index);
+    }
+    else if (type == UPH_RESOURCE_SAMPLE)
+    {
+        max_length = naui_list_len(uph_state.project.samples);
+        uph_resources_remove_sample(index);
+    }
+    else if (type == UPH_RESOURCE_AUTOMATION)
+    {
+        max_length = naui_list_len(uph_state.project.automations);
+        uph_resources_remove_automation(index);
+    }
+
+    if (index > 0 && index == max_length)
+        index--;
+    else if (max_length == 0)
+        uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
+    uph_state.shared.selected_resource.renaming = false;
+}
+
 static void uph_resource_list_on_update(void)
 {
     Uph_UIMenuID context_menu = uph_ui_context_menu();
@@ -393,14 +422,8 @@ static void uph_resource_list_on_update(void)
         uph_state.shared.selected_resource.renaming = true;
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.remove"), leaf_id("uph_pattern_remove")))
-    {
-        uph_resources_remove_pattern(uph_state.shared.selected_resource.index);
-        if (uph_state.shared.selected_resource.index > 0 && uph_state.shared.selected_resource.index == naui_list_len(uph_state.project.midi_patterns))
-            uph_state.shared.selected_resource.index--;
-        else if (naui_list_len(uph_state.project.midi_patterns) == 0)
-            uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
-        uph_state.shared.selected_resource.renaming = false;
-    }
+        uph_resource_list_remove();
+
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.duplicate"), leaf_id("uph_pattern_duplicate")))
         uph_resources_copy_pattern(uph_state.shared.selected_resource.index);
 }
