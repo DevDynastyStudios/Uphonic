@@ -15,6 +15,8 @@
 #define UPH_IO_FILE_META "metadata.json"
 #define UPH_IO_FILE_SETTINGS "settings.json"
 #define UPH_IO_FILE_EFFECTS "effects.json"
+#define UPH_IO_FILE_INSTRUMENT_STATE "instrument.state"
+#define UPH_IO_FILE_EFFECT_STATE_FORMAT "effect_%04zu.state"
 
 #define UPH_IO_FORMAT_VERSION 1
 
@@ -31,7 +33,7 @@ static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track
 static bool uph_io_save_track_blocks(const Uph_Track* track, const Naui_Path track_dir);
 static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object, const Uph_Track* track);
 static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path track_dir);
-static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin);
+static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin, const Naui_Path state_dir, const char* state_name);
 
 static bool uph_io_save_editor_settings(const Uph_State* state, const Naui_Path save_path);
 static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue* object, const Uph_GeneralSettings* general);

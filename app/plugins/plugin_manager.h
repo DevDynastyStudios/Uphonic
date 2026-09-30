@@ -35,5 +35,5 @@ void uph_process_plugin(
     bool is_playing
 );
 
-bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path);
+bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path);
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path);

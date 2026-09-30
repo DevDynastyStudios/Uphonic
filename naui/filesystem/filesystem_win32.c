@@ -41,7 +41,16 @@ static bool to_wide(const char* src, wchar_t* dst)
 
 static bool to_utf8(const wchar_t* src, char* dst)
 {
-	return WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, NAUI_PATH_MAX, NULL, NULL) > 0;
+	if (WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, NAUI_PATH_MAX, NULL, NULL) <= 0)
+		return false;
+
+	for (char* p = dst; *p; ++p)
+	{
+		if (*p == '\\')
+			*p = '/';
+	}
+
+	return true;
 }
 
 static bool is_separator(char c)
@@ -120,7 +129,7 @@ static void _naui_filter_recursive_impl_w(const char* path, const char* filter, 
 			continue;
 
 		char child[NAUI_PATH_MAX];
-		snprintf(child, sizeof(child), "%s\\%s", path, name_u8);
+		snprintf(child, sizeof(child), "%s/%s", path, name_u8);
 		bool is_dir = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 
 		if (is_dir)
@@ -164,7 +173,7 @@ static void _naui_resolve_lock_target(const char* path, char* out)
 		DWORD attrs = GetFileAttributesW(wpath);
 		if (attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY))
 		{
-			snprintf(out, NAUI_PATH_MAX, "%s\\.lock", path);
+			snprintf(out, NAUI_PATH_MAX, "%s/.lock", path);
 			return;
 		}
 	}
@@ -270,7 +279,9 @@ bool naui_file_seek(Naui_FileHandle* handle, long offset, int origin)
 			return false;
 	}
 
-	return SetFilePointer(h, offset, NULL, method) != INVALID_SET_FILE_POINTER;
+	LARGE_INTEGER li;
+	li.QuadPart = offset;
+	return SetFilePointerEx(h, li, NULL, method) != 0;
 }
 
 bool naui_file_is_valid(const Naui_FileHandle* handle)
@@ -559,7 +570,7 @@ Naui_Path naui_directory_get(Naui_Dir directory)
 		{
 			Naui_Path home_path = naui_directory_get(NAUI_DIR_HOME);
 			if (home_path.data[0])
-				snprintf(resolved, sizeof(resolved), "%s\\Downloads", home_path.data);
+				snprintf(resolved, sizeof(resolved), "%s/Downloads", home_path.data);
 
 			break;
 		}
@@ -672,7 +683,7 @@ Naui_List(Naui_DirEntry) naui_directory_filter(const Naui_Path path, const char*
 			continue;
 
 		char full[NAUI_PATH_MAX];
-		snprintf(full, sizeof(full), "%s\\%s", path.data, name_u8);
+		snprintf(full, sizeof(full), "%s/%s", path.data, name_u8);
 
 		ULARGE_INTEGER size;
 		size.HighPart = fd.nFileSizeHigh;
@@ -740,10 +751,7 @@ bool naui_path_is_directory(const Naui_Path path)
 		return false;
 
 	DWORD attrs = GetFileAttributesW(wpath);
-	if (attrs != FILE_ATTRIBUTE_DIRECTORY)
-		return false;
-
-	return true;
+	return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
 Naui_Path naui_path_parent(const Naui_Path path)
@@ -786,20 +794,22 @@ Naui_Path naui_path_normalize(const Naui_Path path)
 	snprintf(buf, sizeof(buf), "%s", path.data);
 	for (char* p = buf; *p; ++p)
 	{
-		if (*p == '/')
-			*p = '\\';
+		if (*p == '\\')
+			*p = '/';
 	}
 
-	bool is_unix_abs = (buf[0] == '\\');
-	bool is_drive_abs = (buf[1] == ':' && buf[2] == '\\');
+	bool is_unix_abs = (buf[0] == '/');
+	bool is_drive_abs = (buf[0] && buf[1] == ':' && buf[2] == '/');
+	bool is_rooted = is_unix_abs || is_drive_abs;
+	int root_depth = is_drive_abs ? 1 : 0;
 	const char* parts[NAUI_PATH_MAX / 2];
 	int n = 0;
-	char* tok = strtok(buf, "\\");
+	char* tok = strtok(buf, "/");
 
 	if (is_drive_abs && tok)
 	{
 		parts[n++] = tok;
-		tok = strtok(NULL, "\\");
+		tok = strtok(NULL, "/");
 	}
 
 	while (tok)
@@ -808,33 +818,37 @@ Naui_Path naui_path_normalize(const Naui_Path path)
 			;
 		else if (strcmp(tok, "..") == 0)
 		{
-			int root_depth = is_drive_abs ? 1 : 0;
-			if (n > root_depth)
+			if (n > root_depth && strcmp(parts[n - 1], "..") != 0)
 				--n;
+			else if (!is_rooted)
+				parts[n++] = tok;
 		}
 		else
 			parts[n++] = tok;
 
-		tok = strtok(NULL, "\\");
+		tok = strtok(NULL, "/");
 	}
 
 	if (n == 0)
-		return path_from(is_unix_abs ? "\\" : ".");
+		return path_from(is_unix_abs ? "/" : ".");
 
 	Naui_Path result;
 	result.data[0] = '\0';
-	const char* expr = is_unix_abs ? "\\%s" : "%s";
-	snprintf(result.data, NAUI_PATH_MAX, expr, parts[0]);
+	if (is_unix_abs)
+		strncat(result.data, "/", NAUI_PATH_MAX - 1);
 
-	for (int i = 1; i < n; ++i)
+	for (int i = 0; i < n; ++i)
 	{
-		strncat(result.data, "\\", NAUI_PATH_MAX - strlen(result.data) - 1), strncat(result.data, parts[i], NAUI_PATH_MAX - strlen(result.data) - 1);
+		if (i > 0)
+			strncat(result.data, "/", NAUI_PATH_MAX - strlen(result.data) - 1);
+
+		strncat(result.data, parts[i], NAUI_PATH_MAX - strlen(result.data) - 1);
 	}
 
 	size_t len = strlen(result.data);
 	if (len == 2 && result.data[1] == ':')
 	{
-		result.data[2] = '\\';
+		result.data[2] = '/';
 		result.data[3] = '\0';
 	}
 
@@ -880,7 +894,7 @@ Naui_Path naui_path_weakly_canonical(const Naui_Path path)
 		if (tail.data[0] != '\0')
 		{
 			Naui_Path new_tail;
-			snprintf(new_tail.data, NAUI_PATH_MAX, "%s\\%s", segment.data, tail.data);
+			snprintf(new_tail.data, NAUI_PATH_MAX, "%s/%s", segment.data, tail.data);
 			tail = new_tail;
 		}
 		else
@@ -910,7 +924,7 @@ bool naui_path_lock(const Naui_Path path)
 			return false;
 	}
 
-	const char* dot_lock = strstr(target, "\\.lock");
+	const char* dot_lock = strstr(target, "/.lock");
 	if (dot_lock && *(dot_lock + 6) == '\0')
 	{
 		char parent[NAUI_PATH_MAX];

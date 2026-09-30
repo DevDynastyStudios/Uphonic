@@ -30,8 +30,8 @@ static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 		uph_resources_clear_tracks_recursive(track->subtracks);
 		uph_unload_plugin(&track->instrument);
 
-		//for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			//uph_unload_plugin(&track->effects[e]);
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
 
 		naui_list_free(track->effects);
 		naui_list_free(track->blocks);
@@ -71,13 +71,11 @@ static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
 	{
 		Uph_Track *track = &list[i];
-
 		uph_resources_unload_plugins_recursive(track->subtracks);
-
 		uph_unload_plugin(&track->instrument);
 
-		//for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			//uph_unload_plugin(&track->effects[e]);
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
 	}
 }
 
@@ -135,7 +133,11 @@ void uph_resources_remove_track(Uph_Track *track)
 
 	uph_resources_remove_track_children(track);
 	uph_unload_plugin(&track->instrument);
+	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+		uph_unload_plugin(&track->effects[e].plugin);
+
 	naui_list_free(track->blocks);
+	naui_list_free(track->effects);
 	naui_list_remove(list, removed_index);
 
 	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
@@ -245,4 +247,13 @@ void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
 	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
 	naui_list_remove(uph_state.project.automations, automation_index);
 }
+
+void uph_resources_remove_all_automation(void)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.automations); i++)
+		naui_list_free(uph_state.project.automations[i].points);
+
+	naui_list_clear(uph_state.project.automations);
+}
+
 #pragma endregion

@@ -673,8 +673,10 @@ Naui_Path naui_path_normalize(const Naui_Path path)
 			;
 		else if (strcmp(tok, "..") == 0)
 		{
-			if (n > 0)
+			if (n > 0 && strcmp(parts[n - 1], "..") != 0)
 				--n;
+			else if (!is_absolute)
+				parts[n++] = tok;
 		}
 		else
 			parts[n++] = tok;
