@@ -244,15 +244,16 @@ static void uph_mixer_render_track(Uph_Track *track)
 
 static void uph_mixer_on_update(void)
 {
-    leaf({
-        .direction = LEAF_DIRECTION_HORIZONTAL,
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
-    })
+    static float scroll = 0.0f;
+    Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
+        UPH_UI_SCROLL_DIRECTION_HORIZONTAL,
+        &scroll,
+        leaf_id("uph_mixer_scrollbar")
+    );
+    for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
     {
-        for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
-        {
-            Uph_Track *track = &uph_state.project.tracks[i];
-            uph_mixer_render_track(track);
-        }
+        Uph_Track *track = &uph_state.project.tracks[i];
+        uph_mixer_render_track(track);
     }
+    uph_ui_end_scroll_container(&scroll_container);
 }

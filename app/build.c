@@ -37,10 +37,12 @@
 #include "ui/titlebar.h"
 #include "ui/waveform.h"
 #include "ui/widgets.h"
+#include "ui/containers.h"
 
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
 #include "ui/widgets.c"
+#include "ui/containers.c"
 
 #include "actions/action_track.c"
 #include "actions/action_pattern.c"

@@ -10,14 +10,14 @@ typedef uint32_t Uph_UIDragFlags;
 enum
 {
     UPH_UI_DRAG_FLAGS_NONE = 0,
-    UPH_UI_DRAG_CLAMPED = 1 << 0,
+    UPH_UI_DRAG_CLAMPED = 1 << 0
 };
 
 typedef uint32_t Uph_UISliderFlags;
 enum
 {
     UPH_UI_SLIDER_FLAGS_NONE = 0,
-    UPH_UI_SLIDER_VERTICAL = 1 << 0,
+    UPH_UI_SLIDER_VERTICAL = 1 << 0
 };
 
 typedef uint64_t Uph_UIMenuID;

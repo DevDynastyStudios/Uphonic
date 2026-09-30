@@ -231,6 +231,12 @@ static void uph_plugin_list_main_menu(void)
         }) leaf_text(NAUI_TR("plugin.menu.format"), { .font_size = font_size, .color = text_color });
     }
 
+    static float scroll = 0.0;
+    Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
+        UPH_UI_SCROLL_DIRECTION_VERTICAL,
+        &scroll,
+        leaf_id("uph_plugin_list_scrollbar")
+    );
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_list_data.plugin_infos); i++)
     {
         Uph_PluginInfo info = uph_plugin_list_data.plugin_infos[i];
@@ -238,6 +244,7 @@ static void uph_plugin_list_main_menu(void)
             continue;
         uph_plugin_list_item(&info, i);
     }
+    uph_ui_end_scroll_container(&scroll_container);
 }
 
 static void uph_plugin_list_current_menu(void)
@@ -301,7 +308,7 @@ void uph_plugin_list_on_update(void)
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
     })
     {
-        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAGS_NONE, "Search");
+        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
     }
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
