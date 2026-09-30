@@ -159,6 +159,10 @@ static bool uph_io_save_project(const Uph_Project* project, const Naui_Path save
 	saved &= uph_io_save_samples(project, samples_dir);
 	saved &= uph_io_save_automation(project, automation_dir);
 	saved &= uph_io_save_tracks(project, tracks_dir);
+
+	if (saved)
+		naui_log(NAUI_LOG_INFO, "Saved Project (\"%s\")", save_path.data);
+
 	return saved;
 }
 
@@ -185,6 +189,7 @@ static bool uph_io_save_settings(const Uph_Project* project, const Naui_Path sav
 
 	naui_json_set_string(&json, root, "projectName", project->title.data);
 	naui_json_set_number(&json, root, "bpm", project->bpm);
+	naui_json_set_number(&json, root, "playhead_position", uph_state.shared.song_timeline_playhead_position);
 
 	Naui_JsonValue* time_sig_obj = naui_json_set_array(&json, root, "time_sig");
 	naui_json_push_int(&json, time_sig_obj, project->time_signature.numerator);
@@ -642,6 +647,10 @@ static bool uph_io_load_project(Uph_Project* project, const Naui_Path load_path)
 	loaded &= uph_io_load_samples(project, samples_dir);
 	loaded &= uph_io_load_automation(project, automation_dir);
 	loaded &= uph_io_load_tracks(project, tracks_dir);
+
+	if (loaded)
+		naui_log(NAUI_LOG_INFO, "Loaded Project (\"%s\")", load_path.data);
+
 	return loaded;
 }
 
@@ -674,6 +683,8 @@ static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path
 		if (numerator > 0 && denominator > 0)
 			project->time_signature = (Uph_TimeSignature){ .numerator = (uint32_t)numerator, .denominator = (uint32_t)denominator };
 	}
+
+	uph_state.shared.song_timeline_playhead_position = naui_json_get_number(naui_json_object_get(root, "playhead_position"), 0.0);
 
 	const Naui_JsonValue* version = naui_json_object_get(root, "version");
 	if (version && version->type == NAUI_JSON_ARRAY)
