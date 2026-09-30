@@ -2,6 +2,14 @@
 #define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("workspace"))
 #define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
 
+static void _uph_project_default_shared_state()
+{
+	uph_state.shared.song_timeline_playing = false;
+	uph_state.shared.selected_resource.index = 0;
+	uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
+	uph_state.shared.song_timeline_current_block_length = 4;
+}
+
 bool uph_project_create(Naui_String project_name)
 {
 	Naui_Path project_dest = naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project_name.data));
@@ -23,17 +31,18 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.project.last_accessed = current_time;
 	uph_state.project.last_modified = current_time;
 	uph_state.project.title = project_name;
-	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4};
+	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4 };
 	naui_list_clear(uph_state.project.midi_patterns);
 	naui_list_clear(uph_state.project.samples);
 
 	uph_resources_clear_tracks();
 	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
 	uph_resources_add_pattern();
-	
-	uph_state.shared.selected_resource.index = 0;
-	uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
-	uph_state.shared.song_timeline_current_block_length = 4;
+	uph_resources_remove_all_automation();
+	naui_action_clear_history();
+
+	uph_state.shared.song_timeline_playhead_position = 0.0;
+	_uph_project_default_shared_state();
 
 	naui_file_create(naui_path_join(project_dest, NAUI_PATH(".lock")));
 	naui_path_lock(project_dest);
@@ -133,6 +142,7 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 
 bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 {
+	uph_state.shared.song_timeline_playing = false;
 	Naui_Path load_path = project_path;
 	Naui_Archive archive = NAUI_ARCHIVE_INIT;
 
@@ -159,6 +169,8 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 				return false;
 			}
 
+			naui_action_clear_history();
+			_uph_project_default_shared_state();
 			naui_log(NAUI_LOG_INFO, "Successfully loaded uph file: %s", filename.data);
 		}
 		else
@@ -171,7 +183,14 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	naui_list_clear(project->midi_patterns);
 	uph_resources_clear_tracks();
 	bool loaded = uph_io_load_project(project, load_path);
-	if (!loaded || loaded && naui_list_len(project->tracks) == 0)
+	
+	if (loaded)
+	{
+		naui_action_clear_history();
+		_uph_project_default_shared_state();
+	}
+
+	if (naui_list_len(project->tracks) == 0)
 		uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
 
 	uph_state.shared.song_timeline_playing = false;
@@ -206,5 +225,5 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 
 Naui_Path uph_project_get_path(const Uph_Project* project)
 {
-	return naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project->title.data));
+	return naui_path_normalize(naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project->title.data)));
 }

@@ -2734,8 +2734,7 @@ void uph_unload_plugin(Uph_Plugin *plug)
 
     plug->loaded = false;
 
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)
         return;
 
@@ -2900,8 +2899,7 @@ void uph_process_plugin(
     bool is_playing
 )
 {
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
 
     if (!internal_handle)
         return;
@@ -3053,7 +3051,7 @@ static int64_t uph_clap_stream_read(const clap_istream_t *stream, void *buffer, 
     return (int64_t)to_read;
 }
 
-bool uph_plugin_save_state(Uph_Plugin *plug, const Naui_Path path)
+bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (internal_handle && plug->format == UPH_PLUGIN_VST3)

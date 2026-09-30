@@ -123,6 +123,7 @@ void naui_app_end(void)
 {
 	uph_settings_save();
 	uph_action_shutdown();
+	uph_resources_unload_all_plugins();
 
 	cmidi_scheduler_stop_all();
 	cmidi_shutdown();
@@ -136,7 +137,10 @@ static void uph_update_all_track_plugins(Uph_Track *track)
 		uph_update_plugin(&track->instrument);
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-		uph_update_plugin(&track->effects[i].plugin);
+	{
+		if (track->effects[i].plugin.loaded)
+			uph_update_plugin(&track->effects[i].plugin);
+	}
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 		uph_update_all_track_plugins(&track->subtracks[i]);

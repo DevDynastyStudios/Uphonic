@@ -92,6 +92,29 @@ static void uph_io_remove_stale_track_folders(const Naui_Path list_dir, const si
 	naui_directory_filter_free(entries);
 }
 
+static bool uph_io_is_safe_file_name(const char* name)
+{
+	return name && name[0] && !strpbrk(name, "/\\") && strcmp(name, "..") != 0;
+}
+
+static void uph_io_remove_stale_effect_states(const Naui_Path track_dir, const size_t effect_count)
+{
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter(track_dir, NULL, NAUI_EXTENSIONS(".state"));
+	for (size_t i = 0; i < (size_t)naui_list_len(entries); i++)
+	{
+		if (entries[i].is_directory)
+			continue;
+
+		const Naui_StringView name = naui_file_filename(&entries[i].path);
+		size_t index = 0;
+		int consumed = 0;
+		if (sscanf(name.data, "effect_%zu.state%n", &index, &consumed) == 1 && name.data[consumed] == '\0' && index >= effect_count)
+			naui_file_delete(entries[i].path);
+	}
+
+	naui_directory_filter_free(entries);
+}
+
 static void uph_io_apply_solo_state(Naui_List(Uph_Track) tracks)
 {
 	Uph_Track* soloed = NULL;
@@ -136,6 +159,10 @@ static bool uph_io_save_project(const Uph_Project* project, const Naui_Path save
 	saved &= uph_io_save_samples(project, samples_dir);
 	saved &= uph_io_save_automation(project, automation_dir);
 	saved &= uph_io_save_tracks(project, tracks_dir);
+
+	if (saved)
+		naui_log(NAUI_LOG_INFO, "Saved Project (\"%s\")", save_path.data);
+
 	return saved;
 }
 
@@ -162,6 +189,7 @@ static bool uph_io_save_settings(const Uph_Project* project, const Naui_Path sav
 
 	naui_json_set_string(&json, root, "projectName", project->title.data);
 	naui_json_set_number(&json, root, "bpm", project->bpm);
+	naui_json_set_number(&json, root, "playhead_position", uph_state.shared.song_timeline_playhead_position);
 
 	Naui_JsonValue* time_sig_obj = naui_json_set_array(&json, root, "time_sig");
 	naui_json_push_int(&json, time_sig_obj, project->time_signature.numerator);
@@ -270,7 +298,35 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 
 static bool uph_io_save_automation(const Uph_Project* project, const Naui_Path save_path)
 {
-	return false;
+	if(naui_path_exists(save_path) && !naui_path_is_directory(save_path))
+	{
+		naui_log(NAUI_LOG_ERROR, "Failed to save. Destination is not a directory (%s)", save_path.data);
+		return false;
+	}
+
+	Naui_Json json = naui_json_result_create();
+	Naui_JsonValue* root = naui_json_array(&json);
+	for (size_t i = 0; i < (size_t)naui_list_len(project->automations); i++)
+	{
+		const Uph_Automation* automation = &project->automations[i];
+		Naui_JsonValue* entry = naui_json_push_object(&json, root);
+		naui_json_set_string(&json, entry, "name", automation->name.data);
+
+		Naui_JsonValue* points = naui_json_set_array(&json, entry, "points");
+		for (size_t p = 0; p < (size_t)naui_list_len(automation->points); p++)
+		{
+			Naui_JsonValue* point = naui_json_push_object(&json, points);
+			naui_json_set_number(&json, point, "beat", automation->points[p].beat);
+			naui_json_set_number(&json, point, "value", uph_io_float_json(automation->points[p].value));
+		}
+	}
+
+	bool written = naui_json_write_file(root, naui_path_join(save_path, NAUI_PATH(UPH_IO_FILE_AUTOMATION)), true);
+	naui_json_free(&json);
+	if (!written)
+		naui_log(NAUI_LOG_ERROR, "Failed to save automation: %s", save_path.data);
+
+	return written;
 }
 #pragma endregion
 
@@ -402,52 +458,65 @@ static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path tr
 	{
 		Naui_Json json = naui_json_result_create();
 		Naui_JsonValue* root = naui_json_object(&json);
-		uph_io_save_plugin(&json, root, &track->instrument);
+		uph_io_save_plugin(&json, root, &track->instrument, track_dir, UPH_IO_FILE_INSTRUMENT_STATE);
 		saved &= naui_json_write_file(root, instrument_file, true);
 		naui_json_free(&json);
-	} else if (naui_path_exists(instrument_file))
-		naui_file_delete(instrument_file);
+	}
+	else
+	{
+		const Naui_Path instrument_state = naui_path_join(track_dir, NAUI_PATH(UPH_IO_FILE_INSTRUMENT_STATE));
+		if (naui_path_exists(instrument_file))
+			naui_file_delete(instrument_file);
 
+		if (naui_path_exists(instrument_state))
+			naui_file_delete(instrument_state);
+	}
+
+	const size_t effect_count = (size_t)naui_list_len(track->effects);
 	const Naui_Path effects_file = naui_path_join(track_dir, NAUI_PATH(UPH_IO_FILE_EFFECTS));
-	if (naui_list_len(track->effects) > 0)
+	if (effect_count > 0)
 	{
 		Naui_Json json = naui_json_result_create();
 		Naui_JsonValue* root = naui_json_array(&json);
-		/*for (size_t i = 0; i < (size_t)naui_list_len(track->effects); i++)
+		for (size_t i = 0; i < effect_count; i++)
 		{
-			uph_io_save_plugin(&json, naui_json_push_object(&json, root), &track->effects[i]);
-		}*/
+			char state_name[32];
+			snprintf(state_name, sizeof(state_name), UPH_IO_FILE_EFFECT_STATE_FORMAT, i);
+			Naui_JsonValue* entry = naui_json_push_object(&json, root);
+			naui_json_set_bool(&json, entry, "enabled", track->effects[i].enabled);
+			uph_io_save_plugin(&json, entry, &track->effects[i].plugin, track_dir, state_name);
+		}
 
 		saved &= naui_json_write_file(root, effects_file, true);
 		naui_json_free(&json);
 	} else if (naui_path_exists(effects_file))
 		naui_file_delete(effects_file);
 
+	uph_io_remove_stale_effect_states(track_dir, effect_count);
 	if (!saved)
 		naui_log(NAUI_LOG_ERROR, "Failed to save track plugins: %s", track_dir.data);
 
 	return saved;
 }
 
-static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin)
+static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin, const Naui_Path state_dir, const char* state_name)
 {
-	// naui_json_set_string(json, object, "path", plugin->file_path.data);
-	// naui_json_set_string(json, object, "name", plugin->name.data);
-	// naui_json_set_string(json, object, "type", plugin->type == UPH_PLUGIN_VST3 ? "vst3" : "clap");	// Please don't let there be more than 2 plugins, I don't want to touch this again.
+	naui_json_set_string(json, object, "path", naui_path_normalize(plugin->file_path).data);
+	naui_json_set_string(json, object, "name", plugin->name.data);
+	naui_json_set_string(json, object, "format", plugin->format == UPH_PLUGIN_VST3 ? "vst3" : "clap");	// Please don't let there be more than 2 plugins, I don't want to touch this again.
 
-	// Naui_JsonValue* params = naui_json_set_array(json, object, "params");
-	// for (size_t i = 0; i < (size_t)naui_list_len(plugin->params); i++)
-	// {
-	// 	const Uph_PluginParam* param = &plugin->params[i];
-	// 	double value = param->current_value;
-	// 	if (plugin->loaded)
-	// 		uph_plugin_get_param_value(plugin, (clap_id)param->id, &value);
+	const Naui_Path state_file = naui_path_join(state_dir, naui_path_from_cstr(state_name));
+	if (plugin->loaded && uph_plugin_save_state(plugin, state_file))
+	{
+		naui_json_set_string(json, object, "state", state_name);
+		return;
+	}
 
-	// 	Naui_JsonValue* entry = naui_json_push_object(json, params);
-	// 	naui_json_set_number(json, entry, "id", (double)param->id);
-	// 	naui_json_set_string(json, entry, "name", param->name.data);
-	// 	naui_json_set_number(json, entry, "value", value);
-	// }
+	if (plugin->loaded)
+		naui_log(NAUI_LOG_WARNING, "Couldn't get the state of plugin '%s', its settings won't be saved", plugin->name.data);
+
+	if (naui_path_exists(state_file))
+		naui_file_delete(state_file);
 }
 
 #pragma endregion
@@ -578,6 +647,10 @@ static bool uph_io_load_project(Uph_Project* project, const Naui_Path load_path)
 	loaded &= uph_io_load_samples(project, samples_dir);
 	loaded &= uph_io_load_automation(project, automation_dir);
 	loaded &= uph_io_load_tracks(project, tracks_dir);
+
+	if (loaded)
+		naui_log(NAUI_LOG_INFO, "Loaded Project (\"%s\")", load_path.data);
+
 	return loaded;
 }
 
@@ -610,6 +683,8 @@ static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path
 		if (numerator > 0 && denominator > 0)
 			project->time_signature = (Uph_TimeSignature){ .numerator = (uint32_t)numerator, .denominator = (uint32_t)denominator };
 	}
+
+	uph_state.shared.song_timeline_playhead_position = naui_json_get_number(naui_json_object_get(root, "playhead_position"), 0.0);
 
 	const Naui_JsonValue* version = naui_json_object_get(root, "version");
 	if (version && version->type == NAUI_JSON_ARRAY)
@@ -805,91 +880,49 @@ static Naui_Path uph_io_resolve_plugin_path(const Naui_Path saved_path)
 	return found;
 }
 
-static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object)
+static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Path load_dir, bool* complete)
 {
-	return (Uph_Plugin){ 0 };
-	// Uph_Plugin plugin = { 0 };
-	// if (!object || object->type != NAUI_JSON_OBJECT)
-	// 	return plugin;
+	Uph_Plugin plugin = { 0 };
+	if (!object || object->type != NAUI_JSON_OBJECT)
+		return plugin;
 
-	// const Naui_Path saved_path = naui_path_from_cstr(naui_json_get_string(naui_json_object_get(object, "path"), ""));
-	// if (!saved_path.data[0])
-	// 	return plugin;
+	const Naui_Path saved_path = naui_path_from_cstr(naui_json_get_string(naui_json_object_get(object, "path"), ""));
+	if (!saved_path.data[0])
+		return plugin;
 
-	// const char* name = naui_json_get_string(naui_json_object_get(object, "name"), "");
-	// const bool is_vst3 = strcmp(naui_json_get_string(naui_json_object_get(object, "type"), "clap"), "vst3") == 0; // You know the drill
-	// const Naui_JsonValue* saved_params = naui_json_object_get(object, "params");
-	// const bool has_params = saved_params && saved_params->type == NAUI_JSON_ARRAY;
+	const char* name = naui_json_get_string(naui_json_object_get(object, "name"), "");
+	const bool is_vst3 = strcmp(naui_json_get_string(naui_json_object_get(object, "format"), "clap"), "vst3") == 0; // You know the drill
+	const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
+	if (path.data[0])
+		plugin = uph_load_plugin(path);
 
-	// const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
-	// if (path.data[0])
-	// 	plugin = uph_load_plugin(path);
+	if (plugin.loaded)
+	{
+		uph_hide_plugin_window(&plugin);
+		const char* state_name = naui_json_get_string(naui_json_object_get(object, "state"), NULL);
+		if (state_name)
+		{
+			const bool state_loaded = uph_io_is_safe_file_name(state_name) && uph_plugin_load_state(&plugin, naui_path_join(load_dir, naui_path_from_cstr(state_name)));
 
-	// if (plugin.loaded)
-	// {
-	// 	if (!has_params)
-	// 		return plugin;
+			if (!state_loaded)
+			{
+				naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", plugin.name.data);
+				*complete = false;
+			}
+		}
 
-	// 	NAUI_JSON_FOREACH(saved_params, key, entry)
-	// 	{
-	// 		if (!entry || entry->type != NAUI_JSON_OBJECT)
-	// 			continue;
+		return plugin;
+	}
 
-	// 		const double id_number = naui_json_get_number(naui_json_object_get(entry, "id"), -1.0);
-	// 		if (id_number < 0.0)
-	// 			continue;
+	naui_log(NAUI_LOG_WARNING, "Plugin not found or failed to load: %s", saved_path.data);
+	*complete = false;
 
-	// 		const uint64_t id = (uint64_t)id_number;
-	// 		const double value = naui_json_get_number(naui_json_object_get(entry, "value"), 0.0);
-	// 		for (size_t i = 0; i < (size_t)naui_list_len(plugin.params); i++)
-	// 		{
-	// 			if (plugin.params[i].id != id)
-	// 				continue;
-
-	// 			if (fabs(plugin.params[i].current_value - value) > 1e-9) // Size doesn't matter or something...
-	// 			{
-	// 				plugin.params[i].current_value = value;
-	// 				uph_plugin_queue_param_change(&plugin, (clap_id)id, value, 0);
-	// 			}
-
-	// 			break;
-	// 		}
-	// 	}
-
-	// 	return plugin;
-	// }
-
-	// uph_resources_clear_plugin(&plugin);
-	// plugin.file_path = saved_path;
-	// plugin.name = naui_string_from_cstr(name);
-	// plugin.type = is_vst3 ? UPH_PLUGIN_VST3 : UPH_PLUGIN_CLAP;
-
-	// if (has_params)
-	// {
-	// 	NAUI_JSON_FOREACH(saved_params, key, entry)
-	// 	{
-	// 		if (!entry || entry->type != NAUI_JSON_OBJECT)
-	// 			continue;
-
-	// 		const double id_number = naui_json_get_number(naui_json_object_get(entry, "id"), -1.0);
-	// 		if (id_number < 0.0)
-	// 			continue;
-
-	// 		const double value = naui_json_get_number(naui_json_object_get(entry, "value"), 0.0);
-	// 		Uph_PluginParam param = {
-	// 			.id = (uint64_t)id_number,
-	// 			.name = naui_string_from_cstr(naui_json_get_string(naui_json_object_get(entry, "name"), "")),
-	// 			.min_value = 0.0,
-	// 			.max_value = 1.0,
-	// 			.default_value = value,
-	// 			.current_value = value
-	// 		};
-	// 		naui_list_push(plugin.params, param);
-	// 	}
-	// }
-
-	// naui_log(NAUI_LOG_WARNING, "Plugin not loaded, keeping its settings: %s", saved_path.data);
-	// return plugin;
+	plugin = (Uph_Plugin){
+		.file_path = saved_path,
+		.name = naui_string_from_cstr(name),
+		.format = is_vst3 ? UPH_PLUGIN_VST3 : UPH_PLUGIN_CLAP
+	};
+	return plugin;
 }
 
 static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
@@ -1104,7 +1137,7 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 		Naui_Json json = naui_json_parse_file(instrument_file);
 		if (json.root)
 		{
-			track->instrument = uph_io_load_plugin(json.root);
+			track->instrument = uph_io_load_plugin(json.root, load_dir, complete);
 			naui_json_free(&json);
 		}
 		else
@@ -1120,10 +1153,24 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 		Naui_Json json = naui_json_parse_file(effects_file);
 		if (json.root && json.root->type == NAUI_JSON_ARRAY)
 		{
-			// TODO: Chimpchi make this load/save Uph_PluginEffect instead of Uph_Plugin (which means you also need to save the enabled bool)
-			// Also do plugin state saving while you are at it
-			//NAUI_JSON_FOREACH(json.root, key, value)
-				//naui_list_push(track->effects, uph_io_load_plugin(value));
+			NAUI_JSON_FOREACH(json.root, key, value)
+			{
+				Uph_EffectPlugin effect = { .enabled = true };
+				if (value && value->type == NAUI_JSON_OBJECT)
+				{
+					uph_io_read_bool(value, "enabled", &effect.enabled);
+					effect.plugin = uph_io_load_plugin(value, load_dir, complete);
+				}
+
+				if (!effect.plugin.file_path.data[0])
+				{
+					naui_log(NAUI_LOG_WARNING, "Skipping an effect that has no plugin in %s", effects_file.data);
+					*complete = false;
+					continue;
+				}
+
+				naui_list_push(track->effects, effect);
+			}
 		}
 		else
 		{
