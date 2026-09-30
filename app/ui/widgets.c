@@ -57,7 +57,7 @@ typedef struct
     bool any_widget_hovered;
 }
 Uph_GlobalWidgetData;
-static Uph_GlobalWidgetData uph_global_widget_data = { 0 };
+Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {

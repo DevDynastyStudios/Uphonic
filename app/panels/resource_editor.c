@@ -10,7 +10,7 @@
 #define UPH_MIDI_EDITOR_SCROLL_Y_SPEED 40.0f
 #define UPH_MIDI_EDITOR_ZOOM_SPEED 0.1f
 #define UPH_MIDI_EDITOR_PIANO_WIDTH 80
-#define UPH_MIDI_EDITOR_TOP_RULER_HEIGHT 32
+#define UPH_MIDI_EDITOR_TOP_RULER_HEIGHT 24
 
 #define UPH_MIDI_EDITOR_NOTE_COUNT 128
 
@@ -595,9 +595,9 @@ static void uph_midi_editor_render_beat_grid(Leaf_BoundingBox box)
     const float zoom_x = uph_midi_editor_data.zoom.x;
     const float scroll_x = uph_midi_editor_data.scroll.x;
 
-    const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");
-    const Leaf_Color bar_color = naui_theme_color("uph_track_grid_bar_color");
-    const Leaf_Color sub_color = naui_theme_color("uph_track_grid_subbeat_color");
+    const Leaf_Color beat_color = naui_theme_color("uph_timeline_grid_beat_color");
+    const Leaf_Color bar_color = naui_theme_color("uph_timeline_grid_bar_color");
+    const Leaf_Color sub_color = naui_theme_color("uph_timeline_grid_subbeat_color");
 
     const double division = uph_snap_division(uph_midi_editor_data.snap_resolution);
     const float division_px = (float)(division * zoom_x);
@@ -779,12 +779,12 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
     naui_pop_clip_rect();
 }
 
-static void uph_midi_editor_render_top_ruler(Leaf_BoundingBox bbox)
+static void uph_midi_editor_top_ruler_custom_draw(Leaf_BoundingBox bbox, void *data)
 {
-    const Leaf_Color beat_color = naui_theme_color("uph_track_grid_beat_color");
-    const Leaf_Color bar_color = naui_theme_color("uph_track_grid_bar_color");
-    const Leaf_Color sub_color = naui_theme_color("uph_track_grid_subbeat_color");
-    const Leaf_Color number_color = naui_theme_color("uph_track_grid_text_color");
+    const Leaf_Color beat_color = naui_theme_color("uph_timeline_top_ruler_grid_beat_color");
+    const Leaf_Color bar_color = naui_theme_color("uph_timeline_top_ruler_grid_bar_color");
+    const Leaf_Color sub_color = naui_theme_color("uph_timeline_top_ruler_grid_subbeat_color");
+    const Leaf_Color number_color = naui_theme_color("uph_timeline_top_ruler_grid_text_color");
 
     const float zoom_x = uph_midi_editor_data.zoom.x;
     const float scroll_x = uph_midi_editor_data.scroll.x;
@@ -986,6 +986,31 @@ static void uph_midi_editor_update_input(Leaf_BoundingBox box)
     }
 }
 
+static void uph_midi_editor_render_top_ruler(void)
+{
+    const int32_t height = NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT);
+    leaf({
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(height)},
+        .child_gap = 1
+    })
+    {
+        leaf({
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_PIANO_WIDTH)), LEAF_SIZE_FULL}
+        });
+        leaf({
+            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(height - 1)},
+            .custom_draw = (Leaf_CustomDrawFn)uph_midi_editor_top_ruler_custom_draw,
+            .border = {
+                .width = 1,
+                .sides = LEAF_SIDE_ALL,
+                .color = naui_theme_color("uph_timeline_top_ruler_border_color")
+            },
+            .color = naui_theme_color("uph_timeline_top_ruler_bg_color")
+        });
+    }
+}
+
 static void uph_midi_editor_on_update(void)
 {
     const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
@@ -1015,20 +1040,7 @@ static void uph_midi_editor_on_update(void)
 
     uph_midi_editor_render_toolbox();
 
-    leaf({
-        .direction = LEAF_DIRECTION_HORIZONTAL,
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT))},
-        .child_gap = 1.0f
-    })
-    {
-        leaf({
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_PIANO_WIDTH)), LEAF_SIZE_FULL}
-        });
-        leaf({
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-            .custom_draw = (Leaf_CustomDrawFn)uph_midi_editor_render_top_ruler
-        });
-    }
+    uph_midi_editor_render_top_ruler();
 
     leaf({
         .direction = LEAF_DIRECTION_HORIZONTAL,

@@ -12,7 +12,7 @@ typedef struct
     float *out_scroll;
     float container_max_size;
     float container_current_size;
-    bool initialized;
+    bool handle_hovered;
 }
 Uph_UIScrollContainer;
 

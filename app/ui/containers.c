@@ -41,6 +41,8 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     const float max_scroll = content_size - max_size;
     const bool this_drag = drag_active && drag_id.value == scroll_id.value;
 
+    extern Uph_GlobalWidgetData uph_global_widget_data;
+
     if (max_scroll > 0.0f)
     {
         const float thumb_travel = max_size - (float)_uph_ui_thumb_length(max_size, content_size);
@@ -60,18 +62,24 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
             {
                 drag_active = false;
             }
+            naui_set_cursor(NAUI_CURSOR_HAND);
         }
         else if (naui_panel_hovered(naui_current_panel()))
         {
             if (leaf_hovered(max_area_id) || leaf_hovered(scroll_id))
                 *out_scroll -= (float)naui_mouse_scroll_delta() * 20.0f;
 
-            if (leaf_hovered(scroll_id) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+            if (leaf_hovered(scroll_id))
             {
-                drag_active = true;
-                drag_id = scroll_id;
-                drag_start_mouse = mouse_pos;
-                drag_start_scroll = *out_scroll;
+                uph_global_widget_data.any_widget_hovered = true;
+                naui_set_cursor(NAUI_CURSOR_HAND);
+                if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                {
+                    drag_active = true;
+                    drag_id = scroll_id;
+                    drag_start_mouse = mouse_pos;
+                    drag_start_scroll = *out_scroll;
+                }
             }
         }
     }
@@ -135,7 +143,7 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
                 (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_width), LEAF_SIZE_FULL} :
                 (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_width)}
             ),
-            .color = leaf_rgb(255, 0, 0)
+            .color = naui_theme_color("uph_ui_scrollbar_bg_color")
         })
         {
             const float max_scroll = content_size - max_size;
@@ -158,7 +166,8 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
                     (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_length)} :
                     (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_length), LEAF_SIZE_FULL}
                 ),
-                .color = leaf_rgb(0, 0, 255)
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_scrollbar_handle_rounding")), LEAF_CORNER_ALL),
+                .color = naui_theme_color("uph_ui_scrollbar_handle_color")
             });
         }
     }

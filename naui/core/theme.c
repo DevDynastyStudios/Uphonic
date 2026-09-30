@@ -3,16 +3,18 @@
 typedef struct { char *key; float value; } Naui_ThemeFloatEntry;
 typedef struct { char *key; Naui_Vec2 value; } Naui_ThemeVec2Entry;
 typedef struct { char *key; Naui_Color value; } Naui_ThemeColorEntry;
+typedef struct { char *key; Naui_List(Naui_Color) value; } Naui_ThemeColorListEntry;
 
 typedef struct
 {
+    Naui_Map(Naui_ThemeColorListEntry) color_list_map;
     Naui_Map(Naui_ThemeColorEntry) color_map;
     Naui_Map(Naui_ThemeFloatEntry) float_map;
     Naui_Map(Naui_ThemeVec2Entry) vec2_map;
     Naui_Arena key_arena;
 }
 Naui_ThemeData;
-static Naui_ThemeData tm;
+static Naui_ThemeData naui_theme_state;
 
 static Naui_Color naui_color_from_hex(const char *hex)
 {
@@ -39,13 +41,20 @@ static Naui_Color naui_color_from_hex(const char *hex)
     return color;
 }
 
-void naui_themes_initialize(void) { naui_arena_init(&tm.key_arena, NAUI_THEME_KEY_SCRATCH_SIZE); }
-void naui_themes_shutdown(void) { naui_arena_free(&tm.key_arena); }
+void naui_themes_initialize(void) { naui_arena_init(&naui_theme_state.key_arena, NAUI_THEME_KEY_SCRATCH_SIZE); }
+void naui_themes_shutdown(void) { naui_arena_free(&naui_theme_state.key_arena); }
 
-// TODO(doomguy): move this into asset_manager
 void naui_load_theme(const char *file_name)
 {
-    naui_arena_reset(&tm.key_arena);
+    for (ptrdiff_t i = 0; i < naui_strmap_len(naui_theme_state.color_list_map); i++)
+        naui_list_free(naui_theme_state.color_list_map[i].value);
+
+    naui_strmap_free(naui_theme_state.color_list_map);
+    naui_strmap_free(naui_theme_state.color_map);
+    naui_strmap_free(naui_theme_state.float_map);
+    naui_strmap_free(naui_theme_state.vec2_map);
+
+    naui_arena_reset(&naui_theme_state.key_arena);
 
     char final_file_name[64];
     strncpy(final_file_name, file_name, strlen(file_name) + 1);
@@ -55,25 +64,44 @@ void naui_load_theme(const char *file_name)
 
     NAUI_JSON_FOREACH(json.root, key, val)
     {
-        char *key_str = (char*)naui_arena_alloc(&tm.key_arena, 64);
+        char *key_str = (char*)naui_arena_alloc(&naui_theme_state.key_arena, 64);
         naui_json_copy_cstr(key, key_str, 64);
 
         if (val->type == NAUI_JSON_STRING)
         {
             char value_str[16];
             naui_json_copy_cstr(val, value_str, sizeof(value_str));
-            naui_strmap_put(tm.color_map, key_str, naui_color_from_hex(value_str));
+            naui_strmap_put(naui_theme_state.color_map, key_str, naui_color_from_hex(value_str));
         }
         else if (val->type == NAUI_JSON_ARRAY)
         {
-            Naui_Vec2 vec2 = {
-                (float)naui_json_get_number(naui_json_array_get(val, 0), 0.0f),
-                (float)naui_json_get_number(naui_json_array_get(val, 1), 0.0f),
-            };
-            naui_strmap_put(tm.vec2_map, key_str, vec2);
+            if (val->array.count == 2 && val->array.items[0].type == NAUI_JSON_NUMBER)
+            {
+                Naui_Vec2 vec2 = {
+                    (float)naui_json_get_number(naui_json_array_get(val, 0), 0.0f),
+                    (float)naui_json_get_number(naui_json_array_get(val, 1), 0.0f),
+                };
+                naui_strmap_put(naui_theme_state.vec2_map, key_str, vec2);
+            }
+            else
+            {
+                Naui_List(Naui_Color) list = NULL;
+                naui_list_reserve(list, val->array.count);
+                for (uint32_t i = 0; i < val->array.count; i++)
+                {
+                    char value_str[16] = { 0 };
+                    naui_json_copy_cstr(
+                        naui_json_array_get(val, i),
+                        value_str,
+                        sizeof(value_str)
+                    );
+                    naui_list_push(list, naui_color_from_hex(value_str));
+                }
+                naui_strmap_put(naui_theme_state.color_list_map, key_str, list);
+            }
         }
         else if (val->type == NAUI_JSON_NUMBER)
-            naui_strmap_put(tm.float_map, key_str, (float)naui_json_get_number(val, 0.0));
+            naui_strmap_put(naui_theme_state.float_map, key_str, (float)naui_json_get_number(val, 0.0));
     }
 	
     naui_json_free(&json);
@@ -81,15 +109,20 @@ void naui_load_theme(const char *file_name)
 
 Naui_Color naui_theme_color(const char *name)
 {
-    return naui_strmap_get(tm.color_map, name);
+    return naui_strmap_get(naui_theme_state.color_map, name);
 }
 
 float naui_theme_float(const char *name)
 {
-    return naui_strmap_get(tm.float_map, name);
+    return naui_strmap_get(naui_theme_state.float_map, name);
 }
 
 Naui_Vec2 naui_theme_vec2(const char *name)
 {
-    return naui_strmap_get(tm.vec2_map, name);
+    return naui_strmap_get(naui_theme_state.vec2_map, name);
+}
+
+const Naui_List(Naui_Color) naui_theme_color_list(const char *name)
+{
+    return naui_strmap_get(naui_theme_state.color_list_map, name);
 }

@@ -172,7 +172,7 @@ static void uph_mixer_render_track(Uph_Track *track)
 
     leaf({
         .id = id,
-        .size = {LEAF_SIZE_FIXED(NAUI_DPI(110)), LEAF_SIZE_FULL},
+        .size = {LEAF_SIZE_FIXED(NAUI_DPI(100)), LEAF_SIZE_FULL},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
         .color = {

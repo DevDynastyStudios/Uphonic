@@ -17,4 +17,9 @@ void uph_resources_copy_automation(Uph_ResourceIndex automation_index);
 void uph_resources_remove_automation(Uph_ResourceIndex automation_index);
 
 void uph_resources_unload_all_plugins(void);
-Naui_Color uph_resources_track_color(const int32_t color_index);
+
+static inline Naui_Color uph_resources_track_color(const int32_t color_index)
+{
+	const Naui_List(Naui_Color) list = naui_theme_color_list("uph_track_palette");
+	return list[color_index % naui_list_len(list)];
+}

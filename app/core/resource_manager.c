@@ -1,5 +1,3 @@
-#define UPH_TRACK_PALLETE_SIZE 8
-
 #pragma region Helpers
 static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track *parent)
 {
@@ -30,8 +28,8 @@ static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 		uph_resources_clear_tracks_recursive(track->subtracks);
 		uph_unload_plugin(&track->instrument);
 
-		//for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			//uph_unload_plugin(&track->effects[e]);
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
 
 		naui_list_free(track->effects);
 		naui_list_free(track->blocks);
@@ -76,8 +74,8 @@ static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
 
 		uph_unload_plugin(&track->instrument);
 
-		//for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			//uph_unload_plugin(&track->effects[e]);
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
 	}
 }
 
@@ -88,14 +86,6 @@ static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
 void uph_resources_unload_all_plugins(void)
 {
 	uph_resources_unload_plugins_recursive(uph_state.project.tracks);
-}
-
-Naui_Color uph_resources_track_color(const int32_t color_index)
-{
-	const int32_t wrapped = color_index % UPH_TRACK_PALLETE_SIZE;
-	char key[32];
-	snprintf(key, sizeof(key), "uph_palette_color_%d", wrapped);
-	return naui_theme_color(key);
 }
 
 void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
