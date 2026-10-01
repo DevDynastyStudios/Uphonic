@@ -44,6 +44,8 @@ static void uph_effect_list_on_update(void)
     if (!track)
         return;
 
+    Uph_UIMenuID context_menu = uph_ui_context_menu();
+
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
     const Naui_Color text_disabled_color = naui_theme_color("uph_ui_text_disabled_color");
@@ -60,12 +62,23 @@ static void uph_effect_list_on_update(void)
     int32_t move_from = -1;
     int32_t move_to = -1;
 
+    static uint32_t current_effect_index;
+
     for (uint32_t i = 0; i < effect_count; i++)
     {
         Uph_EffectPlugin *effect = &track->effects[i];
         Uph_Plugin *plugin = &effect->plugin;
+        
+        Leaf_ID id = leaf_id_indexed("uph_effect_list_item", i);
+        
+        if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_ui_widget_hovered(id))
+        {
+            current_effect_index = i;
+            uph_ui_open_context_menu(context_menu);
+        }
 
         leaf({
+            .id = id,
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
@@ -103,4 +116,13 @@ static void uph_effect_list_on_update(void)
 
     if (move_from >= 0 && move_to >= 0)
         uph_effect_list_swap(track, (uint32_t)move_from, (uint32_t)move_to);
+
+    if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
+    {
+        Uph_EffectPlugin *effect = &track->effects[current_effect_index];
+        uph_audio_engine_lock();
+        naui_list_remove(track->effects, current_effect_index);
+        uph_audio_engine_unlock();
+        uph_unload_plugin(&effect->plugin);
+    }
 }

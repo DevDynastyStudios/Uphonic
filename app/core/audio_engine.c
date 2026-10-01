@@ -513,7 +513,20 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     }
 }
 
-static void uph_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
+static Naui_Mutex uph_audio_engine_mutex;
+
+void uph_audio_engine_lock(void)
+{
+    naui_mutex_lock(uph_audio_engine_mutex);
+}
+
+void uph_audio_engine_unlock(void)
+{
+    naui_mutex_unlock(uph_audio_engine_mutex);
+}
+
+
+static void uph_audio_engine_data_callback_locked(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
     (void)input;
 
@@ -543,6 +556,17 @@ static void uph_data_callback(ma_device *device, void *output, const void *input
     }
 }
 
+static void uph_audio_engine_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
+{
+    if (!naui_mutex_try_lock(uph_audio_engine_mutex))
+    {
+        memset(output, 0, frame_count * 2 * sizeof(float));
+        return;
+    }
+    uph_audio_engine_data_callback_locked(device, output, input, frame_count);
+    naui_mutex_unlock(uph_audio_engine_mutex);
+}
+
 void uph_audio_engine_init(void)
 {
     Uph_AudioSettings settings = uph_state.settings.audio;
@@ -551,7 +575,7 @@ void uph_audio_engine_init(void)
     config.playback.format   = ma_format_f32;
     config.playback.channels = 2;
     config.sampleRate        = settings.sample_rate;
-    config.dataCallback      = uph_data_callback;
+    config.dataCallback      = uph_audio_engine_data_callback;
     config.periodSizeInFrames = UPH_SAMPLE_FRAME_COUNT;
 
     ma_result result = ma_device_init(NULL, &config, &uph_audio_engine_data.device);
@@ -561,12 +585,14 @@ void uph_audio_engine_init(void)
         return;
     }
 
+    uph_audio_engine_mutex = naui_mutex_create();
     ma_device_start(&uph_audio_engine_data.device);
 }
 
 void uph_audio_engine_shutdown(void)
 {
     ma_device_uninit(&uph_audio_engine_data.device);
+    naui_mutex_destroy(uph_audio_engine_mutex);
 }
 
 static void uph_build_waveform_peaks(Uph_SampleData *uph_audio_engine_data)

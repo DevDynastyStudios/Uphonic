@@ -50,6 +50,9 @@ static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, dou
 void uph_audio_engine_init(void);
 void uph_audio_engine_shutdown(void);
 
+void uph_audio_engine_lock(void);
+void uph_audio_engine_unlock(void);
+
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path);
 void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 

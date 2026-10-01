@@ -1296,7 +1296,7 @@ static inline void uph_load_vst3_plugin_internal(Uph_Plugin *plug, uint32_t *wid
     Uph_Vst3GetFactoryFn get_factory = NULL;
 
 #if NAUI_LINUX
-    lib = dlopen(binary, RTLD_LOCAL | RTLD_LAZY);
+    lib = dlopen(binary, RTLD_LOCAL | RTLD_LAZY | RTLD_NODELETE);
     if (!lib) { fprintf(stderr, "uph vst3: dlopen failed: %s\n", dlerror()); return; }
 
     Uph_Vst3ModuleEntryFn entry = (Uph_Vst3ModuleEntryFn)dlsym(lib, "ModuleEntry");
@@ -1614,6 +1614,7 @@ static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
 static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 {
     ih->vst3.ready = 0;
+    ih->visible = false;
 
     if (ih->vst3.processor)
         ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 0);
@@ -1624,7 +1625,18 @@ static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
     {
         ih->vst3.view->lpVtbl->removed(ih->vst3.view);
         ih->vst3.view->lpVtbl->setFrame(ih->vst3.view, NULL);
+        ih->vst3.view->lpVtbl->release(ih->vst3.view);
+        ih->vst3.view = NULL;
     }
+
+#if NAUI_LINUX
+    for (int i = 0; i < UPH_VST3_MAX_FD_HANDLERS; i++)
+        if (ih->vst3.run_loop.fds[i].handler)
+            fprintf(stderr, "uph vst3: plugin left an fd handler registered after removed()\n");
+    for (int i = 0; i < UPH_VST3_MAX_TIMERS; i++)
+        if (ih->vst3.run_loop.timers[i].handler)
+            fprintf(stderr, "uph vst3: plugin left a timer registered after removed()\n");
+#endif
 
     uph_vst3_free_partial(ih);
 
@@ -1632,7 +1644,7 @@ static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
     if (ih->display)
     {
         XDestroyWindow(ih->display, ih->window);
-        XFlush(ih->display);
+        XSync(ih->display, False);
         XCloseDisplay(ih->display);
         ih->display = NULL;
     }
@@ -2698,7 +2710,14 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
         plugin->deactivate(plugin);
 
         if (internal_handle->clap.gui)
+        {
+            if (internal_handle->visible)
+            {
+                internal_handle->clap.gui->hide(plugin);
+                internal_handle->visible = false;
+            }
             internal_handle->clap.gui->destroy(plugin);
+        }
 
         plugin->destroy(plugin);
         internal_handle->clap.plugin = NULL;
@@ -2718,13 +2737,21 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
         DestroyWindow(internal_handle->window);
         internal_handle->window = NULL;
     }
+#endif
 
     if (internal_handle->clap.entry)
+    {
         internal_handle->clap.entry->deinit();
+        internal_handle->clap.entry = NULL;
+    }
 
     if (internal_handle->clap.library_handle)
+    {
+#if NAUI_WINDOWS
         FreeLibrary((HMODULE)internal_handle->clap.library_handle);
 #endif
+        internal_handle->clap.library_handle = NULL;
+    }
 }
 
 void uph_unload_plugin(Uph_Plugin *plug)

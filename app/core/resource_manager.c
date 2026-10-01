@@ -121,18 +121,20 @@ void uph_resources_remove_track(Uph_Track *track)
 	Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
 	uint32_t removed_index = track->index;
 
+	uph_audio_engine_lock();
 	uph_resources_remove_track_children(track);
+	naui_list_free(track->blocks);
+	naui_list_free(track->effects);
+	naui_list_remove(list, removed_index);
+	uph_audio_engine_unlock();
+
+	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
+		list[i].index--;
+
 	uph_unload_plugin(&track->instrument);
 	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
 		uph_unload_plugin(&track->effects[e].plugin);
 
-	naui_list_free(track->blocks);
-	naui_list_free(track->effects);
-	naui_list_remove(list, removed_index);
-
-	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
-		list[i].index--;
-	
 	if (uph_state.shared.selected_mixer_track == track)
 		uph_state.shared.selected_mixer_track = NULL;
 }

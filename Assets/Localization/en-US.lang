@@ -60,6 +60,8 @@
 	"menu.help.tutorials": "Tutorials",
 	"menu.help.about": "About",
 
+	"effect_list.remove": "Remove",
+
 	"resource_list.title": "Resources",
 
 	"resource_list.patterns.title": "Patterns",
