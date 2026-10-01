@@ -388,7 +388,7 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
 
             if (drag->mode == UPH_NOTE_INTERACTION_MOVE)
             {
-                const double snapped = uph_snap_beat(mouse_beat + drag->initial_drag_beat_offset, uph_midi_editor_data.snap_resolution);
+                const double snapped = uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, uph_midi_editor_data.snap_resolution);
                 note->start_beat = fmax(0.0, snapped);
 
                 const int32_t mouse_row_now = uph_midi_editor_mouse_row_from_top(box, lane_height);
@@ -402,7 +402,7 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
             {
                 const double division = uph_snap_division(uph_midi_editor_data.snap_resolution);
 
-                double new_start = fmax(0.0, uph_snap_beat(mouse_beat, uph_midi_editor_data.snap_resolution));
+                double new_start = fmax(0.0, uph_snap_beat_round(mouse_beat, uph_midi_editor_data.snap_resolution));
                 double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
                 new_start = fmin(new_start, end_beat - division);
@@ -421,7 +421,7 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
             {
                 const double division = uph_snap_division(uph_midi_editor_data.snap_resolution);
 
-                const double snapped_end = uph_snap_beat(note->start_beat + (mouse_beat - note->start_beat), uph_midi_editor_data.snap_resolution);
+                const double snapped_end = uph_snap_beat_round(note->start_beat + (mouse_beat - note->start_beat), uph_midi_editor_data.snap_resolution);
                 double new_length = snapped_end - note->start_beat;
                 new_length = fmax(division, new_length);
 
@@ -520,7 +520,7 @@ static void uph_midi_editor_update_draw_input(Leaf_BoundingBox box, Uph_MidiPatt
     const uint8_t key_number = (uint8_t)NAUI_CLAMP(127 - row_from_top, 0, 127);
 
     Uph_MidiNote note = {
-        .start_beat = fmax(0.0, uph_snap_beat(beat, uph_midi_editor_data.snap_resolution)),
+        .start_beat = fmax(0.0, uph_snap_beat_floor(beat, uph_midi_editor_data.snap_resolution)),
         .length_beats = uph_midi_editor_data.last_note_length,
         .key_number = key_number,
         .velocity = uph_midi_editor_data.last_note_velocity
@@ -557,7 +557,7 @@ static void uph_midi_editor_update_cut_input(Leaf_BoundingBox box, Uph_MidiPatte
     const float scroll_x = uph_midi_editor_data.scroll.x;
 
     const double mouse_beat = ((double)naui_mouse_x() - box.x + scroll_x) / zoom_x;
-    const double cut_beat = uph_snap_beat(mouse_beat, uph_midi_editor_data.snap_resolution);
+    const double cut_beat = uph_snap_beat_round(mouse_beat, uph_midi_editor_data.snap_resolution);
 
     const double left_length = cut_beat - note->start_beat;
     const double right_length = note->length_beats - left_length;
@@ -647,7 +647,7 @@ static void uph_midi_editor_render_cut_line(Leaf_BoundingBox box)
     const float scroll_x = uph_midi_editor_data.scroll.x;
 
     const double mouse_beat = ((double)naui_mouse_x() - box.x + scroll_x) / zoom_x;
-    const double cut_beat = uph_snap_beat(mouse_beat, uph_midi_editor_data.snap_resolution);
+    const double cut_beat = uph_snap_beat_round(mouse_beat, uph_midi_editor_data.snap_resolution);
 
     const float x = box.x + (float)(cut_beat * zoom_x) - scroll_x;
 

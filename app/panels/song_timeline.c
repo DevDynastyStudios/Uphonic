@@ -580,7 +580,7 @@ static inline bool uph_song_timeline_block_is_visible(double start_beat, double 
 static double uph_song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
 {
     const double raw = ((double)naui_mouse_x() - position.x) / uph_song_timeline_data.zoom.x + start_offset;
-    return uph_snap_beat(raw, uph_song_timeline_data.snap_resolution);
+    return uph_snap_beat_round(raw, uph_song_timeline_data.snap_resolution);
 }
 
 static void uph_song_timeline_update_automation_point_drag(
@@ -749,7 +749,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
             {
             blocks[i].start_beat =
-                fmax(0.0, uph_snap_beat(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
+                fmax(0.0, uph_snap_beat_round(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
                 
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
@@ -757,7 +757,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             {
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
 
-                double new_start = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
+                double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
                 double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
                 const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
@@ -780,7 +780,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
 
                 double raw_length = mouse_beat - blocks[i].start_beat;
-                double snapped_end = uph_snap_beat(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution);
+                double snapped_end = uph_snap_beat_round(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution);
                 double new_length = snapped_end - blocks[i].start_beat;
                 new_length = fmax(division, new_length);
                 blocks[i].length_beats = new_length;
@@ -954,7 +954,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
                 uph_song_timeline_data.drag.track = track;
                 uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;
                 uph_song_timeline_data.drag.initial_drag_beat_offset = 0.0;
-                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_snap_beat(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_snap_beat_round(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
                 if (track->type == UPH_RESOURCE_NONE)
                     track->type = uph_state.shared.selected_resource.type;
             }
@@ -970,7 +970,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
             Uph_TimelineBlock *block = &track->blocks[block_index];
 
             const double mouse_beat = ((double)naui_mouse_x() - bbox.x + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-            const double cut_beat = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
+            const double cut_beat = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
 
             const double left_length = cut_beat - block->start_beat;
             const double right_length = block->length_beats - left_length;
@@ -1482,7 +1482,7 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
     if (uph_song_timeline_data.current_action_mode == UPH_ACTION_CUT)
     {
         const double mouse_beat = ((double)naui_mouse_x() - (bbox.x + x_offset) + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-        const double cut_beat = uph_snap_beat(mouse_beat, uph_song_timeline_data.snap_resolution);
+        const double cut_beat = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
 
         const float x = bbox.x + x_offset + (float)(cut_beat * uph_song_timeline_data.zoom.x) - uph_song_timeline_data.scroll.x;
 
