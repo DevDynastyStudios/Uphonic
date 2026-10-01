@@ -666,6 +666,9 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
     const float scroll_y = uph_midi_editor_data.scroll.y;
     const float lane_height = zoom_y * 7.0f / 12.0f;
 
+    const Leaf_Color bg1_color = naui_theme_color("uph_timeline_row_bg1_color");
+    const Leaf_Color bg2_color = naui_theme_color("uph_timeline_row_bg2_color");
+
     for (uint8_t i = 0; i < 128; i++)
     {
         const uint32_t row_from_top = 127u - i;
@@ -676,7 +679,7 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
         naui_fill_rect(
             (Naui_Vec2) { box.x, y_position },
             (Naui_Vec2) { box.width, lane_height },
-            uph_is_black_key(i) ? leaf_rgba(0, 0, 0, 50) : LEAF_COLOR_TRANSPARENT,
+            uph_is_black_key(i) ? bg1_color : bg2_color,
             0.0f,
             LEAF_CORNER_NONE
         );
@@ -737,7 +740,9 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
     const float note_label_font_size = fminf(NAUI_DPI(11.0f), lane_height * 0.8f);
     const float note_label_padding = NAUI_DPI(3.0f);
     const float note_rounding = NAUI_DPI(3.0f);
-    const Leaf_Color note_label_color = leaf_rgba(0, 0, 0, 180);
+    const Leaf_Color note_label_color = LEAF_COLOR_WHITE;
+
+    const Leaf_Color note_color = naui_theme_color("uph_midi_editor_default_note_color");
 
     for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
     {
@@ -754,7 +759,7 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
         naui_fill_rect(
             (Naui_Vec2) { note_x, y_position },
             (Naui_Vec2) { note_width, lane_height },
-            LEAF_COLOR_WHITE,
+            note_color,
             note_rounding,
             LEAF_CORNER_ALL
         );
@@ -851,14 +856,14 @@ static void uph_midi_editor_render_toolbox(void)
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
-        .color = {naui_theme_color("uph_ui_toolbox_bg_color")},
+        .color = {naui_theme_color("uph_toolbox_bg_color")},
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .child_gap = NAUI_DPI(16),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
         const int32_t button_size = NAUI_DPI(14);
-        const Naui_Color bg_color = naui_theme_color("uph_ui_frame_secondary_bg_color");
+        const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
             .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
@@ -999,7 +1004,7 @@ static void uph_midi_editor_render_top_ruler(void)
             .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_PIANO_WIDTH)), LEAF_SIZE_FULL}
         });
         leaf({
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(height - 1)},
+            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(height - 2)},
             .custom_draw = (Leaf_CustomDrawFn)uph_midi_editor_top_ruler_custom_draw,
             .border = {
                 .width = 1,

@@ -13,7 +13,6 @@
 
 	"song_timeline.title": "Song Timeline",
 	"song_timeline.track.title": "Untitled Track",
-	"song_timeline.add.track": "Add Track",
 
 	"recovery.title": "Recover Project",
 	"recovery.project_found": "An unsaved project was found. Would you like to restore or discard it?",

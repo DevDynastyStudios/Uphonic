@@ -94,7 +94,7 @@ static void uph_song_timeline_on_attach(void)
     naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
-    uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 100.0f };
+    uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
     uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
     uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
 }
@@ -1018,7 +1018,7 @@ static void uph_song_timeline_render_track_timeline(Uph_Track *track)
 {
     const uint32_t row_counter = uph_song_timeline_data.visual_row_counter;
 
-    const Leaf_Color bg_color = row_counter & 1 ? naui_theme_color("uph_song_timeline_row_bg1_color") : naui_theme_color("uph_song_timeline_row_bg2_color");
+    const Leaf_Color bg_color = row_counter & 1 ? naui_theme_color("uph_timeline_row_bg1_color") : naui_theme_color("uph_timeline_row_bg2_color");
     const Leaf_Color border_color = naui_theme_color("uph_song_timeline_border_color");
 
     const float row_height = NAUI_DPI(uph_song_timeline_data.zoom.y);
@@ -1249,12 +1249,13 @@ static void uph_song_timeline_render_toolbox(void)
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(40.0f))},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+        .color = {naui_theme_color("uph_toolbox_bg_color")},
         .child_gap = NAUI_DPI(16.0f),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
         const int32_t button_size = NAUI_DPI(16);
-        const Naui_Color bg_color = naui_theme_color("uph_ui_frame_secondary_bg_color");
+        const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
             .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
@@ -1383,7 +1384,7 @@ static void uph_song_timeline_render_top_bar(void)
         })
         {
             leaf({
-                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(height - 1)},
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(height - 2)},
                 .custom_draw = (Leaf_CustomDrawFn)uph_song_timeline_render_top_ruler,
                 .border = {
                     .width = 1,
@@ -1483,7 +1484,7 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
         const float x = bbox.x + x_offset + (float)(cut_beat * uph_song_timeline_data.zoom.x) - uph_song_timeline_data.scroll.x;
 
         naui_draw_line(
-            (Naui_Vec2) { x, bbox.y + playhead_size * 2.0f },
+            (Naui_Vec2) { x, bbox.y + playhead_half_size },
             (Naui_Vec2) { x, bbox.y + bbox.height },
             color,
             NAUI_DPI(1.0f)
@@ -1493,13 +1494,13 @@ static void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, voi
     {
         const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * uph_song_timeline_data.zoom.x - uph_song_timeline_data.scroll.x;
         naui_draw_line(
-            (Naui_Vec2) { x, bbox.y + playhead_size },
+            (Naui_Vec2) { x, bbox.y + playhead_half_size },
             (Naui_Vec2) { x, bbox.y + bbox.height },
             color,
             NAUI_DPI(1.0f)
         );
 
-        naui_draw_image(playhead_image, (Naui_Vec2){x - playhead_half_size, bbox.y + playhead_size}, (Naui_Vec2){playhead_size, playhead_size}, color, 0.0f, NAUI_CORNER_NONE);
+        naui_draw_image(playhead_image, (Naui_Vec2){x - playhead_half_size, bbox.y + playhead_half_size}, (Naui_Vec2){playhead_size, playhead_size}, color, 0.0f, NAUI_CORNER_NONE);
     }
 
     naui_pop_clip_rect();
@@ -1628,7 +1629,6 @@ static void uph_song_timeline_on_update(void)
     data->automation_edit.active = false;
     data->hovered_block.active = false;
     data->visual_row_counter = 0;
-	
 
     if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_hovered)
         uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
