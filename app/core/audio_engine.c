@@ -377,12 +377,12 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     for (uint64_t t = 0; t < track_count; t++)
     {
         Uph_Track *track = &project->tracks[t];
+        
+        track->peak_right = 0.0f;
+        track->peak_left = 0.0f;
+
         if ((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED))
-        {
-            track->peak_right = 0.0f;
-            track->peak_left = 0.0f;
             continue;
-        }
 
         uint64_t block_count = naui_list_len(track->blocks);
 

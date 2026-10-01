@@ -74,8 +74,8 @@ static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_Track **
     const float gap = NAUI_DPI(1.0f);
 
     const float smooth_speed = naui_delta_time() * 30.0f;
-    track->smooth_peak_left = NAUI_LERP(track->smooth_peak_left, uph_state.shared.song_timeline_playing ? track->peak_left : 0.0f, smooth_speed);
-    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, uph_state.shared.song_timeline_playing ? track->peak_right : 0.0f, smooth_speed);
+    track->smooth_peak_left = NAUI_LERP(track->smooth_peak_left, track->peak_left, smooth_speed);
+    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, smooth_speed);
 
     float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_left));
     float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_right));
