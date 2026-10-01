@@ -1246,15 +1246,15 @@ static void uph_song_timeline_render_toolbox(void)
     Uph_SongTimelineData *data = &uph_song_timeline_data;
 
     leaf({
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(40.0f))},
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(40))},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .color = {naui_theme_color("uph_toolbox_bg_color")},
-        .child_gap = NAUI_DPI(16.0f),
+        .child_gap = NAUI_DPI(16),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        const int32_t button_size = NAUI_DPI(16);
+        const int32_t button_size = NAUI_DPI(naui_theme_float("uph_song_timeline_icon_size"));
         const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -1518,9 +1518,10 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
     {
         Uph_UIMenuID color_menu = uph_ui_submenu(track_options_context_menu, "Color", leaf_id("uph_song_timeline_options_color"));
-		for (uint32_t i = 0; i < 8; i++)
+		const uint32_t color_count = (uint32_t)naui_list_len(naui_theme_color_list("uph_track_palette"));
+        for (uint32_t i = 0; i < color_count; i++)
 		{
-			if (uph_ui_menu_item(color_menu, naui_string_format("Color %i", i).data, leaf_id_indexed("uph_song_timeline_options_color_", i)))
+			if (uph_ui_menu_item(color_menu, naui_string_format("Color %i", i).data, leaf_id_indexed("uph_song_timeline_options_color_item", i)))
             	track->color_index = i;
 		}
        

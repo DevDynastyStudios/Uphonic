@@ -33,7 +33,7 @@ Uph_DragData;
 typedef struct Uph_UIMenuNode Uph_UIMenuNode;
 struct Uph_UIMenuNode
 {
-    const char *text;
+    char *text;
     Leaf_ID element_id;
     Uph_UIMenuNode *next_sibling;
     Uph_UIMenuNode *first_child;
@@ -282,7 +282,12 @@ Uph_UIMenuID uph_ui_submenu(Uph_UIMenuID parent_id, const char *name, const Leaf
     Uph_UIMenuNode *parent = (Uph_UIMenuNode*)parent_id;
     Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
     menu->element_id = element_id;
-    menu->text = name;
+
+    const uint32_t name_length = strlen(name);
+    menu->text = naui_arena_alloc(&data->menu_arena, name_length + 1);
+    memcpy(menu->text, name, name_length);
+    menu->text[name_length] = '\0';
+
     uph_ui_append_menu_child(parent, menu);
 
     return (Uph_UIMenuID)menu;
@@ -296,7 +301,10 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     Uph_UIMenuNode *item = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
 
     item->element_id = element_id;
-    item->text = name;
+    const uint32_t name_length = strlen(name);
+    item->text = naui_arena_alloc(&data->menu_arena, name_length + 1);
+    memcpy(item->text, name, name_length);
+    item->text[name_length] = '\0';
     uph_ui_append_menu_child(parent, item);
 
     bool hovered = leaf_hovered(element_id);

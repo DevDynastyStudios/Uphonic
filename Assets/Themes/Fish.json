@@ -37,6 +37,7 @@
     "uph_ui_frame_rounding": 6.0,
     "uph_ui_frame_padding": [6.0, 6.0],
     "uph_toolbox_bg_color": "#1C1B23",
+    "uph_song_timeline_icon_size": 16.0,
     "uph_song_timeline_border_color": "#24232C",
     "uph_song_timeline_header_border_color": "#111015",
     "uph_song_timeline_header_color": "#1B1A22",

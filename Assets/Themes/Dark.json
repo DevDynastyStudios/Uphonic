@@ -47,6 +47,8 @@
 
     "uph_toolbox_bg_color": "#1B1B1E",
 
+    "uph_song_timeline_icon_size": 16.0,
+
     "uph_song_timeline_border_color": "#1C1C1F",
 
     "uph_song_timeline_header_border_color": "#121214",
