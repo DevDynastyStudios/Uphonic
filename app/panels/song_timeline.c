@@ -1342,7 +1342,10 @@ static void uph_song_timeline_render_toolbox(void)
                 "1/16"
             };
 
-            uph_ui_combo(snap_options, 5, (uint32_t*)&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
+            leaf({
+                .size = {LEAF_SIZE_FIXED(NAUI_DPI(60)), LEAF_SIZE_FULL},
+                .child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
+            }) uph_ui_dropdown(snap_options, 5, (uint32_t*)&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
         }
 
         leaf({

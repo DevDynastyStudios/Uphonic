@@ -919,7 +919,10 @@ static void uph_midi_editor_render_toolbox(void)
                 "1/16"
             };
 
-            uph_ui_combo(snap_options, 5, (uint32_t*)&uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
+            leaf({
+                .size = {LEAF_SIZE_FIXED(NAUI_DPI(60)), LEAF_SIZE_FULL},
+                .child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
+            }) uph_ui_dropdown(snap_options, 5, (uint32_t*)&uph_midi_editor_data.snap_resolution, leaf_id("uph_midi_editor_snap"));
         }
     }
 }
