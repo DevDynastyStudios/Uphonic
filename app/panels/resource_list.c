@@ -51,6 +51,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const float note_height = fmaxf(slot_height, 1.0f);
     const float x_scale = (furthest_beat > 0.0) ? (box.width / (float)furthest_beat) : 1.0f;
 
+    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     for (uint32_t i = 0; i < note_count; i++)
     {
         const Uph_MidiNote *note = &pattern->notes[i];
@@ -68,7 +69,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
         naui_fill_rect(
             (Naui_Vec2) { x, y },
             (Naui_Vec2) { fmaxf(width, 1.0f), note_height },
-            LEAF_COLOR_WHITE,
+            fg_color,
             0,
             NAUI_CORNER_NONE
         );
@@ -99,10 +100,11 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const double zoom = (double)box.width / (total_beats * time_scale);
     const double start_offset = 0.0;
 
+    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     uph_ui_waveform_zoomable(
         (Naui_Vec2) { box.x, box.y },
         (Naui_Vec2) { box.width, box.height },
-        LEAF_COLOR_WHITE,
+        fg_color,
         zoom,
         start_offset,
         box,
@@ -119,20 +121,18 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 {
     leaf({
         .id = id,
-        .custom_draw = content_draw,
-        .custom_draw_data = content_draw_data,
         .size = {
             .width = LEAF_SIZE_FIXED(NAUI_DPI(150)),
             .height = LEAF_SIZE_DERIVED
         },
         .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
         .aspect_ratio = 2.2f,
-        .border = {
-            .width = NAUI_DPI(selected ? 3.0f : 1.0f),
+        .border = selected ? (Leaf_Border){
+            .width = NAUI_DPI(1),
             .sides = LEAF_SIDE_ALL,
-            .color = {leaf_rgb(145, 111, 205)}
-        },
-        .color = {leaf_rgb(108, 83, 154)},
+            .color = {naui_theme_color("uph_resource_list_item_selected_border_color")}
+        } : (Leaf_Border){0},
+        .color = {naui_theme_color("uph_resource_list_item_bg_color")},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
         .clip_children = true
     }) {
@@ -154,10 +154,15 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
         else
         {
             leaf_text(name->data, {
-                .color = {LEAF_COLOR_WHITE},
-                .font_size = {NAUI_DPI(13)}
+                .color = {naui_theme_color("uph_resource_list_item_text_color")},
+                .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
             });
         }
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+            .custom_draw = content_draw,
+            .custom_draw_data = content_draw_data
+        });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }

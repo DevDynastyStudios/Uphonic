@@ -35,6 +35,9 @@ static inline float uph_db_to_linear(float db)
 #define UPH_MIXER_DB_MIN -60.0f
 #define UPH_MIXER_DB_MAX 6.0f
 
+static const float uph_mixer_db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
+#define UPH_MIXER_DB_TICK_COUNT ((int)(sizeof(uph_mixer_db_ticks) / sizeof(uph_mixer_db_ticks[0])))
+
 static inline float uph_mixer_db_to_fraction(float db)
 {
     float normalized = (db - UPH_MIXER_DB_MIN) / (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
@@ -51,12 +54,12 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
     const float tick_length = NAUI_DPI(4.0f);
     const float label_gap = NAUI_DPI(3.0f);
 
-    for (int i = 0; i < tick_count; i++)
+    for (int i = 0; i < UPH_MIXER_DB_TICK_COUNT; i++)
     {
-        float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(db_ticks[i])) * bounding_box.height;
+        float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(uph_mixer_db_ticks[i])) * bounding_box.height;
 
         char label[8];
-        snprintf(label, sizeof(label), "%.0f", db_ticks[i]);
+        snprintf(label, sizeof(label), "%.0f", uph_mixer_db_ticks[i]);
 
         Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
         float label_y = NAUI_CLAMP(y - text_size.y * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - text_size.y);
@@ -80,21 +83,40 @@ static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_Track **
     float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_left));
     float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_right));
 
+    const Naui_Color bar_color = naui_theme_color("uph_mixer_bar_color");
+
     naui_fill_rect(
         (Naui_Vec2){bounding_box.x, bounding_box.y + (1.0f - left_fraction) * bounding_box.height},
         (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * left_fraction},
-        leaf_rgb(100, 220, 100),
-        NAUI_DPI(6.0f),
+        bar_color,
+        NAUI_DPI(4.0f),
         NAUI_CORNER_TL | NAUI_CORNER_TR
     );
 
     naui_fill_rect(
         (Naui_Vec2){bounding_box.x + bounding_box.width * 0.5f + gap, bounding_box.y + (1.0f - right_fraction) * bounding_box.height},
         (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * right_fraction},
-        leaf_rgb(100, 220, 100),
-        NAUI_DPI(6.0f),
+        bar_color,
+        NAUI_DPI(4.0f),
         NAUI_CORNER_TL | NAUI_CORNER_TR
     );
+
+    const Naui_Color grid_color = naui_theme_color("uph_mixer_bar_line_color");
+
+    const float line_thickness = NAUI_MAX(1.0f, NAUI_DPI(1.0f));
+    for (int i = 0; i < UPH_MIXER_DB_TICK_COUNT; i++)
+    {
+        float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(uph_mixer_db_ticks[i])) * bounding_box.height;
+        float line_y = NAUI_CLAMP(y - line_thickness * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - line_thickness);
+
+        naui_fill_rect(
+            (Naui_Vec2){bounding_box.x, line_y},
+            (Naui_Vec2){bounding_box.width, line_thickness},
+            grid_color,
+            0.0f,
+            0
+        );
+    }
 }
 
 typedef struct Uph_MixerVolumeArrowData
