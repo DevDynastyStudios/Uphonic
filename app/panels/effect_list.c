@@ -120,9 +120,7 @@ static void uph_effect_list_on_update(void)
     if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
     {
         Uph_EffectPlugin *effect = &track->effects[current_effect_index];
-        uph_audio_engine_lock();
-        naui_list_remove(track->effects, current_effect_index);
-        uph_audio_engine_unlock();
         uph_unload_plugin(&effect->plugin);
+        naui_list_remove(track->effects, current_effect_index);
     }
 }
