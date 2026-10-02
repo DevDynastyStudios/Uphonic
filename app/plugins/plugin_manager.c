@@ -2759,7 +2759,9 @@ void uph_unload_plugin(Uph_Plugin *plug)
     if (!plug->loaded)
         return;
 
+    uph_audio_engine_lock();
     plug->loaded = false;
+    uph_audio_engine_unlock();
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)

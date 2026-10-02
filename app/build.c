@@ -21,7 +21,6 @@
 
 #include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"
-#include "plugins/plugin_manager.c"
 
 #include "core/audio_engine.h"
 #include "core/audio_engine.c"
@@ -33,6 +32,8 @@
 #include "io/serialization.c"
 #include "core/project_manager.h"
 #include "core/project_manager.c"
+
+#include "plugins/plugin_manager.c"
 
 #include "ui/titlebar.h"
 #include "ui/waveform.h"

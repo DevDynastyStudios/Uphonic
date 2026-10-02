@@ -1,5 +1,4 @@
 #pragma region Helpers
-
 static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track *parent)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
@@ -10,90 +9,36 @@ static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track
 	}
 }
 
-static bool uph_resources_tree_contains(Naui_List(Uph_Track) list, const Uph_Track *needle)
+static void uph_resources_remove_track_children(Uph_Track *track)
 {
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
-		if (&list[i] == needle || uph_resources_tree_contains(list[i].subtracks, needle))
-			return true;
+		uph_resources_remove_track_children(&track->subtracks[i]);
+		uph_unload_plugin(&track->subtracks[i].instrument);
+		naui_list_free(track->subtracks[i].blocks);
 	}
-	return false;
-}
-
-static void uph_resources_push_track_locked(Naui_List(Uph_Track) *list, Uph_Track *parent, Uph_Track track)
-{
-	const uintptr_t old_base = (uintptr_t)*list;
-	const uintptr_t old_end = old_base + (uintptr_t)naui_list_len(*list) * sizeof(Uph_Track);
-	const uintptr_t selected = (uintptr_t)uph_state.shared.selected_mixer_track;
-
-	naui_list_push(*list, track);
-
-	if ((uintptr_t)*list != old_base && selected >= old_base && selected < old_end)
-		uph_state.shared.selected_mixer_track = (Uph_Track*)((uintptr_t)*list + (selected - old_base));
-
-	uph_resources_link_track_list(*list, parent);
-}
-
-static void uph_resources_detach_plugin_locked(Naui_List(Uph_Plugin) *detached, Uph_Plugin *plugin)
-{
-	if (!plugin->loaded || !plugin->internal_handle)
-		return;
-
-	naui_list_push(*detached, *plugin);
-
-	plugin->loaded = false;
-	plugin->internal_handle = NULL;
-	plugin->params = NULL;
-}
-
-static void uph_resources_detach_plugins_recursive_locked(Naui_List(Uph_Plugin) *detached, Naui_List(Uph_Track) list)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
-	{
-		Uph_Track *track = &list[i];
-		uph_resources_detach_plugins_recursive_locked(detached, track->subtracks);
-		uph_resources_detach_plugin_locked(detached, &track->instrument);
-
-		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_resources_detach_plugin_locked(detached, &track->effects[e].plugin);
-	}
-}
-
-static void uph_resources_unload_detached(Naui_List(Uph_Plugin) detached)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(detached); i++)
-		uph_unload_plugin(&detached[i]);
-
-	naui_list_free(detached);
-}
-
-static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list);
-
-static void uph_resources_free_track_contents(Uph_Track *track)
-{
-	uph_resources_clear_tracks_recursive(track->subtracks);
-	track->subtracks = NULL;
-
-	uph_unload_plugin(&track->instrument);
-
-	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-		uph_unload_plugin(&track->effects[e].plugin);
-
-	naui_list_free(track->effects);
-	track->effects = NULL;
-	naui_list_free(track->blocks);
-	track->blocks = NULL;
+	naui_list_clear(track->subtracks);
 }
 
 static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
-		uph_resources_free_track_contents(&list[i]);
+	{
+		Uph_Track *track = &list[i];
+		uph_resources_clear_tracks_recursive(track->subtracks);
+		uph_unload_plugin(&track->instrument);
+
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
+
+		naui_list_free(track->effects);
+		naui_list_free(track->blocks);
+	}
 
 	naui_list_free(list);
 }
 
-static void uph_resources_clear_timeline_blocks_with_resource_locked(Uph_ResourceType track_type, Uph_ResourceIndex resource_index)
+static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType track_type, Uph_ResourceIndex resource_index)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 	{
@@ -119,35 +64,31 @@ static void uph_resources_clear_timeline_blocks_with_resource_locked(Uph_Resourc
 	}
 }
 
+static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
+	{
+		Uph_Track *track = &list[i];
+		uph_resources_unload_plugins_recursive(track->subtracks);
+		uph_unload_plugin(&track->instrument);
+
+		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+			uph_unload_plugin(&track->effects[e].plugin);
+	}
+}
+
 #pragma endregion
 
 #pragma region Public API
 
 void uph_resources_unload_all_plugins(void)
 {
-	Naui_List(Uph_Plugin) detached = NULL;
-
-	uph_audio_engine_lock();
-	uph_resources_detach_plugins_recursive_locked(&detached, uph_state.project.tracks);
-	uph_audio_engine_unlock();
-
-	uph_resources_unload_detached(detached);
+	uph_resources_unload_plugins_recursive(uph_state.project.tracks);
 }
 
 void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 {
 	uph_resources_link_track_list(tracks, NULL);
-}
-
-void uph_resources_replace_tracks(Uph_Project *project, Naui_List(Uph_Track) tracks)
-{
-	uph_audio_engine_lock();
-	Naui_List(Uph_Track) previous = project->tracks;
-	project->tracks = tracks;
-	uph_state.shared.selected_mixer_track = NULL;
-	uph_audio_engine_unlock();
-
-	uph_resources_clear_tracks_recursive(previous);
 }
 
 void uph_resources_add_track(Naui_String name)
@@ -158,10 +99,7 @@ void uph_resources_add_track(Naui_String name)
 		.volume = 1.0f,
 		.index = naui_list_len(uph_state.project.tracks)
 	};
-
-	uph_audio_engine_lock();
-	uph_resources_push_track_locked(&uph_state.project.tracks, NULL, track);
-	uph_audio_engine_unlock();
+	naui_list_push(uph_state.project.tracks, track);
 }
 
 void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int32_t effect_index, uint64_t param_id)
@@ -175,49 +113,34 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
 		.automation_param_id = param_id,
 		.automation_target_effect_index = effect_index
 	};
-
-	uph_audio_engine_lock();
-	uph_resources_push_track_locked(&parent->subtracks, parent, track);
-	uph_audio_engine_unlock();
+	naui_list_push(parent->subtracks, track);
 }
 
 void uph_resources_remove_track(Uph_Track *track)
 {
-	Uph_Track *parent = track->parent;
-	Naui_List(Uph_Track) list = parent ? parent->subtracks : uph_state.project.tracks;
-	const uint32_t removed_index = track->index;
-	const uint32_t old_count = (uint32_t)naui_list_len(list);
+	Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
+	uint32_t removed_index = track->index;
 
-	Uph_Track dead;
+	if (uph_state.shared.selected_mixer_track == track)
+		uph_state.shared.selected_mixer_track = NULL;
 
-	uph_audio_engine_lock();
+	uph_unload_plugin(&track->instrument);
+	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+		uph_unload_plugin(&track->effects[e].plugin);
 
-	dead = *track;
-
-	Uph_Track *selected = uph_state.shared.selected_mixer_track;
-	if (selected && (selected == track || uph_resources_tree_contains(dead.subtracks, selected)))
-		selected = NULL;
-	else if (selected && selected >= &list[removed_index + 1] && selected < &list[old_count])
-		selected--;
-
+	uph_resources_remove_track_children(track);
+	naui_list_free(track->blocks);
+	naui_list_free(track->effects);
 	naui_list_remove(list, removed_index);
-	uph_resources_link_track_list(list, parent);
-	uph_state.shared.selected_mixer_track = selected;
 
-	uph_audio_engine_unlock();
-
-	uph_resources_free_track_contents(&dead);
+	for (uint32_t i = removed_index; i < (uint32_t)naui_list_len(list); i++)
+		list[i].index--;
 }
 
 void uph_resources_clear_tracks(void)
 {
-	uph_audio_engine_lock();
-	Naui_List(Uph_Track) old = uph_state.project.tracks;
+	uph_resources_clear_tracks_recursive(uph_state.project.tracks);
 	uph_state.project.tracks = NULL;
-	uph_state.shared.selected_mixer_track = NULL;
-	uph_audio_engine_unlock();
-
-	uph_resources_clear_tracks_recursive(old);
 }
 
 bool uph_resources_add_sample_from_file(Naui_Path path)
@@ -247,11 +170,9 @@ void uph_resources_copy_sample(Uph_ResourceIndex sample_index)
 
 void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
 {
-	uph_audio_engine_lock();
-
 	Uph_Sample sample = uph_state.project.samples[sample_index];
 
-	uph_resources_clear_timeline_blocks_with_resource_locked(UPH_RESOURCE_SAMPLE, sample_index);
+	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_SAMPLE, sample_index);
 
 	if (--uph_state.project.sample_data[sample.data_index].ref_count == 0)
 	{
@@ -265,8 +186,6 @@ void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
 	}
 
 	naui_list_remove(uph_state.project.samples, sample_index);
-
-	uph_audio_engine_unlock();
 }
 
 void uph_resources_add_pattern(void)
@@ -287,10 +206,8 @@ void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 
 void uph_resources_remove_pattern(Uph_ResourceIndex pattern_index)
 {
-	uph_audio_engine_lock();
-	uph_resources_clear_timeline_blocks_with_resource_locked(UPH_RESOURCE_PATTERN, pattern_index);
+	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_PATTERN, pattern_index);
 	naui_list_remove(uph_state.project.midi_patterns, pattern_index);
-	uph_audio_engine_unlock();
 }
 
 void uph_resources_add_automation(void)
@@ -317,10 +234,8 @@ void uph_resources_copy_automation(Uph_ResourceIndex automation_index)
 
 void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
 {
-	uph_audio_engine_lock();
-	uph_resources_clear_timeline_blocks_with_resource_locked(UPH_RESOURCE_AUTOMATION, automation_index);
+	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
 	naui_list_remove(uph_state.project.automations, automation_index);
-	uph_audio_engine_unlock();
 }
 
 void uph_resources_remove_all_automation(void)

@@ -1541,11 +1541,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
             if (uph_ui_menu_item(track_options_context_menu, "Remove Instrument", leaf_id("uph_song_timeline_options_remove_instrument"))) 
             {
-                Uph_Plugin dead = track->instrument;
-                uph_audio_engine_lock();
-                track->instrument = (Uph_Plugin){0};
-                uph_audio_engine_unlock();
-                uph_unload_plugin(&dead);
+                uph_unload_plugin(&track->instrument);
                 if (naui_list_len(track->blocks) == 0)
                     track->type = UPH_RESOURCE_NONE;
             }
