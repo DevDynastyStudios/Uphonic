@@ -127,8 +127,6 @@ void naui_app_end(void)
 
 	cmidi_scheduler_stop_all();
 	cmidi_shutdown();
-
-	uph_audio_engine_shutdown();
 }
 
 static void uph_update_all_track_plugins(Uph_Track *track)
@@ -238,6 +236,7 @@ void naui_app_event(const Naui_AppEventData *data)
 	}
 	else if (data->type == NAUI_APP_EVENT_WINDOW_CLOSE)
 	{
+		uph_audio_engine_shutdown();
 		uph_resources_unload_all_plugins();
 	}
 }

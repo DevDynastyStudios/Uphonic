@@ -899,6 +899,11 @@ void uph_audio_engine_shutdown(void)
     ma_device_uninit(&uph_audio_engine_data.device);
 }
 
+bool uph_audio_engine_device_running(void)
+{
+    return ma_device_is_started(&uph_audio_engine_data.device);
+}
+
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
 {
     Uph_SampleData sample_data = {0};

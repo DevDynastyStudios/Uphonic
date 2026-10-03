@@ -2761,23 +2761,28 @@ void uph_unload_plugin(Uph_Plugin *plug)
     if (!plug->loaded)
         return;
 
-    uph_audio_engine_stop();
+    const bool was_running = uph_audio_engine_device_running();
+    if (was_running)
+        uph_audio_engine_stop();
+
     plug->loaded = false;
-    uph_audio_engine_start();
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (!internal_handle)
-        return;
+    if (internal_handle)
+    {
+        if (plug->format == UPH_PLUGIN_CLAP)
+            uph_unload_clap_plugin(internal_handle);
+        else if (plug->format == UPH_PLUGIN_VST3)
+            uph_unload_vst3_plugin(internal_handle);
 
-    if (plug->format == UPH_PLUGIN_CLAP)
-        uph_unload_clap_plugin(internal_handle);
-    else if (plug->format == UPH_PLUGIN_VST3)
-        uph_unload_vst3_plugin(internal_handle);
+        free(plug->internal_handle);
+        plug->internal_handle = NULL;
+    }
 
-    free(plug->internal_handle);
-	naui_list_free(plug->params);
+    naui_list_free(plug->params);
 
-    plug->internal_handle = NULL;
+    if (was_running)
+        uph_audio_engine_start();
 }
 
 static inline long uph_ms_since(float then)

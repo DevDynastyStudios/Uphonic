@@ -53,6 +53,8 @@ void uph_audio_engine_shutdown(void);
 void uph_audio_engine_stop(void);
 void uph_audio_engine_start(void);
 
+bool uph_audio_engine_device_running(void);
+
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path);
 void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 
