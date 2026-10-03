@@ -823,7 +823,7 @@ static void uph_midi_editor_update_delete_input(Uph_MidiPattern *pattern)
     if (note_index >= (uint32_t)naui_list_len(pattern->notes))
         return;
 
-    if (pattern->notes[note_index].selected && uph_note_selected_count(pattern) > 1)
+    if (uph_midi_editor_data.current_action_mode == UPH_ACTION_SELECT && pattern->notes[note_index].selected && uph_note_selected_count(pattern) > 1)
     {
         uph_note_delete_selected(uph_state.shared.selected_resource.index);
         return;

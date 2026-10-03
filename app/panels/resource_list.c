@@ -60,6 +60,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const float note_height = fmaxf(slot_height, 1.0f);
     const float x_scale = (furthest_beat > 0.0) ? (box.width / (float)furthest_beat) : 1.0f;
 
+    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     for (uint32_t i = 0; i < note_count; i++)
     {
         const Uph_MidiNote *note = &pattern->notes[i];
@@ -77,7 +78,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
         naui_fill_rect(
             (Naui_Vec2) { x, y },
             (Naui_Vec2) { fmaxf(width, 1.0f), note_height },
-            LEAF_COLOR_WHITE,
+            fg_color,
             0,
             NAUI_CORNER_NONE
         );
@@ -108,10 +109,11 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const double zoom = (double)box.width / (total_beats * time_scale);
     const double start_offset = 0.0;
 
+    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     uph_ui_waveform_zoomable(
         (Naui_Vec2) { box.x, box.y },
         (Naui_Vec2) { box.width, box.height },
-        LEAF_COLOR_WHITE,
+        fg_color,
         zoom,
         start_offset,
         box,
@@ -441,15 +443,22 @@ static void uph_resource_list_on_update(void)
     const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
     const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+	static float scroll = 0.0f;
 
+      Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
+        UPH_UI_SCROLL_DIRECTION_VERTICAL,
+        &scroll,
+        leaf_id("uph_resource_list_scrollbar")
+    );
     leaf({
         .size = {
             .width = LEAF_SIZE_FULL,
-            .height = LEAF_SIZE_FULL
+            .height = LEAF_SIZE_FIT
         },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .child_gap = NAUI_DPI(8)
     }) {
+
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
             leaf_text(NAUI_TR("resource_list.patterns.title"), {.font_size = font_size, .color = section_title_text_color});
     
@@ -505,6 +514,7 @@ static void uph_resource_list_on_update(void)
             uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
         }
     }
+    uph_ui_end_scroll_container(&scroll_container);
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.rename"), leaf_id("uph_pattern_rename")))
         uph_state.shared.selected_resource.renaming = true;
