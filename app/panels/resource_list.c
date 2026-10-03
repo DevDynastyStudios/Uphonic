@@ -1,5 +1,14 @@
 NAUI_PANEL(uph_resource_list)
 
+static struct
+{
+    Uph_ResourceType type;
+    Uph_ResourceIndex index;
+    Naui_String old_name;
+    bool active;
+}
+_Uph_ResourceListRename;
+
 static void uph_resource_list_on_attach(void)
 {
     Naui_PanelID this = naui_current_panel();
@@ -51,7 +60,6 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const float note_height = fmaxf(slot_height, 1.0f);
     const float x_scale = (furthest_beat > 0.0) ? (box.width / (float)furthest_beat) : 1.0f;
 
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     for (uint32_t i = 0; i < note_count; i++)
     {
         const Uph_MidiNote *note = &pattern->notes[i];
@@ -69,7 +77,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
         naui_fill_rect(
             (Naui_Vec2) { x, y },
             (Naui_Vec2) { fmaxf(width, 1.0f), note_height },
-            fg_color,
+            LEAF_COLOR_WHITE,
             0,
             NAUI_CORNER_NONE
         );
@@ -100,11 +108,10 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const double zoom = (double)box.width / (total_beats * time_scale);
     const double start_offset = 0.0;
 
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     uph_ui_waveform_zoomable(
         (Naui_Vec2) { box.x, box.y },
         (Naui_Vec2) { box.width, box.height },
-        fg_color,
+        LEAF_COLOR_WHITE,
         zoom,
         start_offset,
         box,
@@ -117,22 +124,87 @@ static void uph_automation_list_custom_draw(Leaf_BoundingBox box, void **user_da
     
 }
 
+static Naui_String *uph_resource_list_name(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (type == UPH_RESOURCE_PATTERN && index < (uint32_t)naui_list_len(uph_state.project.midi_patterns))
+        return &uph_state.project.midi_patterns[index].name;
+    if (type == UPH_RESOURCE_SAMPLE && index < (uint32_t)naui_list_len(uph_state.project.samples))
+        return &uph_state.project.samples[index].name;
+    if (type == UPH_RESOURCE_AUTOMATION && index < (uint32_t)naui_list_len(uph_state.project.automations))
+        return &uph_state.project.automations[index].name;
+
+    return NULL;
+}
+
+static void uph_resource_list_finish_rename(void)
+{
+    _Uph_ResourceListRename.active = false;
+
+    Naui_String *name = uph_resource_list_name(_Uph_ResourceListRename.type, _Uph_ResourceListRename.index);
+    if (!name || naui_strings_equal(*name, _Uph_ResourceListRename.old_name, true))
+        return;
+
+    Uph_ActionResourceRename data = {
+        .resource_index = _Uph_ResourceListRename.index,
+        .old_name = _Uph_ResourceListRename.old_name,
+        .new_name = *name
+    };
+
+    const char *action = NULL;
+    if (_Uph_ResourceListRename.type == UPH_RESOURCE_PATTERN)
+        action = UPH_ACTION_PATTERN_RENAME;
+    else if (_Uph_ResourceListRename.type == UPH_RESOURCE_SAMPLE)
+        action = UPH_ACTION_SAMPLE_RENAME;
+    else if (_Uph_ResourceListRename.type == UPH_RESOURCE_AUTOMATION)
+        action = UPH_ACTION_AUTOMATION_RENAME;
+
+    if (action)
+        naui_action_execute_stack(action, data);
+}
+
+static void uph_resource_list_update_rename(void)
+{
+    const Uph_ResourceType type = uph_state.shared.selected_resource.type;
+    const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
+    const bool renaming = uph_state.shared.selected_resource.renaming;
+
+    if (_Uph_ResourceListRename.active && (!renaming || _Uph_ResourceListRename.type != type || _Uph_ResourceListRename.index != index))
+        uph_resource_list_finish_rename();
+
+    if (renaming && !_Uph_ResourceListRename.active)
+    {
+        Naui_String *name = uph_resource_list_name(type, index);
+        if (!name)
+        {
+            uph_state.shared.selected_resource.renaming = false;
+            return;
+        }
+
+        _Uph_ResourceListRename.type = type;
+        _Uph_ResourceListRename.index = index;
+        _Uph_ResourceListRename.old_name = *name;
+        _Uph_ResourceListRename.active = true;
+    }
+}
+
 bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Leaf_DataSlice content_draw_data, Leaf_ID id, bool hovered, bool selected, bool renaming, const char *placeholder_name)
 {
     leaf({
         .id = id,
+        .custom_draw = content_draw,
+        .custom_draw_data = content_draw_data,
         .size = {
             .width = LEAF_SIZE_FIXED(NAUI_DPI(150)),
             .height = LEAF_SIZE_DERIVED
         },
         .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
         .aspect_ratio = 2.2f,
-        .border = selected ? (Leaf_Border){
-            .width = NAUI_DPI(1),
+        .border = {
+            .width = NAUI_DPI(selected ? 3.0f : 1.0f),
             .sides = LEAF_SIDE_ALL,
-            .color = {naui_theme_color("uph_resource_list_item_selected_border_color")}
-        } : (Leaf_Border){0},
-        .color = {naui_theme_color("uph_resource_list_item_bg_color")},
+            .color = {leaf_rgb(145, 111, 205)}
+        },
+        .color = {leaf_rgb(108, 83, 154)},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
         .clip_children = true
     }) {
@@ -141,28 +213,18 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, placeholder_name))
             {
                 if (name->length == 0)
-					*name = naui_string_from_cstr(placeholder_name);
+                    *name = naui_string_from_cstr(placeholder_name);
 
-				Uph_ActionTrackRename data = {
-					.new_name = naui_string_from_cstr(placeholder_name)
-				};
-
-				naui_action_execute(UPH_ACTION_TRACK_RENAME, &data);
                 uph_state.shared.selected_resource.renaming = false;
             }
         }
         else
         {
             leaf_text(name->data, {
-                .color = {naui_theme_color("uph_resource_list_item_text_color")},
-                .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
+                .color = {LEAF_COLOR_WHITE},
+                .font_size = {NAUI_DPI(13)}
             });
         }
-        leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-            .custom_draw = content_draw,
-            .custom_draw_data = content_draw_data
-        });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
@@ -324,57 +386,70 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
 
 static void uph_resource_list_remove(void)
 {
-    Uph_ResourceType type = uph_state.shared.selected_resource.type;
-    Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
+    const Uph_ResourceType type = uph_state.shared.selected_resource.type;
+    const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 
-    uint32_t max_length;
     if (type == UPH_RESOURCE_PATTERN)
     {
-        max_length = naui_list_len(uph_state.project.midi_patterns);
-        uph_resources_remove_pattern(index);
+        Uph_ActionPatternDelete data = { .resource_index = index };
+        naui_action_execute_stack(UPH_ACTION_PATTERN_DELETE, data);
     }
     else if (type == UPH_RESOURCE_SAMPLE)
     {
-        max_length = naui_list_len(uph_state.project.samples);
-        uph_resources_remove_sample(index);
+        Uph_ActionSampleDelete data = { .resource_index = index };
+        naui_action_execute_stack(UPH_ACTION_SAMPLE_DELETE, data);
     }
     else if (type == UPH_RESOURCE_AUTOMATION)
     {
-        max_length = naui_list_len(uph_state.project.automations);
-        uph_resources_remove_automation(index);
+        Uph_ActionAutomationDelete data = { .resource_index = index };
+        naui_action_execute_stack(UPH_ACTION_AUTOMATION_DELETE, data);
     }
+}
 
-    if (index > 0 && index == max_length)
-        index--;
-    else if (max_length == 0)
-        uph_state.shared.selected_resource.type = UPH_RESOURCE_NONE;
-    uph_state.shared.selected_resource.renaming = false;
+static void uph_resource_list_duplicate(void)
+{
+    const Uph_ResourceType type = uph_state.shared.selected_resource.type;
+    const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
+
+    if (type == UPH_RESOURCE_PATTERN)
+    {
+        Uph_ActionPatternDuplicate data = { .source_index = index };
+        naui_action_execute_stack(UPH_ACTION_PATTERN_DUPLICATE, data);
+    }
+    else if (type == UPH_RESOURCE_SAMPLE)
+    {
+        Uph_ActionSampleDuplicate data = { .source_index = index };
+        naui_action_execute_stack(UPH_ACTION_SAMPLE_DUPLICATE, data);
+    }
+    else if (type == UPH_RESOURCE_AUTOMATION)
+    {
+        Uph_ActionAutomationDuplicate data = { .source_index = index };
+        naui_action_execute_stack(UPH_ACTION_AUTOMATION_DUPLICATE, data);
+    }
 }
 
 static void uph_resource_list_on_update(void)
 {
+    uph_resource_list_update_rename();
+
+    if (naui_panel_hovered(naui_current_panel()) && naui_key_pressed(NAUI_KEY_DELETE) &&
+        !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
+        uph_resource_list_remove();
+
     Uph_UIMenuID context_menu = uph_ui_context_menu();
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
     const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
-    static float scroll = 0.0f;
-
-    Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
-        UPH_UI_SCROLL_DIRECTION_VERTICAL,
-        &scroll,
-        leaf_id("uph_resource_list_scrollbar")
-    );
     leaf({
         .size = {
             .width = LEAF_SIZE_FULL,
-            .height = LEAF_SIZE_FIT
+            .height = LEAF_SIZE_FULL
         },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .child_gap = NAUI_DPI(8)
     }) {
-
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color})
             leaf_text(NAUI_TR("resource_list.patterns.title"), {.font_size = font_size, .color = section_title_text_color});
     
@@ -430,7 +505,6 @@ static void uph_resource_list_on_update(void)
             uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
         }
     }
-    uph_ui_end_scroll_container(&scroll_container);
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.rename"), leaf_id("uph_pattern_rename")))
         uph_state.shared.selected_resource.renaming = true;
@@ -439,5 +513,5 @@ static void uph_resource_list_on_update(void)
         uph_resource_list_remove();
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.duplicate"), leaf_id("uph_pattern_duplicate")))
-        uph_resources_copy_pattern(uph_state.shared.selected_resource.index);
+        uph_resource_list_duplicate();
 }

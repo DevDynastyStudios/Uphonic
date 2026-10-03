@@ -45,7 +45,9 @@
 #include "ui/containers.c"
 
 #include "actions/action_track.c"
+#include "actions/action_block.c"
 #include "actions/action_pattern.c"
+#include "actions/action_sample.c"
 #include "actions/action_automation.c"
 #include "actions/action_manager.c"
 

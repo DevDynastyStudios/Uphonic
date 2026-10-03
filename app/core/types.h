@@ -108,6 +108,7 @@ typedef struct
 	float visual_lifetime;
 	Uph_ResourceIndex resource_index;
 	Uph_ResourceType type;
+	bool selected;
 }
 Uph_TimelineBlock;
 
@@ -160,6 +161,7 @@ typedef struct
 	double length_beats;
 	uint8_t key_number;
 	uint8_t velocity;
+	bool selected;
 }
 Uph_MidiNote;
 

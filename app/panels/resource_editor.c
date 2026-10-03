@@ -34,7 +34,12 @@ typedef struct
     uint8_t initial_key_number;
     int32_t initial_drag_key_offset;
     uint32_t note_index;
+    Uph_ResourceIndex pattern_index;
+    Naui_List(Uph_NoteSnapshot) group_notes;
     bool active;
+    bool creating;
+    bool group;
+    bool additive;
     Uph_NoteInteractionMode mode;
 }
 Uph_DraggingNoteState;
@@ -45,6 +50,14 @@ typedef struct
     bool active;
 }
 Uph_HoveredNoteState;
+
+typedef struct
+{
+    double start_beat;
+    float start_content_y;
+    bool active;
+}
+Uph_NoteMarqueeState;
 
 typedef uint64_t Uph_KeyBitset[UPH_MIDI_EDITOR_KEY_BITSET_WORD_COUNT];
 
@@ -93,6 +106,7 @@ typedef struct
     Uph_ActionMode current_action_mode;
     Uph_DraggingNoteState drag;
     Uph_HoveredNoteState hovered_note;
+    Uph_NoteMarqueeState marquee;
     Leaf_BoundingBox lanes_bounding_box;
     double last_note_length;
     double last_note_velocity;
@@ -102,7 +116,6 @@ typedef struct
     bool piano_hovered;
     bool piano_mouse_active;
     Uph_KeyBitset active_keys;
-    //Uph_KeyBitset active_keys_prev;    
 }
 Uph_MidiEditorData;
 
@@ -191,7 +204,6 @@ static int mouse_last_key = -1;
 static void uph_midi_editor_update_piano_input(Leaf_BoundingBox box)
 {
     Uph_MidiEditorData *editor = &uph_midi_editor_data;
-    //uph_key_bitset_copy(editor->active_keys_prev, editor->active_keys);
 
     if (editor->piano_hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
         editor->piano_mouse_active = true;
@@ -201,7 +213,6 @@ static void uph_midi_editor_update_piano_input(Leaf_BoundingBox box)
 
     uint8_t mouse_key = 0;
     const bool mouse_hit = editor->piano_mouse_active && uph_midi_editor_piano_hit_test(box, (float)naui_mouse_x(), (float)naui_mouse_y(), &mouse_key);
-    //uph_key_bitset_clear(editor->active_keys);
 
     if (mouse_hit)
     {
@@ -309,9 +320,6 @@ static void uph_midi_editor_on_attach(void)
     uph_midi_editor_data.current_action_mode = UPH_ACTION_DRAW;
     uph_midi_editor_data.last_note_length = UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH;
     uph_midi_editor_data.last_note_velocity = UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY;
-
-    //uph_key_bitset_clear(uph_midi_editor_data.active_keys);
-    //uph_key_bitset_clear(uph_midi_editor_data.active_keys_prev);
     uph_midi_editor_data.piano_mouse_active = false;
 
     const float lane_height = uph_midi_editor_data.zoom.y * 7.0f / 12.0f;
@@ -368,6 +376,206 @@ static inline int32_t uph_midi_editor_mouse_row_from_top(Leaf_BoundingBox box, f
     return (int32_t)floor(((double)naui_mouse_y() - box.y + uph_midi_editor_data.scroll.y) / lane_height);
 }
 
+#pragma region Note Drag Actions
+
+static void uph_midi_editor_cancel_drag(void)
+{
+    Uph_DraggingNoteState *drag = &uph_midi_editor_data.drag;
+    naui_list_free(drag->group_notes);
+    drag->group_notes = NULL;
+    drag->active = false;
+    drag->creating = false;
+    drag->group = false;
+    drag->mode = UPH_NOTE_INTERACTION_NONE;
+}
+
+static bool uph_midi_editor_note_geometry_equal(const Uph_MidiNote *a, const Uph_MidiNote *b)
+{
+    return a->start_beat == b->start_beat && a->length_beats == b->length_beats && a->key_number == b->key_number;
+}
+
+static void uph_midi_editor_begin_note_drag(Uph_MidiPattern *pattern, uint32_t note_index, Uph_NoteInteractionMode mode, Leaf_BoundingBox box)
+{
+    Uph_DraggingNoteState *drag = &uph_midi_editor_data.drag;
+    Uph_MidiNote *note = &pattern->notes[note_index];
+
+    const float zoom_x = uph_midi_editor_data.zoom.x;
+    const float lane_height = uph_midi_editor_data.zoom.y * 7.0f / 12.0f;
+
+    naui_list_free(drag->group_notes);
+    drag->group_notes = NULL;
+
+    drag->active = true;
+    drag->creating = false;
+    drag->group = false;
+    drag->additive = false;
+    drag->note_index = note_index;
+    drag->pattern_index = uph_state.shared.selected_resource.index;
+    drag->mode = mode;
+    drag->initial_start_beat = note->start_beat;
+    drag->initial_length_beats = note->length_beats;
+    drag->initial_key_number = note->key_number;
+
+    double mouse_beat = ((double)naui_mouse_x() - box.x + uph_midi_editor_data.scroll.x) / zoom_x;
+    drag->initial_drag_beat_offset = note->start_beat - mouse_beat;
+
+    const int32_t mouse_row_at_grab = uph_midi_editor_mouse_row_from_top(box, lane_height);
+    const int32_t note_row = 127 - (int32_t)note->key_number;
+    drag->initial_drag_key_offset = note_row - mouse_row_at_grab;
+
+    if (uph_midi_editor_data.current_action_mode == UPH_ACTION_SELECT)
+    {
+        drag->additive = uph_ui_ctrl_down() || uph_ui_shift_down();
+        if (drag->additive)
+        {
+            note->selected = !note->selected;
+            if (!note->selected)
+            {
+                drag->active = false;
+                drag->mode = UPH_NOTE_INTERACTION_NONE;
+                return;
+            }
+        }
+        else if (!note->selected)
+        {
+            uph_note_select_all(pattern, false);
+            note->selected = true;
+        }
+
+        drag->group = true;
+        uph_note_collect_selected(pattern, &drag->group_notes);
+    }
+
+    uph_midi_editor_data.last_note_length = note->length_beats;
+    uph_midi_editor_data.last_note_velocity = note->velocity;
+
+    uph_state.shared.current_pattern_updated = true;
+}
+
+static void uph_midi_editor_apply_group_drag(Uph_MidiPattern *pattern, const Uph_MidiNote *grabbed)
+{
+    const Uph_DraggingNoteState *drag = &uph_midi_editor_data.drag;
+    const double division = uph_snap_division(uph_midi_editor_data.snap_resolution);
+
+    double delta_start = grabbed->start_beat - drag->initial_start_beat;
+    double delta_length = grabbed->length_beats - drag->initial_length_beats;
+    int32_t delta_key = (int32_t)grabbed->key_number - (int32_t)drag->initial_key_number;
+
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_notes); i++)
+    {
+        const Uph_MidiNote *initial = &drag->group_notes[i].note;
+        if (drag->mode == UPH_NOTE_INTERACTION_MOVE)
+        {
+            delta_start = fmax(delta_start, -initial->start_beat);
+            delta_key = NAUI_MAX(delta_key, -(int32_t)initial->key_number);
+            delta_key = NAUI_MIN(delta_key, 127 - (int32_t)initial->key_number);
+        }
+        else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_LEFT)
+        {
+            delta_start = fmax(delta_start, -initial->start_beat);
+            delta_start = fmin(delta_start, initial->length_beats - division);
+        }
+        else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_RIGHT)
+        {
+            delta_length = fmax(delta_length, division - initial->length_beats);
+        }
+    }
+
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_notes); i++)
+    {
+        const Uph_NoteSnapshot *snapshot = &drag->group_notes[i];
+        if (snapshot->index >= (uint32_t)naui_list_len(pattern->notes))
+            continue;
+
+        Uph_MidiNote *note = &pattern->notes[snapshot->index];
+        if (drag->mode == UPH_NOTE_INTERACTION_MOVE)
+        {
+            note->start_beat = snapshot->note.start_beat + delta_start;
+            note->key_number = (uint8_t)((int32_t)snapshot->note.key_number + delta_key);
+        }
+        else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_LEFT)
+        {
+            note->start_beat = snapshot->note.start_beat + delta_start;
+            note->length_beats = snapshot->note.length_beats - delta_start;
+        }
+        else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_RIGHT)
+        {
+            note->length_beats = snapshot->note.length_beats + delta_length;
+        }
+    }
+}
+
+static void uph_midi_editor_finish_note_drag(Uph_MidiPattern *pattern)
+{
+    Uph_DraggingNoteState *drag = &uph_midi_editor_data.drag;
+    const char *transform_action = drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTE_MOVE : UPH_ACTION_MIDI_NOTE_RESIZE;
+
+    if (drag->creating)
+    {
+        if (drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+        {
+            Uph_ActionNoteCreate data = {
+                .pattern_index = drag->pattern_index,
+                .note_index = drag->note_index,
+                .note = pattern->notes[drag->note_index],
+                .applied_live = true
+            };
+            naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
+        }
+    }
+    else if (drag->group)
+    {
+        bool changed = false;
+        naui_action_group_start(drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTES_MOVE_GROUP : UPH_ACTION_MIDI_NOTES_RESIZE_GROUP);
+
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_notes); i++)
+        {
+            const Uph_NoteSnapshot *snapshot = &drag->group_notes[i];
+            if (snapshot->index >= (uint32_t)naui_list_len(pattern->notes))
+                continue;
+
+            const Uph_MidiNote *note = &pattern->notes[snapshot->index];
+            if (uph_midi_editor_note_geometry_equal(note, &snapshot->note))
+                continue;
+
+            Uph_ActionNoteTransform data = {
+                .pattern_index = drag->pattern_index, .note_index = snapshot->index,
+                .old_start = snapshot->note.start_beat, .old_length = snapshot->note.length_beats, .old_key = snapshot->note.key_number,
+                .new_start = note->start_beat, .new_length = note->length_beats, .new_key = note->key_number,
+                .applied_live = true
+            };
+            naui_action_execute_stack(transform_action, data);
+            changed = true;
+        }
+
+        naui_action_group_end();
+        if (!changed && !drag->additive && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+        {
+            uph_note_select_all(pattern, false);
+            pattern->notes[drag->note_index].selected = true;
+        }
+    }
+    else if (drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+    {
+        const Uph_MidiNote *note = &pattern->notes[drag->note_index];
+        const bool changed = note->start_beat != drag->initial_start_beat || note->length_beats != drag->initial_length_beats || note->key_number != drag->initial_key_number;
+        if (changed)
+        {
+            Uph_ActionNoteTransform data = {
+                .pattern_index = drag->pattern_index, .note_index = drag->note_index,
+                .old_start = drag->initial_start_beat, .old_length = drag->initial_length_beats, .old_key = drag->initial_key_number,
+                .new_start = note->start_beat, .new_length = note->length_beats, .new_key = note->key_number,
+                .applied_live = true
+            };
+            naui_action_execute_stack(transform_action, data);
+        }
+    }
+
+    uph_midi_editor_cancel_drag();
+}
+
+#pragma endregion
+
 static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
     Uph_DraggingNoteState *drag = &uph_midi_editor_data.drag;
@@ -376,10 +584,12 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
     const float lane_height = zoom_y * 7.0f / 12.0f;
     const float scroll_x = uph_midi_editor_data.scroll.x;
 
+    if (drag->active && (drag->pattern_index != uph_state.shared.selected_resource.index || drag->note_index >= (uint32_t)naui_list_len(pattern->notes)))
+        uph_midi_editor_cancel_drag();
+
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
     {
         Uph_MidiNote *note = &pattern->notes[i];
-
         bool is_dragging_this_note = drag->active && drag->note_index == i;
 
         if (is_dragging_this_note)
@@ -395,7 +605,6 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                 const int32_t new_row = mouse_row_now + drag->initial_drag_key_offset;
                 const int32_t new_key = 127 - new_row;
                 note->key_number = (uint8_t)NAUI_CLAMP(new_key, 0, 127);
-
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
             else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_LEFT)
@@ -435,11 +644,11 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
                 naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
             }
 
+            if (drag->group)
+                uph_midi_editor_apply_group_drag(pattern, note);
+
             if (naui_mouse_released(NAUI_MOUSE_LEFT))
-            {
-                drag->active = false;
-                drag->mode = UPH_NOTE_INTERACTION_NONE;
-            }
+                uph_midi_editor_finish_note_drag(pattern);
 
             return;
         }
@@ -453,43 +662,19 @@ static void uph_midi_editor_update_note_drag(Leaf_BoundingBox box, Uph_MidiPatte
 
             if (hover_box.y + hover_box.w < box.y || hover_box.y > box.y + box.height)
                 continue;
+
             if (hover_box.x + hover_box.z < box.x || hover_box.x > box.x + box.width)
                 continue;
 
-            if (upb_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
+            if (uph_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
             {
                 Uph_NoteInteractionMode hover_mode = uph_midi_editor_classify_hover(hover_box, (float)naui_mouse_x());
-
-                if (uph_midi_editor_data.current_action_mode == UPH_ACTION_SELECT ||
-                    uph_midi_editor_data.current_action_mode == UPH_ACTION_DRAW)
+                if (uph_midi_editor_data.current_action_mode == UPH_ACTION_SELECT || uph_midi_editor_data.current_action_mode == UPH_ACTION_DRAW)
                 {
                     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-                    {
-                        drag->active = true;
-                        drag->note_index = i;
-                        drag->mode = hover_mode;
-                        drag->initial_start_beat = note->start_beat;
-                        drag->initial_length_beats = note->length_beats;
-                        drag->initial_key_number = note->key_number;
+                        uph_midi_editor_begin_note_drag(pattern, i, hover_mode, box);
 
-                        double mouse_beat = ((double)naui_mouse_x() - box.x + scroll_x) / zoom_x;
-                        drag->initial_drag_beat_offset = note->start_beat - mouse_beat;
-
-                        const int32_t mouse_row_at_grab = uph_midi_editor_mouse_row_from_top(box, lane_height);
-                        const int32_t note_row = 127 - (int32_t)note->key_number;
-                        drag->initial_drag_key_offset = note_row - mouse_row_at_grab;
-                        
-                        uph_midi_editor_data.last_note_length = note->length_beats;
-                        uph_midi_editor_data.last_note_velocity = note->velocity;
-
-                        uph_state.shared.current_pattern_updated = true;
-                    }
-
-                    naui_set_cursor(
-                        hover_mode == UPH_NOTE_INTERACTION_MOVE
-                            ? NAUI_CURSOR_HAND
-                            : NAUI_CURSOR_RESIZE_EW
-                    );
+                    naui_set_cursor(hover_mode == UPH_NOTE_INTERACTION_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
                 }
 
                 uph_midi_editor_data.hovered_note.note_index = i;
@@ -526,7 +711,13 @@ static void uph_midi_editor_update_draw_input(Leaf_BoundingBox box, Uph_MidiPatt
         .velocity = uph_midi_editor_data.last_note_velocity
     };
 
+    naui_list_free(uph_midi_editor_data.drag.group_notes);
+    uph_midi_editor_data.drag.group_notes = NULL;
     uph_midi_editor_data.drag.active = true;
+    uph_midi_editor_data.drag.creating = true;
+    uph_midi_editor_data.drag.group = false;
+    uph_midi_editor_data.drag.additive = false;
+    uph_midi_editor_data.drag.pattern_index = uph_state.shared.selected_resource.index;
     uph_midi_editor_data.drag.note_index = (uint32_t)naui_list_len(pattern->notes);
     uph_midi_editor_data.drag.mode = UPH_NOTE_INTERACTION_MOVE;
     uph_midi_editor_data.drag.initial_drag_beat_offset = 0.0;
@@ -537,6 +728,62 @@ static void uph_midi_editor_update_draw_input(Leaf_BoundingBox box, Uph_MidiPatt
     uph_state.shared.current_pattern_updated = true;
 
     naui_list_push(pattern->notes, note);
+}
+
+static void uph_midi_editor_update_select_input(Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+{
+    if (!uph_midi_editor_data.lanes_hovered)
+        return;
+
+    if (uph_midi_editor_data.hovered_note.active || uph_midi_editor_data.drag.active)
+        return;
+
+    if (!naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        return;
+
+    Uph_NoteMarqueeState *marquee = &uph_midi_editor_data.marquee;
+    marquee->active = true;
+    marquee->start_beat = ((double)naui_mouse_x() - box.x + uph_midi_editor_data.scroll.x) / uph_midi_editor_data.zoom.x;
+    marquee->start_content_y = (float)naui_mouse_y() - box.y + uph_midi_editor_data.scroll.y;
+    uph_note_select_all(pattern, false);
+}
+
+static void uph_midi_editor_update_marquee(Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+{
+    const Uph_NoteMarqueeState *marquee = &uph_midi_editor_data.marquee;
+    if (!marquee->active)
+        return;
+
+    const float corner_x = box.x + (float)(marquee->start_beat * uph_midi_editor_data.zoom.x) - uph_midi_editor_data.scroll.x;
+    const float corner_y = box.y - uph_midi_editor_data.scroll.y + marquee->start_content_y;
+
+    const float left = fminf(corner_x, (float)naui_mouse_x());
+    const float right = fmaxf(corner_x, (float)naui_mouse_x());
+    const float top = fminf(corner_y, (float)naui_mouse_y());
+    const float bottom = fmaxf(corner_y, (float)naui_mouse_y());
+
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
+    {
+        Uph_MidiNote *note = &pattern->notes[i];
+        const Naui_Vec4 note_box = uph_midi_editor_note_screen_box(box, note);
+        note->selected = note_box.x < right && note_box.x + note_box.z > left && note_box.y < bottom && note_box.y + note_box.w > top;
+    }
+}
+
+static void uph_midi_editor_render_marquee(Leaf_BoundingBox box)
+{
+    const Uph_NoteMarqueeState *marquee = &uph_midi_editor_data.marquee;
+    if (!marquee->active)
+        return;
+
+    const float corner_x = box.x + (float)(marquee->start_beat * uph_midi_editor_data.zoom.x) - uph_midi_editor_data.scroll.x;
+    const float corner_y = box.y - uph_midi_editor_data.scroll.y + marquee->start_content_y;
+
+    const Naui_Vec2 top_left = { fminf(corner_x, (float)naui_mouse_x()), fminf(corner_y, (float)naui_mouse_y()) };
+    const Naui_Vec2 size = { fabsf(corner_x - (float)naui_mouse_x()), fabsf(corner_y - (float)naui_mouse_y()) };
+
+    naui_fill_rect(top_left, size, leaf_rgba(255, 255, 255, 30), 0.0f, NAUI_CORNER_NONE);
+    naui_draw_rect(top_left, size, leaf_rgba(255, 255, 255, 160), NAUI_DPI(1.0f), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
 }
 
 static void uph_midi_editor_update_cut_input(Leaf_BoundingBox box, Uph_MidiPattern *pattern)
@@ -551,7 +798,6 @@ static void uph_midi_editor_update_cut_input(Leaf_BoundingBox box, Uph_MidiPatte
         return;
 
     const uint32_t note_index = uph_midi_editor_data.hovered_note.note_index;
-    Uph_MidiNote *note = &pattern->notes[note_index];
 
     const float zoom_x = uph_midi_editor_data.zoom.x;
     const float scroll_x = uph_midi_editor_data.scroll.x;
@@ -559,20 +805,7 @@ static void uph_midi_editor_update_cut_input(Leaf_BoundingBox box, Uph_MidiPatte
     const double mouse_beat = ((double)naui_mouse_x() - box.x + scroll_x) / zoom_x;
     const double cut_beat = uph_snap_beat_round(mouse_beat, uph_midi_editor_data.snap_resolution);
 
-    const double left_length = cut_beat - note->start_beat;
-    const double right_length = note->length_beats - left_length;
-
-    const double division = uph_snap_division(uph_midi_editor_data.snap_resolution);
-    if (left_length >= division && right_length >= division)
-    {
-        Uph_MidiNote right_half = *note;
-        right_half.start_beat = cut_beat;
-        right_half.length_beats = right_length;
-
-        note->length_beats = left_length;
-
-        naui_list_push(pattern->notes, right_half);
-    }
+    uph_note_cut(uph_state.shared.selected_resource.index, note_index, cut_beat, uph_snap_division(uph_midi_editor_data.snap_resolution));
 }
 
 static void uph_midi_editor_update_delete_input(Uph_MidiPattern *pattern)
@@ -583,11 +816,21 @@ static void uph_midi_editor_update_delete_input(Uph_MidiPattern *pattern)
     if (!uph_midi_editor_data.hovered_note.active)
         return;
 
-    if (!naui_mouse_down(NAUI_MOUSE_RIGHT))
+    if (!naui_mouse_pressed(NAUI_MOUSE_RIGHT))
         return;
 
-    naui_list_uremove(pattern->notes, uph_midi_editor_data.hovered_note.note_index);
-    uph_state.shared.current_pattern_updated = true;
+    const uint32_t note_index = uph_midi_editor_data.hovered_note.note_index;
+    if (note_index >= (uint32_t)naui_list_len(pattern->notes))
+        return;
+
+    if (pattern->notes[note_index].selected && uph_note_selected_count(pattern) > 1)
+    {
+        uph_note_delete_selected(uph_state.shared.selected_resource.index);
+        return;
+    }
+
+    Uph_ActionNoteDelete data = { .pattern_index = uph_state.shared.selected_resource.index, .note_index = note_index };
+    naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_DELETE, data);
 }
 
 static void uph_midi_editor_render_beat_grid(Leaf_BoundingBox box)
@@ -724,7 +967,7 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
 
     if (uph_midi_editor_data.current_action_mode == UPH_ACTION_SELECT)
     {
-        // Selection not implemented yet
+        uph_midi_editor_update_select_input(box, pattern);
     }
     else if (uph_midi_editor_data.current_action_mode == UPH_ACTION_DRAW)
     {
@@ -736,6 +979,7 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
     }
 
     uph_midi_editor_update_delete_input(pattern);
+    uph_midi_editor_update_marquee(box, pattern);
 
     const float note_label_font_size = fminf(NAUI_DPI(11.0f), lane_height * 0.8f);
     const float note_label_padding = NAUI_DPI(3.0f);
@@ -764,6 +1008,19 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
             LEAF_CORNER_ALL
         );
 
+        if (note->selected)
+        {
+            naui_draw_rect(
+                (Naui_Vec2) { note_x, y_position },
+                (Naui_Vec2) { note_width, lane_height },
+                LEAF_COLOR_WHITE,
+                NAUI_DPI(2.0f),
+                note_rounding,
+                LEAF_CORNER_ALL,
+                NAUI_SIDE_ALL
+            );
+        }
+
         if (note_label_font_size >= NAUI_DPI(6.0f))
         {
             char label[8];
@@ -780,6 +1037,8 @@ static void uph_midi_editor_lanes_custom_draw(Leaf_BoundingBox box, void *user_d
             naui_pop_clip_rect();
         }
     }
+
+    uph_midi_editor_render_marquee(box);
 
     naui_pop_clip_rect();
 }
@@ -810,7 +1069,6 @@ static void uph_midi_editor_top_ruler_custom_draw(Leaf_BoundingBox bbox, void *d
             continue;
 
         const float x = bbox.x + (float)div_index * division_px - scroll_x;
-
         if (x < bbox.x - division_px || x > bbox.x + bbox.width)
             continue;
 
@@ -994,6 +1252,30 @@ static void uph_midi_editor_update_input(Leaf_BoundingBox box)
     }
 }
 
+static void uph_midi_editor_update_selection_keys(void)
+{
+    if (!uph_midi_editor_data.panel_hovered || uph_midi_editor_data.drag.active || uph_midi_editor_data.marquee.active)
+        return;
+
+    if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
+        return;
+
+    Uph_MidiPattern *pattern = uph_note_pattern(uph_state.shared.selected_resource.index);
+    if (!pattern)
+        return;
+
+    const bool ctrl = uph_ui_ctrl_down();
+
+    if (naui_key_pressed(NAUI_KEY_DELETE))
+        uph_note_delete_selected(uph_state.shared.selected_resource.index);
+    else if (ctrl && naui_key_pressed(NAUI_KEY_A))
+        uph_note_select_all(pattern, true);
+    else if (ctrl && naui_key_pressed(NAUI_KEY_D))
+        uph_note_duplicate_selected(uph_state.shared.selected_resource.index);
+    else if (naui_key_pressed(NAUI_KEY_ESCAPE))
+        uph_note_select_all(pattern, false);
+}
+
 static void uph_midi_editor_render_top_ruler(void)
 {
     const int32_t height = NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT);
@@ -1026,6 +1308,9 @@ static void uph_midi_editor_on_update(void)
 
     if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
     {
+        uph_midi_editor_cancel_drag();
+        uph_midi_editor_data.marquee.active = false;
+
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
@@ -1044,7 +1329,11 @@ static void uph_midi_editor_on_update(void)
     uph_midi_editor_data.piano_hovered = leaf_hovered(piano_id) && uph_midi_editor_data.panel_hovered;
     uph_midi_editor_data.lanes_bounding_box = leaf_get_bounding_box(lanes_id);
 
+    if (uph_midi_editor_data.marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
+        uph_midi_editor_data.marquee.active = false;
+
     uph_midi_editor_update_input(uph_midi_editor_data.lanes_bounding_box);
+    uph_midi_editor_update_selection_keys();
 
     uph_midi_editor_render_toolbox();
 
