@@ -864,10 +864,10 @@ void uph_audio_engine_init(void)
     ma_device_config config = ma_device_config_init(ma_device_type_duplex);
     config.capture.format     = ma_format_f32;
     config.capture.channels   = settings.channels;
-    config.playback.pDeviceID = &settings.input_device.id;
+    //config.playback.pDeviceID = &settings.input_device.id;
     config.playback.format    = ma_format_f32;
     config.playback.channels  = settings.channels;
-    config.playback.pDeviceID = &settings.output_device.id;
+    //config.playback.pDeviceID = &settings.output_device.id;
     config.sampleRate         = settings.sample_rate;
     config.dataCallback       = uph_audio_engine_data_callback;
 
