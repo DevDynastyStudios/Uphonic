@@ -542,16 +542,14 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     }
 }
 
-static Naui_Mutex uph_audio_engine_mutex;
-
-void uph_audio_engine_lock(void)
+void uph_audio_engine_stop(void)
 {
-    naui_mutex_lock(uph_audio_engine_mutex);
+    ma_device_stop(&uph_audio_engine_data.device);
 }
 
-void uph_audio_engine_unlock(void)
+void uph_audio_engine_start(void)
 {
-    naui_mutex_unlock(uph_audio_engine_mutex);
+    ma_device_start(&uph_audio_engine_data.device);
 }
 
 static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_frame_count)
@@ -809,7 +807,7 @@ static void uph_record_input(
     }
 }
 
-static void uph_audio_engine_data_callback_locked(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
+static void uph_audio_engine_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
     static bool was_playing = false;
 
@@ -859,17 +857,6 @@ static void uph_audio_engine_data_callback_locked(ma_device *device, void *outpu
     }
 }
 
-static void uph_audio_engine_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
-{
-    if (!naui_mutex_try_lock(uph_audio_engine_mutex))
-    {
-        memset(output, 0, frame_count * 2 * sizeof(float));
-        return;
-    }
-    uph_audio_engine_data_callback_locked(device, output, input, frame_count);
-    naui_mutex_unlock(uph_audio_engine_mutex);
-}
-
 void uph_audio_engine_init(void)
 {
     Uph_AudioSettings settings = uph_state.settings.audio;
@@ -887,8 +874,6 @@ void uph_audio_engine_init(void)
     config.capture.shareMode   = ma_share_mode_shared;
     config.periodSizeInFrames = uph_state.settings.audio.buffer_size;
     config.periods            = 2;
-
-    uph_audio_engine_mutex = naui_mutex_create();
 
     ma_result result = ma_device_init(NULL, &config, &uph_audio_engine_data.device);
     if (result != MA_SUCCESS)
@@ -910,7 +895,6 @@ void uph_audio_engine_init(void)
 void uph_audio_engine_shutdown(void)
 {
     ma_device_uninit(&uph_audio_engine_data.device);
-    naui_mutex_destroy(uph_audio_engine_mutex);
 }
 
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
