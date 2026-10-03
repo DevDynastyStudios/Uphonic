@@ -569,12 +569,17 @@ static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec
         );
     }
 
+    naui_pop_clip_rect();
+
     if (selected)
     {
-        naui_draw_rect(position, size, leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity)), NAUI_DPI(2.0f), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+        const float line_width = NAUI_DPI(2);
+        position.x += line_width;
+        position.y += line_width;
+        size.x -= line_width * 2;
+        size.y -= line_width * 2;
+        naui_draw_rect(position, size, leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity)), line_width, rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
     }
-
-    naui_pop_clip_rect();
 }
 
 static void uph_song_timeline_update_drag_track_switch(void)
@@ -1881,7 +1886,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
        
     }
 
-    if (track->type != UPH_RESOURCE_AUTOMATION)
+    if (track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN)
     {
         if (track->instrument.loaded)
         {
