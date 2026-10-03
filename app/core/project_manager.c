@@ -52,7 +52,7 @@ bool uph_project_create(Naui_String project_name)
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
 	const Naui_Path project_folder = uph_project_get_path(project);
-	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(".temp")); // May not exist. CHECK!
+	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP)); // May not exist. CHECK!
 	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : temp_folder;
 	
 	if (save_type == UPH_SAVE_TYPE_CANONICAL)
@@ -85,7 +85,7 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 		}
 
 		const Naui_Path canonical_save = uph_project_get_path(project);
-		const Naui_Path temp_save = naui_path_join(canonical_save, NAUI_PATH(".temp"));
+		const Naui_Path temp_save = naui_path_join(canonical_save, NAUI_PATH(UPH_PATH_TEMP));
 		naui_path_unlock(canonical_save);
 
 		bool success = true;

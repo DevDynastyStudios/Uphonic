@@ -131,6 +131,9 @@ static void uph_render_track_instrument(
     float *input_l = alloca(max_frame_count * sizeof(float));
     float *input_r = alloca(max_frame_count * sizeof(float));
 
+    memset(input_l, 0, max_frame_count * sizeof(float));
+    memset(input_r, 0, max_frame_count * sizeof(float));
+
     float *inputs[2]  = { input_l, input_r };
     float *outputs[2] = { track_l, track_r };
 
@@ -644,6 +647,32 @@ static void uph_begin_recording(Uph_Track *track)
     naui_list_push(track->blocks, block);
 }
 
+static bool uph_write_wav(const char *filepath, const float *frames, uint64_t frame_count, uint32_t channels, uint32_t sample_rate)
+{
+    if (!frames || frame_count == 0)
+        return false;
+
+    ma_encoder_config config = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, channels, sample_rate);
+    ma_encoder encoder;
+    if (ma_encoder_init_file(filepath, &config, &encoder) != MA_SUCCESS)
+    {
+        fprintf(stderr, "uph_write_wav: failed to open '%s' for writing\n", filepath);
+        return false;
+    }
+
+    ma_uint64 frames_written = 0;
+    ma_result result = ma_encoder_write_pcm_frames(&encoder, frames, frame_count, &frames_written);
+    ma_encoder_uninit(&encoder);
+
+    if (result != MA_SUCCESS || frames_written != frame_count)
+    {
+        fprintf(stderr, "uph_write_wav: failed writing frames to '%s'\n", filepath);
+        return false;
+    }
+
+    return true;
+}
+
 static void uph_finish_take(Uph_Track *track)
 {
     if (track->armed_block_index == UPH_INVALID_TIMELINE_BLOCK)
@@ -666,10 +695,21 @@ static void uph_finish_take(Uph_Track *track)
                 if (trimmed)
                     data->frames = trimmed;
                 data->frame_capacity = data->frame_count;
+
+                Naui_Path export_path = naui_path_join(uph_project_get_path(&uph_state.project), NAUI_PATH(UPH_IO_FOLDER_SAMPLES));
+                export_path = naui_file_unique_name(
+                    naui_path_join(export_path, NAUI_PATH(naui_string_format("%s.wav", sample->name.data).data)),
+                    export_path
+                );
+
+                if (uph_write_wav(export_path.data, (const float*)data->frames, data->frame_count, 2, data->original_sample_rate))
+                {
+                    data->file_path = export_path;
+                    fprintf(stdout, "uph_finish_take: saved take to '%s'\n", export_path.data);
+                }
             }
         }
     }
-
     track->armed_block_index = UPH_INVALID_TIMELINE_BLOCK;
 }
 
@@ -779,10 +819,25 @@ static void uph_audio_engine_data_callback_locked(ma_device *device, void *outpu
     bool is_playing = uph_state.shared.song_timeline_playing;
     float bpm = uph_state.project.bpm;
 
-    uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count, is_playing, (const float*)input);
+    const int input_channel = 0; // make it so the user can choose between channel 1 and 2 in settings
+    const float *input_f = (const float*)input;
 
-    if (is_playing && input && bpm > 0.0f)
-        uph_record_input(uph_state.project.tracks, (const float*)input, frame_count, engine_sample_rate, bpm);
+    if (input_f && (input_channel == 0 || input_channel == 1))
+    {
+        float *routed = alloca(frame_count * 2 * sizeof(float));
+        for (ma_uint32 f = 0; f < frame_count; f++)
+        {
+            float s = input_f[f * 2 + input_channel];
+            routed[f * 2 + 0] = s;
+            routed[f * 2 + 1] = s;
+        }
+        input_f = routed;
+    }
+
+    uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count, is_playing, input_f);
+
+    if (is_playing && input_f && bpm > 0.0f)
+        uph_record_input(uph_state.project.tracks, input_f, frame_count, engine_sample_rate, bpm);
 
     if (was_playing && !is_playing)
     {
@@ -828,8 +883,8 @@ void uph_audio_engine_init(void)
     config.dataCallback       = uph_audio_engine_data_callback;
 
     config.performanceProfile  = ma_performance_profile_low_latency;
-    config.playback.shareMode  = ma_share_mode_exclusive;
-    config.capture.shareMode   = ma_share_mode_exclusive;
+    config.playback.shareMode  = ma_share_mode_shared;
+    config.capture.shareMode   = ma_share_mode_shared;
     config.periodSizeInFrames = uph_state.settings.audio.buffer_size;
     config.periods            = 2;
 

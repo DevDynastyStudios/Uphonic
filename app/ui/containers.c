@@ -109,7 +109,8 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
         .size = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIT} :
             (Leaf_Size){LEAF_SIZE_FIT, LEAF_SIZE_FULL}
-        )
+        ),
+        .clip_children = true
     });
 
     return container;

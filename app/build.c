@@ -24,7 +24,6 @@
 
 #include "core/audio_engine.h"
 #include "core/resource_manager.h"
-#include "core/audio_engine.c"
 #include "core/resource_manager.c"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
@@ -49,6 +48,8 @@
 #include "actions/action_pattern.c"
 #include "actions/action_automation.c"
 #include "actions/action_manager.c"
+
+#include "core/audio_engine.c"
 
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"
