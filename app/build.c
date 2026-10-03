@@ -23,8 +23,8 @@
 #include "plugins/plugin_manager.h"
 
 #include "core/audio_engine.h"
-#include "core/audio_engine.c"
 #include "core/resource_manager.h"
+#include "core/audio_engine.c"
 #include "core/resource_manager.c"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"

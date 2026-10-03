@@ -1596,10 +1596,11 @@ static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
     view->lpVtbl->attached(view, (void*)ih->window, Steinberg_kPlatformTypeHWND);
 #endif
 
+    const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
     struct Steinberg_Vst_ProcessSetup setup = {
         .processMode = Steinberg_Vst_ProcessModes_kRealtime,
         .symbolicSampleSize = Steinberg_Vst_SymbolicSampleSizes_kSample32,
-        .maxSamplesPerBlock = (Steinberg_int32)UPH_SAMPLE_FRAME_COUNT,
+        .maxSamplesPerBlock = (Steinberg_int32)max_frame_count,
         .sampleRate = (double)uph_state.settings.audio.sample_rate
     };
 
@@ -2532,11 +2533,12 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     gui->set_parent(plugin, &window);
     gui->show(plugin);
 
+    const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
     plugin->activate(
         plugin,
         uph_state.settings.audio.sample_rate,
         1,
-        UPH_SAMPLE_FRAME_COUNT
+        max_frame_count
     );
 
     plugin->start_processing(plugin);

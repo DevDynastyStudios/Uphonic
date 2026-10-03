@@ -235,6 +235,9 @@ static void uph_mixer_render_track(Uph_Track *track)
             if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f dB", UPH_UI_DRAG_CLAMPED))
                 track->volume = uph_db_to_linear(volume_db);
         
+        leaf_text("Monitor", { .font_size = font_size, .color = text_color });
+        uph_ui_checkbox(&track->monitored, leaf_id_indexed("uph_mixer_monitor", track_id));
+
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
             .direction = LEAF_DIRECTION_HORIZONTAL,

@@ -4,6 +4,7 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
 void uph_resources_remove_track(Uph_Track *track);
 void uph_resources_clear_tracks(void);
 
+Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name);
 bool uph_resources_add_sample_from_file(Naui_Path path);
 void uph_resources_copy_sample(Uph_ResourceIndex sample_index);
 void uph_resources_remove_sample(Uph_ResourceIndex sample_index);

@@ -143,21 +143,29 @@ void uph_resources_clear_tracks(void)
 	uph_state.project.tracks = NULL;
 }
 
+Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name)
+{
+	data.ref_count = 1;
+
+	Uph_Sample sample = {
+		.data_index = naui_list_len(uph_state.project.sample_data),
+		.name = name
+	};
+
+	Uph_ResourceIndex sample_index = naui_list_len(uph_state.project.samples);
+
+	naui_list_push(uph_state.project.sample_data, data);
+	naui_list_push(uph_state.project.samples, sample);
+	return sample_index;
+}
+
 bool uph_resources_add_sample_from_file(Naui_Path path)
 {
 	Uph_SampleData data = uph_audio_engine_load_sample_data(path);
 	if (!uph_audio_engine_sample_data_valid(&data))
 		return false;
 
-	data.ref_count = 1;
-
-	Uph_Sample sample = {
-		.data_index = naui_list_len(uph_state.project.sample_data),
-		.name = naui_view_to_string(naui_file_stem(&path))
-	};
-
-	naui_list_push(uph_state.project.sample_data, data);
-	naui_list_push(uph_state.project.samples, sample);
+	uph_resources_add_sample_data(data, naui_view_to_string(naui_file_stem(&path)));
 	return true;
 }
 
@@ -186,6 +194,9 @@ void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
 	}
 
 	naui_list_remove(uph_state.project.samples, sample_index);
+
+	if (uph_state.shared.selected_resource.index == sample_index)
+		uph_state.shared.selected_resource = (Uph_SelectedResourceState){0};
 }
 
 void uph_resources_add_pattern(void)
@@ -208,6 +219,8 @@ void uph_resources_remove_pattern(Uph_ResourceIndex pattern_index)
 {
 	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_PATTERN, pattern_index);
 	naui_list_remove(uph_state.project.midi_patterns, pattern_index);
+	if (uph_state.shared.selected_resource.index == pattern_index)
+		uph_state.shared.selected_resource = (Uph_SelectedResourceState){0};
 }
 
 void uph_resources_add_automation(void)
@@ -236,6 +249,8 @@ void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
 {
 	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
 	naui_list_remove(uph_state.project.automations, automation_index);
+	if (uph_state.shared.selected_resource.index == automation_index)
+		uph_state.shared.selected_resource = (Uph_SelectedResourceState){0};
 }
 
 void uph_resources_remove_all_automation(void)

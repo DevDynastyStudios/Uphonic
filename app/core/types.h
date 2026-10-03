@@ -1,5 +1,4 @@
 #define UPH_VERSION (Uph_Version) { .major = 0, .minor = 0, .patch = 1 };
-#define UPH_SAMPLE_FRAME_COUNT 512
 
 #pragma region Settings
 typedef struct Uph_GeneralSettings
@@ -132,6 +131,7 @@ typedef struct
 	Naui_List(Uph_WaveformPeak) waveform_peaks;
 	float *frames;
 	uint64_t frame_count;
+	uint64_t frame_capacity; // used when recording
 	uint32_t original_sample_rate;
 	uint32_t ref_count;
 	Uph_SampleChannelType channel_type;
@@ -244,6 +244,8 @@ struct Uph_Track
 	Naui_List(Uph_TimelineBlock) blocks;
 	Naui_List(Uph_Track) subtracks;
 
+	uint32_t armed_block_index; // the current block we are recording to
+
 	Uph_Track *parent;
 	uint32_t index;
 
@@ -260,6 +262,7 @@ struct Uph_Track
 
 	Uph_ResourceType type;
 	Uph_TrackState state;
+	bool monitored;
 };
 
 typedef struct
@@ -330,6 +333,14 @@ enum
 
 typedef struct
 {
+	Uph_ResourceIndex index;
+	Uph_ResourceType type;
+	bool renaming;
+}
+Uph_SelectedResourceState;
+
+typedef struct
+{
 	double song_timeline_current_block_length;
 	double song_timeline_current_block_start_offset;
 	
@@ -338,13 +349,7 @@ typedef struct
 
 	bool current_pattern_updated;
 
-	struct
-	{
-		Uph_ResourceIndex index;
-		Uph_ResourceType type;
-		bool renaming;
-	}
-	selected_resource;
+	Uph_SelectedResourceState selected_resource;
 
 	Uph_Track *selected_mixer_track;
 
