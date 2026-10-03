@@ -863,16 +863,18 @@ void uph_audio_engine_init(void)
 
     ma_device_config config = ma_device_config_init(ma_device_type_duplex);
     config.capture.format     = ma_format_f32;
-    config.capture.channels   = 2;
+    config.capture.channels   = settings.channels;
+    config.playback.pDeviceID = &settings.input_device.id;
     config.playback.format    = ma_format_f32;
-    config.playback.channels  = 2;
+    config.playback.channels  = settings.channels;
+    config.playback.pDeviceID = &settings.output_device.id;
     config.sampleRate         = settings.sample_rate;
     config.dataCallback       = uph_audio_engine_data_callback;
 
     config.performanceProfile  = ma_performance_profile_low_latency;
-    config.playback.shareMode  = ma_share_mode_shared;
-    config.capture.shareMode   = ma_share_mode_shared;
-    config.periodSizeInFrames = uph_state.settings.audio.buffer_size;
+    config.playback.shareMode  = settings.exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
+    config.capture.shareMode   = settings.exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
+    config.periodSizeInFrames = settings.buffer_size;
     config.periods            = 2;
 
     ma_result result = ma_device_init(NULL, &config, &uph_audio_engine_data.device);

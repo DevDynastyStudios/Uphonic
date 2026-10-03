@@ -567,8 +567,8 @@ static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue*
 
 static void uph_io_save_editor_settings_audio(Naui_Json* json, Naui_JsonValue* object, const Uph_AudioSettings* audio)
 {
-	naui_json_set_string(json, object, "output_device", audio->output_device.data);
-	naui_json_set_string(json, object, "input_device", audio->input_device.data);
+	naui_json_set_string(json, object, "output_device", audio->output_device.name.data);
+	naui_json_set_string(json, object, "input_device", audio->input_device.name.data);
 	naui_json_set_int(json, object, "sample_rate", (int)audio->sample_rate);
 	naui_json_set_int(json, object, "buffer_size", (int)audio->buffer_size);
 	naui_json_set_int(json, object, "channels", (int)audio->channels);
@@ -1256,8 +1256,8 @@ static void uph_io_load_editor_settings_general(Uph_GeneralSettings* general, co
 
 static void uph_io_load_editor_settings_audio(Uph_AudioSettings* audio, const Naui_JsonValue* object)
 {
-	uph_io_read_string(object, "output_device", &audio->output_device);
-	uph_io_read_string(object, "input_device", &audio->input_device);
+	uph_io_read_string(object, "output_device", &audio->output_device.name);
+	uph_io_read_string(object, "input_device", &audio->input_device.name);
 	uph_io_read_uint32(object, "sample_rate", &audio->sample_rate);
 	uph_io_read_uint32(object, "buffer_size", &audio->buffer_size);
 	uph_io_read_uint32(object, "channels", &audio->channels);

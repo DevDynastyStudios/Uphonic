@@ -193,20 +193,18 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 {
     leaf({
         .id = id,
-        .custom_draw = content_draw,
-        .custom_draw_data = content_draw_data,
         .size = {
             .width = LEAF_SIZE_FIXED(NAUI_DPI(150)),
             .height = LEAF_SIZE_DERIVED
         },
         .padding = LEAF_PADDING_ALL(NAUI_DPI(2)),
         .aspect_ratio = 2.2f,
-        .border = {
-            .width = NAUI_DPI(selected ? 3.0f : 1.0f),
+        .border = selected ? (Leaf_Border){
+            .width = NAUI_DPI(1),
             .sides = LEAF_SIDE_ALL,
-            .color = {leaf_rgb(145, 111, 205)}
-        },
-        .color = {leaf_rgb(108, 83, 154)},
+            .color = {naui_theme_color("uph_resource_list_item_selected_border_color")}
+        } : (Leaf_Border){0},
+        .color = {naui_theme_color("uph_resource_list_item_bg_color")},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2), LEAF_CORNER_ALL),
         .clip_children = true
     }) {
@@ -215,18 +213,28 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, placeholder_name))
             {
                 if (name->length == 0)
-                    *name = naui_string_from_cstr(placeholder_name);
+					*name = naui_string_from_cstr(placeholder_name);
 
+				Uph_ActionTrackRename data = {
+					.new_name = naui_string_from_cstr(placeholder_name)
+				};
+
+				naui_action_execute(UPH_ACTION_TRACK_RENAME, &data);
                 uph_state.shared.selected_resource.renaming = false;
             }
         }
         else
         {
             leaf_text(name->data, {
-                .color = {LEAF_COLOR_WHITE},
-                .font_size = {NAUI_DPI(13)}
+                .color = {naui_theme_color("uph_resource_list_item_text_color")},
+                .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
             });
         }
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+            .custom_draw = content_draw,
+            .custom_draw_data = content_draw_data
+        });
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }

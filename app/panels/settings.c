@@ -121,8 +121,8 @@ void uph_settings_set_defaults(void)
 	settings->general.confirm_on_delete = true;
 	settings->general.copy_resources = false;
 
-	settings->audio.output_device = (Naui_String){ 0 };
-	settings->audio.input_device = (Naui_String){ 0 };
+	settings->audio.output_device = (Uph_AudioIODevice){ 0 };
+	settings->audio.input_device = (Uph_AudioIODevice){ 0 };
 	settings->audio.sample_rate = 48000;
 	settings->audio.buffer_size = 512;
 	settings->audio.channels = 2;
@@ -767,12 +767,12 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.output_device"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_name_dropdown(&audio->output_device, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
+		uph_settings_name_dropdown(&audio->output_device.name, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.input_device"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_name_dropdown(&audio->input_device, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
+		uph_settings_name_dropdown(&audio->input_device.name, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
 	}
 
 	uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &audio->exclusive_mode, leaf_id("uph_settings_exclusive"));

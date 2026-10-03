@@ -15,10 +15,17 @@ typedef struct Uph_GeneralSettings
 }
 Uph_GeneralSettings;
 
+typedef struct
+{
+	Naui_String name;
+	ma_device_id id;
+}
+Uph_AudioIODevice;
+
 typedef struct Uph_AudioSettings
 {
-	Naui_String output_device;
-	Naui_String input_device;
+	Uph_AudioIODevice output_device;
+	Uph_AudioIODevice input_device;
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 	uint32_t channels;
