@@ -86,7 +86,7 @@
 	"plugin.menu.instrument.short": "Inst",
 	"plugin.menu.effect.short": "FX",
 	"plugin.menu.load": "Load Plugin",
-	"plugin.menu.none.detected": "No plugins detected! You can add plugin paths from the settings menu.",
+	"plugin.menu.none.detected": "No plugins detected!",
 
 	"settings.title": "Settings",
 	"settings.refresh": "Refresh",

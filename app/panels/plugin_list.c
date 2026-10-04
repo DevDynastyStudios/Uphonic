@@ -38,22 +38,22 @@ void uph_plugin_list_on_close(void)
 
 static void uph_plugin_list_load(void)
 {
-    /*if (uph_state.shared.plugin_list_for_track_instrument)
+    if (uph_state.shared.plugin_list_for_track_instrument)
     {
-        uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(uph_plugin_list_data.plugin_paths[uph_plugin_list_data.current_plugin_index]);
+        uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index].path);
         uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
     }
     else
     {
         Uph_EffectPlugin effect = {
-            .plugin = uph_load_plugin(uph_plugin_list_data.plugin_paths[uph_plugin_list_data.current_plugin_index]),
+            .plugin = uph_load_plugin(uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index].path),
             .enabled = true
         };
         naui_list_push(
             uph_state.shared.current_plugin_list_track->effects,
             effect
         );
-    }*/
+    }
     naui_close_panel(naui_current_panel());
     uph_plugin_list_data.filter = (Naui_String){0};
 }
@@ -72,6 +72,7 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
             uph_plugin_list_data.current_plugin_index = item_index;
         if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
             uph_plugin_list_load();
+        naui_set_cursor(NAUI_CURSOR_HAND);
     }
 
     leaf({
@@ -251,19 +252,6 @@ static void uph_plugin_list_current_menu(void)
 
 void uph_plugin_list_on_update(void)
 {
-    if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
-    {
-        leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-        }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
-            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_ui_font_size"))),
-            .color = {naui_theme_color("uph_ui_text_color")},
-            .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
-        });
-        return;
-    }
-
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .direction = LEAF_DIRECTION_HORIZONTAL
@@ -273,6 +261,20 @@ void uph_plugin_list_on_update(void)
         if (uph_ui_text_button("Refresh", leaf_id("uph_plugin_list_refresh")))
             uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, true);
     }
+
+    if (naui_list_len(uph_plugin_list_data.plugin_infos) == 0)
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
+            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_ui_font_size"))),
+            .color = {naui_theme_color("uph_ui_text_color")},
+            .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
+        });
+        return;
+    }
+
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
         .border = {
