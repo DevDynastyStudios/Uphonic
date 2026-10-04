@@ -219,7 +219,8 @@ static void uph_plugin_list_current_menu(void)
             .width = 1,
             .color = naui_theme_color("uph_ui_frame_border"),
             .sides = LEAF_SIDE_LEFT
-        }
+        },
+        .clip_children = true
     })
     {
 
@@ -265,9 +266,12 @@ void uph_plugin_list_on_update(void)
 
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+        .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
         uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
+        if (uph_ui_text_button("Refresh", leaf_id("uph_plugin_list_refresh")))
+            uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, true);
     }
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},

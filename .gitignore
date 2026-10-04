@@ -6,3 +6,4 @@ build
 bin
 tags
 magma-shdc*
+plugin_cache.json

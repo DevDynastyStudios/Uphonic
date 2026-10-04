@@ -57,11 +57,18 @@ static void _uph_plugin_cache_update(Naui_List(Uph_PluginInfo) *info_list, const
 void uph_plugin_cache_get(Naui_List(Uph_PluginInfo) *info_list, bool refresh)
 {
     const Naui_Path path = naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json"));
-    Naui_Json json = naui_json_parse_file(path);
-
+    
     naui_list_clear(*info_list);
 
-    if (json.error || refresh)
+    if (refresh)
+    {
+        _uph_plugin_cache_update(info_list, path);
+        return;
+    }
+
+    Naui_Json json = naui_json_parse_file(path);
+
+    if (json.error)
     {
         _uph_plugin_cache_update(info_list, path);
         return;
