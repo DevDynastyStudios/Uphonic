@@ -875,7 +875,7 @@ void uph_audio_engine_init(void)
     config.playback.shareMode  = settings.exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
     config.capture.shareMode   = settings.exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
     config.periodSizeInFrames = settings.buffer_size;
-    config.periods            = 2;
+    //config.periods            = 2;
 
     ma_result result = ma_device_init(NULL, &config, &uph_audio_engine_data.device);
     if (result != MA_SUCCESS)

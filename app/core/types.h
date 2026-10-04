@@ -220,6 +220,7 @@ typedef struct
 	double max_value;
 	double default_value;
 	double current_value;
+	void *cookie;
 }
 Uph_PluginParam;
 

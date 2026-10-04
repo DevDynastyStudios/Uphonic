@@ -1994,26 +1994,53 @@ void uph_plugin_queue_param_change(
 )
 {
     Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
-
+    if (!ih)
+        return;
+ 
+    double normalized = value < 0.0 ? 0.0 : (value > 1.0 ? 1.0 : value);
+ 
+    double event_value = normalized;
+    void *cookie = NULL;
+ 
+    if (plug->format == UPH_PLUGIN_CLAP)
+    {
+        const Uph_PluginParam *param = NULL;
+        uint64_t param_count = naui_list_len(plug->params);
+        for (uint64_t i = 0; i < param_count; i++)
+        {
+            if (plug->params[i].id == (uint64_t)param_id)
+            {
+                param = &plug->params[i];
+                break;
+            }
+        }
+ 
+        if (!param)
+            return;
+ 
+        event_value = param->min_value + normalized * (param->max_value - param->min_value);
+        cookie = param->cookie;
+    }
+ 
     clap_event_param_value_t ev = {0};
     ev.header.size = sizeof(clap_event_param_value_t);
     ev.header.time = sample_offset;
     ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
     ev.header.type = CLAP_EVENT_PARAM_VALUE;
     ev.header.flags = 0;
-
+ 
     ev.param_id = param_id;
-    ev.cookie = NULL;
+    ev.cookie = cookie;
     ev.note_id = -1;
     ev.port_index = -1;
     ev.channel = -1;
     ev.key = -1;
-    ev.value = value;
-
+    ev.value = event_value;
+ 
     Uph_ParamEventRing *param_ring = plug->format == UPH_PLUGIN_VST3
         ? &ih->vst3.pending_params
         : &ih->clap.pending_params;
-
+ 
     if (!uph_param_ring_push(param_ring, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_param_change: param ring full, dropping event (param_id=%u)\n",
@@ -2174,6 +2201,8 @@ static const void *uph_clap_get_extension(const clap_host_t *host, const char *e
         return &uph_clap_host_timer_support;
     if (strcmp(extension_id, CLAP_EXT_GUI) == 0)
         return &uph_clap_host_gui;
+    if (strcmp(extension_id, CLAP_EXT_PARAMS) == 0)
+        return &uph_clap_host_params;
     return NULL;
 }
 
@@ -2224,7 +2253,8 @@ static Naui_List(Uph_PluginParam) uph_clap_get_param_list(Uph_Plugin *plug)
             .min_value = info.min_value,
             .max_value = info.max_value,
             .default_value = info.default_value,
-            .current_value = current_value
+            .current_value = current_value,
+            .cookie = info.cookie
         };
 
         naui_list_push(list, p);
