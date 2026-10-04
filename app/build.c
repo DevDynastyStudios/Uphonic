@@ -34,6 +34,9 @@
 
 #include "plugins/plugin_manager.c"
 
+#include "plugins/plugin_cache.h"
+#include "plugins/plugin_cache.c"
+
 #include "ui/titlebar.h"
 #include "ui/waveform.h"
 #include "ui/widgets.h"

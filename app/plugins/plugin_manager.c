@@ -3276,6 +3276,8 @@ static bool uph_get_clap_plugin_info(Naui_Path path, Uph_PluginInfo *out)
     FreeLibrary(handle);
 #endif
 
+    out->path = path;
+
     return ok;
 }
 
@@ -3377,6 +3379,8 @@ static bool uph_get_vst3_plugin_info_guarded(Naui_Path path, Uph_PluginInfo *out
     if (exit_dll) exit_dll();
     FreeLibrary((HMODULE)lib);
 #endif
+
+    out->path = path;
 
     return ok;
 }

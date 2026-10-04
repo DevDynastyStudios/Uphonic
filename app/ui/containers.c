@@ -20,7 +20,8 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     leaf_begin_element((Leaf_ElementConfig){
         .direction = direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             LEAF_DIRECTION_HORIZONTAL : LEAF_DIRECTION_VERTICAL,
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
+        .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
+        .clip_children = true
     });
 
     Leaf_ID current_area_id = {.value = scroll_id.value + 1};
@@ -109,8 +110,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
         .size = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIT} :
             (Leaf_Size){LEAF_SIZE_FIT, LEAF_SIZE_FULL}
-        ),
-        .clip_children = true
+        )
     });
 
     return container;

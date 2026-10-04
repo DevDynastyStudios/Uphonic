@@ -3,7 +3,6 @@ NAUI_PANEL(uph_plugin_list)
 typedef struct
 {
     Naui_List(Uph_PluginInfo) plugin_infos;
-    Naui_List(Naui_Path) plugin_paths;
 
     Naui_String filter;
 
@@ -13,43 +12,12 @@ Uph_PluginListData;
 
 static Uph_PluginListData uph_plugin_list_data = { 0 };
 
-static const char* _plugin_extensions[] = {".clap", ".vst3"}; 
-static size_t _plugin_ext_count = sizeof(_plugin_extensions) / sizeof(_plugin_extensions[0]);
-
-static void _uph_plugin_scan_folder(const Naui_Path folder)
-{
-	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NULL, true);
-	while (naui_dir_iterator_valid(&it))
-	{
-		if (it.entry.is_directory)
-			_uph_plugin_scan_folder(it.entry.path);
-
-		for (size_t i = 0; i < _plugin_ext_count; i++)
-		{
-			if (naui_string_view_equals_cstr(naui_file_extension(&it.entry.path), _plugin_extensions[i], true))
-			{
-				Uph_PluginInfo info;
-				if (uph_get_plugin_info(it.entry.path, &info))
-				{
-					naui_list_push(uph_plugin_list_data.plugin_infos, info);
-					naui_list_push(uph_plugin_list_data.plugin_paths, it.entry.path);
-				}
-			
-				break;
-			}
-		}
-		
-		naui_dir_iterator_next(&it);
-	}
-
-	naui_dir_iterator_close(&it);
-}
-
 void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
     naui_panel_set_title(panel_id, NAUI_TR("plugin.title"));
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
+    uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, false);
 }
 
 void uph_plugin_list_on_detach(void)
@@ -61,15 +29,6 @@ void uph_plugin_list_on_open(void)
 {
 	if (naui_list_len(uph_state.settings.plugin.plugin_paths) == 0)
 		return;
-
-	naui_list_clear(uph_plugin_list_data.plugin_infos);
-	naui_list_clear(uph_plugin_list_data.plugin_paths);
-
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
-	{
-		const Naui_Path parent_path = uph_state.settings.plugin.plugin_paths[i];
-		_uph_plugin_scan_folder(parent_path);
-	}
 }
 
 void uph_plugin_list_on_close(void)
@@ -79,7 +38,7 @@ void uph_plugin_list_on_close(void)
 
 static void uph_plugin_list_load(void)
 {
-    if (uph_state.shared.plugin_list_for_track_instrument)
+    /*if (uph_state.shared.plugin_list_for_track_instrument)
     {
         uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(uph_plugin_list_data.plugin_paths[uph_plugin_list_data.current_plugin_index]);
         uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
@@ -94,7 +53,7 @@ static void uph_plugin_list_load(void)
             uph_state.shared.current_plugin_list_track->effects,
             effect
         );
-    }
+    }*/
     naui_close_panel(naui_current_panel());
     uph_plugin_list_data.filter = (Naui_String){0};
 }
@@ -200,7 +159,7 @@ static void uph_plugin_list_main_menu(void)
     const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
 
     leaf({
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
@@ -311,7 +270,7 @@ void uph_plugin_list_on_update(void)
         uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
     }
     leaf({
-        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
         .border = {
             .width = 1,
             .color = naui_theme_color("uph_ui_frame_border"),
@@ -321,7 +280,7 @@ void uph_plugin_list_on_update(void)
     })
     {
         leaf({
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+            .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW}
         })
         {
             uph_plugin_list_main_menu();

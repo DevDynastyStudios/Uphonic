@@ -818,8 +818,6 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
             parent->last_child->next_sibling = child;
             parent->last_child = child;
         }
-        
-        leaf_accumulate_fit(parent, child);
     }
     
     static float leaf_resolve_font_size(const Leaf_SizeAxis *axis, Leaf_Node *parent, const char *text, uint32_t text_len, const Leaf_TextConfig *cfg)
@@ -909,28 +907,6 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         
         node->parent = leaf_stack_top();
         leaf_stack_push(node);
-    }
-    
-    void leaf_end_element(void)
-    {
-        Leaf_Node *node = leaf_stack_top();
-        const Leaf_ElementConfig *config = &node->element.config;
-        
-        if (config->size.width.type != LEAF_SIZE_TYPE_FIT)
-            node->bounding_box.width += config->padding.left + config->padding.right;
-        if (config->size.height.type != LEAF_SIZE_TYPE_FIT)
-            node->bounding_box.height += config->padding.top + config->padding.bottom;
-        
-        const float child_gap = LEAF_MAX(node->element.relative_child_count - 1, 0) * config->child_gap;
-        if (config->size.width.type == LEAF_SIZE_TYPE_FIT && config->direction == LEAF_DIRECTION_HORIZONTAL)
-            node->bounding_box.width += child_gap;
-        else if (config->size.height.type == LEAF_SIZE_TYPE_FIT && config->direction == LEAF_DIRECTION_VERTICAL)
-            node->bounding_box.height += child_gap;
-        
-        if (node->parent)
-            leaf_append_child(node->parent, node);
-        
-        leaf_stack_pop();
     }
     
 #define LEAF_FOREACH_CHILD(x, _parent)\
@@ -1376,15 +1352,12 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
             }
         }
 
-        // If the parent direction matches the unified axis and parent is FIT, its size
-        // was summed from pre-unification children — recompute it from the new uniform width.
         if (do_w && cfg->size.width.type == LEAF_SIZE_TYPE_FIT)
         {
             int32_t rel = parent->element.relative_child_count;
             if (cfg->direction == LEAF_DIRECTION_HORIZONTAL)
                 parent->bounding_box.width = max_w * rel + LEAF_MAX(rel - 1, 0) * cfg->child_gap
                                             + cfg->padding.left + cfg->padding.right;
-            // vertical case: width already correctly == max_w from recompute_fit, nothing to do
         }
         if (do_h && cfg->size.height.type == LEAF_SIZE_TYPE_FIT)
         {
@@ -1501,6 +1474,25 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_resolve_aspect_ratio(parent);
         leaf_recompute_fit(parent);
         leaf_apply_uniform_sizing(parent);
+    }
+
+    void leaf_end_element(void)
+    {
+        Leaf_Node *node = leaf_stack_top();
+        const Leaf_ElementConfig *config = &node->element.config;
+        
+        if (config->size.width.type != LEAF_SIZE_TYPE_FIT)
+            node->bounding_box.width += config->padding.left + config->padding.right;
+        if (config->size.height.type != LEAF_SIZE_TYPE_FIT)
+            node->bounding_box.height += config->padding.top + config->padding.bottom;
+        
+        leaf_recompute_fit(node);
+        leaf_apply_uniform_sizing(node);
+        
+        if (node->parent)
+            leaf_append_child(node->parent, node);
+        
+        leaf_stack_pop();
     }
     
     static void leaf_assign_wrap_offsets(Leaf_Node *parent)

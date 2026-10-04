@@ -204,6 +204,7 @@ enum
 
 typedef struct
 {
+	Naui_Path path;
 	Naui_String name;
 	Naui_String vendor;
 	Uph_PluginType type;

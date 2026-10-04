@@ -1,0 +1,1 @@
+void uph_plugin_cache_get(Naui_List(Uph_PluginInfo) *info_list, bool refresh);
