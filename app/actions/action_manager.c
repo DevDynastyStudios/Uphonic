@@ -120,5 +120,5 @@ void uph_action_initialize()
 
 void uph_action_shutdown()
 {
-
+	naui_action_clear_history();
 }

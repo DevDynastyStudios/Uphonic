@@ -2875,22 +2875,21 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
         }
     }
 #elif NAUI_WINDOWS
-    MSG msg;
-
-    while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
-    {
-        TranslateMessage(&msg);
-        DispatchMessageA(&msg);
-    }
+    (void)internal_handle;
 #endif
 }
 
 void uph_update_plugin(Uph_Plugin *plug)
 {
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
+	if (!plug->loaded)
+		return;
 
     uph_poll_plugin_window_events(plug);
+
+    if (!plug->loaded || !plug->internal_handle)
+        return;
+
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
 
     if (!internal_handle->visible)
         return;

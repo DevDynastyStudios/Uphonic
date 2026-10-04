@@ -121,12 +121,23 @@ void naui_app_start(void)
 
 void naui_app_end(void)
 {
+	naui_log(NAUI_LOG_INFO, "Saving Settings...");
 	uph_settings_save();
-	uph_action_shutdown();
-	uph_resources_unload_all_plugins();
 
+	naui_log(NAUI_LOG_INFO, "Closing Audio Engine...");
+	uph_audio_engine_shutdown();
+
+	naui_log(NAUI_LOG_INFO, "Destoying Actions...");
+	uph_action_shutdown();
+
+	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
+	uph_resources_clear_tracks();
+
+	naui_log(NAUI_LOG_INFO, "Stopping MIDI Engine...");
 	cmidi_scheduler_stop_all();
 	cmidi_shutdown();
+
+	naui_log(NAUI_LOG_INFO, "Thanks For Using Uphonic.");
 }
 
 static void uph_update_all_track_plugins(Uph_Track *track)
@@ -233,10 +244,5 @@ void naui_app_event(const Naui_AppEventData *data)
 	{
 		for (uint32_t i = 0; i < data->file_drop.path_count; i++)
 			uph_project_add_file(&uph_state.project, NAUI_PATH(data->file_drop.paths[i]));
-	}
-	else if (data->type == NAUI_APP_EVENT_WINDOW_CLOSE)
-	{
-		uph_audio_engine_shutdown();
-		uph_resources_unload_all_plugins();
 	}
 }
