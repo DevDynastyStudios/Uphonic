@@ -460,30 +460,13 @@ static void uph_song_timeline_render_automation(
     }
 }
 
-float easeOutQuint(float x) {
-    return 1.0f - powf(1.0f - x, 5.0f);
-}
-
-float easeOutElastic(float x) {
-    const float c4 = (2.0f * (float)M_PI) / 3.0f;
-
-    return x == 0.0f
-        ? 0.0f
-        : x == 1.0f
-        ? 1.0f
-        : powf(2.0f, -10.0f * x) *
-              sinf((x * 10.0f - 0.75f) * c4) +
-          1.0f;
-}
-
-
 static void uph_song_timeline_render_timeline_block(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, float opacity, bool selected, const Uph_TimelineBlock *block, Leaf_BoundingBox visible_bbox)
 {
     const float anim_scale = NAUI_DPI(30.0f);
     position.x += size.x * 0.5f;
     position.y += size.y * 0.5f;
-    size.x = size.x + (easeOutElastic(block->visual_lifetime) - 1.0f) * anim_scale + 0.5f;
-    size.y = size.y + (easeOutElastic(block->visual_lifetime) - 1.0f) * anim_scale;
+    size.x = size.x + (naui_ease_out_elastic(block->visual_lifetime) - 1.0f) * anim_scale + 0.5f;
+    size.y = size.y + (naui_ease_out_elastic(block->visual_lifetime) - 1.0f) * anim_scale;
     position.x -= size.x * 0.5f;
     position.y -= size.y * 0.5f;
 
