@@ -2,6 +2,99 @@
 #define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("workspace"))
 #define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
 
+#pragma region Duplicate Detection
+
+static bool uph_path_is_inside(const Naui_Path path, const Naui_Path folder)
+{
+	const Naui_Path norm_path = naui_path_normalize(path);
+	const Naui_Path norm_folder = naui_path_normalize(folder);
+	const size_t folder_len = strlen(norm_folder.data);
+
+	if (folder_len == 0)
+		return false;
+
+	if (strncmp(norm_path.data, norm_folder.data, folder_len) != 0)
+		return false;
+
+	return norm_folder.data[folder_len - 1] == '/' || norm_path.data[folder_len] == '/';
+}
+
+static int32_t uph_project_find_duplicate_sample(const Uph_Project *project, const Naui_Path file_path)
+{
+	const size_t incoming_size = naui_file_size(file_path);
+	if (incoming_size == 0)
+		return -1;
+
+	const Naui_Path project_folder = uph_project_get_path(project);
+	Uph_FileSignature incoming = {0};
+	bool has_incoming = false;
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->sample_data); i++)
+	{
+		const Naui_Path existing_path = project->sample_data[i].file_path;
+		if (!existing_path.data[0] || !uph_path_is_inside(existing_path, project_folder))
+			continue;
+
+		if (naui_file_size(existing_path) != incoming_size)
+			continue;
+
+		if (!has_incoming)
+		{
+			if (!uph_file_signature(file_path, &incoming))
+				return -1;
+			has_incoming = true;
+		}
+
+		Uph_FileSignature existing;
+		if (!uph_file_signature(existing_path, &existing))
+			continue;
+
+		if (uph_file_signature_equal(existing, incoming) && uph_files_identical(file_path, existing_path))
+			return (int32_t)i;
+	}
+
+	return -1;
+}
+
+static void uph_project_select_sample_by_data(const Uph_Project *project, uint32_t data_index)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->samples); i++)
+	{
+		if (project->samples[i].data_index != data_index)
+			continue;
+
+		uph_state.shared.selected_resource.index = i;
+		uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+		uph_state.shared.selected_resource.renaming = false;
+		return;
+	}
+}
+
+static void uph_project_rebase_sample_paths(Uph_Project *project, const Naui_Path from_folder, const Naui_Path to_folder)
+{
+	const Naui_Path norm_from = naui_path_normalize(from_folder);
+	const size_t from_len = strlen(norm_from.data);
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->sample_data); i++)
+	{
+		Naui_Path *path = &project->sample_data[i].file_path;
+		if (!path->data[0] || !uph_path_is_inside(*path, from_folder))
+			continue;
+
+		const Naui_Path norm_path = naui_path_normalize(*path);
+		const char *relative = norm_path.data + from_len;
+		while (*relative == '/')
+		{
+			relative++;
+		}
+
+		*path = naui_path_normalize(naui_path_join(to_folder, naui_path_from_cstr(relative)));
+	}
+}
+
+#pragma endregion
+
+#pragma region Project Manager
 static void _uph_project_default_shared_state()
 {
 	uph_state.shared.song_timeline_playing = false;
@@ -12,6 +105,7 @@ static void _uph_project_default_shared_state()
 
 bool uph_project_create(Naui_String project_name)
 {
+
 	Naui_Path project_dest = naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project_name.data));
 	// if (naui_path_exists(project_dest))
 	// {
@@ -66,7 +160,9 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 		
 		if(naui_path_exists(temp_folder))
 		{
-			naui_directory_merge(temp_folder, project_folder, NAUI_FILE_COPY_OVERRIDE);
+			if (naui_directory_merge(temp_folder, project_folder, NAUI_FILE_COPY_OVERRIDE))
+				uph_project_rebase_sample_paths(project, temp_folder, project_folder);
+
 			naui_directory_remove_all(temp_folder);
 		}
 	}
@@ -218,6 +314,14 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 	if (!uph_state.settings.general.copy_resources)
 		return uph_resources_add_sample_from_file(file_path);
 
+	const int32_t duplicate = uph_project_find_duplicate_sample(project, file_path);
+	if (duplicate >= 0)
+	{
+		naui_log(NAUI_LOG_INFO, "Skipping copy, identical file already in project: %s", project->sample_data[duplicate].file_path.data);
+		uph_project_select_sample_by_data(project, (uint32_t)duplicate);
+		return true;
+	}
+
 	naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
 	Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(".temp", UPH_IO_FOLDER_SAMPLES));
 	naui_directories_create(copy_path);
@@ -237,3 +341,4 @@ Naui_Path uph_project_get_path(const Uph_Project* project)
 {
 	return naui_path_normalize(naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project->title.data)));
 }
+#pragma endregion
