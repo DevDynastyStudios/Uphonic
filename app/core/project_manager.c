@@ -25,6 +25,7 @@ bool uph_project_create(Naui_String project_name)
 		return false;
 	}
 
+	uph_audio_engine_stop();
 	uint64_t current_time = naui_unix_time();
 	uph_state.project.bpm = 120.0f;
 	uph_state.project.time_created = current_time;
@@ -46,11 +47,13 @@ bool uph_project_create(Naui_String project_name)
 
 	naui_file_create(naui_path_join(project_dest, NAUI_PATH(".lock")));
 	naui_path_lock(project_dest);
+	uph_audio_engine_start();
 	return true;
 }
 
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
+	uph_audio_engine_stop();
 	const Naui_Path project_folder = uph_project_get_path(project);
 	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP)); // May not exist. CHECK!
 	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : temp_folder;
@@ -68,6 +71,7 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 		}
 	}
 	
+	uph_audio_engine_start();
 	return uph_io_save_project(project, save_dest);
 }
 
@@ -133,7 +137,9 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 			return false;
 		}
 
+		uph_audio_engine_stop();
 		uph_audio_engine_export_to_wav(naui_file_filename(&output_path).data, 0, length);
+		uph_audio_engine_start();
 		return true;
 	}
 
@@ -149,6 +155,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	if (!naui_path_is_directory(project_path))
 		naui_archive_open(&archive, project_path, NAUI_ARCHIVE_MODE_READ);
 
+	uph_audio_engine_stop();
 	if (naui_archive_is_valid(&archive))
 	{
 		Naui_String filename = naui_view_to_string(naui_file_stem(&project_path));
@@ -166,6 +173,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 			{
 				naui_log(NAUI_LOG_ERROR, "Failed to create project from UPH file");
 				naui_directory_remove_all(load_path);
+				uph_audio_engine_start();
 				return false;
 			}
 
@@ -176,6 +184,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		else
 			naui_log(NAUI_LOG_ERROR, "Failed to load UPH file at: %s", project_path);
 
+		uph_audio_engine_start();
 		return extracted;
 	}
 
@@ -196,6 +205,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;
 	uph_state.shared.selected_resource.type = naui_list_len(project->midi_patterns) > 0 ? UPH_RESOURCE_PATTERN : UPH_RESOURCE_NONE;
+	uph_audio_engine_start();
 	return loaded;
 }
 
