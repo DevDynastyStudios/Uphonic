@@ -254,7 +254,7 @@ struct Uph_Track
 	Naui_List(Uph_TimelineBlock) blocks;
 	Naui_List(Uph_Track) subtracks;
 
-	uint32_t armed_block_index; // the current block we are recording to
+	Uph_TimelineBlock *armed_block; // the current block we are recording to
 
 	Uph_Track *parent;
 	uint32_t index;

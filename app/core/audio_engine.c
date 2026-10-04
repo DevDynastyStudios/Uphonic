@@ -1,5 +1,5 @@
 #ifndef UPH_INVALID_TIMELINE_BLOCK
-#define UPH_INVALID_TIMELINE_BLOCK (uint32_t)-1
+#define UPH_INVALID_TIMELINE_BLOCK NULL
 #endif
 
 typedef struct
@@ -426,10 +426,10 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
             {
                 for (uint64_t b = 0; b < block_count; b++)
                 {
-                    if (b == track->armed_block_index)
-                        continue;
-
                     Uph_TimelineBlock *block = &track->blocks[b];
+
+                    if (block == track->armed_block)
+                        continue;
 
                     if (block->resource_index >= naui_list_len(project->samples))
                         continue;
@@ -641,8 +641,8 @@ static void uph_begin_recording(Uph_Track *track)
         .resource_index = sample_index,
     };
 
-    track->armed_block_index = naui_list_len(track->blocks);
     naui_list_push(track->blocks, block);
+    track->armed_block = &track->blocks[naui_list_len(track->blocks) - 1];
 }
 
 static bool uph_write_wav(const char *filepath, const float *frames, uint64_t frame_count, uint32_t channels, uint32_t sample_rate)
@@ -671,16 +671,22 @@ static bool uph_write_wav(const char *filepath, const float *frames, uint64_t fr
     return true;
 }
 
+static bool uph_track_armed_block_in_range(const Uph_Track *track)
+{
+    const Uph_TimelineBlock *block = track->armed_block;
+    return block >= track->blocks && block < track->blocks + naui_list_len(track->blocks);
+}
+
 static void uph_finish_take(Uph_Track *track)
 {
-    if (track->armed_block_index == UPH_INVALID_TIMELINE_BLOCK)
+    if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
         return;
 
     Uph_Project *project = &uph_state.project;
 
-    if (track->armed_block_index < naui_list_len(track->blocks))
+    if (uph_track_armed_block_in_range(track))
     {
-        Uph_TimelineBlock *block = &track->blocks[track->armed_block_index];
+        Uph_TimelineBlock *block = track->armed_block;
 
         if (block->resource_index < naui_list_len(project->samples))
         {
@@ -708,7 +714,7 @@ static void uph_finish_take(Uph_Track *track)
             }
         }
     }
-    track->armed_block_index = UPH_INVALID_TIMELINE_BLOCK;
+    track->armed_block = UPH_INVALID_TIMELINE_BLOCK;
 }
 
 static void uph_finish_takes_all(Naui_List(Uph_Track) tracks)
@@ -724,7 +730,7 @@ static bool uph_has_active_take(Naui_List(Uph_Track) tracks)
 {
     for (uint64_t i = 0; i < naui_list_len(tracks); i++)
     {
-        if (tracks[i].armed_block_index != UPH_INVALID_TIMELINE_BLOCK)
+        if (tracks[i].armed_block != UPH_INVALID_TIMELINE_BLOCK)
             return true;
         if (uph_has_active_take(tracks[i].subtracks))
             return true;
@@ -753,24 +759,24 @@ static void uph_record_input(
             continue;
         }
 
-        if (track->armed_block_index == UPH_INVALID_TIMELINE_BLOCK)
+        if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
         {
             uph_begin_recording(track);
-            if (track->armed_block_index == UPH_INVALID_TIMELINE_BLOCK)
+            if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
                 continue;
         }
 
-        if (track->armed_block_index >= naui_list_len(track->blocks))
+        if (!uph_track_armed_block_in_range(track))
         {
-            track->armed_block_index = UPH_INVALID_TIMELINE_BLOCK;
+            track->armed_block = UPH_INVALID_TIMELINE_BLOCK;
             continue;
         }
 
-        Uph_TimelineBlock *block = &track->blocks[track->armed_block_index];
+        Uph_TimelineBlock *block = track->armed_block;
 
         if (block->resource_index >= naui_list_len(project->samples))
         {
-            track->armed_block_index = UPH_INVALID_TIMELINE_BLOCK;
+            track->armed_block = UPH_INVALID_TIMELINE_BLOCK;
             continue;
         }
 
