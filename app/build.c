@@ -27,6 +27,8 @@
 #include "core/resource_manager.c"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
+#include "io/file_signature.h"
+#include "io/file_signature.c"
 #include "io/serialization.h"
 #include "io/serialization.c"
 #include "core/project_manager.h"

@@ -1078,15 +1078,12 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
             if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
             {
-            blocks[i].start_beat =
-                fmax(0.0, uph_snap_beat_round(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
-                
+            	blocks[i].start_beat = fmax(0.0, uph_snap_beat_round(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
             {
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-
                 double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
                 double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
@@ -1286,7 +1283,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
                 uph_song_timeline_data.drag.track = track;
                 uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;
                 uph_song_timeline_data.drag.initial_drag_beat_offset = 0.0;
-                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_snap_beat_round(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+                naui_list_push(track->blocks, uph_song_timeline_init_block(uph_snap_beat_floor(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
                 if (track->type == UPH_RESOURCE_NONE)
                     track->type = uph_state.shared.selected_resource.type;
             }
