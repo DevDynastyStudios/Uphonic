@@ -1178,7 +1178,7 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
 
     const float zoom_x = uph_song_timeline_data.zoom.x;
     const float scroll_x = uph_song_timeline_data.scroll.x;
-    const float opacity = ((track->state & UPH_TRACK_MUTED) || (track->state & UPH_TRACK_SILENCED)) ? 0.25f : 1.0f;
+    const float opacity = (track->state & (UPH_TRACK_MUTED | UPH_TRACK_SILENCED)) ? 0.25f : 1.0f;
 
 	Naui_Color color = uph_resources_track_color(track->color_index);
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
@@ -1891,7 +1891,7 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
             }
         }
 
-        if (track->instrument.params)
+        if (track->instrument.loaded || naui_list_len(track->effects) != 0)
         {
             if (uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
             {
