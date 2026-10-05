@@ -15,7 +15,7 @@ static Uph_PluginListData uph_plugin_list_data = { 0 };
 void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
-    naui_panel_set_title(panel_id, NAUI_TR("plugin.title"));
+    naui_panel_set_title(panel_id, NAUI_TR("plugin.menu.title"));
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
     uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, false);
 }
@@ -33,7 +33,7 @@ void uph_plugin_list_on_open(void)
 
 void uph_plugin_list_on_close(void)
 {
-    
+    uph_plugin_list_data.filter = (Naui_String){0};
 }
 
 static void uph_plugin_list_load(void)
@@ -55,7 +55,6 @@ static void uph_plugin_list_load(void)
         );
     }
     naui_close_panel(naui_current_panel());
-    uph_plugin_list_data.filter = (Naui_String){0};
 }
 
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)

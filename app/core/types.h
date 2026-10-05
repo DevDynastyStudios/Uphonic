@@ -222,6 +222,7 @@ typedef struct
 	double default_value;
 	double current_value;
 	void *cookie;
+	bool used;
 }
 Uph_PluginParam;
 
@@ -366,6 +367,8 @@ typedef struct
 
 	Uph_Track *current_plugin_list_track;
 	bool plugin_list_for_track_instrument;
+
+	Uph_Track *current_automation_list_track;
 }
 Uph_SharedState;
 
@@ -378,6 +381,7 @@ typedef struct
 	Naui_PanelID effect_list;
 	Naui_PanelID settings;
 	Naui_PanelID plugin_list;
+	Naui_PanelID automation_list;
 }
 Uph_Panels;
 

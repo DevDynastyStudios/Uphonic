@@ -92,6 +92,7 @@ void naui_app_start(void)
 	uph_state.panels.resource_editor = NAUI_ATTACH_PANEL(uph_midi_editor);
 	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
 	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
+	naui_close_panel(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
 
 	//NAUI_ATTACH_PANEL(uph_file_dialog);
 

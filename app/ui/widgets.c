@@ -54,6 +54,8 @@ typedef struct
     bool is_current_menu_context;
     bool menu_opened_last_frame;
 
+    bool textfield_submitted_this_frame;
+
     bool any_widget_hovered;
 }
 Uph_GlobalWidgetData;
@@ -194,10 +196,23 @@ void uph_ui_widgets_init(void)
     naui_arena_init(&data->menu_arena, (1 << 14));
 }
 
+static void uph_ui__end_edit(Uph_TextfieldData *data)
+{
+    data->id.value = 0;
+    data->mode = UPH_UI_EDIT_MODE_NONE;
+    data->target_string = NULL;
+    data->target_number = NULL;
+    data->select_active = false;
+}
+
 void uph_ui_widgets_flush(void)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
     uph_ui_render_menu_dropdown(data);
+
+    if (data->textfield_data.mode != UPH_UI_EDIT_MODE_NONE && !data->textfield_submitted_this_frame)
+        uph_ui__end_edit(&data->textfield_data);
+    data->textfield_submitted_this_frame = false;
 
     data->id_counter = 0;
     data->any_widget_hovered = false;
@@ -674,15 +689,6 @@ static void uph_ui__begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, N
     data->scroll_x = 0.0f;
 }
 
-static void uph_ui__end_edit(Uph_TextfieldData *data)
-{
-    data->id.value = 0;
-    data->mode = UPH_UI_EDIT_MODE_NONE;
-    data->target_string = NULL;
-    data->target_number = NULL;
-    data->select_active = false;
-}
-
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
 {
     Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
@@ -956,6 +962,9 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
         naui_pop_clip_rect();
     }
+
+    if (data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT)
+        uph_global_widget_data.textfield_submitted_this_frame = true;
 
     return result;
 }

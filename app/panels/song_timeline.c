@@ -75,6 +75,7 @@ typedef struct
     Uph_Track *rename_track;
     Naui_String rename_old_name;
     uint32_t visual_row_counter;
+    float content_height;
     Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
     bool panel_hovered;
@@ -1061,7 +1062,7 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
 
             if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
             {
-            	blocks[i].start_beat = fmax(0.0, uph_snap_beat_round(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
+            	blocks[i].start_beat = fmax(0.0, uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
                 naui_set_cursor(NAUI_CURSOR_HAND);
             }
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
@@ -1721,12 +1722,7 @@ static void uph_song_timeline_render_top_bar(void)
 
 static float uph_song_timeline_max_scroll_y(void)
 {
-    const uint32_t track_count = (uint32_t)naui_list_len(uph_state.project.tracks);
-
-    if (track_count == 0)
-        return 0.0f;
-
-    return (float)(track_count - 1) * NAUI_DPI(uph_song_timeline_data.zoom.y);
+    return uph_song_timeline_data.content_height - uph_song_timeline_data.zoom.y;
 }
 
 static void uph_song_timeline_update_input(void)
@@ -1897,21 +1893,10 @@ static void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *da
 
         if (track->instrument.params)
         {
-            Uph_UIMenuID automate_menu = uph_ui_submenu(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate"));
-
-            // TODO: make this a separate menu with filtering and stuff
-            for (uint32_t i = 0; i < 100u && i < (uint32_t)naui_list_len(track->instrument.params); i++)
+            if (uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
             {
-                if (uph_ui_menu_item(automate_menu, track->instrument.params[i].name.data, leaf_id_indexed("uph_song_timeline_options_automate_param", i)))
-                {
-                    Uph_ActionTrackAutomationCreate lane = {
-                        .parent = uph_action_track_ref(track),
-                        .name = track->instrument.params[i].name,
-                        .effect_index = -1,
-                        .param_id = track->instrument.params[i].id
-                    };
-                    naui_action_execute_stack(UPH_ACTION_TRACK_AUTOMATION_CREATE, lane);
-                }
+                uph_state.shared.current_automation_list_track = track;
+                naui_open_panel(uph_state.panels.automation_list);
             }
         }
     }
@@ -1988,7 +1973,9 @@ static void uph_song_timeline_on_update(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
     const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
+    const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");
 
+    data->content_height = leaf_get_bounding_box(content_area_id).height;
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
     data->panel_hovered = naui_panel_hovered(naui_current_panel());
     data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
@@ -2026,12 +2013,17 @@ static void uph_song_timeline_on_update(void)
             .clip_children = true
         })
         {
-            for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+            leaf({
+                .id = content_area_id,
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}
+            })
             {
-                uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu);
-                data->visual_row_counter++;
+                for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+                {
+                    uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu);
+                    data->visual_row_counter++;
+                }
             }
-
             uph_song_timeline_render_track_plus();
         }
         leaf({

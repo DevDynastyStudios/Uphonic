@@ -76,7 +76,7 @@
 	"sample.default.name": "Untitled Sample",
 	"automation.default.name": "Untitled Automation",
 
-	"plugin.title": "Plugin List",
+	"plugin.menu.title": "Plugin List",
 	"plugin.menu.name": "Name",
 	"plugin.menu.vendor": "Vendor",
 	"plugin.menu.type": "Type",
@@ -87,6 +87,8 @@
 	"plugin.menu.effect.short": "FX",
 	"plugin.menu.load": "Load Plugin",
 	"plugin.menu.none.detected": "No plugins detected!",
+
+	"automation.menu.title": "Automation List",
 
 	"settings.title": "Settings",
 	"settings.refresh": "Refresh",
