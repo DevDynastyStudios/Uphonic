@@ -173,6 +173,35 @@ static void uph_action_track_hide_plugins(Uph_Track *track)
 		uph_action_track_hide_plugins(&track->subtracks[s]);
 }
 
+void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
+{
+	const bool was_running = uph_audio_engine_device_running();
+	if (was_running)
+		uph_audio_engine_stop();
+
+	bool removed_lane = false;
+	for (int32_t s = (int32_t)naui_list_len(track->subtracks) - 1; s >= 0; s--)
+	{
+		Uph_Track *lane = &track->subtracks[s];
+		if (lane->type != UPH_RESOURCE_AUTOMATION || !uph_plugin_owns_param(plugin, lane->automation_param))
+			continue;
+
+		const Uph_ActionTrackRef ref = uph_action_track_ref(lane);
+		const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
+		uph_resources_remove_track(lane);
+		uph_action_tracks_changed(before, ref, -1);
+		removed_lane = true;
+	}
+
+	if (removed_lane)
+		naui_action_clear_history();
+
+	uph_unload_plugin(plugin);
+
+	if (was_running)
+		uph_audio_engine_start();
+}
+
 #pragma endregion
 
 #pragma region Track Create
@@ -508,6 +537,7 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	if (!parent || data->parent.parent >= 0)
 		return false;
 
+	// The action keeps ids so redo still works after plugins were reloaded; resolve them to the live param.
 	Uph_PluginParam* param = uph_resources_find_param(parent, data->effect_index, data->param_id);
 	if (!param)
 		return false;

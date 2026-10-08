@@ -4,7 +4,6 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param);
 bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginParam *param, int32_t *out_effect_index);
 Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index, uint64_t param_id);
-void uph_resources_release_plugin_automation(Uph_Track *track, const Uph_Plugin *plugin);
 void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks);
 
 void uph_resources_remove_track(Uph_Track *track);

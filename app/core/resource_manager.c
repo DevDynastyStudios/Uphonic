@@ -204,17 +204,6 @@ void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks)
 	}
 }
 
-void uph_resources_release_plugin_automation(Uph_Track *track, const Uph_Plugin *plugin)
-{
-	const uint64_t subtrack_count = naui_list_len(track->subtracks);
-	for (uint64_t s = 0; s < subtrack_count; s++)
-	{
-		Uph_Track *lane = &track->subtracks[s];
-		if (lane->type == UPH_RESOURCE_AUTOMATION && uph_plugin_owns_param(plugin, lane->automation_param))
-			lane->automation_param = NULL;
-	}
-}
-
 void uph_resources_remove_track(Uph_Track *track)
 {
 	Naui_List(Uph_Track) list = track->parent ? track->parent->subtracks : uph_state.project.tracks;
