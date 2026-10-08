@@ -46,11 +46,13 @@ static void uph_effect_list_on_update(void)
     }
 
     const uint32_t effect_count = (uint32_t)naui_list_len(track->effects);
-    int32_t move_from = -1;
-    int32_t move_to = -1;
+    if (effect_count == 0)
+        return;
 
     static uint32_t current_effect_index;
 
+    int32_t move_from = -1;
+    int32_t move_to = -1;
     for (uint32_t i = 0; i < effect_count; i++)
     {
         Uph_EffectPlugin *effect = &track->effects[i];
@@ -104,10 +106,21 @@ static void uph_effect_list_on_update(void)
     if (move_from >= 0 && move_to >= 0)
         uph_effect_list_swap(track, (uint32_t)move_from, (uint32_t)move_to);
 
-    if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
     {
         Uph_EffectPlugin *effect = &track->effects[current_effect_index];
-        uph_action_track_unload_plugin(track, &effect->plugin);
-        naui_list_remove(track->effects, current_effect_index);
+        Uph_Plugin *plugin = &effect->plugin;
+        
+        const bool visible = uph_plugin_window_visible(plugin);
+        if (uph_ui_menu_item(context_menu, visible ? NAUI_TR("effect_list.hide") : NAUI_TR("effect_list.show"), leaf_id("uph_effect_list_open")))
+        {
+            if (visible) uph_hide_plugin_window(plugin);
+            else uph_show_plugin_window(plugin);
+        }
+
+        if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
+        {
+            uph_action_track_unload_plugin(track, plugin);
+            naui_list_remove(track->effects, current_effect_index);
+        }
     }
 }

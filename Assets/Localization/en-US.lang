@@ -22,6 +22,8 @@
     "dialog.restore.restore": "Restore",
     "dialog.restore.title": "Recover Project",
 
+    "effect_list.show": "Show",
+    "effect_list.hide": "Hide",
     "effect_list.remove": "Remove",
 
     "file.count": "$You have {0} files selected.",
