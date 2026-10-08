@@ -206,7 +206,12 @@ void naui_close_panel(Naui_PanelID panel_id)
     naui_undock_panel(panel_id);
 
     if (node->type.on_close)
+    {
+        Naui_PanelNode *prev = naui_panel_manager.current_panel;
+        naui_panel_manager.current_panel = node;
         node->type.on_close();
+        naui_panel_manager.current_panel = prev;
+    }
 }
 
 bool naui_panel_closed(Naui_PanelID panel_id)
