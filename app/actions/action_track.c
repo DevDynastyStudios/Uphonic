@@ -152,6 +152,7 @@ static Uph_Track *uph_action_track_pointer_shift(Uph_ActionTrackRef ref, Uph_Act
 static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_ActionTrackRef changed, int32_t delta)
 {
 	uph_resources_link_tracks(uph_state.project.tracks);
+	uph_resources_refresh_param_usage(uph_state.project.tracks);
 	uph_state.shared.selected_mixer_track = uph_action_track_pointer_shift(before.mixer, changed, delta);
 	uph_state.shared.current_plugin_list_track = uph_action_track_pointer_shift(before.plugin_list, changed, delta);
 	uph_song_timeline_invalidate_tracks();
@@ -507,8 +508,12 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	if (!parent || data->parent.parent >= 0)
 		return false;
 
+	Uph_PluginParam* param = uph_resources_find_param(parent, data->effect_index, data->param_id);
+	if (!param)
+		return false;
+
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_add_automation_track(parent, data->name, data->effect_index, data->param_id);
+	uph_resources_add_automation_track(parent, data->name, param);
 	data->index = (uint32_t)naui_list_len(parent->subtracks) - 1;
 	data->resource_exists = true;
 	uph_action_tracks_changed(before, (Uph_ActionTrackRef){ (int32_t)data->parent.index, data->index }, 1);

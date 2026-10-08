@@ -102,7 +102,7 @@ void uph_resources_add_track(Naui_String name)
 	naui_list_push(uph_state.project.tracks, track);
 }
 
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int32_t effect_index, uint64_t param_id)
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_PluginParam *param)
 {
 	Uph_Track track = {
 		.name = name,
@@ -110,10 +110,109 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, int
 		.color_index = 0,
 		.index = naui_list_len(parent->subtracks),
 		.parent = parent,
-		.automation_param_id = param_id,
-		.automation_target_effect_index = effect_index
+		.automation_param = param
 	};
 	naui_list_push(parent->subtracks, track);
+}
+
+bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param)
+{
+	const uint64_t count = naui_list_len(plugin->params);
+	return param && count > 0 && param >= plugin->params && param < plugin->params + count;
+}
+
+bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginParam *param, int32_t *out_effect_index)
+{
+	if (!param)
+		return false;
+
+	if (uph_plugin_owns_param(&track->instrument, param))
+	{
+		*out_effect_index = -1;
+		return true;
+	}
+
+	const uint64_t effect_count = naui_list_len(track->effects);
+	for (uint64_t e = 0; e < effect_count; e++)
+	{
+		if (uph_plugin_owns_param(&track->effects[e].plugin, param))
+		{
+			*out_effect_index = (int32_t)e;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index, uint64_t param_id)
+{
+	Uph_Plugin *plugin;
+	if (effect_index < 0)
+	{
+		plugin = &track->instrument;
+	}
+	else
+	{
+		if ((uint64_t)effect_index >= (uint64_t)naui_list_len(track->effects))
+			return NULL;
+
+		plugin = &track->effects[effect_index].plugin;
+	}
+
+	const uint64_t param_count = naui_list_len(plugin->params);
+	for (uint64_t i = 0; i < param_count; i++)
+	{
+		if (plugin->params[i].id == param_id)
+			return &plugin->params[i];
+	}
+
+	return NULL;
+}
+
+static void uph_resources_clear_plugin_usage(Uph_Plugin *plugin)
+{
+	const uint64_t param_count = naui_list_len(plugin->params);
+	for (uint64_t i = 0; i < param_count; i++)
+		plugin->params[i].used = false;
+}
+
+void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks)
+{
+	const uint64_t track_count = naui_list_len(tracks);
+	for (uint64_t t = 0; t < track_count; t++)
+	{
+		Uph_Track *track = &tracks[t];
+
+		uph_resources_clear_plugin_usage(&track->instrument);
+		const uint64_t effect_count = naui_list_len(track->effects);
+		for (uint64_t e = 0; e < effect_count; e++)
+			uph_resources_clear_plugin_usage(&track->effects[e].plugin);
+
+		const uint64_t lane_count = naui_list_len(track->subtracks);
+		for (uint64_t s = 0; s < lane_count; s++)
+		{
+			Uph_Track *lane = &track->subtracks[s];
+			if (lane->type != UPH_RESOURCE_AUTOMATION)
+				continue;
+
+			// The ownership check keeps this safe even if a lane somehow holds a stale pointer.
+			int32_t effect_index;
+			if (uph_resources_param_owner_index(track, lane->automation_param, &effect_index))
+				lane->automation_param->used = true;
+		}
+	}
+}
+
+void uph_resources_release_plugin_automation(Uph_Track *track, const Uph_Plugin *plugin)
+{
+	const uint64_t subtrack_count = naui_list_len(track->subtracks);
+	for (uint64_t s = 0; s < subtrack_count; s++)
+	{
+		Uph_Track *lane = &track->subtracks[s];
+		if (lane->type == UPH_RESOURCE_AUTOMATION && uph_plugin_owns_param(plugin, lane->automation_param))
+			lane->automation_param = NULL;
+	}
 }
 
 void uph_resources_remove_track(Uph_Track *track)

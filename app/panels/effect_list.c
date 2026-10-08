@@ -5,19 +5,6 @@ static void uph_effect_list_swap(Uph_Track *track, uint32_t a, uint32_t b)
     Uph_EffectPlugin temp = track->effects[a];
     track->effects[a] = track->effects[b];
     track->effects[b] = temp;
-
-    uint64_t subtrack_count = naui_list_len(track->subtracks);
-    for (uint64_t s = 0; s < subtrack_count; s++)
-    {
-        Uph_Track *sub = &track->subtracks[s];
-        if (sub->type != UPH_RESOURCE_AUTOMATION)
-            continue;
-
-        if (sub->automation_target_effect_index == (int32_t)a)
-            sub->automation_target_effect_index = (int32_t)b;
-        else if (sub->automation_target_effect_index == (int32_t)b)
-            sub->automation_target_effect_index = (int32_t)a;
-    }
 }
 
 static void uph_effect_list_on_attach(void)
@@ -120,6 +107,7 @@ static void uph_effect_list_on_update(void)
     if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
     {
         Uph_EffectPlugin *effect = &track->effects[current_effect_index];
+        uph_resources_release_plugin_automation(track, &effect->plugin);
         uph_unload_plugin(&effect->plugin);
         naui_list_remove(track->effects, current_effect_index);
     }

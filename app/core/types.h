@@ -270,8 +270,7 @@ struct Uph_Track
 	float peak_cap_hold_left, peak_cap_hold_right;
 	float glow_effect;
 
-	uint64_t automation_param_id;
-	int32_t automation_target_effect_index;
+	Uph_PluginParam *automation_param;
 
 	Uph_ResourceType type;
 	Uph_TrackState state;

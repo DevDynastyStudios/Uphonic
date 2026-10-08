@@ -54,7 +54,7 @@ static bool uph_automation_list_plugin_has_visible_params(const Uph_Plugin *plug
     return false;
 }
 
-static void uph_automation_list_render_plugin_params(Uph_Plugin *plugin, const Uph_Track *parent_track)
+static void uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Track *parent_track, int32_t effect_index)
 {
     if (!uph_automation_list_plugin_has_visible_params(plugin))
         return;
@@ -75,7 +75,7 @@ static void uph_automation_list_render_plugin_params(Uph_Plugin *plugin, const U
             Uph_ActionTrackAutomationCreate lane = {
                 .parent = uph_action_track_ref(parent_track),
                 .name = param->name,
-                .effect_index = -1,
+                .effect_index = effect_index,
                 .param_id = param->id
             };
             naui_action_execute_stack(UPH_ACTION_TRACK_AUTOMATION_CREATE, lane);
@@ -96,8 +96,8 @@ void uph_automation_list_on_update(void)
         leaf_id("uph_automation_list_scrollbar")
     );
 
-    uph_automation_list_render_plugin_params(&track->instrument, track);
+    uph_automation_list_render_plugin_params(&track->instrument, track, -1);
     for (uint32_t i = 0; i < naui_list_len(track->effects); i++)
-        uph_automation_list_render_plugin_params(&track->effects[i].plugin, track);
+        uph_automation_list_render_plugin_params(&track->effects[i].plugin, track, i);
     uph_ui_end_scroll_container(&container);
 }

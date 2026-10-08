@@ -290,17 +290,19 @@ static void uph_queue_automation_block_params(
 
     Uph_Automation *automation = &project->automations[block->resource_index];
 
+    const Uph_PluginParam *param = automation_track->automation_param;
+
+    int32_t effect_index;
+    if (!uph_resources_param_owner_index(parent_track, param, &effect_index))
+        return;
+
     Uph_Plugin *target_plugin;
-    if (automation_track->automation_target_effect_index < 0)
+    if (effect_index < 0)
     {
         target_plugin = &parent_track->instrument;
     }
     else
     {
-        uint64_t effect_index = (uint64_t)automation_track->automation_target_effect_index;
-        if (effect_index >= naui_list_len(parent_track->effects))
-            return;
-
         Uph_EffectPlugin *effect = &parent_track->effects[effect_index];
         if (!effect->enabled)
             return;
@@ -332,7 +334,7 @@ static void uph_queue_automation_block_params(
 
         uph_plugin_queue_param_change(
             target_plugin,
-            automation_track->automation_param_id,
+            param->id,
             (double)value,
             offset
         );

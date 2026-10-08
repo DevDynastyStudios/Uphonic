@@ -340,10 +340,10 @@ static bool uph_io_save_tracks(const Uph_Project* project, const Naui_Path save_
 		return false;
 	}
 
-	return uph_io_save_track_list(project->tracks, save_path);
+	return uph_io_save_track_list(project->tracks, save_path, NULL);
 }
 
-static bool uph_io_save_track_list(Naui_List(Uph_Track) tracks, const Naui_Path list_dir)
+static bool uph_io_save_track_list(Naui_List(Uph_Track) tracks, const Naui_Path list_dir, const Uph_Track* parent)
 {
 	if (!naui_path_exists(list_dir) && !naui_directories_create(list_dir))
 	{
@@ -363,7 +363,7 @@ static bool uph_io_save_track_list(Naui_List(Uph_Track) tracks, const Naui_Path 
 		char folder[32];
 		snprintf(folder, sizeof(folder), "track_%04zu", i);
 		naui_json_push_string(&json, order, folder);
-		saved &= uph_io_save_track(&tracks[i], naui_path_join(list_dir, naui_path_from_cstr(folder)));
+		saved &= uph_io_save_track(&tracks[i], naui_path_join(list_dir, naui_path_from_cstr(folder)), parent);
 	}
 
 	saved &= naui_json_write_file(root, naui_path_join(list_dir, NAUI_PATH(UPH_IO_FILE_TRACKS)), true);
@@ -372,7 +372,7 @@ static bool uph_io_save_track_list(Naui_List(Uph_Track) tracks, const Naui_Path 
 	return saved;
 }
 
-static bool uph_io_save_track(const Uph_Track* track, const Naui_Path track_dir)
+static bool uph_io_save_track(const Uph_Track* track, const Naui_Path track_dir, const Uph_Track* parent)
 {
 	if (!naui_path_exists(track_dir) && !naui_directories_create(track_dir))
 	{
@@ -381,20 +381,20 @@ static bool uph_io_save_track(const Uph_Track* track, const Naui_Path track_dir)
 	}
 
 	bool saved = true;
-	saved &= uph_io_save_track_meta(track, track_dir);
+	saved &= uph_io_save_track_meta(track, track_dir, parent);
 	saved &= uph_io_save_track_blocks(track, track_dir);
 	saved &= uph_io_save_track_plugins(track, track_dir);
 
 	const Naui_Path subtracks_dir = naui_path_join(track_dir, NAUI_PATH(UPH_IO_FOLDER_SUBTRACKS));
 	if (naui_list_len(track->subtracks) > 0)
-		saved &= uph_io_save_track_list(track->subtracks, subtracks_dir);
+		saved &= uph_io_save_track_list(track->subtracks, subtracks_dir, track);
 	else if (naui_path_exists(subtracks_dir))
 		naui_directory_remove_all(subtracks_dir);
 
 	return saved;
 }
 
-static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track_dir)
+static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track_dir, const Uph_Track* parent)
 {
 	Naui_Json json = naui_json_result_create();
 	Naui_JsonValue* root = naui_json_object(&json);
@@ -411,7 +411,7 @@ static bool uph_io_save_track_meta(const Uph_Track* track, const Naui_Path track
 	naui_json_set_bool(&json, root, "soloed", (track->state & UPH_TRACK_SOLOED) != 0);
 
 	if (track->type == UPH_RESOURCE_AUTOMATION)
-		uph_io_save_track_automation(&json, naui_json_set_object(&json, root, "automation"), track);
+		uph_io_save_track_automation(&json, naui_json_set_object(&json, root, "automation"), track, parent);
 
 	bool written = naui_json_write_file(root, naui_path_join(track_dir, NAUI_PATH(UPH_IO_FILE_META)), true);
 	naui_json_free(&json);
@@ -445,10 +445,14 @@ static bool uph_io_save_track_blocks(const Uph_Track* track, const Naui_Path tra
 	return written;
 }
 
-static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object, const Uph_Track* track)
+static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object, const Uph_Track* track, const Uph_Track* parent)
 {
-	naui_json_set_number(json, object, "param_id", (double)track->automation_param_id);
-	naui_json_set_int(json, object, "effect_index", track->automation_target_effect_index);	// -1 is the instrument
+	int32_t effect_index;
+	if (!parent || !uph_resources_param_owner_index(parent, track->automation_param, &effect_index))
+		return;
+
+	naui_json_set_number(json, object, "param_id", (double)track->automation_param->id);
+	naui_json_set_int(json, object, "effect_index", effect_index);	// -1 is the instrument
 }
 
 static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path track_dir)
@@ -933,7 +937,7 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	bool complete = true;
 	if (naui_path_exists(naui_path_join(load_path, NAUI_PATH(UPH_IO_FILE_TRACKS))))
 	{
-		if (!uph_io_load_track_list(&tracks, load_path, project, &complete))
+		if (!uph_io_load_track_list(&tracks, load_path, project, &complete, NULL))
 		{
 			uph_resources_clear_tracks_recursive(tracks);
 			return false;
@@ -943,6 +947,7 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 		naui_log(NAUI_LOG_INFO, "No tracks saved in %s", load_path.data);
 
 	uph_resources_link_tracks(tracks);
+	uph_resources_refresh_param_usage(tracks);
 	uph_io_apply_solo_state(tracks);
 	Naui_List(Uph_Track) previous = project->tracks;
 	project->tracks = tracks;
@@ -950,7 +955,7 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	return complete;
 }
 
-static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete)
+static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent)
 {
 	const Naui_Path list_file = naui_path_join(list_dir, NAUI_PATH(UPH_IO_FILE_TRACKS));
 	Naui_Json json = naui_json_parse_file(list_file);
@@ -982,7 +987,7 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 		}
 
 		Uph_Track track = { 0 };
-		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete))
+		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete, parent))
 		{
 			naui_log(NAUI_LOG_WARNING, "Skipping track that can't be read: %s", folder);
 			*complete = false;
@@ -996,9 +1001,9 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 	return true;
 }
 
-static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete)
+static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent)
 {
-	if (!uph_io_load_track_meta(track, load_dir))
+	if (!uph_io_load_track_meta(track, load_dir, parent, complete))
 		return false;
 
 	if (!uph_io_load_track_blocks(track, load_dir, project, complete))
@@ -1008,25 +1013,13 @@ static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const 
 		*complete = false;
 
 	const Naui_Path subtracks_dir = naui_path_join(load_dir, NAUI_PATH(UPH_IO_FOLDER_SUBTRACKS));
-	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete))
+	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete, track))
 		*complete = false;
-
-	const int32_t effect_count = (int32_t)naui_list_len(track->effects);
-	for (size_t i = 0; i < (size_t)naui_list_len(track->subtracks); i++)
-	{
-		Uph_Track* lane = &track->subtracks[i];
-		if (lane->type == UPH_RESOURCE_AUTOMATION && lane->automation_target_effect_index >= effect_count)
-		{
-			naui_log(NAUI_LOG_WARNING, "Automation lane '%s' points at an effect that isn't there, using the instrument", lane->name.data);
-			lane->automation_target_effect_index = -1;
-			*complete = false;
-		}
-	}
 
 	return true;
 }
 
-static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir)
+static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir, Uph_Track* parent, bool* complete)
 {
 	const Naui_Path meta_file = naui_path_join(load_dir, NAUI_PATH(UPH_IO_FILE_META));
 	Naui_Json json = naui_json_parse_file(meta_file);
@@ -1062,10 +1055,9 @@ static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir)
 
 	if (track->type == UPH_RESOURCE_AUTOMATION)
 	{
-		track->automation_target_effect_index = -1;
 		const Naui_JsonValue* automation = naui_json_object_get(root, "automation");
 		if (automation)
-			uph_io_load_track_automation(track, automation);
+			uph_io_load_track_automation(track, automation, parent, complete);
 	}
 
 	naui_json_free(&json);
@@ -1190,12 +1182,24 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 	return readable;
 }
 
-static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue* object)
+static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue* object, Uph_Track* parent, bool* complete)
 {
-	const double param_id = naui_json_get_number(naui_json_object_get(object, "param_id"), 0.0);
+	track->automation_param = NULL;
+
+	const Naui_JsonValue* id_value = naui_json_object_get(object, "param_id");
+	if (!id_value)
+		return;
+
+	const double param_id = naui_json_get_number(id_value, 0.0);
 	const int effect_index = naui_json_get_int(naui_json_object_get(object, "effect_index"), -1);
-	track->automation_param_id = param_id > 0.0 ? (uint64_t)param_id : 0;
-	track->automation_target_effect_index = effect_index < -1 ? -1 : effect_index;
+	if (parent && param_id >= 0.0)
+		track->automation_param = uph_resources_find_param(parent, effect_index < -1 ? -1 : effect_index, (uint64_t)param_id);
+
+	if (!track->automation_param)
+	{
+		naui_log(NAUI_LOG_WARNING, "Automation lane '%s' points at a parameter that isn't there", track->name.data);
+		*complete = false;
+	}
 }
 
 #pragma endregion
