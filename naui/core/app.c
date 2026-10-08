@@ -205,6 +205,11 @@ void naui_app_close(void)
     mgapp_close();
 }
 
+void naui_app_cancel_close(void)
+{
+    mgapp_cancel_close();
+}
+
 void naui_app_minimize(void)
 {
     mgapp_minimize();

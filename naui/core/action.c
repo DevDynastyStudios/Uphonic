@@ -122,6 +122,12 @@ static size_t s_capacity;
 static size_t s_undo_head;
 static size_t s_undo_count;
 static size_t s_redo_count;
+static uint64_t s_revision;
+
+uint64_t naui_action_get_revision(void)
+{
+	return s_revision;
+}
 
 static inline size_t undo_physical_index(size_t logical_index)
 {
@@ -269,6 +275,7 @@ bool naui_action_execute(const char* name, void* data)
 	if(!action || !action->execute(data))
 		return false;
 
+	s_revision++;
 	Naui_ActionEntry entry = { .name = name, .action = action, .data = data };
 	if(s_group_active)
 	{
@@ -302,6 +309,7 @@ bool naui_action_undo(void)
 	if(!entry->action->undo(entry->data))
 		return false;
 
+	s_revision++;
 	s_redo_entries[s_redo_count++] = *entry;
 	s_undo_count--;
 	return true;
@@ -318,6 +326,7 @@ bool naui_action_redo(void)
 	if(!fn(entry->data))
 		return false;
 
+	s_revision++;
 	s_undo_entries[undo_physical_index(s_undo_count)] = *entry;
 	s_undo_count++;
 	s_redo_count--;

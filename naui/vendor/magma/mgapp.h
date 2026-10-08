@@ -211,7 +211,8 @@ enum
     MGAPP_EVENT_MOUSE_MOVE,
     MGAPP_EVENT_MOUSE_SCROLL,
     MGAPP_EVENT_FILE_DROP,
-    MGAPP_EVENT_WINDOW_CLOSE
+    MGAPP_EVENT_WINDOW_CLOSE,
+    MGAPP_EVENT_WINDOW_CLOSE_REQUEST
 };
 
 typedef struct
@@ -280,6 +281,7 @@ mgapp_init_info;
 
 MGAPP_API int32_t mgapp_run(const mgapp_init_info *info);
 MGAPP_API void mgapp_close(void);
+MGAPP_API void mgapp_cancel_close(void);
 MGAPP_API void mgapp_show(bool value);
 MGAPP_API void mgapp_minimize(void);
 MGAPP_API void mgapp_maximize(void);
@@ -568,6 +570,7 @@ typedef struct
     mg_cursor current_cursor;
 
     bool running;
+    bool close_cancelled;
 }
 mgapp_core_state;
 static mgapp_core_state mgapp_state;
@@ -576,6 +579,19 @@ static inline void mgapp_call_event(const mgapp_event *event)
 {
     if (mgapp_state.events.event)
         mgapp_state.events.event(event);
+}
+
+static inline bool mgapp_request_close(void)
+{
+    mgapp_state.close_cancelled = false;
+    mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE_REQUEST };
+    mgapp_call_event(&event);
+    return !mgapp_state.close_cancelled;
+}
+
+void mgapp_cancel_close(void)
+{
+    mgapp_state.close_cancelled = true;
 }
 
 static inline void mgapp_input_process_key(mg_key key, bool pressed)
@@ -1105,6 +1121,9 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
     {
         case WM_CLOSE:
         {
+            if (!mgapp_request_close())
+                return 0;
+
             mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
             mgapp_call_event(&event);
             DestroyWindow(hwnd);
@@ -2137,9 +2156,12 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                 {
                     if ((Atom)xev.xclient.data.l[0] == xlib_state->wm_delete_window)
                     {
-                        mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
-                        mgapp_call_event(&event);
-                        mgapp_state.running = false;
+                        if (mgapp_request_close())
+                        {
+                            mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+                            mgapp_call_event(&event);
+                            mgapp_state.running = false;
+                        }
                     }
                     else if (mgapp_state.flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
                         mgapp_xlib_handle_xdnd_client_message(xlib_state, &xev.xclient);
@@ -2355,6 +2377,9 @@ void mgapp_xlib_show(bool value)
 
 void mgapp_xlib_close(void)
 {
+    if (!mgapp_request_close())
+        return;
+
     mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
     mgapp_call_event(&event);
     mgapp_state.running = false;

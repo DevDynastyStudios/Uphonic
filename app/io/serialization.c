@@ -141,27 +141,28 @@ static void uph_io_apply_solo_state(Naui_List(Uph_Track) tracks)
 #pragma region Project Saving
 static bool uph_io_save_project(const Uph_Project* project, const Naui_Path save_path)
 {
-	if (!naui_path_exists(save_path))
-		naui_directory_create(save_path);
+	const Naui_Path normal_path = naui_path_normalize(save_path);
+	if (!naui_path_exists(normal_path))
+		naui_directory_create(normal_path);
 
-	const Naui_Path patterns_dir = naui_path_join(save_path, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
-	const Naui_Path samples_dir = naui_path_join(save_path, NAUI_PATH(UPH_IO_FOLDER_SAMPLES));
-	const Naui_Path automation_dir = naui_path_join(save_path, NAUI_PATH(UPH_IO_FOLDER_AUTOMATION));
-	const Naui_Path tracks_dir = naui_path_join(save_path, NAUI_PATH(UPH_IO_FOLDER_TRACKS));
+	const Naui_Path patterns_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
+	const Naui_Path samples_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_SAMPLES));
+	const Naui_Path automation_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_AUTOMATION));
+	const Naui_Path tracks_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_TRACKS));
 	naui_directory_create(patterns_dir);
 	naui_directory_create(samples_dir);
 	naui_directory_create(automation_dir);
 	naui_directory_create(tracks_dir);
 
 	bool saved = true;
-	saved &= uph_io_save_settings(project, save_path);
+	saved &= uph_io_save_settings(project, normal_path);
 	saved &= uph_io_save_patterns(project, patterns_dir);
 	saved &= uph_io_save_samples(project, samples_dir);
 	saved &= uph_io_save_automation(project, automation_dir);
 	saved &= uph_io_save_tracks(project, tracks_dir);
 
 	if (saved)
-		naui_log(NAUI_LOG_INFO, "Saved Project (\"%s\")", save_path.data);
+		naui_log(NAUI_LOG_INFO, "Saved Project (\"%s\")", normal_path.data);
 
 	return saved;
 }
@@ -558,7 +559,7 @@ static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue*
 	naui_json_set_string(json, object, "language_code", general->language_code.data);
 	naui_json_set_string(json, object, "region_code", general->region_code.data);
 	naui_json_set_number(json, object, "ui_scale", uph_io_float_json(general->ui_scale));
-	naui_json_set_int(json, object, "autosave_timer", general->autosave_timer);
+	naui_json_set_int(json, object, "autosave_timer", general->autosave_idle_timer);
 	naui_json_set_int(json, object, "undo_history_limit", (int)general->undo_history_limit);
 	naui_json_set_bool(json, object, "confirm_on_exit", general->confirm_on_exit);
 	naui_json_set_bool(json, object, "confirm_on_delete", general->confirm_on_delete);
@@ -627,29 +628,30 @@ static void uph_io_save_editor_settings_plugin(Naui_Json* json, Naui_JsonValue* 
 #pragma region Project Loading
 static bool uph_io_load_project(Uph_Project* project, const Naui_Path load_path)
 {
-	if (!naui_path_exists(load_path))
+	const Naui_Path normal_path = naui_path_normalize(load_path);
+	if (!naui_path_exists(normal_path))
 	{
-		naui_log(NAUI_LOG_ERROR, "No path exists: %s", load_path.data);
+		naui_log(NAUI_LOG_ERROR, "No path exists: %s", normal_path.data);
 		return false;
 	}
 
-	const Naui_Path patterns_dir = naui_path_join(load_path, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
-	const Naui_Path samples_dir = naui_path_join(load_path, NAUI_PATH(UPH_IO_FOLDER_SAMPLES));
-	const Naui_Path automation_dir = naui_path_join(load_path, NAUI_PATH(UPH_IO_FOLDER_AUTOMATION));
-	const Naui_Path tracks_dir = naui_path_join(load_path, NAUI_PATH(UPH_IO_FOLDER_TRACKS));
+	const Naui_Path patterns_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
+	const Naui_Path samples_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_SAMPLES));
+	const Naui_Path automation_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_AUTOMATION));
+	const Naui_Path tracks_dir = naui_path_join(normal_path, NAUI_PATH(UPH_IO_FOLDER_TRACKS));
 	naui_directory_create(patterns_dir);
 	naui_directory_create(samples_dir);
 	naui_directory_create(tracks_dir);
 
 	bool loaded = true;
-	loaded &= uph_io_load_settings(project, load_path);
+	loaded &= uph_io_load_settings(project, normal_path);
 	loaded &= uph_io_load_patterns(project, patterns_dir);
 	loaded &= uph_io_load_samples(project, samples_dir);
 	loaded &= uph_io_load_automation(project, automation_dir);
 	loaded &= uph_io_load_tracks(project, tracks_dir);
 
 	if (loaded)
-		naui_log(NAUI_LOG_INFO, "Loaded Project (\"%s\")", load_path.data);
+		naui_log(NAUI_LOG_INFO, "Loaded Project (\"%s\")", normal_path.data);
 
 	return loaded;
 }
@@ -1247,7 +1249,7 @@ static void uph_io_load_editor_settings_general(Uph_GeneralSettings* general, co
 	uph_io_read_string(object, "language_code", &general->language_code);
 	uph_io_read_string(object, "region_code", &general->region_code);
 	uph_io_read_float(object, "ui_scale", &general->ui_scale);
-	uph_io_read_int32(object, "autosave_timer", &general->autosave_timer);
+	uph_io_read_int32(object, "autosave_timer", &general->autosave_idle_timer);
 	uph_io_read_uint32(object, "undo_history_limit", &general->undo_history_limit);
 	uph_io_read_bool(object, "confirm_on_exit", &general->confirm_on_exit);
 	uph_io_read_bool(object, "confirm_on_delete", &general->confirm_on_delete);

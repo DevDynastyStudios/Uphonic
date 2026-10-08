@@ -84,6 +84,7 @@
 #include "threading/threads.h"
 
 #include "localization/localization.h"
+#include "filesystem/filedialog.h"
 
 // source files
 #include "utils/arena.c"
@@ -120,3 +121,4 @@
 #include "filesystem/archive.c"
 
 #include "localization/localization.c"
+#include "filesystem/filedialog.c"

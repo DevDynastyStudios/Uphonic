@@ -7,7 +7,8 @@ typedef struct Uph_GeneralSettings
 	Naui_String language_code;
 	Naui_String region_code;
 	float ui_scale;
-	int32_t autosave_timer;
+	int32_t autosave_idle_timer;
+	int32_t autosave_force_timer;
 	uint32_t undo_history_limit;
 	bool confirm_on_exit;
 	bool confirm_on_delete;

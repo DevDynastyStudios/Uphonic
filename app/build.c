@@ -31,8 +31,12 @@
 #include "io/file_signature.c"
 #include "io/serialization.h"
 #include "io/serialization.c"
+#include "core/autosave.h"
+#include "core/recovery.h"
 #include "core/project_manager.h"
 #include "core/project_manager.c"
+#include "core/autosave.c"
+#include "core/recovery.c"
 
 #include "plugins/plugin_manager.c"
 
@@ -42,11 +46,13 @@
 #include "ui/titlebar.h"
 #include "ui/waveform.h"
 #include "ui/widgets.h"
+#include "ui/dialog.h"
 #include "ui/containers.h"
 
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
 #include "ui/widgets.c"
+#include "ui/dialog.c"
 #include "ui/containers.c"
 
 #include "actions/action_track.c"
@@ -58,6 +64,7 @@
 
 #include "core/audio_engine.c"
 
+#include "panels/file_dialog.c"
 #include "panels/song_timeline.c"
 #include "panels/mixer.c"
 #include "panels/resource_list.c"

@@ -26,30 +26,31 @@ static Naui_Path _naui_localization_build_path(const char* code)
 
 bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_language)
 {
-	if (naui_path_is_empty(path) || !out_language)
+	const Naui_Path lang_path = naui_path_normalize(path);
+	if (naui_path_is_empty(lang_path) || !out_language)
 		return false;
 
 	out_language->table = NULL;
 	out_language->meta.language_code = (Naui_String){0};
-	Naui_Json json = naui_json_parse_file(path);
+	Naui_Json json = naui_json_parse_file(lang_path);
 
 	if (!json.root || json.error)
 	{
-		naui_log(NAUI_LOG_ERROR, "Failed to parse localization file: %s", path.data);
+		naui_log(NAUI_LOG_ERROR, "Failed to parse localization file: %s", lang_path.data);
 		naui_json_free(&json);
 		return false;
 	}
 
 	if (json.root->type != NAUI_JSON_OBJECT)
 	{
-		naui_log(NAUI_LOG_ERROR, "Localization file root is not an object: %s", path.data);
+		naui_log(NAUI_LOG_ERROR, "Localization file root is not an object: %s", lang_path.data);
 		naui_json_free(&json);
 		return false;
 	}
 
-	size_t file_size = naui_file_size(path);
+	size_t file_size = naui_file_size(lang_path);
 	naui_arena_init(&out_language->arena, file_size > 0 ? file_size : 1024);
-	out_language->meta.filename = path;
+	out_language->meta.filename = lang_path;
 	out_language->meta.text_direction = NAUI_TEXT_LTR;
 
 	NAUI_JSON_FOREACH(json.root, key, value)
@@ -109,7 +110,7 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	naui_json_free(&json);
 	if (naui_string_is_empty(out_language->meta.language_code))
 	{
-		Naui_String stem = naui_view_to_string(naui_file_stem(&path));
+		Naui_String stem = naui_view_to_string(naui_file_stem(&lang_path));
 		naui_localization_split_locale(stem.data, &out_language->meta.language_code, &out_language->meta.region_code);
 	}
 

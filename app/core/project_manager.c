@@ -135,12 +135,14 @@ bool uph_project_create(Naui_String project_name)
 	uph_resources_add_pattern();
 	uph_resources_remove_all_automation();
 	naui_action_clear_history();
+	uph_autosave_mark_clean();
 
 	uph_state.shared.song_timeline_playhead_position = 0.0;
 	_uph_project_default_shared_state();
 
-	naui_file_create(naui_path_join(project_dest, NAUI_PATH(".lock")));
-	naui_path_lock(project_dest);
+	if (!uph_recovery_acquire_lock(project_dest))
+		naui_log(NAUI_LOG_WARNING, "Project may be open in another Uphonic instance: %s", project_dest.data);
+
 	uph_audio_engine_start();
 	return true;
 }
@@ -151,6 +153,10 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 	const Naui_Path project_folder = uph_project_get_path(project);
 	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP)); // May not exist. CHECK!
 	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : temp_folder;
+
+	// The autosave is only trustworthy once a save has fully finished, so drop its marker before touching anything.
+	// For a canonical save this also keeps the marker from being merged into the project folder
+	uph_recovery_invalidate_autosave(project_folder);
 	
 	if (save_type == UPH_SAVE_TYPE_CANONICAL)
 	{
@@ -168,7 +174,13 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 	}
 	
 	uph_audio_engine_start();
-	return uph_io_save_project(project, save_dest);
+	const bool saved = uph_io_save_project(project, save_dest);
+	if (saved && save_type == UPH_SAVE_TYPE_CANONICAL)
+		uph_autosave_mark_clean();
+	else if (saved)
+		uph_recovery_commit_autosave(project_folder);
+
+	return saved;
 }
 
 bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_ExportFormat format)
@@ -203,7 +215,7 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 			success = false;
 		}
 
-		if (success && naui_path_exists(temp_save) && !naui_archive_add_folder(&archive, temp_save, NAUI_PATH(""), NULL))
+		if (success && naui_path_exists(temp_save) && !naui_archive_add_folder(&archive, temp_save, NAUI_PATH(""), NAUI_ARCHIVE_EXCLUDES(UPH_RECOVERY_AUTOSAVE_MARKER)))
 		{
 			naui_log(NAUI_LOG_ERROR, "Failed to add temp folder to archive");
 			success = false;
@@ -234,9 +246,9 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 		}
 
 		uph_audio_engine_stop();
-		uph_audio_engine_export_to_wav(naui_file_filename(&output_path).data, 0, length);
+		const bool exported = uph_audio_engine_export_to_wav(output_path.data, 0, length);
 		uph_audio_engine_start();
-		return true;
+		return exported;
 	}
 
 	return false;
@@ -274,7 +286,9 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 			}
 
 			naui_action_clear_history();
+			uph_autosave_mark_clean();
 			_uph_project_default_shared_state();
+			uph_recovery_acquire_lock(uph_project_get_path(project));
 			naui_log(NAUI_LOG_INFO, "Successfully loaded uph file: %s", filename.data);
 		}
 		else
@@ -287,12 +301,40 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	uph_audio_engine_stop_all_notes();
 	naui_list_clear(project->midi_patterns);
 	uph_resources_clear_tracks();
-	bool loaded = uph_io_load_project(project, load_path);
-	
+
+	// An autosave in .temp is newer than the project folder, so it wins. It is NOT merged here: the project
+	// folder stays the last explicit save until the user saves (or discards the autosave by not saving)
+	bool from_autosave = uph_recovery_has_autosave(load_path);
+	bool loaded = uph_io_load_project(project, from_autosave ? naui_path_join(load_path, NAUI_PATH(UPH_PATH_TEMP)) : load_path);
+
+	if (!loaded && from_autosave)
+	{
+		naui_log(NAUI_LOG_WARNING, "Autosave could not be read, loading the last saved version instead");
+		naui_list_clear(project->midi_patterns);
+		uph_resources_clear_tracks();
+		uph_resources_remove_all_automation();
+		from_autosave = false;
+		loaded = uph_io_load_project(project, load_path);
+	}
+
 	if (loaded)
 	{
+		// The folder is the project's identity (saves, autosaves and the lock all go to workspace/<title>),
+		// so a folder that was renamed wins over the name stored inside the project file
+		const Naui_Path normalized_load_path = naui_path_normalize(load_path);
+		project->title = naui_view_to_string(naui_file_filename(&normalized_load_path));
+
 		naui_action_clear_history();
+		if (from_autosave)
+		{
+			uph_autosave_mark_recovered();
+			naui_log(NAUI_LOG_INFO, "Restored unsaved changes from the autosave");
+		}
+		else
+			uph_autosave_mark_clean();
+
 		_uph_project_default_shared_state();
+		uph_recovery_acquire_lock(uph_project_get_path(project));
 	}
 
 	if (naui_list_len(project->tracks) == 0)
@@ -309,6 +351,38 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 {
 	if (!naui_path_exists(file_path) || naui_path_is_directory(file_path) || naui_string_is_empty(project->title))
 		return false;
+
+	const char* midi_extensions[] = { ".mid", ".midi", ".rmi", ".kar" };
+	const size_t midi_extension_count = sizeof(midi_extensions) / sizeof(midi_extensions[0]);
+
+	Naui_StringView extension = naui_file_extension(&file_path);
+	for (size_t e = 0; e < midi_extension_count; e++)
+	{
+		if (naui_string_view_equals_cstr(extension, midi_extensions[e], true))
+		{
+			// const int32_t duplicate = uph_project_find_duplicate_sample(project, file_path);	Make Generic version to check if two files are the same
+			// if (duplicate >= 0)
+			// {
+			// 	naui_log(NAUI_LOG_INFO, "Skipping copy, identical file already in project: %s", file_path.data);
+			// 	return true;
+			// }
+
+			Naui_StringView pattern_name = naui_file_stem(&file_path);
+			Uph_MidiPattern pattern = uph_midi_convert_to_pattern(file_path);
+			if (naui_list_len(pattern.notes) == 0)
+			{
+				naui_log(NAUI_LOG_WARNING, "Failed to load MIDI Pattern (%s)", file_path.data);
+				return false;
+			}
+
+			naui_string_copy_view(&pattern.name, pattern_name);
+			naui_list_push(project->midi_patterns, pattern);
+			uph_state.shared.selected_resource.index = naui_list_len(project->midi_patterns) - 1;
+			uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
+			naui_log(NAUI_LOG_INFO, "Added MIDI Pattern (%s)", file_path.data);
+			return true;
+		}
+	}
 
 	naui_log(NAUI_LOG_INFO, "(%s) Adding sample link: %s", project->title, file_path.data);
 	if (!uph_state.settings.general.copy_resources)

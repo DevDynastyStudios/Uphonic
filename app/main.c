@@ -1,6 +1,100 @@
 NAUI_APP("Uphonic")
 
+Uph_State uph_state = { 0 };
 
+#pragma region Crash Recovery
+
+static bool s_exit_confirmed;
+static bool s_exit_dialog_open;
+static Naui_Path s_restore_project_folder;
+
+static void uph_exit_dialog_result(int32_t button, void *user_data)
+{
+	(void)user_data;
+	s_exit_dialog_open = false;
+
+	if (button == 0)	// Save
+	{
+		if (!uph_project_save(&uph_state.project, UPH_SAVE_TYPE_CANONICAL))
+		{
+			naui_log(NAUI_LOG_ERROR, "Save failed, not closing");
+			return;
+		}
+	}
+	else if (button == 1)
+		uph_recovery_discard_autosave(uph_project_get_path(&uph_state.project));
+	else
+		return;	// Cancel
+
+	s_exit_confirmed = true;
+	naui_defer((Naui_DeferredEvent)naui_app_close, NULL, 0);
+}
+
+static void uph_handle_close_request(void)
+{
+	if (s_exit_confirmed)
+		return;
+
+	if (s_exit_dialog_open)
+	{
+		naui_app_cancel_close();
+		return;
+	}
+
+	if (!uph_autosave_has_unsaved_changes())
+		return;
+
+	if (!uph_state.settings.general.confirm_on_exit)
+	{
+		uph_autosave_flush();
+		return;
+	}
+
+	naui_app_cancel_close();
+	s_exit_dialog_open = uph_dialog_open(&(Uph_DialogConfig){
+		.title = NAUI_TR("dialog.exit.title"),
+		.message = NAUI_TR("dialog.exit.message"),
+		.buttons = { NAUI_TR("dialog.exit.save"), NAUI_TR("dialog.exit.discard"), NAUI_TR("dialog.cancel") },
+		.default_button = 0,
+		.cancel_button = 2,
+		.callback = uph_exit_dialog_result
+	});
+}
+
+static void uph_restore_dialog_result(int32_t button, void *user_data)
+{
+	(void)user_data;
+
+	if (button == 0)	// Restore
+	{
+		if (!uph_project_load(&uph_state.project, s_restore_project_folder))
+			naui_log(NAUI_LOG_ERROR, "Failed to restore project: %s", s_restore_project_folder.data);
+		return;
+	}
+
+	uph_recovery_discard_autosave(s_restore_project_folder);
+	uph_recovery_clear_crash(s_restore_project_folder);
+}
+
+static void uph_show_restore_dialog(const Naui_Path project_folder)
+{
+	s_restore_project_folder = project_folder;
+	char message[512];
+	snprintf(message, sizeof(message), "%s\n\n%s", NAUI_TR("dialog.restore.message"), naui_view_to_string(naui_file_filename(&project_folder)).data);
+
+	uph_dialog_open(&(Uph_DialogConfig){
+		.title = NAUI_TR("dialog.restore.title"),
+		.message = message,
+		.buttons = { NAUI_TR("dialog.restore.restore"), NAUI_TR("dialog.restore.discard") },
+		.default_button = 0,
+		.cancel_button = -1,
+		.callback = uph_restore_dialog_result
+	});
+}
+
+#pragma endregion
+
+#pragma region Metronome
 #define UPH_METRONOME_TIME_RESET 2.0f
 #define UPH_METRONOME_MAX_TAPS 8
 #define UPH_METRONOME_MIN_INTERVAL (60.0f / 300.0f)
@@ -11,8 +105,6 @@ static bool _metronome_active = false;
 static float _metronome_last_tap_time;
 static float _metronome_avg_interval;
 static uint32_t _metronome_count = 0;
-
-Uph_State uph_state = { 0 };
 
 void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
@@ -73,6 +165,8 @@ static bool _uph_metronome_tap(float *out_bpm)
 	return true;
 }
 
+#pragma endregion
+
 void naui_app_start(void)
 {
 	uph_settings_set_defaults();
@@ -94,7 +188,7 @@ void naui_app_start(void)
 	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 	naui_close_panel(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
 
-	//NAUI_ATTACH_PANEL(uph_file_dialog);
+	uph_file_dialog_register();
 
 	naui_set_main_viewport(naui_dock_panel(
 		naui_dock_panel(
@@ -117,11 +211,19 @@ void naui_app_start(void)
 
 	uph_settings_open_midi_ports(!settings_loaded);
 	uph_action_initialize();
+
+	Naui_Path crashed_project = {0};
+	const bool crashed = uph_recovery_find_crashed_project(UPHONIC_WORKSPACE_FOLDER, &crashed_project);
 	uph_project_create(naui_string_from_cstr("Test Project"));
+
+	if (crashed)
+		uph_show_restore_dialog(crashed_project);
 }
 
 void naui_app_end(void)
 {
+	uph_recovery_release_lock();
+
 	naui_log(NAUI_LOG_INFO, "Saving Settings...");
 	uph_settings_save();
 
@@ -232,11 +334,16 @@ void naui_app_update(void)
 		}
 	}*/
 
+	if (uph_dialog_is_open())
+		naui_occlude_all_panels();
+
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_all_track_plugins(&uph_state.project.tracks[i]);
+
+	uph_autosave_update();
 }
 
 void naui_app_event(const Naui_AppEventData *data)

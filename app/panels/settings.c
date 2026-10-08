@@ -12,7 +12,7 @@ NAUI_PANEL(uph_settings)
 
 #define UPH_SETTINGS_UI_SCALE_MIN		0.5f
 #define UPH_SETTINGS_UI_SCALE_MAX		2.0f
-#define UPH_SETTINGS_AUTOSAVE_MAX		120
+#define UPH_SETTINGS_AUTOSAVE_MAX		600
 #define UPH_SETTINGS_UNDO_MIN			1
 #define UPH_SETTINGS_UNDO_MAX			1000
 #define UPH_SETTINGS_VU_HOLD_MAX		10.0f
@@ -115,7 +115,7 @@ void uph_settings_set_defaults(void)
 	settings->general.language_code = naui_string_from_cstr("en");
 	settings->general.region_code = naui_string_from_cstr("US");
 	settings->general.ui_scale = 1.0f;
-	settings->general.autosave_timer = 5;
+	settings->general.autosave_idle_timer = 5;
 	settings->general.undo_history_limit = 100;
 	settings->general.confirm_on_exit = true;
 	settings->general.confirm_on_delete = true;
@@ -186,7 +186,7 @@ void uph_settings_sanitize(void)
 	}
 
 	settings->general.ui_scale = NAUI_CLAMP(settings->general.ui_scale, UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX);
-	settings->general.autosave_timer = NAUI_CLAMP(settings->general.autosave_timer, 0, UPH_SETTINGS_AUTOSAVE_MAX);
+	settings->general.autosave_idle_timer = NAUI_CLAMP(settings->general.autosave_idle_timer, 0, UPH_SETTINGS_AUTOSAVE_MAX);
 	settings->general.undo_history_limit = NAUI_CLAMP(settings->general.undo_history_limit, (uint32_t)UPH_SETTINGS_UNDO_MIN, (uint32_t)UPH_SETTINGS_UNDO_MAX);
 
 	settings->audio.sample_rate = uph_settings_nearest(settings->audio.sample_rate, uph_settings_sample_rates, UPH_SETTINGS_COUNT(uph_settings_sample_rates));
@@ -388,9 +388,7 @@ static const cmidi_device_t *uph_settings_find_midi_device(const Uph_SettingsMid
 	return NULL;
 }
 
-// Opens the ports named in the settings. A device that isn't plugged in is skipped and its name stays saved, so it
-// comes back the next time it is there. use_first_device is for a first run (no settings file yet): the first
-// available device is used, which is what startup did before settings were saved.
+// Opens the ports named in the settings. A non connected device is skipped and its name stays saved.
 void uph_settings_open_midi_ports(const bool use_first_device)
 {
 	Uph_SettingsData *data = &uph_settings_data;
@@ -462,7 +460,11 @@ static void uph_settings_row_end(void)
 
 static void uph_settings_hint(const char *text)
 {
-	leaf_text(text, { .font_size = { uph_settings_font_size() }, .color = { naui_theme_color("naui_panel_text_color") } });
+	leaf_text(text,
+	{
+		.font_size = { uph_settings_font_size() },
+		.color = { naui_theme_color("naui_panel_text_color") }
+	});
 }
 
 static bool uph_settings_section(const char *title, const bool first, const char *button_text, const Leaf_ID button_id)
@@ -744,7 +746,7 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.autosave"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_drag_int(&general->autosave_timer, leaf_id("uph_settings_autosave"), 0.25f, 0, UPH_SETTINGS_AUTOSAVE_MAX, "%d min", UPH_UI_DRAG_CLAMPED);
+		uph_ui_drag_int(&general->autosave_idle_timer, leaf_id("uph_settings_autosave"), 0.25f, 0, UPH_SETTINGS_AUTOSAVE_MAX, NAUI_TR("settings.general.autosave.format"), UPH_UI_DRAG_CLAMPED);
 		uph_settings_hint(NAUI_TR("settings.general.autosave_hint"));
 	}
 
@@ -1088,7 +1090,11 @@ static void uph_settings_sidebar(Uph_SettingsData *data)
 					.clip_children = true
 				})
 				{
-					leaf_text(NAUI_TR(keys[i]), { .font_size = { font_size }, .color = { naui_theme_color("uph_ui_text_color") } });
+					leaf_text(NAUI_TR(keys[i]),
+					{
+						.font_size = font_size,
+						.color = naui_theme_color("uph_ui_text_color")
+					});
 				}
 			}
 		}
@@ -1160,11 +1166,26 @@ static void uph_settings_on_update(void)
 		{
 			switch (data->page)
 			{
-				case UPH_SETTINGS_PAGE_GENERAL:   uph_settings_page_general(data);   break;
-				case UPH_SETTINGS_PAGE_AUDIO:	 uph_settings_page_audio(data);	 break;
-				case UPH_SETTINGS_PAGE_INTERFACE: uph_settings_page_interface(data); break;
-				case UPH_SETTINGS_PAGE_MIDI:	  uph_settings_page_midi(data);	  break;
-				case UPH_SETTINGS_PAGE_PLUGINS:   uph_settings_page_plugins(data);   break;
+				case UPH_SETTINGS_PAGE_GENERAL:
+					uph_settings_page_general(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_AUDIO:
+					uph_settings_page_audio(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_INTERFACE:
+					uph_settings_page_interface(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_MIDI:
+					uph_settings_page_midi(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_PLUGINS:
+					uph_settings_page_plugins(data);
+					break;
+
 				default: break;
 			}
 		}

@@ -148,34 +148,6 @@ static Uph_TimelineBlock uph_song_timeline_init_block(double start_beat, uint32_
     return block;
 }
 
-static void uph_song_timeline_on_attach(void)
-{
-    Naui_PanelID panel = naui_current_panel();
-
-    naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
-
-    uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
-    uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
-    uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
-    uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
-    uph_song_timeline_data.automation_edit.dragging_point_index = -1;
-}
-
-static void uph_song_timeline_on_detach(void)
-{
-
-}
-
-static void uph_song_timeline_on_open(void)
-{
-    
-}
-
-static void uph_song_timeline_on_close(void)
-{
-    
-}
-
 static void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x)
 {
     const Leaf_Color beat_color = naui_theme_color("uph_timeline_grid_beat_color");
@@ -1969,6 +1941,34 @@ static void uph_song_timeline_update_selection_keys(void)
         uph_block_select_all(false);
 }
 
+#pragma region Panel Events
+static void uph_song_timeline_on_attach(void)
+{
+    Naui_PanelID panel = naui_current_panel();
+    naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
+
+    uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
+    uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
+    uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
+    uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
+    uph_song_timeline_data.automation_edit.dragging_point_index = -1;
+}
+
+static void uph_song_timeline_on_detach(void)
+{
+
+}
+
+static void uph_song_timeline_on_open(void)
+{
+    
+}
+
+static void uph_song_timeline_on_close(void)
+{
+    
+}
+
 static void uph_song_timeline_on_update(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
@@ -2035,3 +2035,4 @@ static void uph_song_timeline_on_update(void)
 
     uph_song_timeline_render_track_options_menu(data, track_options_context_menu);
 }
+#pragma endregion

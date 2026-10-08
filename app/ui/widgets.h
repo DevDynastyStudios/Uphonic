@@ -46,6 +46,7 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
 bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled);
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder);
+bool uph_ui_textfield_active(const Leaf_ID id);
 
 bool uph_ui_drag_float(float *value, const Leaf_ID id, float speed, float min, float max, const char *format, Uph_UIDragFlags flags);
 bool uph_ui_drag_int(int32_t *value, const Leaf_ID id, float speed, int32_t min, int32_t max, const char *format, Uph_UIDragFlags flags);
@@ -55,4 +56,3 @@ bool uph_ui_slider_int(int32_t *value, const Leaf_ID id, int32_t min, int32_t ma
 
 bool uph_ui_checkbox(bool *value, const Leaf_ID id);
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id);
-bool uph_mixer_meter_gain_marker(float *value, const Leaf_ID id, const float min, const float max, const char *format);

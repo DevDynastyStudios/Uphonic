@@ -52,5 +52,8 @@ void naui_action_clear_history(void);
 void naui_action_set_history_capacity(size_t capacity);
 size_t naui_action_get_history_capacity(void);
 
+// Increases counter every action execution/undo/redo, except when history is cleared.
+uint64_t naui_action_get_revision(void);
+
 void naui_action_group_start(const char* name);
 bool naui_action_group_end(void);

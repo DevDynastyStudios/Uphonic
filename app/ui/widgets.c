@@ -42,25 +42,437 @@ struct Uph_UIMenuNode
 
 typedef struct
 {
-    uint32_t id_counter;
+    Naui_String *value;
+    const char *placeholder;
+    float scroll_x;
+}
+Uph_TextfieldDrawData;
 
+typedef struct
+{
+    uint32_t id_counter;
     Uph_TextfieldData textfield_data;
     Uph_DragData drag_data;
-
     Naui_Arena menu_arena;
-
     Uph_UIMenuNode *current_open_menu;
     Naui_Vec2 current_context_menu_position;
     bool is_current_menu_context;
     bool menu_opened_last_frame;
-
     bool textfield_submitted_this_frame;
-
     bool any_widget_hovered;
 }
 Uph_GlobalWidgetData;
 Uph_GlobalWidgetData uph_global_widget_data = { 0 };
 
+#pragma region Static Helpers
+
+static bool uph_ui__is_word_char(char c)
+{
+    return isalnum((unsigned char)c) || c == '_';
+}
+
+static void uph_ui__begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
+{
+    data->id = id;
+    data->mode = UPH_UI_EDIT_MODE_TEXT;
+    data->target_string = value;
+    data->target_number = NULL;
+    data->cursor = NAUI_MIN(cursor, value->length);
+    data->select_start = data->cursor;
+    data->select_active = false;
+    data->scroll_x = 0.0f;
+}
+
+static void uph_ui__end_edit(Uph_TextfieldData *data)
+{
+    data->id.value = 0;
+    data->mode = UPH_UI_EDIT_MODE_NONE;
+    data->target_string = NULL;
+    data->target_number = NULL;
+    data->select_active = false;
+}
+
+static size_t uph_ui__prev_word(const Naui_String *value, size_t cursor)
+{
+    if (cursor == 0)
+        return 0;
+
+    size_t i = cursor;
+    while (i > 0 && !uph_ui__is_word_char(value->data[i - 1]))
+        --i;
+    while (i > 0 && uph_ui__is_word_char(value->data[i - 1]))
+        --i;
+    return i;
+}
+
+static size_t uph_ui__next_word(const Naui_String *value, size_t cursor)
+{
+    if (cursor >= value->length)
+        return value->length;
+
+    size_t i = cursor;
+    while (i < value->length && !uph_ui__is_word_char(value->data[i]))
+        ++i;
+    while (i < value->length && uph_ui__is_word_char(value->data[i]))
+        ++i;
+    return i;
+}
+
+static void uph_ui__textfield_delete_selection(Uph_TextfieldData *data)
+{
+    if (!data->select_active)
+        return;
+
+    size_t lo = NAUI_MIN(data->cursor, data->select_start);
+    size_t hi = NAUI_MAX(data->cursor, data->select_start);
+
+    naui_string_remove(data->target_string, lo, hi - lo);
+    data->cursor = lo;
+    data->select_active = false;
+}
+
+static bool uph_ui__char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags, const Naui_String *value, size_t cursor)
+{
+    if (!(flags & UPH_UI_TEXTFIELD_NUMBER_ONLY))
+        return true;
+
+    if (codepoint >= '0' && codepoint <= '9')
+        return true;
+
+    if (codepoint == '-' && cursor == 0)
+        return true;
+
+    if (codepoint == '.')
+    {
+        for (size_t i = 0; i < value->length; ++i)
+            if (value->data[i] == '.')
+                return false;
+        return true;
+    }
+
+    return false;
+}
+
+static size_t uph_ui__cursor_from_x(const Naui_String *value, float local_x, float font_size)
+{
+    if (local_x <= 0.0f)
+        return 0;
+
+    size_t best = value->length;
+    float best_dist = fabsf(naui_measure_text(value->data, value->length, font_size, 0).x - local_x);
+
+    for (size_t i = 0; i <= value->length; ++i)
+    {
+        float x = naui_measure_text(value->data, i, font_size, 0).x;
+        float dist = fabsf(x - local_x);
+        if (dist < best_dist)
+        {
+            best_dist = dist;
+            best = i;
+        }
+    }
+
+    return best;
+}
+
+static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags)
+{
+    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
+    static Naui_String edit_buffer;
+    bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
+    bool result = false;
+    const bool hovered = uph_ui_widget_hovered(id);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
+    if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+    {
+        if (is_float)
+            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+        else
+            edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
+
+        uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
+        tdata->target_number = value;
+
+        text_editing = true;
+    }
+
+    if (text_editing)
+    {
+        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
+        if (sub_result)
+        {
+            if (is_float)
+                *(float*)value = NAUI_CLAMP((float)atof(edit_buffer.data), min_f, max_f);
+            else
+                *(int32_t*)value = NAUI_CLAMP((int32_t)atoi(edit_buffer.data), min_i, max_i);
+            result = true;
+        }
+
+        if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
+            tdata->target_number = NULL;
+
+        return result;
+    }
+
+    Leaf_BoundingBox box = leaf_get_bounding_box(id);
+    const bool vertical = (flags & UPH_UI_SLIDER_VERTICAL) != 0;
+
+    if (hovered && (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_dragging(NAUI_MOUSE_LEFT)))
+    {
+        float t;
+        if (vertical)
+        {
+            float local_y = (float)naui_mouse_y() - box.y;
+            t = 1.0f - NAUI_CLAMP(local_y / NAUI_MAX(box.height, 1.0f), 0.0f, 1.0f);
+        }
+        else
+        {
+            float local_x = (float)naui_mouse_x() - box.x;
+            t = NAUI_CLAMP(local_x / NAUI_MAX(box.width, 1.0f), 0.0f, 1.0f);
+        }
+
+        if (is_float)
+        {
+            float new_value = min_f + t * (max_f - min_f);
+            if (new_value != *(float*)value)
+            {
+                *(float*)value = new_value;
+                result = true;
+            }
+        }
+        else
+        {
+            int32_t new_value = min_i + (int32_t)(t * (float)(max_i - min_i) + 0.5f);
+            if (new_value != *(int32_t*)value)
+            {
+                *(int32_t*)value = new_value;
+                result = true;
+            }
+        }
+    }
+
+    float t;
+    if (is_float)
+        t = (max_f > min_f) ? NAUI_CLAMP((*(float*)value - min_f) / (max_f - min_f), 0.0f, 1.0f) : 0.0f;
+    else
+        t = (max_i > min_i) ? NAUI_CLAMP((float)(*(int32_t*)value - min_i) / (float)(max_i - min_i), 0.0f, 1.0f) : 0.0f;
+
+    Naui_String display;
+    if (is_float)
+        display = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+    else
+        display = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
+
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const float rounding = naui_theme_float("uph_ui_frame_rounding");
+
+    leaf({
+        .id = id,
+        .size = {
+            .width = LEAF_SIZE_GROW,
+            .height = LEAF_SIZE_FIXED(font_size + NAUI_DPI(padding.y) * 2.0f)
+        },
+        .color = {naui_theme_color("uph_ui_frame_bg_color")},
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
+    })
+    {
+        leaf({
+            .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_PERCENT(t) }
+                : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FULL },
+            .color = {naui_theme_color("uph_ui_slider_fill_color")},
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL),
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+            .floating = {
+                .parent_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
+                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+                .self_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
+                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
+            }
+        });
+
+        leaf({
+            .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+            .floating = {
+                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            }
+        })
+        {
+            leaf_text(display.data, {
+                .color = {naui_theme_color("uph_ui_text_color")},
+                .font_size = font_size
+            });
+        }
+    }
+
+    return result;
+}
+
+static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, float speed, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UIDragFlags flags)
+{
+    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
+    Uph_DragData *ddata = &uph_global_widget_data.drag_data;
+
+    bool result = false;
+
+    static Naui_String edit_buffer;
+
+    bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
+
+    const bool hovered = uph_ui_widget_hovered(id);
+    const bool dragging_this = (ddata->id.value == id.value);
+
+    if (hovered)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
+    if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+    {
+        if (is_float)
+            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+        else
+            edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
+
+        uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
+        tdata->target_number = value;
+        ddata->id.value = 0;
+
+        text_editing = true;
+    }
+
+    if (text_editing)
+    {
+        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
+
+        if (sub_result)
+        {
+            if (is_float)
+            {
+                float parsed = (float)atof(edit_buffer.data);
+                if (flags & UPH_UI_DRAG_CLAMPED)
+                    parsed = NAUI_CLAMP(parsed, min_f, max_f);
+                *(float*)value = parsed;
+            }
+            else
+            {
+                int32_t parsed = (int32_t)atoi(edit_buffer.data);
+                if (flags & UPH_UI_DRAG_CLAMPED)
+                    parsed = NAUI_CLAMP(parsed, min_i, max_i);
+                *(int32_t*)value = parsed;
+            }
+            result = true;
+        }
+
+        if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
+            tdata->target_number = NULL;
+
+        return result;
+    }
+
+    static int32_t drag_last_mouse_x = 0;
+    static float drag_int_accum = 0.0f;
+
+    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT) && !dragging_this)
+    {
+        ddata->id = id;
+        ddata->accum = 0.0f;
+        drag_last_mouse_x = naui_mouse_x();
+        drag_int_accum = 0.0f;
+        if (is_float)
+            ddata->start_value_f = *(float*)value;
+        else
+            ddata->start_value_i = *(int32_t*)value;
+    }
+
+    if (dragging_this)
+    {
+        if (naui_mouse_down(NAUI_MOUSE_LEFT))
+        {
+            int32_t mx = naui_mouse_x();
+            float delta = (float)(mx - drag_last_mouse_x);
+            drag_last_mouse_x = mx;
+
+            ddata->accum += delta * speed;
+
+            if (is_float)
+            {
+                float new_value = *(float*)value + delta * speed;
+                if (flags & UPH_UI_DRAG_CLAMPED)
+                    new_value = NAUI_CLAMP(new_value, min_f, max_f);
+                if (new_value != *(float*)value)
+                {
+                    *(float*)value = new_value;
+                    result = true;
+                }
+            }
+            else
+            {
+                drag_int_accum += delta * speed;
+                if (fabsf(drag_int_accum) >= 1.0f)
+                {
+                    int32_t step = (int32_t)drag_int_accum;
+                    drag_int_accum -= (float)step;
+
+                    int32_t new_value = *(int32_t*)value + step;
+                    if (flags & UPH_UI_DRAG_CLAMPED)
+                        new_value = NAUI_CLAMP(new_value, min_i, max_i);
+                    if (new_value != *(int32_t*)value)
+                    {
+                        *(int32_t*)value = new_value;
+                        result = true;
+                    }
+                }
+            }
+        }
+        else
+        {
+            ddata->id.value = 0;
+        }
+    }
+
+    Naui_String display;
+    if (is_float)
+        display = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+    else
+        display = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
+
+    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
+    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
+    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
+
+    const Leaf_Color color = dragging_this ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+
+    leaf({
+        .id = id,
+        .size = {
+            .width = LEAF_SIZE_GROW,
+            .height = LEAF_SIZE_FIXED(font_size)
+        },
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .color = {color},
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+		.clip_children = true
+    })
+    {
+        leaf_text(display.data, {
+            .color = {naui_theme_color("uph_ui_text_color")},
+            .font_size = font_size
+        });
+    }
+
+    return result;
+}
+
+#pragma endregion
+
+#pragma region Public API
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
     const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
@@ -194,15 +606,6 @@ void uph_ui_widgets_init(void)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
     naui_arena_init(&data->menu_arena, (1 << 14));
-}
-
-static void uph_ui__end_edit(Uph_TextfieldData *data)
-{
-    data->id.value = 0;
-    data->mode = UPH_UI_EDIT_MODE_NONE;
-    data->target_string = NULL;
-    data->target_number = NULL;
-    data->select_active = false;
 }
 
 void uph_ui_widgets_flush(void)
@@ -502,84 +905,9 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
     return uph_ui_image_toggle_button_ex(image, id, size, tint, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL, enabled);
 }
 
-static bool uph_ui__is_word_char(char c)
-{
-    return isalnum((unsigned char)c) || c == '_';
-}
-
-static size_t uph_ui__prev_word(const Naui_String *value, size_t cursor)
-{
-    if (cursor == 0)
-        return 0;
-
-    size_t i = cursor;
-    while (i > 0 && !uph_ui__is_word_char(value->data[i - 1]))
-        --i;
-    while (i > 0 && uph_ui__is_word_char(value->data[i - 1]))
-        --i;
-    return i;
-}
-
-static size_t uph_ui__next_word(const Naui_String *value, size_t cursor)
-{
-    if (cursor >= value->length)
-        return value->length;
-
-    size_t i = cursor;
-    while (i < value->length && !uph_ui__is_word_char(value->data[i]))
-        ++i;
-    while (i < value->length && uph_ui__is_word_char(value->data[i]))
-        ++i;
-    return i;
-}
-
-static void uph_ui__textfield_delete_selection(Uph_TextfieldData *data)
-{
-    if (!data->select_active)
-        return;
-
-    size_t lo = NAUI_MIN(data->cursor, data->select_start);
-    size_t hi = NAUI_MAX(data->cursor, data->select_start);
-
-    naui_string_remove(data->target_string, lo, hi - lo);
-    data->cursor = lo;
-    data->select_active = false;
-}
-
-static bool uph_ui__char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags, const Naui_String *value, size_t cursor)
-{
-    if (!(flags & UPH_UI_TEXTFIELD_NUMBER_ONLY))
-        return true;
-
-    if (codepoint >= '0' && codepoint <= '9')
-        return true;
-
-    if (codepoint == '-' && cursor == 0)
-        return true;
-
-    if (codepoint == '.')
-    {
-        for (size_t i = 0; i < value->length; ++i)
-            if (value->data[i] == '.')
-                return false;
-        return true;
-    }
-
-    return false;
-}
-
-typedef struct
-{
-    Naui_String *value;
-    const char *placeholder;
-    float scroll_x;
-}
-Uph_TextfieldDrawData;
-
 static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_TextfieldDrawData *draw_data = (Uph_TextfieldDrawData*)user_data;
-
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
 
     naui_push_clip_rect(box.x, box.y, box.width, box.height);
@@ -655,38 +983,10 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     );
 }
 
-static size_t uph_ui__cursor_from_x(const Naui_String *value, float local_x, float font_size)
+bool uph_ui_textfield_active(const Leaf_ID id)
 {
-    if (local_x <= 0.0f)
-        return 0;
-
-    size_t best = value->length;
-    float best_dist = fabsf(naui_measure_text(value->data, value->length, font_size, 0).x - local_x);
-
-    for (size_t i = 0; i <= value->length; ++i)
-    {
-        float x = naui_measure_text(value->data, i, font_size, 0).x;
-        float dist = fabsf(x - local_x);
-        if (dist < best_dist)
-        {
-            best_dist = dist;
-            best = i;
-        }
-    }
-
-    return best;
-}
-
-static void uph_ui__begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
-{
-    data->id = id;
-    data->mode = UPH_UI_EDIT_MODE_TEXT;
-    data->target_string = value;
-    data->target_number = NULL;
-    data->cursor = NAUI_MIN(cursor, value->length);
-    data->select_start = data->cursor;
-    data->select_active = false;
-    data->scroll_x = 0.0f;
+    const Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
+    return data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
@@ -969,163 +1269,6 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     return result;
 }
 
-static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, float speed, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UIDragFlags flags)
-{
-    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
-    Uph_DragData *ddata = &uph_global_widget_data.drag_data;
-
-    bool result = false;
-
-    static Naui_String edit_buffer;
-
-    bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
-
-    const bool hovered = uph_ui_widget_hovered(id);
-    const bool dragging_this = (ddata->id.value == id.value);
-
-    if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
-
-    if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
-    {
-        if (is_float)
-            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
-        else
-            edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
-
-        uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
-        tdata->target_number = value;
-        ddata->id.value = 0;
-
-        text_editing = true;
-    }
-
-    if (text_editing)
-    {
-        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
-
-        if (sub_result)
-        {
-            if (is_float)
-            {
-                float parsed = (float)atof(edit_buffer.data);
-                if (flags & UPH_UI_DRAG_CLAMPED)
-                    parsed = NAUI_CLAMP(parsed, min_f, max_f);
-                *(float*)value = parsed;
-            }
-            else
-            {
-                int32_t parsed = (int32_t)atoi(edit_buffer.data);
-                if (flags & UPH_UI_DRAG_CLAMPED)
-                    parsed = NAUI_CLAMP(parsed, min_i, max_i);
-                *(int32_t*)value = parsed;
-            }
-            result = true;
-        }
-
-        if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
-            tdata->target_number = NULL;
-
-        return result;
-    }
-
-    static int32_t drag_last_mouse_x = 0;
-    static float drag_int_accum = 0.0f;
-
-    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT) && !dragging_this)
-    {
-        ddata->id = id;
-        ddata->accum = 0.0f;
-        drag_last_mouse_x = naui_mouse_x();
-        drag_int_accum = 0.0f;
-        if (is_float)
-            ddata->start_value_f = *(float*)value;
-        else
-            ddata->start_value_i = *(int32_t*)value;
-    }
-
-    if (dragging_this)
-    {
-        if (naui_mouse_down(NAUI_MOUSE_LEFT))
-        {
-            int32_t mx = naui_mouse_x();
-            float delta = (float)(mx - drag_last_mouse_x);
-            drag_last_mouse_x = mx;
-
-            ddata->accum += delta * speed;
-
-            if (is_float)
-            {
-                float new_value = *(float*)value + delta * speed;
-                if (flags & UPH_UI_DRAG_CLAMPED)
-                    new_value = NAUI_CLAMP(new_value, min_f, max_f);
-                if (new_value != *(float*)value)
-                {
-                    *(float*)value = new_value;
-                    result = true;
-                }
-            }
-            else
-            {
-                drag_int_accum += delta * speed;
-                if (fabsf(drag_int_accum) >= 1.0f)
-                {
-                    int32_t step = (int32_t)drag_int_accum;
-                    drag_int_accum -= (float)step;
-
-                    int32_t new_value = *(int32_t*)value + step;
-                    if (flags & UPH_UI_DRAG_CLAMPED)
-                        new_value = NAUI_CLAMP(new_value, min_i, max_i);
-                    if (new_value != *(int32_t*)value)
-                    {
-                        *(int32_t*)value = new_value;
-                        result = true;
-                    }
-                }
-            }
-        }
-        else
-        {
-            ddata->id.value = 0;
-        }
-    }
-
-    Naui_String display;
-    if (is_float)
-        display = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
-    else
-        display = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
-
-    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
-    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
-    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
-
-    const Leaf_Color color = dragging_this ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
-
-    leaf({
-        .id = id,
-        .size = {
-            .width = LEAF_SIZE_GROW,
-            .height = LEAF_SIZE_FIXED(font_size)
-        },
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = {color},
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
-        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-		.clip_children = true
-    })
-    {
-        leaf_text(display.data, {
-            .color = {naui_theme_color("uph_ui_text_color")},
-            .font_size = font_size
-        });
-    }
-
-    return result;
-}
-
 bool uph_ui_drag_float(float *value, const Leaf_ID id, float speed, float min, float max, const char *format, Uph_UIDragFlags flags)
 {
     return uph_ui__drag_scalar(id, value, true, speed, min, max, 0, 0, format, flags);
@@ -1134,148 +1277,6 @@ bool uph_ui_drag_float(float *value, const Leaf_ID id, float speed, float min, f
 bool uph_ui_drag_int(int32_t *value, const Leaf_ID id, float speed, int32_t min, int32_t max, const char *format, Uph_UIDragFlags flags)
 {
     return uph_ui__drag_scalar(id, value, false, speed, 0.0f, 0.0f, min, max, format, flags);
-}
-
-static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags)
-{
-    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
-
-    bool result = false;
-
-    static Naui_String edit_buffer;
-
-    bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
-
-    const bool hovered = uph_ui_widget_hovered(id);
-
-    if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
-
-    if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
-    {
-        if (is_float)
-            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
-        else
-            edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
-
-        uph_ui__begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
-        tdata->target_number = value;
-
-        text_editing = true;
-    }
-
-    if (text_editing)
-    {
-        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
-        if (sub_result)
-        {
-            if (is_float)
-                *(float*)value = NAUI_CLAMP((float)atof(edit_buffer.data), min_f, max_f);
-            else
-                *(int32_t*)value = NAUI_CLAMP((int32_t)atoi(edit_buffer.data), min_i, max_i);
-            result = true;
-        }
-
-        if (tdata->id.value != id.value || tdata->mode != UPH_UI_EDIT_MODE_TEXT)
-            tdata->target_number = NULL;
-
-        return result;
-    }
-
-    Leaf_BoundingBox box = leaf_get_bounding_box(id);
-    const bool vertical = (flags & UPH_UI_SLIDER_VERTICAL) != 0;
-
-    if (hovered && (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_dragging(NAUI_MOUSE_LEFT)))
-    {
-        float t;
-        if (vertical)
-        {
-            float local_y = (float)naui_mouse_y() - box.y;
-            t = 1.0f - NAUI_CLAMP(local_y / NAUI_MAX(box.height, 1.0f), 0.0f, 1.0f);
-        }
-        else
-        {
-            float local_x = (float)naui_mouse_x() - box.x;
-            t = NAUI_CLAMP(local_x / NAUI_MAX(box.width, 1.0f), 0.0f, 1.0f);
-        }
-
-        if (is_float)
-        {
-            float new_value = min_f + t * (max_f - min_f);
-            if (new_value != *(float*)value)
-            {
-                *(float*)value = new_value;
-                result = true;
-            }
-        }
-        else
-        {
-            int32_t new_value = min_i + (int32_t)(t * (float)(max_i - min_i) + 0.5f);
-            if (new_value != *(int32_t*)value)
-            {
-                *(int32_t*)value = new_value;
-                result = true;
-            }
-        }
-    }
-
-    float t;
-    if (is_float)
-        t = (max_f > min_f) ? NAUI_CLAMP((*(float*)value - min_f) / (max_f - min_f), 0.0f, 1.0f) : 0.0f;
-    else
-        t = (max_i > min_i) ? NAUI_CLAMP((float)(*(int32_t*)value - min_i) / (float)(max_i - min_i), 0.0f, 1.0f) : 0.0f;
-
-    Naui_String display;
-    if (is_float)
-        display = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
-    else
-        display = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
-
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
-    const float rounding = naui_theme_float("uph_ui_frame_rounding");
-
-    leaf({
-        .id = id,
-        .size = {
-            .width = LEAF_SIZE_GROW,
-            .height = LEAF_SIZE_FIXED(font_size + NAUI_DPI(padding.y) * 2.0f)
-        },
-        .color = {naui_theme_color("uph_ui_frame_bg_color")},
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
-    })
-    {
-        leaf({
-            .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_PERCENT(t) }
-                : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FULL },
-            .color = {naui_theme_color("uph_ui_slider_fill_color")},
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL),
-            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-            .floating = {
-                .parent_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
-                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-                .self_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
-                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
-            }
-        });
-
-        leaf({
-            .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-            .floating = {
-                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-            }
-        })
-        {
-            leaf_text(display.data, {
-                .color = {naui_theme_color("uph_ui_text_color")},
-                .font_size = font_size
-            });
-        }
-    }
-
-    return result;
 }
 
 bool uph_ui_slider_float(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags)
@@ -1373,7 +1374,6 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
     }
 
     const bool open = data->current_open_menu == menu;
-
     const uint32_t shown_index = (*current_index < item_count) ? *current_index : 0;
     const char *shown_text = item_count > 0 ? items[shown_index] : "";
 
@@ -1429,3 +1429,4 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     return result;
 }
+#pragma endregion
