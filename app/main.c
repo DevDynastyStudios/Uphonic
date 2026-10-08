@@ -334,9 +334,6 @@ void naui_app_update(void)
 		}
 	}*/
 
-	if (uph_dialog_is_open())
-		naui_occlude_all_panels();
-
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();
 
