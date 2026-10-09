@@ -45,8 +45,8 @@ typedef struct
 typedef struct
 {
 	Uph_ActionTrackRef track;
-	Naui_List(Uph_TrackState) old_states;
-	Naui_List(Uph_TrackState) new_states;
+	Uph_ActionTrackRef old_solo;
+	Uph_ActionTrackRef new_solo;
 } Uph_ActionTrackSolo;
 
 typedef uint8_t Uph_ActionTrackValueKind;
@@ -112,13 +112,15 @@ typedef struct
 {
 	Uph_ActionTrackRef mixer;
 	Uph_ActionTrackRef plugin_list;
+	Uph_ActionTrackRef soloed;
 } Uph_ActionTrackPointers;
 
 static Uph_ActionTrackPointers uph_action_track_pointers_capture(void)
 {
 	return (Uph_ActionTrackPointers){
 		.mixer = uph_action_track_ref(uph_state.shared.selected_mixer_track),
-		.plugin_list = uph_action_track_ref(uph_state.shared.current_plugin_list_track)
+		.plugin_list = uph_action_track_ref(uph_state.shared.current_plugin_list_track),
+		.soloed = uph_action_track_ref(uph_state.project.soloed_track)
 	};
 }
 
@@ -155,6 +157,7 @@ static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_Action
 	uph_resources_refresh_param_usage(uph_state.project.tracks);
 	uph_state.shared.selected_mixer_track = uph_action_track_pointer_shift(before.mixer, changed, delta);
 	uph_state.shared.current_plugin_list_track = uph_action_track_pointer_shift(before.plugin_list, changed, delta);
+	uph_state.project.soloed_track = uph_action_track_pointer_shift(before.soloed, changed, delta);
 	uph_song_timeline_invalidate_tracks();
 }
 
@@ -407,90 +410,32 @@ bool _uph_action_track_state_redo(void* userdata)
 #pragma endregion
 
 #pragma region Track Solo
-static void uph_action_track_states_capture(Naui_List(Uph_TrackState) *states)
-{
-	naui_list_clear(*states);
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-	{
-		const Uph_Track* track = &uph_state.project.tracks[i];
-		naui_list_push(*states, track->state);
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			naui_list_push(*states, track->subtracks[s].state);
-		}
-	}
-}
-
-static bool uph_action_track_states_apply(const Naui_List(Uph_TrackState) states)
-{
-	uint32_t total = 0;
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-		total += 1 + (uint32_t)naui_list_len(uph_state.project.tracks[i].subtracks);
-
-	if ((uint32_t)naui_list_len(states) != total)
-		return false;
-
-	uint32_t at = 0;
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-	{
-		Uph_Track* track = &uph_state.project.tracks[i];
-		track->state = states[at++];
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			track->subtracks[s].state = states[at++];
-		}
-	}
-
-	return true;
-}
-
 bool _uph_action_track_solo_execute(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track)
+	if (!track || track->parent)
 		return false;
 
-	uph_action_track_states_capture(&data->old_states);
-	track->state ^= UPH_TRACK_SOLOED;
-	const bool soloed = (track->state & UPH_TRACK_SOLOED) != 0;
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-	{
-		Uph_Track* t = &uph_state.project.tracks[i];
-		if (!soloed)
-			t->state &= ~UPH_TRACK_SILENCED;
-		else if (t == track)
-			t->state &= ~UPH_TRACK_SILENCED;
-		else
-		{
-			t->state &= ~UPH_TRACK_SOLOED;
-			t->state |= UPH_TRACK_SILENCED;
-		}
-	}
-
-	uph_action_track_states_capture(&data->new_states);
+	Uph_Project* project = &uph_state.project;
+	data->old_solo = uph_action_track_ref(project->soloed_track);
+	project->soloed_track = (project->soloed_track == track) ? NULL : track;
+	data->new_solo = uph_action_track_ref(project->soloed_track);
 	return true;
 }
 
 bool _uph_action_track_solo_undo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
-	return uph_action_track_states_apply(data->old_states);
+	uph_state.project.soloed_track = uph_action_track_resolve(data->old_solo);
+	return true;
 }
 
 bool _uph_action_track_solo_redo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
-	return uph_action_track_states_apply(data->new_states);
-}
-
-void _uph_action_track_solo_destroy(void* userdata)
-{
-	Uph_ActionTrackSolo* data = userdata;
-	naui_list_free(data->old_states);
-	naui_list_free(data->new_states);
-	data->old_states = NULL;
-	data->new_states = NULL;
+	uph_state.project.soloed_track = uph_action_track_resolve(data->new_solo);
+	return true;
 }
 
 #pragma endregion

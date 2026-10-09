@@ -95,7 +95,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_COLOR, _uph_action_track_color);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_MUTE, _uph_action_track_state);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_ARM, _uph_action_track_state);
-	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_TRACK_SOLO, _uph_action_track_solo);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_SOLO, _uph_action_track_solo);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_VOLUME, _uph_action_track_value);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_PAN, _uph_action_track_value);
 

@@ -211,6 +211,8 @@ void uph_resources_remove_track(Uph_Track *track)
 
 	if (uph_state.shared.selected_mixer_track == track)
 		uph_state.shared.selected_mixer_track = NULL;
+	if (uph_state.project.soloed_track == track)
+		uph_state.project.soloed_track = NULL;
 
 	uph_unload_plugin(&track->instrument);
 	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
@@ -229,6 +231,7 @@ void uph_resources_clear_tracks(void)
 {
 	uph_resources_clear_tracks_recursive(uph_state.project.tracks);
 	uph_state.project.tracks = NULL;
+	uph_state.project.soloed_track = NULL;
 }
 
 Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name)

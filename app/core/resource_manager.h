@@ -30,3 +30,13 @@ static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 	const Naui_List(Naui_Color) list = naui_theme_color_list("uph_track_palette");
 	return list[color_index % naui_list_len(list)];
 }
+
+static inline bool uph_track_is_silenced(const Uph_Project *project, const Uph_Track *track)
+{
+	return project->soloed_track && project->soloed_track != track;
+}
+
+static inline bool uph_track_is_audible(const Uph_Project *project, const Uph_Track *track)
+{
+	return !(track->state & UPH_TRACK_MUTED) && !uph_track_is_silenced(project, track);
+}

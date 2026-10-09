@@ -184,9 +184,7 @@ typedef uint8_t Uph_TrackState;
 enum
 {
 	UPH_TRACK_MUTED = 1 << 0,
-	UPH_TRACK_SOLOED = 1 << 1,
-	UPH_TRACK_ARMED = 1 << 2,
-	UPH_TRACK_SILENCED = 1 << 3
+	UPH_TRACK_ARMED = 1 << 1
 };
 
 typedef uint8_t Uph_PluginType;
@@ -313,6 +311,7 @@ typedef struct
 	Uph_TimeSignature time_signature;
 
 	Naui_List(Uph_Track) tracks;
+	Uph_Track *soloed_track; // NULL = no solo. Points into `tracks` (top-level only); see uph_action_tracks_changed()
 	Naui_List(Uph_MidiPattern) midi_patterns;
 	Naui_List(Uph_Sample) samples;
 	Naui_List(Uph_SampleData) sample_data;

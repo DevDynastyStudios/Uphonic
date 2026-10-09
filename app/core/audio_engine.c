@@ -356,7 +356,7 @@ static void uph_queue_track_automation(
         if (sub->type != UPH_RESOURCE_AUTOMATION)
             continue;
 
-        if (sub->state & (UPH_TRACK_MUTED | UPH_TRACK_SILENCED))
+        if (sub->state & UPH_TRACK_MUTED)
             continue;
 
         uint64_t automation_block_count = naui_list_len(sub->blocks);
@@ -399,7 +399,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         track->peak_right = 0.0f;
         track->peak_left = 0.0f;
 
-        if (track->state & (UPH_TRACK_MUTED | UPH_TRACK_SILENCED))
+        if (!uph_track_is_audible(project, track))
             continue;
 
         uint64_t block_count = naui_list_len(track->blocks);
@@ -1037,10 +1037,10 @@ double uph_audio_engine_get_song_length_beats(void)
 
     for (uint64_t t = 0; t < track_count; t++)
     {
-        if (project->tracks[t].state & (UPH_TRACK_MUTED | UPH_TRACK_SILENCED))
+        Uph_Track *track = &project->tracks[t];
+        if (!uph_track_is_audible(project, track))
             continue;
 
-        Uph_Track *track = &project->tracks[t];
         uint64_t block_count = naui_list_len(track->blocks);
 
         for (uint64_t b = 0; b < block_count; b++)

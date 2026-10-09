@@ -1150,7 +1150,7 @@ static void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox
 
     const float zoom_x = uph_song_timeline_data.zoom.x;
     const float scroll_x = uph_song_timeline_data.scroll.x;
-    const float opacity = (track->state & (UPH_TRACK_MUTED | UPH_TRACK_SILENCED)) ? 0.25f : 1.0f;
+    const float opacity = uph_track_is_audible(&uph_state.project, track) ? 1.0f : 0.25f;
 
 	Naui_Color color = uph_resources_track_color(track->color_index);
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
@@ -1494,7 +1494,7 @@ static void uph_song_timeline_render_track_header(Uph_Track *track, uint32_t dep
                 {
                     if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
                         uph_song_timeline_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-                    if (uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), track->state & UPH_TRACK_SOLOED))
+                    if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), uph_state.project.soloed_track == track))
                     {
                         Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
                         naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
