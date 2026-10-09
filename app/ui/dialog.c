@@ -143,14 +143,14 @@ void uph_dialog_render(void)
 		return;
 	}
 
-	if (pressed < 0 && s_dialog.default_button >= 0)
+	if (pressed < 0)
 	{
-		if (naui_key_pressed(NAUI_KEY_ENTER))
-			pressed = s_dialog.default_button;
-
-		else if (naui_key_pressed(NAUI_KEY_ESCAPE))
-			pressed = s_dialog.cancel_button;
+	    if (s_dialog.default_button >= 0 && naui_key_pressed(NAUI_KEY_ENTER))
+	        pressed = s_dialog.default_button;
+	    else if (s_dialog.cancel_button >= 0 && naui_key_pressed(NAUI_KEY_ESCAPE))
+	        pressed = s_dialog.cancel_button;
 	}
-	else if (pressed >= 0)
-		_uph_dialog_finish(pressed);
+	
+	if (pressed >= 0)
+	    _uph_dialog_finish(pressed);
 }

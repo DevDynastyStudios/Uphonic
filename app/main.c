@@ -108,7 +108,7 @@ static uint32_t _metronome_count = 0;
 
 void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
-	uph_key_bitset_set(uph_midi_editor_data.active_keys, event->note, event->type == CMIDI_NOTE_ON);
+	uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, event->type == CMIDI_NOTE_ON);
 
 	//naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
 	//cmidi_play_note(uph_state.settings.midi.output, 1, 60, 100);
@@ -333,6 +333,9 @@ void naui_app_update(void)
 			}
 		}
 	}*/
+
+	if (uph_dialog_is_open())
+		naui_occlude_all_panels();
 
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();
