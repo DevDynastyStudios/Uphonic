@@ -146,6 +146,7 @@ NAUI_API bool               naui_any_panel_hovered          (void);
 NAUI_API Naui_PanelID       naui_find_panel_of_type         (const char *type_name);
 
 NAUI_API void               naui_render_panels_and_viewport (void);
+NAUI_API Naui_PanelID       naui_focused_panel              (void);
 NAUI_API Naui_PanelID       naui_current_panel              (void);
 NAUI_API void              *naui_current_panel_data         (void);
 

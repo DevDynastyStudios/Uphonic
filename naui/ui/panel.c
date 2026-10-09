@@ -69,7 +69,8 @@ typedef struct
     Naui_PanelNode *resizing_node;
     Naui_PanelNode *split_resizing_node;
 
-    Naui_PanelNode *current_panel;
+    Naui_PanelNode *current_panel; // The current rendered panel this frame
+    Naui_PanelNode *focused_panel;
 
     Leaf_BoundingBox dock_guide_area;
     bool any_panel_hovered;
@@ -149,6 +150,19 @@ void naui_panel_disable_flags(Naui_PanelID panel_id, Naui_PanelFlags flags)
     ((Naui_PanelNode*)panel_id)->flags &= ~flags;
 }
 
+static inline void naui_focus_panel_node(Naui_PanelNode *node)
+{
+    naui_panel_manager.focused_panel =
+        node->tabs ? node->tabs[node->active_tab] : node;
+}
+
+static inline void naui_update_panel_focus(Naui_PanelNode *node)
+{
+    if (node->occluded || !naui_any_mouse_pressed())
+        return;
+    naui_focus_panel_node(node);
+}
+
 static void naui_panel_bring_to_front_immediate(Naui_PanelNodeWrapper *wrapper)
 {
     Naui_PanelNode *node = wrapper->node;
@@ -203,6 +217,8 @@ void naui_close_panel(Naui_PanelID panel_id)
         return;
 
     node->closed = true;
+    if (naui_panel_manager.focused_panel == node)
+        naui_panel_manager.focused_panel = NULL;
     naui_undock_panel(panel_id);
 
     if (node->type.on_close)
@@ -528,6 +544,9 @@ static void naui_detach_panel_immediate(Naui_PanelNodeWrapper *wrapper)
         free(node->user_data);
 
     naui_list_remove(naui_panel_manager.root_nodes, node->root_index);
+    
+    if (naui_panel_manager.focused_panel == node)
+        naui_panel_manager.focused_panel = NULL;
     naui_free_panel_node(node);
 }
 
@@ -572,6 +591,11 @@ bool naui_panel_hovered(Naui_PanelID panel_id)
 bool naui_any_panel_hovered(void)
 {
     return naui_panel_manager.any_panel_hovered;
+}
+
+Naui_PanelID naui_focused_panel(void)
+{
+    return (Naui_PanelID)naui_panel_manager.focused_panel;
 }
 
 Naui_PanelID naui_current_panel(void)
@@ -1392,6 +1416,7 @@ static void naui_update_panel(Naui_PanelNode *node)
     naui_calculate_and_cache_panel_occlusion(node);
 
     naui_update_panel_tabs(node);
+    naui_update_panel_focus(node);
     naui_update_panel_resizing(node);
     naui_update_panel_dragging(node);
 

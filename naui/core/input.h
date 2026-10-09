@@ -195,3 +195,10 @@ NAUI_API int32_t naui_mouse_x(void);
 NAUI_API int32_t naui_mouse_y(void);
 NAUI_API bool naui_mouse_dragging(Naui_MouseButton button);
 NAUI_API void naui_set_cursor(Naui_Cursor cursor);
+
+static inline bool naui_any_mouse_pressed(void)
+{
+    return naui_mouse_pressed(NAUI_MOUSE_LEFT)
+        || naui_mouse_pressed(NAUI_MOUSE_RIGHT)
+        || naui_mouse_pressed(NAUI_MOUSE_MIDDLE);
+}

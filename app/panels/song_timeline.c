@@ -78,7 +78,7 @@ typedef struct
     float content_height;
     Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
-    bool panel_hovered;
+    bool panel_focused;
     bool tracks_hovered;
     bool disable_space_to_play;
 }
@@ -1703,7 +1703,7 @@ static void uph_song_timeline_update_input(void)
     const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
     const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
-    if (uph_song_timeline_data.panel_hovered)
+    if (uph_song_timeline_data.panel_focused)
     {
         if (ctrl_held && wheel_y != 0.0f)
         {
@@ -1731,7 +1731,7 @@ static void uph_song_timeline_update_input(void)
     static Naui_Vec2 pan_last_mouse;
     static bool panning = false;
 
-    if (uph_song_timeline_data.panel_hovered && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
+    if (uph_song_timeline_data.panel_focused && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
     {
         panning = true;
         pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
@@ -1926,7 +1926,7 @@ static void uph_song_timeline_update_selection_keys(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
 
-    if (!data->panel_hovered || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
+    if (!data->panel_focused || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
         return;
 
     const bool ctrl = uph_ui_ctrl_down();
@@ -1977,8 +1977,8 @@ static void uph_song_timeline_on_update(void)
 
     data->content_height = leaf_get_bounding_box(content_area_id).height;
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
-    data->panel_hovered = naui_panel_hovered(naui_current_panel());
-    data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
+    data->panel_focused = naui_focused_panel() == naui_current_panel();
+    data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_focused;
     if (data->automation_edit.dragging_point_index < 0)
     {
         data->automation_edit.block_index = -1;
@@ -1991,7 +1991,7 @@ static void uph_song_timeline_on_update(void)
     if (data->marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
         data->marquee.active = false;
 
-    if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_hovered)
+    if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_focused)
         uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
     
     uph_song_timeline_update_input();
