@@ -475,7 +475,7 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
 #pragma region Public API
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
-    const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered(id);
+    const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered_clipped(id);
     if (result)
         uph_global_widget_data.any_widget_hovered = true;
     return result;

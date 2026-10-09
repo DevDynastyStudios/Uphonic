@@ -306,6 +306,7 @@ extern "C" {
     typedef struct
     {
         Leaf_BoundingBox bounding_box;
+        Leaf_BoundingBox clip_box;
         uint64_t id;
         uint32_t frame;
     }
@@ -459,6 +460,8 @@ leaf__i_ = (leaf_end_element(), 0))
     LEAF_API void leaf_end_element(void);
     
     LEAF_API bool leaf_hovered(Leaf_ID id);
+    LEAF_API bool leaf_hovered_clipped(Leaf_ID id);
+
     LEAF_API Leaf_BoundingBox leaf_get_bounding_box(Leaf_ID id);
     
     LEAF_API void leaf_begin_frame(int32_t width, int32_t height);
@@ -733,6 +736,29 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
     {
         Leaf_BoundingBox bounding_box = leaf_get_layout_entry(id).bounding_box;
         return leaf_point_in_box(leaf_ctx->pointer_pos.x, leaf_ctx->pointer_pos.y, bounding_box);
+    }
+
+    static inline Leaf_BoundingBox leaf_intersect_boxes(Leaf_BoundingBox a, Leaf_BoundingBox b)
+    {
+        float x0 = a.x > b.x ? a.x : b.x;
+        float y0 = a.y > b.y ? a.y : b.y;
+        float x1 = (a.x + a.width)  < (b.x + b.width)  ? (a.x + a.width)  : (b.x + b.width);
+        float y1 = (a.y + a.height) < (b.y + b.height) ? (a.y + a.height) : (b.y + b.height);
+        
+        return (Leaf_BoundingBox){
+            x0, y0,
+            x1 > x0 ? x1 - x0 : 0.0f,
+            y1 > y0 ? y1 - y0 : 0.0f
+        };
+    }
+
+    bool leaf_hovered_clipped(Leaf_ID id)
+    {
+        Leaf_LayoutFrameEntry entry = leaf_get_layout_entry(id);
+        float px = leaf_ctx->pointer_pos.x;
+        float py = leaf_ctx->pointer_pos.y;
+        return leaf_point_in_box(px, py, entry.bounding_box) &&
+            leaf_point_in_box(px, py, entry.clip_box);
     }
     
     Leaf_BoundingBox leaf_get_bounding_box(Leaf_ID id)
@@ -1607,12 +1633,17 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         }
     }
     
-    static void leaf_position_render(Leaf_Node *parent)
+    static void leaf_position_render(Leaf_Node *parent, Leaf_BoundingBox outer_clip)
     {
         if (parent->type != LEAF_NODE_TYPE_ELEMENT)
             return;
         
         const Leaf_ElementConfig *parent_config = &parent->element.config;
+        
+        Leaf_BoundingBox child_clip = parent_config->clip_children
+            ? leaf_intersect_boxes(outer_clip, parent->bounding_box)
+            : outer_clip;
+
         bool h = parent_config->direction == LEAF_DIRECTION_HORIZONTAL;
         
         float available_main =
@@ -1694,7 +1725,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                     leaf_render_node(child);
                     if (child_config->clip_children)
                         leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = child->bounding_box });
-                    leaf_position_render(child);
+                    leaf_position_render(child, child_clip);
                     if (child_config->clip_children)
                         leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_POP });
                     continue;
@@ -1773,7 +1804,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                 const Leaf_ElementConfig *child_config = &child->element.config;
                 if (child_config->clip_children)
                     leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = child->bounding_box });
-                leaf_position_render(child);
+                leaf_position_render(child, child_clip);
                 if (child_config->clip_children)
                     leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_POP });
             }
@@ -1781,7 +1812,10 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         
         Leaf_ID id = parent_config->id;
         if (id.value)
-            leaf_set_layout_entry(id, (Leaf_LayoutFrameEntry){ parent->bounding_box });
+            leaf_set_layout_entry(id, (Leaf_LayoutFrameEntry){
+                .bounding_box = parent->bounding_box,
+                .clip_box = outer_clip
+            });
     }
     
 #undef LEAF_MAIN
@@ -1809,7 +1843,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_ctx->render_cmds = (Leaf_RenderCmdList){0};
         
         leaf_size_pass(root);
-        leaf_position_render(root);
+        leaf_position_render(root, root->bounding_box);
         
         return leaf_ctx->render_cmds;
     }
