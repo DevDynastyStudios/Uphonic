@@ -2,8 +2,10 @@ static Uph_NoteInteractionMode _uph_note_input_classify_hover(Naui_Vec4 hover_bo
 {
 	if (mouse_x <= hover_box.x + UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH)
 		return UPH_NOTE_INTERACTION_RESIZE_LEFT;
+
 	if (mouse_x >= hover_box.x + hover_box.z - UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH)
 		return UPH_NOTE_INTERACTION_RESIZE_RIGHT;
+		
 	return UPH_NOTE_INTERACTION_MOVE;
 }
 

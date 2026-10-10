@@ -1,5 +1,7 @@
 NAUI_PANEL(uph_resource_list)
 
+#define UPH_RESOURCE_LIST_ADD_SAMPLE_DIALOG_KEY "uph_add_sample"
+
 static struct
 {
     Uph_ResourceType type;
@@ -329,7 +331,39 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     }
 }
 
-void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
+static void _uph_resource_list_sample_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+{
+    (void)user_data;
+    if (is_cancelled || result->count == 0)
+        return;
+
+    const uint32_t sample_count_before = (uint32_t)naui_list_len(uph_state.project.samples);
+
+    for (uint32_t i = 0; i < result->count; i++)
+    {
+        if (!uph_project_add_file(&uph_state.project, result->paths[i]))
+            naui_log(NAUI_LOG_WARNING, "Couldn't add sample (%s)", result->paths[i].data);
+    }
+
+    const uint32_t sample_count_after = (uint32_t)naui_list_len(uph_state.project.samples);
+    if (sample_count_after > sample_count_before)
+    {
+        uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
+        uph_state.shared.selected_resource.index = sample_count_after - 1;
+        uph_state.shared.selected_resource.renaming = false;
+        uph_action_refresh_block_defaults();
+    }
+}
+
+static void _uph_resource_list_open_sample_dialog(void)
+{
+    if (!naui_dialog_open_file(UPH_RESOURCE_LIST_ADD_SAMPLE_DIALOG_KEY, NAUI_EXTENSIONS(".wav", ".mp3", ".flac", ".ogg"), _uph_resource_list_sample_picked, NULL))
+        return;
+
+    naui_dialog_title_set(UPH_RESOURCE_LIST_ADD_SAMPLE_DIALOG_KEY, NAUI_TR("resource_list.sample.add"));
+}
+
+static void _uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
 {
     leaf({
         .id = id,
@@ -368,6 +402,12 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
+            if (type == UPH_RESOURCE_SAMPLE)
+            {
+                _uph_resource_list_open_sample_dialog();
+                return;
+            }
+
             uph_state.shared.selected_resource.type = type;
             uph_state.shared.selected_resource.renaming = false;
             uph_state.shared.song_timeline_current_block_start_offset = 0;
@@ -377,11 +417,6 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
             {
                 uph_state.shared.selected_resource.index = naui_list_len(uph_state.project.midi_patterns);
 				naui_action_execute_stack(UPH_ACTION_PATTERN_CREATE, (Uph_ActionResourceCreate){0});
-            }
-            else if (type == UPH_RESOURCE_SAMPLE)
-            {
-                //uph_state.shared.selected_resource.index = naui_list_len(uph_state.project.samples);
-                //uph_resources_add_pattern();
             }
             else if (type == UPH_RESOURCE_AUTOMATION)
             {
@@ -489,7 +524,7 @@ static void uph_resource_list_on_update(void)
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.midi_patterns); i++)
                 uph_resource_list_render_resource(i, UPH_RESOURCE_PATTERN, context_menu, leaf_id_indexed("uph_pattern_list_item", i));
-            uph_resource_list_plus_box(UPH_RESOURCE_PATTERN, leaf_id("uph_pattern_list_plus"));
+            _uph_resource_list_plus_box(UPH_RESOURCE_PATTERN, leaf_id("uph_pattern_list_plus"));
         }
 
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .direction = LEAF_DIRECTION_HORIZONTAL, .child_gap = NAUI_DPI(4), .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER} }, )
@@ -514,7 +549,7 @@ static void uph_resource_list_on_update(void)
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.samples); i++)
                 uph_resource_list_render_resource(i, UPH_RESOURCE_SAMPLE, context_menu, leaf_id_indexed("uph_sample_list_item", i));
-            uph_resource_list_plus_box(UPH_RESOURCE_SAMPLE, leaf_id("uph_sample_list_plus"));
+            _uph_resource_list_plus_box(UPH_RESOURCE_SAMPLE, leaf_id("uph_sample_list_plus"));
         }
 
         leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .direction = LEAF_DIRECTION_HORIZONTAL, .child_gap = NAUI_DPI(4), .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER} }, )
@@ -539,7 +574,7 @@ static void uph_resource_list_on_update(void)
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.automations); i++)
                 uph_resource_list_render_resource(i, UPH_RESOURCE_AUTOMATION, context_menu, leaf_id_indexed("uph_automation_list_item", i));
-            uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
+            _uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
         }
     }
     uph_ui_end_scroll_container(&scroll_container);
