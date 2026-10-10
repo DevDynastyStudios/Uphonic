@@ -1195,6 +1195,9 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
     if (uph_song_timeline_data.automation_edit.active)
         return;
 
+    if (!naui_panel_hovered(uph_state.panels.song_timeline))
+        return;
+
     if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_song_timeline_data.hovered_block.active && uph_song_timeline_data.hovered_block.track == track)
         uph_song_timeline_delete_hovered_block(track);
 
