@@ -1734,7 +1734,7 @@ static void uph_song_timeline_update_input(void)
     static Naui_Vec2 pan_last_mouse;
     static bool panning = false;
 
-    if (uph_song_timeline_data.panel_focused && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
+    if (naui_panel_hovered(uph_state.panels.song_timeline) && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
     {
         panning = true;
         pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
