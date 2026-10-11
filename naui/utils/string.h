@@ -69,14 +69,22 @@ NAUI_API bool                naui_string_view_is_empty          (Naui_StringView
 
 NAUI_API Naui_String         naui_string_format                 (char *const fmt, ...);
 
+// Largest length <= max that doesn't cut a multi-byte character in half.
+NAUI_API size_t             naui_utf8_clip_length               (const char *s, size_t len, size_t max);
+
+// Decodes the character at s. Returns the bytes it takes, or 0 if the bytes are not valid UTF-8.
+NAUI_API size_t             naui_utf8_next                      (const char *s, size_t len, uint32_t *out_codepoint);
+NAUI_API bool               naui_utf8_is_valid                  (const char *s, size_t len);
+
 typedef Naui_List(char) Naui_StringBuilder;
-static inline void          naui_string_builder_reserve         (Naui_StringBuilder builder, size_t capacity) { naui_list_reserve(builder, capacity); }
-static inline void          naui_string_builder_clear           (Naui_StringBuilder builder) { naui_list_clear(builder); }
-static inline void          naui_string_builder_free            (Naui_StringBuilder builder) { naui_list_free(builder); }
+static inline void          naui_string_builder_reserve         (Naui_StringBuilder *builder, size_t capacity) { naui_list_reserve(*builder, capacity); }
+static inline void          naui_string_builder_clear           (Naui_StringBuilder *builder) { naui_list_clear(*builder); }
+static inline void          naui_string_builder_free            (Naui_StringBuilder *builder) { naui_list_free(*builder); *builder = NULL; }
 static inline size_t        naui_string_builder_len             (Naui_StringBuilder builder) { return naui_list_len(builder); }
 
-NAUI_API void               naui_string_builder_append          (Naui_StringBuilder builder, Naui_String str);
-NAUI_API void               naui_string_builder_append_builder  (Naui_StringBuilder dest_builder, Naui_StringBuilder src_builder);
-NAUI_API void               naui_string_builder_append_view     (Naui_StringBuilder builder, Naui_StringView view);
-NAUI_API void               naui_string_builder_append_char     (Naui_StringBuilder builder, char c);
+NAUI_API void               naui_string_builder_append          (Naui_StringBuilder *builder, Naui_String str);
+NAUI_API void               naui_string_builder_append_builder  (Naui_StringBuilder *dest_builder, Naui_StringBuilder src_builder);
+NAUI_API void               naui_string_builder_append_view     (Naui_StringBuilder *builder, Naui_StringView view);
+NAUI_API void               naui_string_builder_append_cstr     (Naui_StringBuilder *builder, const char *cstr);
+NAUI_API void               naui_string_builder_append_char     (Naui_StringBuilder *builder, char c);
 NAUI_API Naui_StringView    naui_string_builder_to_view         (Naui_StringBuilder builder);

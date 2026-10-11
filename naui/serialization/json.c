@@ -430,7 +430,116 @@ static Naui_JsonValue* array_slot(Naui_Json* json, Naui_JsonValue* arr)
 #pragma endregion
 
 #pragma region Json Parser
+static char* naui_json_utf16_to_utf8(const unsigned char* src, size_t byte_len, bool big_endian, size_t* out_len)
+{
+	const size_t unit_count = byte_len / 2;
+	char* dst = (char*)malloc(unit_count * 3 + 1);
+	if (!dst)
+		return NULL;
+
+	size_t w = 0;
+	for (size_t i = 0; i < unit_count; ++i)
+	{
+		unsigned unit = big_endian ? (unsigned)(src[i * 2] << 8 | src[i * 2 + 1]) : (unsigned)(src[i * 2 + 1] << 8 | src[i * 2]);
+		unsigned cp = unit;
+
+		if (unit >= 0xD800 && unit <= 0xDBFF && i + 1 < unit_count)
+		{
+			unsigned next = big_endian ? (unsigned)(src[(i + 1) * 2] << 8 | src[(i + 1) * 2 + 1]) : (unsigned)(src[(i + 1) * 2 + 1] << 8 | src[(i + 1) * 2]);
+			if (next >= 0xDC00 && next <= 0xDFFF)
+			{
+				cp = 0x10000 + ((unit - 0xD800) << 10) + (next - 0xDC00);
+				++i;
+			}
+		}
+
+		if (cp >= 0xD800 && cp <= 0xDFFF)
+			cp = 0xFFFD; /* unpaired surrogate */
+
+		if (cp <= 0x7F)
+		{
+			dst[w++] = (char)cp;
+		}
+		else if (cp <= 0x7FF)
+		{
+			dst[w++] = (char)(0xC0 | (cp >> 6));
+			dst[w++] = (char)(0x80 | (cp & 0x3F));
+		}
+		else if (cp <= 0xFFFF)
+		{
+			dst[w++] = (char)(0xE0 | (cp >> 12));
+			dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+			dst[w++] = (char)(0x80 | (cp & 0x3F));
+		}
+		else
+		{
+			/* a surrogate pair is two units (4 bytes in) and becomes 4 bytes out, which fits in the 3 bytes per unit reserved */
+			dst[w++] = (char)(0xF0 | (cp >> 18));
+			dst[w++] = (char)(0x80 | ((cp >> 12) & 0x3F));
+			dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+			dst[w++] = (char)(0x80 | (cp & 0x3F));
+		}
+	}
+
+	dst[w] = '\0';
+	*out_len = w;
+	return dst;
+}
+
+static Naui_Json naui_json_parse_utf8(const char* src, size_t len);
+
 Naui_Json naui_json_parse(const char* src, size_t len)
+{
+	const unsigned char* u = (const unsigned char*)src;
+
+	if (len >= 3 && u[0] == 0xEF && u[1] == 0xBB && u[2] == 0xBF)
+		return naui_json_parse_utf8(src + 3, len - 3);
+
+	/* UTF-16 with a byte order mark, or without one: JSON starts with an ASCII character, so one of the two bytes is zero */
+	bool utf16 = false;
+	bool big_endian = false;
+	if (len >= 2 && u[0] == 0xFF && u[1] == 0xFE)
+	{
+		utf16 = true;
+		u += 2;
+		len -= 2;
+	}
+	else if (len >= 2 && u[0] == 0xFE && u[1] == 0xFF)
+	{
+		utf16 = true;
+		big_endian = true;
+		u += 2;
+		len -= 2;
+	}
+	else if (len >= 2 && u[0] != 0 && u[1] == 0)
+	{
+		utf16 = true;
+	}
+	else if (len >= 2 && u[0] == 0 && u[1] != 0)
+	{
+		utf16 = true;
+		big_endian = true;
+	}
+
+	if (!utf16)
+		return naui_json_parse_utf8(src, len);
+
+	size_t utf8_len = 0;
+	char* utf8 = naui_json_utf16_to_utf8(u, len, big_endian, &utf8_len);
+	if (!utf8)
+	{
+		Naui_Json result;
+		memset(&result, 0, sizeof(result));
+		result.error = "out of memory";
+		return result;
+	}
+
+	Naui_Json result = naui_json_parse_utf8(utf8, utf8_len);
+	free(utf8);
+	return result;
+}
+
+static Naui_Json naui_json_parse_utf8(const char* src, size_t len)
 {
 	Naui_Json result;
 	memset(&result, 0, sizeof(result));
@@ -611,9 +720,7 @@ int naui_json_copy_string(const Naui_JsonValue* value, Naui_String* out_string)
 	if (!value || value->type != NAUI_JSON_STRING)
 		return -1;
 
-	size_t n = value->string.length;
-	if (n > NAUI_STRING_MAX_SIZE - 1)
-		n = NAUI_STRING_MAX_SIZE - 1;
+	size_t n = naui_utf8_clip_length(value->string.data, value->string.length, NAUI_STRING_MAX_SIZE - 1);
 
 	memcpy(out_string->data, value->string.data, n);
 	out_string->data[n] = '\0';
@@ -626,9 +733,7 @@ int naui_json_copy_cstr(const Naui_JsonValue* value, char* dest, size_t dest_siz
 	if (!value || value->type != NAUI_JSON_STRING || !dest || dest_size == 0)
 		return -1;
 
-	size_t n = value->string.length;
-	if (n > dest_size - 1)
-		n = dest_size - 1;
+	size_t n = naui_utf8_clip_length(value->string.data, value->string.length, dest_size - 1);
 
 	memcpy(dest, value->string.data, n);
 	dest[n] = '\0';
