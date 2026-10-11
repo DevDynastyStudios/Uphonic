@@ -1,23 +1,23 @@
-NAUI_PANEL(uph_midi_editor)
+NAUI_PANEL(uph_resource_editor)
 
-static void uph_midi_editor_on_attach(void)
+static void uph_resource_editor_on_attach(void)
 {
-	Naui_PanelID this = naui_current_panel();
-	naui_panel_set_title(this, NAUI_TR("resource_editor.title"));
 	uph_midi_editor_init(&uph_midi_editor_data);
+	uph_sample_editor_init();
 }
 
-static void uph_midi_editor_on_detach(void)
+static void uph_resource_editor_on_detach(void)
 {
 	uph_midi_editor_reset_interaction(&uph_midi_editor_data);
+	uph_sample_editor_reset_interaction();
 }
 
-static void uph_midi_editor_on_open(void)
+static void uph_resource_editor_on_open(void)
 {
 
 }
 
-static void uph_midi_editor_on_close(void)
+static void uph_resource_editor_on_close(void)
 {
 
 }
@@ -36,14 +36,17 @@ static void uph_midi_editor_render_empty(const char *message)
 	}
 }
 
-static void uph_midi_editor_on_update(void)
+static void uph_resource_editor_on_update(void)
 {
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("resource_editor.title"));
 	switch (uph_state.shared.selected_resource.type)
 	{
 		case UPH_RESOURCE_PATTERN:
 			uph_midi_editor_update(&uph_midi_editor_data);
 			break;
-
+		case UPH_RESOURCE_SAMPLE:
+			uph_sample_editor_update();
+			break;
 		default:
 			uph_midi_editor_reset_interaction(&uph_midi_editor_data);
 			uph_midi_editor_render_empty("No midi pattern is selected.");

@@ -389,7 +389,7 @@ static void uph_render_sample_block(
 {
     const double frames_per_beat = uph_beats_to_seconds(1.0, bpm) * (double)engine_sample_rate;
 
-    const double time_scale  = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const double time_scale  = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     const double pitch_ratio = pow(2.0, (double)sample->pitch / 1200.0);
 
     const double start_offset_frames = block->start_offset_beats * frames_per_beat;
@@ -448,7 +448,7 @@ double uph_sample_playback_length_beats(const Uph_Sample *sample, const Uph_Samp
     if (bpm <= 0.0f || data->frame_count == 0)
         return 0.0;
 
-    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const double time_scale = (sample->time_scale > 0.0) ? (double)sample->time_scale : 1.0;
     const double seconds = (double)data->frame_count / (double)uph_audio_engine_data.device.sampleRate;
 
     return uph_seconds_to_beats(seconds * time_scale, bpm);

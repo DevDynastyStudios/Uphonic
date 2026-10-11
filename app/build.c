@@ -71,6 +71,7 @@
 #include "panels/effect_list.c"
 #include "panels/plugin_list.c"
 #include "panels/automation_list.c"
+
 #include "panels/resource_editor/midi/note_map.h"
 #include "panels/resource_editor/midi/note_map.c"
 #include "panels/resource_editor/midi/piano_keys.h"
@@ -86,6 +87,10 @@
 #include "panels/resource_editor/midi/midi_toolbar.h"
 #include "panels/resource_editor/midi/midi_toolbar.c"
 #include "panels/resource_editor/midi/midi_editor.c"
+
+#include "panels/resource_editor/sample/sample_editor.h"
+#include "panels/resource_editor/sample/sample_editor.c"
+
 #include "panels/resource_editor.c"
 #include "panels/settings.c"
 

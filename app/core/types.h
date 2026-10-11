@@ -157,7 +157,7 @@ enum
 typedef struct
 {
 	Naui_String name;
-	double time_scale;
+	float time_scale;
 	Uph_ResourceIndex data_index;
 	int32_t pitch;
 	Uph_SampleMode mode;
