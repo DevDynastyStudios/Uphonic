@@ -131,7 +131,7 @@ bool uph_project_create(Naui_String project_name)
 	naui_list_clear(uph_state.project.samples);
 
 	uph_resources_clear_tracks();
-	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
+	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), 0);
 	uph_resources_add_pattern();
 	uph_resources_remove_all_automation();
 	naui_action_clear_history();
@@ -338,7 +338,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	}
 
 	if (naui_list_len(project->tracks) == 0)
-		uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
+		uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), 0);
 
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;

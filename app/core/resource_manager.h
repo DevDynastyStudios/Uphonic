@@ -1,4 +1,4 @@
-void uph_resources_add_track(Naui_String name);
+void uph_resources_add_track(Naui_String name, int32_t color_index);
 void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_PluginParam *param);
 
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param);

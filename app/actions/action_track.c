@@ -213,7 +213,7 @@ bool _uph_action_track_create_execute(void* userdata)
 	Uph_ActionTrackCreate* data = userdata;
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
 
-	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")));
+	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), rand() % naui_list_len(naui_theme_color_list("uph_track_palette")));
 	data->resource_index = (uint32_t)naui_list_len(uph_state.project.tracks) - 1;
 	data->resource_exists = true;
 

@@ -91,11 +91,11 @@ void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 	uph_resources_link_track_list(tracks, NULL);
 }
 
-void uph_resources_add_track(Naui_String name)
+void uph_resources_add_track(Naui_String name, int32_t color_index)
 {
 	Uph_Track track = {
 		.name = name,
-		.color_index = 0,
+		.color_index = color_index,
 		.volume = 1.0f,
 		.index = naui_list_len(uph_state.project.tracks)
 	};
@@ -240,6 +240,7 @@ Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String
 
 	Uph_Sample sample = {
 		.data_index = naui_list_len(uph_state.project.sample_data),
+		.time_scale = 1.0f,
 		.name = name
 	};
 
