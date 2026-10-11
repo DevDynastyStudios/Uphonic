@@ -618,7 +618,7 @@ void naui_renderer_build_atlas(uint32_t width, uint32_t height, void *data)
         .usage = MGFX_IMAGE_USAGE_SAMPLED,
         .width = width,
         .height = height,
-        .data = data
+        .subimages = {data}
     });
 }
 
@@ -927,7 +927,7 @@ static int naui_bake_font_size(
         .usage  = MGFX_IMAGE_USAGE_SAMPLED,
         .width  = (uint32_t)chosen_atlas_size,
         .height = (uint32_t)chosen_atlas_size,
-        .data   = alpha,
+        .subimages = {alpha}
     });
 
     free(alpha);

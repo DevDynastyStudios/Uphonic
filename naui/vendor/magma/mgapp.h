@@ -1102,16 +1102,16 @@ static inline void mgapp_win32_setup_clock(mgapp_win32_state *win32_state)
 
 static inline void mgapp_win32_load_cursors(mgapp_win32_state *win32_state)
 {
-    win32_state->cursor_table[MG_CURSOR_ARROW]        = LoadCursorW(NULL, IDC_ARROW);
-    win32_state->cursor_table[MG_CURSOR_IBEAM]        = LoadCursorW(NULL, IDC_IBEAM);
-    win32_state->cursor_table[MG_CURSOR_CROSSHAIR]    = LoadCursorW(NULL, IDC_CROSS);
-    win32_state->cursor_table[MG_CURSOR_HAND]         = LoadCursorW(NULL, IDC_HAND);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NS]    = LoadCursorW(NULL, IDC_SIZENS);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_EW]    = LoadCursorW(NULL, IDC_SIZEWE);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NESW]  = LoadCursorW(NULL, IDC_SIZENESW);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_NWSE]  = LoadCursorW(NULL, IDC_SIZENWSE);
-    win32_state->cursor_table[MG_CURSOR_RESIZE_ALL]   = LoadCursorW(NULL, IDC_SIZEALL);
-    win32_state->cursor_table[MG_CURSOR_NOT_ALLOWED]  = LoadCursorW(NULL, IDC_NO);
+    win32_state->cursor_table[MG_CURSOR_ARROW]        = LoadCursor(NULL, IDC_ARROW);
+    win32_state->cursor_table[MG_CURSOR_IBEAM]        = LoadCursor(NULL, IDC_IBEAM);
+    win32_state->cursor_table[MG_CURSOR_CROSSHAIR]    = LoadCursor(NULL, IDC_CROSS);
+    win32_state->cursor_table[MG_CURSOR_HAND]         = LoadCursor(NULL, IDC_HAND);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NS]    = LoadCursor(NULL, IDC_SIZENS);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_EW]    = LoadCursor(NULL, IDC_SIZEWE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NESW]  = LoadCursor(NULL, IDC_SIZENESW);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_NWSE]  = LoadCursor(NULL, IDC_SIZENWSE);
+    win32_state->cursor_table[MG_CURSOR_RESIZE_ALL]   = LoadCursor(NULL, IDC_SIZEALL);
+    win32_state->cursor_table[MG_CURSOR_NOT_ALLOWED]  = LoadCursor(NULL, IDC_NO);
     win32_state->cursor_table[MG_CURSOR_HIDDEN]       = NULL;
 }
 
