@@ -3,40 +3,6 @@
 
 typedef uint64_t Uph_KeyBitset[UPH_KEY_BITSET_WORD_COUNT];
 
-static inline bool uph_key_bitset_get(const Uph_KeyBitset set, uint8_t key)
-{
-	return (set[key / UPH_KEY_BITSET_BITS_PER_WORD] >> (key % UPH_KEY_BITSET_BITS_PER_WORD)) & 1u;
-}
-
-static inline void uph_key_bitset_set(Uph_KeyBitset set, uint8_t key, bool pressed)
-{
-	const uint64_t mask = (uint64_t)1u << (key % UPH_KEY_BITSET_BITS_PER_WORD);
-	uint64_t *word = &set[key / UPH_KEY_BITSET_BITS_PER_WORD];
-	*word = pressed ? (*word | mask) : (*word & ~mask);
-}
-
-static inline void uph_key_bitset_clear(Uph_KeyBitset set)
-{
-	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
-		set[i] = 0;
-}
-
-static inline void uph_key_bitset_copy(Uph_KeyBitset dst, const Uph_KeyBitset src)
-{
-	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
-		dst[i] = src[i];
-}
-
-static inline bool uph_key_bitset_was_pressed(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
-{
-	return !uph_key_bitset_get(prev, key) && uph_key_bitset_get(current, key);
-}
-
-static inline bool uph_key_bitset_was_released(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
-{
-	return uph_key_bitset_get(prev, key) && !uph_key_bitset_get(current, key);
-}
-
 typedef struct
 {
 	float key_length;
@@ -84,12 +50,44 @@ typedef struct
 }
 Uph_PianoEvents;
 
-void uph_piano_init(Uph_Piano *piano);
+static inline bool uph_key_bitset_get(const Uph_KeyBitset set, uint8_t key)
+{
+	return (set[key / UPH_KEY_BITSET_BITS_PER_WORD] >> (key % UPH_KEY_BITSET_BITS_PER_WORD)) & 1u;
+}
+
+static inline void uph_key_bitset_set(Uph_KeyBitset set, uint8_t key, bool pressed)
+{
+	const uint64_t mask = (uint64_t)1u << (key % UPH_KEY_BITSET_BITS_PER_WORD);
+	uint64_t *word = &set[key / UPH_KEY_BITSET_BITS_PER_WORD];
+	*word = pressed ? (*word | mask) : (*word & ~mask);
+}
+
+static inline void uph_key_bitset_clear(Uph_KeyBitset set)
+{
+	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
+		set[i] = 0;
+}
+
+static inline void uph_key_bitset_copy(Uph_KeyBitset dst, const Uph_KeyBitset src)
+{
+	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
+		dst[i] = src[i];
+}
+
+static inline bool uph_key_bitset_was_pressed(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+	return !uph_key_bitset_get(prev, key) && uph_key_bitset_get(current, key);
+}
+
+static inline bool uph_key_bitset_was_released(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+	return uph_key_bitset_get(prev, key) && !uph_key_bitset_get(current, key);
+}
 
 static inline Uph_PianoStyle uph_piano_default_style(void)
 {
 	return (Uph_PianoStyle) {
-		.key_length = 120.0f,
+		.key_length = 100.0f,
 		.black_key_length_ratio = 0.55f,
 		.black_key_height_ratio = 0.55f,
 		.white_key_border_alpha = 120.0f,
@@ -105,6 +103,8 @@ static inline float uph_piano_width(const Uph_Piano *piano)
 {
 	return NAUI_DPI(piano->style.key_length);
 }
+
+void uph_piano_init(Uph_Piano *piano);
 
 bool uph_piano_key_pressed(const Uph_Piano *piano, uint8_t key);
 void uph_piano_set_external_key(Uph_Piano *piano, uint8_t key, bool pressed);
