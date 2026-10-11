@@ -45,6 +45,415 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, floa
     }
 }
 
+#define UPH_WSOLA_GRAIN_FRAMES  2048
+#define UPH_WSOLA_HOP_FRAMES    (UPH_WSOLA_GRAIN_FRAMES / 2)
+#define UPH_WSOLA_TOLERANCE     512
+#define UPH_WSOLA_COARSE_STEP   4
+#define UPH_WSOLA_RING_FRAMES   4096
+#define UPH_WSOLA_RING_MASK     (UPH_WSOLA_RING_FRAMES - 1)
+#define UPH_WSOLA_MAX_STATES    32
+
+#define UPH_WSOLA_COARSE_REF    (UPH_WSOLA_HOP_FRAMES / UPH_WSOLA_COARSE_STEP)
+#define UPH_WSOLA_COARSE_CANDS  (2 * UPH_WSOLA_TOLERANCE / UPH_WSOLA_COARSE_STEP + 1)
+
+static float uph_stretch_window[UPH_WSOLA_GRAIN_FRAMES];
+
+static void uph_stretch_init_window(void)
+{
+    for (uint32_t i = 0; i < UPH_WSOLA_GRAIN_FRAMES; i++)
+    {
+        uph_stretch_window[i] = 0.5f - 0.5f * cosf(
+            2.0f * (float)NAUI_PI * (float)i / (float)UPH_WSOLA_GRAIN_FRAMES);
+    }
+}
+
+typedef struct
+{
+    const void *key;
+    uint64_t    last_used;
+    bool        valid;
+
+    const void *frames;
+    uint64_t    frame_count;
+    double      start_offset_frames;
+    double      beta;
+    double      read_rate;
+
+    double      next_out_pos;
+    double      q;
+
+    int64_t     next_grain;
+    int64_t     complete_up_to;
+    int64_t     prev_start;
+    bool        has_prev;
+
+    float       ring_l[UPH_WSOLA_RING_FRAMES];
+    float       ring_r[UPH_WSOLA_RING_FRAMES];
+}
+Uph_Stretcher;
+
+static Uph_Stretcher uph_stretchers[UPH_WSOLA_MAX_STATES];
+static uint64_t      uph_stretcher_clock;
+
+static inline float uph_sample_mono_at(const Uph_SampleData *s, int64_t i)
+{
+    if (i < 0 || (uint64_t)i >= s->frame_count || !s->frames)
+        return 0.0f;
+
+    const float *src = (const float*)s->frames;
+    if (s->channel_type == UPH_SAMPLE_STEREO)
+        return 0.5f * (src[i * 2 + 0] + src[i * 2 + 1]);
+    return src[i];
+}
+
+static inline void uph_sample_stereo_at(const Uph_SampleData *s, int64_t i, float *l, float *r)
+{
+    if (i < 0 || (uint64_t)i >= s->frame_count || !s->frames)
+    {
+        *l = 0.0f;
+        *r = 0.0f;
+        return;
+    }
+
+    const float *src = (const float*)s->frames;
+    if (s->channel_type == UPH_SAMPLE_STEREO)
+    {
+        *l = src[i * 2 + 0];
+        *r = src[i * 2 + 1];
+    }
+    else
+    {
+        *l = *r = src[i];
+    }
+}
+
+static inline float uph_hermite4(float ym1, float y0, float y1, float y2, float t)
+{
+    const float c1 = 0.5f * (y1 - ym1);
+    const float c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2;
+    const float c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
+    return ((c3 * t + c2) * t + c1) * t + y0;
+}
+
+static int64_t uph_wsola_find_start(const Uph_SampleData *s, int64_t ref_start, int64_t nominal, int64_t min_start)
+{
+    enum
+    {
+        STEP   = UPH_WSOLA_COARSE_STEP,
+        REF_N  = UPH_WSOLA_COARSE_REF,
+        CANDS  = UPH_WSOLA_COARSE_CANDS,
+        TOL    = UPH_WSOLA_TOLERANCE,
+        HOP    = UPH_WSOLA_HOP_FRAMES,
+    };
+
+    float dref[REF_N];
+    float d[CANDS + REF_N - 1];
+
+    const int64_t base = nominal - TOL;
+
+    for (int m = 0; m < REF_N; m++)
+    {
+        float acc = 0.0f;
+        for (int u = 0; u < STEP; u++)
+            acc += uph_sample_mono_at(s, ref_start + (int64_t)m * STEP + u);
+        dref[m] = acc;
+    }
+    for (int m = 0; m < CANDS + REF_N - 1; m++)
+    {
+        float acc = 0.0f;
+        for (int u = 0; u < STEP; u++)
+            acc += uph_sample_mono_at(s, base + (int64_t)m * STEP + u);
+        d[m] = acc;
+    }
+
+    const int center_j = CANDS / 2;
+    int   best_j = center_j;
+    float best_score = -1e30f;
+
+    float energy = 0.0f;
+    for (int m = 0; m < REF_N; m++)
+        energy += d[m] * d[m];
+
+    for (int j = 0; j < CANDS; j++)
+    {
+        if (j > 0)
+            energy += d[j + REF_N - 1] * d[j + REF_N - 1] - d[j - 1] * d[j - 1];
+
+        if (base + (int64_t)j * STEP < min_start)
+            continue;
+
+        float dot = 0.0f;
+        for (int m = 0; m < REF_N; m++)
+            dot += dref[m] * d[j + m];
+
+        float score = dot / sqrtf((energy > 0.0f ? energy : 0.0f) + 1e-6f);
+
+        if (score > best_score
+            || (score == best_score && abs(j - center_j) < abs(best_j - center_j)))
+        {
+            best_score = score;
+            best_j = j;
+        }
+    }
+
+    const int64_t coarse_best = base + (int64_t)best_j * STEP;
+
+    float ref[HOP];
+    for (int i = 0; i < HOP; i++)
+        ref[i] = uph_sample_mono_at(s, ref_start + i);
+
+    int64_t best = coarse_best;
+    best_score = -1e30f;
+
+    for (int64_t a = coarse_best - STEP; a <= coarse_best + STEP; a++)
+    {
+        if (a < min_start)
+            continue;
+
+        float dot = 0.0f;
+        float en  = 0.0f;
+        for (int i = 0; i < HOP; i += 2)
+        {
+            float c = uph_sample_mono_at(s, a + i);
+            dot += ref[i] * c;
+            en  += c * c;
+        }
+
+        float score = dot / sqrtf(en + 1e-6f);
+        if (score > best_score)
+        {
+            best_score = score;
+            best = a;
+        }
+    }
+
+    return best;
+}
+
+static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample, int64_t k)
+{
+    const int64_t hop   = UPH_WSOLA_HOP_FRAMES;
+    const int64_t grain = UPH_WSOLA_GRAIN_FRAMES;
+
+    const int64_t start = (int64_t)llround(st->start_offset_frames);
+
+    int64_t nominal = start;
+    if (k > 0)
+        nominal = start + (int64_t)llround((double)(k + 1) * (double)hop * st->beta) - hop;
+    if (nominal < start)
+        nominal = start;
+
+    int64_t a = nominal;
+    if (st->has_prev)
+        a = uph_wsola_find_start(sample, st->prev_start + hop, nominal, start);
+
+    const int64_t y0 = k * hop;
+
+    for (int64_t i = hop; i < grain; i++)
+    {
+        const int64_t idx = (y0 + i) & UPH_WSOLA_RING_MASK;
+        st->ring_l[idx] = 0.0f;
+        st->ring_r[idx] = 0.0f;
+    }
+
+    for (int64_t i = 0; i < grain; i++)
+    {
+        const float w = (k == 0 && i < hop) ? 1.0f : uph_stretch_window[i];
+
+        float l, r;
+        uph_sample_stereo_at(sample, a + i, &l, &r);
+
+        const int64_t idx = (y0 + i) & UPH_WSOLA_RING_MASK;
+        st->ring_l[idx] += l * w;
+        st->ring_r[idx] += r * w;
+    }
+
+    st->prev_start     = a;
+    st->has_prev       = true;
+    st->next_grain     = k + 1;
+    st->complete_up_to = (k + 1) * hop;
+}
+
+static void uph_stretcher_reset(Uph_Stretcher *st, double out_pos)
+{
+    memset(st->ring_l, 0, sizeof(st->ring_l));
+    memset(st->ring_r, 0, sizeof(st->ring_r));
+
+    st->q            = out_pos * st->read_rate;
+    st->next_out_pos = out_pos;
+
+    int64_t k = (int64_t)floor(st->q / (double)UPH_WSOLA_HOP_FRAMES) - 2;
+    if (k < 0)
+        k = 0;
+
+    st->next_grain     = k;
+    st->complete_up_to = k * UPH_WSOLA_HOP_FRAMES;
+    st->prev_start     = 0;
+    st->has_prev       = false;
+}
+
+static Uph_Stretcher *uph_stretcher_acquire(const void *key)
+{
+    Uph_Stretcher *oldest = &uph_stretchers[0];
+
+    for (int i = 0; i < UPH_WSOLA_MAX_STATES; i++)
+    {
+        Uph_Stretcher *st = &uph_stretchers[i];
+        if (st->key == key)
+        {
+            st->last_used = ++uph_stretcher_clock;
+            return st;
+        }
+        if (st->last_used < oldest->last_used)
+            oldest = st;
+    }
+
+    oldest->key       = key;
+    oldest->valid     = false;
+    oldest->last_used = ++uph_stretcher_clock;
+    return oldest;
+}
+
+static void uph_stretcher_prepare(
+    Uph_Stretcher *st,
+    const Uph_SampleData *data,
+    double start_offset_frames,
+    double beta,
+    double read_rate,
+    double out_pos
+)
+{
+    const bool same = st->valid
+        && st->frames == data->frames
+        && st->frame_count == data->frame_count
+        && st->start_offset_frames == start_offset_frames
+        && st->beta == beta
+        && st->read_rate == read_rate
+        && fabs(st->next_out_pos - out_pos) < 1.5;
+
+    if (same)
+        return;
+
+    st->valid               = true;
+    st->frames              = data->frames;
+    st->frame_count         = data->frame_count;
+    st->start_offset_frames = start_offset_frames;
+    st->beta                = beta;
+    st->read_rate           = read_rate;
+
+    uph_stretcher_reset(st, out_pos);
+}
+
+static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, float *out_left, float *out_right)
+{
+    const int64_t i0 = (int64_t)floor(st->q);
+    const float   t  = (float)(st->q - (double)i0);
+
+    while (st->complete_up_to < i0 + 3)
+        uph_wsola_add_grain(st, sample, st->next_grain);
+
+    float l[4], r[4];
+    for (int n = 0; n < 4; n++)
+    {
+        const int64_t pos = i0 - 1 + n;
+        if (pos < 0)
+        {
+            l[n] = 0.0f;
+            r[n] = 0.0f;
+        }
+        else
+        {
+            l[n] = st->ring_l[pos & UPH_WSOLA_RING_MASK];
+            r[n] = st->ring_r[pos & UPH_WSOLA_RING_MASK];
+        }
+    }
+
+    *out_left  = uph_hermite4(l[0], l[1], l[2], l[3], t);
+    *out_right = uph_hermite4(r[0], r[1], r[2], r[3], t);
+
+    st->q            += st->read_rate;
+    st->next_out_pos += 1.0;
+}
+
+static void uph_render_sample_block(
+    const Uph_TimelineBlock *block,
+    const Uph_Sample *sample,
+    const Uph_SampleData *data,
+    double buffer_start_beat,
+    ma_uint32 frame_count,
+    uint32_t engine_sample_rate,
+    float bpm,
+    float *track_l,
+    float *track_r
+)
+{
+    const double frames_per_beat = uph_beats_to_seconds(1.0, bpm) * (double)engine_sample_rate;
+
+    const double time_scale  = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const double pitch_ratio = pow(2.0, (double)sample->pitch / 1200.0);
+
+    const double start_offset_frames = block->start_offset_beats * frames_per_beat;
+    const double block_length_frames = block->length_beats * frames_per_beat;
+    const double first_out_pos       = (buffer_start_beat - block->start_beat) * frames_per_beat;
+
+    uint32_t f = 0;
+    if (first_out_pos < 0.0)
+    {
+        double skip = ceil(-first_out_pos);
+        if (skip >= (double)frame_count)
+            return;
+        f = (uint32_t)skip;
+    }
+
+    if (first_out_pos + (double)f >= block_length_frames)
+        return;
+
+    const double speed = 1.0 / time_scale;
+
+    const double read_rate = ((sample->mode == UPH_SAMPLE_RESAMPLE) ? speed : 1.0) * pitch_ratio;
+
+    const bool use_wsola = (sample->pitch != 0)
+        || (sample->mode == UPH_SAMPLE_STRETCH && time_scale != 1.0);
+
+    Uph_Stretcher *stretcher = NULL;
+    if (use_wsola)
+    {
+        stretcher = uph_stretcher_acquire(block);
+        uph_stretcher_prepare(
+            stretcher, data,
+            start_offset_frames, speed / read_rate, read_rate,
+            first_out_pos + (double)f
+        );
+    }
+
+    for (; f < frame_count; f++)
+    {
+        double out_pos = first_out_pos + (double)f;
+        if (out_pos >= block_length_frames)
+            break;
+
+        float left, right;
+        if (stretcher)
+            uph_stretcher_read(stretcher, data, &left, &right);
+        else
+            uph_read_sample_frame(data, start_offset_frames + out_pos * speed, &left, &right);
+
+        track_l[f] += left;
+        track_r[f] += right;
+    }
+}
+
+double uph_sample_playback_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, float bpm)
+{
+    if (bpm <= 0.0f || data->frame_count == 0)
+        return 0.0;
+
+    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const double seconds = (double)data->frame_count / (double)uph_audio_engine_data.device.sampleRate;
+
+    return uph_seconds_to_beats(seconds * time_scale, bpm);
+}
+
 static void uph_queue_pattern_block_notes(
     Uph_Track *track,
     Uph_TimelineBlock *block,
@@ -438,28 +847,14 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
                         continue;
 
                     Uph_Sample *sample = &project->samples[block->resource_index];
-                    Uph_SampleData *sample_data = &project->sample_data[sample->data_index];
+                    if (sample->data_index >= naui_list_len(project->sample_data))
+                        continue;
 
-                    double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
-
-                    for (uint32_t f = 0; f < frame_count; f++)
-                    {
-                        double frame_beat = playhead_start_beat + uph_seconds_to_beats((double)f / (double)engine_sample_rate, bpm);
-
-                        double beats_into_block = frame_beat - block->start_beat;
-                        if (beats_into_block < 0.0 || beats_into_block >= block->length_beats)
-                            continue;
-
-                        double source_beats = beats_into_block / time_scale + block->start_offset_beats;
-                        double source_seconds = uph_beats_to_seconds(source_beats, bpm);
-                        double source_frame_pos = source_seconds * (double)engine_sample_rate;
-
-                        float left, right;
-                        uph_read_sample_frame(sample_data, source_frame_pos, &left, &right);
-
-                        track_l[f] += left;
-                        track_r[f] += right;
-                    }
+                    uph_render_sample_block(
+                        block, sample, &project->sample_data[sample->data_index],
+                        playhead_start_beat, frame_count, engine_sample_rate, bpm,
+                        track_l, track_r
+                    );
                 }
             }
         }
@@ -869,6 +1264,8 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
 void uph_audio_engine_init(void)
 {
     Uph_AudioSettings settings = uph_state.settings.audio;
+
+    uph_stretch_init_window();
 
     ma_device_config config = ma_device_config_init(ma_device_type_duplex);
     config.capture.format     = ma_format_f32;
