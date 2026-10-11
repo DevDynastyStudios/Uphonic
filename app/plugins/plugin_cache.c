@@ -1,3 +1,8 @@
+static inline Naui_Path _uph_plugin_get_cache_file()
+{
+	return naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json"));
+}
+
 static void _uph_plugin_cache_scan_folder(Naui_List(Uph_PluginInfo) *info_list, const Naui_Path folder)
 {
     static const char* plugin_extensions[] = {".clap", ".vst3"}; 
@@ -37,7 +42,7 @@ static void _uph_plugin_cache_update(Naui_List(Uph_PluginInfo) *info_list, const
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(*info_list); i++)
     {
         const Uph_PluginInfo *info = &(*info_list)[i];
-        Naui_JsonValue *object = naui_json_set_object(&json, root, info->path.data);
+        Naui_JsonValue *object = naui_json_set_object(&json, root, naui_path_normalize(info->path).data);
 
         naui_json_set_string(&json, object, "name", info->name.data);
         naui_json_set_string(&json, object, "vendor", info->vendor.data);
@@ -47,7 +52,7 @@ static void _uph_plugin_cache_update(Naui_List(Uph_PluginInfo) *info_list, const
 
     naui_json_write_file(
         root,
-        naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json")),
+        _uph_plugin_get_cache_file(),
         true
     );
 
@@ -56,7 +61,7 @@ static void _uph_plugin_cache_update(Naui_List(Uph_PluginInfo) *info_list, const
 
 void uph_plugin_cache_get(Naui_List(Uph_PluginInfo) *info_list, bool refresh)
 {
-    const Naui_Path path = naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json"));
+    const Naui_Path path = _uph_plugin_get_cache_file();
     
     naui_list_clear(*info_list);
 
