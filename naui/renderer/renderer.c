@@ -19,8 +19,14 @@ static const struct { int start; int count; } k_unicode_blocks[] =
     { 0x0020,   96 },
     { 0x00A0,   96 },
     { 0x0100,  128 },
+    { 0x0180,  208 },
     { 0x0370,  144 },
-    { 0x0400,  128 },
+    { 0x0400,  256 },
+    { 0x1E00,  256 },
+    { 0x2000,  112 },
+    { 0x20A0,   48 },
+    { 0x2100,   80 },
+    { 0x2190,  112 },
     { 0x3000,   64 },
     { 0x3040,   96 },
     { 0x30A0,   96 },
@@ -991,6 +997,19 @@ void naui_unload_font(uint8_t index)
 
     naui_free_bake(&rdata->font[index]);
     rdata->font_loaded[index] = false;
+}
+
+bool naui_font_is_loaded(uint8_t index)
+{
+    return index < NAUI_FONT_MAX_SLOTS && rdata->font_loaded[index];
+}
+
+bool naui_font_has_codepoint(uint8_t index, uint32_t codepoint)
+{
+    if (!naui_font_is_loaded(index))
+        return false;
+
+    return naui_bake_lookup(&rdata->font[index], (int)codepoint) != NULL;
 }
 
 Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size, uint8_t font_index)

@@ -26,17 +26,20 @@ static Naui_Path _naui_localization_build_path(const char* code)
 
 bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_language)
 {
-	const Naui_Path lang_path = naui_path_normalize(path);
-	if (naui_path_is_empty(lang_path) || !out_language)
+	if (!out_language)
 		return false;
 
-	out_language->table = NULL;
-	out_language->meta.language_code = (Naui_String){0};
+	memset(out_language, 0, sizeof(*out_language));
+
+	const Naui_Path lang_path = naui_path_normalize(path);
+	if (naui_path_is_empty(lang_path))
+		return false;
+
 	Naui_Json json = naui_json_parse_file(lang_path);
 
 	if (!json.root || json.error)
 	{
-		naui_log(NAUI_LOG_ERROR, "Failed to parse localization file: %s", lang_path.data);
+		naui_log(NAUI_LOG_ERROR, "Failed to parse localization file: %s (%s, line %d, column %d)", lang_path.data, json.error ? json.error : "unknown error", json.error_line, json.error_col);
 		naui_json_free(&json);
 		return false;
 	}
@@ -52,6 +55,7 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	naui_arena_init(&out_language->arena, file_size > 0 ? file_size : 1024);
 	out_language->meta.filename = lang_path;
 	out_language->meta.text_direction = NAUI_TEXT_LTR;
+	uint32_t invalid_utf8_count = 0;
 
 	NAUI_JSON_FOREACH(json.root, key, value)
 	{
@@ -92,9 +96,17 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 			continue;
 
 		naui_json_copy_cstr(value, raw_value, val_cap);
+
+		if (!naui_utf8_is_valid(raw_value, value->string.length))
+		{
+			if (invalid_utf8_count < 3)
+				naui_log(NAUI_LOG_WARNING, "Localization file %s: the text for \"%.*s\" is not valid UTF-8", lang_path.data, (int)key->string.length, key->string.data);
+
+			invalid_utf8_count++;
+		}
+
 		bool is_interpolated = (raw_value[0] == '$');
 		char* entry_value = is_interpolated ? raw_value + 1 : raw_value;
-
 		char* entry_key = (char*)naui_arena_alloc(&out_language->arena, key->string.length + 1);
 		if (!entry_key)
 			continue;
@@ -108,6 +120,9 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	}
 
 	naui_json_free(&json);
+	if (invalid_utf8_count > 0)
+		naui_log(NAUI_LOG_WARNING, "Localization file %s: %u entries are not valid UTF-8. Was it saved as ANSI/Windows-1252? Re-save it as UTF-8.", lang_path.data, invalid_utf8_count);
+
 	if (naui_string_is_empty(out_language->meta.language_code))
 	{
 		Naui_String stem = naui_view_to_string(naui_file_stem(&lang_path));
@@ -164,9 +179,8 @@ void naui_localization_set_current(const Naui_String language_code)
 		ok = naui_localization_load(naui_string_from_cstr("en-US"), &new_lang);
 		if (!ok)
 		{
-			Naui_String language_folder = naui_string_from_cstr(naui_directory_get(NAUI_DIR_ASSETS).data);
-			naui_string_append(&language_folder, naui_string_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
-			naui_log(NAUI_LOG_ERROR, "Failed all attempts to load language file at: %s", language_folder);
+			Naui_Path language_folder = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), naui_path_from_cstr(NAUI_LOCALIZATION_FOLDER_NAME));
+			naui_log(NAUI_LOG_ERROR, "Failed all attempts to load language file at: %s", language_folder.data);
 			return;
 		}
 	}
@@ -270,7 +284,7 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 	const char* src = entry->value;
 	size_t src_len = strlen(src);
 	Naui_StringBuilder builder = NULL;
-	naui_string_builder_reserve(builder, src_len);
+	naui_string_builder_reserve(&builder, src_len);
 	size_t i = 0;
 	while (i < src_len)
 	{
@@ -288,7 +302,7 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 					if (name && strlen(name) == name_len && memcmp(name, src + i + 1, name_len) == 0)
 					{
 						Naui_StringView val_view = { (char*)args[a + 1], strlen(args[a + 1]) };
-						naui_string_builder_append_view(builder, val_view);
+						naui_string_builder_append_view(&builder, val_view);
 						matched = true;
 						break;
 					}
@@ -297,7 +311,7 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 				if (!matched)
 				{
 					Naui_StringView placeholder_view = { (char*)(src + i), (size_t)(close - src + 1) - i };
-					naui_string_builder_append_view(builder, placeholder_view);
+					naui_string_builder_append_view(&builder, placeholder_view);
 				}
 
 				i = (size_t)(close - src) + 1;
@@ -305,7 +319,7 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 			}
 		}
 
-		naui_string_builder_append_char(builder, src[i]);
+		naui_string_builder_append_char(&builder, src[i]);
 		++i;
 	}
 
@@ -313,11 +327,13 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 	char* result = (char*)malloc(final_len + 1);
 	if (result)
 	{
-		memcpy(result, builder, final_len);
+		if (final_len > 0)
+			memcpy(result, builder, final_len);
+
 		result[final_len] = '\0';
 	}
 
-	naui_string_builder_free(builder);
+	naui_string_builder_free(&builder);
 	return result;
 }
 
@@ -328,4 +344,70 @@ void naui_localization_free(Naui_Language* language)
 
 	naui_strmap_free(language->table);
 	naui_arena_free(&language->arena);
+}
+
+void naui_localization_check_font(uint8_t font_index)
+{
+	if (!g_current_loaded)
+		return;
+
+	if (!naui_font_is_loaded(font_index))
+	{
+		naui_log(NAUI_LOG_WARNING, "Font %u is not loaded, can't check it against the language", (unsigned)font_index);
+		return;
+	}
+
+	enum { MAX_REPORTED = 12 };
+	uint32_t missing[MAX_REPORTED];
+	uint32_t missing_distinct = 0;
+	uint32_t missing_total = 0;
+
+	const ptrdiff_t entry_count = naui_strmap_len(g_current_language.table);
+	for (ptrdiff_t e = 0; e < entry_count; ++e)
+	{
+		const char* text = g_current_language.table[e].value;
+		const size_t length = strlen(text);
+
+		size_t i = 0;
+		while (i < length)
+		{
+			uint32_t code_point = 0;
+			size_t n = naui_utf8_next(text + i, length - i, &code_point);
+			if (n == 0)
+			{
+				i++;
+				continue;
+			}
+
+			i += n;
+			if (code_point < 0x20 || code_point == 0x7F || naui_font_has_codepoint(font_index, code_point))
+				continue;
+
+			++missing_total;
+			bool known = false;
+			for (uint32_t k = 0; k < missing_distinct; ++k)
+			{
+				if (missing[k] == code_point)
+				{
+					known = true;
+					break;
+				}
+			}
+
+			if (!known && missing_distinct < MAX_REPORTED)
+				missing[missing_distinct++] = code_point;
+		}
+	}
+
+	if (missing_total == 0)
+		return;
+
+	size_t w = 0;
+	char list[MAX_REPORTED * 9 + 1];
+	for (uint32_t k = 0; k < missing_distinct; ++k)
+	{
+		w += (size_t)snprintf(list + w, sizeof(list) - w, "U+%04X ", (unsigned)missing[k]);
+	}
+
+	naui_log(NAUI_LOG_WARNING, "%u characters in %s-%s have no glyph in font %u and will show as '?'. Examples: %s. Load a font that covers this script.", missing_total, g_current_language.meta.language_code.data, g_current_language.meta.region_code.data, (unsigned)font_index, list);
 }

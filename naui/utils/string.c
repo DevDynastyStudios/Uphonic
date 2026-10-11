@@ -3,6 +3,75 @@ static char naui__tolower(char c)
     return (char)tolower((unsigned char)c);
 }
 
+size_t naui_utf8_clip_length(const char *s, size_t len, size_t max)
+{
+    if (len <= max)
+        return len;
+
+    size_t n = max;
+    while (n > 0 && ((unsigned char)s[n] & 0xC0) == 0x80)
+        --n;
+
+    return n;
+}
+
+size_t naui_utf8_next(const char *s, size_t len, uint32_t *out_codepoint)
+{
+    if (!s || len == 0)
+        return 0;
+
+    const unsigned char c0 = (unsigned char)s[0];
+    uint32_t code_point;
+    uint32_t min_code_point;
+    size_t need;
+
+    if (c0 < 0x80)
+	{
+		if (out_codepoint) *out_codepoint = c0;
+		return 1;
+	}
+    else if (c0 < 0xC2) return 0;
+    else if (c0 < 0xE0) { need = 2; code_point = c0 & 0x1F; min_code_point = 0x80; }
+    else if (c0 < 0xF0) { need = 3; code_point = c0 & 0x0F; min_code_point = 0x800; }
+    else if (c0 < 0xF5) { need = 4; code_point = c0 & 0x07; min_code_point = 0x10000; }
+    else return 0;
+
+    if (len < need)
+        return 0;
+
+    for (size_t i = 1; i < need; ++i)
+    {
+        const unsigned char ci = (unsigned char)s[i];
+        if ((ci & 0xC0) != 0x80)
+            return 0;
+
+        code_point = (code_point << 6) | (ci & 0x3F);
+    }
+
+    if (code_point < min_code_point || code_point > 0x10FFFF || (code_point >= 0xD800 && code_point <= 0xDFFF))
+        return 0;
+
+    if (out_codepoint)
+        *out_codepoint = code_point;
+
+    return need;
+}
+
+bool naui_utf8_is_valid(const char *s, size_t len)
+{
+    size_t i = 0;
+    while (i < len)
+    {
+        const size_t n = naui_utf8_next(s + i, len - i, NULL);
+        if (n == 0)
+            return false;
+
+        i += n;
+    }
+
+    return true;
+}
+
 static int naui__char_eq(char a, char b, bool case_sensitive)
 {
     if (case_sensitive)
@@ -31,7 +100,7 @@ Naui_String naui_string_from_cstr(const char *cstr)
         return result;
 
     size_t src_len = strlen(cstr);
-    size_t copy_len = NAUI_MIN(src_len, NAUI_STRING_MAX_SIZE - 1);
+    size_t copy_len = naui_utf8_clip_length(cstr, src_len, NAUI_STRING_MAX_SIZE - 1);
 
     memcpy(result.data, cstr, copy_len);
     result.length = copy_len;
@@ -64,7 +133,7 @@ Naui_String naui_view_to_string(Naui_StringView view)
     if (!view.data || view.length == 0)
         return result;
 
-    size_t copy_len = NAUI_MIN(view.length, NAUI_STRING_MAX_SIZE - 1);
+    size_t copy_len = naui_utf8_clip_length(view.data, view.length, NAUI_STRING_MAX_SIZE - 1);
 
     memcpy(result.data, view.data, copy_len);
     result.data[copy_len] = '\0';
@@ -139,7 +208,7 @@ void naui_string_append_view(Naui_String *dest, Naui_StringView view)
         return;
 
     size_t space_left = (NAUI_STRING_MAX_SIZE - 1) - dest->length;
-    size_t copy_len = NAUI_MIN(view.length, space_left);
+    size_t copy_len = naui_utf8_clip_length(view.data, view.length, space_left);
 
     if (copy_len == 0)
         return;
@@ -502,41 +571,53 @@ Naui_String naui_string_format(char *const fmt, ...)
     va_end(ap);
 
     if (written > 0)
-        result.length = (size_t)NAUI_MIN(written, NAUI_STRING_MAX_SIZE - 1);
+    {
+        result.length = naui_utf8_clip_length(result.data, (size_t)written, NAUI_STRING_MAX_SIZE - 1);
+        result.data[result.length] = '\0';
+    }
 
     return result;
 }
 
-void naui_string_builder_append_view(Naui_StringBuilder builder, Naui_StringView view)
+void naui_string_builder_append_view(Naui_StringBuilder *builder, Naui_StringView view)
 {
     if (!builder || !view.data || view.length == 0)
         return;
 
-    naui_list_reserve(builder, (size_t)naui_list_len(builder) + view.length);
+    naui_list_reserve(*builder, (size_t)naui_list_len(*builder) + view.length);
     for (size_t i = 0; i < view.length; ++i)
     {
-        naui_list_push(builder, view.data[i]);
+        naui_list_push(*builder, view.data[i]);
     }
 }
- 
-void naui_string_builder_append(Naui_StringBuilder builder, Naui_String str)
+
+void naui_string_builder_append(Naui_StringBuilder *builder, Naui_String str)
 {
     naui_string_builder_append_view(builder, naui_string_to_view(&str));
 }
- 
-void naui_string_builder_append_builder(Naui_StringBuilder dest_builder, Naui_StringBuilder src_builder)
+
+void naui_string_builder_append_cstr(Naui_StringBuilder *builder, const char *cstr)
+{
+    if (!cstr)
+        return;
+
+    Naui_StringView view = { (char *)cstr, strlen(cstr) };
+    naui_string_builder_append_view(builder, view);
+}
+
+void naui_string_builder_append_builder(Naui_StringBuilder *dest_builder, Naui_StringBuilder src_builder)
 {
     naui_string_builder_append_view(dest_builder, naui_string_builder_to_view(src_builder));
 }
- 
-void naui_string_builder_append_char(Naui_StringBuilder builder, char c)
+
+void naui_string_builder_append_char(Naui_StringBuilder *builder, char c)
 {
     if (!builder)
         return;
- 
-    naui_list_push(builder, c);
+
+    naui_list_push(*builder, c);
 }
- 
+
 Naui_StringView naui_string_builder_to_view(Naui_StringBuilder builder)
 {
     Naui_StringView view;
