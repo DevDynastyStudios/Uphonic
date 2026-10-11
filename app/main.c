@@ -173,9 +173,8 @@ void naui_app_start(void)
 	const bool settings_loaded = uph_settings_load();
 	uph_settings_sanitize();
 
-	naui_localization_set_current(naui_string_format("%s-%s", uph_state.settings.general.language_code.data, uph_state.settings.general.region_code.data));
+	uph_language_apply();
 	naui_load_theme(uph_state.settings.general.theme.data);
-	naui_load_font(0, "MYRIADPRO-REGULAR");	// Get font selection in settings later
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
 

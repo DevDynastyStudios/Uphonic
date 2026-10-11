@@ -15,7 +15,6 @@ static Uph_PluginListData uph_plugin_list_data = { 0 };
 void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
-    naui_panel_set_title(panel_id, NAUI_TR("plugin.menu.title"));
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
     uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, false);
 }
@@ -251,6 +250,8 @@ static void uph_plugin_list_current_menu(void)
 
 void uph_plugin_list_on_update(void)
 {
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("plugin.menu.title"));
+		
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .direction = LEAF_DIRECTION_HORIZONTAL

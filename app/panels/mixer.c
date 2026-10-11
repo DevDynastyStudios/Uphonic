@@ -2,8 +2,7 @@ NAUI_PANEL(uph_mixer)
 
 static void uph_mixer_on_attach(void)
 {
-	Naui_PanelID this = naui_current_panel();
-	naui_panel_set_title(this, NAUI_TR("mixer.title"));
+
 }
 
 static void uph_mixer_on_detach(void)
@@ -329,6 +328,7 @@ static void uph_mixer_render_track(Uph_Track *track)
 
 static void uph_mixer_on_update(void)
 {
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("mixer.title"));
     static float scroll = 0.0f;
     Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
         UPH_UI_SCROLL_DIRECTION_HORIZONTAL,

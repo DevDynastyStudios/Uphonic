@@ -1948,7 +1948,6 @@ static void uph_song_timeline_update_selection_keys(void)
 static void uph_song_timeline_on_attach(void)
 {
     Naui_PanelID panel = naui_current_panel();
-    naui_panel_set_title(panel, NAUI_TR("song_timeline.title"));
 
     uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
     uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
@@ -1975,6 +1974,7 @@ static void uph_song_timeline_on_close(void)
 static void uph_song_timeline_on_update(void)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("song_timeline.title"));
     const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
     const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");
 

@@ -11,7 +11,6 @@ static Uph_AutomationListData uph_automation_list_data = { 0 };
 void uph_automation_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_current_panel();
-    naui_panel_set_title(panel_id, NAUI_TR("automation.menu.title"));
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
 }
 
@@ -86,6 +85,7 @@ static void uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
 
 void uph_automation_list_on_update(void)
 {
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("automation.menu.title"));
     Uph_Track *track = uph_state.shared.current_automation_list_track;
     uph_ui_textfield(&uph_automation_list_data.filter, leaf_id("uph_automation_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
 

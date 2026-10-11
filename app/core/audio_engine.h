@@ -3,6 +3,8 @@
 #define UPH_WAVEFORM_INV_65535 0.000015259f
 #define UPH_WAVEFORM_INV_65535_2 0.000030518f
 
+static const char* uph_audio_engine_extensions[] = { ".wav", ".mp3", ".flac", ".ogg", NULL };
+
 static inline uint16_t uph_waveform_encode_uint16(float v)
 {
     if (v < -1.0f) v = -1.0f;
