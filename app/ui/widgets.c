@@ -30,6 +30,13 @@ typedef struct
 }
 Uph_DragData;
 
+typedef struct
+{
+    Leaf_ID id;
+    int32_t last_mouse_y;
+}
+Uph_KnobData;
+
 typedef struct Uph_UIMenuNode Uph_UIMenuNode;
 struct Uph_UIMenuNode
 {
@@ -53,6 +60,7 @@ typedef struct
     uint32_t id_counter;
     Uph_TextfieldData textfield_data;
     Uph_DragData drag_data;
+    Uph_KnobData knob_data;
     Naui_Arena menu_arena;
     Uph_UIMenuNode *current_open_menu;
     Naui_Vec2 current_context_menu_position;
@@ -469,6 +477,135 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
 
     return result;
 }
+
+#pragma region Knob
+#define UPH_KNOB_ANGLE_MIN        (-0.75f * NAUI_PI)
+#define UPH_KNOB_ANGLE_MAX        ( 0.75f * NAUI_PI)
+#define UPH_KNOB_ARC_SEGMENTS     64
+#define UPH_KNOB_DRAG_PIXELS      200.0f
+#define UPH_KNOB_FINE_FACTOR      0.1f
+
+typedef struct
+{
+    Naui_Color color;
+    float t;
+    bool hovered;
+    bool active;
+}
+Uph_KnobDrawData;
+
+typedef struct
+{
+    Naui_Color start, end;
+}
+Uph_KnobArcColors;
+
+static Naui_Color uph_ui__knob_arc_color(const Uph_KnobArcColors *colors, float s)
+{
+    return uph_color_mix(colors->start, colors->end, s);
+}
+
+static Naui_Vec2 uph_ui__knob_point(Naui_Vec2 center, float radius, float angle)
+{
+    return (Naui_Vec2){ center.x + sinf(angle) * radius, center.y - cosf(angle) * radius };
+}
+
+static void uph_ui__knob_dot(Naui_Vec2 center, float diameter, Naui_Color color)
+{
+    naui_fill_rect((Naui_Vec2){ center.x - diameter * 0.5f, center.y - diameter * 0.5f }, (Naui_Vec2){ diameter, diameter }, color, diameter * 0.5f, NAUI_CORNER_ALL);
+}
+
+static void uph_ui__knob_arc(Naui_Vec2 center, float outer_r, float inner_r, float s0, float s1, const Uph_KnobArcColors *gradient, Naui_Color flat)
+{
+    if (s1 <= s0)
+        return;
+
+    const float sweep = UPH_KNOB_ANGLE_MAX - UPH_KNOB_ANGLE_MIN;
+    const int segments = NAUI_MAX(1, (int)ceilf((s1 - s0) * (float)UPH_KNOB_ARC_SEGMENTS));
+
+    for (int i = 0; i < segments; i++)
+    {
+        const float sa = s0 + (s1 - s0) * ((float)i       / (float)segments);
+        const float sb = s0 + (s1 - s0) * ((float)(i + 1) / (float)segments);
+        const float a0 = UPH_KNOB_ANGLE_MIN + sa * sweep;
+        const float a1 = UPH_KNOB_ANGLE_MIN + sb * sweep;
+
+        const Naui_Vec2 quad[4] =
+        {
+            uph_ui__knob_point(center, outer_r, a0),
+            uph_ui__knob_point(center, outer_r, a1),
+            uph_ui__knob_point(center, inner_r, a1),
+            uph_ui__knob_point(center, inner_r, a0)
+        };
+
+        naui_fill_polygon(quad, 4, gradient ? uph_ui__knob_arc_color(gradient, (sa + sb) * 0.5f) : flat);
+    }
+}
+
+static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
+{
+    const Uph_KnobDrawData *knob = (const Uph_KnobDrawData*)user_data;
+
+    const Naui_Color track_color     = naui_theme_color("uph_ui_frame_toggled_bg_color");
+    const Naui_Color outline_color   = naui_theme_color("uph_ui_frame_bg_color");
+    const Naui_Color indicator_color = naui_theme_color("uph_ui_text_color");
+
+    const Uph_KnobArcColors arc =
+    {
+        .start = knob->color,
+        .end   = uph_color_mix(knob->color, LEAF_COLOR_WHITE, 0.45f)
+    };
+
+    Naui_Color body_top    = naui_theme_color("uph_ui_frame_pressed_bg_color");
+    Naui_Color body_bottom = naui_theme_color("uph_ui_frame_hovered_bg_color");
+    if (knob->active || knob->hovered)
+    {
+        const float lift = knob->active ? 0.14f : 0.07f;
+        body_top    = uph_color_mix(body_top,    LEAF_COLOR_WHITE, lift);
+        body_bottom = uph_color_mix(body_bottom, LEAF_COLOR_WHITE, lift);
+    }
+
+    const float radius = NAUI_MIN(box.width, box.height) * 0.5f;
+    const Naui_Vec2 center = { box.x + box.width * 0.5f, box.y + box.height * 0.5f };
+
+    const float arc_width   = radius * 0.17f;
+    const float arc_inner_r = radius - arc_width;
+    const float arc_mid_r   = radius - arc_width * 0.5f;
+    const float outline_r   = radius * 0.80f;
+    const float body_r      = radius * 0.725f;
+
+    const float t = NAUI_CLAMP01(knob->t);
+    const float end_angle = UPH_KNOB_ANGLE_MIN + t * (UPH_KNOB_ANGLE_MAX - UPH_KNOB_ANGLE_MIN);
+
+    uph_ui__knob_arc(center, radius, arc_inner_r, 0.0f, 1.0f, NULL, track_color);
+    uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MIN), arc_width, track_color);
+    uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MAX), arc_width, track_color);
+
+    uph_ui__knob_arc(center, radius, arc_inner_r, 0.0f, t, &arc, arc.start);
+    uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MIN), arc_width, uph_ui__knob_arc_color(&arc, 0.0f));
+    if (t > 0.0f)
+        uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, end_angle), arc_width, uph_ui__knob_arc_color(&arc, t));
+
+    uph_ui__knob_dot(center, outline_r * 2.0f, outline_color);
+
+    naui_fill_gradient_rect(
+        (Naui_Vec2){ center.x - body_r, center.y - body_r },
+        (Naui_Vec2){ body_r * 2.0f, body_r * 2.0f },
+        (Naui_Gradient){ .color1 = body_top, .color2 = body_bottom, .percent1 = 0.0f, .percent2 = 1.0f, .angle = NAUI_PI * 0.5f },
+        body_r,
+        NAUI_CORNER_ALL
+    );
+
+    const float width = NAUI_MAX(1.5f, radius * 0.16f);
+    const Naui_Vec2 from = uph_ui__knob_point(center, body_r * 0.30f, end_angle);
+    const Naui_Vec2 to   = uph_ui__knob_point(center, body_r * 0.84f, end_angle);
+
+    naui_draw_line(from, to, indicator_color, width);
+    uph_ui__knob_dot(from, width, indicator_color);
+    uph_ui__knob_dot(to, width, indicator_color);
+}
+
+#pragma endregion
 
 #pragma endregion
 
@@ -1429,4 +1566,69 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     return result;
 }
+
+bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color)
+{
+    Uph_KnobData *kdata = &uph_global_widget_data.knob_data;
+
+    const bool hovered = uph_ui_widget_hovered(id);
+    const bool dragging = (kdata->id.value == id.value);
+    const float range = max - min;
+    bool result = false;
+
+    if (hovered || dragging)
+        naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+
+    if (hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+    {
+        const float reset = NAUI_CLAMP(default_value, min, max);
+        kdata->id.value = 0;
+        if (reset != *value)
+        {
+            *value = reset;
+            result = true;
+        }
+    }
+    else if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT) && !dragging)
+    {
+        kdata->id = id;
+        kdata->last_mouse_y = naui_mouse_y();
+    }
+    else if (dragging)
+    {
+        if (naui_mouse_down(NAUI_MOUSE_LEFT))
+        {
+            const int32_t my = naui_mouse_y();
+            const float delta_pixels = (float)(kdata->last_mouse_y - my); // up = increase
+            kdata->last_mouse_y = my;
+
+            const float fine = naui_key_down(NAUI_KEY_SHIFT) ? UPH_KNOB_FINE_FACTOR : 1.0f;
+            const float delta = (delta_pixels / NAUI_DPI(UPH_KNOB_DRAG_PIXELS)) * range * fine;
+
+            const float new_value = NAUI_CLAMP(*value + delta, min, max);
+            if (new_value != *value)
+            {
+                *value = new_value;
+                result = true;
+            }
+        }
+        else
+        {
+            kdata->id.value = 0;
+        }
+    }
+
+    const float t = (range != 0.0f) ? NAUI_CLAMP01((*value - min) / range) : 0.0f;
+    Uph_KnobDrawData draw_data = { .color = color, .t = t, .hovered = hovered, .active = (kdata->id.value == id.value) };
+
+    leaf({
+        .id = id,
+        .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(size)), .height = LEAF_SIZE_FIXED(NAUI_DPI(size)) },
+        .custom_draw = uph_ui__knob_draw,
+        .custom_draw_data = LEAF_DATA_SLICE(draw_data)
+    });
+
+    return result;
+}
+
 #pragma endregion

@@ -378,7 +378,6 @@ typedef struct
 	Naui_PanelID resource_editor;
 	Naui_PanelID resource_list;
 	Naui_PanelID mixer;
-	Naui_PanelID effect_list;
 	Naui_PanelID settings;
 	Naui_PanelID plugin_list;
 	Naui_PanelID automation_list;

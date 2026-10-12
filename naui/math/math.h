@@ -3,6 +3,9 @@
 #define NAUI_EPSILON 1e-9
 #define NAUI_EPSILON_F 1e-6f
 
+#define NAUI_RAD2DEG 57.2958f
+#define NAUI_DEG2RAD 0.017453f
+
 #define NAUI_MIN(a, b) ((a) < (b) ? (a) : (b))
 #define NAUI_MAX(a, b) ((a) > (b) ? (a) : (b))
 

@@ -20,6 +20,117 @@ static void uph_mixer_on_close(void)
 	
 }
 
+static void uph_mixer_effect_list_swap(Uph_Track *track, uint32_t a, uint32_t b)
+{
+    Uph_EffectPlugin temp = track->effects[a];
+    track->effects[a] = track->effects[b];
+    track->effects[b] = temp;
+}
+
+static void uph_mixer_render_effect_list(Uph_UIMenuID context_menu)
+{
+    Uph_Track *track = uph_state.shared.selected_mixer_track;
+
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+    const Naui_Color text_disabled_color = naui_theme_color("uph_ui_text_disabled_color");
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+
+    leaf({
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+        .color = naui_theme_color("uph_effect_list_bg_color")
+    })
+    {
+        leaf_text("Track Effects", { .font_size = font_size, .color = text_color });
+        if (uph_ui_text_button("Add Effect", leaf_id("uph_effect_list_add_effect")))
+        {
+            uph_state.shared.plugin_list_for_track_instrument = false;
+            uph_state.shared.current_plugin_list_track = track;
+            naui_open_panel(uph_state.panels.plugin_list);
+        }
+
+        const uint32_t effect_count = (uint32_t)naui_list_len(track->effects);
+        if (effect_count == 0)
+            continue;
+
+        static uint32_t current_effect_index;
+
+        int32_t move_from = -1;
+        int32_t move_to = -1;
+        for (uint32_t i = 0; i < effect_count; i++)
+        {
+            Uph_EffectPlugin *effect = &track->effects[i];
+            Uph_Plugin *plugin = &effect->plugin;
+            
+            Leaf_ID id = leaf_id_indexed("uph_effect_list_item", i);
+            
+            if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_ui_widget_hovered(id))
+            {
+                current_effect_index = i;
+                uph_ui_open_context_menu(context_menu);
+            }
+
+            leaf({
+                .id = id,
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))},
+                .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+                .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+                .direction = LEAF_DIRECTION_HORIZONTAL
+            })
+            {
+                leaf({
+                    .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+                    .direction = LEAF_DIRECTION_HORIZONTAL,
+                    .child_gap = NAUI_DPI(6)
+                })
+                {
+                    uph_ui_checkbox(&effect->enabled, leaf_id_indexed("uph_effect_list_enable", i));
+                    leaf_text(plugin->name.data, { .font_size = font_size, .color = effect->enabled ? text_color : text_disabled_color });
+                }
+                leaf({
+                    .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
+                    .direction = LEAF_DIRECTION_HORIZONTAL,
+                    .child_gap = NAUI_DPI(2)
+                })
+                {
+                    if (i > 0 && uph_ui_text_button("^", leaf_id_indexed("uph_effect_list_move_up", i)))
+                    {
+                        move_from = (int32_t)i;
+                        move_to = (int32_t)i - 1;
+                    }
+                    if (i + 1 < effect_count && uph_ui_text_button("v", leaf_id_indexed("uph_effect_list_move_down", i)))
+                    {
+                        move_from = (int32_t)i;
+                        move_to = (int32_t)i + 1;
+                    }
+                }
+            }
+        }
+
+        if (move_from >= 0 && move_to >= 0)
+            uph_mixer_effect_list_swap(track, (uint32_t)move_from, (uint32_t)move_to);
+
+        {
+            Uph_EffectPlugin *effect = &track->effects[current_effect_index];
+            Uph_Plugin *plugin = &effect->plugin;
+            
+            const bool visible = uph_plugin_window_visible(plugin);
+            if (uph_ui_menu_item(context_menu, visible ? NAUI_TR("effect_list.hide") : NAUI_TR("effect_list.show"), leaf_id("uph_effect_list_open")))
+            {
+                if (visible) uph_hide_plugin_window(plugin);
+                else uph_show_plugin_window(plugin);
+            }
+
+            if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
+            {
+                uph_action_track_unload_plugin(track, plugin);
+                naui_list_remove(track->effects, current_effect_index);
+            }
+        }
+    }
+}
+
 static inline float uph_linear_to_db(float linear)
 {
     if (linear <= 0.0001f) return -80.0f;
@@ -64,7 +175,7 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
         float label_y = NAUI_CLAMP(y - text_size.y * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - text_size.y);
 
         naui_draw_text(
-            (Naui_Vec2){bounding_box.x + tick_length + label_gap, label_y},
+            (Naui_Vec2){bounding_box.x + tick_length - label_gap - text_size.x + bounding_box.width, label_y},
             label, font_size, 0, label_color
         );
     }
@@ -82,40 +193,35 @@ static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_Track **
     float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_left));
     float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_right));
 
-    const Naui_Color bar_color = naui_theme_color("uph_mixer_bar_color");
+    const Naui_Color bar_min_color = naui_theme_color("uph_mixer_bar_min_color");
+    const Naui_Color bar_max_color = naui_theme_color("uph_mixer_bar_max_color");
 
-    naui_fill_rect(
-        (Naui_Vec2){bounding_box.x, bounding_box.y + (1.0f - left_fraction) * bounding_box.height},
-        (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * left_fraction},
-        bar_color,
-        NAUI_DPI(4.0f),
-        NAUI_CORNER_TL | NAUI_CORNER_TR
+    const float half_width = bounding_box.width * 0.5f;
+    naui_push_clip_rect(
+        bounding_box.x, bounding_box.y + (1.0f - left_fraction) * bounding_box.height,
+        half_width - gap, bounding_box.height * left_fraction
     );
-
-    naui_fill_rect(
-        (Naui_Vec2){bounding_box.x + bounding_box.width * 0.5f + gap, bounding_box.y + (1.0f - right_fraction) * bounding_box.height},
-        (Naui_Vec2){bounding_box.width * 0.5f - gap, bounding_box.height * right_fraction},
-        bar_color,
-        NAUI_DPI(4.0f),
-        NAUI_CORNER_TL | NAUI_CORNER_TR
+    naui_fill_gradient_rect(
+        (Naui_Vec2){bounding_box.x, bounding_box.y},
+        (Naui_Vec2){half_width, bounding_box.height},
+        (Naui_Gradient){.angle = 90 * NAUI_DEG2RAD, .color1 = bar_max_color, .color2 = bar_min_color, .percent1 = 0.0f, .percent2 = 1.0f},
+        0.0f,
+        NAUI_CORNER_NONE
     );
+    naui_pop_clip_rect();
 
-    const Naui_Color grid_color = naui_theme_color("uph_mixer_bar_line_color");
-
-    const float line_thickness = NAUI_MAX(1.0f, NAUI_DPI(1.0f));
-    for (int i = 0; i < UPH_MIXER_DB_TICK_COUNT; i++)
-    {
-        float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(uph_mixer_db_ticks[i])) * bounding_box.height;
-        float line_y = NAUI_CLAMP(y - line_thickness * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - line_thickness);
-
-        naui_fill_rect(
-            (Naui_Vec2){bounding_box.x, line_y},
-            (Naui_Vec2){bounding_box.width, line_thickness},
-            grid_color,
-            0.0f,
-            0
-        );
-    }
+    naui_push_clip_rect(
+        bounding_box.x + half_width + gap, bounding_box.y + (1.0f - right_fraction) * bounding_box.height,
+        half_width - gap, bounding_box.height * right_fraction
+    );
+    naui_fill_gradient_rect(
+        (Naui_Vec2){bounding_box.x + half_width, bounding_box.y},
+        (Naui_Vec2){half_width, bounding_box.height},
+        (Naui_Gradient){.angle = 90 * NAUI_DEG2RAD, .color1 = bar_max_color, .color2 = bar_min_color, .percent1 = 0.0f, .percent2 = 1.0f},
+        0.0f,
+        NAUI_CORNER_NONE
+    );
+    naui_pop_clip_rect();
 }
 
 static struct
@@ -239,7 +345,7 @@ static void uph_mixer_render_track(Uph_Track *track)
     leaf({
         .id = id,
         .size = {LEAF_SIZE_FIXED(NAUI_DPI(100)), LEAF_SIZE_FULL},
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
         .color = {
             uph_state.shared.selected_mixer_track == track ?
@@ -263,12 +369,8 @@ static void uph_mixer_render_track(Uph_Track *track)
         });
         leaf_text(track->name.data, { .font_size = font_size, .color = text_color });
 
-        leaf({
-            .size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED},
-            .color = {naui_theme_color("uph_ui_frame_bg_color")},
-            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
-            .aspect_ratio = 1.0f
-        });
+        uph_ui_knob_float(&track->pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), uph_resources_track_color(track->color_index));
+        leaf_text("Pan", { .font_size = font_size, .color = text_color });
 
         leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
 		{
@@ -280,22 +382,15 @@ static void uph_mixer_render_track(Uph_Track *track)
         		uph_mixer_commit_edit();
 		}
 
-        float volume_db = uph_linear_to_db(track->volume);
-
-        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
-		{
-            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f dB", UPH_UI_DRAG_CLAMPED))
-			{
-				uph_mixer_edit_value(track, UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
-                track->volume = uph_db_to_linear(volume_db);
-			}
-
-			if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-        		uph_mixer_commit_edit();
-		}
-
-        leaf_text("Monitor", { .font_size = font_size, .color = text_color });
-        uph_ui_checkbox(&track->monitored, leaf_id_indexed("uph_mixer_monitor", track_id));
+        const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+        leaf({
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .child_gap = NAUI_DPI(2)
+        })
+        {
+            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), track->state & UPH_TRACK_MUTED));
+            if (uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == track));
+        }
 
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
@@ -304,7 +399,7 @@ static void uph_mixer_render_track(Uph_Track *track)
         })
         {
             leaf({
-                .size = {LEAF_SIZE_PERCENT(0.15f), LEAF_SIZE_FULL},
+                .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
                 .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
             });
             leaf({
@@ -318,10 +413,47 @@ static void uph_mixer_render_track(Uph_Track *track)
                 .id = track_id
             };
             leaf({
-                .size = {LEAF_SIZE_PERCENT(0.15f), LEAF_SIZE_FULL},
+                .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
                 .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_volume_arrow,
                 .custom_draw_data = LEAF_DATA_SLICE(arrow_data)
             });
+        }
+
+        leaf_text("Volume", { .font_size = font_size, .color = text_color });
+
+        float volume_db = uph_linear_to_db(track->volume);
+
+        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
+		{
+            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_CLAMPED))
+			{
+				uph_mixer_edit_value(track, UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
+                track->volume = uph_db_to_linear(volume_db);
+			}
+
+			if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+        		uph_mixer_commit_edit();
+		}
+
+        leaf({
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .child_gap = NAUI_DPI(2)
+        })
+        {
+            if (uph_ui_image_toggle_button(
+                naui_asset_image("uph_icon_mic"),
+                leaf_id_indexed("uph_mixer_arm_toggle", track_id),
+                (Naui_Vec2) { button_size, button_size },
+                text_color,
+                track->state & UPH_TRACK_ARMED
+            ));
+            if (uph_ui_image_toggle_button(
+                naui_asset_image("uph_icon_headphones"),
+                leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
+                (Naui_Vec2) { button_size, button_size },
+                text_color,
+                track->monitored
+            )) track->monitored = !track->monitored;
         }
     }
 }
@@ -329,16 +461,35 @@ static void uph_mixer_render_track(Uph_Track *track)
 static void uph_mixer_on_update(void)
 {
 	naui_panel_set_title(naui_current_panel(), NAUI_TR("mixer.title"));
-    static float scroll = 0.0f;
-    Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
-        UPH_UI_SCROLL_DIRECTION_HORIZONTAL,
-        &scroll,
-        leaf_id("uph_mixer_scrollbar")
-    );
-    for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+    Uph_UIMenuID effect_list_context_menu = uph_ui_context_menu();
+
+    leaf({
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+        .direction = LEAF_DIRECTION_HORIZONTAL
+    })
     {
-        Uph_Track *track = &uph_state.project.tracks[i];
-        uph_mixer_render_track(track);
+        static float scroll = 0.0f;
+        Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
+            UPH_UI_SCROLL_DIRECTION_HORIZONTAL,
+            &scroll,
+            leaf_id("uph_mixer_scrollbar")
+        );
+        for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+        {
+            Uph_Track *track = &uph_state.project.tracks[i];
+            uph_mixer_render_track(track);
+        }
+        uph_ui_end_scroll_container(&scroll_container);
+
+        if (!uph_state.shared.selected_mixer_track)
+            continue;
+        Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+        leaf({
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(200)), LEAF_SIZE_FULL}
+        })
+        {
+            uph_mixer_render_effect_list(effect_list_context_menu);
+        }
     }
-    uph_ui_end_scroll_container(&scroll_container);
 }
