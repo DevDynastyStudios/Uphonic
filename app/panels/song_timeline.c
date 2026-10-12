@@ -79,6 +79,7 @@ typedef struct
     Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
     bool panel_focused;
+    bool panel_hovered;
     bool tracks_hovered;
     bool disable_space_to_play;
 }
@@ -205,7 +206,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
         (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }
     );
 
-    if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(uph_state.panels.song_timeline))
+    if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph_song_timeline_data.panel_hovered)
         dragging_playhead = true;
 
     if (!dragging_playhead)
@@ -1195,7 +1196,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
     if (uph_song_timeline_data.automation_edit.active)
         return;
 
-    if (!naui_panel_hovered(uph_state.panels.song_timeline))
+    if (!uph_song_timeline_data.panel_hovered)
         return;
 
     if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_song_timeline_data.hovered_block.active && uph_song_timeline_data.hovered_block.track == track)
@@ -1706,7 +1707,7 @@ static void uph_song_timeline_update_input(void)
     const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
     const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
-    if (uph_song_timeline_data.panel_focused)
+    if (uph_song_timeline_data.panel_hovered)
     {
         if (ctrl_held && wheel_y != 0.0f)
         {
@@ -1734,7 +1735,7 @@ static void uph_song_timeline_update_input(void)
     static Naui_Vec2 pan_last_mouse;
     static bool panning = false;
 
-    if (naui_panel_hovered(uph_state.panels.song_timeline) && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
+    if (uph_song_timeline_data.panel_hovered && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
     {
         panning = true;
         pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
@@ -1981,6 +1982,7 @@ static void uph_song_timeline_on_update(void)
     data->content_height = leaf_get_bounding_box(content_area_id).height;
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
     data->panel_focused = naui_focused_panel() == naui_current_panel();
+    data->panel_hovered = naui_panel_hovered(naui_current_panel());
     data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_focused;
     if (data->automation_edit.dragging_point_index < 0)
     {
