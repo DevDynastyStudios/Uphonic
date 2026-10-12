@@ -131,6 +131,7 @@ bool uph_project_create(Naui_String project_name)
 	naui_list_clear(uph_state.project.samples);
 
 	uph_resources_clear_tracks();
+	uph_resources_init_master_track();
 	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), 0);
 	uph_resources_add_pattern();
 	uph_resources_remove_all_automation();

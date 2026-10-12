@@ -105,7 +105,8 @@ enum
 	UPH_RESOURCE_NONE,
 	UPH_RESOURCE_SAMPLE,
 	UPH_RESOURCE_PATTERN,
-	UPH_RESOURCE_AUTOMATION
+	UPH_RESOURCE_AUTOMATION,
+	UPH_RESOURCE_MASTER
 };
 
 typedef struct
@@ -312,6 +313,7 @@ typedef struct
 	Uph_TimeSignature time_signature;
 
 	Naui_List(Uph_Track) tracks;
+	Uph_Track master_track; // has a master resource type and the name is set to "Master" (rendered only in the mixer not the song timeline)
 	Uph_Track *soloed_track; // NULL = no solo. Points into `tracks` (top-level only); see uph_action_tracks_changed()
 	Naui_List(Uph_MidiPattern) midi_patterns;
 	Naui_List(Uph_Sample) samples;

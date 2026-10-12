@@ -800,6 +800,11 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     float *track_l = alloca(max_frame_count * sizeof(float));
     float *track_r = alloca(max_frame_count * sizeof(float));
 
+    float *master_l = alloca(max_frame_count * sizeof(float));
+    float *master_r = alloca(max_frame_count * sizeof(float));
+    memset(master_l, 0, max_frame_count * sizeof(float));
+    memset(master_r, 0, max_frame_count * sizeof(float));
+
     uint64_t track_count = naui_list_len(project->tracks);
     for (uint64_t t = 0; t < track_count; t++)
     {
@@ -926,8 +931,8 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
             float out_left  = track_l[f] * gain_left;
             float out_right = track_r[f] * gain_right;
 
-            out[f * 2 + 0] += out_left;
-            out[f * 2 + 1] += out_right;
+            master_l[f] += out_left;
+            master_r[f] += out_right;
 
             float abs_left  = fabsf(out_left);
             float abs_right = fabsf(out_right);
@@ -938,6 +943,50 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         track->peak_left  = track_peak_left;
         track->peak_right = track_peak_right;
     }
+
+    Uph_Track *master = &project->master_track;
+
+    if (timeline_playing)
+    {
+        uph_queue_track_automation(
+            master,
+            buffer_start_beat, buffer_end_beat,
+            engine_sample_rate, bpm
+        );
+    }
+
+    uph_apply_track_effects(
+        master,
+        master_l, master_r,
+        frame_count,
+        playhead_start_beat, timeline_playing
+    );
+
+    float master_volume = (float)fabs(master->volume);
+    float master_pan    = NAUI_CLAMP(master->pan, -1.0f, 1.0f);
+    float master_pan_angle = (master_pan + 1.0f) * 0.25f * (float)NAUI_PI;
+    float master_gain_left  = master_volume * cosf(master_pan_angle) * NAUI_SQRT2;
+    float master_gain_right = master_volume * sinf(master_pan_angle) * NAUI_SQRT2;
+
+    float master_peak_left  = 0.0f;
+    float master_peak_right = 0.0f;
+
+    for (ma_uint32 f = 0; f < frame_count; f++)
+    {
+        float out_left  = master_l[f] * master_gain_left;
+        float out_right = master_r[f] * master_gain_right;
+
+        out[f * 2 + 0] = out_left;
+        out[f * 2 + 1] = out_right;
+
+        float abs_left  = fabsf(out_left);
+        float abs_right = fabsf(out_right);
+        if (abs_left  > master_peak_left)  master_peak_left  = abs_left;
+        if (abs_right > master_peak_right) master_peak_right = abs_right;
+    }
+
+    master->peak_left  = master_peak_left;
+    master->peak_right = master_peak_right;
 }
 
 void uph_audio_engine_stop(void)

@@ -115,6 +115,14 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph
 	naui_list_push(parent->subtracks, track);
 }
 
+void uph_resources_init_master_track(void)
+{
+	uph_state.project.master_track = (Uph_Track){
+		.volume = 1.0f,
+		.type = UPH_RESOURCE_MASTER
+	};
+}
+
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param)
 {
 	const uint64_t count = naui_list_len(plugin->params);
