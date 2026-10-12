@@ -118,6 +118,7 @@
     "resource_list.patterns.title": "Patterns",
     "resource_list.remove": "Remove",
     "resource_list.rename": "Rename",
+	"resource_list.sample.add": "Add Samples",
     "resource_list.samples.title": "Samples",
     "resource_list.title": "Resources",
 

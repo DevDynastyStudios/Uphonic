@@ -22,6 +22,8 @@
 #include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"
 
+#include "core/language.h"
+#include "core/language.c"
 #include "core/audio_engine.h"
 #include "core/resource_manager.h"
 #include "core/resource_manager.c"

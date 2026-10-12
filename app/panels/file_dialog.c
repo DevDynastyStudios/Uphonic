@@ -4,7 +4,7 @@
 typedef struct
 {
 	Naui_Dialog *dialog;
-	const char *error;
+	const char *error_key;
 	float scroll;
 	uint64_t instance;
 }
@@ -69,7 +69,7 @@ static void _uph_file_dialog_overwrite_result(int32_t button, void *user_data)
 
 static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_DialogConfirmResult result)
 {
-	data->error = NULL;
+	data->error_key = NULL;
 
 	switch (result)
 	{
@@ -90,15 +90,15 @@ static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_Dialog
 			break;
 
 		case NAUI_DIALOG_CONFIRM_NOTHING_SELECTED:
-			data->error = NAUI_TR("file_dialog.error.nothing_selected");
+			data->error_key = "file_dialog.error.nothing_selected";
 			break;
 
 		case NAUI_DIALOG_CONFIRM_INVALID_NAME:
-			data->error = NAUI_TR("file_dialog.error.invalid_name");
+			data->error_key = "file_dialog.error.invalid_name";
 			break;
 
 		case NAUI_DIALOG_CONFIRM_NOT_FOUND:
-			data->error = NAUI_TR("file_dialog.error.not_found");
+			data->error_key = "file_dialog.error.not_found";
 			break;
 	}
 }
@@ -261,8 +261,8 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
 
-	if (data->error)
-		leaf_text(data->error, { .color = {text_color}, .font_size = {font_size} });
+	if (data->error_key)
+		leaf_text(NAUI_TR(data->error_key), { .color = {text_color}, .font_size = {font_size} });
 
 	leaf({
 		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
@@ -304,20 +304,20 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 	bool list_changed = false;
 	if (actions->commit_path_text)
 	{
-		data->error = naui_dialog_commit_path_text(dialog) ? NULL : NAUI_TR("file_dialog.error.not_found");
+		data->error_key = naui_dialog_commit_path_text(dialog) ? NULL : "file_dialog.error.not_found";
 		list_changed = true;
 	}
 
 	if (actions->has_navigate)
 	{
-		data->error = NULL;
+		data->error_key = NULL;
 		naui_dialog_navigate(dialog, actions->navigate_to);
 		list_changed = true;
 	}
 
 	if (actions->go_up && naui_dialog_navigate_up(dialog))
 	{
-		data->error = NULL;
+		data->error_key = NULL;
 		list_changed = true;
 	}
 
@@ -339,7 +339,7 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 	{
 		if (actions->clicked_row >= 0)
 		{
-			data->error = NULL;
+			data->error_key = NULL;
 			naui_dialog_select(dialog, actions->clicked_row);
 		}
 

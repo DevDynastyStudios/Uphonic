@@ -52,7 +52,7 @@ NAUI_API void naui_draw_line(Naui_Vec2 a, Naui_Vec2 b, Naui_Color color, float l
 NAUI_API void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint, float rounding, Naui_CornerFlags flags);
 NAUI_API void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient tint, float rounding, Naui_CornerFlags flags);
 
-NAUI_API void naui_load_font(uint8_t index, const char *file_path);
+NAUI_API bool naui_load_font(uint8_t index, const char *file_name);
 NAUI_API void naui_unload_font(uint8_t index);
 NAUI_API bool naui_font_is_loaded(uint8_t index);
 NAUI_API bool naui_font_has_codepoint(uint8_t index, uint32_t codepoint);

@@ -11,13 +11,13 @@ static Naui_JsonValue* arena_values(Naui_Json* json, size_t count)
 
 static char* arena_str(Naui_Json* json, const char* src, size_t len)
 {
-	char* dst = (char*)naui_arena_alloc(&json->_arena, len + 1);
-	if (!dst)
+	char* dest = (char*)naui_arena_alloc(&json->_arena, len + 1);
+	if (!dest)
 		return NULL;
 
-	memcpy(dst, src, len);
-	dst[len] = '\0';
-	return dst;
+	memcpy(dest, src, len);
+	dest[len] = '\0';
+	return dest;
 }
 
 static int hex_digit(char c)
@@ -49,90 +49,89 @@ static bool read_hex4(const char* src, size_t pos, size_t src_len, unsigned* out
 
 static char* arena_decode_string(Naui_Json* json, const char* src, size_t src_len, size_t* out_len)
 {
-	char* dst = (char*)naui_arena_alloc(&json->_arena, src_len + 1);
-	if (!dst)
+	char* dest = (char*)naui_arena_alloc(&json->_arena, src_len + 1);
+	if (!dest)
 		return NULL;
 
-	size_t w = 0;
+	size_t decode_len = 0;
 	for (size_t i = 0; i < src_len; ++i)
 	{
 		char c = src[i];
 		if (c != '\\' || i + 1 >= src_len)
 		{
-			dst[w++] = c;
+			dest[decode_len++] = c;
 			continue;
 		}
 
 		char esc = src[++i];
 		switch (esc)
 		{
-			case '"':  dst[w++] = '"';  break;
-			case '\\': dst[w++] = '\\'; break;
-			case '/':  dst[w++] = '/';  break;
-			case 'b':  dst[w++] = '\b'; break;
-			case 'f':  dst[w++] = '\f'; break;
-			case 'n':  dst[w++] = '\n'; break;
-			case 'r':  dst[w++] = '\r'; break;
-			case 't':  dst[w++] = '\t'; break;
+			case '"':  dest[decode_len++] = '"';  break;
+			case '\\': dest[decode_len++] = '\\'; break;
+			case '/':  dest[decode_len++] = '/';  break;
+			case 'b':  dest[decode_len++] = '\b'; break;
+			case 'f':  dest[decode_len++] = '\f'; break;
+			case 'n':  dest[decode_len++] = '\n'; break;
+			case 'r':  dest[decode_len++] = '\r'; break;
+			case 't':  dest[decode_len++] = '\t'; break;
 
 			case 'u':
 			{
-				unsigned cp;
-				if (!read_hex4(src, i + 1, src_len, &cp))
+				unsigned code_point;
+				if (!read_hex4(src, i + 1, src_len, &code_point))
 				{
-					/* Malformed \u escape - emit literally rather than fail the whole parse. */
-					dst[w++] = 'u';
+					dest[decode_len++] = 'u';
 					break;
 				}
 				i += 4;
 
-				if (cp >= 0xD800 && cp <= 0xDBFF)
+				if (code_point >= 0xD800 && code_point <= 0xDBFF)
 				{
 					unsigned lo;
 					if (i + 2 < src_len && src[i + 1] == '\\' && src[i + 2] == 'u' &&
 					    read_hex4(src, i + 3, src_len, &lo) && lo >= 0xDC00 && lo <= 0xDFFF)
 					{
-						cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+						code_point = 0x10000 + ((code_point - 0xD800) << 10) + (lo - 0xDC00);
 						i += 6;
 					}
 				}
 
-				if (cp <= 0x7F)
+				if (code_point <= 0x7F)
 				{
-					dst[w++] = (char)cp;
+					dest[decode_len++] = (char)code_point;
 				}
-				else if (cp <= 0x7FF)
+				else if (code_point <= 0x7FF)
 				{
-					dst[w++] = (char)(0xC0 | (cp >> 6));
-					dst[w++] = (char)(0x80 | (cp & 0x3F));
+					dest[decode_len++] = (char)(0xC0 | (code_point >> 6));
+					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
 				}
-				else if (cp <= 0xFFFF)
+				else if (code_point <= 0xFFFF)
 				{
-					dst[w++] = (char)(0xE0 | (cp >> 12));
-					dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-					dst[w++] = (char)(0x80 | (cp & 0x3F));
+					dest[decode_len++] = (char)(0xE0 | (code_point >> 12));
+					dest[decode_len++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
+					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
 				}
 				else
 				{
-					dst[w++] = (char)(0xF0 | (cp >> 18));
-					dst[w++] = (char)(0x80 | ((cp >> 12) & 0x3F));
-					dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-					dst[w++] = (char)(0x80 | (cp & 0x3F));
+					dest[decode_len++] = (char)(0xF0 | (code_point >> 18));
+					dest[decode_len++] = (char)(0x80 | ((code_point >> 12) & 0x3F));
+					dest[decode_len++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
+					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
 				}
 				break;
 			}
 
 			default:
-				dst[w++] = esc;
+				dest[decode_len++] = esc;
 				break;
 		}
 	}
 
-	dst[w] = '\0';
+	dest[decode_len] = '\0';
 	if (out_len)
-		*out_len = w;
+		*out_len = decode_len;
 
-	return dst;
+	return dest;
 }
 
 static bool build_object(Naui_Json* json, Naui_JsonReader* reader, Naui_JsonValue* obj);
@@ -433,8 +432,8 @@ static Naui_JsonValue* array_slot(Naui_Json* json, Naui_JsonValue* arr)
 static char* naui_json_utf16_to_utf8(const unsigned char* src, size_t byte_len, bool big_endian, size_t* out_len)
 {
 	const size_t unit_count = byte_len / 2;
-	char* dst = (char*)malloc(unit_count * 3 + 1);
-	if (!dst)
+	char* dest = (char*)malloc(unit_count * 3 + 1);
+	if (!dest)
 		return NULL;
 
 	size_t w = 0;
@@ -454,36 +453,35 @@ static char* naui_json_utf16_to_utf8(const unsigned char* src, size_t byte_len, 
 		}
 
 		if (cp >= 0xD800 && cp <= 0xDFFF)
-			cp = 0xFFFD; /* unpaired surrogate */
+			cp = 0xFFFD;
 
 		if (cp <= 0x7F)
 		{
-			dst[w++] = (char)cp;
+			dest[w++] = (char)cp;
 		}
 		else if (cp <= 0x7FF)
 		{
-			dst[w++] = (char)(0xC0 | (cp >> 6));
-			dst[w++] = (char)(0x80 | (cp & 0x3F));
+			dest[w++] = (char)(0xC0 | (cp >> 6));
+			dest[w++] = (char)(0x80 | (cp & 0x3F));
 		}
 		else if (cp <= 0xFFFF)
 		{
-			dst[w++] = (char)(0xE0 | (cp >> 12));
-			dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-			dst[w++] = (char)(0x80 | (cp & 0x3F));
+			dest[w++] = (char)(0xE0 | (cp >> 12));
+			dest[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+			dest[w++] = (char)(0x80 | (cp & 0x3F));
 		}
 		else
 		{
-			/* a surrogate pair is two units (4 bytes in) and becomes 4 bytes out, which fits in the 3 bytes per unit reserved */
-			dst[w++] = (char)(0xF0 | (cp >> 18));
-			dst[w++] = (char)(0x80 | ((cp >> 12) & 0x3F));
-			dst[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-			dst[w++] = (char)(0x80 | (cp & 0x3F));
+			dest[w++] = (char)(0xF0 | (cp >> 18));
+			dest[w++] = (char)(0x80 | ((cp >> 12) & 0x3F));
+			dest[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
+			dest[w++] = (char)(0x80 | (cp & 0x3F));
 		}
 	}
 
-	dst[w] = '\0';
+	dest[w] = '\0';
 	*out_len = w;
-	return dst;
+	return dest;
 }
 
 static Naui_Json naui_json_parse_utf8(const char* src, size_t len);
@@ -495,7 +493,6 @@ Naui_Json naui_json_parse(const char* src, size_t len)
 	if (len >= 3 && u[0] == 0xEF && u[1] == 0xBB && u[2] == 0xBF)
 		return naui_json_parse_utf8(src + 3, len - 3);
 
-	/* UTF-16 with a byte order mark, or without one: JSON starts with an ASCII character, so one of the two bytes is zero */
 	bool utf16 = false;
 	bool big_endian = false;
 	if (len >= 2 && u[0] == 0xFF && u[1] == 0xFE)

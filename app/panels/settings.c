@@ -81,7 +81,6 @@ typedef struct
 
 	Uph_SettingsLanguage languages[UPH_SETTINGS_MAX_LANGUAGES];
 	uint32_t language_count;
-	bool language_changed;
 
 	Naui_String language_unlisted;
 	Naui_String midi_unlisted[2];
@@ -609,7 +608,7 @@ static bool uph_settings_language_dropdown(Uph_SettingsData *data, const Leaf_ID
 	{
 		general->language_code = data->languages[selected].language;
 		general->region_code = data->languages[selected].region;
-		data->language_changed = true;
+		uph_language_request_change();
 		return true;
 	}
 
@@ -732,9 +731,6 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.language"), UPH_SETTINGS_NO_ID)
 	{
 		uph_settings_language_dropdown(data, leaf_id("uph_settings_language"));
-
-		if (data->language_changed)
-			uph_settings_hint(NAUI_TR("settings.general.language_restart"));
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.ui_scale"), UPH_SETTINGS_NO_ID)
@@ -1105,7 +1101,6 @@ static void uph_settings_on_attach(void)
 {
 	const Naui_PanelID this = naui_current_panel();
 
-	naui_panel_set_title(this, NAUI_TR("settings.title"));
 	naui_panel_enable_flags(this, NAUI_PANEL_FLAG_NO_DOCK);
 	float scale = naui_app_dpi_scale();
 	if (scale <= 0.0f)
@@ -1144,6 +1139,7 @@ static void uph_settings_on_close(void)
 
 static void uph_settings_on_update(void)
 {
+	naui_panel_set_title(naui_current_panel(), NAUI_TR("settings.title"));
 	Uph_SettingsData *data = &uph_settings_data;
 	if (!data->lists_ready)
 		uph_settings_refresh_all(data);
