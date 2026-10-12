@@ -195,6 +195,15 @@ static inline bool uph_song_timeline_vec4_contains_vec2(const Naui_Vec4 rect, co
     return point.x >= rect.x && point.x < rect.x + rect.z && point.y >= rect.y && point.y < rect.y + rect.w;
 }
 
+static inline double uph_song_timeline_block_time_scale(const Uph_TimelineBlock *block)
+{
+    if (block->type != UPH_RESOURCE_SAMPLE)
+        return 1.0;
+
+    const float scale = uph_state.project.samples[block->resource_index].time_scale;
+    return scale > 0.0001f ? (double)scale : 1.0;
+}
+
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 {
     Uph_SongTimelineData *data = &uph_song_timeline_data;
@@ -676,7 +685,8 @@ static void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed)
         }
         else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
         {
-            delta_start = fmax(delta_start, -initial->start_offset_beats);
+            const double scale = uph_song_timeline_block_time_scale(initial);
+            delta_start = fmax(delta_start, -initial->start_offset_beats * scale);
             delta_start = fmin(delta_start, initial->length_beats - division);
         }
         else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
@@ -699,9 +709,10 @@ static void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed)
         }
         else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
         {
+            const double scale = uph_song_timeline_block_time_scale(&snapshot->block);
             block->start_beat = snapshot->block.start_beat + delta_start;
             block->length_beats = snapshot->block.length_beats - delta_start;
-            block->start_offset_beats = snapshot->block.start_offset_beats + delta_start;
+            block->start_offset_beats = snapshot->block.start_offset_beats + delta_start / scale;
         }
         else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
         {
@@ -1041,18 +1052,21 @@ static void uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, 
             else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
             {
                 const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-                double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
-                double end_beat = drag->initial_start_beat + drag->initial_length_beats;
+                const double scale = uph_song_timeline_block_time_scale(&blocks[i]);
 
-                const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
+                double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
+                const double end_beat = drag->initial_start_beat + drag->initial_length_beats;
+
+                const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats * scale;
                 new_start = fmax(new_start, earliest_start_beat);
                 new_start = fmin(new_start, end_beat - division);
-                const double delta_beats = new_start - drag->initial_start_beat;
+
+                const double delta_timeline = new_start - drag->initial_start_beat;
 
                 blocks[i].start_beat = new_start;
                 blocks[i].length_beats = end_beat - new_start;
-                blocks[i].start_offset_beats = drag->initial_start_offset_beats + delta_beats;
-                
+                blocks[i].start_offset_beats = drag->initial_start_offset_beats + delta_timeline / scale;
+
                 uph_state.shared.song_timeline_current_block_length = blocks[i].length_beats;
                 uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
                 uph_state.shared.current_pattern_updated = false;
@@ -1983,7 +1997,7 @@ static void uph_song_timeline_on_update(void)
     data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
     data->panel_focused = naui_focused_panel() == naui_current_panel();
     data->panel_hovered = naui_panel_hovered(naui_current_panel());
-    data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_focused;
+    data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
     if (data->automation_edit.dragging_point_index < 0)
     {
         data->automation_edit.block_index = -1;

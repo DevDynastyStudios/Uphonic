@@ -726,7 +726,7 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 			leaf({
 				.size = {LEAF_SIZE_FIXED(NAUI_DPI(90)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_drag_int(&sample->pitch, leaf_id("uph_sample_editor_pitch"), 1, -1200, 1200, (sample->pitch == 1 || sample->pitch == -1) ? "%i cent" : "%i cents", UPH_UI_DRAG_CLAMPED);
+			}) uph_ui_drag_int(&sample->pitch, leaf_id("uph_sample_editor_pitch"), 1, -1200, 1200, "%i", UPH_UI_DRAG_CLAMPED);
 		}
 
 		leaf({
@@ -783,10 +783,15 @@ void uph_sample_editor_init(void)
 void uph_sample_editor_reset_interaction(void)
 {
 	Uph_SampleEditorData *editor = &uph_sample_editor_data;
-	_uph_sample_editor_cache_free(&editor->cache);
 	editor->panning = false;
 	editor->wave_hovered = false;
 	editor->has_last_sample = false;
+}
+
+void uph_sample_editor_release(void)
+{
+	_uph_sample_editor_cache_free(&uph_sample_editor_data.cache);
+	uph_sample_editor_reset_interaction();
 }
 
 void uph_sample_editor_update(void)
