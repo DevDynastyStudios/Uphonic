@@ -158,6 +158,10 @@ static inline void naui_focus_panel_node(Naui_PanelNode *node)
 
 static inline void naui_update_panel_focus(Naui_PanelNode *node)
 {
+    Naui_PanelNode *focused = naui_panel_manager.focused_panel;
+    if (node->tabs && focused && focused->parent == node)
+        naui_panel_manager.focused_panel = node->tabs[node->active_tab];
+
     if (node->occluded || !naui_any_mouse_pressed())
         return;
     naui_focus_panel_node(node);
@@ -327,6 +331,10 @@ Naui_PanelID naui_dock_panel(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
             group = target;
         }
 
+
+        int32_t first_new = (int32_t)naui_list_len(group->tabs);
+        int32_t guest_active = guest->tabs ? guest->active_tab : 0;
+
         if (guest->tabs)
         {
             for (int32_t i = 0; i < naui_list_len(guest->tabs); i++)
@@ -349,6 +357,8 @@ Naui_PanelID naui_dock_panel(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
             guest->close_hovered = false;
             naui_list_push(group->tabs, guest);
         }
+
+        group->active_tab = first_new + guest_active;
 
         return (Naui_PanelID)group;
     }
@@ -924,7 +934,7 @@ static inline void naui_render_panel_body(Naui_PanelNode *node)
     })
     {
         Naui_PanelNode *tab = node->tabs ? node->tabs[node->active_tab] : node;
-        naui_panel_manager.current_panel = node;
+        naui_panel_manager.current_panel = tab;
         if (tab->type.on_update)
             tab->type.on_update();
         if (naui_can_show_dock_guides(node))
@@ -1370,22 +1380,30 @@ static void naui_update_splits_only(Naui_PanelNode *node)
     naui_update_splits_only(node->children[1]);
 }
 
+static inline void naui_set_group_occluded(Naui_PanelNode *node, bool occluded)
+{
+    node->occluded = occluded;
+    if (node->tabs)
+        for (int32_t i = 0; i < naui_list_len(node->tabs); i++)
+            node->tabs[i]->occluded = occluded;
+}
+
 static inline void naui_calculate_and_cache_panel_occlusion(Naui_PanelNode *node)
 {
     if (naui_panel_manager.occlude_all ||
         naui_panel_manager.resizing_node ||
-        naui_panel_manager.split_resizing_node
-    )
+        naui_panel_manager.split_resizing_node)
     {
-        node->occluded = true;
+        naui_set_group_occluded(node, true);
         return;
     }
 
     Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed(NAUI_CHILD_PANEL_ID, (Naui_PanelID)node));
     float mx = (float)naui_mouse_x(), my = (float)naui_mouse_y();
     bool in_bounds = mx >= box.x && mx <= box.x + box.width && my >= box.y && my <= box.y + box.height;
-    node->occluded = !in_bounds || naui_point_occluded_above(mx, my, node->root);
-    if (!node->occluded)
+    bool occluded = !in_bounds || naui_point_occluded_above(mx, my, node->root);
+    naui_set_group_occluded(node, occluded);
+    if (!occluded)
         naui_panel_manager.any_panel_hovered = true;
 }
 
