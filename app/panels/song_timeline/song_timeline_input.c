@@ -4,7 +4,7 @@ void uph_song_timeline_update_input(void)
 	const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
 	const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
-	if (uph_song_timeline_data.panel_focused)
+	if (uph_song_timeline_data.panel_hovered)
 	{
 		if (ctrl_held && wheel_y != 0.0f)
 		{
