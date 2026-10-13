@@ -123,6 +123,7 @@
     "resource_list.title": "Resources",
 
     "sample.default.name": "Untitled Sample",
+    "sample.recording.default.name": "Untitled Recording",
 
     "settings.audio.auto_restart": "Restart On Device Change",
     "settings.audio.buffer_size": "Buffer Size",
