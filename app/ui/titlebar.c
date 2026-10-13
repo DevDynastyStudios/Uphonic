@@ -196,6 +196,9 @@ void uph_render_main_titlebar(void)
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_list.title"), leaf_id("uph_windows_menu_resource_list")))
 					naui_open_panel(uph_state.panels.resource_list);
+
+				if (uph_ui_menu_item(windows_menu, NAUI_TR("mixer.title"), leaf_id("uph_windows_menu_mixer")))
+					naui_open_panel(uph_state.panels.mixer);
 			}
 		}
 
