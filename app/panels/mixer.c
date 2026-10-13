@@ -411,9 +411,34 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
     }
 }
 
-static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_Track **data)
+typedef struct Uph_MixerTrackRef
 {
-    Uph_Track *track = *data;
+    Uph_ActionTrackRef ref;
+    bool master;
+} Uph_MixerTrackRef;
+
+static Uph_MixerTrackRef uph_mixer_track_ref(Uph_Track *track)
+{
+    if (track == &uph_state.project.master_track)
+        return (Uph_MixerTrackRef){ .ref = { UPH_ACTION_TRACK_INVALID, 0 }, .master = true };
+
+    return (Uph_MixerTrackRef){ .ref = uph_action_track_ref(track), .master = false };
+}
+
+static Uph_Track *uph_mixer_track_resolve(Uph_MixerTrackRef ref)
+{
+    if (ref.master)
+        return &uph_state.project.master_track;
+
+    return uph_action_track_resolve(ref.ref);
+}
+
+static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_MixerTrackRef *data)
+{
+    Uph_Track *track = uph_mixer_track_resolve(*data);
+    if (!track)
+        return;
+
     const float gap = NAUI_DPI(1.0f);
 
     const float smooth_speed = naui_delta_time() * 30.0f;
@@ -464,7 +489,7 @@ static struct
 
 typedef struct Uph_MixerVolumeArrowData
 {
-    Uph_Track *track;
+    Uph_MixerTrackRef track;
     uint64_t id;
 } Uph_MixerVolumeArrowData;
 
@@ -507,7 +532,10 @@ static void uph_mixer_edit_value(Uph_Track *track, Uph_ActionTrackValueKind kind
 
 static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_MixerVolumeArrowData *data)
 {
-    Uph_Track *track = data->track;
+    Uph_Track *track = uph_mixer_track_resolve(data->track);
+    if (!track)
+        return;
+
     const float arrow_width = NAUI_DPI(10.0f);
     const float arrow_height = NAUI_DPI(12.0f);
     const float hit_padding = NAUI_DPI(4.0f);
@@ -638,14 +666,15 @@ static void uph_mixer_render_track(Uph_Track *track)
                 .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
                 .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
             });
+            Uph_MixerTrackRef track_ref = uph_mixer_track_ref(track);
             leaf({
                 .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
                 .color = {naui_theme_color("uph_ui_frame_bg_color")},
                 .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
-                .custom_draw_data = LEAF_DATA_SLICE(track)
+                .custom_draw_data = LEAF_DATA_SLICE(track_ref)
             });
             Uph_MixerVolumeArrowData arrow_data = {
-                .track = track,
+                .track = track_ref,
                 .id = track_id
             };
             leaf({
