@@ -238,7 +238,7 @@ void naui_app_end(void)
 
 static void uph_update_master_track_plugins(void)
 {
-	Uph_Track *master_track = &uph_state.project.master_track;
+	Uph_MasterTrack *master_track = &uph_state.project.master_track;
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(master_track->effects); i++)
 		if (master_track->effects[i].plugin.loaded)
 			uph_update_plugin(&master_track->effects[i].plugin);

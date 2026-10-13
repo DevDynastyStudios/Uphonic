@@ -67,20 +67,16 @@ typedef struct
 #pragma region Track References
 
 #define UPH_ACTION_TRACK_TOP          (-1)
-#define UPH_ACTION_TRACK_MASTER       (-2)
 #define UPH_ACTION_TRACK_MASTER_INDEX UINT32_MAX
+
+static inline Uph_ActionTrackRef uph_action_track_ref_master(void)
+{
+	return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_TOP, UPH_ACTION_TRACK_MASTER_INDEX };
+}
 
 static inline bool uph_action_track_ref_is_master(Uph_ActionTrackRef ref)
 {
 	return ref.parent == UPH_ACTION_TRACK_TOP && ref.index == UPH_ACTION_TRACK_MASTER_INDEX;
-}
-
-static Uph_ActionTrackRef uph_action_track_subref(Uph_ActionTrackRef parent, uint32_t index)
-{
-	if (uph_action_track_ref_is_master(parent))
-		return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_MASTER, index };
-
-	return (Uph_ActionTrackRef){ (int32_t)parent.index, index };
 }
 
 static Naui_List(Uph_Track) *uph_action_track_list_ptr(int32_t parent)
@@ -89,9 +85,6 @@ static Naui_List(Uph_Track) *uph_action_track_list_ptr(int32_t parent)
 
 	if (parent == UPH_ACTION_TRACK_TOP)
 		return &project->tracks;
-
-	if (parent == UPH_ACTION_TRACK_MASTER)
-		return &project->master_track.subtracks;
 
 	if (parent >= 0 && (uint32_t)parent < (uint32_t)naui_list_len(project->tracks))
 		return &project->tracks[parent].subtracks;
@@ -104,16 +97,6 @@ Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
 	const Uph_ActionTrackRef invalid = { UPH_ACTION_TRACK_INVALID, 0 };
 	if (!track)
 		return invalid;
-
-	const Uph_Track *master = &uph_state.project.master_track;
-	if (track == master)
-		return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_TOP, UPH_ACTION_TRACK_MASTER_INDEX };
-
-	for (uint32_t s = 0; s < (uint32_t)naui_list_len(master->subtracks); s++)
-	{
-		if (&master->subtracks[s] == track)
-			return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_MASTER, s };
-	}
 
 	Naui_List(Uph_Track) tracks = uph_state.project.tracks;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
@@ -138,13 +121,37 @@ Uph_Track *uph_action_track_resolve(Uph_ActionTrackRef ref)
 		return NULL;
 
 	if (uph_action_track_ref_is_master(ref))
-		return &uph_state.project.master_track;
+		return NULL;
 
 	Naui_List(Uph_Track) *list = uph_action_track_list_ptr(ref.parent);
 	if (!list || ref.index >= (uint32_t)naui_list_len(*list))
 		return NULL;
 
 	return &(*list)[ref.index];
+}
+
+static Uph_TrackState *uph_action_track_state_ptr(Uph_ActionTrackRef ref)
+{
+	if (uph_action_track_ref_is_master(ref))
+		return &uph_state.project.master_track.state;
+
+	Uph_Track *track = uph_action_track_resolve(ref);
+	return track ? &track->state : NULL;
+}
+
+static float *uph_action_track_value_ptr(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind)
+{
+	if (uph_action_track_ref_is_master(ref))
+	{
+		Uph_MasterTrack *master = &uph_state.project.master_track;
+		return kind == UPH_ACTION_TRACK_VALUE_PAN ? &master->pan : &master->volume;
+	}
+
+	Uph_Track *track = uph_action_track_resolve(ref);
+	if (!track)
+		return NULL;
+
+	return kind == UPH_ACTION_TRACK_VALUE_PAN ? &track->pan : &track->volume;
 }
 
 typedef struct
@@ -167,9 +174,6 @@ static Uph_Track *uph_action_track_pointer_shift(Uph_ActionTrackRef ref, Uph_Act
 {
 	if (ref.parent == UPH_ACTION_TRACK_INVALID)
 		return NULL;
-
-	if (uph_action_track_ref_is_master(ref))
-		return uph_action_track_resolve(ref);
 
 	if (delta < 0)
 	{
@@ -240,6 +244,18 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 
 	if (removed_lane)
 		naui_action_clear_history();
+
+	uph_unload_plugin(plugin);
+
+	if (was_running)
+		uph_audio_engine_start();
+}
+
+void uph_action_master_unload_plugin(Uph_Plugin *plugin)
+{
+	const bool was_running = uph_audio_engine_device_running();
+	if (was_running)
+		uph_audio_engine_stop();
 
 	uph_unload_plugin(plugin);
 
@@ -416,22 +432,22 @@ bool _uph_action_track_color_redo(void* userdata)
 bool _uph_action_track_state_execute(void* userdata)
 {
 	Uph_ActionTrackState* data = userdata;
-	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track)
+	Uph_TrackState* state = uph_action_track_state_ptr(data->track);
+	if (!state)
 		return false;
 
-	track->state = data->new_state;
+	*state = data->new_state;
 	return true;
 }
 
 bool _uph_action_track_state_undo(void* userdata)
 {
 	Uph_ActionTrackState* data = userdata;
-	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track)
+	Uph_TrackState* state = uph_action_track_state_ptr(data->track);
+	if (!state)
 		return false;
 
-	track->state = data->old_state;
+	*state = data->old_state;
 	return true;
 }
 
@@ -476,15 +492,11 @@ bool _uph_action_track_solo_redo(void* userdata)
 #pragma region Track Volume / Pan
 static bool uph_action_track_value_set(Uph_ActionTrackValue* data, float value)
 {
-	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track)
+	float* target = uph_action_track_value_ptr(data->track, data->kind);
+	if (!target)
 		return false;
 
-	if (data->kind == UPH_ACTION_TRACK_VALUE_PAN)
-		track->pan = value;
-	else
-		track->volume = value;
-
+	*target = value;
 	return true;
 }
 

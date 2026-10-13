@@ -20,11 +20,109 @@ static void uph_mixer_on_close(void)
 	
 }
 
-static void uph_mixer_effect_list_swap(Uph_Track *track, uint32_t a, uint32_t b)
+static void uph_mixer_effect_list_swap(Uph_EffectPlugin *effects, uint32_t a, uint32_t b)
 {
-    Uph_EffectPlugin temp = track->effects[a];
-    track->effects[a] = track->effects[b];
-    track->effects[b] = temp;
+    Uph_EffectPlugin temp = effects[a];
+    effects[a] = effects[b];
+    effects[b] = temp;
+}
+
+#define UPH_MIXER_MASTER_COLOR_INDEX 0
+
+typedef struct Uph_MixerStrip
+{
+    Uph_ActionTrackRef ref;
+    Uph_Track *track; // NULL for the master strip
+    Naui_List(Uph_EffectPlugin) *effects;
+    Uph_TrackState *state;
+    float *volume, *pan;
+    float *peak_left, *peak_right;
+    float *smooth_peak_left, *smooth_peak_right;
+}
+Uph_MixerStrip;
+
+static Uph_MixerStrip uph_mixer_strip_master(void)
+{
+    Uph_MasterTrack *master = &uph_state.project.master_track;
+    return (Uph_MixerStrip){
+        .ref = uph_action_track_ref_master(),
+        .effects = &master->effects,
+        .state = &master->state,
+        .volume = &master->volume,
+        .pan = &master->pan,
+        .peak_left = &master->peak_left,
+        .peak_right = &master->peak_right,
+        .smooth_peak_left = &master->smooth_peak_left,
+        .smooth_peak_right = &master->smooth_peak_right
+    };
+}
+
+static Uph_MixerStrip uph_mixer_strip_track(Uph_Track *track)
+{
+    return (Uph_MixerStrip){
+        .ref = uph_action_track_ref(track),
+        .track = track,
+        .effects = &track->effects,
+        .state = &track->state,
+        .volume = &track->volume,
+        .pan = &track->pan,
+        .peak_left = &track->peak_left,
+        .peak_right = &track->peak_right,
+        .smooth_peak_left = &track->smooth_peak_left,
+        .smooth_peak_right = &track->smooth_peak_right
+    };
+}
+
+static Uph_MixerStrip uph_mixer_strip_resolve(Uph_ActionTrackRef ref)
+{
+    if (uph_action_track_ref_is_master(ref))
+        return uph_mixer_strip_master();
+
+    Uph_Track *track = uph_action_track_resolve(ref);
+    if (!track)
+        return (Uph_MixerStrip){ 0 };
+
+    return uph_mixer_strip_track(track);
+}
+
+static Uph_MixerStrip uph_mixer_selected_strip(void)
+{
+    if (uph_state.shared.selected_mixer_master)
+        return uph_mixer_strip_master();
+
+    if (uph_state.shared.selected_mixer_track)
+        return uph_mixer_strip_track(uph_state.shared.selected_mixer_track);
+
+    return (Uph_MixerStrip){ 0 };
+}
+
+static bool uph_mixer_strip_valid(const Uph_MixerStrip *strip)
+{
+    return strip->effects != NULL;
+}
+
+static bool uph_mixer_strip_selected(const Uph_MixerStrip *strip)
+{
+    if (!strip->track)
+        return uph_state.shared.selected_mixer_master;
+
+    return !uph_state.shared.selected_mixer_master && uph_state.shared.selected_mixer_track == strip->track;
+}
+
+static void uph_mixer_strip_select(const Uph_MixerStrip *strip)
+{
+    uph_state.shared.selected_mixer_master = strip->track == NULL;
+    uph_state.shared.selected_mixer_track = strip->track;
+}
+
+static int32_t uph_mixer_strip_color_index(const Uph_MixerStrip *strip)
+{
+    return strip->track ? strip->track->color_index : UPH_MIXER_MASTER_COLOR_INDEX;
+}
+
+static uint64_t uph_mixer_strip_id(const Uph_MixerStrip *strip)
+{
+    return strip->track ? (uint64_t)strip->track : (uint64_t)&uph_state.project.master_track;
 }
 
 #define UPH_MIXER_EFFECT_INSET      4.0f
@@ -233,7 +331,7 @@ static void uph_mixer_render_effect_row(
 
 static void uph_mixer_render_effect_list(void)
 {
-    Uph_Track *track = uph_state.shared.selected_mixer_track;
+    Uph_MixerStrip strip = uph_mixer_selected_strip();
     Uph_UIMenuID context_menu = uph_ui_context_menu();
 
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
@@ -243,7 +341,22 @@ static void uph_mixer_render_effect_list(void)
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const float rounding = NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
 
-    const uint32_t effect_count = (uint32_t)naui_list_len(track->effects);
+    if (!uph_mixer_strip_valid(&strip))
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+            .color = {naui_theme_color("uph_effect_list_bg_color")},
+            .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+            .clip_children = true
+        })
+        {
+            leaf_text("No track selected", { .font_size = LEAF_SIZE_FIXED(font_size), .color = {text_disabled_color} });
+        }
+        return;
+    }
+
+    const uint32_t effect_count = (uint32_t)naui_list_len((*strip.effects));
 
     if (s_mixer_effect_context_index >= effect_count)
         s_mixer_effect_context_index = effect_count > 0 ? effect_count - 1 : 0;
@@ -282,10 +395,10 @@ static void uph_mixer_render_effect_list(void)
             {
                 leaf({
                     .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_DOT)), LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_DOT))},
-                    .color = {uph_resources_track_color(track->color_index)},
+                    .color = {uph_resources_track_color(uph_mixer_strip_color_index(&strip))},
                     .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
                 });
-                leaf_text(naui_string_format("%s Effects", track->type == UPH_RESOURCE_MASTER ? NAUI_TR("master.track.title") : track->name.data).data, { .font_size = LEAF_SIZE_FIXED(font_size), .color = {text_color} });
+                leaf_text(naui_string_format("%s Effects", strip.track ? strip.track->name.data : NAUI_TR("master.track.title")).data, { .font_size = LEAF_SIZE_FIXED(font_size), .color = {text_color} });
             }
         }
 
@@ -314,7 +427,7 @@ static void uph_mixer_render_effect_list(void)
             })
             {
                 for (uint32_t i = 0; i < effect_count; i++)
-                    uph_mixer_render_effect_row(&track->effects[i], i, effect_count, context_menu, &move_from, &move_to);
+                    uph_mixer_render_effect_row(&(*strip.effects)[i], i, effect_count, context_menu, &move_from, &move_to);
             }
             uph_ui_end_scroll_container(&scroll_container);
         }
@@ -331,19 +444,26 @@ static void uph_mixer_render_effect_list(void)
         {
             if (uph_mixer_effect_add_button("+ Add Effect", leaf_id("uph_effect_list_add_effect")))
             {
-                uph_state.shared.plugin_list_for_track_instrument = false;
-                uph_state.shared.current_plugin_list_track = track;
+                if (strip.track)
+                {
+                    uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_TRACK_EFFECT;
+                    uph_state.shared.current_plugin_list_track = strip.track;
+                }
+                else
+                {
+                    uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_MASTER_EFFECT;
+                }
                 naui_open_panel(uph_state.panels.plugin_list);
             }
         }
     }
 
     if (move_from >= 0 && move_to >= 0)
-        uph_mixer_effect_list_swap(track, (uint32_t)move_from, (uint32_t)move_to);
+        uph_mixer_effect_list_swap(*strip.effects, (uint32_t)move_from, (uint32_t)move_to);
 
     if (effect_count > 0)
     {
-        Uph_EffectPlugin *effect = &track->effects[s_mixer_effect_context_index];
+        Uph_EffectPlugin *effect = &(*strip.effects)[s_mixer_effect_context_index];
         Uph_Plugin *plugin = &effect->plugin;
 
         const bool visible = uph_plugin_window_visible(plugin);
@@ -355,8 +475,11 @@ static void uph_mixer_render_effect_list(void)
 
         if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
         {
-            uph_action_track_unload_plugin(track, plugin);
-            naui_list_remove(track->effects, s_mixer_effect_context_index);
+            if (strip.track)
+                uph_action_track_unload_plugin(strip.track, plugin);
+            else
+                uph_action_master_unload_plugin(plugin);
+            naui_list_remove((*strip.effects), s_mixer_effect_context_index);
         }
     }
 }
@@ -411,42 +534,20 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
     }
 }
 
-typedef struct Uph_MixerTrackRef
+static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_ActionTrackRef *data)
 {
-    Uph_ActionTrackRef ref;
-    bool master;
-} Uph_MixerTrackRef;
-
-static Uph_MixerTrackRef uph_mixer_track_ref(Uph_Track *track)
-{
-    if (track == &uph_state.project.master_track)
-        return (Uph_MixerTrackRef){ .ref = { UPH_ACTION_TRACK_INVALID, 0 }, .master = true };
-
-    return (Uph_MixerTrackRef){ .ref = uph_action_track_ref(track), .master = false };
-}
-
-static Uph_Track *uph_mixer_track_resolve(Uph_MixerTrackRef ref)
-{
-    if (ref.master)
-        return &uph_state.project.master_track;
-
-    return uph_action_track_resolve(ref.ref);
-}
-
-static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_MixerTrackRef *data)
-{
-    Uph_Track *track = uph_mixer_track_resolve(*data);
-    if (!track)
+    Uph_MixerStrip strip = uph_mixer_strip_resolve(*data);
+    if (!uph_mixer_strip_valid(&strip))
         return;
 
     const float gap = NAUI_DPI(1.0f);
 
     const float smooth_speed = naui_delta_time() * 30.0f;
-    track->smooth_peak_left = NAUI_LERP(track->smooth_peak_left, track->peak_left, smooth_speed);
-    track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, smooth_speed);
+    *strip.smooth_peak_left = NAUI_LERP(*strip.smooth_peak_left, *strip.peak_left, smooth_speed);
+    *strip.smooth_peak_right = NAUI_LERP(*strip.smooth_peak_right, *strip.peak_right, smooth_speed);
 
-    float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_left));
-    float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(track->smooth_peak_right));
+    float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(*strip.smooth_peak_left));
+    float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(*strip.smooth_peak_right));
 
     const Naui_Color bar_min_color = naui_theme_color("uph_mixer_bar_min_color");
     const Naui_Color bar_max_color = naui_theme_color("uph_mixer_bar_max_color");
@@ -489,7 +590,7 @@ static struct
 
 typedef struct Uph_MixerVolumeArrowData
 {
-    Uph_MixerTrackRef track;
+    Uph_ActionTrackRef track;
     uint64_t id;
 } Uph_MixerVolumeArrowData;
 
@@ -499,25 +600,23 @@ static void uph_mixer_commit_edit(void)
         return;
 
     _Uph_MixerEdit.active = false;
-    Uph_Track *track = uph_action_track_resolve(_Uph_MixerEdit.track);
-    if (!track)
+    Uph_MixerStrip strip = uph_mixer_strip_resolve(_Uph_MixerEdit.track);
+    if (!uph_mixer_strip_valid(&strip))
         return;
 
     Uph_ActionTrackValue data = {
         .track = _Uph_MixerEdit.track,
         .kind = _Uph_MixerEdit.kind,
         .old_value = _Uph_MixerEdit.old_value,
-        .new_value = _Uph_MixerEdit.kind == UPH_ACTION_TRACK_VALUE_PAN ? track->pan : track->volume
+        .new_value = _Uph_MixerEdit.kind == UPH_ACTION_TRACK_VALUE_PAN ? *strip.pan : *strip.volume
     };
 
     if (data.old_value != data.new_value)
         naui_action_execute_stack(_Uph_MixerEdit.kind == UPH_ACTION_TRACK_VALUE_PAN ? UPH_ACTION_TRACK_PAN : UPH_ACTION_TRACK_VOLUME, data);
 }
 
-static void uph_mixer_edit_value(Uph_Track *track, Uph_ActionTrackValueKind kind, float before)
+static void uph_mixer_edit_value(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind, float before)
 {
-    const Uph_ActionTrackRef ref = uph_action_track_ref(track);
-
     if (_Uph_MixerEdit.active && (_Uph_MixerEdit.kind != kind || _Uph_MixerEdit.track.parent != ref.parent || _Uph_MixerEdit.track.index != ref.index))
         uph_mixer_commit_edit();
 
@@ -532,15 +631,15 @@ static void uph_mixer_edit_value(Uph_Track *track, Uph_ActionTrackValueKind kind
 
 static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_MixerVolumeArrowData *data)
 {
-    Uph_Track *track = uph_mixer_track_resolve(data->track);
-    if (!track)
+    Uph_MixerStrip strip = uph_mixer_strip_resolve(data->track);
+    if (!uph_mixer_strip_valid(&strip))
         return;
 
     const float arrow_width = NAUI_DPI(10.0f);
     const float arrow_height = NAUI_DPI(12.0f);
     const float hit_padding = NAUI_DPI(4.0f);
 
-    float db = uph_linear_to_db(track->volume);
+    float db = uph_linear_to_db(*strip.volume);
     float fraction = uph_mixer_db_to_fraction(db);
     float y = bounding_box.y + (1.0f - fraction) * bounding_box.height;
 
@@ -568,8 +667,8 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
         {
             float t = 1.0f - NAUI_CLAMP((mouse.y - bounding_box.y) / bounding_box.height, 0.0f, 1.0f);
             float new_db = UPH_MIXER_DB_MIN + t * (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
-			uph_mixer_edit_value(track, UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
-            track->volume = uph_db_to_linear(new_db);
+            uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
+            *strip.volume = uph_db_to_linear(new_db);
 
             y = bounding_box.y + (1.0f - t) * bounding_box.height;
         }
@@ -589,15 +688,16 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
     naui_fill_polygon(arrow, 3, color);
 }
 
-static void uph_mixer_render_track(Uph_Track *track)
+static void uph_mixer_render_strip(Uph_MixerStrip strip)
 {
-    uint64_t track_id = (uint64_t)track;
+    const uint64_t track_id = uph_mixer_strip_id(&strip);
+    const Naui_Color accent_color = uph_resources_track_color(uph_mixer_strip_color_index(&strip));
     Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(naui_current_panel()) && leaf_hovered(id))
     {
-        uph_state.shared.selected_mixer_track = track;
+        uph_mixer_strip_select(&strip);
     }
 
     leaf({
@@ -606,7 +706,7 @@ static void uph_mixer_render_track(Uph_Track *track)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
         .color = {
-            uph_state.shared.selected_mixer_track == track ?
+            uph_mixer_strip_selected(&strip) ?
             naui_theme_color("uph_mixer_track_selected_bg_color") :
             naui_theme_color("uph_mixer_track_bg_color")
         },
@@ -620,31 +720,31 @@ static void uph_mixer_render_track(Uph_Track *track)
     {
         const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
         const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-        if (track->type != UPH_RESOURCE_MASTER)
+        if (strip.track)
         {
             leaf({
                 .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(6))},
-                .color = uph_resources_track_color(track->color_index),
+                .color = accent_color,
                 .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
             });
-            leaf_text(track->name.data, { .font_size = font_size, .color = text_color });
+            leaf_text(strip.track->name.data, { .font_size = font_size, .color = text_color });
         }
         else
         {
             leaf_text(NAUI_TR("master.track.title"), { .font_size = font_size, .color = text_color });
         }
 
-        uph_ui_knob_float(&track->pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), uph_resources_track_color(track->color_index));
+        uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color);
 
         leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
-		{
-			const float old_pan = track->pan;
-            if (uph_ui_drag_float(&track->pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_CLAMPED))
-				uph_mixer_edit_value(track, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+        {
+            const float old_pan = *strip.pan;
+            if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_CLAMPED))
+                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
 
-			if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-        		uph_mixer_commit_edit();
-		}
+            if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+                uph_mixer_commit_edit();
+        }
 
         const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
         leaf({
@@ -652,12 +752,17 @@ static void uph_mixer_render_track(Uph_Track *track)
             .child_gap = NAUI_DPI(2)
         })
         {
-            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
-                uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-            
-            if (track->type != UPH_RESOURCE_MASTER && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == track))
+            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), *strip.state & UPH_TRACK_MUTED))
             {
-                Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
+                if (strip.track)
+                    uph_resources_toggle_track_state(strip.track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+                else
+                    uph_resources_toggle_master_state(UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+            }
+
+            if (strip.track && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == strip.track))
+            {
+                Uph_ActionTrackSolo data = { .track = strip.ref };
                 naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
             }
         }
@@ -672,7 +777,7 @@ static void uph_mixer_render_track(Uph_Track *track)
                 .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
                 .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
             });
-            Uph_MixerTrackRef track_ref = uph_mixer_track_ref(track);
+            Uph_ActionTrackRef track_ref = strip.ref;
             leaf({
                 .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
                 .color = {naui_theme_color("uph_ui_frame_bg_color")},
@@ -690,21 +795,21 @@ static void uph_mixer_render_track(Uph_Track *track)
             });
         }
 
-        float volume_db = uph_linear_to_db(track->volume);
+        float volume_db = uph_linear_to_db(*strip.volume);
 
         leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
-		{
+        {
             if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_CLAMPED))
-			{
-				uph_mixer_edit_value(track, UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
-                track->volume = uph_db_to_linear(volume_db);
-			}
+            {
+                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
+                *strip.volume = uph_db_to_linear(volume_db);
+            }
 
-			if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-        		uph_mixer_commit_edit();
-		}
+            if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+                uph_mixer_commit_edit();
+        }
 
-        if (track->type != UPH_RESOURCE_MASTER)
+        if (strip.track)
         {
             leaf({
                 .direction = LEAF_DIRECTION_HORIZONTAL,
@@ -716,15 +821,15 @@ static void uph_mixer_render_track(Uph_Track *track)
                     leaf_id_indexed("uph_mixer_arm_toggle", track_id),
                     (Naui_Vec2) { button_size, button_size },
                     text_color,
-                    track->state & UPH_TRACK_ARMED
-                )) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
+                    *strip.state & UPH_TRACK_ARMED
+                )) uph_resources_toggle_track_state(strip.track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
                 if (uph_ui_image_toggle_button(
                     naui_asset_image("uph_icon_headphones"),
                     leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
                     (Naui_Vec2) { button_size, button_size },
                     text_color,
-                    track->monitored
-                )) track->monitored = !track->monitored;
+                    strip.track->monitored
+                )) strip.track->monitored = !strip.track->monitored;
             }
         }
     }
@@ -744,16 +849,14 @@ static void uph_mixer_on_update(void)
             &scroll,
             leaf_id("uph_mixer_scrollbar")
         );
-        uph_mixer_render_track(&uph_state.project.master_track);
+        uph_mixer_render_strip(uph_mixer_strip_master());
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
             Uph_Track *track = &uph_state.project.tracks[i];
-            uph_mixer_render_track(track);
+            uph_mixer_render_strip(uph_mixer_strip_track(track));
         }
         uph_ui_end_scroll_container(&scroll_container);
 
-        if (!uph_state.shared.selected_mixer_track)
-            continue;
         Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
         leaf({
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),

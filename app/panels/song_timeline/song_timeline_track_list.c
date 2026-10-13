@@ -232,7 +232,7 @@ void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph
 		{
 			if (uph_ui_menu_item(track_options_context_menu, "Load Instrument", leaf_id("uph_song_timeline_options_load_instrument")))
 			{
-				uph_state.shared.plugin_list_for_track_instrument = true;
+				uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_TRACK_INSTRUMENT;
 				uph_state.shared.current_plugin_list_track = track;
 				naui_open_panel(uph_state.panels.plugin_list);
 			}

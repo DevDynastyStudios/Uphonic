@@ -105,8 +105,7 @@ enum
 	UPH_RESOURCE_NONE,
 	UPH_RESOURCE_SAMPLE,
 	UPH_RESOURCE_PATTERN,
-	UPH_RESOURCE_AUTOMATION,
-	UPH_RESOURCE_MASTER
+	UPH_RESOURCE_AUTOMATION
 };
 
 typedef struct
@@ -266,8 +265,6 @@ struct Uph_Track
 	float pan;
 	float peak_left, peak_right;
 	float smooth_peak_left, smooth_peak_right;
-	float peak_cap_left, peak_cap_right;
-	float peak_cap_hold_left, peak_cap_hold_right;
 	float glow_effect;
 
 	Uph_PluginParam *automation_param;
@@ -276,6 +273,16 @@ struct Uph_Track
 	Uph_TrackState state;
 	bool monitored;
 };
+
+typedef struct
+{
+	Naui_List(Uph_EffectPlugin) effects;
+	float volume, pan;
+	float peak_left, peak_right;
+	float smooth_peak_left, smooth_peak_right;
+	Uph_TrackState state;
+}
+Uph_MasterTrack;
 
 typedef struct
 {
@@ -313,7 +320,7 @@ typedef struct
 	Uph_TimeSignature time_signature;
 
 	Naui_List(Uph_Track) tracks;
-	Uph_Track master_track; // has a master resource type and the name is set to "Master" (rendered only in the mixer not the song timeline)
+	Uph_MasterTrack master_track; // rendered only in the mixer, not the song timeline
 	Uph_Track *soloed_track; // NULL = no solo. Points into `tracks` (top-level only); see uph_action_tracks_changed()
 	Naui_List(Uph_MidiPattern) midi_patterns;
 	Naui_List(Uph_Sample) samples;
@@ -353,6 +360,14 @@ typedef struct
 }
 Uph_SelectedResourceState;
 
+typedef uint8_t Uph_PluginListTarget;
+enum
+{
+	UPH_PLUGIN_LIST_TRACK_EFFECT,
+	UPH_PLUGIN_LIST_TRACK_INSTRUMENT,
+	UPH_PLUGIN_LIST_MASTER_EFFECT // current_plugin_list_track is ignored for this target
+};
+
 typedef struct
 {
 	double song_timeline_current_block_length;
@@ -365,10 +380,11 @@ typedef struct
 
 	Uph_SelectedResourceState selected_resource;
 
-	Uph_Track *selected_mixer_track;
+	Uph_Track *selected_mixer_track; // ignored while selected_mixer_master is set
+	bool selected_mixer_master;
 
 	Uph_Track *current_plugin_list_track;
-	bool plugin_list_for_track_instrument;
+	Uph_PluginListTarget plugin_list_target;
 
 	Uph_Track *current_automation_list_track;
 }

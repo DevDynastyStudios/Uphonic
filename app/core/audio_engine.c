@@ -556,8 +556,8 @@ static void uph_render_track_instrument(
     );
 }
 
-static void uph_apply_track_effects(
-    Uph_Track *track,
+static void uph_apply_effect_chain(
+    Naui_List(Uph_EffectPlugin) effects,
     float *left,
     float *right,
     ma_uint32 frame_count,
@@ -565,7 +565,7 @@ static void uph_apply_track_effects(
     bool is_playing
 )
 {
-    uint64_t effect_count = naui_list_len(track->effects);
+    uint64_t effect_count = naui_list_len(effects);
     if (effect_count == 0)
         return;
 
@@ -580,7 +580,7 @@ static void uph_apply_track_effects(
 
     for (uint64_t e = 0; e < effect_count; e++)
     {
-        Uph_EffectPlugin *effect = &track->effects[e];
+        Uph_EffectPlugin *effect = &effects[e];
         if (!effect->enabled || !effect->plugin.loaded)
             continue;
 
@@ -916,8 +916,8 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
             }
         }
 
-        uph_apply_track_effects(
-            track,
+        uph_apply_effect_chain(
+            track->effects,
             track_l, track_r,
             frame_count,
             playhead_start_beat, timeline_playing
@@ -944,19 +944,10 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         track->peak_right = track_peak_right;
     }
 
-    Uph_Track *master = &project->master_track;
+    Uph_MasterTrack *master = &project->master_track;
 
-    if (timeline_playing)
-    {
-        uph_queue_track_automation(
-            master,
-            buffer_start_beat, buffer_end_beat,
-            engine_sample_rate, bpm
-        );
-    }
-
-    uph_apply_track_effects(
-        master,
+    uph_apply_effect_chain(
+        master->effects,
         master_l, master_r,
         frame_count,
         playhead_start_beat, timeline_playing

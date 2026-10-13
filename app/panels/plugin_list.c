@@ -37,21 +37,28 @@ void uph_plugin_list_on_close(void)
 
 static void uph_plugin_list_load(void)
 {
-    if (uph_state.shared.plugin_list_for_track_instrument)
+    const Naui_Path plugin_path = uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index].path;
+
+    switch (uph_state.shared.plugin_list_target)
     {
-        uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index].path);
-        uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
-    }
-    else
-    {
-        Uph_EffectPlugin effect = {
-            .plugin = uph_load_plugin(uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index].path),
-            .enabled = true
-        };
-        naui_list_push(
-            uph_state.shared.current_plugin_list_track->effects,
-            effect
-        );
+        case UPH_PLUGIN_LIST_TRACK_INSTRUMENT:
+        {
+            uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(plugin_path);
+            uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
+            break;
+        }
+        case UPH_PLUGIN_LIST_TRACK_EFFECT:
+        {
+            Uph_EffectPlugin effect = { .plugin = uph_load_plugin(plugin_path), .enabled = true };
+            naui_list_push(uph_state.shared.current_plugin_list_track->effects, effect);
+            break;
+        }
+        case UPH_PLUGIN_LIST_MASTER_EFFECT:
+        {
+            Uph_EffectPlugin effect = { .plugin = uph_load_plugin(plugin_path), .enabled = true };
+            naui_list_push(uph_state.project.master_track.effects, effect);
+            break;
+        }
     }
     naui_close_panel(naui_current_panel());
 }

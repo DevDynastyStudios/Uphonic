@@ -117,9 +117,8 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph
 
 void uph_resources_init_master_track(void)
 {
-	uph_state.project.master_track = (Uph_Track){
-		.volume = 1.0f,
-		.type = UPH_RESOURCE_MASTER
+	uph_state.project.master_track = (Uph_MasterTrack){
+		.volume = 1.0f
 	};
 }
 
@@ -129,6 +128,16 @@ static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState fl
 		.track = uph_action_track_ref(track),
 		.old_state = track->state,
 		.new_state = track->state ^ flag
+	};
+	naui_action_execute_stack(action, data);
+}
+
+static void uph_resources_toggle_master_state(Uph_TrackState flag, const char *action)
+{
+	Uph_ActionTrackState data = {
+		.track = uph_action_track_ref_master(),
+		.old_state = uph_state.project.master_track.state,
+		.new_state = uph_state.project.master_track.state ^ flag
 	};
 	naui_action_execute_stack(action, data);
 }
