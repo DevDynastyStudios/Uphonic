@@ -105,7 +105,7 @@ void uph_render_main_titlebar(void)
 			leaf({
 				.size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.5f)},
 				.image = naui_asset_image("uph_logo_small"),
-				.color = {LEAF_COLOR_WHITE},
+				.color = {naui_theme_color("uph_logo_color")},
 				.aspect_ratio = 1.0f
 			});
 			leaf({

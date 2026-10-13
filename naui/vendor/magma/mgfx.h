@@ -214,6 +214,16 @@ extern "C" {
         MGFX_ACCESS_WRITE_ONLY
     };
 
+    typedef uint32_t mgfx_msaa;
+    enum
+    {
+        MGFX_MSAA_NONE,
+        MGFX_MSAA_X2 = 2,
+        MGFX_MSAA_X4 = 4,
+        MGFX_MSAA_X8 = 8,
+        MGFX_MSAA_X16 = 16
+    };
+
     typedef void *mgfx_subimage;
     
     typedef struct
@@ -223,6 +233,7 @@ extern "C" {
         mgfx_image_type type;
         mgfx_image_usage usage;
         mgfx_memory memory;
+        mgfx_msaa msaa;
         uint32_t width, height, depth;
         uint32_t mip_count;
     }
@@ -245,6 +256,7 @@ extern "C" {
     typedef struct
     {
         mgfx_image color_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        mgfx_image resolve_images[MGFX_MAX_COLOR_ATTACHMENTS];
         mgfx_image depth_stencil_image;
         mgfx_color clear;
     }
@@ -429,6 +441,7 @@ extern "C" {
         mgfx_color_blend color_blend;
         mgfx_depth_stencil_state depth_stencil;
         mgfx_format color_formats[MGFX_MAX_COLOR_ATTACHMENTS];
+        mgfx_msaa msaa;
     }
     mgfx_pipeline_create_info;
     
@@ -439,6 +452,7 @@ extern "C" {
         void *primary_handle;
         void *secondary_handle;
         mgfx_renderer_type type;
+        mgfx_msaa msaa;
         int32_t width, height;
         bool vsync;
     }
@@ -546,8 +560,9 @@ typedef struct
     VkDeviceMemory memory;
     VkFormat format;
     uint32_t width, height, depth;
-    uint32_t mip_levels;
     uint32_t bpp;
+    uint32_t mip_levels;
+    uint32_t samples;
     bool shared_memory;
     bool uploaded;
     bool is_array;
@@ -648,17 +663,21 @@ typedef struct
     struct
     {
         VkSwapchainKHR handle;
-        
+
         VkImage images[4];
         VkImageView image_views[4];
-        
+
         VkImage depth_image;
         VkDeviceMemory depth_image_memory;
         VkImageView depth_image_view;
         VkFormat depth_format;
 
+        VkImage msaa_color_image;
+        VkDeviceMemory msaa_color_memory;
+        VkImageView msaa_color_view;
+
         VkExtent2D extent;
-        
+
         uint32_t image_count;
         uint32_t image_index;
     }
@@ -689,6 +708,7 @@ typedef struct
     struct
     {
         mgfx_vk_image *color_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        mgfx_vk_image *resolve_images[MGFX_MAX_COLOR_ATTACHMENTS];
         uint32_t color_image_count;
         mgfx_vk_image *depth_image;
     }
@@ -706,6 +726,8 @@ typedef struct
         VkDescriptorSet ub_set;
     }
     scratch_buffer;
+
+    VkSampleCountFlagBits msaa_samples;
     
     mgfx_vk_descriptor_state descriptor_state;
     mgfx_queue release_queue;
@@ -888,6 +910,11 @@ typedef int  GLint;
 #define GL_MIN                            0x8007
 #define GL_MAX                            0x8008
 #define GL_TEXTURE_CUBE_MAP_POSITIVE_X    0x8515
+#define GL_RENDERBUFFER                   0x8D41
+#define GL_READ_FRAMEBUFFER               0x8CA8
+#define GL_DRAW_FRAMEBUFFER               0x8CA9
+#define GL_TEXTURE_2D_MULTISAMPLE         0x9100
+#define GL_MAX_SAMPLES                    0x8D57
 #define GL_NEAREST_MIPMAP_NEAREST         0x2700
 #define GL_LINEAR_MIPMAP_NEAREST          0x2701
 #define GL_NEAREST_MIPMAP_LINEAR          0x2702
@@ -961,9 +988,11 @@ typedef struct
     GLenum format;
     GLenum internal_format;
     GLenum type;
+    GLuint renderbuffer_id;
     uint32_t width, height, depth;
-    uint32_t mip_levels;
     uint32_t bpp;
+    uint32_t mip_levels;
+    uint32_t samples;
 }
 mgfx_gl_image;
 
@@ -1012,9 +1041,25 @@ typedef struct
 
     struct
     {
+        GLuint fbo;
+        GLuint color_rb;
+        GLuint depth_rb;
+        uint32_t samples;
+    }
+    default_msaa;
+
+    struct
+    {
         int32_t height;
+        uint32_t color_count;
+        mgfx_gl_image *color_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        mgfx_gl_image *resolve_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        bool to_default_msaa;
     }
     current_pass;
+
+    GLuint resolve_framebuffer;
+    mgfx_msaa msaa_requested;
 
     int32_t width, height;
     bool vsync;
@@ -1060,9 +1105,11 @@ typedef struct
     ID3D11UnorderedAccessView *uav;
     ID3D11RenderTargetView *rtv;
     ID3D11DepthStencilView *dsv;
+    DXGI_FORMAT format;
     uint32_t width, height, depth;
-    uint32_t mip_levels;
     uint32_t bpp;
+    uint32_t mip_levels;
+    uint32_t samples;
     bool shared_memory;
     bool is_array;
 }
@@ -1106,6 +1153,19 @@ typedef struct
     IDXGISwapChain *swapchain;
     ID3D11DeviceContext *immediate_context;
     ID3D11RenderTargetView *target_view;
+
+    uint32_t msaa_samples;
+    ID3D11Texture2D *msaa_texture;
+    ID3D11RenderTargetView *msaa_view;
+
+    struct
+    {
+        mgfx_d3d11_image *color_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        mgfx_d3d11_image *resolve_images[MGFX_MAX_COLOR_ATTACHMENTS];
+        uint32_t color_count;
+        bool to_default_msaa;
+    }
+    current_pass;
 
     uint32_t width, height;
     bool vsync, pending_resize;
@@ -1231,6 +1291,20 @@ static inline bool mgfx_valid_pass(const mgfx_pass_info *pass)
 {
     MGFX_ASSERT(pass != NULL, "Pass reference in mgfx_bind_pass cannot be null.");
     return pass->color_images[0] || pass->depth_stencil_image;
+}
+
+static inline void mgfx_validate_msaa_image(const mgfx_image_create_info *info)
+{
+    if (info->msaa == MGFX_MSAA_NONE)
+        return;
+
+    MGFX_ASSERT((info->msaa & (info->msaa - 1)) == 0, "MSAA sample count must be a power of two.");
+    MGFX_ASSERT(info->type == MGFX_IMAGE_TYPE_2D, "MSAA images must be MGFX_IMAGE_TYPE_2D.");
+    MGFX_ASSERT(info->mip_count <= 1, "MSAA images cannot have mipmaps.");
+    MGFX_ASSERT(info->memory == MGFX_MEMORY_DEVICE, "MSAA images must use MGFX_MEMORY_DEVICE.");
+    MGFX_ASSERT(!(info->usage & MGFX_IMAGE_USAGE_STORAGE), "MSAA images cannot be storage images.");
+    for (uint32_t i = 0; i < MGFX_MAX_MIPMAPS; i++)
+        MGFX_ASSERT(!info->subimages[i], "MSAA images cannot have initial data.");
 }
 
 static inline uint8_t mgfx_format_bpp(mgfx_format format)
@@ -1644,6 +1718,51 @@ static inline VkDescriptorType mgfx_vk_shader_resource_to_descriptor_type(mgfx_s
     return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 }
 
+static VkSampleCountFlagBits mgfx_vk_get_sample_count(mgfx_msaa msaa)
+{
+    const VkPhysicalDeviceLimits *l = &mgfx_ctx.vk.physical_device.properties.limits;
+    const VkSampleCountFlags ok =
+        l->framebufferColorSampleCounts &
+        l->framebufferDepthSampleCounts &
+        l->framebufferStencilSampleCounts;
+    switch (msaa)
+    {
+        case MGFX_MSAA_X16: if (ok & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT; /* fallthrough */
+        case MGFX_MSAA_X8:  if (ok & VK_SAMPLE_COUNT_8_BIT)  return VK_SAMPLE_COUNT_8_BIT;  /* fallthrough */
+        case MGFX_MSAA_X4:  if (ok & VK_SAMPLE_COUNT_4_BIT)  return VK_SAMPLE_COUNT_4_BIT;  /* fallthrough */
+        case MGFX_MSAA_X2:  if (ok & VK_SAMPLE_COUNT_2_BIT)  return VK_SAMPLE_COUNT_2_BIT;  /* fallthrough */
+        default:            return VK_SAMPLE_COUNT_1_BIT;
+    }
+}
+
+static VkResolveModeFlagBits mgfx_vk_get_resolve_mode(VkFormat format)
+{
+    switch (format)
+    {
+        case VK_FORMAT_R32_UINT:
+        case VK_FORMAT_R32_SINT:
+            return VK_RESOLVE_MODE_SAMPLE_ZERO_BIT;
+        default:
+            return VK_RESOLVE_MODE_AVERAGE_BIT;
+    }
+}
+
+static void mgfx_vk_destroy_msaa_color(void)
+{
+    VkDevice device = mgfx_ctx.vk.device.handle;
+
+    if (mgfx_ctx.vk.swapchain.msaa_color_view != VK_NULL_HANDLE)
+        vkDestroyImageView(device, mgfx_ctx.vk.swapchain.msaa_color_view, NULL);
+    if (mgfx_ctx.vk.swapchain.msaa_color_image != VK_NULL_HANDLE)
+        vkDestroyImage(device, mgfx_ctx.vk.swapchain.msaa_color_image, NULL);
+    if (mgfx_ctx.vk.swapchain.msaa_color_memory != VK_NULL_HANDLE)
+        vkFreeMemory(device, mgfx_ctx.vk.swapchain.msaa_color_memory, NULL);
+
+    mgfx_ctx.vk.swapchain.msaa_color_view = VK_NULL_HANDLE;
+    mgfx_ctx.vk.swapchain.msaa_color_image = VK_NULL_HANDLE;
+    mgfx_ctx.vk.swapchain.msaa_color_memory = VK_NULL_HANDLE;
+}
+
 static void mgfx_vk_push_resource_descriptors(void)
 {
     mgfx_vk_descriptor_state *state = &mgfx_ctx.vk.descriptor_state;
@@ -1729,7 +1848,7 @@ static uint32_t mgfx_vk_find_memory_type(uint32_t type_filter, VkMemoryPropertyF
     return 0;
 }
 
-static void mgfx_vk_allocate_image(uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_layers, VkImageCreateFlags flags, VkImageType type, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *memory)
+static void mgfx_vk_allocate_image(uint32_t width, uint32_t height, uint32_t depth, uint32_t mip_levels, uint32_t array_layers, VkSampleCountFlagBits samples, VkImageCreateFlags flags, VkImageType type, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *memory)
 {
     VkImageCreateInfo image_info = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -1744,16 +1863,16 @@ static void mgfx_vk_allocate_image(uint32_t width, uint32_t height, uint32_t dep
         .tiling = tiling,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         .usage = usage,
-        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .samples = samples,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    
+
     VkResult result = vkCreateImage(mgfx_ctx.vk.device.handle, &image_info, NULL, image);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan image.");
-    
+
     VkMemoryRequirements mem_requirements;
     vkGetImageMemoryRequirements(mgfx_ctx.vk.device.handle, *image, &mem_requirements);
-    
+
     VkMemoryAllocateInfo alloc_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
         .allocationSize = mem_requirements.size,
@@ -1762,7 +1881,7 @@ static void mgfx_vk_allocate_image(uint32_t width, uint32_t height, uint32_t dep
 
     result = vkAllocateMemory(mgfx_ctx.vk.device.handle, &alloc_info, NULL, memory);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to allocated memory for vulkan image.");
-    
+
     vkBindImageMemory(mgfx_ctx.vk.device.handle, *image, *memory, 0);
 }
 
@@ -1800,13 +1919,13 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
 {
     VkSurfaceCapabilitiesKHR capabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(mgfx_ctx.vk.physical_device.handle, mgfx_ctx.vk.surface, &capabilities);
-    
+
     VkExtent2D extent = mgfx_vk_choose_swap_extent(&capabilities, mgfx_ctx.vk.width, mgfx_ctx.vk.height);
 
     uint32_t image_count = capabilities.minImageCount + 1;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
         image_count = capabilities.maxImageCount;
-    
+
     VkSwapchainCreateInfoKHR create_info = {
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .surface = mgfx_ctx.vk.surface,
@@ -1823,25 +1942,27 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
         .clipped = VK_TRUE,
         .oldSwapchain = mgfx_ctx.vk.swapchain.handle
     };
-    
+
     VkResult result = vkCreateSwapchainKHR(mgfx_ctx.vk.device.handle, &create_info, NULL, &mgfx_ctx.vk.swapchain.handle);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan swapchain.");
-    
+
     if (create_info.oldSwapchain != VK_NULL_HANDLE)
     {
         vkDestroyImageView(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image_view, NULL);
         vkDestroyImage(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image, NULL);
         vkFreeMemory(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image_memory, NULL);
-        
+
+        mgfx_vk_destroy_msaa_color();
+
         for (uint32_t i = 0; i < mgfx_ctx.vk.swapchain.image_count; i++)
             vkDestroyImageView(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.image_views[i], NULL);
-        
+
         vkDestroySwapchainKHR(mgfx_ctx.vk.device.handle, create_info.oldSwapchain, NULL);
     }
-    
+
     mgfx_ctx.vk.swapchain.image_count = image_count;
     vkGetSwapchainImagesKHR(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.handle, &image_count, mgfx_ctx.vk.swapchain.images);
-    
+
     for (uint32_t i = 0; i < image_count; i++)
     {
         VkImageViewCreateInfo view_info = {
@@ -1855,12 +1976,14 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
                 .layerCount = 1
             }
         };
-        
+
         result = vkCreateImageView(mgfx_ctx.vk.device.handle, &view_info, NULL, &mgfx_ctx.vk.swapchain.image_views[i]);
         MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan image view for swapchain.");
     }
-    
-    mgfx_vk_allocate_image(extent.width, extent.height, 1, 1, 1, 0,
+
+    const VkSampleCountFlagBits samples = mgfx_ctx.vk.msaa_samples;
+
+    mgfx_vk_allocate_image(extent.width, extent.height, 1, 1, 1, samples, 0,
         VK_IMAGE_TYPE_2D, mgfx_ctx.vk.depth_formats.depth_stencil, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         &mgfx_ctx.vk.swapchain.depth_image, &mgfx_ctx.vk.swapchain.depth_image_memory);
@@ -1876,9 +1999,32 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
             .layerCount = 1
         }
     };
-    
+
     result = vkCreateImageView(mgfx_ctx.vk.device.handle, &depth_view_info, NULL, &mgfx_ctx.vk.swapchain.depth_image_view);
     MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan depth image view for the swapchain.");
+
+    if (samples > VK_SAMPLE_COUNT_1_BIT)
+    {
+        mgfx_vk_allocate_image(extent.width, extent.height, 1, 1, 1, samples, 0,
+            VK_IMAGE_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+            &mgfx_ctx.vk.swapchain.msaa_color_image, &mgfx_ctx.vk.swapchain.msaa_color_memory);
+
+        VkImageViewCreateInfo msaa_view_info = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = mgfx_ctx.vk.swapchain.msaa_color_image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = VK_FORMAT_B8G8R8A8_UNORM,
+            .subresourceRange = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .levelCount = 1,
+                .layerCount = 1
+            }
+        };
+
+        result = vkCreateImageView(mgfx_ctx.vk.device.handle, &msaa_view_info, NULL, &mgfx_ctx.vk.swapchain.msaa_color_view);
+        MGFX_ASSERT(result == VK_SUCCESS, "Failed to create vulkan MSAA color image view for the swapchain.");
+    }
 
     mgfx_ctx.vk.swapchain.extent = extent;
 }
@@ -1887,11 +2033,13 @@ static void mgfx_vk_cleanup_swapchain(void)
 {
     for (uint32_t i = 0; i < mgfx_ctx.vk.swapchain.image_count; i++)
         vkDestroyImageView(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.image_views[i], NULL);
-    
+
     vkDestroyImageView(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image_view, NULL);
     vkDestroyImage(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image, NULL);
     vkFreeMemory(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.depth_image_memory, NULL);
-    
+
+    mgfx_vk_destroy_msaa_color();
+
     vkDestroySwapchainKHR(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.handle, NULL);
 }
 
@@ -2409,11 +2557,14 @@ static void mgfx_vk_update_image(mgfx_vk_image *image, const mgfx_image_update_i
 
 static mgfx_vk_image *mgfx_vk_create_image(const mgfx_image_create_info *create_info)
 {
+    mgfx_validate_msaa_image(create_info);
+
     mgfx_vk_image *image = (mgfx_vk_image*)calloc(1, sizeof(mgfx_vk_image));
 
     const bool is_array = mgfx_image_type_is_layered(create_info->type);
     const uint32_t depth = mgfx_image_depth(create_info);
     const bool shared = create_info->memory == MGFX_MEMORY_SHARED;
+    const VkSampleCountFlagBits samples = mgfx_vk_get_sample_count(create_info->msaa);
 
     mgfx_vk_upload_region regions[MGFX_MAX_MIPMAPS];
     const uint32_t mip_levels = create_info->mip_count == 0 ? 1 : create_info->mip_count;
@@ -2453,7 +2604,7 @@ static mgfx_vk_image *mgfx_vk_create_image(const mgfx_image_create_info *create_
     }
 
     mgfx_vk_allocate_image(create_info->width, create_info->height,
-        is_array ? 1 : depth, mip_levels, is_array ? depth : 1,
+        is_array ? 1 : depth, mip_levels, is_array ? depth : 1, samples,
         create_info->type == MGFX_IMAGE_TYPE_CUBE ? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0,
         mgfx_vk_get_image_type(create_info->type), mgfx_vk_get_format(create_info->format),
         tiling, usage_flags, mem_props, &image->image, &image->memory);
@@ -2465,7 +2616,7 @@ static mgfx_vk_image *mgfx_vk_create_image(const mgfx_image_create_info *create_
         .format = mgfx_vk_get_format(create_info->format),
         .subresourceRange = {
             .aspectMask =
-                (create_info->usage == MGFX_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT) ?
+                (create_info->usage & MGFX_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT) ?
                 VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
             .levelCount = mip_levels,
@@ -2483,6 +2634,7 @@ static mgfx_vk_image *mgfx_vk_create_image(const mgfx_image_create_info *create_
     image->mip_levels = mip_levels;
     image->bpp = mgfx_format_bpp(create_info->format);
     image->format = view_info.format;
+    image->samples = samples;
     image->shared_memory = shared;
     image->is_array = is_array;
 
@@ -2701,7 +2853,7 @@ static void mgfx_vk_fill_graphics_pipeline(mgfx_vk_pipeline *pipeline, const mgf
     
     VkPipelineMultisampleStateCreateInfo multisampling = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-        .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+        .rasterizationSamples = mgfx_vk_get_sample_count(create_info->msaa),
         .sampleShadingEnable = VK_FALSE
     };
     
@@ -2974,7 +3126,13 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
         vkCmdEndRendering(cmd);
 
         for (uint32_t i = 0; i < mgfx_ctx.vk.current_pass.color_image_count; i++)
-            mgfx_vk_transition_image_layout(cmd, mgfx_ctx.vk.current_pass.color_images[i]->image, mgfx_ctx.vk.current_pass.color_images[i]->format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+        {
+            mgfx_vk_image *target = mgfx_ctx.vk.current_pass.resolve_images[i]
+                ? mgfx_ctx.vk.current_pass.resolve_images[i]
+                : mgfx_ctx.vk.current_pass.color_images[i];
+
+            mgfx_vk_transition_image_layout(cmd, target->image, target->format, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
+        }
 
         if (mgfx_ctx.vk.current_pass.depth_image)
             mgfx_vk_transition_image_layout(cmd, mgfx_ctx.vk.current_pass.depth_image->image, mgfx_ctx.vk.current_pass.depth_image->format, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1);
@@ -2989,16 +3147,30 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
 
     if (!mgfx_valid_pass(pass))
     {
-        mgfx_vk_transition_image_layout(cmd, mgfx_ctx.vk.swapchain.images[mgfx_ctx.vk.swapchain.image_index], VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+        VkImage swap_image = mgfx_ctx.vk.swapchain.images[mgfx_ctx.vk.swapchain.image_index];
+        VkImageView swap_view = mgfx_ctx.vk.swapchain.image_views[mgfx_ctx.vk.swapchain.image_index];
+
+        mgfx_vk_transition_image_layout(cmd, swap_image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
         color_attachments[0] = (VkRenderingAttachmentInfo){
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .imageView   = mgfx_ctx.vk.swapchain.image_views[mgfx_ctx.vk.swapchain.image_index],
+            .imageView   = swap_view,
             .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             .loadOp  = VK_ATTACHMENT_LOAD_OP_CLEAR,
             .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
             .clearValue = { .color = { .float32 = { pass->clear.r, pass->clear.g, pass->clear.b, pass->clear.a } } }
         };
+
+        if (mgfx_ctx.vk.msaa_samples > VK_SAMPLE_COUNT_1_BIT)
+        {
+            mgfx_vk_transition_image_layout(cmd, mgfx_ctx.vk.swapchain.msaa_color_image, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+
+            color_attachments[0].imageView          = mgfx_ctx.vk.swapchain.msaa_color_view;
+            color_attachments[0].storeOp            = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            color_attachments[0].resolveMode        = VK_RESOLVE_MODE_AVERAGE_BIT;
+            color_attachments[0].resolveImageView   = swap_view;
+            color_attachments[0].resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
 
         mgfx_ctx.vk.current_pass.color_image_count = 0;
         mgfx_ctx.vk.current_pass.depth_image = NULL;
@@ -3018,9 +3190,12 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
         return;
     }
 
+    uint32_t pass_samples = 0;
+
     for (; color_count < MGFX_MAX_COLOR_ATTACHMENTS && pass->color_images[color_count]; color_count++)
     {
         mgfx_vk_image *color_image = (mgfx_vk_image*)pass->color_images[color_count];
+        mgfx_vk_image *resolve = (mgfx_vk_image*)pass->resolve_images[color_count];
 
         mgfx_vk_transition_image_layout(cmd, color_image->image, color_image->format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
 
@@ -3037,11 +3212,31 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
         {
             actual_width  = color_image->width;
             actual_height = color_image->height;
+            pass_samples  = color_image->samples;
         }
         else
+        {
             MGFX_ASSERT(color_image->width == actual_width && color_image->height == actual_height, "Mismatched color attachment sizes");
+            MGFX_ASSERT(color_image->samples == pass_samples, "Mismatched color attachment sample counts");
+        }
+
+        if (resolve)
+        {
+            MGFX_ASSERT(color_image->samples > 1, "Resolve image given for a single-sampled attachment.");
+            MGFX_ASSERT(resolve->samples == 1, "Resolve image must be single-sampled.");
+            MGFX_ASSERT(resolve->width == color_image->width && resolve->height == color_image->height, "Resolve image size must match the MSAA attachment.");
+            MGFX_ASSERT(resolve->format == color_image->format, "Resolve image format must match the MSAA attachment.");
+
+            mgfx_vk_transition_image_layout(cmd, resolve->image, resolve->format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 1);
+
+            color_attachments[color_count].storeOp            = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+            color_attachments[color_count].resolveMode        = mgfx_vk_get_resolve_mode(color_image->format);
+            color_attachments[color_count].resolveImageView   = resolve->view;
+            color_attachments[color_count].resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        }
 
         mgfx_ctx.vk.current_pass.color_images[color_count] = color_image;
+        mgfx_ctx.vk.current_pass.resolve_images[color_count] = resolve;
     }
     mgfx_ctx.vk.current_pass.color_image_count = color_count;
 
@@ -3058,7 +3253,7 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
         depth_attachment.imageView = depth_image->view;
         depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depth_attachment.storeOp = depth_image->samples > 1 ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
         depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0};
 
         depth_attachment_ptr = &depth_attachment;
@@ -3070,7 +3265,10 @@ static void mgfx_vk_bind_pass(const mgfx_pass_info *pass)
             actual_height = depth_image->height;
         }
         else
+        {
             MGFX_ASSERT(depth_image->width == actual_width && depth_image->height == actual_height, "Depth attachment size mismatch");
+            MGFX_ASSERT(depth_image->samples == pass_samples, "Depth attachment sample count mismatch");
+        }
     }
     else mgfx_ctx.vk.current_pass.depth_image = NULL;
 
@@ -3439,29 +3637,31 @@ static void mgfx_vk_resolve_depth_formats(void)
 static void mgfx_vk_init(const mgfx_init_info *init_info)
 {
     mgfx_ctx.vk = (mgfx_vk_context){ 0 };
-    
+
     mgfx_vk_create_instance();
     mgfx_vk_create_surface(init_info->primary_handle, init_info->secondary_handle);
-    
+
     mgfx_vk_get_physical_device();
     mgfx_vk_create_device();
     mgfx_vk_resolve_depth_formats();
-    
+
+    mgfx_ctx.vk.msaa_samples = mgfx_vk_get_sample_count(init_info->msaa);
+
     mgfx_vk_create_command_pool();
     mgfx_ctx.vk.command_buffer = mgfx_vk_create_command_buffer();
-        
+
     mgfx_ctx.vk.width = init_info->width;
     mgfx_ctx.vk.height = init_info->height;
     mgfx_ctx.vk.vsync = init_info->vsync;
     mgfx_vk_create_or_recreate_swapchain();
 
     mgfx_vk_create_sync_objects();
-    
+
     mgfx_vk_create_global_descriptor_set_layouts();
     mgfx_vk_create_descriptor_pool();
-    
+
     mgfx_vk_create_scratch_buffer();
-    
+
     mgfx_create_queue(&mgfx_ctx.vk.release_queue, sizeof(mgfx_vk_release_queue_entry), MGFX_MAX_DEVICE_ALLOCATIONS);
 }
 
@@ -3655,7 +3855,7 @@ void _mgfx_gl_load_platform(void *canvas, void*)
     attrs.alpha = EM_TRUE;
     attrs.depth = EM_TRUE;
     attrs.stencil = EM_TRUE;
-    attrs.antialias = EM_TRUE;
+    attrs.antialias = EM_FALSE;
     attrs.enableExtensionsByDefault = EM_TRUE;
     
     mgfx_ctx.emscripten.context = emscripten_webgl_create_context((const char*)canvas, &attrs);
@@ -3753,7 +3953,16 @@ _MGFX_XMACRO(glBindBufferBase,          void,   (GLenum target, GLuint index, GL
 _MGFX_XMACRO(glDispatchCompute,         void,   (GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)) \
 _MGFX_XMACRO(glDrawElementsBaseVertex,          void, (GLenum mode, GLsizei count, GLenum type, const void* indices, GLint basevertex)) \
 _MGFX_XMACRO(glDrawElementsInstancedBaseVertex, void, (GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex)) \
-_MGFX_XMACRO(glDrawBuffers,             void,   (GLsizei n, const GLenum* bufs))
+_MGFX_XMACRO(glDrawBuffers,                  void, (GLsizei n, const GLenum* bufs)) \
+_MGFX_XMACRO(glGenRenderbuffers,             void, (GLsizei n, GLuint* renderbuffers)) \
+_MGFX_XMACRO(glBindRenderbuffer,             void, (GLenum target, GLuint renderbuffer)) \
+_MGFX_XMACRO(glDeleteRenderbuffers,          void, (GLsizei n, const GLuint* renderbuffers)) \
+_MGFX_XMACRO(glRenderbufferStorageMultisample, void, (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)) \
+_MGFX_XMACRO(glFramebufferRenderbuffer,      void, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
+_MGFX_XMACRO(glBlitFramebuffer,              void, (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)) \
+_MGFX_XMACRO(glReadBuffer,                   void, (GLenum src)) \
+_MGFX_XMACRO(glGetIntegerv,                  void, (GLenum pname, GLint* data)) \
+_MGFX_XMACRO(glTexStorage2DMultisample,      void, (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations))
 
 #define _MGFX_XMACRO(name, ret, args) typedef ret (GL_APIENTRY* PFN_ ## name) args;
 _MGFX_GL_FUNCS
@@ -4144,6 +4353,141 @@ static inline GLenum mgfx_gl_get_type(mgfx_format format)
     }
 }
 
+static uint32_t mgfx_gl_clamp_samples(mgfx_msaa msaa)
+{
+    if (msaa < MGFX_MSAA_X2)
+        return 1;
+
+    GLint max = 1;
+    glGetIntegerv(GL_MAX_SAMPLES, &max);
+    return msaa > (uint32_t)max ? (uint32_t)max : msaa;
+}
+
+static void mgfx_gl_attach(GLenum target, GLenum attachment, const mgfx_gl_image *image)
+{
+    if (image->renderbuffer_id)
+        glFramebufferRenderbuffer(target, attachment, GL_RENDERBUFFER, image->renderbuffer_id);
+    else
+        glFramebufferTexture2D(target, attachment, image->texture_target, image->texture_id, 0);
+}
+
+static mgfx_gl_image *mgfx_gl_create_msaa_image(const mgfx_image_create_info *create_info)
+{
+    mgfx_validate_msaa_image(create_info);
+
+    mgfx_gl_image *image = (mgfx_gl_image*)calloc(1, sizeof(mgfx_gl_image));
+    image->samples = mgfx_gl_clamp_samples(create_info->msaa);
+    image->internal_format = mgfx_gl_get_internal_format(create_info->format);
+    image->format = mgfx_gl_get_format(create_info->format);
+    image->type = mgfx_gl_get_type(create_info->format);
+    image->width = create_info->width;
+    image->height = create_info->height;
+    image->depth = 1;
+    image->mip_levels = 1;
+    image->bpp = mgfx_format_bpp(create_info->format);
+
+#if !defined(__EMSCRIPTEN__)
+    if (create_info->usage & MGFX_IMAGE_USAGE_SAMPLED)
+    {
+        image->texture_target = GL_TEXTURE_2D_MULTISAMPLE;
+        glGenTextures(1, &image->texture_id);
+        glBindTexture(image->texture_target, image->texture_id);
+        glTexStorage2DMultisample(image->texture_target, image->samples, image->internal_format,
+            image->width, image->height, GL_TRUE);
+        return image;
+    }
+#else
+    MGFX_ASSERT(!(create_info->usage & MGFX_IMAGE_USAGE_SAMPLED), "OpenGL ES cannot sample multisampled images; resolve first.");
+#endif
+
+    glGenRenderbuffers(1, &image->renderbuffer_id);
+    glBindRenderbuffer(GL_RENDERBUFFER, image->renderbuffer_id);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, image->samples, image->internal_format,
+        image->width, image->height);
+    return image;
+}
+
+static void mgfx_gl_destroy_default_msaa(void)
+{
+    mgfx_gl_context *gl = &mgfx_ctx.gl;
+    if (!gl->default_msaa.fbo)
+        return;
+
+    glDeleteFramebuffers(1, &gl->default_msaa.fbo);
+    glDeleteRenderbuffers(1, &gl->default_msaa.color_rb);
+    glDeleteRenderbuffers(1, &gl->default_msaa.depth_rb);
+    memset(&gl->default_msaa, 0, sizeof(gl->default_msaa));
+}
+
+static void mgfx_gl_create_default_msaa(void)
+{
+    mgfx_gl_context *gl = &mgfx_ctx.gl;
+    if (gl->width <= 0 || gl->height <= 0)
+        return;
+
+    const uint32_t samples = mgfx_gl_clamp_samples(gl->msaa_requested);
+    if (samples <= 1)
+        return;
+
+    gl->default_msaa.samples = samples;
+    glGenFramebuffers(1, &gl->default_msaa.fbo);
+    glGenRenderbuffers(1, &gl->default_msaa.color_rb);
+    glGenRenderbuffers(1, &gl->default_msaa.depth_rb);
+
+    glBindRenderbuffer(GL_RENDERBUFFER, gl->default_msaa.color_rb);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_RGBA8, gl->width, gl->height);
+    glBindRenderbuffer(GL_RENDERBUFFER, gl->default_msaa.depth_rb);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, samples, GL_DEPTH24_STENCIL8, gl->width, gl->height);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, gl->default_msaa.fbo);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, gl->default_msaa.color_rb);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, gl->default_msaa.depth_rb);
+
+    const GLenum draw_buffer = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &draw_buffer);
+}
+
+static void mgfx_gl_resolve_pass(void)
+{
+    mgfx_gl_context *gl = &mgfx_ctx.gl;
+
+    if (!gl->current_pass.to_default_msaa && gl->current_pass.color_count == 0)
+        return;
+
+    glDisable(GL_SCISSOR_TEST);
+
+    if (gl->current_pass.to_default_msaa)
+    {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gl->default_msaa.fbo);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+        glBlitFramebuffer(0, 0, gl->width, gl->height, 0, 0, gl->width, gl->height,
+            GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+
+    for (uint32_t i = 0; i < gl->current_pass.color_count; i++)
+    {
+        const mgfx_gl_image *src = gl->current_pass.color_images[i];
+        const mgfx_gl_image *dst = gl->current_pass.resolve_images[i];
+        if (!dst)
+            continue;
+
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gl->scratch_framebuffer); // still holds this pass's attachments
+        glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
+
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gl->resolve_framebuffer);
+        mgfx_gl_attach(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, dst);
+        const GLenum draw_buffer = GL_COLOR_ATTACHMENT0;
+        glDrawBuffers(1, &draw_buffer);
+
+        glBlitFramebuffer(0, 0, src->width, src->height, 0, 0, src->width, src->height,
+            GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    }
+
+    glEnable(GL_SCISSOR_TEST);
+    gl->current_pass.color_count = 0;
+    gl->current_pass.to_default_msaa = false;
+}
+
 static void mgfx_gl_upload(mgfx_gl_image *image, uint32_t level, uint32_t x, uint32_t y, uint32_t z,
     uint32_t width, uint32_t height, uint32_t depth, const void *data)
 {
@@ -4163,6 +4507,9 @@ static void mgfx_gl_upload(mgfx_gl_image *image, uint32_t level, uint32_t x, uin
 
 static mgfx_gl_image *mgfx_gl_create_image(const mgfx_image_create_info *create_info)
 {
+    if (create_info->msaa != MGFX_MSAA_NONE)
+        return mgfx_gl_create_msaa_image(create_info);
+
     mgfx_gl_image *image = (mgfx_gl_image*)calloc(1, sizeof(mgfx_gl_image));
 
     glGenTextures(1, &image->texture_id);
@@ -4185,6 +4532,7 @@ static mgfx_gl_image *mgfx_gl_create_image(const mgfx_image_create_info *create_
     image->depth = mgfx_image_depth(create_info);
     image->mip_levels = create_info->mip_count == 0 ? 1 : create_info->mip_count;
     image->bpp = mgfx_format_bpp(create_info->format);
+    image->samples = 1;
 
     if (image->texture_target == GL_TEXTURE_2D)
         glTexStorage2D(GL_TEXTURE_2D, image->mip_levels, image->internal_format, image->width, image->height);
@@ -4207,13 +4555,17 @@ static mgfx_gl_image *mgfx_gl_create_image(const mgfx_image_create_info *create_
 
 static void mgfx_gl_destroy_image(mgfx_gl_image *image)
 {
-    glDeleteTextures(1, &image->texture_id);
+    if (image->renderbuffer_id)
+        glDeleteRenderbuffers(1, &image->renderbuffer_id);
+    else
+        glDeleteTextures(1, &image->texture_id);
     free(image);
 }
 
 static void mgfx_gl_update_image(mgfx_gl_image *image, const mgfx_image_update_info *update_info)
 {
     MGFX_ASSERT(update_info != NULL, "mgfx_update_image requires update info.");
+    MGFX_ASSERT(image->samples == 1, "Multisampled images cannot be updated.");
 
     const bool is_array = image->texture_target == GL_TEXTURE_2D_ARRAY || image->texture_target == GL_TEXTURE_CUBE_MAP;
 
@@ -4537,37 +4889,64 @@ static void mgfx_gl_scissor(int32_t x, int32_t y, uint32_t width, uint32_t heigh
 
 static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
 {
+    mgfx_gl_context *gl = &mgfx_ctx.gl;
+
+    mgfx_gl_resolve_pass();
+
     if (!mgfx_valid_pass(pass))
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, mgfx_ctx.gl.width, mgfx_ctx.gl.height);
-        glScissor(0, 0, mgfx_ctx.gl.width, mgfx_ctx.gl.height);
+        const bool msaa = gl->default_msaa.samples > 1;
+
+        glBindFramebuffer(GL_FRAMEBUFFER, msaa ? gl->default_msaa.fbo : 0);
+        glViewport(0, 0, gl->width, gl->height);
+        glScissor(0, 0, gl->width, gl->height);
         glClearColor(pass->clear.r, pass->clear.g, pass->clear.b, pass->clear.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        mgfx_ctx.gl.current_pass.height = mgfx_ctx.gl.height;
+
+        gl->current_pass.height = gl->height;
+        gl->current_pass.to_default_msaa = msaa;
         return;
     }
 
-    glBindFramebuffer(GL_FRAMEBUFFER, mgfx_ctx.gl.scratch_framebuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gl->scratch_framebuffer);
     GLenum draw_buffers[MGFX_MAX_COLOR_ATTACHMENTS];
     uint32_t width = 0, height = 0;
+    uint32_t pass_samples = 0;
     uint32_t color_count = 0;
+
     for (; color_count < MGFX_MAX_COLOR_ATTACHMENTS && pass->color_images[color_count]; color_count++)
     {
         mgfx_gl_image *img = (mgfx_gl_image*)pass->color_images[color_count];
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + color_count, img->texture_target, img->texture_id, 0);
+        mgfx_gl_image *resolve = (mgfx_gl_image*)pass->resolve_images[color_count];
+
+        mgfx_gl_attach(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + color_count, img);
         draw_buffers[color_count] = GL_COLOR_ATTACHMENT0 + color_count;
 
         if (color_count == 0)
         {
             width = img->width;
             height = img->height;
+            pass_samples = img->samples;
         }
         else
         {
             MGFX_ASSERT(img->width == width && img->height == height, "Mismatched color attachment sizes");
+            MGFX_ASSERT(img->samples == pass_samples, "Mismatched color attachment sample counts");
         }
+
+        if (resolve)
+        {
+            MGFX_ASSERT(img->samples > 1, "Resolve image given for a single-sampled attachment.");
+            MGFX_ASSERT(resolve->samples == 1, "Resolve image must be single-sampled.");
+            MGFX_ASSERT(resolve->width == img->width && resolve->height == img->height, "Resolve image size must match the MSAA attachment.");
+            MGFX_ASSERT(resolve->internal_format == img->internal_format, "Resolve image format must match the MSAA attachment.");
+        }
+
+        gl->current_pass.color_images[color_count] = img;
+        gl->current_pass.resolve_images[color_count] = resolve;
     }
+    gl->current_pass.color_count = color_count;
+
     for (uint32_t i = color_count; i < MGFX_MAX_COLOR_ATTACHMENTS; i++)
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, 0, 0);
     if (color_count > 0)
@@ -4581,7 +4960,8 @@ static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
         GLenum attachment = (depth->format == GL_DEPTH_STENCIL)
             ? GL_DEPTH_STENCIL_ATTACHMENT
             : GL_DEPTH_ATTACHMENT;
-        glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, depth->texture_target, depth->texture_id, 0);
+        mgfx_gl_attach(GL_FRAMEBUFFER, attachment, depth);
+
         if (color_count == 0)
         {
             width = depth->width;
@@ -4590,6 +4970,7 @@ static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
         else
         {
             MGFX_ASSERT(depth->width == width && depth->height == height, "Depth attachment size mismatch");
+            MGFX_ASSERT(depth->samples == pass_samples, "Depth attachment sample count mismatch");
         }
     }
     else
@@ -4602,13 +4983,16 @@ static void mgfx_gl_bind_pass(const mgfx_pass_info *pass)
     if (depth) clear_mask |= GL_DEPTH_BUFFER_BIT;
     glClear(clear_mask);
 
-    mgfx_ctx.gl.current_pass.height = height;
+    gl->current_pass.height = height;
 }
 
 static void mgfx_gl_resize(uint32_t width, uint32_t height)
 {
     mgfx_ctx.gl.width = width;
     mgfx_ctx.gl.height = height;
+
+    mgfx_gl_destroy_default_msaa();
+    mgfx_gl_create_default_msaa();
 }
 
 static void mgfx_gl_vsync(bool vsync)
@@ -4620,18 +5004,20 @@ static void mgfx_gl_vsync(bool vsync)
 static void mgfx_gl_init(const mgfx_init_info *init_info)
 {
     mgfx_ctx.gl = (mgfx_gl_context){ 0 };
-    
+
     _mgfx_gl_load_platform(init_info->primary_handle, init_info->secondary_handle);
 #if !defined(__EMSCRIPTEN__)
     _mgfx_gl_load_opengl();
 #endif
-    
+
+    mgfx_ctx.gl.msaa_requested = init_info->msaa;
     mgfx_gl_resize(init_info->width, init_info->height);
     _mgfx_gl_set_swap_interval(init_info->vsync);
     mgfx_ctx.gl.vsync = init_info->vsync;
-    
+
     glGenVertexArrays(1, &mgfx_ctx.gl.vao);
     glGenFramebuffers(1, &mgfx_ctx.gl.scratch_framebuffer);
+    glGenFramebuffers(1, &mgfx_ctx.gl.resolve_framebuffer);
     glGenBuffers(MGFX_MAX_BINDABLE_UNIFORMS, mgfx_ctx.gl.uniform_buffers);
     for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_UNIFORMS; i++)
     {
@@ -4644,7 +5030,9 @@ static void mgfx_gl_init(const mgfx_init_info *init_info)
 
 static void mgfx_gl_shutdown(void)
 {
+    mgfx_gl_destroy_default_msaa();
     glDeleteBuffers(MGFX_MAX_BINDABLE_UNIFORMS, mgfx_ctx.gl.uniform_buffers);
+    glDeleteFramebuffers(1, &mgfx_ctx.gl.resolve_framebuffer);
     glDeleteFramebuffers(1, &mgfx_ctx.gl.scratch_framebuffer);
     glDeleteVertexArrays(1, &mgfx_ctx.gl.vao);
 #if !defined(__EMSCRIPTEN__)
@@ -4661,6 +5049,7 @@ static mgfx_result mgfx_gl_begin(void)
 
 static void mgfx_gl_end(void)
 {
+    mgfx_gl_resolve_pass();
     _mgfx_gl_swapbuffers();
 }
 
@@ -4922,10 +5311,75 @@ static inline UINT mgfx_d3d11_get_bind_flags(mgfx_buffer_usage usage)
     return D3D11_BIND_VERTEX_BUFFER;
 }
 
+static uint32_t mgfx_d3d11_clamp_samples(DXGI_FORMAT format, mgfx_msaa msaa)
+{
+    for (uint32_t samples = msaa; samples > 1; samples >>= 1)
+    {
+        UINT levels = 0;
+        MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CheckMultisampleQualityLevels, format, samples, &levels);
+        if (levels > 0)
+            return samples;
+    }
+    return 1;
+}
+
+static void mgfx_d3d11_destroy_msaa_target(void)
+{
+    MGFX_D3D11_SAFE_RELEASE(mgfx_ctx.d3d11.msaa_view);
+    MGFX_D3D11_SAFE_RELEASE(mgfx_ctx.d3d11.msaa_texture);
+}
+
+static void mgfx_d3d11_create_msaa_target(void)
+{
+    mgfx_d3d11_context *d = &mgfx_ctx.d3d11;
+
+    if (d->msaa_samples <= 1)
+        return;
+
+    D3D11_TEXTURE2D_DESC desc = {
+        .Width = d->width,
+        .Height = d->height,
+        .MipLevels = 1,
+        .ArraySize = 1,
+        .Format = DXGI_FORMAT_B8G8R8A8_UNORM,
+        .SampleDesc = { .Count = d->msaa_samples },
+        .Usage = D3D11_USAGE_DEFAULT,
+        .BindFlags = D3D11_BIND_RENDER_TARGET
+    };
+
+    MGFX_D3D11_CALL(d->device, CreateTexture2D, &desc, NULL, &d->msaa_texture);
+    MGFX_D3D11_CALL(d->device, CreateRenderTargetView, (ID3D11Resource*)d->msaa_texture, NULL, &d->msaa_view);
+}
+
+static void mgfx_d3d11_resolve_pass(void)
+{
+    mgfx_d3d11_context *d = &mgfx_ctx.d3d11;
+
+    if (d->current_pass.to_default_msaa)
+    {
+        ID3D11Texture2D *backbuffer = NULL;
+        MGFX_D3D11_CALL(d->swapchain, GetBuffer, 0, MGFX_IID(IID_ID3D11Texture2D), (void**)&backbuffer);
+        MGFX_D3D11_CALL(d->immediate_context, ResolveSubresource,
+            (ID3D11Resource*)backbuffer, 0, (ID3D11Resource*)d->msaa_texture, 0, DXGI_FORMAT_B8G8R8A8_UNORM);
+        MGFX_D3D11_CALL0(backbuffer, Release);
+    }
+
+    for (uint32_t i = 0; i < d->current_pass.color_count; i++)
+    {
+        mgfx_d3d11_image *src = d->current_pass.color_images[i];
+        mgfx_d3d11_image *dst = d->current_pass.resolve_images[i];
+        if (dst)
+            MGFX_D3D11_CALL(d->immediate_context, ResolveSubresource, dst->texture, 0, src->texture, 0, src->format);
+    }
+
+    d->current_pass.color_count = 0;
+    d->current_pass.to_default_msaa = false;
+}
+
 static void mgfx_d3d11_init(const mgfx_init_info *init_info)
 {
     mgfx_ctx.d3d11 = (mgfx_d3d11_context){ 0 };
-    
+
     DXGI_SWAP_CHAIN_DESC sd = {
         .BufferDesc = {
             .Width = (UINT)init_info->width,
@@ -4965,6 +5419,11 @@ static void mgfx_d3d11_init(const mgfx_init_info *init_info)
 
     MGFX_ASSERT(SUCCEEDED(hr) && mgfx_ctx.d3d11.swapchain && mgfx_ctx.d3d11.device, "D3D11CreateDeviceAndSwapChain failed.");
 
+    mgfx_ctx.d3d11.width = init_info->width;
+    mgfx_ctx.d3d11.height = init_info->height;
+    mgfx_ctx.d3d11.vsync = init_info->vsync;
+    mgfx_ctx.d3d11.msaa_samples = mgfx_d3d11_clamp_samples(DXGI_FORMAT_B8G8R8A8_UNORM, init_info->msaa);
+
     ID3D11Texture2D *backbuffer;
     hr = MGFX_D3D11_CALL(mgfx_ctx.d3d11.swapchain, GetBuffer, 0, MGFX_IID(IID_ID3D11Texture2D), (void**)&backbuffer);
     MGFX_ASSERT(SUCCEEDED(hr) && backbuffer, "Failed to get D3D11 swapchain backbuffer.");
@@ -4972,15 +5431,14 @@ static void mgfx_d3d11_init(const mgfx_init_info *init_info)
     hr = MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateRenderTargetView, (ID3D11Resource*)backbuffer, NULL, &mgfx_ctx.d3d11.target_view);
     MGFX_D3D11_CALL0(backbuffer, Release);
     MGFX_ASSERT(SUCCEEDED(hr), "Failed to create D3D11 render target view.");
-    
-    mgfx_ctx.d3d11.width = init_info->width;
-    mgfx_ctx.d3d11.height = init_info->height;
-    mgfx_ctx.d3d11.vsync = init_info->vsync;
+
+    mgfx_d3d11_create_msaa_target();
 }
 
 static void mgfx_d3d11_shutdown(void)
 {
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.immediate_context, ClearState);
+    mgfx_d3d11_destroy_msaa_target();
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.target_view, Release);
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.swapchain, Release);
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.immediate_context, Release);
@@ -4991,24 +5449,27 @@ static void mgfx_d3d11_resize_backbuffer(void)
 {
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.immediate_context, ClearState);
     MGFX_D3D11_CALL0(mgfx_ctx.d3d11.immediate_context, Flush);
-    
+
     MGFX_D3D11_SAFE_RELEASE(mgfx_ctx.d3d11.target_view);
-    
+    mgfx_d3d11_destroy_msaa_target();
+
     HRESULT hr = MGFX_D3D11_CALL(mgfx_ctx.d3d11.swapchain, ResizeBuffers, 0, mgfx_ctx.d3d11.width, mgfx_ctx.d3d11.height, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
-    
+
     if (FAILED(hr))
         return;
-    
+
     ID3D11Texture2D* backbuffer = NULL;
-    
+
     hr = MGFX_D3D11_CALL(mgfx_ctx.d3d11.swapchain, GetBuffer, 0, MGFX_IID(IID_ID3D11Texture2D), (void**)&backbuffer);
-    
+
     if (FAILED(hr))
         return;
-    
+
     hr = MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateRenderTargetView, (ID3D11Resource*)backbuffer, NULL, &mgfx_ctx.d3d11.target_view);
-    
+
     MGFX_D3D11_CALL0(backbuffer, Release);
+
+    mgfx_d3d11_create_msaa_target();
 }
 
 static mgfx_result mgfx_d3d11_begin(void)
@@ -5023,6 +5484,7 @@ static mgfx_result mgfx_d3d11_begin(void)
 
 static void mgfx_d3d11_end(void)
 {
+    mgfx_d3d11_resolve_pass();
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.swapchain, Present, mgfx_ctx.d3d11.vsync, 0);
 }
 
@@ -5254,6 +5716,8 @@ static void mgfx_d3d11_update_image(mgfx_d3d11_image *image, const mgfx_image_up
 
 static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *create_info)
 {
+    mgfx_validate_msaa_image(create_info);
+
     mgfx_d3d11_image *image = (mgfx_d3d11_image*)calloc(1, sizeof(mgfx_d3d11_image));
 
     const bool is_cube = create_info->type == MGFX_IMAGE_TYPE_CUBE;
@@ -5262,6 +5726,10 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
     const uint32_t depth = mgfx_image_depth(create_info);
     const uint32_t array_size = is_array ? depth : 1;
     const uint32_t mip_levels = create_info->mip_count == 0 ? 1 : create_info->mip_count;
+
+    const DXGI_FORMAT check_format = (create_info->usage & MGFX_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT)
+        ? mgfx_d3d11_get_dsv_format(create_info->format) : format;
+    const uint32_t samples = mgfx_d3d11_clamp_samples(check_format, create_info->msaa);
 
     MGFX_ASSERT(!(create_info->memory == MGFX_MEMORY_SHARED && (mip_levels > 1 || array_size > 1)),
         "D3D11 dynamic (MGFX_MEMORY_SHARED) images only support a single mip level and a single layer.");
@@ -5279,7 +5747,7 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
             .MipLevels = mip_levels,
             .ArraySize = array_size,
             .Format = format,
-            .SampleDesc = { .Count = 1 }
+            .SampleDesc = { .Count = samples }
         };
 
         if (is_cube)
@@ -5303,7 +5771,11 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
 
         MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateTexture2D, &texture_desc, NULL, (ID3D11Texture2D**)&image->texture);
 
-        if (is_cube)
+        if (samples > 1)
+        {
+            view_desc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2DMS;
+        }
+        else if (is_cube)
         {
             view_desc.TextureCube.MostDetailedMip = 0;
             view_desc.TextureCube.MipLevels = mip_levels;
@@ -5353,14 +5825,24 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
     image->depth = depth;
     image->mip_levels = mip_levels;
     image->bpp = mgfx_format_bpp(create_info->format);
+    image->format = format;
+    image->samples = samples;
     image->is_array = is_array;
     image->shared_memory = create_info->memory == MGFX_MEMORY_SHARED;
 
-    mgfx_image_update_info initial_data;
-    memcpy(initial_data.subimages, create_info->subimages, sizeof(initial_data.subimages));
-    mgfx_d3d11_update_image(image, &initial_data);
+    bool has_data = false;
+    for (uint32_t i = 0; i < MGFX_MAX_MIPMAPS; i++)
+        has_data |= create_info->subimages[i] != NULL;
 
-    MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateShaderResourceView, (ID3D11Resource*)image->texture, &view_desc, &image->view);
+    if (has_data)
+    {
+        mgfx_image_update_info initial_data;
+        memcpy(initial_data.subimages, create_info->subimages, sizeof(initial_data.subimages));
+        mgfx_d3d11_update_image(image, &initial_data);
+    }
+
+    if (create_info->usage & MGFX_IMAGE_USAGE_SAMPLED)
+        MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateShaderResourceView, (ID3D11Resource*)image->texture, &view_desc, &image->view);
 
     if (create_info->usage & MGFX_IMAGE_USAGE_COLOR_ATTACHMENT)
     {
@@ -5372,6 +5854,10 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
             rtv_desc.Texture3D.MipSlice = 0;
             rtv_desc.Texture3D.FirstWSlice = 0;
             rtv_desc.Texture3D.WSize = depth;
+        }
+        else if (samples > 1)
+        {
+            rtv_desc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
         }
         else if (is_array)
         {
@@ -5392,9 +5878,10 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
     {
         D3D11_DEPTH_STENCIL_VIEW_DESC dsv_desc = {
             .Format = mgfx_d3d11_get_dsv_format(create_info->format),
-            .ViewDimension = is_array ? D3D11_DSV_DIMENSION_TEXTURE2DARRAY : D3D11_DSV_DIMENSION_TEXTURE2D
+            .ViewDimension = samples > 1 ? D3D11_DSV_DIMENSION_TEXTURE2DMS
+                : is_array ? D3D11_DSV_DIMENSION_TEXTURE2DARRAY : D3D11_DSV_DIMENSION_TEXTURE2D
         };
-        if (is_array)
+        if (samples == 1 && is_array)
         {
             dsv_desc.Texture2DArray.MipSlice = 0;
             dsv_desc.Texture2DArray.FirstArraySlice = 0;
@@ -5407,7 +5894,7 @@ static mgfx_d3d11_image *mgfx_d3d11_create_image(const mgfx_image_create_info *c
         D3D11_UNORDERED_ACCESS_VIEW_DESC uav_desc = {
             .Format = format,
             .ViewDimension = (create_info->type == MGFX_IMAGE_TYPE_3D) ? D3D11_UAV_DIMENSION_TEXTURE3D
-                           : is_array ? D3D11_UAV_DIMENSION_TEXTURE2DARRAY : D3D11_UAV_DIMENSION_TEXTURE2D
+                : is_array ? D3D11_UAV_DIMENSION_TEXTURE2DARRAY : D3D11_UAV_DIMENSION_TEXTURE2D
         };
         if (create_info->type == MGFX_IMAGE_TYPE_3D)
         {
@@ -5497,29 +5984,59 @@ static void mgfx_d3d11_begin_clear_render_target(ID3D11RenderTargetView *color_a
 
 static void mgfx_d3d11_bind_pass(const mgfx_pass_info *pass)
 {
+    mgfx_d3d11_context *d = &mgfx_ctx.d3d11;
+
+    mgfx_d3d11_resolve_pass();
+
     if (!mgfx_valid_pass(pass))
     {
-        MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, OMSetRenderTargets, 1, &mgfx_ctx.d3d11.target_view, NULL);
-        mgfx_d3d11_begin_clear_render_target(mgfx_ctx.d3d11.target_view, pass->clear, mgfx_ctx.d3d11.width, mgfx_ctx.d3d11.height);
+        const bool msaa = d->msaa_samples > 1;
+        ID3D11RenderTargetView *rtv = msaa ? d->msaa_view : d->target_view;
+
+        MGFX_D3D11_CALL(d->immediate_context, OMSetRenderTargets, 1, &rtv, NULL);
+        mgfx_d3d11_begin_clear_render_target(rtv, pass->clear, d->width, d->height);
+
+        d->current_pass.to_default_msaa = msaa;
         return;
     }
 
     ID3D11RenderTargetView *rtvs[MGFX_MAX_COLOR_ATTACHMENTS];
     uint32_t color_count = 0;
     uint32_t width = 0, height = 0;
+    uint32_t pass_samples = 0;
 
     for (; color_count < MGFX_MAX_COLOR_ATTACHMENTS && pass->color_images[color_count]; color_count++)
     {
         mgfx_d3d11_image *img = (mgfx_d3d11_image*)pass->color_images[color_count];
+        mgfx_d3d11_image *resolve = (mgfx_d3d11_image*)pass->resolve_images[color_count];
         rtvs[color_count] = img->rtv;
 
         if (color_count == 0)
         {
             width = img->width;
             height = img->height;
+            pass_samples = img->samples;
         }
-        else MGFX_ASSERT(img->width == width && img->height == height, "Mismatched color attachment sizes");
+        else
+        {
+            MGFX_ASSERT(img->width == width && img->height == height, "Mismatched color attachment sizes");
+            MGFX_ASSERT(img->samples == pass_samples, "Mismatched color attachment sample counts");
+        }
+
+        if (resolve)
+        {
+            MGFX_ASSERT(img->samples > 1, "Resolve image given for a single-sampled attachment.");
+            MGFX_ASSERT(resolve->samples == 1, "Resolve image must be single-sampled.");
+            MGFX_ASSERT(resolve->width == img->width && resolve->height == img->height, "Resolve image size must match the MSAA attachment.");
+            MGFX_ASSERT(resolve->format == img->format, "Resolve image format must match the MSAA attachment.");
+            MGFX_ASSERT(img->format != DXGI_FORMAT_R32_UINT && img->format != DXGI_FORMAT_R32_SINT,
+                "D3D11 cannot resolve integer formats.");
+        }
+
+        d->current_pass.color_images[color_count] = img;
+        d->current_pass.resolve_images[color_count] = resolve;
     }
+    d->current_pass.color_count = color_count;
 
     mgfx_d3d11_image *depth = (mgfx_d3d11_image*)pass->depth_stencil_image;
     if (depth)
@@ -5529,11 +6046,15 @@ static void mgfx_d3d11_bind_pass(const mgfx_pass_info *pass)
             width = depth->width;
             height = depth->height;
         }
-        else MGFX_ASSERT(depth->width == width && depth->height == height, "Depth attachment size mismatch");
+        else
+        {
+            MGFX_ASSERT(depth->width == width && depth->height == height, "Depth attachment size mismatch");
+            MGFX_ASSERT(depth->samples == pass_samples, "Depth attachment sample count mismatch");
+        }
     }
 
-    MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, OMSetRenderTargets, color_count, rtvs, depth ? depth->dsv : NULL);
-    
+    MGFX_D3D11_CALL(d->immediate_context, OMSetRenderTargets, color_count, rtvs, depth ? depth->dsv : NULL);
+
     mgfx_d3d11_viewport(0, 0, width, height);
     mgfx_d3d11_scissor(0, 0, width, height);
 
@@ -5545,10 +6066,10 @@ static void mgfx_d3d11_bind_pass(const mgfx_pass_info *pass)
     };
 
     for (uint32_t i = 0; i < color_count; i++)
-        MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, ClearRenderTargetView, rtvs[i], clear_color);
+        MGFX_D3D11_CALL(d->immediate_context, ClearRenderTargetView, rtvs[i], clear_color);
 
     if (depth)
-        MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, ClearDepthStencilView, depth->dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+        MGFX_D3D11_CALL(d->immediate_context, ClearDepthStencilView, depth->dsv, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 }
 
 static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_create_info *create_info)
@@ -5563,8 +6084,8 @@ static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_creat
         const mgfx_shader_source *cs = &create_info->shader.compute;
         
         D3DCompile(cs->code, cs->size, NULL, NULL, NULL,
-                    "main", "cs_5_0", 0, 0, &cs_blob, &error_blob
-                    );
+            "main", "cs_5_0", 0, 0, &cs_blob, &error_blob
+        );
         
         MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateComputeShader, MGFX_D3D11_CALL0(cs_blob, GetBufferPointer), MGFX_D3D11_CALL0(cs_blob, GetBufferSize), NULL, &pipeline->compute_shader);
         
@@ -5593,12 +6114,12 @@ static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_creat
     const mgfx_shader_source *fg = &create_info->shader.fragment;
     
     D3DCompile(vs->code, vs->size, NULL, NULL, NULL,
-                "main", "vs_5_0", 0, 0, &vs_blob, &error_blob
-                );
+        "main", "vs_5_0", 0, 0, &vs_blob, &error_blob
+    );
     
     D3DCompile(fg->code, fg->size, NULL, NULL, NULL,
-                "main", "ps_5_0", 0, 0, &ps_blob, &error_blob
-                );
+        "main", "ps_5_0", 0, 0, &ps_blob, &error_blob
+    );
     
     if (error_blob)
     {
@@ -5609,18 +6130,18 @@ static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_creat
     void *vs_buffer_ptr = MGFX_D3D11_CALL0(vs_blob, GetBufferPointer);
     size_t vs_buffer_size = MGFX_D3D11_CALL0(vs_blob, GetBufferSize);
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateVertexShader,
-                    vs_buffer_ptr,
-                    vs_buffer_size,
-                    NULL,
-                    &pipeline->vertex_shader
-                    );
+        vs_buffer_ptr,
+        vs_buffer_size,
+        NULL,
+        &pipeline->vertex_shader
+    );
     
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreatePixelShader,
-                    MGFX_D3D11_CALL0(ps_blob, GetBufferPointer),
-                    MGFX_D3D11_CALL0(ps_blob, GetBufferSize),
-                    NULL,
-                    &pipeline->pixel_shader
-                    );
+        MGFX_D3D11_CALL0(ps_blob, GetBufferPointer),
+        MGFX_D3D11_CALL0(ps_blob, GetBufferSize),
+        NULL,
+        &pipeline->pixel_shader
+    );
     
     if (create_info->vertex_layout[0])
     {
@@ -5653,7 +6174,8 @@ static mgfx_d3d11_pipeline *mgfx_d3d11_create_pipeline(const mgfx_pipeline_creat
         .CullMode = mgfx_d3d11_get_cull_mode(create_info->cull_mode),
         .FrontCounterClockwise = create_info->front_face == MGFX_FRONT_FACE_CCW,
         .DepthClipEnable = TRUE,
-        .ScissorEnable = TRUE
+        .ScissorEnable = TRUE,
+        .MultisampleEnable = create_info->msaa != MGFX_MSAA_NONE
     };
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.device, CreateRasterizerState, &raster_desc, &pipeline->raster_state);
     

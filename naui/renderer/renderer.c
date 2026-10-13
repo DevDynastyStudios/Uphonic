@@ -652,6 +652,7 @@ void naui_renderer_initialize(void)
         .secondary_handle = mgapp_secondary_handle(),
         .width = mgapp_width(),
         .height = mgapp_height(),
+        .msaa = MGFX_MSAA_X4,
         .vsync = true
     });
 
@@ -696,7 +697,8 @@ void naui_renderer_initialize(void)
             .src_alpha_blend_factor = MGFX_BLEND_FACTOR_ONE,
             .dst_alpha_blend_factor = MGFX_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
             .alpha_blend_op = MGFX_BLEND_OP_ADD
-        }
+        },
+        .msaa = MGFX_MSAA_X4
     });
 
     rdata->linear_sampler = mgfx_create_sampler(&(mgfx_sampler_create_info){

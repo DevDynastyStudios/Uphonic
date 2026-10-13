@@ -18,6 +18,7 @@
     "naui_panel_font_size": 14.0,
     "naui_panel_border_width": 1.0,
     "naui_panel_rounding": 6.0,
+    "uph_logo_color": "#A78BFA",
     "uph_ui_dropdown_shadow_color": "#00000030",
     "uph_ui_dropdown_bg_color": "#0D0C10",
     "uph_ui_scrollbar_bg_color": "#111015",
