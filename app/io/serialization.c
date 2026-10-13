@@ -669,6 +669,8 @@ static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path
 	}
 
 	uph_state.shared.song_timeline_playhead_position = naui_json_get_number(naui_json_object_get(root, "playhead_position"), 0.0);
+	if (isnan(uph_state.shared.song_timeline_playhead_position))
+		uph_state.shared.song_timeline_playhead_position = 0.0;
 
 	const Naui_JsonValue* version = naui_json_object_get(root, "version");
 	if (version && version->type == NAUI_JSON_ARRAY)

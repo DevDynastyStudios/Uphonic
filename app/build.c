@@ -67,7 +67,18 @@
 #include "core/audio_engine.c"
 
 #include "panels/file_dialog.c"
+
+#include "panels/song_timeline/song_timeline.h"
+#include "panels/song_timeline/song_timeline_automation.c"
+#include "panels/song_timeline/song_timeline_track_list.c"
+#include "panels/song_timeline/song_timeline_track.c"
+#include "panels/song_timeline/song_timeline_block.c"
+#include "panels/song_timeline/song_timeline_block_render.c"
+#include "panels/song_timeline/song_timeline_toolbox.c"
+#include "panels/song_timeline/song_timeline_ruler.c"
+#include "panels/song_timeline/song_timeline_input.c"
 #include "panels/song_timeline.c"
+
 #include "panels/mixer.c"
 #include "panels/resource_list.c"
 #include "panels/plugin_list.c"
