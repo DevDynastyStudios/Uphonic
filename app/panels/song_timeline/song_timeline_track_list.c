@@ -1,13 +1,3 @@
-static void _uph_song_timeline_toggle_track_state(Uph_Track *track, Uph_TrackState flag, const char *action)
-{
-	Uph_ActionTrackState data = {
-		.track = uph_action_track_ref(track),
-		.old_state = track->state,
-		.new_state = track->state ^ flag
-	};
-	naui_action_execute_stack(action, data);
-}
-
 static void _uph_song_timeline_finish_rename(Uph_Track *track)
 {
 	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
@@ -154,7 +144,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 				})
 				{
 					if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
-						_uph_song_timeline_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+						uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
 					if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), uph_state.project.soloed_track == track))
 					{
 						Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
@@ -167,7 +157,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 						(Naui_Vec2) { button_size, button_size },
 						text_color,
 						track->state & UPH_TRACK_ARMED
-					)) _uph_song_timeline_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
+					)) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
 				}
 			}
 		}

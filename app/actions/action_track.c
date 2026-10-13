@@ -66,17 +66,60 @@ typedef struct
 
 #pragma region Track References
 
+#define UPH_ACTION_TRACK_TOP          (-1)
+#define UPH_ACTION_TRACK_MASTER       (-2)
+#define UPH_ACTION_TRACK_MASTER_INDEX UINT32_MAX
+
+static inline bool uph_action_track_ref_is_master(Uph_ActionTrackRef ref)
+{
+	return ref.parent == UPH_ACTION_TRACK_TOP && ref.index == UPH_ACTION_TRACK_MASTER_INDEX;
+}
+
+static Uph_ActionTrackRef uph_action_track_subref(Uph_ActionTrackRef parent, uint32_t index)
+{
+	if (uph_action_track_ref_is_master(parent))
+		return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_MASTER, index };
+
+	return (Uph_ActionTrackRef){ (int32_t)parent.index, index };
+}
+
+static Naui_List(Uph_Track) *uph_action_track_list_ptr(int32_t parent)
+{
+	Uph_Project *project = &uph_state.project;
+
+	if (parent == UPH_ACTION_TRACK_TOP)
+		return &project->tracks;
+
+	if (parent == UPH_ACTION_TRACK_MASTER)
+		return &project->master_track.subtracks;
+
+	if (parent >= 0 && (uint32_t)parent < (uint32_t)naui_list_len(project->tracks))
+		return &project->tracks[parent].subtracks;
+
+	return NULL;
+}
+
 Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
 {
 	const Uph_ActionTrackRef invalid = { UPH_ACTION_TRACK_INVALID, 0 };
 	if (!track)
 		return invalid;
 
+	const Uph_Track *master = &uph_state.project.master_track;
+	if (track == master)
+		return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_TOP, UPH_ACTION_TRACK_MASTER_INDEX };
+
+	for (uint32_t s = 0; s < (uint32_t)naui_list_len(master->subtracks); s++)
+	{
+		if (&master->subtracks[s] == track)
+			return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_MASTER, s };
+	}
+
 	Naui_List(Uph_Track) tracks = uph_state.project.tracks;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		if (&tracks[i] == track)
-			return (Uph_ActionTrackRef){ -1, i };
+			return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_TOP, i };
 
 		for (uint32_t s = 0; s < (uint32_t)naui_list_len(tracks[i].subtracks); s++)
 		{
@@ -88,24 +131,20 @@ Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
 	return invalid;
 }
 
+
 Uph_Track *uph_action_track_resolve(Uph_ActionTrackRef ref)
 {
 	if (ref.parent == UPH_ACTION_TRACK_INVALID)
 		return NULL;
 
-	Naui_List(Uph_Track) list = uph_state.project.tracks;
-	if (ref.parent >= 0)
-	{
-		if ((uint32_t)ref.parent >= (uint32_t)naui_list_len(list))
-			return NULL;
+	if (uph_action_track_ref_is_master(ref))
+		return &uph_state.project.master_track;
 
-		list = list[ref.parent].subtracks;
-	}
-
-	if (ref.index >= (uint32_t)naui_list_len(list))
+	Naui_List(Uph_Track) *list = uph_action_track_list_ptr(ref.parent);
+	if (!list || ref.index >= (uint32_t)naui_list_len(*list))
 		return NULL;
 
-	return &list[ref.index];
+	return &(*list)[ref.index];
 }
 
 typedef struct
@@ -129,11 +168,14 @@ static Uph_Track *uph_action_track_pointer_shift(Uph_ActionTrackRef ref, Uph_Act
 	if (ref.parent == UPH_ACTION_TRACK_INVALID)
 		return NULL;
 
+	if (uph_action_track_ref_is_master(ref))
+		return uph_action_track_resolve(ref);
+
 	if (delta < 0)
 	{
 		if (ref.parent == changed.parent && ref.index == changed.index)
 			return NULL;
-		if (changed.parent < 0 && ref.parent == (int32_t)changed.index)
+		if (changed.parent == UPH_ACTION_TRACK_TOP && ref.parent == (int32_t)changed.index)
 			return NULL;
 	}
 
@@ -142,7 +184,7 @@ static Uph_Track *uph_action_track_pointer_shift(Uph_ActionTrackRef ref, Uph_Act
 		if (delta > 0 ? ref.index >= changed.index : ref.index > changed.index)
 			ref.index = (uint32_t)((int32_t)ref.index + delta);
 	}
-	else if (changed.parent < 0 && ref.parent >= 0)
+	else if (changed.parent == UPH_ACTION_TRACK_TOP && ref.parent >= 0)
 	{
 		if (delta > 0 ? ref.parent >= (int32_t)changed.index : ref.parent > (int32_t)changed.index)
 			ref.parent += delta;
@@ -250,23 +292,28 @@ bool _uph_action_track_create_redo(void* userdata)
 bool _uph_action_track_delete_execute(void* userdata)
 {
 	Uph_ActionTrackDelete* data = userdata;
+	if (uph_action_track_ref_is_master(data->track))
+		return false;
+
 	Uph_Track* track = uph_action_track_resolve(data->track);
 	if (!track)
+		return false;
+
+	Naui_List(Uph_Track) *list = uph_action_track_list_ptr(data->track.parent);
+	if (!list)
 		return false;
 
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
 	data->removed = *track;
 	uph_action_track_hide_plugins(&data->removed);
 
-	if (data->track.parent >= 0)
-		naui_list_remove(uph_state.project.tracks[data->track.parent].subtracks, data->track.index);
-	else
-		naui_list_remove(uph_state.project.tracks, data->track.index);
+	naui_list_remove(*list, data->track.index);
 
 	data->deleted = true;
 	uph_action_tracks_changed(before, data->track, -1);
 	return true;
 }
+
 
 bool _uph_action_track_delete_undo(void* userdata)
 {
@@ -274,26 +321,12 @@ bool _uph_action_track_delete_undo(void* userdata)
 	if (!data->deleted)
 		return false;
 
+	Naui_List(Uph_Track) *list = uph_action_track_list_ptr(data->track.parent);
+	if (!list || data->track.index > (uint32_t)naui_list_len(*list))
+		return false;
+
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-
-	if (data->track.parent >= 0)
-	{
-		if ((uint32_t)data->track.parent >= (uint32_t)naui_list_len(uph_state.project.tracks))
-			return false;
-
-		Uph_Track* parent = &uph_state.project.tracks[data->track.parent];
-		if (data->track.index > (uint32_t)naui_list_len(parent->subtracks))
-			return false;
-
-		naui_list_insert(parent->subtracks, data->removed, data->track.index);
-	}
-	else
-	{
-		if (data->track.index > (uint32_t)naui_list_len(uph_state.project.tracks))
-			return false;
-
-		naui_list_insert(uph_state.project.tracks, data->removed, data->track.index);
-	}
+	naui_list_insert(*list, data->removed, data->track.index);
 
 	data->deleted = false;
 	uph_action_tracks_changed(before, data->track, 1);
@@ -482,7 +515,6 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	if (!parent || data->parent.parent >= 0)
 		return false;
 
-	// The action keeps ids so redo still works after plugins were reloaded; resolve them to the live param.
 	Uph_PluginParam* param = uph_resources_find_param(parent, data->effect_index, data->param_id);
 	if (!param)
 		return false;

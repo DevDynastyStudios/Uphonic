@@ -1,7 +1,15 @@
+
+void uph_resources_unload_all_plugins(void);
+void uph_resources_link_tracks(Naui_List(Uph_Track) tracks);
+
+void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list);
+
 void uph_resources_add_track(Naui_String name, int32_t color_index);
 void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_PluginParam *param);
 
 void uph_resources_init_master_track(void);
+
+static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState flag, const char *action);
 
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param);
 bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginParam *param, int32_t *out_effect_index);

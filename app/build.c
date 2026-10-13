@@ -26,7 +26,6 @@
 #include "core/language.c"
 #include "core/audio_engine.h"
 #include "core/resource_manager.h"
-#include "core/resource_manager.c"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
 #include "io/file_signature.h"
@@ -63,6 +62,8 @@
 #include "actions/action_sample.c"
 #include "actions/action_automation.c"
 #include "actions/action_manager.c"
+
+#include "core/resource_manager.c"
 
 #include "core/audio_engine.c"
 

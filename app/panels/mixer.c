@@ -652,8 +652,14 @@ static void uph_mixer_render_track(Uph_Track *track)
             .child_gap = NAUI_DPI(2)
         })
         {
-            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), track->state & UPH_TRACK_MUTED));
-            if (uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == track));
+            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
+                uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+            
+            if (track->type != UPH_RESOURCE_MASTER && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == track))
+            {
+                Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
+                naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
+            }
         }
 
         leaf({
@@ -711,7 +717,7 @@ static void uph_mixer_render_track(Uph_Track *track)
                     (Naui_Vec2) { button_size, button_size },
                     text_color,
                     track->state & UPH_TRACK_ARMED
-                ));
+                )) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
                 if (uph_ui_image_toggle_button(
                     naui_asset_image("uph_icon_headphones"),
                     leaf_id_indexed("uph_mixer_monitor_toggle", track_id),

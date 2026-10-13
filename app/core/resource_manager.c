@@ -20,7 +20,7 @@ static void uph_resources_remove_track_children(Uph_Track *track)
 	naui_list_clear(track->subtracks);
 }
 
-static void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
+void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
 	{
@@ -121,6 +121,16 @@ void uph_resources_init_master_track(void)
 		.volume = 1.0f,
 		.type = UPH_RESOURCE_MASTER
 	};
+}
+
+static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState flag, const char *action)
+{
+	Uph_ActionTrackState data = {
+		.track = uph_action_track_ref(track),
+		.old_state = track->state,
+		.new_state = track->state ^ flag
+	};
+	naui_action_execute_stack(action, data);
 }
 
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param)

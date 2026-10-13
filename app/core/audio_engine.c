@@ -962,6 +962,13 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         playhead_start_beat, timeline_playing
     );
 
+    if (master->state & UPH_TRACK_MUTED)
+    {
+        master->peak_left = 0.0f;
+        master->peak_right = 0.0f;
+        return;
+    }
+
     float master_volume = (float)fabs(master->volume);
     float master_pan    = NAUI_CLAMP(master->pan, -1.0f, 1.0f);
     float master_pan_angle = (master_pan + 1.0f) * 0.25f * (float)NAUI_PI;
