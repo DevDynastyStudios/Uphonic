@@ -4471,7 +4471,7 @@ static void mgfx_gl_resolve_pass(void)
         if (!dst)
             continue;
 
-        glBindFramebuffer(GL_READ_FRAMEBUFFER, gl->scratch_framebuffer); // still holds this pass's attachments
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, gl->scratch_framebuffer);
         glReadBuffer(GL_COLOR_ATTACHMENT0 + i);
 
         glBindFramebuffer(GL_DRAW_FRAMEBUFFER, gl->resolve_framebuffer);
