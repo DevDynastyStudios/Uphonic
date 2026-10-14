@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 135.46666 135.46667"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7, 2026-05-05)"
+   sodipodi:docname="file.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="0.38083965"
+     inkscape:cx="220.56527"
+     inkscape:cy="508.08786"
+     inkscape:window-width="1920"
+     inkscape:window-height="1057"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="rect1"
+       style="fill:#000000;stroke:none;stroke-width:8.66269;stroke-linecap:round;stroke-linejoin:round"
+       d="M 66.896174 5.8151489 L 66.896174 16.682186 L 66.94165 40.222867 C 66.95053 44.882002 63.100536 48.73785 58.441393 48.73811 L 37.380664 48.737076 L 37.380664 48.73811 L 23.964945 48.73811 L 23.964945 124.26735 C 23.964945 127.2502 26.36626 129.65152 29.349113 129.65152 L 106.11755 129.65152 C 109.10041 129.65152 111.50172 127.2502 111.50172 124.26735 L 111.50172 11.199316 C 111.50172 8.2164639 109.10041 5.8151489 106.11755 5.8151489 L 66.896174 5.8151489 z M 58.385583 16.825329 L 58.385583 41.738537 L 58.441393 41.738537 C 59.312877 41.738489 59.94326 41.105718 59.94156 40.234236 L 59.896085 16.825329 L 58.385583 16.825329 z " />
+    <path
+       style="baseline-shift:baseline;display:inline;overflow:visible;vector-effect:none;fill:#000000;stroke-linecap:round;stroke-linejoin:round;enable-background:accumulate;stop-color:#000000"
+       d="M 58.382482,5.8146321 A 5.0005,5.0005 0 0 0 54.849365,7.2791422 L 25.427905,36.699051 a 5.0005,5.0005 0 0 0 3.535185,8.537464 l 29.478303,0.0021 a 5.0005,5.0005 0 0 0 5.000212,-5.01003 L 63.384761,10.804508 A 5.0005,5.0005 0 0 0 60.295027,6.1934203 5.0005,5.0005 0 0 0 58.382482,5.8146321 Z"
+       id="path7" />
+  </g>
+</svg>
