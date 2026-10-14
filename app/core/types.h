@@ -331,6 +331,7 @@ typedef struct
 	uint64_t last_accessed;
 	uint64_t last_modified;
 	float bpm;
+	bool loop_enabled;
 }
 Uph_Project;
 
