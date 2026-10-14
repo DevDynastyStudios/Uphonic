@@ -317,6 +317,9 @@ MGAPP_API int32_t mgapp_mouse_y(void);
 MGAPP_API uint32_t mgapp_dpi(void);
 MGAPP_API float mgapp_dpi_scale(void);
 
+MGAPP_API void mgapp_set_clipboard(const char *text);
+MGAPP_API const char *mgapp_get_clipboard(void);
+
 MGAPP_API void mgapp_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height);
 
 MGAPP_API void *mgapp_primary_handle(void);
@@ -463,6 +466,8 @@ mgapp_win32_state;
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
+
+#include <limits.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -484,6 +489,11 @@ typedef struct
     Atom net_wm_action_maximize_horz;
     Atom net_wm_action_maximize_vert;
 
+    Atom clipboard_atom;
+    Atom utf8_string_atom;
+    Atom targets_atom;
+    Atom clipboard_prop_atom;
+
     Atom xdnd_aware;
     Atom xdnd_enter;
     Atom xdnd_position;
@@ -498,6 +508,9 @@ typedef struct
 
     Window xdnd_source;
     bool xdnd_pending;
+
+    char *clipboard_owned;
+    size_t clipboard_owned_len;
 
     Cursor cursor_table[MG_CURSOR_MAX];
 }
@@ -534,6 +547,8 @@ typedef struct
     void (*show)(bool);
     void (*close)(void);
     void (*set_cursor)(mg_cursor);
+    void (*set_clipboard)(const char*);
+    const char *(*get_clipboard)(void);
 
     bool maximized;
 }
@@ -568,6 +583,7 @@ typedef struct
     uint32_t dpi;
 
     mg_cursor current_cursor;
+    char *clipboard_buffer;
 
     bool running;
     bool close_cancelled;
@@ -773,6 +789,34 @@ float mgapp_dpi_scale(void)
     return mgapp_state.dpi_scale;
 }
 
+static inline void mgapp_clipboard_cache(const char *text, size_t len)
+{
+    if (!text)
+    {
+        free(mgapp_state.clipboard_buffer);
+        mgapp_state.clipboard_buffer = NULL;
+        return;
+    }
+
+    if (text == mgapp_state.clipboard_buffer)
+    {
+        mgapp_state.clipboard_buffer[len] = '\0';
+        return;
+    }
+
+    char *buf = (char*)realloc(mgapp_state.clipboard_buffer, len + 1);
+    if (!buf)
+    {
+        free(mgapp_state.clipboard_buffer);
+        mgapp_state.clipboard_buffer = NULL;
+        return;
+    }
+
+    memcpy(buf, text, len);
+    buf[len] = '\0';
+    mgapp_state.clipboard_buffer = buf;
+}
+
 void mgapp_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
 {
     mgapp_state.caption.x = x;
@@ -883,7 +927,9 @@ static EM_BOOL mgapp_emscripten_key_callback(int32_t event_type, const Emscripte
         mgapp_call_event(&event);
     }
 
-    if (pressed && e->key[0] != '\0' && e->key[1] == '\0')
+    bool shortcut = (e->ctrlKey || e->metaKey) && !e->altKey;
+
+    if (pressed && !shortcut && e->key[0] != '\0' && e->key[1] == '\0')
     {
         unsigned char c = (unsigned char)e->key[0];
         if (c >= 0x20)
@@ -896,6 +942,9 @@ static EM_BOOL mgapp_emscripten_key_callback(int32_t event_type, const Emscripte
             mgapp_call_event(&event);
         }
     }
+
+    if (pressed && (e->ctrlKey || e->metaKey) && strcmp(e->code, "KeyV") == 0)
+        return EM_FALSE;
 
     return EM_TRUE;
 }
@@ -978,6 +1027,11 @@ static void mgapp_emscripten_main_loop(void)
     }
 }
 
+EMSCRIPTEN_KEEPALIVE void mgapp_emscripten_on_paste(const char *text)
+{
+    mgapp_clipboard_cache(text, strlen(text));
+}
+
 int32_t mgapp_run(const mgapp_init_info *info)
 {
     mgapp_state.emscripten.start_time = emscripten_get_now();
@@ -1005,6 +1059,17 @@ int32_t mgapp_run(const mgapp_init_info *info)
     emscripten_set_mousemove_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_move_callback);
     emscripten_set_wheel_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_wheel_callback);
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mgapp_emscripten_resize_callback);
+
+    EM_ASM({
+        window.addEventListener("paste", function(e) {
+            var text = e.clipboardData ? e.clipboardData.getData("text/plain") : "";
+            var size = lengthBytesUTF8(text) + 1;
+            var ptr = _malloc(size);
+            stringToUTF8(text, ptr, size);
+            _mgapp_emscripten_on_paste(ptr);
+            _free(ptr);
+        });
+    });
 
     if (info->events.start)
         info->events.start();
@@ -1073,6 +1138,24 @@ void mgapp_set_cursor(mg_cursor cursor)
     }, MGAPP_EMSCRIPTEN_CANVAS, names[cursor]);
 
     mgapp_state.current_cursor = cursor;
+}
+
+void mgapp_set_clipboard(const char *text)
+{
+    if (!text)
+        return;
+
+    mgapp_clipboard_cache(text, strlen(text));
+    EM_ASM({
+        var text = UTF8ToString($0);
+        if (navigator.clipboard && navigator.clipboard.writeText)
+            navigator.clipboard.writeText(text).catch(function() {});
+    }, text);
+}
+
+const char *mgapp_get_clipboard(void)
+{
+    return mgapp_state.clipboard_buffer;
 }
 
 float mgapp_time(void)
@@ -1607,6 +1690,73 @@ void mgapp_set_cursor(mg_cursor cursor)
     mgapp_state.current_cursor = cursor;
 }
 
+void mgapp_set_clipboard(const char *text)
+{
+    if (!text)
+        return;
+
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+    if (wlen <= 0)
+        return;
+
+    HGLOBAL mem = GlobalAlloc(GMEM_MOVEABLE, (SIZE_T)wlen * sizeof(WCHAR));
+    if (!mem)
+        return;
+
+    WCHAR *dst = (WCHAR*)GlobalLock(mem);
+    if (!dst)
+    {
+        GlobalFree(mem);
+        return;
+    }
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, dst, wlen);
+    GlobalUnlock(mem);
+
+    if (!OpenClipboard(mgapp_state.win32.hwnd))
+    {
+        GlobalFree(mem);
+        return;
+    }
+
+    EmptyClipboard();
+    if (!SetClipboardData(CF_UNICODETEXT, mem))
+        GlobalFree(mem);
+    CloseClipboard();
+}
+
+const char *mgapp_get_clipboard(void)
+{
+    mgapp_clipboard_cache(NULL, 0);
+
+    if (!IsClipboardFormatAvailable(CF_UNICODETEXT))
+        return NULL;
+    if (!OpenClipboard(mgapp_state.win32.hwnd))
+        return NULL;
+
+    HANDLE handle = GetClipboardData(CF_UNICODETEXT);
+    if (handle)
+    {
+        const WCHAR *wide = (const WCHAR*)GlobalLock(handle);
+        if (wide)
+        {
+            int len = WideCharToMultiByte(CP_UTF8, 0, wide, -1, NULL, 0, NULL, NULL);
+            if (len > 0)
+            {
+                char *buf = (char*)malloc((size_t)len);
+                if (buf)
+                {
+                    WideCharToMultiByte(CP_UTF8, 0, wide, -1, buf, len, NULL, NULL);
+                    mgapp_state.clipboard = buf;
+                }
+            }
+            GlobalUnlock(handle);
+        }
+    }
+
+    CloseClipboard();
+    return mgapp_state.clipboard;
+}
+
 float mgapp_time(void)
 {
     LARGE_INTEGER now_time;
@@ -2009,6 +2159,49 @@ static inline void mgapp_xlib_handle_xdnd_selection_notify(mgapp_xlib_state *xli
     xlib_state->xdnd_source = 0;
 }
 
+static inline void mgapp_xlib_handle_selection_request(mgapp_xlib_state *xlib_state, const XSelectionRequestEvent *req)
+{
+    XSelectionEvent reply = {0};
+    reply.type = SelectionNotify;
+    reply.display = req->display;
+    reply.requestor = req->requestor;
+    reply.selection = req->selection;
+    reply.target = req->target;
+    reply.time = req->time;
+    reply.property = None;
+
+    Atom prop = req->property ? req->property : req->target;
+
+    if (req->selection == xlib_state->clipboard_atom && xlib_state->clipboard_owned)
+    {
+        if (req->target == xlib_state->targets_atom)
+        {
+            Atom supported[] = { xlib_state->targets_atom, xlib_state->utf8_string_atom, XA_STRING };
+            XChangeProperty(xlib_state->display, req->requestor, prop, XA_ATOM, 32,
+                PropModeReplace, (unsigned char*)supported, 3);
+            reply.property = prop;
+        }
+        else if (req->target == xlib_state->utf8_string_atom || req->target == XA_STRING)
+        {
+            XChangeProperty(xlib_state->display, req->requestor, prop, req->target, 8,
+                PropModeReplace, (unsigned char*)xlib_state->clipboard_owned,
+                (int)xlib_state->clipboard_owned_len);
+            reply.property = prop;
+        }
+    }
+
+    XSendEvent(xlib_state->display, req->requestor, False, NoEventMask, (XEvent*)&reply);
+    XFlush(xlib_state->display);
+}
+
+static Bool mgapp_xlib_clipboard_predicate(Display *display, XEvent *event, XPointer arg)
+{
+    (void)display;
+    const mgapp_xlib_state *xlib_state = (const mgapp_xlib_state*)arg;
+    return event->type == SelectionNotify &&
+           event->xselection.selection == xlib_state->clipboard_atom;
+}
+
 static int32_t mgapp_xlib_run(const mgapp_init_info *info)
 {
     mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
@@ -2107,6 +2300,11 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
         );
     }
 
+    xlib_state->clipboard_atom = XInternAtom(xlib_state->display, "CLIPBOARD", False);
+    xlib_state->utf8_string_atom = XInternAtom(xlib_state->display, "UTF8_STRING", False);
+    xlib_state->targets_atom = XInternAtom(xlib_state->display, "TARGETS", False);
+    xlib_state->clipboard_prop_atom = XInternAtom(xlib_state->display, "MGAPP_CLIPBOARD", False);
+
     if (info->flags & MGAPP_FLAG_NO_TITLEBAR)
         mgapp_xlib_set_decorated(xlib_state, false);
 
@@ -2171,6 +2369,18 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                 {
                     if (mgapp_state.flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
                         mgapp_xlib_handle_xdnd_selection_notify(xlib_state, &xev.xselection);
+                    break;
+                }
+                case SelectionRequest:
+                {
+                    mgapp_xlib_handle_selection_request(xlib_state, &xev.xselectionrequest);
+                    break;
+                }
+                case SelectionClear:
+                {
+                    free(xlib_state->clipboard_owned);
+                    xlib_state->clipboard_owned = NULL;
+                    xlib_state->clipboard_owned_len = 0;
                     break;
                 }
                 case KeyPress:
@@ -2311,6 +2521,7 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
     if (info->events.end)
         info->events.end();
 
+    free(xlib_state->clipboard_owned);
     XDestroyWindow(xlib_state->display, xlib_state->window);
     XCloseDisplay(xlib_state->display);
 
@@ -2392,6 +2603,83 @@ void mgapp_xlib_set_cursor(mg_cursor cursor)
     XFlush(xlib_state->display);
 }
 
+void mgapp_xlib_set_clipboard(const char *text)
+{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+    if (!text)
+        return;
+
+    size_t len = strlen(text);
+    char *copy = (char*)malloc(len + 1);
+    if (!copy)
+        return;
+    memcpy(copy, text, len + 1);
+
+    free(xlib_state->clipboard_owned);
+    xlib_state->clipboard_owned = copy;
+    xlib_state->clipboard_owned_len = len;
+
+    XSetSelectionOwner(xlib_state->display, xlib_state->clipboard_atom, xlib_state->window, CurrentTime);
+    XFlush(xlib_state->display);
+}
+
+const char *mgapp_xlib_get_clipboard(void)
+{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+    Display *display = xlib_state->display;
+
+    Window owner = XGetSelectionOwner(display, xlib_state->clipboard_atom);
+
+    if (owner == xlib_state->window)
+    {
+        mgapp_clipboard_cache(xlib_state->clipboard_owned, xlib_state->clipboard_owned_len);
+        return mgapp_state.clipboard_buffer;
+    }
+
+    mgapp_clipboard_cache(NULL, 0);
+    if (owner == None)
+        return NULL;
+
+    XDeleteProperty(display, xlib_state->window, xlib_state->clipboard_prop_atom);
+    XConvertSelection(display, xlib_state->clipboard_atom, xlib_state->utf8_string_atom,
+        xlib_state->clipboard_prop_atom, xlib_state->window, CurrentTime);
+    XFlush(display);
+
+    XEvent event;
+    bool got_reply = false;
+    for (int32_t i = 0; i < 1000 && !got_reply; i++)
+    {
+        if (XCheckIfEvent(display, &event, mgapp_xlib_clipboard_predicate, (XPointer)xlib_state))
+            got_reply = true;
+        else
+        {
+            struct timespec ts = { 0, 1000000 };
+            nanosleep(&ts, NULL);
+        }
+    }
+
+    if (!got_reply || event.xselection.property == None)
+        return NULL;
+
+    Atom actual_type;
+    int32_t actual_format;
+    unsigned long item_count, bytes_after;
+    unsigned char *data = NULL;
+
+    XGetWindowProperty(display, xlib_state->window, xlib_state->clipboard_prop_atom,
+        0, LONG_MAX, True, AnyPropertyType,
+        &actual_type, &actual_format, &item_count, &bytes_after, &data);
+
+    if (data)
+    {
+        if (actual_format == 8 && item_count > 0)
+            mgapp_clipboard_cache((const char*)data, item_count);
+        XFree(data);
+    }
+
+    return mgapp_state.clipboard_buffer;
+}
+
 void *mgapp_xlib_primary_handle(void)
 {
     return (void*)mgapp_state._linux.xlib.window;
@@ -2432,6 +2720,8 @@ int32_t mgapp_run(const mgapp_init_info *info)
         state->show = mgapp_xlib_show;
         state->close = mgapp_xlib_close;
         state->set_cursor = mgapp_xlib_set_cursor;
+        state->set_clipboard = mgapp_xlib_set_clipboard;
+        state->get_clipboard = mgapp_xlib_get_clipboard;
     }
     else if (state->type == MGAPP_LINUX_STATE_WAYLAND)
     {
@@ -2480,6 +2770,16 @@ void mgapp_set_cursor(mg_cursor cursor)
         return;
     mgapp_state._linux.set_cursor(cursor);
     mgapp_state.current_cursor = cursor;
+}
+
+void mgapp_set_clipboard(const char *text)
+{
+    mgapp_state._linux.set_clipboard(text);
+}
+
+const char *mgapp_get_clipboard(void)
+{
+    return mgapp_state._linux.get_clipboard();
 }
 
 void *mgapp_primary_handle(void)

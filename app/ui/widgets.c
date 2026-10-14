@@ -1126,6 +1126,41 @@ bool uph_ui_textfield_active(const Leaf_ID id)
     return data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
+static void uph_ui__textfield_copy_selection(const Uph_TextfieldData *data)
+{
+    if (!data->select_active || data->select_start == data->cursor)
+        return;
+
+    const size_t lo = NAUI_MIN(data->cursor, data->select_start);
+    const size_t hi = NAUI_MAX(data->cursor, data->select_start);
+    Naui_String *s = data->target_string;
+
+    const char saved = s->data[hi];
+    s->data[hi] = '\0';
+    naui_app_set_clipboard(s->data + lo);
+    s->data[hi] = saved;
+}
+
+static void uph_ui__textfield_paste(Uph_TextfieldData *data, Naui_String *value, Uph_UITextFieldFlags flags)
+{
+    const char *clip = naui_app_get_clipboard();
+    if (!clip || !*clip)
+        return;
+
+    uph_ui__textfield_delete_selection(data);
+
+    for (const unsigned char *p = (const unsigned char*)clip; *p; ++p)
+    {
+        if (*p < 0x20 || *p == 0x7F)
+            continue;
+
+        if (!uph_ui__char_allowed(*p, flags, value, data->cursor))
+            continue;
+
+        naui_string_append_char_at(value, (char)*p, data->cursor++);
+    }
+}
+
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
 {
     Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
@@ -1309,6 +1344,19 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             data->select_start = 0;
             data->cursor = value->length;
             data->select_active = (value->length > 0);
+        }
+        else if (ctrl && naui_key_pressed(NAUI_KEY_C))
+        {
+            uph_ui__textfield_copy_selection(data);
+        }
+        else if (ctrl && naui_key_pressed(NAUI_KEY_X))
+        {
+            uph_ui__textfield_copy_selection(data);
+            uph_ui__textfield_delete_selection(data);
+        }
+        else if (ctrl && naui_key_pressed(NAUI_KEY_V))
+        {
+            uph_ui__textfield_paste(data, value, flags);
         }
     }
 

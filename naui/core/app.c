@@ -235,6 +235,16 @@ float naui_app_dpi_scale(void)
     return mgapp_dpi_scale();
 }
 
+void naui_app_set_clipboard(const char *text)
+{
+    return mgapp_set_clipboard(text);
+}
+
+const char *naui_app_get_clipboard(void)
+{
+    return mgapp_get_clipboard();
+}
+
 void naui_app_set_caption_area(int32_t x, int32_t y, int32_t width, int32_t height)
 {
     mgapp_set_caption_area(x, y, width, height);

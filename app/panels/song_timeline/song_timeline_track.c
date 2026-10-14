@@ -44,6 +44,9 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 			drag->track == track &&
 			drag->block_index == i;
 
+		if (!uph_song_timeline_data.tracks_hovered)
+			return;
+
 		if (is_dragging_this_block)
 		{
 			double mouse_beat = ((double)naui_mouse_x() - bbox.x + scroll_x) / zoom_x;
@@ -98,9 +101,6 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 
 			return;
 		}
-
-		if (!uph_song_timeline_data.tracks_hovered)
-			return;
 
 		if (!drag->active)
 		{
