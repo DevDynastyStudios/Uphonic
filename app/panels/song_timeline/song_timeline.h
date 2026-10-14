@@ -143,6 +143,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 
 void uph_song_timeline_update_input(void);
 void uph_song_timeline_update_selection_keys(void);
+void uph_song_timeline_update_empty_space_marquee(void);
 
 void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x);
 void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data);

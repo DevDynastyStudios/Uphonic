@@ -69,3 +69,27 @@ void uph_song_timeline_update_selection_keys(void)
 	else if (naui_key_pressed(NAUI_KEY_ESCAPE))
 		uph_block_select_all(false);
 }
+
+void uph_song_timeline_update_empty_space_marquee(void)
+{
+	Uph_SongTimelineData *data = &uph_song_timeline_data;
+
+	if (data->current_action_mode != UPH_ACTION_SELECT || !data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
+		return;
+
+	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
+		return;
+
+	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + (float)data->visual_row_counter * NAUI_DPI(data->zoom.y);
+	if ((float)naui_mouse_y() < rows_bottom)
+		return;
+
+	const float header_width = naui_theme_float("uph_song_timeline_header_width");
+	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
+	const float origin_x = data->panel_bounding_box.x + NAUI_DPI(header_width + header_padding.x * 2.0f);
+
+	data->marquee.active = true;
+	data->marquee.start_beat = ((double)naui_mouse_x() - origin_x + data->scroll.x) / data->zoom.x;
+	data->marquee.start_content_y = (float)naui_mouse_y() - data->panel_bounding_box.y + data->scroll.y;
+	uph_block_select_all(false);
+}
