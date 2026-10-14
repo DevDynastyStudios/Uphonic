@@ -168,7 +168,7 @@ static bool uph_io_save_settings(const Uph_Project* project, const Naui_Path sav
 
 	naui_json_set_string(&json, root, "projectName", project->title.data);
 	naui_json_set_number(&json, root, "bpm", project->bpm);
-	naui_json_set_number(&json, root, "playhead_position", uph_state.shared.song_timeline_playhead_position);
+	naui_json_set_bool(&json, root, "loop_enabled", uph_state.project.loop_enabled);
 
 	Naui_JsonValue* time_sig_obj = naui_json_set_array(&json, root, "time_sig");
 	naui_json_push_int(&json, time_sig_obj, project->time_signature.numerator);
@@ -668,9 +668,7 @@ static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path
 			project->time_signature = (Uph_TimeSignature){ .numerator = (uint32_t)numerator, .denominator = (uint32_t)denominator };
 	}
 
-	uph_state.shared.song_timeline_playhead_position = naui_json_get_number(naui_json_object_get(root, "playhead_position"), 0.0);
-	if (isnan(uph_state.shared.song_timeline_playhead_position))
-		uph_state.shared.song_timeline_playhead_position = 0.0;
+	project->loop_enabled = naui_json_get_bool(naui_json_object_get(root, "loop_enabled"), false);
 
 	const Naui_JsonValue* version = naui_json_object_get(root, "version");
 	if (version && version->type == NAUI_JSON_ARRAY)

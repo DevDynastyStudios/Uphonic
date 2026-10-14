@@ -1302,8 +1302,9 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
     {
         double buffer_beats = uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
         double new_beat = playhead_start_beat + buffer_beats;
-        if (new_beat >= uph_audio_engine_get_song_length() && !uph_has_active_take(uph_state.project.tracks))
+        if (uph_state.project.loop_enabled && new_beat >= uph_audio_engine_get_song_length() && !uph_has_active_take(uph_state.project.tracks))
             new_beat = 0.0;
+
         uph_state.shared.song_timeline_playhead_position = new_beat;
     }
 }
