@@ -1,4 +1,5 @@
 #define NAUI_IMAGE_ATLAS_SIZE 4096
+#define NAUI_IMAGE_ATLAS_PADDING 1
 
 static Naui_ImageHashEntry *image_hm = NULL;
 
@@ -77,14 +78,16 @@ void naui_asset_manager_load_images(const char *const images_path)
         stbrp_context ctx;
         stbrp_node *nodes = (stbrp_node*)naui_arena_alloc(&temp_arena, sizeof(*nodes) * node_count);
         stbrp_rect *rects = (stbrp_rect*)naui_arena_alloc(&temp_arena, sizeof(*rects) * image_count);
-        uint8_t *pixels =      (uint8_t*)naui_arena_alloc(&temp_arena, atlas_size);
+        uint8_t *pixels = (uint8_t*)naui_arena_alloc(&temp_arena, atlas_size);
+        memset(pixels, 0, atlas_size);
 
         stbrp_init_target(&ctx, NAUI_IMAGE_ATLAS_SIZE, NAUI_IMAGE_ATLAS_SIZE, nodes, node_count);
-        for (int i=0; i < image_count; ++i)
+        for (int i = 0; i < image_count; ++i)
         {
             stbrp_rect *r = &rects[i];
             const Naui_TempImageData *img = &images[i];
-            r->w = img->width, r->h = img->height;
+            r->w = img->width  + NAUI_IMAGE_ATLAS_PADDING;
+            r->h = img->height + NAUI_IMAGE_ATLAS_PADDING;
             r->id = i;
         }
 
@@ -97,20 +100,22 @@ void naui_asset_manager_load_images(const char *const images_path)
         for (int i = 0; i < image_count; ++i)
         {
             const stbrp_rect r = rects[i];
+            const Naui_TempImageData *img = &images[i];
+            const int w = img->width, h = img->height;
             Naui_Image *sprite = &image_hm[i].value;
 
-            for (int y = 0; y < r.h; ++y)
+            for (int y = 0; y < h; ++y)
             {
                 uint8_t *dst_row = pixels + ((r.y + y) * NAUI_IMAGE_ATLAS_SIZE + r.x) * 4;
-                uint8_t *src_row = images[i].pixels + (y * r.w) * 4;
-                memcpy(dst_row, src_row, r.w * 4);
+                const uint8_t *src_row = img->pixels + (y * w) * 4;
+                memcpy(dst_row, src_row, w * 4);
             }
 
             const float inv_img_atlas_size = 1.0f / (float)NAUI_IMAGE_ATLAS_SIZE;
             sprite->texture_area[0] = (float)r.x * inv_img_atlas_size;
             sprite->texture_area[1] = (float)r.y * inv_img_atlas_size;
-            sprite->texture_area[2] = (float)r.w * inv_img_atlas_size;
-            sprite->texture_area[3] = (float)r.h * inv_img_atlas_size;
+            sprite->texture_area[2] = (float)w   * inv_img_atlas_size;
+            sprite->texture_area[3] = (float)h   * inv_img_atlas_size;
         }
 
         extern void naui_renderer_build_atlas(uint32_t width, uint32_t height, void *data);
