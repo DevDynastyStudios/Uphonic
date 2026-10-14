@@ -1746,7 +1746,7 @@ const char *mgapp_get_clipboard(void)
                 if (buf)
                 {
                     WideCharToMultiByte(CP_UTF8, 0, wide, -1, buf, len, NULL, NULL);
-                    mgapp_state.clipboard = buf;
+                    mgapp_state.clipboard_buffer = buf;
                 }
             }
             GlobalUnlock(handle);
@@ -1754,7 +1754,7 @@ const char *mgapp_get_clipboard(void)
     }
 
     CloseClipboard();
-    return mgapp_state.clipboard;
+    return mgapp_state.clipboard_buffer;
 }
 
 float mgapp_time(void)
