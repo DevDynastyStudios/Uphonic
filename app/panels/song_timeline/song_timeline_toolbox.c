@@ -62,7 +62,7 @@ void uph_song_timeline_render_toolbox(void)
 			}
 
 			if (uph_ui_image_toggle_button_ex(
-				naui_asset_image("uph_icon_reset"), // don't have an icon for loop yet
+				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_song_timeline_loop"),
 				(Naui_Vec2){button_size, button_size},
 				icon_color,
