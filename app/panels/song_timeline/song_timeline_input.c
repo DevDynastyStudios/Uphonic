@@ -1,20 +1,28 @@
+static float _uph_song_timeline_content_origin_x(void)
+{
+	const float header_width = naui_theme_float("uph_song_timeline_header_width");
+	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
+	return uph_song_timeline_data.panel_bounding_box.x + NAUI_DPI(header_width + header_padding.x * 2.0f);
+}
+
 void uph_song_timeline_update_input(void)
 {
 	const float wheel_y = (float)naui_mouse_scroll_delta();
 	const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
-	const float max_scroll_y = uph_song_timeline_max_scroll_y();
+	const float max_scroll_y = _uph_song_timeline_content_origin_x();
 
 	if (uph_song_timeline_data.panel_hovered)
 	{
 		if (ctrl_held && wheel_y != 0.0f)
 		{
 			const float old_zoom_x = uph_song_timeline_data.zoom.x;
-			const double mouse_beat_before = ((double)naui_mouse_x() + uph_song_timeline_data.scroll.x) / old_zoom_x;
+			const float mouse_local_x = (float)naui_mouse_x() - max_scroll_y;
+			const double mouse_beat_before = ((double)mouse_local_x + uph_song_timeline_data.scroll.x) / old_zoom_x;
 			float new_zoom_x = old_zoom_x * (1.0f + wheel_y * UPH_SONG_TIMELINE_ZOOM_SPEED);
 
 			new_zoom_x = NAUI_CLAMP(new_zoom_x, UPH_SONG_TIMELINE_ZOOM_X_MIN, UPH_SONG_TIMELINE_ZOOM_X_MAX);
 			uph_song_timeline_data.zoom.x = new_zoom_x;
-			uph_song_timeline_data.scroll.x = (float)(mouse_beat_before * new_zoom_x) - (float)naui_mouse_x();
+			uph_song_timeline_data.scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
 			uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
 		}
 		else if (wheel_y != 0.0f)
@@ -84,9 +92,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	if ((float)naui_mouse_y() < rows_bottom)
 		return;
 
-	const float header_width = naui_theme_float("uph_song_timeline_header_width");
-	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	const float origin_x = data->panel_bounding_box.x + NAUI_DPI(header_width + header_padding.x * 2.0f);
+	const float origin_x = _uph_song_timeline_content_origin_x();
 
 	data->marquee.active = true;
 	data->marquee.start_beat = ((double)naui_mouse_x() - origin_x + data->scroll.x) / data->zoom.x;
