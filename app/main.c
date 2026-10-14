@@ -182,19 +182,19 @@ void naui_app_start(void)
 	uph_state.panels.resource_list = NAUI_ATTACH_PANEL(uph_resource_list);
 	uph_state.panels.mixer = NAUI_ATTACH_PANEL(uph_mixer);
 	uph_state.panels.resource_editor = NAUI_ATTACH_PANEL(uph_resource_editor);
-	naui_close_panel(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
-	naui_close_panel(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
-	naui_close_panel(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
+	naui_panel_close(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
+	naui_panel_close(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
+	naui_panel_close(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
 
 	uph_file_dialog_register();
 
-	naui_set_main_viewport(naui_dock_panel(
-		naui_dock_panel(
+	naui_viewport_set(naui_panel_dock(
+		naui_panel_dock(
 			uph_state.panels.song_timeline,
 			uph_state.panels.resource_list,
 			NAUI_DOCK_DIRECTION_RIGHT, 0.8f
 		),
-		naui_dock_panel(
+		naui_panel_dock(
 			uph_state.panels.mixer,
 			uph_state.panels.resource_editor,
 			NAUI_DOCK_DIRECTION_LEFT, 0.6f
@@ -241,18 +241,18 @@ static void uph_update_master_track_plugins(void)
 	Uph_MasterTrack *master_track = &uph_state.project.master_track;
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(master_track->effects); i++)
 		if (master_track->effects[i].plugin.loaded)
-			uph_update_plugin(&master_track->effects[i].plugin);
+			uph_plugin_update(&master_track->effects[i].plugin);
 }
 
 static void uph_update_all_track_plugins(Uph_Track *track)
 {
 	if (track->instrument.loaded)
-		uph_update_plugin(&track->instrument);
+		uph_plugin_update(&track->instrument);
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
 	{
 		if (track->effects[i].plugin.loaded)
-			uph_update_plugin(&track->effects[i].plugin);
+			uph_plugin_update(&track->effects[i].plugin);
 	}
 
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)

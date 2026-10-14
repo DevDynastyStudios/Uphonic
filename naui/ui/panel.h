@@ -115,15 +115,15 @@ enum
     NAUI_PANEL_FLAG_SERIALIZABLE = 1 << 8
 };
 
-#define NAUI_ATTACH_PANEL(type_name) naui_attach_panel(#type_name)
-#define NAUI_FIND_PANEL_OF_TYPE(type_name) naui_find_panel_of_type(#type_name)
+#define NAUI_ATTACH_PANEL(type_name) naui_panel_attach(#type_name)
+#define NAUI_FIND_PANEL_OF_TYPE(type_name) naui_panel_find_of_type(#type_name)
 
-NAUI_API Naui_PanelID       naui_attach_panel               (const char *type_name);
-NAUI_API void               naui_detach_panel               (Naui_PanelID panel_id);
-NAUI_API void               naui_register_panel_type        (const char *name, Naui_PanelType type);
+NAUI_API Naui_PanelID       naui_panel_attach               (const char *type_name);
+NAUI_API void               naui_panel_detach               (Naui_PanelID panel_id);
+NAUI_API void               naui_panel_register_type        (const char *name, Naui_PanelType type);
 
-NAUI_API void               naui_open_panel                 (Naui_PanelID panel_id);
-NAUI_API void               naui_close_panel                (Naui_PanelID panel_id);
+NAUI_API void               naui_panel_open                 (Naui_PanelID panel_id);
+NAUI_API void               naui_panel_close                (Naui_PanelID panel_id);
 NAUI_API bool               naui_panel_closed               (Naui_PanelID panel_id);
 
 NAUI_API void               naui_panel_set_title            (Naui_PanelID panel_id, const char *title);
@@ -132,26 +132,26 @@ NAUI_API void               naui_panel_set_min_size         (Naui_PanelID panel_
 NAUI_API void               naui_panel_enable_flags         (Naui_PanelID panel_id, Naui_PanelFlags flags);
 NAUI_API void               naui_panel_disable_flags        (Naui_PanelID panel_id, Naui_PanelFlags flags);
 
-NAUI_API void               naui_occlude_all_panels         (void);
+NAUI_API void               naui_panel_occlude_all          (void);
 
-NAUI_API Naui_PanelID       naui_dock_panel                 (Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio);
-NAUI_API void               naui_undock_panel               (Naui_PanelID id);
+NAUI_API Naui_PanelID       naui_panel_dock                 (Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio);
+NAUI_API void               naui_panel_undock               (Naui_PanelID id);
 
-NAUI_API void               naui_set_main_viewport          (Naui_PanelID id);
-NAUI_API Naui_PanelID       naui_get_main_viewport          (void);
+NAUI_API void               naui_viewport_set               (Naui_PanelID id);
+NAUI_API Naui_PanelID       naui_viewport_get               (void);
 
-NAUI_API bool               naui_panel_hovered              (Naui_PanelID id);
-NAUI_API bool               naui_any_panel_hovered          (void);
+NAUI_API bool               naui_panel_is_hovered           (Naui_PanelID id);
+NAUI_API bool               naui_panel_is_any_hovered       (void);
 
-NAUI_API Naui_PanelID       naui_find_panel_of_type         (const char *type_name);
+NAUI_API Naui_PanelID       naui_panel_find_of_type         (const char *type_name);
 
 NAUI_API void               naui_render_panels_and_viewport (void);
-NAUI_API Naui_PanelID       naui_focused_panel              (void);
-NAUI_API Naui_PanelID       naui_current_panel              (void);
-NAUI_API void              *naui_current_panel_data         (void);
+NAUI_API Naui_PanelID       naui_panel_focused              (void);
+NAUI_API Naui_PanelID       naui_panel_current              (void);
+NAUI_API void              *naui_panel_current_data         (void);
 
-NAUI_API bool               naui_serialize_viewport         (const char *file_path);
-NAUI_API bool               naui_deserialize_viewport       (const char *file_path);
+NAUI_API bool               naui_viewport_serialize         (const char *file_path);
+NAUI_API bool               naui_viewport_deserialize       (const char *file_path);
 
 #ifdef _MSC_VER
   #pragma section(".CRT$XCU", read)
@@ -180,7 +180,7 @@ NAUI_API bool               naui_deserialize_viewport       (const char *file_pa
         #name \
     }; \
     NAUI_CONSTRUCTOR_NAMED(_register_##name) { \
-        naui_register_panel_type(#name, _##name##_events); \
+        naui_panel_register_type(#name, _##name##_events); \
     }
 
 #define NAUI_PANEL_WITH_DATA(name, data_type) __NAUI_DEFINE_PANEL_TYPE(name, sizeof(data_type))

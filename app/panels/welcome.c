@@ -39,7 +39,7 @@ static void uph_welcome_content()
 
 static void uph_welcome_on_attach(void)
 {
-    Naui_PanelID self = naui_current_panel();
+    Naui_PanelID self = naui_panel_current();
     naui_panel_set_title(self, "Welcome");
     naui_panel_enable_flags(self, NAUI_PANEL_FLAG_NO_UNDOCK | NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_TITLE);
 }

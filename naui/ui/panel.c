@@ -87,12 +87,12 @@ static inline bool naui_internal_panel_child_hovered(Leaf_ID id)
     return !naui_panel_manager.occlude_all && leaf_hovered(id);
 }
 
-void naui_register_panel_type(const char *name, Naui_PanelType type)
+void naui_panel_register_type(const char *name, Naui_PanelType type)
 {
     naui_strmap_put(naui_panel_manager.panel_type_map, name, type);
 }
 
-Naui_PanelID naui_attach_panel(const char *type_name)
+Naui_PanelID naui_panel_attach(const char *type_name)
 {
     ptrdiff_t type_index = naui_strmap_get_index(naui_panel_manager.panel_type_map, type_name);
     if (type_index < 0)
@@ -195,7 +195,7 @@ static void naui_panel_bring_to_front(Naui_PanelNode *node)
     naui_defer((Naui_DeferredEvent)naui_panel_bring_to_front_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
 }
 
-void naui_open_panel(Naui_PanelID panel_id)
+void naui_panel_open(Naui_PanelID panel_id)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
     if (!node->closed)
@@ -214,7 +214,7 @@ void naui_open_panel(Naui_PanelID panel_id)
         node->type.on_open();
 }
 
-void naui_close_panel(Naui_PanelID panel_id)
+void naui_panel_close(Naui_PanelID panel_id)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
     if (node->closed)
@@ -223,7 +223,7 @@ void naui_close_panel(Naui_PanelID panel_id)
     node->closed = true;
     if (naui_panel_manager.focused_panel == node)
         naui_panel_manager.focused_panel = NULL;
-    naui_undock_panel(panel_id);
+    naui_panel_undock(panel_id);
 
     if (node->type.on_close)
     {
@@ -239,7 +239,7 @@ bool naui_panel_closed(Naui_PanelID panel_id)
     return ((Naui_PanelNode*)panel_id)->closed;
 }
 
-void naui_occlude_all_panels(void)
+void naui_panel_occlude_all(void)
 {
     naui_panel_manager.occlude_all = true;
 }
@@ -250,7 +250,7 @@ static inline void naui_reset_root_indexes(uint32_t from)
         naui_panel_manager.root_nodes[i]->root_index = i;
 }
 
-void naui_set_main_viewport(Naui_PanelID id)
+void naui_viewport_set(Naui_PanelID id)
 {
     naui_panel_manager.main_viewport = (Naui_PanelNode*)id;
     uint32_t removed_index = naui_panel_manager.main_viewport->root_index;
@@ -258,7 +258,7 @@ void naui_set_main_viewport(Naui_PanelID id)
     naui_reset_root_indexes(removed_index);
 }
 
-Naui_PanelID naui_get_main_viewport(void)
+Naui_PanelID naui_viewport_get(void)
 {
     return (Naui_PanelID)naui_panel_manager.main_viewport;
 }
@@ -277,7 +277,7 @@ static inline bool naui_can_dock_center(Naui_PanelNode *node)
     return !naui_panel_manager.dragging_node->children[0];
 }
 
-Naui_PanelID naui_dock_panel(Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio)
+Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio)
 {
     Naui_PanelNode *target = (Naui_PanelNode*)target_id;
     Naui_PanelNode *guest  = (Naui_PanelNode*)guest_id;
@@ -415,7 +415,7 @@ Naui_PanelID naui_dock_panel(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
     return (Naui_PanelID)dock_node;
 }
 
-static void naui_undock_panel_immediate(Naui_PanelNodeWrapper *wrapper)
+static void naui_panel_undock_immediate(Naui_PanelNodeWrapper *wrapper)
 {
     Naui_PanelNode *node = wrapper->node;
 
@@ -533,16 +533,16 @@ static void naui_undock_panel_immediate(Naui_PanelNodeWrapper *wrapper)
     naui_list_push(naui_panel_manager.root_nodes, node);
 }
 
-void naui_undock_panel(Naui_PanelID id)
+void naui_panel_undock(Naui_PanelID id)
 {
     Naui_PanelNodeWrapper node_wrapper = { (Naui_PanelNode*)id };
-    naui_defer((Naui_DeferredEvent)naui_undock_panel_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
+    naui_defer((Naui_DeferredEvent)naui_panel_undock_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
 }
 
-static void naui_detach_panel_immediate(Naui_PanelNodeWrapper *wrapper)
+static void naui_panel_detach_immediate(Naui_PanelNodeWrapper *wrapper)
 {
     Naui_PanelNode *node = wrapper->node;
-    naui_undock_panel_immediate(wrapper);
+    naui_panel_undock_immediate(wrapper);
 
     Naui_PanelNode *prev = naui_panel_manager.current_panel;
     naui_panel_manager.current_panel = node;
@@ -560,10 +560,10 @@ static void naui_detach_panel_immediate(Naui_PanelNodeWrapper *wrapper)
     naui_free_panel_node(node);
 }
 
-void naui_detach_panel(Naui_PanelID panel_id)
+void naui_panel_detach(Naui_PanelID panel_id)
 {
     Naui_PanelNodeWrapper node_wrapper = { (Naui_PanelNode*)panel_id };
-    naui_defer((Naui_DeferredEvent)naui_detach_panel_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
+    naui_defer((Naui_DeferredEvent)naui_panel_detach_immediate, &node_wrapper, sizeof(Naui_PanelNodeWrapper));
 }
 
 static bool naui_range_occludes_point(float mx, float my, uint32_t from, Naui_PanelNode *skip)
@@ -593,42 +593,42 @@ static bool naui_point_occluded_above(float mx, float my, Naui_PanelNode *root)
     return naui_range_occludes_point(mx, my, from, NULL);
 }
 
-bool naui_panel_hovered(Naui_PanelID panel_id)
+bool naui_panel_is_hovered(Naui_PanelID panel_id)
 {
     return !((Naui_PanelNode*)panel_id)->occluded;
 }
 
-bool naui_any_panel_hovered(void)
+bool naui_panel_is_any_hovered(void)
 {
     return naui_panel_manager.any_panel_hovered;
 }
 
-Naui_PanelID naui_focused_panel(void)
+Naui_PanelID naui_panel_focused(void)
 {
     return (Naui_PanelID)naui_panel_manager.focused_panel;
 }
 
-Naui_PanelID naui_current_panel(void)
+Naui_PanelID naui_panel_current(void)
 {
     return (Naui_PanelID)naui_panel_manager.current_panel;
 }
 
-void *naui_current_panel_data(void)
+void *naui_panel_current_data(void)
 {
     return naui_panel_manager.current_panel->user_data;
 }
 
-static Naui_PanelNode *naui_find_panel_of_type_recursive(Naui_PanelNode *node, const char *type_name)
+static Naui_PanelNode *naui_panel_find_of_type_recursive(Naui_PanelNode *node, const char *type_name)
 {
     if (!node)
         return NULL;
 
     if (node->children[0])
     {
-        Naui_PanelNode *found = naui_find_panel_of_type_recursive(node->children[0], type_name);
+        Naui_PanelNode *found = naui_panel_find_of_type_recursive(node->children[0], type_name);
         if (found)
             return found;
-        return naui_find_panel_of_type_recursive(node->children[1], type_name);
+        return naui_panel_find_of_type_recursive(node->children[1], type_name);
     }
 
     if (node->tabs)
@@ -648,18 +648,18 @@ static Naui_PanelNode *naui_find_panel_of_type_recursive(Naui_PanelNode *node, c
     return NULL;
 }
 
-Naui_PanelID naui_find_panel_of_type(const char *type_name)
+Naui_PanelID naui_panel_find_of_type(const char *type_name)
 {
     if (naui_panel_manager.main_viewport)
     {
-        Naui_PanelNode *found = naui_find_panel_of_type_recursive(naui_panel_manager.main_viewport, type_name);
+        Naui_PanelNode *found = naui_panel_find_of_type_recursive(naui_panel_manager.main_viewport, type_name);
         if (found)
             return (Naui_PanelID)found;
     }
 
     for (int32_t i = 0; i < (int32_t)naui_list_len(naui_panel_manager.root_nodes); i++)
     {
-        Naui_PanelNode *found = naui_find_panel_of_type_recursive(naui_panel_manager.root_nodes[i], type_name);
+        Naui_PanelNode *found = naui_panel_find_of_type_recursive(naui_panel_manager.root_nodes[i], type_name);
         if (found)
             return (Naui_PanelID)found;
     }
@@ -771,9 +771,9 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
     bool hovered = node->occluded ? false : leaf_hovered(id);
     node->close_hovered = hovered;
 
-    if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT) && naui_panel_hovered((Naui_PanelID)occlusion_node))
+    if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT) && naui_panel_is_hovered((Naui_PanelID)occlusion_node))
     {
-        naui_close_panel((Naui_PanelID)node);
+        naui_panel_close((Naui_PanelID)node);
         naui_panel_manager.dragging_node = NULL;
     }
 
@@ -1178,7 +1178,7 @@ static inline void naui_apply_pending_undock(Naui_PanelNode *node, Naui_PanelNod
     if (!naui_mouse_dragging(NAUI_MOUSE_LEFT))
         return;
 
-    naui_undock_panel((Naui_PanelID)active_tab);
+    naui_panel_undock((Naui_PanelID)active_tab);
 
     Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed(NAUI_CHILD_PANEL_ID, (Naui_PanelID)node));
     box.width  = fmaxf(box.width,  active_tab->min_size.x);
@@ -1361,15 +1361,15 @@ static void naui_update_panel_dock_guides(Naui_PanelNode *node)
     if (!naui_mouse_released(NAUI_MOUSE_LEFT))
         return;
     if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_LEFT_ID, (Naui_PanelID)node)))
-        naui_dock_panel((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_LEFT, 0.5f);
+        naui_panel_dock((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_LEFT, 0.5f);
     else if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_RIGHT_ID, (Naui_PanelID)node)))
-        naui_dock_panel((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_RIGHT, 0.5f);
+        naui_panel_dock((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_RIGHT, 0.5f);
     else if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_TOP_ID, (Naui_PanelID)node)))
-        naui_dock_panel((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_TOP, 0.5f);
+        naui_panel_dock((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_TOP, 0.5f);
     else if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_BOTTOM_ID, (Naui_PanelID)node)))
-        naui_dock_panel((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_BOTTOM, 0.5f);
+        naui_panel_dock((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_BOTTOM, 0.5f);
     else if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_CENTER_ID, (Naui_PanelID)node)))
-        naui_dock_panel((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_CENTER, 0.0f);
+        naui_panel_dock((Naui_PanelID)node, (Naui_PanelID)naui_panel_manager.dragging_node, NAUI_DOCK_DIRECTION_CENTER, 0.0f);
 }
 
 static void naui_update_splits_only(Naui_PanelNode *node)
@@ -1457,7 +1457,7 @@ static void naui_update_main_viewport(void)
     if (!naui_mouse_released(NAUI_MOUSE_LEFT) || !naui_panel_manager.dragging_node)
         return;
     if (naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_DOCK_GUIDE_VIEWPORT_ID, 0)))
-        naui_set_main_viewport((Naui_PanelID)naui_panel_manager.dragging_node);
+        naui_viewport_set((Naui_PanelID)naui_panel_manager.dragging_node);
 }
 
 void naui_render_panels_and_viewport(void)
@@ -1583,7 +1583,7 @@ static bool naui_serialize_panel_node(Naui_Json *json, Naui_JsonValue *out, Naui
     return true;
 }
 
-bool naui_serialize_viewport(const char *file_path)
+bool naui_viewport_serialize(const char *file_path)
 {
     if (!naui_panel_manager.main_viewport)
         return false;
@@ -1623,7 +1623,7 @@ static Naui_PanelNode *naui_deserialize_panel_node(Naui_JsonValue *json_parent)
         Naui_JsonValue *child1 = naui_json_object_get(json_parent, "child1");
         Naui_PanelNode *child1_node = naui_deserialize_panel_node(child1);
 
-        Naui_PanelNode *dock_node = (Naui_PanelNode*)naui_dock_panel(
+        Naui_PanelNode *dock_node = (Naui_PanelNode*)naui_panel_dock(
             (Naui_PanelID)child0_node, (Naui_PanelID)child1_node,
             strncmp(axis_name, "horizontal", sizeof(axis_name)) ?
             NAUI_DOCK_DIRECTION_BOTTOM : NAUI_DOCK_DIRECTION_RIGHT,
@@ -1643,7 +1643,7 @@ static Naui_PanelNode *naui_deserialize_panel_node(Naui_JsonValue *json_parent)
         for (size_t i = 1; i < tab_count; i++)
         {
             naui_json_copy_cstr(naui_json_array_get(tabs_arr, i), tab_type_name, sizeof(tab_type_name));
-            naui_dock_panel(
+            naui_panel_dock(
                 (Naui_PanelID)main_tab, (Naui_PanelID)naui_find_root_panel_of_type(tab_type_name),
                 NAUI_DOCK_DIRECTION_CENTER, 0.0f);
         }
@@ -1658,13 +1658,13 @@ static Naui_PanelNode *naui_deserialize_panel_node(Naui_JsonValue *json_parent)
     return NULL;
 }
 
-bool naui_deserialize_viewport(const char *file_path)
+bool naui_viewport_deserialize(const char *file_path)
 {
     Naui_Json json = naui_json_parse_file(NAUI_PATH(file_path));
 
     Naui_PanelNode *root_node = naui_deserialize_panel_node(json.root);
     if (root_node)
-        naui_set_main_viewport((Naui_PanelID)root_node);
+        naui_viewport_set((Naui_PanelID)root_node);
 
     naui_json_free(&json);
     return true;

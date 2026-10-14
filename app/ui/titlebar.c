@@ -82,7 +82,7 @@ void uph_render_main_titlebar(void)
 
 	const float dpi_scale = naui_app_dpi_scale();
 	const float titlebar_height = 32.0f * dpi_scale;
-	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_any_panel_hovered() ? 0 : titlebar_height);
+	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_panel_is_any_hovered() ? 0 : titlebar_height);
 
 	Naui_Vec2 padding = naui_theme_vec2(NAUI_PANEL_TITLEBAR_PADDING_TAG);
 	Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);
@@ -185,20 +185,20 @@ void uph_render_main_titlebar(void)
 				}
 
 				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.settings"), leaf_id("uph_edit_menu_settings")))
-					naui_open_panel(uph_state.panels.settings);
+					naui_panel_open(uph_state.panels.settings);
 
 				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("song_timeline.title"), leaf_id("uph_windows_menu_song_timeline")))
-					naui_open_panel(uph_state.panels.song_timeline);
+					naui_panel_open(uph_state.panels.song_timeline);
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_editor.title"), leaf_id("uph_windows_menu_midi_editor")))
-					naui_open_panel(uph_state.panels.resource_editor);
+					naui_panel_open(uph_state.panels.resource_editor);
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("resource_list.title"), leaf_id("uph_windows_menu_resource_list")))
-					naui_open_panel(uph_state.panels.resource_list);
+					naui_panel_open(uph_state.panels.resource_list);
 
 				if (uph_ui_menu_item(windows_menu, NAUI_TR("mixer.title"), leaf_id("uph_windows_menu_mixer")))
-					naui_open_panel(uph_state.panels.mixer);
+					naui_panel_open(uph_state.panels.mixer);
 			}
 		}
 

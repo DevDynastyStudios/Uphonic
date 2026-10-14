@@ -86,6 +86,6 @@ typedef struct
 }
 Uph_MidiEditorData;
 
-void uph_midi_editor_init(Uph_MidiEditorData *editor);
-void uph_midi_editor_update(Uph_MidiEditorData *editor);
-void uph_midi_editor_reset_interaction(Uph_MidiEditorData *editor);
+void uph_midi_editor_init(void);
+void uph_midi_editor_update(void);
+void uph_midi_editor_reset_interaction(void);

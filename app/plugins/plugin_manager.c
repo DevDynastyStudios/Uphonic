@@ -2264,7 +2264,7 @@ static Naui_List(Uph_PluginParam) uph_clap_get_param_list(Uph_Plugin *plug)
 }
 
 #if NAUI_WINDOWS
-static void uph_hide_plugin_window_internal(Uph_PluginInternalHandle *internal_handle)
+static void uph_plugin_hide_window_internal(Uph_PluginInternalHandle *internal_handle)
 {
     if (!internal_handle->visible)
         return;
@@ -2575,7 +2575,7 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     internal_handle->clap.ready = 1;
 }
 
-Uph_Plugin uph_load_plugin(Naui_Path path)
+Uph_Plugin uph_plugin_load(Naui_Path path)
 {
     Uph_Plugin effect = { 0 };
 
@@ -2786,7 +2786,7 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
     }
 }
 
-void uph_unload_plugin(Uph_Plugin *plug)
+void uph_plugin_unload(Uph_Plugin *plug)
 {
     if (!plug->loaded)
         return;
@@ -2820,7 +2820,7 @@ static inline long uph_ms_since(float then)
     return (long)((naui_time() - then) * 1000.0f);
 }
 
-void uph_hide_plugin_window(Uph_Plugin *plug)
+void uph_plugin_hide_window(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
@@ -2846,11 +2846,11 @@ void uph_hide_plugin_window(Uph_Plugin *plug)
         }
     }
     else
-        uph_hide_plugin_window_internal(internal_handle);
+        uph_plugin_hide_window_internal(internal_handle);
 #endif
 }
 
-void uph_show_plugin_window(Uph_Plugin *plug)
+void uph_plugin_show_window(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
@@ -2901,7 +2901,7 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
             event.xclient.message_type == internal_handle->wm_protocols &&
             (Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
         {
-            uph_hide_plugin_window(plug);
+            uph_plugin_hide_window(plug);
         }
     }
 #elif NAUI_WINDOWS
@@ -2909,7 +2909,7 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
 #endif
 }
 
-void uph_update_plugin(Uph_Plugin *plug)
+void uph_plugin_update(Uph_Plugin *plug)
 {
 	if (!plug->loaded)
 		return;
@@ -2955,7 +2955,7 @@ static bool uph_clap_out_events_try_push(const clap_output_events_t *list, const
     return true;
 }
 
-void uph_process_plugin(
+void uph_plugin_process(
     Uph_Plugin *plug,
     float **inputs,
     float **outputs,

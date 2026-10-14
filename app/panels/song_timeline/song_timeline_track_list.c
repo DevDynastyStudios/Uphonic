@@ -217,8 +217,8 @@ void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph
 			if (uph_ui_menu_item(track_options_context_menu, visible ? "Hide Instrument" : "Show Instrument", leaf_id("uph_song_timeline_options_show_instrument"))) 
 			{
 				if (visible)
-					uph_hide_plugin_window(&track->instrument);
-				else uph_show_plugin_window(&track->instrument);
+					uph_plugin_hide_window(&track->instrument);
+				else uph_plugin_show_window(&track->instrument);
 			}
 
 			if (uph_ui_menu_item(track_options_context_menu, "Remove Instrument", leaf_id("uph_song_timeline_options_remove_instrument"))) 
@@ -234,7 +234,7 @@ void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph
 			{
 				uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_TRACK_INSTRUMENT;
 				uph_state.shared.current_plugin_list_track = track;
-				naui_open_panel(uph_state.panels.plugin_list);
+				naui_panel_open(uph_state.panels.plugin_list);
 			}
 		}
 
@@ -243,7 +243,7 @@ void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph
 			if (uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
 			{
 				uph_state.shared.current_automation_list_track = track;
-				naui_open_panel(uph_state.panels.automation_list);
+				naui_panel_open(uph_state.panels.automation_list);
 			}
 		}
 	}

@@ -1,9 +1,9 @@
-Uph_Plugin          uph_load_plugin             (Naui_Path path);
-void                uph_unload_plugin           (Uph_Plugin *plugin);
-void                uph_update_plugin           (Uph_Plugin *plugin);
+Uph_Plugin          uph_plugin_load             (Naui_Path path);
+void                uph_plugin_unload           (Uph_Plugin *plugin);
+void                uph_plugin_update           (Uph_Plugin *plugin);
 
-void                uph_hide_plugin_window      (Uph_Plugin *plugin);
-void                uph_show_plugin_window      (Uph_Plugin *plugin);
+void                uph_plugin_hide_window      (Uph_Plugin *plugin);
+void                uph_plugin_show_window      (Uph_Plugin *plugin);
 
 bool                uph_plugin_window_visible   (Uph_Plugin *plugin);
 
@@ -26,7 +26,7 @@ void uph_plugin_queue_param_change(
 void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset);
 bool uph_plugin_note_active(Uph_Plugin *plugin, uint8_t key);
 
-void uph_process_plugin(
+void uph_plugin_process(
     Uph_Plugin *plug,
     float **inputs,
     float **outputs,

@@ -14,7 +14,7 @@ static void uph_resources_remove_track_children(Uph_Track *track)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
 		uph_resources_remove_track_children(&track->subtracks[i]);
-		uph_unload_plugin(&track->subtracks[i].instrument);
+		uph_plugin_unload(&track->subtracks[i].instrument);
 		naui_list_free(track->subtracks[i].blocks);
 	}
 	naui_list_clear(track->subtracks);
@@ -26,10 +26,10 @@ void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list)
 	{
 		Uph_Track *track = &list[i];
 		uph_resources_clear_tracks_recursive(track->subtracks);
-		uph_unload_plugin(&track->instrument);
+		uph_plugin_unload(&track->instrument);
 
 		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_unload_plugin(&track->effects[e].plugin);
+			uph_plugin_unload(&track->effects[e].plugin);
 
 		naui_list_free(track->effects);
 		naui_list_free(track->blocks);
@@ -70,10 +70,10 @@ static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
 	{
 		Uph_Track *track = &list[i];
 		uph_resources_unload_plugins_recursive(track->subtracks);
-		uph_unload_plugin(&track->instrument);
+		uph_plugin_unload(&track->instrument);
 
 		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_unload_plugin(&track->effects[e].plugin);
+			uph_plugin_unload(&track->effects[e].plugin);
 	}
 }
 
@@ -241,9 +241,9 @@ void uph_resources_remove_track(Uph_Track *track)
 	if (uph_state.project.soloed_track == track)
 		uph_state.project.soloed_track = NULL;
 
-	uph_unload_plugin(&track->instrument);
+	uph_plugin_unload(&track->instrument);
 	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-		uph_unload_plugin(&track->effects[e].plugin);
+		uph_plugin_unload(&track->effects[e].plugin);
 
 	uph_resources_remove_track_children(track);
 	naui_list_free(track->blocks);

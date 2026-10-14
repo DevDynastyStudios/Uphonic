@@ -31,7 +31,7 @@ void uph_song_timeline_invalidate_tracks(void)
 #pragma region Panel Events
 static void uph_song_timeline_on_attach(void)
 {
-	Naui_PanelID panel = naui_current_panel();
+	Naui_PanelID panel = naui_panel_current();
 
 	uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
 	uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
@@ -58,14 +58,14 @@ static void uph_song_timeline_on_close(void)
 static void uph_song_timeline_on_update(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
-	naui_panel_set_title(naui_current_panel(), NAUI_TR("song_timeline.title"));
+	naui_panel_set_title(naui_panel_current(), NAUI_TR("song_timeline.title"));
 	const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
 	const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");
 
 	data->content_height = leaf_get_bounding_box(content_area_id).height;
 	data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
-	data->panel_focused = naui_focused_panel() == naui_current_panel();
-	data->panel_hovered = naui_panel_hovered(naui_current_panel());
+	data->panel_focused = naui_panel_focused() == naui_panel_current();
+	data->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_focused;
 	if (data->automation_edit.dragging_point_index < 0)
 	{

@@ -52,7 +52,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 		(Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() }
 	);
 
-	if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(uph_state.panels.song_timeline))
+	if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
 		dragging_playhead = true;
 
 	if (!dragging_playhead)

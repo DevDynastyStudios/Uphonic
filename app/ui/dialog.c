@@ -73,7 +73,7 @@ void uph_dialog_render(void)
 	if (!s_dialog.open)
 		return;
 
-	naui_occlude_all_panels();
+	naui_panel_occlude_all();
 
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));

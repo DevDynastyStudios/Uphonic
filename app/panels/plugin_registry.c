@@ -2,7 +2,7 @@ NAUI_PANEL(uph_plugin_registry)
 
 static void uph_plugin_registry_on_attach(void)
 {
-    Naui_PanelID this = naui_current_panel();
+    Naui_PanelID this = naui_panel_current();
     naui_panel_set_title_key(this, "plugin_registry.title");
 }
 

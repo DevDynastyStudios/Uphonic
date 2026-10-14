@@ -210,12 +210,12 @@ static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_Action
 static void uph_action_track_hide_plugins(Uph_Track *track)
 {
 	if (track->instrument.loaded)
-		uph_hide_plugin_window(&track->instrument);
+		uph_plugin_hide_window(&track->instrument);
 
 	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
 	{
 		if (track->effects[e].plugin.loaded)
-			uph_hide_plugin_window(&track->effects[e].plugin);
+			uph_plugin_hide_window(&track->effects[e].plugin);
 	}
 
 	for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
@@ -245,7 +245,7 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 	if (removed_lane)
 		naui_action_clear_history();
 
-	uph_unload_plugin(plugin);
+	uph_plugin_unload(plugin);
 
 	if (was_running)
 		uph_audio_engine_start();
@@ -257,7 +257,7 @@ void uph_action_master_unload_plugin(Uph_Plugin *plugin)
 	if (was_running)
 		uph_audio_engine_stop();
 
-	uph_unload_plugin(plugin);
+	uph_plugin_unload(plugin);
 
 	if (was_running)
 		uph_audio_engine_start();

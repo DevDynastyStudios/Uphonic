@@ -1099,7 +1099,7 @@ static void uph_settings_sidebar(Uph_SettingsData *data)
 
 static void uph_settings_on_attach(void)
 {
-	const Naui_PanelID this = naui_current_panel();
+	const Naui_PanelID this = naui_panel_current();
 
 	naui_panel_enable_flags(this, NAUI_PANEL_FLAG_NO_DOCK);
 	float scale = naui_app_dpi_scale();
@@ -1139,7 +1139,7 @@ static void uph_settings_on_close(void)
 
 static void uph_settings_on_update(void)
 {
-	naui_panel_set_title(naui_current_panel(), NAUI_TR("settings.title"));
+	naui_panel_set_title(naui_panel_current(), NAUI_TR("settings.title"));
 	Uph_SettingsData *data = &uph_settings_data;
 	if (!data->lists_ready)
 		uph_settings_refresh_all(data);

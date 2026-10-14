@@ -546,7 +546,7 @@ static void uph_render_track_instrument(
     float *inputs[2]  = { input_l, input_r };
     float *outputs[2] = { track_l, track_r };
 
-    uph_process_plugin(
+    uph_plugin_process(
         &track->instrument,
         (float**)inputs,
         (float**)outputs,
@@ -587,7 +587,7 @@ static void uph_apply_effect_chain(
         memset(dst[0], 0, bytes);
         memset(dst[1], 0, bytes);
 
-        uph_process_plugin(
+        uph_plugin_process(
             &effect->plugin,
             (float**)src,
             (float**)dst,

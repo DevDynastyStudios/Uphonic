@@ -65,7 +65,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
             }
             naui_set_cursor(NAUI_CURSOR_HAND);
         }
-        else if (naui_panel_hovered(naui_current_panel()))
+        else if (naui_panel_is_hovered(naui_panel_current()))
         {
             if (leaf_hovered(max_area_id) || leaf_hovered(scroll_id))
                 *out_scroll -= (float)naui_mouse_scroll_delta() * 20.0f;

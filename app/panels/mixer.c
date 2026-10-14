@@ -276,7 +276,7 @@ static void uph_mixer_render_effect_row(
     const Leaf_ID id = leaf_id_indexed("uph_effect_list_item", index);
 
     const bool row_hovered =
-        naui_panel_hovered(naui_current_panel()) &&
+        naui_panel_is_hovered(naui_panel_current()) &&
         !uph_ui_any_widget_hovered() &&
         leaf_hovered_clipped(id);
 
@@ -453,7 +453,7 @@ static void uph_mixer_render_effect_list(void)
                 {
                     uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_MASTER_EFFECT;
                 }
-                naui_open_panel(uph_state.panels.plugin_list);
+                naui_panel_open(uph_state.panels.plugin_list);
             }
         }
     }
@@ -469,8 +469,8 @@ static void uph_mixer_render_effect_list(void)
         const bool visible = uph_plugin_window_visible(plugin);
         if (uph_ui_menu_item(context_menu, visible ? NAUI_TR("effect_list.hide") : NAUI_TR("effect_list.show"), leaf_id("uph_effect_list_open")))
         {
-            if (visible) uph_hide_plugin_window(plugin);
-            else uph_show_plugin_window(plugin);
+            if (visible) uph_plugin_hide_window(plugin);
+            else uph_plugin_show_window(plugin);
         }
 
         if (uph_ui_menu_item(context_menu, NAUI_TR("effect_list.remove"), leaf_id("uph_effect_list_remove")))
@@ -652,7 +652,7 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 
     Naui_Vec2 mouse = {naui_mouse_x(), naui_mouse_y()};
     bool hovered =
-        naui_panel_hovered(uph_state.panels.mixer) &&
+        naui_panel_is_hovered(uph_state.panels.mixer) &&
         mouse.x >= hit_box.x && mouse.x <= hit_box.x + hit_box.width &&
         mouse.y >= hit_box.y && mouse.y <= hit_box.y + hit_box.height;
 
@@ -695,7 +695,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip)
     Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
-    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_hovered(naui_current_panel()) && leaf_hovered(id))
+    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
     {
         uph_mixer_strip_select(&strip);
     }
@@ -837,7 +837,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip)
 
 static void uph_mixer_on_update(void)
 {
-	naui_panel_set_title(naui_current_panel(), NAUI_TR("mixer.title"));
+	naui_panel_set_title(naui_panel_current(), NAUI_TR("mixer.title"));
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
         .direction = LEAF_DIRECTION_HORIZONTAL

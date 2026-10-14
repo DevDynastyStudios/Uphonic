@@ -880,11 +880,11 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	const bool is_vst3 = strcmp(naui_json_get_string(naui_json_object_get(object, "format"), "clap"), "vst3") == 0; // You know the drill
 	const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
 	if (path.data[0])
-		plugin = uph_load_plugin(path);
+		plugin = uph_plugin_load(path);
 
 	if (plugin.loaded)
 	{
-		uph_hide_plugin_window(&plugin);
+		uph_plugin_hide_window(&plugin);
 		const char* state_name = naui_json_get_string(naui_json_object_get(object, "state"), NULL);
 		if (state_name)
 		{

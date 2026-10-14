@@ -476,12 +476,12 @@ static void uph_resource_list_duplicate(void)
 
 static void uph_resource_list_on_update(void)
 {
-	naui_panel_set_title(naui_current_panel(), NAUI_TR("resource_list.title"));
+	naui_panel_set_title(naui_panel_current(), NAUI_TR("resource_list.title"));
 
 	const int32_t icon_size = NAUI_DPI(16);
     uph_resource_list_update_rename();
 
-    if (naui_panel_hovered(naui_current_panel()) && naui_key_pressed(NAUI_KEY_DELETE) &&
+    if (naui_panel_is_hovered(naui_panel_current()) && naui_key_pressed(NAUI_KEY_DELETE) &&
         !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
         uph_resource_list_remove();
 

@@ -612,7 +612,7 @@ static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
 #pragma region Public API
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
-    const bool result = !uph_ui_any_widget_hovered() && ((!naui_current_panel() && !naui_any_panel_hovered()) || (naui_current_panel() && naui_panel_hovered(naui_current_panel()))) && leaf_hovered_clipped(id);
+    const bool result = !uph_ui_any_widget_hovered() && ((!naui_panel_current() && !naui_panel_is_any_hovered()) || (naui_panel_current() && naui_panel_is_hovered(naui_panel_current()))) && leaf_hovered_clipped(id);
     if (result)
         uph_global_widget_data.any_widget_hovered = true;
     return result;
@@ -715,7 +715,7 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
             return;
         }
 
-        naui_occlude_all_panels();
+        naui_panel_occlude_all();
 
         if (data->menu_opened_last_frame &&
             (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_RIGHT) || naui_mouse_pressed(NAUI_MOUSE_MIDDLE)) &&

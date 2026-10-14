@@ -839,7 +839,7 @@ void uph_sample_editor_update(void)
 
 	const Leaf_ID wave_id = leaf_id("uph_sample_editor_wave");
 	editor->wave_box = leaf_get_bounding_box(wave_id);
-	editor->wave_hovered = source->valid && leaf_hovered(wave_id) && naui_panel_hovered(naui_current_panel());
+	editor->wave_hovered = source->valid && leaf_hovered(wave_id) && naui_panel_is_hovered(naui_panel_current());
 	_uph_sample_editor_update_input(editor, editor->wave_box);
 
 	_uph_sample_editor_render_info(sample, data, source);

@@ -3,8 +3,10 @@
 
 static Uph_MidiEditorData uph_midi_editor_data;
 
-void uph_midi_editor_init(Uph_MidiEditorData *editor)
+void uph_midi_editor_init(void)
 {
+	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+
 	uph_midi_note_input_cancel_drag(editor);
 	memset(editor, 0, sizeof(*editor));
 	uph_note_map_init_default(&editor->note_map);
@@ -30,8 +32,9 @@ static void _uph_midi_editor_send_preview(Uph_PianoEvents events)
 		cmidi_play_note(uph_state.settings.midi.output, UPH_MIDI_EDITOR_PREVIEW_CHANNEL, (uint8_t)events.pressed, UPH_MIDI_EDITOR_PREVIEW_VELOCITY);
 }
 
-void uph_midi_editor_reset_interaction(Uph_MidiEditorData *editor)
+void uph_midi_editor_reset_interaction(void)
 {
+	Uph_MidiEditorData *editor = &uph_midi_editor_data;
 	uph_midi_note_input_cancel_drag(editor);
 	editor->note_input.marquee.active = false;
 	_uph_midi_editor_send_preview(uph_piano_release_mouse(&editor->piano));
@@ -162,12 +165,14 @@ static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorData *editor)
 	}
 }
 
-void uph_midi_editor_update(Uph_MidiEditorData *editor)
+void uph_midi_editor_update(void)
 {
+	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+
 	const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
 	const Leaf_ID piano_id = leaf_id("uph_midi_editor_piano");
 
-	editor->panel_hovered = naui_panel_hovered(naui_current_panel());
+	editor->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	editor->lanes_hovered = leaf_hovered(lanes_id) && editor->panel_hovered;
 	editor->piano_hovered = leaf_hovered(piano_id) && editor->panel_hovered;
 	editor->lanes_bounding_box = leaf_get_bounding_box(lanes_id);

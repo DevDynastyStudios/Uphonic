@@ -364,13 +364,13 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 
 static void uph_file_dialog_on_attach(void)
 {
-	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_current_panel_data();
+	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	memset(data, 0, sizeof(*data));
 	data->dialog = s_file_dialog_pending;
 	data->instance = (uint64_t)(uintptr_t)s_file_dialog_pending;
 	s_file_dialog_pending = NULL;
 
-	const Naui_PanelID self = naui_current_panel();
+	const Naui_PanelID self = naui_panel_current();
 	naui_panel_set_title(self, data->dialog->title);
 	naui_panel_set_size(self, (Naui_Vec2){ NAUI_DPI(UPH_FILE_DIALOG_WIDTH), NAUI_DPI(UPH_FILE_DIALOG_HEIGHT) });
 	naui_panel_set_min_size(self, (Naui_Vec2){ NAUI_DPI(480.0f), NAUI_DPI(300.0f) });
@@ -392,7 +392,7 @@ static void uph_file_dialog_on_close(void)
 	if (s_file_dialog_recentering)
 		return;
 
-	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_current_panel_data();
+	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	Naui_Dialog *dialog = data->dialog;
 	data->dialog = NULL;
 
@@ -402,7 +402,7 @@ static void uph_file_dialog_on_close(void)
 
 static void uph_file_dialog_on_update(void)
 {
-	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_current_panel_data();
+	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	if (!data->dialog)
 		return;
 
@@ -469,9 +469,9 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 	s_file_dialog_panels[slot] = panel;
 	s_file_dialog_panel_owners[slot] = dialog;
 	s_file_dialog_recentering = true;
-	naui_close_panel(panel);
+	naui_panel_close(panel);
 	s_file_dialog_recentering = false;
-	naui_open_panel(panel);
+	naui_panel_open(panel);
 	return true;
 }
 
@@ -487,9 +487,9 @@ static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 		s_file_dialog_panels[i] = 0;
 
 		s_file_dialog_ending = dialog;
-		naui_close_panel(panel);
+		naui_panel_close(panel);
 		s_file_dialog_ending = NULL;
-		naui_detach_panel(panel);
+		naui_panel_detach(panel);
 		return;
 	}
 }

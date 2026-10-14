@@ -14,7 +14,7 @@ static Uph_PluginListData uph_plugin_list_data = { 0 };
 
 void uph_plugin_list_on_attach(void)
 {
-    const Naui_PanelID panel_id = naui_current_panel();
+    const Naui_PanelID panel_id = naui_panel_current();
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
     uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, false);
 }
@@ -43,24 +43,24 @@ static void uph_plugin_list_load(void)
     {
         case UPH_PLUGIN_LIST_TRACK_INSTRUMENT:
         {
-            uph_state.shared.current_plugin_list_track->instrument = uph_load_plugin(plugin_path);
+            uph_state.shared.current_plugin_list_track->instrument = uph_plugin_load(plugin_path);
             uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
             break;
         }
         case UPH_PLUGIN_LIST_TRACK_EFFECT:
         {
-            Uph_EffectPlugin effect = { .plugin = uph_load_plugin(plugin_path), .enabled = true };
+            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path), .enabled = true };
             naui_list_push(uph_state.shared.current_plugin_list_track->effects, effect);
             break;
         }
         case UPH_PLUGIN_LIST_MASTER_EFFECT:
         {
-            Uph_EffectPlugin effect = { .plugin = uph_load_plugin(plugin_path), .enabled = true };
+            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path), .enabled = true };
             naui_list_push(uph_state.project.master_track.effects, effect);
             break;
         }
     }
-    naui_close_panel(naui_current_panel());
+    naui_panel_close(naui_panel_current());
 }
 
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
@@ -257,7 +257,7 @@ static void uph_plugin_list_current_menu(void)
 
 void uph_plugin_list_on_update(void)
 {
-	naui_panel_set_title(naui_current_panel(), NAUI_TR("plugin.menu.title"));
+	naui_panel_set_title(naui_panel_current(), NAUI_TR("plugin.menu.title"));
 		
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
