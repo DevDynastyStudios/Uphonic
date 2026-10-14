@@ -37,15 +37,15 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 		return;
 	}
 
+	if (!uph_song_timeline_data.tracks_hovered)
+		return;
+
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
 	{
 		bool is_dragging_this_block =
 			drag->active &&
 			drag->track == track &&
 			drag->block_index == i;
-
-		if (!uph_song_timeline_data.tracks_hovered)
-			return;
 
 		if (is_dragging_this_block)
 		{
@@ -181,9 +181,6 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 		return;
 
 	if (uph_song_timeline_data.automation_edit.active)
-		return;
-
-	if (!uph_song_timeline_data.panel_hovered)
 		return;
 
 	if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_song_timeline_data.hovered_block.active && uph_song_timeline_data.hovered_block.track == track)
