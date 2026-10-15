@@ -1,11 +1,14 @@
 void uph_song_timeline_render_toolbox(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
-	Leaf_Color border_color = naui_theme_color("uph_toolbox_border_color");
 
-	leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(1)}, .color = {border_color}});
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(38))},
+		.padding = LEAF_PADDING_ALL(1),
+		.color = {naui_theme_color("uph_toolbox_border_color")}
+	})
+	leaf({
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
@@ -148,5 +151,4 @@ void uph_song_timeline_render_toolbox(void)
 			}
 		}
 	}
-	leaf({.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(1)}, .color = {border_color}});
 }
