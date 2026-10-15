@@ -44,7 +44,7 @@ static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 
 static inline bool uph_track_monitors_instrument(const Uph_Track *track)
 {
-	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && (track->monitored || (track->state & UPH_TRACK_ARMED));
+	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && track->monitored;
 }
 
 static inline bool uph_track_is_silenced(const Uph_Project *project, const Uph_Track *track)
