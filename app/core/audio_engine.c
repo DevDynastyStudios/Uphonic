@@ -892,7 +892,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
                     for (int key = 0; key < 128; key++)
                     {
-                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(track->monitored && uph_midi_recorder_key_held((uint8_t)key)))
+                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
                             uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
                     }
                 }
@@ -1168,13 +1168,26 @@ static void uph_finish_take(Uph_Track *track)
     track->armed_block = UPH_INVALID_TIMELINE_BLOCK;
 }
 
-static void uph_finish_takes_all(Naui_List(Uph_Track) tracks)
+static bool uph_stop_recording_all(Naui_List(Uph_Track) tracks)
 {
+    bool was_recording = false;
+
     for (uint64_t i = 0; i < naui_list_len(tracks); i++)
     {
-        uph_finish_takes_all(tracks[i].subtracks);
-        uph_finish_take(&tracks[i]);
+        Uph_Track *track = &tracks[i];
+
+        if (uph_stop_recording_all(track->subtracks))
+            was_recording = true;
+
+        if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
+            continue;
+
+        uph_finish_take(track);
+        track->state &= (Uph_TrackState)~UPH_TRACK_ARMED;
+        was_recording = true;
     }
+
+    return was_recording;
 }
 
 static bool uph_has_active_take(Naui_List(Uph_Track) tracks)
@@ -1302,7 +1315,9 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
     if (was_playing && !is_playing)
     {
         uph_audio_engine_stop_all_notes();
-        uph_finish_takes_all(uph_state.project.tracks);
+		
+        if (uph_stop_recording_all(uph_state.project.tracks))
+            uph_state.shared.song_timeline_playhead_position = 0.0;
     }
 
     was_playing = is_playing;

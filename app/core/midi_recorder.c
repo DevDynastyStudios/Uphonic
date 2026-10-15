@@ -35,6 +35,7 @@ static Uph_MidiRecordEvent uph_midi_record_events[UPH_MIDI_RECORD_RING_CAPACITY]
 static Uph_MidiRecordOpenNote uph_midi_open_notes[UPH_MIDI_RECORD_MAX_OPEN_NOTES];
 static uint32_t uph_midi_open_note_count;
 static _Atomic bool uph_midi_live_held_keys[128];
+static double uph_midi_record_last_end_beat;
 
 void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity)
 {
@@ -215,7 +216,7 @@ void uph_midi_recorder_finish_take(Uph_Track *track)
 
 		if (pattern_index < naui_list_len(project->midi_patterns))
 		{
-			const double end_beat = uph_state.shared.song_timeline_playhead_position - block->start_beat;
+			const double end_beat = uph_midi_record_last_end_beat - block->start_beat;
 			uph_midi_record_close_pattern_notes(pattern_index, end_beat);
 
 			const double pattern_length = uph_calculate_pattern_length(&project->midi_patterns[pattern_index]);
@@ -322,6 +323,7 @@ void uph_midi_recorder_process(double buffer_start_beat, uint32_t frame_count, u
 	const float callback_time = naui_time();
 	const uint32_t event_count = uph_midi_record_ring_drain(uph_midi_record_events, UPH_MIDI_RECORD_RING_CAPACITY);
 	const double buffer_end_beat = buffer_start_beat + uph_seconds_to_beats((double)frame_count / (double)sample_rate, bpm);
+	uph_midi_record_last_end_beat = buffer_end_beat;
 
 	uph_midi_record_tracks(uph_state.project.tracks, event_count, callback_time, buffer_start_beat, buffer_end_beat, bpm);
 }

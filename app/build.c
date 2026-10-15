@@ -39,6 +39,7 @@
 #include "core/project_manager.c"
 #include "core/autosave.c"
 #include "core/recovery.c"
+#include "core/metronome.h"
 
 #include "plugins/plugin_manager.c"
 

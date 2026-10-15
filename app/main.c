@@ -94,42 +94,42 @@ static void uph_show_restore_dialog(const Naui_Path project_folder)
 
 #pragma endregion
 
-#pragma region Metronome
-#define UPH_METRONOME_TIME_RESET 2.0f
-#define UPH_METRONOME_MAX_TAPS 8
-#define UPH_METRONOME_MIN_INTERVAL (60.0f / 300.0f)
-#define UPH_METRONOME_OUTLIER_LOW 0.5f
-#define UPH_METRONOME_OUTLIER_HIGH 2.0f
+static _Atomic bool s_midi_instrument_monitoring; // Do not remove! This is Mr. Optimization (Ironic)
 
-static bool _metronome_active = false;
-static float _metronome_last_tap_time;
-static float _metronome_avg_interval;
-static uint32_t _metronome_count = 0;
-
-static void uph_route_monitored_note_event(Uph_Track *track, const cmidi_event_t *event, bool note_on)
+// Go through the tracks on the main thread instead of bogging down the cmidi thread.
+static bool _uph_any_track_monitors_instrument(Naui_List(Uph_Track) tracks)
 {
-	if (track->type == UPH_RESOURCE_PATTERN && track->monitored && track->instrument.loaded)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
-		uph_plugin_queue_note_event(
-			&track->instrument,
-			note_on,
-			event->note,
-			0,
-			event->velocity,
-			0
-		);
+		if (uph_track_monitors_instrument(&tracks[i]) || _uph_any_track_monitors_instrument(tracks[i].subtracks))
+			return true;
 	}
 
+	return false;
+}
+
+static int _uph_midi_thru_filter(const uint8_t* bytes, uint8_t length, void* userdata)
+{
+	(void)userdata;
+	const bool is_note_on = (bytes[0] & 0xF0) == CMIDI_CODE_NOTE_ON && length >= 3 && bytes[2] > 0;
+	return !(is_note_on && atomic_load_explicit(&s_midi_instrument_monitoring, memory_order_relaxed));
+}
+
+static void _uph_route_monitored_note_event(Uph_Track* track, const cmidi_event_t* event, bool note_on)
+{
+	if (uph_track_monitors_instrument(track))
+		uph_plugin_queue_note_event(&track->instrument, note_on, event->note, 0, event->velocity, 0);
+
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
-		uph_route_monitored_note_event(&track->subtracks[i], event, note_on);
+	{
+		_uph_route_monitored_note_event(&track->subtracks[i], event, note_on);
+	}
 }
 
 void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
 	(void)userdata;
-
 	bool note_on = event->type == CMIDI_NOTE_ON;
-
 	uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, note_on);
 
 	if (event->type == CMIDI_NOTE_ON || event->type == CMIDI_NOTE_OFF)
@@ -137,65 +137,12 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 		uph_midi_recorder_input(note_on, event->note, event->velocity);
 
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-			uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
-	}
-
-	//naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
-	//cmidi_play_note(uph_state.settings.midi.output, 1, 60, 100);
-}
-
-static void _uph_metronome_reset()
-{
-	_metronome_active = false;
-	_metronome_avg_interval = 0.0f;
-	_metronome_count = 0;
-}
-
-static bool _uph_metronome_tap(float *out_bpm)
-{
-	const float current_time = naui_time();
-
-	if (!_metronome_active)
-	{
-		_metronome_active = true;
-		_metronome_last_tap_time = current_time;
-		_metronome_count = 0;
-		_metronome_avg_interval = 0.0f;
-		return false;
-	}
-
-	const float since_last = current_time - _metronome_last_tap_time;
-
-	if (since_last > UPH_METRONOME_TIME_RESET)
-	{
-		_metronome_last_tap_time = current_time;
-		_metronome_count = 0;
-		_metronome_avg_interval = 0.0f;
-		return false;
-	}
-
-	if (since_last < UPH_METRONOME_MIN_INTERVAL)
-		return false;
-
-	if (_metronome_avg_interval > 0.0f)
-	{
-		const float ratio = since_last / _metronome_avg_interval;
-		if (ratio < UPH_METRONOME_OUTLIER_LOW || ratio > UPH_METRONOME_OUTLIER_HIGH)
 		{
-			_metronome_last_tap_time = current_time;
-			return false;
+			_uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
 		}
 	}
 
-	const uint32_t n = (_metronome_count < UPH_METRONOME_MAX_TAPS) ? (_metronome_count + 1) : UPH_METRONOME_MAX_TAPS;
-	_metronome_avg_interval += (since_last - _metronome_avg_interval) / (float)n;
-	_metronome_count = n;
-	_metronome_last_tap_time = current_time;
-	*out_bpm = 60.0f / _metronome_avg_interval;
-	return true;
 }
-
-#pragma endregion
 
 void naui_app_start(void)
 {
@@ -205,6 +152,7 @@ void naui_app_start(void)
 
 	uph_language_apply();
 	naui_load_theme(uph_state.settings.general.theme.data);
+	cmidi_set_thru_filter(_uph_midi_thru_filter, NULL);
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
 
@@ -307,64 +255,6 @@ void naui_app_update(void)
 			naui_action_redo();
 	}
 
-	/*leaf({
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(15))},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(12), NAUI_DPI(8)),
-		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-		.color = {bg_color},
-		.child_gap = NAUI_DPI(10.0f)
-	})
-	{
-		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(4.0f)
-		});
-
-		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(4.0f)
-		});
-
-		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(8.0f)
-		})
-		{
-			{
-				static bool metronome_enabled;
-				const bool metronome_was_enabled = metronome_enabled;
-				const Naui_Vec2 icon_size = { 16, 16 };
-
-				if (metronome_enabled) {
-					Leaf_ID bpm_btn_id = leaf_id("uph_bpm_button");
-					if (leaf_hovered(bpm_btn_id))
-						naui_set_cursor(NAUI_CURSOR_HAND);
-
-					if (uph_ui_image_button(naui_asset_image("uph_icon_tappad"), bpm_btn_id, naui_vec2_scale(icon_size, 2.0f), tool_icon_color)) {
-						float bpm;
-						if (_uph_metronome_tap(&bpm)) {
-							uph_state.project.bpm = bpm;
-						}
-					}
-				}
-
-				if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_metronome"), leaf_id("uph_metronome_toggle"), icon_size, tool_icon_color, metronome_enabled))
-					metronome_enabled = !metronome_enabled;
-
-				if (metronome_enabled && !metronome_was_enabled) {
-					_uph_metronome_reset();
-				}
-			}
-		}
-	}*/
-
 	naui_render_panels_and_viewport();
 	uph_ui_widgets_flush();
 
@@ -372,6 +262,7 @@ void naui_app_update(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_all_track_plugins(&uph_state.project.tracks[i]);
 
+	atomic_store_explicit(&s_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
 	uph_autosave_update();
 }
 

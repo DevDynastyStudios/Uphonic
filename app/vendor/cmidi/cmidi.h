@@ -164,6 +164,12 @@ void cmidi_set_thru(cmidi_port_t* input, cmidi_port_t* output);
 // Remove the thru connection from an input port.
 void cmidi_clear_thru(cmidi_port_t* input);
 
+// Called on the input thread for every message before it is forwarded.
+// Return 0 to keep the message from reaching the thru output.
+// Pass NULL to remove the filter (Set it before opening input ports).
+typedef int (*cmidi_thru_filter_t)(const uint8_t* bytes, uint8_t length, void* userdata);
+void cmidi_set_thru_filter(cmidi_thru_filter_t filter, void* userdata);
+
 // Play a note. channel: 1-16, note: 0-127, velocity: 1-127.
 int cmidi_play_note(cmidi_port_t* port, uint8_t channel, uint8_t note, uint8_t velocity);
 
@@ -358,6 +364,9 @@ static struct
 
 static int s_thru_count = 0;
 
+static cmidi_thru_filter_t s_thru_filter = NULL;
+static void* s_thru_filter_userdata = NULL;
+
 #define MAX_TRACKED_PORTS CMIDI_MAX_DEVICES
 
 static cmidi_port_t* s_ports[MAX_TRACKED_PORTS];
@@ -403,7 +412,7 @@ void cmidi_dispatch_input(cmidi_port_t* port, cmidi_input_callback_t callback, v
         return;
 
     cmidi_port_t* thru = find_thru_output(port);
-    if (thru)
+    if (thru && (!s_thru_filter || s_thru_filter(bytes, length, s_thru_filter_userdata)))
         cmidi_platform_send(thru, bytes, length);
 
     if (!callback)
@@ -600,6 +609,12 @@ void cmidi_clear_thru(cmidi_port_t* input)
         --s_thru_count;
         return;
     }
+}
+
+void cmidi_set_thru_filter(cmidi_thru_filter_t filter, void* userdata)
+{
+    s_thru_filter_userdata = userdata;
+    s_thru_filter = filter;
 }
 
 int cmidi_play_note(cmidi_port_t* port, uint8_t channel, uint8_t note, uint8_t velocity)
