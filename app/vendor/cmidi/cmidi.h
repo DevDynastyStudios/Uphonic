@@ -792,9 +792,15 @@ static void* alsa_read_thread(void* arg)
         if (poll(pfds, (nfds_t)npfds, 10) <= 0)
             continue;
 
-        snd_seq_event_t* event = NULL;
-        while (snd_seq_event_input(port->seq, &event) > 0 && event)
+        while (port->running)
         {
+            snd_seq_event_t* event = NULL;
+            int in_result = snd_seq_event_input(port->seq, &event);
+            if (in_result == -ENOSPC)
+                continue; // FIFO overrun; ALSA already cleared it, keep reading
+            if (in_result < 0 || !event)
+                break; // -EAGAIN: drained, go back to poll()
+
             uint8_t bytes[3] = {0, 0, 0};
             uint8_t length = 0;
             double ts = alsa_now_ms();
@@ -974,6 +980,7 @@ cmidi_port_t* cmidi_platform_open_input(uint32_t device_id, cmidi_input_callback
         return NULL;
     }
 
+    snd_seq_nonblock(port->seq, 1);
     snd_seq_set_client_name(port->seq, "cmidi");
     port->local_port = snd_seq_create_simple_port(port->seq, "Input", SND_SEQ_PORT_CAP_WRITE | SND_SEQ_PORT_CAP_SUBS_WRITE, SND_SEQ_PORT_TYPE_APPLICATION);
     if (port->local_port < 0)
