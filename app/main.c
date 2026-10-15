@@ -134,6 +134,8 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 
 	if (event->type == CMIDI_NOTE_ON || event->type == CMIDI_NOTE_OFF)
 	{
+		uph_midi_recorder_input(note_on, event->note, event->velocity);
+
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 			uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
 	}

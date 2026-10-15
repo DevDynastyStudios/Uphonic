@@ -64,6 +64,8 @@ bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data);
 
 void uph_audio_engine_stop_all_notes(void);
 
+void uph_audio_engine_midi_input(bool note_on, uint8_t key, uint8_t velocity);
+
 double uph_audio_engine_get_song_length_beats(void);
 double uph_audio_engine_get_song_length_seconds(void);
 double uph_audio_engine_get_song_length(void);

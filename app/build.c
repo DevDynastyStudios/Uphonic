@@ -28,6 +28,7 @@
 #include "core/resource_manager.h"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
+#include "core/midi_recorder.h"
 #include "io/file_signature.h"
 #include "io/file_signature.c"
 #include "io/serialization.h"
@@ -66,6 +67,7 @@
 #include "core/resource_manager.c"
 
 #include "core/audio_engine.c"
+#include "core/midi_recorder.c"
 
 #include "panels/file_dialog.c"
 

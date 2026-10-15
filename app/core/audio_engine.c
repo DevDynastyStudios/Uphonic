@@ -874,7 +874,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
                     for (uint64_t b = 0; b < block_count; b++)
                     {
                         Uph_TimelineBlock *block = &track->blocks[b];
-                        if (block->type != UPH_RESOURCE_PATTERN)
+                        if (block->type != UPH_RESOURCE_PATTERN || block == track->armed_block)
                             continue;
 
                         uph_queue_pattern_block_notes(
@@ -892,7 +892,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
                     for (int key = 0; key < 128; key++)
                     {
-                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key])
+                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(track->monitored && uph_midi_recorder_key_held((uint8_t)key)))
                             uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
                     }
                 }
@@ -1127,6 +1127,12 @@ static void uph_finish_take(Uph_Track *track)
     if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
         return;
 
+    if (track->type == UPH_RESOURCE_PATTERN)
+    {
+        uph_midi_recorder_finish_take(track);
+        return;
+    }
+
     Uph_Project *project = &uph_state.project;
 
     if (uph_track_armed_block_in_range(track))
@@ -1197,6 +1203,9 @@ static void uph_record_input(
     {
         Uph_Track *track = &tracks[i];
         uph_record_input(track->subtracks, input, frame_count, sample_rate, bpm);
+
+        if (track->type == UPH_RESOURCE_PATTERN)
+            continue;
 
         if (!(track->state & UPH_TRACK_ARMED))
         {
@@ -1282,6 +1291,8 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
         }
         input_f = routed;
     }
+
+    uph_midi_recorder_process(playhead_start_beat, frame_count, engine_sample_rate, bpm, is_playing);
 
     uph_render_audio(playhead_start_beat, engine_sample_rate, out, frame_count, is_playing, input_f);
 
