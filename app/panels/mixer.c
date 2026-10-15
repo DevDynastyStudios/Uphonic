@@ -829,7 +829,15 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip)
                     (Naui_Vec2) { button_size, button_size },
                     text_color,
                     strip.track->monitored
-                )) strip.track->monitored = !strip.track->monitored;
+                ))
+                {
+                    strip.track->monitored = !strip.track->monitored;
+
+                    if (strip.track->type == UPH_RESOURCE_PATTERN
+                        && !strip.track->monitored
+                        && strip.track->instrument.loaded)
+                        uph_plugin_queue_stop_all(&strip.track->instrument, 0);
+                }
             }
         }
     }

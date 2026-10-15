@@ -106,9 +106,37 @@ static float _metronome_last_tap_time;
 static float _metronome_avg_interval;
 static uint32_t _metronome_count = 0;
 
+static void uph_route_monitored_note_event(Uph_Track *track, const cmidi_event_t *event, bool note_on)
+{
+	if (track->type == UPH_RESOURCE_PATTERN && track->monitored && track->instrument.loaded)
+	{
+		uph_plugin_queue_note_event(
+			&track->instrument,
+			note_on,
+			event->note,
+			0,
+			event->velocity,
+			0
+		);
+	}
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+		uph_route_monitored_note_event(&track->subtracks[i], event, note_on);
+}
+
 void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
-	uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, event->type == CMIDI_NOTE_ON);
+	(void)userdata;
+
+	bool note_on = event->type == CMIDI_NOTE_ON;
+
+	uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, note_on);
+
+	if (event->type == CMIDI_NOTE_ON || event->type == CMIDI_NOTE_OFF)
+	{
+		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+			uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
+	}
 
 	//naui_log(NAUI_LOG_INFO, "[CMIDI] Pressed Note: %i", event->note);
 	//cmidi_play_note(uph_state.settings.midi.output, 1, 60, 100);

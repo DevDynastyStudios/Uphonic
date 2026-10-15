@@ -66,7 +66,7 @@ static void uph_song_timeline_on_update(void)
 	data->panel_bounding_box = leaf_get_bounding_box(track_section_id);
 	data->panel_focused = naui_panel_focused() == naui_panel_current();
 	data->panel_hovered = naui_panel_is_hovered(naui_panel_current());
-	data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_focused;
+	data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
 	if (data->automation_edit.dragging_point_index < 0)
 	{
 		data->automation_edit.block_index = -1;
