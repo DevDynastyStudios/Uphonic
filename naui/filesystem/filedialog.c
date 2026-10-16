@@ -1,6 +1,6 @@
 #define NAUI_MAX_DIALOGS 4
 #define NAUI_DIALOG_MAX_REMEMBERED 16
-#define NAUI_DIALOG_MODE_COUNT 3
+#define NAUI_DIALOG_MODE_COUNT 4
 
 static Naui_Dialog s_dialogs[NAUI_MAX_DIALOGS];
 static const Naui_DialogRenderer *s_dialog_renderer;
@@ -267,7 +267,7 @@ void naui_dialog_select(Naui_Dialog *dialog, int32_t entry_index)
 
 	dialog->selected_index = entry_index;
 	const Naui_DirEntry *entry = &dialog->entries[entry_index];
-	if (!entry->is_directory || dialog->mode == NAUI_DIALOG_OPEN_FOLDER)
+	if (!entry->is_directory || dialog->mode == NAUI_DIALOG_OPEN_FOLDER || dialog->mode == NAUI_DIALOG_OPEN_ANY)
 		_naui_dialog_set_text(&dialog->name, _naui_dialog_entry_name(entry));
 }
 
@@ -350,6 +350,23 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 		Naui_Path target = dialog->current_dir;
 		if (dialog->selected_index >= 0 && dialog->selected_index < (int32_t)naui_list_len(dialog->entries))
 			target = dialog->entries[dialog->selected_index].path;
+
+		_naui_dialog_finish(dialog, &target, false);
+		return NAUI_DIALOG_CONFIRM_DONE;
+	}
+
+	if (dialog->mode == NAUI_DIALOG_OPEN_ANY)
+	{
+		Naui_Path target = dialog->current_dir;
+		if (name[0])
+		{
+			if (!_naui_dialog_valid_file_name(name))
+				return NAUI_DIALOG_CONFIRM_INVALID_NAME;
+
+			target = naui_path_normalize(naui_path_join(dialog->current_dir, naui_path_from_cstr(name)));
+			if (!naui_path_exists(target))
+				return NAUI_DIALOG_CONFIRM_NOT_FOUND;
+		}
 
 		_naui_dialog_finish(dialog, &target, false);
 		return NAUI_DIALOG_CONFIRM_DONE;
@@ -507,6 +524,11 @@ bool naui_dialog_save_file(const char *key, const char **filters, Naui_DialogCal
 bool naui_dialog_open_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
 {
 	return _naui_dialog_open(NAUI_DIALOG_OPEN_FOLDER, key, filters, callback, user_data, "Select Folder", "Select") != NULL;
+}
+
+bool naui_dialog_open_file_or_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
+{
+	return _naui_dialog_open(NAUI_DIALOG_OPEN_ANY, key, filters, callback, user_data, "Open", "Open") != NULL;
 }
 
 Naui_Dialog *naui_dialog_find(const char *key)

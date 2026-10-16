@@ -10,7 +10,8 @@ typedef enum
 {
 	NAUI_DIALOG_OPEN_FILE,
 	NAUI_DIALOG_SAVE_FILE,
-	NAUI_DIALOG_OPEN_FOLDER
+	NAUI_DIALOG_OPEN_FOLDER,
+	NAUI_DIALOG_OPEN_ANY
 } Naui_DialogMode;
 
 typedef uint32_t Naui_DialogState;
@@ -72,6 +73,7 @@ typedef enum
 bool naui_dialog_open_file(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data);
 bool naui_dialog_save_file(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data);
 bool naui_dialog_open_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data);
+bool naui_dialog_open_file_or_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data);
 
 Naui_Dialog *naui_dialog_find(const char *key);
 void naui_dialog_confirm_label_set(const char *key, const char *confirm_label);

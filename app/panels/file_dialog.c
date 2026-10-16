@@ -455,8 +455,8 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 	if (slot == NAUI_MAX_DIALOGS)
 		return false;
 
-	const char *titles[] = { NAUI_TR("file_dialog.open_file.title"), NAUI_TR("file_dialog.save_file.title"), NAUI_TR("file_dialog.open_folder.title") };
-	const char *labels[] = { NAUI_TR("file_dialog.open"), NAUI_TR("file_dialog.save"), NAUI_TR("file_dialog.select") };
+	const char *titles[] = { NAUI_TR("file_dialog.open_file.title"), NAUI_TR("file_dialog.save_file.title"), NAUI_TR("file_dialog.open_folder.title"), NAUI_TR("file_dialog.open_file.title") };
+	const char *labels[] = { NAUI_TR("file_dialog.open"), NAUI_TR("file_dialog.save"), NAUI_TR("file_dialog.select"), NAUI_TR("file_dialog.open") };
 	snprintf(dialog->title, sizeof(dialog->title), "%s", titles[dialog->mode]);
 	snprintf(dialog->confirm_label, sizeof(dialog->confirm_label), "%s", labels[dialog->mode]);
 
