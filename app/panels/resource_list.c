@@ -215,7 +215,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     }) {
         if (renaming)
         {
-            if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, placeholder_name))
+            if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, placeholder_name))
             {
                 if (name->length == 0)
 					*name = naui_string_from_cstr(placeholder_name);

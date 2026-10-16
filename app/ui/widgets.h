@@ -1,23 +1,23 @@
 typedef uint32_t Uph_UITextFieldFlags;
 enum
 {
-    UPH_UI_TEXTFIELD_FLAGS_NONE = 0,
-    UPH_UI_TEXTFIELD_ALWAYS_ACTIVE = 1 << 0,
-    UPH_UI_TEXTFIELD_NUMBER_ONLY = 1 << 1
+    UPH_UI_TEXTFIELD_FLAG_NONE = 0,
+    UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE = 1 << 0,
+    UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY = 1 << 1
 };
 
 typedef uint32_t Uph_UIDragFlags;
 enum
 {
-    UPH_UI_DRAG_FLAGS_NONE = 0,
-    UPH_UI_DRAG_CLAMPED = 1 << 0
+    UPH_UI_DRAG_FLAG_NONE = 0,
+    UPH_UI_DRAG_FLAG_CLAMPED = 1 << 0
 };
 
 typedef uint32_t Uph_UISliderFlags;
 enum
 {
-    UPH_UI_SLIDER_FLAGS_NONE = 0,
-    UPH_UI_SLIDER_VERTICAL = 1 << 0
+    UPH_UI_SLIDER_FLAG_NONE = 0,
+    UPH_UI_SLIDER_FLAG_VERTICAL = 1 << 0
 };
 
 typedef uint64_t Uph_UIMenuID;
@@ -57,4 +57,11 @@ bool uph_ui_slider_int(int32_t *value, const Leaf_ID id, int32_t min, int32_t ma
 bool uph_ui_checkbox(bool *value, const Leaf_ID id);
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id);
 
-bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color);
+typedef uint8_t Uph_UIKnobStartType;
+enum
+{
+    UPH_UI_KNOB_START_TYPE_LEFT,
+    UPH_UI_KNOB_START_TYPE_CENTER
+};
+
+bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color, Uph_UIKnobStartType start_type);

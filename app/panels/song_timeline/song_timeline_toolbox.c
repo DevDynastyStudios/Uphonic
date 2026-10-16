@@ -147,7 +147,7 @@ void uph_song_timeline_render_toolbox(void)
 			})
 			{
 				const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
-				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_CLAMPED);
+				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 			}
 		}
 	}

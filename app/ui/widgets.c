@@ -141,7 +141,7 @@ static void uph_ui__textfield_delete_selection(Uph_TextfieldData *data)
 
 static bool uph_ui__char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags, const Naui_String *value, size_t cursor)
 {
-    if (!(flags & UPH_UI_TEXTFIELD_NUMBER_ONLY))
+    if (!(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY))
         return true;
 
     if (codepoint >= '0' && codepoint <= '9')
@@ -209,7 +209,7 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
     if (text_editing)
     {
-        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
+        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY, NULL);
         if (sub_result)
         {
             if (is_float)
@@ -226,7 +226,7 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     }
 
     Leaf_BoundingBox box = leaf_get_bounding_box(id);
-    const bool vertical = (flags & UPH_UI_SLIDER_VERTICAL) != 0;
+    const bool vertical = (flags & UPH_UI_SLIDER_FLAG_VERTICAL) != 0;
 
     if (hovered && (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_dragging(NAUI_MOUSE_LEFT)))
     {
@@ -354,21 +354,21 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
 
     if (text_editing)
     {
-        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_NUMBER_ONLY, NULL);
+        bool sub_result = uph_ui_textfield(&edit_buffer, id, UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY, NULL);
 
         if (sub_result)
         {
             if (is_float)
             {
                 float parsed = (float)atof(edit_buffer.data);
-                if (flags & UPH_UI_DRAG_CLAMPED)
+                if (flags & UPH_UI_DRAG_FLAG_CLAMPED)
                     parsed = NAUI_CLAMP(parsed, min_f, max_f);
                 *(float*)value = parsed;
             }
             else
             {
                 int32_t parsed = (int32_t)atoi(edit_buffer.data);
-                if (flags & UPH_UI_DRAG_CLAMPED)
+                if (flags & UPH_UI_DRAG_FLAG_CLAMPED)
                     parsed = NAUI_CLAMP(parsed, min_i, max_i);
                 *(int32_t*)value = parsed;
             }
@@ -409,7 +409,7 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
             if (is_float)
             {
                 float new_value = *(float*)value + delta * speed;
-                if (flags & UPH_UI_DRAG_CLAMPED)
+                if (flags & UPH_UI_DRAG_FLAG_CLAMPED)
                     new_value = NAUI_CLAMP(new_value, min_f, max_f);
                 if (new_value != *(float*)value)
                 {
@@ -426,7 +426,7 @@ static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
                     drag_int_accum -= (float)step;
 
                     int32_t new_value = *(int32_t*)value + step;
-                    if (flags & UPH_UI_DRAG_CLAMPED)
+                    if (flags & UPH_UI_DRAG_FLAG_CLAMPED)
                         new_value = NAUI_CLAMP(new_value, min_i, max_i);
                     if (new_value != *(int32_t*)value)
                     {
@@ -491,18 +491,21 @@ typedef struct
     float t;
     bool hovered;
     bool active;
+    Uph_UIKnobStartType start_type;
 }
 Uph_KnobDrawData;
 
 typedef struct
 {
     Naui_Color start, end;
+    float origin;
 }
 Uph_KnobArcColors;
 
 static Naui_Color uph_ui__knob_arc_color(const Uph_KnobArcColors *colors, float s)
 {
-    return uph_color_mix(colors->start, colors->end, s);
+    const float span = NAUI_MAX(colors->origin, 1.0f - colors->origin);
+    return uph_color_mix(colors->start, colors->end, fabsf(s - colors->origin) / span);
 }
 
 static Naui_Vec2 uph_ui__knob_point(Naui_Vec2 center, float radius, float angle)
@@ -550,10 +553,14 @@ static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
     const Naui_Color outline_color   = naui_theme_color("uph_ui_frame_bg_color");
     const Naui_Color indicator_color = naui_theme_color("uph_ui_text_color");
 
+    const bool  center_start = (knob->start_type == UPH_UI_KNOB_START_TYPE_CENTER);
+    const float origin       = center_start ? 0.5f : 0.0f;
+
     const Uph_KnobArcColors arc =
     {
-        .start = knob->color,
-        .end   = uph_color_mix(knob->color, LEAF_COLOR_WHITE, 0.45f)
+        .start  = knob->color,
+        .end    = uph_color_mix(knob->color, LEAF_COLOR_WHITE, 0.45f),
+        .origin = origin
     };
 
     Naui_Color body_top    = naui_theme_color("uph_ui_frame_pressed_bg_color");
@@ -581,9 +588,12 @@ static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
     uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MIN), arc_width, track_color);
     uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MAX), arc_width, track_color);
 
-    uph_ui__knob_arc(center, radius, arc_inner_r, 0.0f, t, &arc, arc.start);
-    uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MIN), arc_width, uph_ui__knob_arc_color(&arc, 0.0f));
-    if (t > 0.0f)
+    uph_ui__knob_arc(center, radius, arc_inner_r, NAUI_MIN(origin, t), NAUI_MAX(origin, t), &arc, arc.start);
+
+    if (!center_start)
+        uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, UPH_KNOB_ANGLE_MIN), arc_width, uph_ui__knob_arc_color(&arc, 0.0f));
+
+    if (fabsf(t - origin) > 0.0001f)
         uph_ui__knob_dot(uph_ui__knob_point(center, arc_mid_r, end_angle), arc_width, uph_ui__knob_arc_color(&arc, t));
 
     uph_ui__knob_dot(center, outline_r * 2.0f, outline_color);
@@ -1172,7 +1182,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
     bool active = (data->id.value == id.value) && (data->mode == UPH_UI_EDIT_MODE_TEXT);
 
-    if (!active && (flags & UPH_UI_TEXTFIELD_ALWAYS_ACTIVE) && data->id.value == 0)
+    if (!active && (flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE) && data->id.value == 0)
     {
         uph_ui__begin_text_edit(data, id, value, value->length);
         active = true;
@@ -1191,7 +1201,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             uph_ui__begin_text_edit(data, id, value, uph_ui__cursor_from_x(value, local_x, font_size));
             active = true;
         }
-        else if (active && !(flags & UPH_UI_TEXTFIELD_ALWAYS_ACTIVE))
+        else if (active && !(flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE))
         {
             uph_ui__end_edit(data);
             active = false;
@@ -1272,7 +1282,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             active = false;
             result = true;
         }
-        else if (naui_key_pressed(NAUI_KEY_ESCAPE) && !(flags & UPH_UI_TEXTFIELD_ALWAYS_ACTIVE))
+        else if (naui_key_pressed(NAUI_KEY_ESCAPE) && !(flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE))
         {
             uph_ui__end_edit(data);
             active = false;
@@ -1615,7 +1625,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
     return result;
 }
 
-bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color)
+bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color, Uph_UIKnobStartType start_type)
 {
     Uph_KnobData *kdata = &uph_global_widget_data.knob_data;
 
@@ -1667,7 +1677,13 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
     }
 
     const float t = (range != 0.0f) ? NAUI_CLAMP01((*value - min) / range) : 0.0f;
-    Uph_KnobDrawData draw_data = { .color = color, .t = t, .hovered = hovered, .active = (kdata->id.value == id.value) };
+    Uph_KnobDrawData draw_data = {
+        .color = color,
+        .t = t,
+        .hovered = hovered,
+        .active = (kdata->id.value == id.value),
+        .start_type = start_type
+    };
 
     leaf({
         .id = id,
