@@ -100,7 +100,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 
 						if (uph_song_timeline_data.rename_track == track)
 						{
-							if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, NAUI_TR("song_timeline.track.title")))
+							if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, NAUI_TR("song_timeline.track.title")))
 								_uph_song_timeline_finish_rename(track);
 						}
 						else

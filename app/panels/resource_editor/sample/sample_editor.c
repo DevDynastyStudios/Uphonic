@@ -726,7 +726,7 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 			leaf({
 				.size = {LEAF_SIZE_FIXED(NAUI_DPI(90)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_drag_int(&sample->pitch, leaf_id("uph_sample_editor_pitch"), 1, -1200, 1200, "%i", UPH_UI_DRAG_CLAMPED);
+			}) uph_ui_drag_int(&sample->pitch, leaf_id("uph_sample_editor_pitch"), 1, -1200, 1200, "%i", UPH_UI_DRAG_FLAG_CLAMPED);
 		}
 
 		leaf({
@@ -740,7 +740,7 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 			leaf({
 				.size = {LEAF_SIZE_FIXED(NAUI_DPI(90)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_drag_float(&sample->time_scale, leaf_id("uph_sample_editor_time_scale"), 0.01f, 0.0001f, 10000.0f, "%.4f", UPH_UI_DRAG_CLAMPED);
+			}) uph_ui_drag_float(&sample->time_scale, leaf_id("uph_sample_editor_time_scale"), 0.01f, 0.0001f, 10000.0f, "%.4f", UPH_UI_DRAG_FLAG_CLAMPED);
 		}
 
 		leaf({

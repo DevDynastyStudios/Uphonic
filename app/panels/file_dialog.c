@@ -242,7 +242,7 @@ static void _uph_file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogAct
 			actions->refresh = true;
 
 		const bool was_active = uph_ui_textfield_active(path_id);
-		uph_ui_textfield(&dialog->path_text, path_id, UPH_UI_TEXTFIELD_FLAGS_NONE, NULL);
+		uph_ui_textfield(&dialog->path_text, path_id, UPH_UI_TEXTFIELD_FLAG_NONE, NULL);
 		const bool is_active = uph_ui_textfield_active(path_id);
 
 		const Naui_String shown = naui_string_from_cstr(dialog->current_dir.data);
@@ -272,7 +272,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	})
 	{
 		const bool was_active = uph_ui_textfield_active(name_id);
-		uph_ui_textfield(&dialog->name, name_id, UPH_UI_TEXTFIELD_FLAGS_NONE, NAUI_TR("file_dialog.name"));
+		uph_ui_textfield(&dialog->name, name_id, UPH_UI_TEXTFIELD_FLAG_NONE, NAUI_TR("file_dialog.name"));
 		const bool is_active = uph_ui_textfield_active(name_id);
 
 		if (was_active && !is_active && naui_key_pressed(NAUI_KEY_ENTER))

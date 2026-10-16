@@ -87,7 +87,7 @@ void uph_automation_list_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("automation.menu.title"));
     Uph_Track *track = uph_state.shared.current_automation_list_track;
-    uph_ui_textfield(&uph_automation_list_data.filter, leaf_id("uph_automation_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
+    uph_ui_textfield(&uph_automation_list_data.filter, leaf_id("uph_automation_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, "Search");
 
     static float scroll = 0.0f;
     Uph_UIScrollContainer container = uph_ui_begin_scroll_container(

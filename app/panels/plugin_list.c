@@ -264,7 +264,7 @@ void uph_plugin_list_on_update(void)
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_ALWAYS_ACTIVE, "Search");
+        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, "Search");
         if (uph_ui_text_button("Refresh", leaf_id("uph_plugin_list_refresh")))
             uph_plugin_cache_get(&uph_plugin_list_data.plugin_infos, true);
     }

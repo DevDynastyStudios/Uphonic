@@ -734,12 +734,12 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip)
             leaf_text(NAUI_TR("master.track.title"), { .font_size = font_size, .color = text_color });
         }
 
-        uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color);
+        uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color, UPH_UI_KNOB_START_TYPE_CENTER);
 
         leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
         {
             const float old_pan = *strip.pan;
-            if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_CLAMPED))
+            if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
                 uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
 
             if (!naui_mouse_down(NAUI_MOUSE_LEFT))
@@ -799,7 +799,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip)
 
         leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
         {
-            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_CLAMPED))
+            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
             {
                 uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
                 *strip.volume = uph_db_to_linear(volume_db);

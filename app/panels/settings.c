@@ -665,7 +665,7 @@ static bool uph_settings_drag_u32(uint32_t *value, const Leaf_ID id, const float
 	static int32_t scratch;
 	scratch = (int32_t)NAUI_CLAMP((int64_t)*value, (int64_t)min, (int64_t)max);
 
-	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_CLAMPED))
+	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
 		return false;
 
 	*value = (uint32_t)scratch;
@@ -677,7 +677,7 @@ static bool uph_settings_drag_u8(uint8_t *value, const Leaf_ID id, const float s
 	static int32_t scratch;
 	scratch = NAUI_CLAMP((int32_t)*value, min, max);
 
-	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_CLAMPED))
+	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
 		return false;
 
 	*value = (uint8_t)scratch;
@@ -689,7 +689,7 @@ static bool uph_settings_slider_u8(uint8_t *value, const Leaf_ID id, const int32
 	static int32_t scratch;
 	scratch = NAUI_CLAMP((int32_t)*value, min, max);
 
-	if (!uph_ui_slider_int(&scratch, id, min, max, format, UPH_UI_SLIDER_FLAGS_NONE))
+	if (!uph_ui_slider_int(&scratch, id, min, max, format, UPH_UI_SLIDER_FLAG_NONE))
 		return false;
 
 	*value = (uint8_t)scratch;
@@ -735,14 +735,14 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.ui_scale"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_slider_float(&general->ui_scale, leaf_id("uph_settings_ui_scale"), UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX, "%.2fx", UPH_UI_SLIDER_FLAGS_NONE);
+		uph_ui_slider_float(&general->ui_scale, leaf_id("uph_settings_ui_scale"), UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX, "%.2fx", UPH_UI_SLIDER_FLAG_NONE);
 	}
 
 	uph_settings_section(NAUI_TR("settings.general.behavior"), false, NULL, UPH_SETTINGS_NO_ID);
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.autosave"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_drag_int(&general->autosave_idle_timer, leaf_id("uph_settings_autosave"), 0.25f, 0, UPH_SETTINGS_AUTOSAVE_MAX, NAUI_TR("settings.general.autosave.format"), UPH_UI_DRAG_CLAMPED);
+		uph_ui_drag_int(&general->autosave_idle_timer, leaf_id("uph_settings_autosave"), 0.25f, 0, UPH_SETTINGS_AUTOSAVE_MAX, NAUI_TR("settings.general.autosave.format"), UPH_UI_DRAG_FLAG_CLAMPED);
 		uph_settings_hint(NAUI_TR("settings.general.autosave_hint"));
 	}
 
@@ -810,17 +810,17 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.monitoring_gain"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_slider_float(&audio->monitoring_gain, leaf_id("uph_settings_monitoring_gain"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAGS_NONE);
+		uph_ui_slider_float(&audio->monitoring_gain, leaf_id("uph_settings_monitoring_gain"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAG_NONE);
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.vu_hold"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_drag_float(&audio->vu_meter_hold_time, leaf_id("uph_settings_vu_hold"), 0.01f, 0.0f, UPH_SETTINGS_VU_HOLD_MAX, "%.2f s", UPH_UI_DRAG_CLAMPED);
+		uph_ui_drag_float(&audio->vu_meter_hold_time, leaf_id("uph_settings_vu_hold"), 0.01f, 0.0f, UPH_SETTINGS_VU_HOLD_MAX, "%.2f s", UPH_UI_DRAG_FLAG_CLAMPED);
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.vu_decay"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_drag_float(&audio->vu_meter_decay_time, leaf_id("uph_settings_vu_decay"), 0.01f, UPH_SETTINGS_VU_DECAY_MIN, UPH_SETTINGS_VU_DECAY_MAX, "%.2f s", UPH_UI_DRAG_CLAMPED);
+		uph_ui_drag_float(&audio->vu_meter_decay_time, leaf_id("uph_settings_vu_decay"), 0.01f, UPH_SETTINGS_VU_DECAY_MIN, UPH_SETTINGS_VU_DECAY_MAX, "%.2f s", UPH_UI_DRAG_FLAG_CLAMPED);
 	}
 }
 
@@ -830,9 +830,9 @@ static void uph_settings_axis_pair(Naui_Vec2 *value, const float speed, const fl
 	const float font_size = uph_settings_font_size();
 
 	leaf_text("X", { .font_size = { font_size }, .color = { axis_color } });
-	uph_ui_drag_float(&value->x, leaf_id(id_x), speed, min, max, "%.2f", UPH_UI_DRAG_CLAMPED);
+	uph_ui_drag_float(&value->x, leaf_id(id_x), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 	leaf_text("Y", { .font_size = { font_size }, .color = { axis_color } });
-	uph_ui_drag_float(&value->y, leaf_id(id_y), speed, min, max, "%.2f", UPH_UI_DRAG_CLAMPED);
+	uph_ui_drag_float(&value->y, leaf_id(id_y), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 }
 
 static void uph_settings_page_interface(Uph_SettingsData *data)
@@ -864,7 +864,7 @@ static void uph_settings_page_interface(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.playhead_lock"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_slider_float(&ui->playhead_lock_position, leaf_id("uph_settings_playhead_lock"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAGS_NONE);
+		uph_ui_slider_float(&ui->playhead_lock_position, leaf_id("uph_settings_playhead_lock"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAG_NONE);
 	}
 
 	uph_settings_checkbox_row(NAUI_TR("settings.ui.show_tooltips"), &ui->show_tooltips, leaf_id("uph_settings_tooltips"));
@@ -1008,7 +1008,7 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 		.padding = { 0, 0, (int32_t)NAUI_DPI(4.0f), 0 }
 	})
 	{
-		if (uph_ui_textfield(&data->new_plugin_path, leaf_id("uph_settings_plugin_path"), UPH_UI_TEXTFIELD_FLAGS_NONE, NAUI_TR("settings.plugins.path_placeholder")))
+		if (uph_ui_textfield(&data->new_plugin_path, leaf_id("uph_settings_plugin_path"), UPH_UI_TEXTFIELD_FLAG_NONE, NAUI_TR("settings.plugins.path_placeholder")))
 			add = true;
 
 		if (uph_ui_text_button(NAUI_TR("settings.plugins.add"), leaf_id("uph_settings_plugin_add")))
