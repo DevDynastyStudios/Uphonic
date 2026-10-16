@@ -158,6 +158,7 @@ typedef struct
 {
 	Naui_String name;
 	float time_scale;
+	float visual_lifetime;
 	Uph_ResourceIndex data_index;
 	int32_t pitch;
 	Uph_SampleMode mode;
@@ -178,6 +179,7 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
+	float visual_lifetime;
 }
 Uph_MidiPattern;
 
@@ -310,6 +312,7 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_AutomationPoint) points;
+	float visual_lifetime;
 }
 Uph_Automation;
 

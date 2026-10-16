@@ -9,7 +9,7 @@ void uph_song_timeline_update_input(void)
 {
 	const float wheel_y = (float)naui_mouse_scroll_delta();
 	const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
-	const float max_scroll_y = _uph_song_timeline_content_origin_x();
+	const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
 	if (uph_song_timeline_data.panel_hovered)
 	{
