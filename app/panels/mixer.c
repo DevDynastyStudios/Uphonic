@@ -754,13 +754,13 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
     bool selection_kept_for_drag = false;
-    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
+    if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(id))
     {
         selection_kept_for_drag = uph_mixer_press_keeps_selection(&strip, handle_id);
         if (!selection_kept_for_drag)
             uph_mixer_strip_select(&strip, true);
     }
-    else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
+    else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(id))
     {
         if (!uph_mixer_strip_selected(&strip))
             uph_mixer_strip_select(&strip, false);
@@ -807,7 +807,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
             const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
             if (!is_master)
             {
-                if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(handle_id))
+                if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(handle_id))
                 {
                     naui_set_cursor(NAUI_CURSOR_HAND);
                     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
