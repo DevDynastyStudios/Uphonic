@@ -71,6 +71,7 @@ typedef struct
 	Uph_MarqueeState marquee;
 	Leaf_BoundingBox panel_bounding_box;
 	Uph_Track *current_options_track;
+	Uph_Track *current_color_options_track;
 	Uph_Track *current_hovered_track;
 	Uph_Track *rename_track;
 	Naui_String rename_old_name;
@@ -149,7 +150,7 @@ void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float s
 void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data);
 void uph_song_timeline_render_top_bar(void);
 
-void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu);
+void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu);
 void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph_UIMenuID track_options_context_menu);
 void uph_song_timeline_render_track_plus(void);
 

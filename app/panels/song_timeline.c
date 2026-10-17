@@ -18,6 +18,7 @@ void uph_song_timeline_invalidate_tracks(void)
 	data->hovered_block.active = false;
 	data->hovered_block.track = NULL;
 	data->current_options_track = NULL;
+	data->current_color_options_track = NULL;
 	data->current_hovered_track = NULL;
 	data->marquee.active = false;
 
@@ -89,6 +90,7 @@ static void uph_song_timeline_on_update(void)
 	uph_song_timeline_render_toolbox();
 
 	Uph_UIMenuID track_options_context_menu = uph_ui_context_menu();
+	Uph_UIMenuID track_color_options_context_menu = uph_ui_context_menu();
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
@@ -109,7 +111,7 @@ static void uph_song_timeline_on_update(void)
 			{
 				for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 				{
-					uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu);
+					uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu, track_color_options_context_menu);
 					data->visual_row_counter++;
 				}
 			}
@@ -124,5 +126,6 @@ static void uph_song_timeline_on_update(void)
 
 	uph_song_timeline_update_empty_space_marquee();
 	uph_song_timeline_render_track_options_menu(data, track_options_context_menu);
+	uph_song_timeline_render_track_color_menu(data, track_color_options_context_menu);
 }
 #pragma endregion

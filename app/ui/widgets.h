@@ -32,6 +32,9 @@ Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id)
 Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
 
+// Returns the index of the clicked cell
+int32_t         uph_ui_menu_color_grid (Uph_UIMenuID menu_id, const Naui_Color *colors, uint32_t count, uint32_t columns, int32_t selected, const Leaf_ID element_id);
+
 Uph_UIMenuID    uph_ui_context_menu (void);
 void            uph_ui_open_context_menu (Uph_UIMenuID menu);
 

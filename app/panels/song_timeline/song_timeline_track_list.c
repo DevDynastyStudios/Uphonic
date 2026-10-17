@@ -1,3 +1,8 @@
+#define UPH_TRACK_STRIP_WIDTH		5.0f
+#define UPH_TRACK_STRIP_HOVER_WIDTH	6.0f
+#define UPH_TRACK_STRIP_HIT_WIDTH	10.0f
+#define UPH_TRACK_HEADER_CHILD_GAP	10.0f
+
 static void _uph_song_timeline_finish_rename(Uph_Track *track)
 {
 	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
@@ -18,7 +23,7 @@ static void _uph_song_timeline_finish_rename(Uph_Track *track)
 	timeline->rename_track = NULL;
 }
 
-static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu)
+static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	const int32_t depth_offset = depth * 13;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
@@ -28,8 +33,14 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
 	const float header_width = naui_theme_float("uph_song_timeline_header_width");
 
+	const int32_t strip_idle_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_WIDTH);
+	const int32_t strip_hover_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_HOVER_WIDTH);
+	const int32_t strip_hit_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_HIT_WIDTH);
+	const int32_t header_child_gap = (int32_t)NAUI_DPI(UPH_TRACK_HEADER_CHILD_GAP) - (strip_hit_width - strip_idle_width);
+
 	uint64_t track_id = (uint64_t)track;
 	Naui_Color color = uph_resources_track_color(track->color_index);
+	Naui_Color tint_color = uph_color_mix(bg_color, color, 0.12f);	// Use this when adding track groups
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
@@ -44,7 +55,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
 			.color = bg_color,
-			.child_gap = NAUI_DPI(10),
+			.child_gap = header_child_gap,
 			.border = {
 				.width = 1,
 				.color = {border_color},
@@ -53,11 +64,31 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 		})
 		{
 
+			const Leaf_ID color_strip_id = leaf_id_indexed("uph_track_head_strip", track_id);
+			const bool strip_hovered = uph_ui_widget_hovered(color_strip_id);
+			if (strip_hovered)
+			{
+				naui_set_cursor(NAUI_CURSOR_HAND);
+
+				if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+				{
+					uph_song_timeline_data.current_color_options_track = track;
+					uph_ui_open_context_menu(color_menu);
+				}
+			}
+
+			const int32_t strip_width = strip_hovered ? strip_hover_width : strip_idle_width;
 			leaf({
-				.size = {LEAF_SIZE_FIXED(NAUI_DPI(5)), LEAF_SIZE_FULL},
-				.color = color,
-				.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
-			});
+				.id = color_strip_id,
+				.size = {LEAF_SIZE_FIXED(strip_hit_width), LEAF_SIZE_FULL}
+			})
+			{
+				leaf({
+					.size = {LEAF_SIZE_FIXED(strip_width), LEAF_SIZE_FULL},
+					.color = color,
+					.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+				});
+			}
 
 			leaf({
 				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
@@ -84,10 +115,10 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 							Naui_Image *icon;
 							switch (track->type)
 							{
-							case UPH_RESOURCE_SAMPLE: icon = naui_asset_image("uph_icon_wave"); break;
-							case UPH_RESOURCE_PATTERN: icon = naui_asset_image("uph_icon_piano"); break;
-							case UPH_RESOURCE_AUTOMATION: icon = naui_asset_image("uph_icon_automation"); break;
-							case UPH_RESOURCE_GROUP: icon = naui_asset_image("uph_icon_folder"); break;
+								case UPH_RESOURCE_SAMPLE: icon = naui_asset_image("uph_icon_wave"); break;
+								case UPH_RESOURCE_PATTERN: icon = naui_asset_image("uph_icon_piano"); break;
+								case UPH_RESOURCE_AUTOMATION: icon = naui_asset_image("uph_icon_automation"); break;
+								case UPH_RESOURCE_GROUP: icon = naui_asset_image("uph_icon_folder"); break;
 							}
 							const float icon_size = NAUI_DPI(naui_theme_float("uph_song_timeline_icon_size"));
 							leaf({
@@ -170,7 +201,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	
 }
 
-void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu)
+void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 	leaf({
@@ -178,7 +209,7 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(48) : NAUI_DPI(uph_song_timeline_data.zoom.y))}
 	})
 	{
-		_uph_song_timeline_render_track_header(track, depth, options_menu);
+		_uph_song_timeline_render_track_header(track, depth, options_menu, color_menu);
 		if (track->type != UPH_RESOURCE_GROUP)
 			uph_song_timeline_render_track_timeline(track);
 	}
@@ -186,7 +217,35 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
 		data->visual_row_counter++;
-		uph_song_timeline_render_track(&track->subtracks[i], depth + 1, options_menu);
+		uph_song_timeline_render_track(&track->subtracks[i], depth + 1, options_menu, color_menu);
+	}
+}
+
+void uph_song_timeline_render_track_color_menu(Uph_SongTimelineData *data, Uph_UIMenuID track_color_options_context_menu)
+{
+	if (naui_list_len(uph_state.project.tracks) == 0 || !data->current_color_options_track)
+		return;
+
+	Uph_Track *track = data->current_color_options_track;
+	const Naui_List(Naui_Color) palette = naui_theme_color_list("uph_track_palette");
+	const uint32_t color_count = (uint32_t)naui_list_len(palette);
+	if (color_count == 0)
+		return;
+
+	const uint32_t rows = 2;
+	const uint32_t columns = (uint32_t)ceilf((color_count + rows - 1) / rows);
+	const int32_t current = track->color_index % (int32_t)color_count;
+
+	const int32_t picked = uph_ui_menu_color_grid(track_color_options_context_menu, palette, color_count, columns, current, leaf_id("uph_song_timeline_options_color_grid"));
+	if (picked >= 0 && track->color_index != picked)
+	{
+		Uph_ActionTrackColor color_data = {
+			.track = uph_action_track_ref(track),
+			.old_color = track->color_index,
+			.new_color = picked
+		};
+
+		naui_action_execute_stack(UPH_ACTION_TRACK_COLOR, color_data);
 	}
 }
 
@@ -196,24 +255,6 @@ void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph
 		return;
 
 	Uph_Track *track = data->current_options_track;
-
-	{
-		Uph_UIMenuID color_menu = uph_ui_submenu(track_options_context_menu, "Color", leaf_id("uph_song_timeline_options_color"));
-		const uint32_t color_count = (uint32_t)naui_list_len(naui_theme_color_list("uph_track_palette"));
-		for (uint32_t i = 0; i < color_count; i++)
-		{
-			if (uph_ui_menu_item(color_menu, naui_string_format("Color %i", i).data, leaf_id_indexed("uph_song_timeline_options_color_item", i)) && track->color_index != (int32_t)i)
-			{
-				Uph_ActionTrackColor color_data = {
-					.track = uph_action_track_ref(track),
-					.old_color = track->color_index,
-					.new_color = (int32_t)i
-				};
-				naui_action_execute_stack(UPH_ACTION_TRACK_COLOR, color_data);
-			}
-		}
-	   
-	}
 
 	if (track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN)
 	{
