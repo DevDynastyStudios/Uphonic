@@ -16,7 +16,7 @@ void uph_song_timeline_update_input(void)
 		if (ctrl_held && wheel_y != 0.0f)
 		{
 			const float old_zoom_x = uph_song_timeline_data.zoom.x;
-			const float mouse_local_x = (float)naui_mouse_x() - max_scroll_y;
+			const float mouse_local_x = (float)naui_mouse_x() - _uph_song_timeline_content_origin_x();
 			const double mouse_beat_before = ((double)mouse_local_x + uph_song_timeline_data.scroll.x) / old_zoom_x;
 			float new_zoom_x = old_zoom_x * (1.0f + wheel_y * UPH_SONG_TIMELINE_ZOOM_SPEED);
 

@@ -9,6 +9,7 @@
 
 #define UPH_ACTION_TRACK_CREATE "Track Create"
 #define UPH_ACTION_TRACK_DELETE "Track Delete"
+#define UPH_ACTION_TRACKS_DELETE_GROUP "Tracks Delete"
 #define UPH_ACTION_TRACK_AUTOMATION_CREATE "Automation Track Create"
 #define UPH_ACTION_TRACK_RENAME "Track Rename"
 #define UPH_ACTION_TRACK_COLOR "Track Color"

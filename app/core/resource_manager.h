@@ -34,6 +34,9 @@ bool uph_resources_ungroup_track(Uph_Track *group); // children go back to the t
 
 bool uph_resources_move_track(Uph_Track *track, Uph_Track *dest_group, uint32_t dest_index);
 
+bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_group, uint32_t dest_index);
+uint32_t uph_resources_count_movable_tracks(Naui_List(Uph_TrackPtr) tracks); // how many a move would actually carry
+
 Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name);
 bool uph_resources_add_sample_from_file(Naui_Path path);
 void uph_resources_copy_sample(Uph_ResourceIndex sample_index);

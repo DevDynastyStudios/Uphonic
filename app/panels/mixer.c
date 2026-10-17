@@ -709,18 +709,38 @@ typedef struct Uph_MixerDrag
     Naui_Vec2 press_position;
     bool pending;
     bool active;
+    bool select_on_release;
 }
 Uph_MixerDrag;
 
 static Uph_MixerDrag s_mixer_drag;
 
-static void uph_mixer_drag_begin(Uph_ActionTrackRef source)
+static void uph_mixer_drag_begin(Uph_ActionTrackRef source, bool select_on_release)
 {
     s_mixer_drag = (Uph_MixerDrag){
         .source = source,
         .press_position = { (float)naui_mouse_x(), (float)naui_mouse_y() },
-        .pending = true
+        .pending = true,
+        .select_on_release = select_on_release
     };
+}
+
+// Pressing the drag handle of a strip that is part of a multi-selection must leave the selection alone, otherwise
+// there would be nothing left to drag. (If it turns out to be a plain click, the drag code collapses it on release.)
+static bool uph_mixer_press_keeps_selection(const Uph_MixerStrip *strip, const Leaf_ID handle_id)
+{
+    if (!strip->track || !uph_mixer_strip_selected(strip))
+        return false;
+
+    if (naui_list_len(uph_state.shared.selected_mixer_tracks) < 2)
+        return false;
+
+    const bool ctrl = naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
+    const bool shift = naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
+    if (ctrl || shift)
+        return false;
+
+    return leaf_hovered(handle_id);
 }
 
 static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
@@ -732,8 +752,14 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
     const bool is_master = (strip.track == NULL);
 
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
+    const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
+    bool selection_kept_for_drag = false;
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
-        uph_mixer_strip_select(&strip, true);
+    {
+        selection_kept_for_drag = uph_mixer_press_keeps_selection(&strip, handle_id);
+        if (!selection_kept_for_drag)
+            uph_mixer_strip_select(&strip, true);
+    }
     else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
     {
         if (!uph_mixer_strip_selected(&strip))
@@ -781,12 +807,11 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
             const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
             if (!is_master)
             {
-                const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
                 if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(handle_id))
                 {
                     naui_set_cursor(NAUI_CURSOR_HAND);
                     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-                        uph_mixer_drag_begin(strip.ref);
+                        uph_mixer_drag_begin(strip.ref, selection_kept_for_drag);
                 }
 
                 leaf({
@@ -813,7 +838,8 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
             }
 
             const float old_pan = *strip.pan;
-            if (uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color, UPH_UI_KNOB_START_TYPE_CENTER))
+            leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED}, .aspect_ratio = 1.0f})
+            if (uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, accent_color, UPH_UI_KNOB_START_TYPE_CENTER))
                 uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
 
             leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
@@ -982,11 +1008,20 @@ static void uph_mixer_remove_selected_tracks(void)
     }
 
     qsort(refs, ref_count, sizeof(Uph_ActionTrackRef), uph_mixer_remove_order);
+
+    // Removing several tracks is a single undo step. (A lone track keeps its own "Track Delete" entry.)
+    const bool grouped = ref_count > 1;
+    if (grouped)
+        naui_action_group_start(UPH_ACTION_TRACKS_DELETE_GROUP);
+
     for (uint32_t i = 0; i < ref_count; i++)
     {
         Uph_ActionTrackDelete data = { .track = refs[i] };
         naui_action_execute_stack(UPH_ACTION_TRACK_DELETE, data);
     }
+
+    if (grouped)
+        naui_action_group_end();
 
     free(refs);
 }
@@ -1115,6 +1150,25 @@ static Uph_MixerDropTarget uph_mixer_find_drop_target(float mouse_x, bool draggi
     return target;
 }
 
+// What the current drag carries: the whole selection when the grabbed strip is part of it, otherwise just that strip.
+// The caller frees the list.
+static Naui_List(Uph_TrackPtr) uph_mixer_drag_tracks(Uph_Track *source)
+{
+    Naui_List(Uph_TrackPtr) tracks = NULL;
+
+    if (uph_resources_mixer_track_selected(source))
+    {
+        for (uint32_t i = 0; i < naui_list_len(uph_state.shared.selected_mixer_tracks); i++)
+            naui_list_push(tracks, uph_state.shared.selected_mixer_tracks[i]);
+    }
+    else
+    {
+        naui_list_push(tracks, source);
+    }
+
+    return tracks;
+}
+
 static void uph_mixer_update_drag(void)
 {
     if (!s_mixer_drag.pending && !s_mixer_drag.active)
@@ -1134,6 +1188,9 @@ static void uph_mixer_update_drag(void)
     {
         if (!mouse_down)
         {
+            if (s_mixer_drag.select_on_release)
+                uph_resources_select_mixer_track(source);
+
             s_mixer_drag = (Uph_MixerDrag){ 0 };
             return;
         }
@@ -1148,19 +1205,36 @@ static void uph_mixer_update_drag(void)
         s_mixer_drag.active = true;
     }
 
+    Naui_List(Uph_TrackPtr) dragged = uph_mixer_drag_tracks(source);
+
+    // Groups only fit between top-level strips, so one group in the drag restricts where everything can be dropped.
+    bool dragging_group = false;
+    for (uint32_t i = 0; i < naui_list_len(dragged); i++)
+        dragging_group = dragging_group || dragged[i]->type == UPH_RESOURCE_GROUP;
+
     const Uph_MixerDropTarget target = naui_panel_is_hovered(uph_state.panels.mixer) ?
-        uph_mixer_find_drop_target(mouse.x, source->type == UPH_RESOURCE_GROUP) : (Uph_MixerDropTarget){ 0 };
+        uph_mixer_find_drop_target(mouse.x, dragging_group) : (Uph_MixerDropTarget){ 0 };
 
     if (!mouse_down)
     {
         if (target.valid)
         {
             Uph_Track *dest_group = target.parent == UPH_ACTION_TRACK_TOP ? NULL : &uph_state.project.tracks[target.parent];
-            uph_resources_move_track(source, dest_group, target.index);
+            uph_resources_move_tracks(dragged, dest_group, target.index);
         }
+        naui_list_free(dragged);
         s_mixer_drag = (Uph_MixerDrag){ 0 };
         return;
     }
+
+    const uint32_t carried = uph_resources_count_movable_tracks(dragged);
+    naui_list_free(dragged);
+
+    char label[256];
+    if (carried > 1)
+        snprintf(label, sizeof(label), "%s +%u", source->name.data, carried - 1);
+    else
+        snprintf(label, sizeof(label), "%s", source->name.data);
 
     naui_set_cursor(NAUI_CURSOR_HAND);
 
@@ -1182,7 +1256,7 @@ static void uph_mixer_update_drag(void)
         .floating = { .offset = { mouse.x + NAUI_DPI(12), mouse.y + NAUI_DPI(12) } }
     })
     {
-        leaf_text(source->name.data, {
+        leaf_text(label, {
             .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
             .color = {naui_theme_color("uph_ui_text_color")}
         });

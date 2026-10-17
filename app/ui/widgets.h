@@ -67,4 +67,4 @@ enum
     UPH_UI_KNOB_START_TYPE_CENTER
 };
 
-bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color, Uph_UIKnobStartType start_type);
+bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, Naui_Color color, Uph_UIKnobStartType start_type);

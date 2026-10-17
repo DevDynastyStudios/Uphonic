@@ -1740,7 +1740,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
     return result;
 }
 
-bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, float size, Naui_Color color, Uph_UIKnobStartType start_type)
+bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, Naui_Color color, Uph_UIKnobStartType start_type)
 {
     Uph_KnobData *kdata = &uph_global_widget_data.knob_data;
 
@@ -1802,9 +1802,10 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
 
     leaf({
         .id = id,
-        .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(size)), .height = LEAF_SIZE_FIXED(NAUI_DPI(size)) },
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_DERIVED },
         .custom_draw = uph_ui__knob_draw,
-        .custom_draw_data = LEAF_DATA_SLICE(draw_data)
+        .custom_draw_data = LEAF_DATA_SLICE(draw_data),
+        .aspect_ratio = 1.0f
     });
 
     return result;
