@@ -244,12 +244,12 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 			size,
 			(Naui_Gradient) { .color1 = sharp_color, .color2 = sharp_gradient, .percent1 = 0.75f, .percent2 = 1.0f },
 			rounding,
-			NAUI_CORNER_ALL
+			NAUI_CORNER_TR | NAUI_CORNER_BR
 		);
 
 		Leaf_Color outline = uph_color_mix(sharp_color, LEAF_COLOR_BLACK, UPH_PIANO_LABEL_DARKEN_MIX);
 		outline.a = (uint8_t)style->black_key_border_alpha;
-		naui_draw_rect(position, size, outline, NAUI_DPI(style->black_key_border_thick), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+		naui_draw_rect(position, size, outline, NAUI_DPI(style->black_key_border_thick), rounding, NAUI_CORNER_TR | NAUI_CORNER_BR, NAUI_SIDE_ALL);
 
 		if (!pressed && size.y > NAUI_DPI(7.0f))
 		{
@@ -258,7 +258,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 				(Naui_Vec2) { NAUI_DPI(2.0f), size.y - NAUI_DPI(3.0f) },
 				uph_color_mix(sharp_color, LEAF_COLOR_WHITE, UPH_PIANO_ACCIDENTAL_SHINE_MIX),
 				NAUI_DPI(1.0f),
-				NAUI_CORNER_ALL
+				NAUI_CORNER_TR | NAUI_CORNER_BR
 			);
 		}
 

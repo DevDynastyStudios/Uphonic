@@ -2,8 +2,7 @@
 #define UPH_NOTE_NAME_MAX 16
 #define UPH_NOTES_PER_OCTAVE 12
 
-// MIDI note 60 (C4)
-#define UPH_NOTE_OCTAVE_OFFSET (-1)
+#define UPH_NOTE_OCTAVE_OFFSET (0)
 
 typedef uint8_t Uph_NoteKind;
 enum
