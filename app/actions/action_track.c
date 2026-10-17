@@ -164,7 +164,7 @@ typedef struct
 static Uph_ActionTrackPointers uph_action_track_pointers_capture(void)
 {
 	return (Uph_ActionTrackPointers){
-		.mixer = uph_action_track_ref(uph_state.shared.selected_mixer_track),
+		.mixer = uph_action_track_ref(uph_state.shared.current_mixer_track),
 		.plugin_list = uph_action_track_ref(uph_state.shared.current_plugin_list_track),
 		.soloed = uph_action_track_ref(uph_state.project.soloed_track)
 	};
@@ -201,7 +201,11 @@ static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_Action
 {
 	uph_resources_link_tracks(uph_state.project.tracks);
 	uph_resources_refresh_param_usage(uph_state.project.tracks);
-	uph_state.shared.selected_mixer_track = uph_action_track_pointer_shift(before.mixer, changed, delta);
+	uph_state.shared.current_mixer_track = uph_action_track_pointer_shift(before.mixer, changed, delta);
+	// The rest of the multi-selection can't be shifted (pointers), so it collapses to the current track.
+	naui_list_clear(uph_state.shared.selected_mixer_tracks);
+	if (uph_state.shared.current_mixer_track)
+		naui_list_push(uph_state.shared.selected_mixer_tracks, uph_state.shared.current_mixer_track);
 	uph_state.shared.current_plugin_list_track = uph_action_track_pointer_shift(before.plugin_list, changed, delta);
 	uph_state.project.soloed_track = uph_action_track_pointer_shift(before.soloed, changed, delta);
 	uph_song_timeline_invalidate_tracks();
@@ -463,7 +467,9 @@ bool _uph_action_track_solo_execute(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track || track->parent)
+	// Groups and the tracks inside them can be soloed; automation lanes can't. There is only ever one solo
+	// (project->soloed_track), so soloing something un-solos whatever was soloed before, in any group.
+	if (!track || track->type == UPH_RESOURCE_AUTOMATION)
 		return false;
 
 	Uph_Project* project = &uph_state.project;

@@ -87,6 +87,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 							case UPH_RESOURCE_SAMPLE: icon = naui_asset_image("uph_icon_wave"); break;
 							case UPH_RESOURCE_PATTERN: icon = naui_asset_image("uph_icon_piano"); break;
 							case UPH_RESOURCE_AUTOMATION: icon = naui_asset_image("uph_icon_automation"); break;
+							case UPH_RESOURCE_GROUP: icon = naui_asset_image("uph_icon_folder"); break;
 							}
 							const float icon_size = NAUI_DPI(naui_theme_float("uph_song_timeline_icon_size"));
 							leaf({
@@ -138,26 +139,30 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 					}
 				}
 
-				leaf({
-					.direction = LEAF_DIRECTION_HORIZONTAL,
-					.child_gap = NAUI_DPI(2)
-				})
+				if (track->type != UPH_RESOURCE_GROUP)
 				{
-					if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
-						uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-					if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), uph_state.project.soloed_track == track))
+					leaf({
+						.direction = LEAF_DIRECTION_HORIZONTAL,
+						.child_gap = NAUI_DPI(2)
+					})
 					{
-						Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
-						naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
-					}
+						if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
+							uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+						if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), uph_state.project.soloed_track == track))
+						{
+							Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
+							naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
+						}
 
-					if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_image_toggle_button(
-						naui_asset_image("uph_icon_mic"),
-						leaf_id_indexed("uph_song_timeline_arm_toggle", track_id),
-						(Naui_Vec2) { button_size, button_size },
-						text_color,
-						track->state & UPH_TRACK_ARMED
-					)) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
+						if (track->type != UPH_RESOURCE_AUTOMATION &&
+							uph_ui_image_toggle_button(
+								naui_asset_image("uph_icon_mic"),
+								leaf_id_indexed("uph_song_timeline_arm_toggle", track_id),
+								(Naui_Vec2) { button_size, button_size },
+								text_color,
+								track->state & UPH_TRACK_ARMED
+						)) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
+					}
 				}
 			}
 		}
@@ -170,11 +175,12 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_data.zoom.y))}
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(48) : NAUI_DPI(uph_song_timeline_data.zoom.y))}
 	})
 	{
 		_uph_song_timeline_render_track_header(track, depth, options_menu);
-		uph_song_timeline_render_track_timeline(track);
+		if (track->type != UPH_RESOURCE_GROUP)
+			uph_song_timeline_render_track_timeline(track);
 	}
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)

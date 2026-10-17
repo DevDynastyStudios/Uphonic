@@ -1,4 +1,3 @@
-
 void uph_resources_unload_all_plugins(void);
 void uph_resources_link_tracks(Naui_List(Uph_Track) tracks);
 
@@ -19,6 +18,21 @@ void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks);
 
 void uph_resources_remove_track(Uph_Track *track);
 void uph_resources_clear_tracks(void);
+
+bool uph_resources_mixer_track_selected(const Uph_Track *track);
+void uph_resources_clear_mixer_selection(void);
+void uph_resources_select_mixer_track(Uph_Track *track);
+void uph_resources_toggle_mixer_track(Uph_Track *track);
+void uph_resources_select_mixer_track_range(Uph_Track *to);
+void uph_resources_select_mixer_master(void);
+
+bool uph_resources_can_group_track(const Uph_Track *track);
+
+uint32_t uph_resources_count_groupable_tracks(Naui_List(Uph_TrackPtr) tracks);
+Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char *name, int32_t color_index); // NULL if nothing could be grouped
+bool uph_resources_ungroup_track(Uph_Track *group); // children go back to the top level where the group was
+
+bool uph_resources_move_track(Uph_Track *track, Uph_Track *dest_group, uint32_t dest_index);
 
 Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name);
 bool uph_resources_add_sample_from_file(Naui_Path path);
@@ -47,12 +61,31 @@ static inline bool uph_track_monitors_instrument(const Uph_Track *track)
 	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && track->monitored;
 }
 
+static inline bool uph_track_is_descendant_of(const Uph_Track *track, const Uph_Track *ancestor)
+{
+	for (const Uph_Track *p = track ? track->parent : NULL; p; p = p->parent)
+	{
+		if (p == ancestor)
+			return true;
+	}
+	return false;
+}
+
 static inline bool uph_track_is_silenced(const Uph_Project *project, const Uph_Track *track)
 {
-	return project->soloed_track && project->soloed_track != track;
+	const Uph_Track *solo = project->soloed_track;
+	if (!solo)
+		return false;
+
+	return solo != track && !uph_track_is_descendant_of(track, solo) && !uph_track_is_descendant_of(solo, track);
 }
 
 static inline bool uph_track_is_audible(const Uph_Project *project, const Uph_Track *track)
 {
-	return !(track->state & UPH_TRACK_MUTED) && !uph_track_is_silenced(project, track);
+	for (const Uph_Track *t = track; t; t = t->parent)
+	{
+		if (t->state & UPH_TRACK_MUTED)
+			return false;
+	}
+	return !uph_track_is_silenced(project, track);
 }

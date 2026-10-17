@@ -90,8 +90,8 @@ static Uph_MixerStrip uph_mixer_selected_strip(void)
     if (uph_state.shared.selected_mixer_master)
         return uph_mixer_strip_master();
 
-    if (uph_state.shared.selected_mixer_track)
-        return uph_mixer_strip_track(uph_state.shared.selected_mixer_track);
+    if (uph_state.shared.current_mixer_track)
+        return uph_mixer_strip_track(uph_state.shared.current_mixer_track);
 
     return (Uph_MixerStrip){ 0 };
 }
@@ -106,13 +106,26 @@ static bool uph_mixer_strip_selected(const Uph_MixerStrip *strip)
     if (!strip->track)
         return uph_state.shared.selected_mixer_master;
 
-    return !uph_state.shared.selected_mixer_master && uph_state.shared.selected_mixer_track == strip->track;
+    return !uph_state.shared.selected_mixer_master && uph_resources_mixer_track_selected(strip->track);
 }
 
-static void uph_mixer_strip_select(const Uph_MixerStrip *strip)
+static void uph_mixer_strip_select(const Uph_MixerStrip *strip, const bool allow_multi)
 {
-    uph_state.shared.selected_mixer_master = strip->track == NULL;
-    uph_state.shared.selected_mixer_track = strip->track;
+    if (!strip->track)
+    {
+        uph_resources_select_mixer_master();
+        return;
+    }
+
+    const bool ctrl = naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
+    const bool shift = naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
+
+    if (allow_multi && ctrl)
+        uph_resources_toggle_mixer_track(strip->track);
+    else if (allow_multi && shift)
+        uph_resources_select_mixer_track_range(strip->track);
+    else
+        uph_resources_select_mixer_track(strip->track);
 }
 
 static int32_t uph_mixer_strip_color_index(const Uph_MixerStrip *strip)
@@ -688,158 +701,491 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
     naui_fill_polygon(arrow, 3, color);
 }
 
-static void uph_mixer_render_strip(Uph_MixerStrip strip)
+#define UPH_MIXER_DRAG_THRESHOLD 6.0f
+
+typedef struct Uph_MixerDrag
+{
+    Uph_ActionTrackRef source;
+    Naui_Vec2 press_position;
+    bool pending;
+    bool active;
+}
+Uph_MixerDrag;
+
+static Uph_MixerDrag s_mixer_drag;
+
+static void uph_mixer_drag_begin(Uph_ActionTrackRef source)
+{
+    s_mixer_drag = (Uph_MixerDrag){
+        .source = source,
+        .press_position = { (float)naui_mouse_x(), (float)naui_mouse_y() },
+        .pending = true
+    };
+}
+
+static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
 {
     const uint64_t track_id = uph_mixer_strip_id(&strip);
     const Naui_Color accent_color = uph_resources_track_color(uph_mixer_strip_color_index(&strip));
     Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
 
+    const bool is_master = (strip.track == NULL);
+
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
+        uph_mixer_strip_select(&strip, true);
+    else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(id))
     {
-        uph_mixer_strip_select(&strip);
+        if (!uph_mixer_strip_selected(&strip))
+            uph_mixer_strip_select(&strip, false);
+        uph_ui_open_context_menu(context_menu);
     }
+
+    const Leaf_Color bg_color = uph_mixer_strip_selected(&strip) ?
+        naui_theme_color("uph_mixer_track_selected_bg_color") :
+        naui_theme_color("uph_mixer_track_bg_color");
 
     leaf({
         .id = id,
-        .size = {LEAF_SIZE_FIXED(NAUI_DPI(100)), LEAF_SIZE_FULL},
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
-        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
-        .color = {
-            uph_mixer_strip_selected(&strip) ?
-            naui_theme_color("uph_mixer_track_selected_bg_color") :
-            naui_theme_color("uph_mixer_track_bg_color")
-        },
-        .border = {
-            .color = {naui_theme_color("uph_mixer_track_border_color")},
-            .width = 1,
-            .sides = LEAF_SIDE_LEFT
-        },
-        .child_gap = NAUI_DPI(8)
+        .size = {LEAF_SIZE_FIXED(NAUI_DPI(100 + padding.x * 2)), LEAF_SIZE_FULL},
+        .color = (strip.track && strip.track->type == UPH_RESOURCE_GROUP) ?
+        LEAF_GRADIENT_PERCENT(
+            accent_color,
+            -0.5f,
+            bg_color,
+            0.5f,
+            LEAF_DEG(90.0f)
+        ) : (Leaf_ColorFill){bg_color}
     })
     {
-        const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
-        const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-        if (strip.track)
+        if (strip.track && strip.track->type == UPH_RESOURCE_GROUP)
         {
             leaf({
-                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(6))},
-                .color = accent_color,
-                .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
-            });
-            leaf_text(strip.track->name.data, { .font_size = font_size, .color = text_color });
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(8))},
+                .color = accent_color
+            }); 
         }
-        else
-        {
-            leaf_text(NAUI_TR("master.track.title"), { .font_size = font_size, .color = text_color });
-        }
-
-        uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color, UPH_UI_KNOB_START_TYPE_CENTER);
-
-        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
-        {
-            const float old_pan = *strip.pan;
-            if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
-                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
-
-            if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-                uph_mixer_commit_edit();
-        }
-
-        const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-        leaf({
-            .direction = LEAF_DIRECTION_HORIZONTAL,
-            .child_gap = NAUI_DPI(2)
-        })
-        {
-            if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), *strip.state & UPH_TRACK_MUTED))
-            {
-                if (strip.track)
-                    uph_resources_toggle_track_state(strip.track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-                else
-                    uph_resources_toggle_master_state(UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-            }
-
-            if (strip.track && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == strip.track))
-            {
-                Uph_ActionTrackSolo data = { .track = strip.ref };
-                naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
-            }
-        }
-
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
+            .border = {
+                .color = {naui_theme_color("uph_mixer_track_border_color")},
+                .width = 1,
+                .sides = LEAF_SIDE_LEFT
+            },
             .child_gap = NAUI_DPI(8)
         })
         {
-            leaf({
-                .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
-                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
-            });
-            Uph_ActionTrackRef track_ref = strip.ref;
-            leaf({
-                .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-                .color = {naui_theme_color("uph_ui_frame_bg_color")},
-                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
-                .custom_draw_data = LEAF_DATA_SLICE(track_ref)
-            });
-            Uph_MixerVolumeArrowData arrow_data = {
-                .track = track_ref,
-                .id = track_id
-            };
-            leaf({
-                .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
-                .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_volume_arrow,
-                .custom_draw_data = LEAF_DATA_SLICE(arrow_data)
-            });
-        }
-
-        float volume_db = uph_linear_to_db(*strip.volume);
-
-        leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
-        {
-            if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
+            const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+            const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+            if (!is_master)
             {
-                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
-                *strip.volume = uph_db_to_linear(volume_db);
+                const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
+                if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(handle_id))
+                {
+                    naui_set_cursor(NAUI_CURSOR_HAND);
+                    if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                        uph_mixer_drag_begin(strip.ref);
+                }
+
+                leaf({
+                    .id = handle_id,
+                    .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+                    .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
+                    .child_gap = NAUI_DPI(8)
+                })
+                {
+                    if (strip.track->type != UPH_RESOURCE_GROUP)
+                    {
+                        leaf({
+                            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(6))},
+                            .color = accent_color,
+                            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+                        });
+                    }
+                    leaf_text(strip.track->name.data, { .font_size = font_size, .color = text_color });
+                }
+            }
+            else
+            {
+                leaf_text(NAUI_TR("master.track.title"), { .font_size = font_size, .color = text_color });
             }
 
-            if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-                uph_mixer_commit_edit();
-        }
+            const float old_pan = *strip.pan;
+            if (uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, NAUI_DPI(48.0f), accent_color, UPH_UI_KNOB_START_TYPE_CENTER))
+                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
 
-        if (strip.track)
-        {
+            leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
+            {
+                if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
+                    uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+
+                if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+                    uph_mixer_commit_edit();
+            }
+
+            const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
             leaf({
                 .direction = LEAF_DIRECTION_HORIZONTAL,
                 .child_gap = NAUI_DPI(2)
             })
             {
-                if (uph_ui_image_toggle_button(
-                    naui_asset_image("uph_icon_mic"),
-                    leaf_id_indexed("uph_mixer_arm_toggle", track_id),
-                    (Naui_Vec2) { button_size, button_size },
-                    text_color,
-                    *strip.state & UPH_TRACK_ARMED
-                )) uph_resources_toggle_track_state(strip.track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
-                if (uph_ui_image_toggle_button(
-                    naui_asset_image("uph_icon_headphones"),
-                    leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
-                    (Naui_Vec2) { button_size, button_size },
-                    text_color,
-                    strip.track->monitored
-                ))
+                if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), *strip.state & UPH_TRACK_MUTED))
                 {
-                    strip.track->monitored = !strip.track->monitored;
+                    if (!is_master)
+                        uph_resources_toggle_track_state(strip.track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+                    else
+                        uph_resources_toggle_master_state(UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
+                }
 
-                    if (strip.track->type == UPH_RESOURCE_PATTERN
-                        && !strip.track->monitored
-                        && strip.track->instrument.loaded)
-                        uph_plugin_queue_stop_all(&strip.track->instrument, 0);
+                if (!is_master && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == strip.track))
+                {
+                    Uph_ActionTrackSolo data = { .track = strip.ref };
+                    naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
+                }
+            }
+
+            leaf({
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+                .direction = LEAF_DIRECTION_HORIZONTAL,
+                .child_gap = NAUI_DPI(8)
+            })
+            {
+                leaf({
+                    .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
+                    .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_db_ruler
+                });
+                Uph_ActionTrackRef track_ref = strip.ref;
+                leaf({
+                    .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
+                    .color = {naui_theme_color("uph_ui_frame_bg_color")},
+                    .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
+                    .custom_draw_data = LEAF_DATA_SLICE(track_ref)
+                });
+                Uph_MixerVolumeArrowData arrow_data = {
+                    .track = track_ref,
+                    .id = track_id
+                };
+                leaf({
+                    .size = {LEAF_SIZE_PERCENT(0.2f), LEAF_SIZE_FULL},
+                    .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_volume_arrow,
+                    .custom_draw_data = LEAF_DATA_SLICE(arrow_data)
+                });
+            }
+
+            float volume_db = uph_linear_to_db(*strip.volume);
+
+            leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
+            {
+                if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
+                {
+                    uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
+                    *strip.volume = uph_db_to_linear(volume_db);
+                }
+
+                if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+                    uph_mixer_commit_edit();
+            }
+
+            if (!is_master && strip.track->type != UPH_RESOURCE_GROUP)
+            {
+                leaf({
+                    .direction = LEAF_DIRECTION_HORIZONTAL,
+                    .child_gap = NAUI_DPI(2)
+                })
+                {
+                    if (uph_ui_image_toggle_button(
+                        naui_asset_image("uph_icon_mic"),
+                        leaf_id_indexed("uph_mixer_arm_toggle", track_id),
+                        (Naui_Vec2) { button_size, button_size },
+                        text_color,
+                        *strip.state & UPH_TRACK_ARMED
+                    )) uph_resources_toggle_track_state(strip.track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
+                    if (uph_ui_image_toggle_button(
+                        naui_asset_image("uph_icon_headphones"),
+                        leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
+                        (Naui_Vec2) { button_size, button_size },
+                        text_color,
+                        strip.track->monitored
+                    ))
+                    {
+                        strip.track->monitored = !strip.track->monitored;
+
+                        if (strip.track->type == UPH_RESOURCE_PATTERN
+                            && !strip.track->monitored
+                            && strip.track->instrument.loaded)
+                            uph_plugin_queue_stop_all(&strip.track->instrument, 0);
+                    }
                 }
             }
         }
+    }
+
+    if (!strip.track || strip.track->type != UPH_RESOURCE_GROUP)
+        return;
+
+    leaf({
+        .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL}
+    })
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(8))},
+            .color = uph_resources_track_color(strip.track->color_index)
+        });
+        leaf({
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_GROW},
+            .direction = LEAF_DIRECTION_HORIZONTAL
+        })
+        {
+            for (uint32_t i = 0; i < naui_list_len(strip.track->subtracks); i++)
+            {
+                Uph_Track *track = &strip.track->subtracks[i];
+                uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu);
+            }
+        }
+    }
+}
+
+static int uph_mixer_remove_order(const void *a, const void *b)
+{
+    const Uph_ActionTrackRef *ra = a;
+    const Uph_ActionTrackRef *rb = b;
+
+    const bool child_a = ra->parent != UPH_ACTION_TRACK_TOP;
+    const bool child_b = rb->parent != UPH_ACTION_TRACK_TOP;
+    if (child_a != child_b)
+        return child_a ? -1 : 1;
+    if (ra->parent != rb->parent)
+        return ra->parent > rb->parent ? -1 : 1;
+    if (ra->index != rb->index)
+        return ra->index > rb->index ? -1 : 1;
+    return 0;
+}
+
+static void uph_mixer_remove_selected_tracks(void)
+{
+    const uint32_t count = (uint32_t)naui_list_len(uph_state.shared.selected_mixer_tracks);
+    if (count == 0)
+        return;
+
+    Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * count);
+    if (!refs)
+        return;
+
+    uint32_t ref_count = 0;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        const Uph_ActionTrackRef ref = uph_action_track_ref(uph_state.shared.selected_mixer_tracks[i]);
+        if (ref.parent != UPH_ACTION_TRACK_INVALID)
+            refs[ref_count++] = ref;
+    }
+
+    qsort(refs, ref_count, sizeof(Uph_ActionTrackRef), uph_mixer_remove_order);
+    for (uint32_t i = 0; i < ref_count; i++)
+    {
+        Uph_ActionTrackDelete data = { .track = refs[i] };
+        naui_action_execute_stack(UPH_ACTION_TRACK_DELETE, data);
+    }
+
+    free(refs);
+}
+
+typedef struct Uph_MixerDropTarget
+{
+    int32_t parent;
+    uint32_t index;
+    float line_x, line_y, line_height;
+    bool valid;
+}
+Uph_MixerDropTarget;
+
+static bool uph_mixer_strip_box(const Uph_Track *track, Leaf_BoundingBox *out)
+{
+    *out = leaf_get_bounding_box(leaf_id_indexed("uph_mixer_track", (uint64_t)track));
+    return out->width > 0.0f;
+}
+
+static bool uph_mixer_drop_on_strip(Uph_MixerDropTarget *target, float mouse_x, Leaf_BoundingBox box, int32_t parent, uint32_t index)
+{
+    if (mouse_x >= box.x + box.width)
+        return false;
+
+    const bool after = mouse_x >= box.x + box.width * 0.5f;
+    *target = (Uph_MixerDropTarget){
+        .parent = parent,
+        .index = after ? index + 1 : index,
+        .line_x = after ? box.x + box.width : box.x,
+        .line_y = box.y,
+        .line_height = box.height,
+        .valid = true
+    };
+    return true;
+}
+
+static Uph_MixerDropTarget uph_mixer_find_drop_target(float mouse_x, bool dragging_group)
+{
+    Uph_MixerDropTarget target = { 0 };
+    Naui_List(Uph_Track) tracks = uph_state.project.tracks;
+    const uint32_t count = (uint32_t)naui_list_len(tracks);
+
+    Leaf_BoundingBox last_box = { 0 };
+    bool have_last = false;
+
+    for (uint32_t i = 0; i < count; i++)
+    {
+        Leaf_BoundingBox box;
+        if (!uph_mixer_strip_box(&tracks[i], &box))
+            continue;
+
+        have_last = true;
+        last_box = box;
+
+        if (tracks[i].type != UPH_RESOURCE_GROUP)
+        {
+            if (uph_mixer_drop_on_strip(&target, mouse_x, box, UPH_ACTION_TRACK_TOP, i))
+                return target;
+            continue;
+        }
+
+        if (dragging_group)
+        {
+            float block_right = box.x + box.width;
+            const uint32_t block_children = (uint32_t)naui_list_len(tracks[i].subtracks);
+            for (uint32_t s = 0; s < block_children; s++)
+            {
+                Leaf_BoundingBox child_box;
+                if (!uph_mixer_strip_box(&tracks[i].subtracks[s], &child_box))
+                    continue;
+
+                last_box = child_box;
+                if (child_box.x + child_box.width > block_right)
+                    block_right = child_box.x + child_box.width;
+            }
+
+            if (mouse_x < block_right)
+            {
+                const bool after = mouse_x >= box.x + (block_right - box.x) * 0.5f;
+                return (Uph_MixerDropTarget){
+                    .parent = UPH_ACTION_TRACK_TOP,
+                    .index = after ? i + 1 : i,
+                    .line_x = after ? block_right : box.x,
+                    .line_y = box.y,
+                    .line_height = box.height,
+                    .valid = true
+                };
+            }
+            continue;
+        }
+
+        if (uph_mixer_drop_on_strip(&target, mouse_x, box, UPH_ACTION_TRACK_TOP, i))
+        {
+            if (target.index > i)
+            {
+                target.parent = (int32_t)i;
+                target.index = 0;
+            }
+            return target;
+        }
+
+        const uint32_t child_count = (uint32_t)naui_list_len(tracks[i].subtracks);
+        for (uint32_t s = 0; s < child_count; s++)
+        {
+            Leaf_BoundingBox child_box;
+            if (!uph_mixer_strip_box(&tracks[i].subtracks[s], &child_box))
+                continue;
+
+            last_box = child_box;
+            if (uph_mixer_drop_on_strip(&target, mouse_x, child_box, (int32_t)i, s))
+                return target;
+        }
+    }
+
+    if (have_last)
+    {
+        target = (Uph_MixerDropTarget){
+            .parent = UPH_ACTION_TRACK_TOP,
+            .index = count,
+            .line_x = last_box.x + last_box.width,
+            .line_y = last_box.y,
+            .line_height = last_box.height,
+            .valid = true
+        };
+    }
+    return target;
+}
+
+static void uph_mixer_update_drag(void)
+{
+    if (!s_mixer_drag.pending && !s_mixer_drag.active)
+        return;
+
+    Uph_Track *source = uph_action_track_resolve(s_mixer_drag.source);
+    if (!source || naui_key_pressed(NAUI_KEY_ESCAPE))
+    {
+        s_mixer_drag = (Uph_MixerDrag){ 0 };
+        return;
+    }
+
+    const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
+    const bool mouse_down = naui_mouse_down(NAUI_MOUSE_LEFT);
+
+    if (s_mixer_drag.pending)
+    {
+        if (!mouse_down)
+        {
+            s_mixer_drag = (Uph_MixerDrag){ 0 };
+            return;
+        }
+
+        const float dx = mouse.x - s_mixer_drag.press_position.x;
+        const float dy = mouse.y - s_mixer_drag.press_position.y;
+        const float threshold = NAUI_DPI(UPH_MIXER_DRAG_THRESHOLD);
+        if (dx * dx + dy * dy < threshold * threshold)
+            return;
+
+        s_mixer_drag.pending = false;
+        s_mixer_drag.active = true;
+    }
+
+    const Uph_MixerDropTarget target = naui_panel_is_hovered(uph_state.panels.mixer) ?
+        uph_mixer_find_drop_target(mouse.x, source->type == UPH_RESOURCE_GROUP) : (Uph_MixerDropTarget){ 0 };
+
+    if (!mouse_down)
+    {
+        if (target.valid)
+        {
+            Uph_Track *dest_group = target.parent == UPH_ACTION_TRACK_TOP ? NULL : &uph_state.project.tracks[target.parent];
+            uph_resources_move_track(source, dest_group, target.index);
+        }
+        s_mixer_drag = (Uph_MixerDrag){ 0 };
+        return;
+    }
+
+    naui_set_cursor(NAUI_CURSOR_HAND);
+
+    if (target.valid)
+    {
+        leaf({
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(3.0f)), LEAF_SIZE_FIXED(target.line_height)},
+            .color = {naui_theme_color("uph_ui_slider_fill_color")},
+            .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
+            .floating = { .offset = { target.line_x - NAUI_DPI(1.5f), target.line_y } }
+        });
+    }
+
+    leaf({
+        .padding = LEAF_PADDING_AXES(NAUI_DPI(8), NAUI_DPI(4)),
+        .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+        .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
+        .floating = { .offset = { mouse.x + NAUI_DPI(12), mouse.y + NAUI_DPI(12) } }
+    })
+    {
+        leaf_text(source->name.data, {
+            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .color = {naui_theme_color("uph_ui_text_color")}
+        });
     }
 }
 
@@ -857,13 +1203,39 @@ static void uph_mixer_on_update(void)
             &scroll,
             leaf_id("uph_mixer_scrollbar")
         );
-        uph_mixer_render_strip(uph_mixer_strip_master());
+        Uph_UIMenuID context_menu = uph_ui_context_menu();
+        uph_mixer_render_strip(uph_mixer_strip_master(), context_menu);
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
             Uph_Track *track = &uph_state.project.tracks[i];
-            uph_mixer_render_strip(uph_mixer_strip_track(track));
+            uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu);
         }
+        uph_mixer_update_drag();
         uph_ui_end_scroll_container(&scroll_container);
+
+        if (!uph_state.shared.selected_mixer_master && uph_state.shared.current_mixer_track)
+        {
+            Uph_Track *current = uph_state.shared.current_mixer_track;
+
+            bool restructured = false;
+
+            if (uph_resources_count_groupable_tracks(uph_state.shared.selected_mixer_tracks) >= 2 &&
+                uph_ui_menu_item(context_menu, "Group Tracks", leaf_id("uph_mixer_group_tracks")))
+            {
+                uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, "Untitled Group", current->color_index);
+                restructured = true;
+            }
+
+            if (!restructured && current->type == UPH_RESOURCE_GROUP && !current->parent &&
+                uph_ui_menu_item(context_menu, "Ungroup", leaf_id("uph_mixer_ungroup_tracks")))
+            {
+                uph_resources_ungroup_track(current);
+                restructured = true;
+            }
+
+            if (!restructured && uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_mixer_remove_track")))
+                uph_mixer_remove_selected_tracks();
+        }
 
         Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
         leaf({

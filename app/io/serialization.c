@@ -58,6 +58,7 @@ static const char* uph_io_resource_type_name(const Uph_ResourceType type)
 		case UPH_RESOURCE_SAMPLE: return "sample";
 		case UPH_RESOURCE_PATTERN: return "pattern";
 		case UPH_RESOURCE_AUTOMATION: return "automation";
+		case UPH_RESOURCE_GROUP: return "group";
 		default: return "none";
 	}
 }
@@ -70,6 +71,8 @@ static Uph_ResourceType uph_io_resource_type_from_name(const char* name)
 		return UPH_RESOURCE_PATTERN;
 	if (strcmp(name, "automation") == 0)
 		return UPH_RESOURCE_AUTOMATION;
+	if (strcmp(name, "group") == 0)
+		return UPH_RESOURCE_GROUP;
 
 	return UPH_RESOURCE_NONE;
 }
@@ -914,9 +917,10 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	Naui_List(Uph_Track) tracks = NULL;
 	bool complete = true;
 	int32_t soloed_index = -1;
+	int32_t soloed_child_index = -1;
 	if (naui_path_exists(naui_path_join(load_path, NAUI_PATH(UPH_IO_FILE_TRACKS))))
 	{
-		if (!uph_io_load_track_list(&tracks, load_path, project, &complete, NULL, &soloed_index))
+		if (!uph_io_load_track_list(&tracks, load_path, project, &complete, NULL, &soloed_index, &soloed_child_index))
 		{
 			uph_resources_clear_tracks_recursive(tracks);
 			return false;
@@ -929,12 +933,21 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	uph_resources_refresh_param_usage(tracks);
 	Naui_List(Uph_Track) previous = project->tracks;
 	project->tracks = tracks;
-	project->soloed_track = soloed_index >= 0 ? &project->tracks[soloed_index] : NULL;
+	project->soloed_track = NULL;
+	if (soloed_index >= 0)
+	{
+		Uph_Track* solo = &project->tracks[soloed_index];
+		if (soloed_child_index >= 0)
+			solo = &solo->subtracks[soloed_child_index];
+
+		if (solo->type != UPH_RESOURCE_AUTOMATION)
+			project->soloed_track = solo;
+	}
 	uph_resources_clear_tracks_recursive(previous);
 	return complete;
 }
 
-static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, int32_t* soloed_index)
+static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, int32_t* soloed_index, int32_t* soloed_child_index)
 {
 	const Naui_Path list_file = naui_path_join(list_dir, NAUI_PATH(UPH_IO_FILE_TRACKS));
 	Naui_Json json = naui_json_parse_file(list_file);
@@ -967,16 +980,28 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 
 		Uph_Track track = { 0 };
 		bool soloed = false;
-		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete, parent, &soloed))
+		int32_t soloed_child = -1;
+		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete, parent, &soloed, &soloed_child))
 		{
 			naui_log(NAUI_LOG_WARNING, "Skipping track that can't be read: %s", folder);
 			*complete = false;
 			continue;
 		}
 
-		// only top-level tracks can be soloed, and only the first one wins
-		if (soloed && !parent && soloed_index && *soloed_index < 0)
-			*soloed_index = (int32_t)naui_list_len(*tracks);
+		if (soloed_index && *soloed_index < 0)
+		{
+			if (soloed)
+			{
+				*soloed_index = (int32_t)naui_list_len(*tracks);
+				if (soloed_child_index)
+					*soloed_child_index = -1;
+			}
+			else if (soloed_child >= 0 && soloed_child_index)
+			{
+				*soloed_index = (int32_t)naui_list_len(*tracks);
+				*soloed_child_index = soloed_child;
+			}
+		}
 
 		naui_list_push(*tracks, track);
 	}
@@ -985,7 +1010,7 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 	return true;
 }
 
-static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, bool* soloed)
+static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, bool* soloed, int32_t* soloed_child_index)
 {
 	if (!uph_io_load_track_meta(track, load_dir, parent, complete, soloed))
 		return false;
@@ -997,8 +1022,20 @@ static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const 
 		*complete = false;
 
 	const Naui_Path subtracks_dir = naui_path_join(load_dir, NAUI_PATH(UPH_IO_FOLDER_SUBTRACKS));
-	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete, track, NULL))
+	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete, track, soloed_child_index, NULL))
 		*complete = false;
+
+	if (track->type == UPH_RESOURCE_NONE)
+	{
+		for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+		{
+			if (track->subtracks[i].type != UPH_RESOURCE_AUTOMATION)
+			{
+				track->type = UPH_RESOURCE_GROUP;
+				break;
+			}
+		}
+	}
 
 	return true;
 }

@@ -783,6 +783,192 @@ static void uph_queue_track_automation(
     }
 }
 
+typedef struct
+{
+    Uph_Project *project;
+    const float *input;
+    double playhead_start_beat;
+    double buffer_start_beat;
+    double buffer_end_beat;
+    float bpm;
+    uint32_t engine_sample_rate;
+    uint32_t max_frame_count;
+    ma_uint32 frame_count;
+    bool timeline_playing;
+}
+Uph_RenderContext;
+
+static void uph_clear_track_peaks(Uph_Track *track)
+{
+    track->peak_left = 0.0f;
+    track->peak_right = 0.0f;
+
+    if (track->type != UPH_RESOURCE_GROUP)
+        return;
+
+    uint64_t child_count = naui_list_len(track->subtracks);
+    for (uint64_t c = 0; c < child_count; c++)
+        uph_clear_track_peaks(&track->subtracks[c]);
+}
+
+static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, float *dest_l, float *dest_r)
+{
+    Uph_Project *project = ctx->project;
+    const ma_uint32 frame_count = ctx->frame_count;
+    const uint32_t max_frame_count = ctx->max_frame_count;
+
+    track->peak_left = 0.0f;
+    track->peak_right = 0.0f;
+
+    if (!uph_track_is_audible(project, track))
+    {
+        uph_clear_track_peaks(track);
+        return;
+    }
+
+    float *track_l = alloca(max_frame_count * sizeof(float));
+    float *track_r = alloca(max_frame_count * sizeof(float));
+    memset(track_l, 0, max_frame_count * sizeof(float));
+    memset(track_r, 0, max_frame_count * sizeof(float));
+
+    uint64_t block_count = naui_list_len(track->blocks);
+
+    float volume = (float)fabs(track->volume);
+    float pan = NAUI_CLAMP(track->pan, -1.0f, 1.0f);
+
+    float pan_angle = (pan + 1.0f) * 0.25f * (float)NAUI_PI;
+    float gain_left  = volume * cosf(pan_angle) * NAUI_SQRT2;
+    float gain_right = volume * sinf(pan_angle) * NAUI_SQRT2;
+
+    if (ctx->timeline_playing)
+    {
+        uph_queue_track_automation(
+            track,
+            ctx->buffer_start_beat, ctx->buffer_end_beat,
+            ctx->engine_sample_rate, ctx->bpm
+        );
+    }
+
+    if (track->type == UPH_RESOURCE_GROUP)
+    {
+        uint64_t child_count = naui_list_len(track->subtracks);
+        for (uint64_t c = 0; c < child_count; c++)
+        {
+            Uph_Track *child = &track->subtracks[c];
+
+            if (child->type == UPH_RESOURCE_AUTOMATION)
+                continue;
+
+            uph_render_track(ctx, child, track_l, track_r);
+        }
+    }
+    else if (track->type == UPH_RESOURCE_SAMPLE)
+    {
+        if (ctx->timeline_playing)
+        {
+            for (uint64_t b = 0; b < block_count; b++)
+            {
+                Uph_TimelineBlock *block = &track->blocks[b];
+
+                if (block == track->armed_block)
+                    continue;
+
+                if (block->resource_index >= naui_list_len(project->samples))
+                    continue;
+
+                Uph_Sample *sample = &project->samples[block->resource_index];
+                if (sample->data_index >= naui_list_len(project->sample_data))
+                    continue;
+
+                uph_render_sample_block(
+                    block, sample, &project->sample_data[sample->data_index],
+                    ctx->playhead_start_beat, frame_count, ctx->engine_sample_rate, ctx->bpm,
+                    track_l, track_r
+                );
+            }
+        }
+    }
+    else if (track->type == UPH_RESOURCE_PATTERN)
+    {
+        if (track->instrument.loaded)
+        {
+            if (ctx->timeline_playing)
+            {
+                bool should_be_held[128] = { false };
+
+                for (uint64_t b = 0; b < block_count; b++)
+                {
+                    Uph_TimelineBlock *block = &track->blocks[b];
+                    if (block->type != UPH_RESOURCE_PATTERN || block == track->armed_block)
+                        continue;
+
+                    uph_queue_pattern_block_notes(
+                        track, block,
+                        ctx->buffer_start_beat, ctx->buffer_end_beat,
+                        ctx->engine_sample_rate, ctx->bpm
+                    );
+
+                    uph_mark_block_held_notes(
+                        track, block,
+                        ctx->buffer_end_beat,
+                        should_be_held
+                    );
+                }
+
+                for (int key = 0; key < 128; key++)
+                {
+                    if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
+                        uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
+                }
+            }
+
+            uph_render_track_instrument(
+                track, frame_count,
+                track_l, track_r,
+                ctx->playhead_start_beat, ctx->timeline_playing
+            );
+        }
+    }
+
+    if (ctx->input
+        && track->monitored
+        && (track->type == UPH_RESOURCE_SAMPLE || track->type == UPH_RESOURCE_NONE))
+    {
+        for (ma_uint32 f = 0; f < frame_count; f++)
+        {
+            track_l[f] += ctx->input[f * 2 + 0];
+            track_r[f] += ctx->input[f * 2 + 1];
+        }
+    }
+
+    uph_apply_effect_chain(
+        track->effects,
+        track_l, track_r,
+        frame_count,
+        ctx->playhead_start_beat, ctx->timeline_playing
+    );
+
+    float track_peak_left = 0.0f;
+    float track_peak_right = 0.0f;
+
+    for (ma_uint32 f = 0; f < frame_count; f++)
+    {
+        float out_left  = track_l[f] * gain_left;
+        float out_right = track_r[f] * gain_right;
+
+        dest_l[f] += out_left;
+        dest_r[f] += out_right;
+
+        float abs_left  = fabsf(out_left);
+        float abs_right = fabsf(out_right);
+        if (abs_left  > track_peak_left)  track_peak_left  = abs_left;
+        if (abs_right > track_peak_right) track_peak_right = abs_right;
+    }
+
+    track->peak_left  = track_peak_left;
+    track->peak_right = track_peak_right;
+}
+
 static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count, bool timeline_playing, const float *input)
 {
     memset(out, 0, sizeof(float) * 2 * frame_count);
@@ -797,152 +983,28 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
         + uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
 
     const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
-    float *track_l = alloca(max_frame_count * sizeof(float));
-    float *track_r = alloca(max_frame_count * sizeof(float));
 
     float *master_l = alloca(max_frame_count * sizeof(float));
     float *master_r = alloca(max_frame_count * sizeof(float));
     memset(master_l, 0, max_frame_count * sizeof(float));
     memset(master_r, 0, max_frame_count * sizeof(float));
 
+    const Uph_RenderContext ctx = {
+        .project = project,
+        .input = input,
+        .playhead_start_beat = playhead_start_beat,
+        .buffer_start_beat = buffer_start_beat,
+        .buffer_end_beat = buffer_end_beat,
+        .bpm = bpm,
+        .engine_sample_rate = engine_sample_rate,
+        .max_frame_count = max_frame_count,
+        .frame_count = frame_count,
+        .timeline_playing = timeline_playing
+    };
+
     uint64_t track_count = naui_list_len(project->tracks);
     for (uint64_t t = 0; t < track_count; t++)
-    {
-        Uph_Track *track = &project->tracks[t];
-
-        track->peak_right = 0.0f;
-        track->peak_left = 0.0f;
-
-        if (!uph_track_is_audible(project, track))
-            continue;
-
-        uint64_t block_count = naui_list_len(track->blocks);
-
-        float volume = (float)fabs(track->volume);
-        float pan = NAUI_CLAMP(track->pan, -1.0f, 1.0f);
-
-        float pan_angle = (pan + 1.0f) * 0.25f * (float)NAUI_PI;
-        float gain_left  = volume * cosf(pan_angle) * NAUI_SQRT2;
-        float gain_right = volume * sinf(pan_angle) * NAUI_SQRT2;
-
-        memset(track_l, 0, max_frame_count * sizeof(float));
-        memset(track_r, 0, max_frame_count * sizeof(float));
-
-        if (timeline_playing)
-        {
-            uph_queue_track_automation(
-                track,
-                buffer_start_beat, buffer_end_beat,
-                engine_sample_rate, bpm
-            );
-        }
-
-        if (track->type == UPH_RESOURCE_SAMPLE)
-        {
-            if (timeline_playing)
-            {
-                for (uint64_t b = 0; b < block_count; b++)
-                {
-                    Uph_TimelineBlock *block = &track->blocks[b];
-
-                    if (block == track->armed_block)
-                        continue;
-
-                    if (block->resource_index >= naui_list_len(project->samples))
-                        continue;
-
-                    Uph_Sample *sample = &project->samples[block->resource_index];
-                    if (sample->data_index >= naui_list_len(project->sample_data))
-                        continue;
-
-                    uph_render_sample_block(
-                        block, sample, &project->sample_data[sample->data_index],
-                        playhead_start_beat, frame_count, engine_sample_rate, bpm,
-                        track_l, track_r
-                    );
-                }
-            }
-        }
-        else if (track->type == UPH_RESOURCE_PATTERN)
-        {
-            if (track->instrument.loaded)
-            {
-                if (timeline_playing)
-                {
-                    bool should_be_held[128] = { false };
-
-                    for (uint64_t b = 0; b < block_count; b++)
-                    {
-                        Uph_TimelineBlock *block = &track->blocks[b];
-                        if (block->type != UPH_RESOURCE_PATTERN || block == track->armed_block)
-                            continue;
-
-                        uph_queue_pattern_block_notes(
-                            track, block,
-                            buffer_start_beat, buffer_end_beat,
-                            engine_sample_rate, bpm
-                        );
-
-                        uph_mark_block_held_notes(
-                            track, block,
-                            buffer_end_beat,
-                            should_be_held
-                        );
-                    }
-
-                    for (int key = 0; key < 128; key++)
-                    {
-                        if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
-                            uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
-                    }
-                }
-
-                uph_render_track_instrument(
-                    track, frame_count,
-                    track_l, track_r,
-                    playhead_start_beat, timeline_playing
-                );
-            }
-        }
-
-        if (input
-            && track->monitored
-            && (track->type == UPH_RESOURCE_SAMPLE || track->type == UPH_RESOURCE_NONE))
-        {
-            for (ma_uint32 f = 0; f < frame_count; f++)
-            {
-                track_l[f] += input[f * 2 + 0];
-                track_r[f] += input[f * 2 + 1];
-            }
-        }
-
-        uph_apply_effect_chain(
-            track->effects,
-            track_l, track_r,
-            frame_count,
-            playhead_start_beat, timeline_playing
-        );
-
-        float track_peak_left = 0.0f;
-        float track_peak_right = 0.0f;
-
-        for (ma_uint32 f = 0; f < frame_count; f++)
-        {
-            float out_left  = track_l[f] * gain_left;
-            float out_right = track_r[f] * gain_right;
-
-            master_l[f] += out_left;
-            master_r[f] += out_right;
-
-            float abs_left  = fabsf(out_left);
-            float abs_right = fabsf(out_right);
-            if (abs_left  > track_peak_left)  track_peak_left  = abs_left;
-            if (abs_right > track_peak_right) track_peak_right = abs_right;
-        }
-
-        track->peak_left  = track_peak_left;
-        track->peak_right = track_peak_right;
-    }
+        uph_render_track(&ctx, &project->tracks[t], master_l, master_r);
 
     Uph_MasterTrack *master = &project->master_track;
 
@@ -1500,15 +1562,14 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
     return sample_data;
 }
 
-double uph_audio_engine_get_song_length_beats(void)
+static double uph_tracks_end_beat(const Uph_Project *project, Naui_List(Uph_Track) tracks)
 {
-    Uph_Project *project = &uph_state.project;
     double max_end_beat = 0.0;
-    uint64_t track_count = naui_list_len(project->tracks);
+    uint64_t track_count = naui_list_len(tracks);
 
     for (uint64_t t = 0; t < track_count; t++)
     {
-        Uph_Track *track = &project->tracks[t];
+        Uph_Track *track = &tracks[t];
         if (!uph_track_is_audible(project, track))
             continue;
 
@@ -1522,9 +1583,23 @@ double uph_audio_engine_get_song_length_beats(void)
             if (block_end > max_end_beat)
                 max_end_beat = block_end;
         }
+
+        // Groups hold other tracks; on any other track the subtracks are automation lanes, which don't extend the song.
+        if (track->type == UPH_RESOURCE_GROUP)
+        {
+            double children_end = uph_tracks_end_beat(project, track->subtracks);
+            if (children_end > max_end_beat)
+                max_end_beat = children_end;
+        }
     }
 
     return max_end_beat;
+}
+
+double uph_audio_engine_get_song_length_beats(void)
+{
+    Uph_Project *project = &uph_state.project;
+    return uph_tracks_end_beat(project, project->tracks);
 }
 
 double uph_audio_engine_get_song_length_seconds(void)
@@ -1634,18 +1709,23 @@ bool uph_audio_engine_sample_data_valid(const Uph_SampleData *sample_data)
     return sample_data->frame_count != 0;
 }
 
-void uph_audio_engine_stop_all_notes(void)
+static void uph_stop_all_notes_recursive(Naui_List(Uph_Track) tracks)
 {
-    Uph_Project *project = &uph_state.project;
-    uint64_t track_count = naui_list_len(project->tracks);
+    uint64_t track_count = naui_list_len(tracks);
 
     for (uint64_t t = 0; t < track_count; t++)
     {
-        Uph_Track *track = &project->tracks[t];
+        Uph_Track *track = &tracks[t];
 
-        if (track->type != UPH_RESOURCE_PATTERN || !track->instrument.loaded)
-            continue;
+        if (track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded)
+            uph_plugin_queue_stop_all(&track->instrument, 0);
 
-        uph_plugin_queue_stop_all(&track->instrument, 0);
+        if (track->type == UPH_RESOURCE_GROUP)
+            uph_stop_all_notes_recursive(track->subtracks);
     }
+}
+
+void uph_audio_engine_stop_all_notes(void)
+{
+    uph_stop_all_notes_recursive(uph_state.project.tracks);
 }

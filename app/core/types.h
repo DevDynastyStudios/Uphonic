@@ -105,7 +105,8 @@ enum
 	UPH_RESOURCE_NONE,
 	UPH_RESOURCE_SAMPLE,
 	UPH_RESOURCE_PATTERN,
-	UPH_RESOURCE_AUTOMATION
+	UPH_RESOURCE_AUTOMATION,
+	UPH_RESOURCE_GROUP
 };
 
 typedef struct
@@ -276,6 +277,8 @@ struct Uph_Track
 	bool monitored;
 };
 
+typedef Uph_Track *Uph_TrackPtr;
+
 typedef struct
 {
 	Naui_List(Uph_EffectPlugin) effects;
@@ -323,8 +326,8 @@ typedef struct
 	Uph_TimeSignature time_signature;
 
 	Naui_List(Uph_Track) tracks;
-	Uph_MasterTrack master_track; // rendered only in the mixer, not the song timeline
-	Uph_Track *soloed_track; // NULL = no solo. Points into `tracks` (top-level only); see uph_action_tracks_changed()
+	Uph_MasterTrack master_track;
+	Uph_Track *soloed_track;
 	Naui_List(Uph_MidiPattern) midi_patterns;
 	Naui_List(Uph_Sample) samples;
 	Naui_List(Uph_SampleData) sample_data;
@@ -384,7 +387,8 @@ typedef struct
 
 	Uph_SelectedResourceState selected_resource;
 
-	Uph_Track *selected_mixer_track; // ignored while selected_mixer_master is set
+	Uph_Track *current_mixer_track;
+	Naui_List(Uph_TrackPtr) selected_mixer_tracks;
 	bool selected_mixer_master;
 
 	Uph_Track *current_plugin_list_track;
