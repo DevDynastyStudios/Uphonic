@@ -37,13 +37,6 @@ typedef struct
 }
 Uph_KnobData;
 
-typedef enum
-{
-    UPH_UI_MENU_NODE_ITEM,
-    UPH_UI_MENU_NODE_COLOR_GRID
-}
-Uph_UIMenuNodeKind;
-
 typedef struct Uph_UIMenuNode Uph_UIMenuNode;
 struct Uph_UIMenuNode
 {
@@ -52,12 +45,7 @@ struct Uph_UIMenuNode
     Uph_UIMenuNode *next_sibling;
     Uph_UIMenuNode *first_child;
     Uph_UIMenuNode *last_child;
-
-    Uph_UIMenuNodeKind kind;
-    Naui_Color *colors;
-    uint32_t color_count;
-    uint32_t color_columns;
-    int32_t color_selected;
+    void (*deferred_render)(Uph_UIMenuID menu_id);
 };
 
 typedef struct
@@ -646,71 +634,8 @@ bool uph_ui_any_widget_hovered(void)
     return uph_global_widget_data.any_widget_hovered;
 }
 
-#define UPH_UI_MENU_SWATCH_SIZE     20.0f
-#define UPH_UI_MENU_SWATCH_GAP      4.0f
-#define UPH_UI_MENU_GRID_PADDING    6.0f
-#define UPH_UI_MENU_SWATCH_RING     2
-
-static Leaf_ID uph_ui__menu_swatch_id(const Leaf_ID grid_id, const uint32_t index)
-{
-    return leaf_id_indexed("uph_ui_menu_color_swatch", grid_id.value + 1 + index);
-}
-
-static void uph_ui_render_menu_color_grid(Uph_UIMenuNode *node)
-{
-    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-    const Leaf_Color hover_ring_color = uph_color_mix(naui_theme_color("uph_ui_dropdown_bg_color"), text_color, 0.55f);
-    const float rounding = NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
-    const float swatch_size = NAUI_DPI(UPH_UI_MENU_SWATCH_SIZE);
-
-    leaf({
-        .id = node->element_id,
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_MENU_GRID_PADDING), NAUI_DPI(UPH_UI_MENU_GRID_PADDING)),
-        .child_gap = NAUI_DPI(UPH_UI_MENU_SWATCH_GAP)
-    })
-    {
-        for (uint32_t row_start = 0; row_start < node->color_count; row_start += node->color_columns)
-        {
-            const uint32_t row_end = NAUI_MIN(row_start + node->color_columns, node->color_count);
-
-            leaf({
-                .direction = LEAF_DIRECTION_HORIZONTAL,
-                .child_gap = NAUI_DPI(UPH_UI_MENU_SWATCH_GAP)
-            })
-            {
-                for (uint32_t i = row_start; i < row_end; i++)
-                {
-                    const Leaf_ID swatch_id = uph_ui__menu_swatch_id(node->element_id, i);
-                    const bool selected = (int32_t)i == node->color_selected;
-                    const bool hovered = leaf_hovered(swatch_id);
-                    const int32_t ring_width = (selected || hovered) ? UPH_UI_MENU_SWATCH_RING : 0;
-                    const Leaf_Color ring_color = selected ? text_color : hover_ring_color;
-
-                    leaf({
-                        .id = swatch_id,
-                        .size = {LEAF_SIZE_FIXED(swatch_size), LEAF_SIZE_FIXED(swatch_size)},
-                        .color = node->colors[i],
-                        .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
-                        .border = {
-                            .width = ring_width,
-                            .sides = LEAF_SIDE_ALL,
-                            .color = {ring_color}
-                        }
-                    });
-                }
-            }
-        }
-    }
-}
-
 static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
 {
-    if (node->kind == UPH_UI_MENU_NODE_COLOR_GRID)
-    {
-        uph_ui_render_menu_color_grid(node);
-        return;
-    }
-
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
@@ -794,6 +719,37 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 {
     if (data->current_open_menu)
     {
+        if (data->current_open_menu->deferred_render)
+        {
+            naui_panel_occlude_all();
+            Leaf_ID id = leaf_id("uph_widget_current_custom_context_menu");
+            Leaf_BoundingBox bbox = leaf_get_bounding_box(data->current_open_menu->element_id);
+            Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+            leaf({
+                .id = id,
+                .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
+                .floating = {
+                    .offset = {data->current_context_menu_position.x, data->current_context_menu_position.y}
+                },
+                .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+                .shadow = {
+                    .blur_radius = NAUI_DPI(16.0f),
+                    .color = naui_theme_color("uph_ui_dropdown_shadow_color")
+                },
+                .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y))
+            }) data->current_open_menu->deferred_render((Uph_UIMenuID)data->current_open_menu);
+
+            if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !leaf_hovered(id))
+            {
+                data->current_open_menu = NULL;
+                return;
+            }
+
+            data->menu_opened_last_frame = true;
+            return;
+        }
+
         Uph_UIMenuNode *current_node = data->current_open_menu->first_child;
         if (!current_node)
         {
@@ -803,9 +759,7 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 
         naui_panel_occlude_all();
 
-        if (data->menu_opened_last_frame &&
-            (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_RIGHT) || naui_mouse_pressed(NAUI_MOUSE_MIDDLE)) &&
-            !uph_ui_menu_dropdown_hovered(data->current_open_menu))
+        if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !uph_ui_menu_dropdown_hovered(data->current_open_menu))
         {
             data->current_open_menu = NULL;
             return;
@@ -892,6 +846,14 @@ Uph_UIMenuID uph_ui_context_menu(void)
     return (Uph_UIMenuID)menu;
 }
 
+Uph_UIMenuID uph_ui_context_menu_custom(void (*custom_render)(Uph_UIMenuID menu_id))
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    menu->deferred_render = custom_render;
+    return (Uph_UIMenuID)menu;
+}
+
 void uph_ui_open_context_menu(Uph_UIMenuID menu)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
@@ -900,6 +862,12 @@ void uph_ui_open_context_menu(Uph_UIMenuID menu)
     data->current_context_menu_position = (Naui_Vec2){naui_mouse_x(), naui_mouse_y()};
     data->is_current_menu_context = true;
     data->menu_opened_last_frame = false;
+}
+
+void uph_ui_close_menu(void)
+{
+    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    data->current_open_menu = NULL;
 }
 
 static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
@@ -962,45 +930,6 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     else result = false;
 
     return result;
-}
-
-int32_t uph_ui_menu_color_grid(Uph_UIMenuID menu_id, const Naui_Color *colors, const uint32_t count, const uint32_t columns, const int32_t selected, const Leaf_ID element_id)
-{
-    if (!colors || count == 0)
-        return -1;
-
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
-    Uph_UIMenuNode *grid = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
-    Naui_Color *colors_copy = naui_arena_alloc(&data->menu_arena, sizeof(Naui_Color) * count);
-    if (!grid || !colors_copy)
-        return -1;
-
-    memcpy(colors_copy, colors, sizeof(Naui_Color) * count);
-    grid->kind = UPH_UI_MENU_NODE_COLOR_GRID;
-    grid->element_id = element_id;
-    grid->colors = colors_copy;
-    grid->color_count = count;
-    grid->color_columns = NAUI_CLAMP(columns, 1u, count);
-    grid->color_selected = selected;
-    uph_ui_append_menu_child(parent, grid);
-
-    for (uint32_t i = 0; i < count; i++)
-    {
-        if (!leaf_hovered(uph_ui__menu_swatch_id(element_id, i)))
-            continue;
-
-        naui_set_cursor(NAUI_CURSOR_HAND);
-        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-        {
-            data->current_open_menu = NULL;
-            return (int32_t)i;
-        }
-
-        break;
-    }
-
-    return -1;
 }
 
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)

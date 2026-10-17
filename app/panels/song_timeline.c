@@ -56,6 +56,8 @@ static void uph_song_timeline_on_close(void)
 	
 }
 
+
+
 static void uph_song_timeline_on_update(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
@@ -90,7 +92,7 @@ static void uph_song_timeline_on_update(void)
 	uph_song_timeline_render_toolbox();
 
 	Uph_UIMenuID track_options_context_menu = uph_ui_context_menu();
-	Uph_UIMenuID track_color_options_context_menu = uph_ui_context_menu();
+	Uph_UIMenuID track_color_options_context_menu = uph_ui_context_menu_custom(uph_song_timeline_render_track_color_menu);
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}
@@ -125,7 +127,6 @@ static void uph_song_timeline_on_update(void)
 	}
 
 	uph_song_timeline_update_empty_space_marquee();
-	uph_song_timeline_render_track_options_menu(data, track_options_context_menu);
-	uph_song_timeline_render_track_color_menu(data, track_color_options_context_menu);
+	uph_song_timeline_render_track_options_menu(track_options_context_menu);
 }
 #pragma endregion

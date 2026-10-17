@@ -221,8 +221,9 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 	}
 }
 
-void uph_song_timeline_render_track_color_menu(Uph_SongTimelineData *data, Uph_UIMenuID track_color_options_context_menu)
+void uph_song_timeline_render_track_color_menu(Uph_UIMenuID track_color_options_context_menu)
 {
+	Uph_SongTimelineData *data = &uph_song_timeline_data;
 	if (naui_list_len(uph_state.project.tracks) == 0 || !data->current_color_options_track)
 		return;
 
@@ -236,7 +237,45 @@ void uph_song_timeline_render_track_color_menu(Uph_SongTimelineData *data, Uph_U
 	const uint32_t columns = (uint32_t)ceilf((color_count + rows - 1) / rows);
 	const int32_t current = track->color_index % (int32_t)color_count;
 
-	const int32_t picked = uph_ui_menu_color_grid(track_color_options_context_menu, palette, color_count, columns, current, leaf_id("uph_song_timeline_options_color_grid"));
+	const uint32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")) * 1.5f;
+	int32_t picked = -1;
+
+	leaf({
+		.child_gap = NAUI_DPI(4)
+	})
+	{
+		for (uint32_t i = 0; i < rows; i++)
+		{
+			leaf({
+				.direction = LEAF_DIRECTION_HORIZONTAL,
+				.child_gap = NAUI_DPI(4)
+			})
+			{
+				for (uint32_t j = 0; j < columns; j++)
+				{
+					const int32_t index = j + i * columns;
+					const Leaf_ID id = leaf_id_indexed("uph_track_color_picker", index);
+					if (leaf_hovered(id) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+					{
+						picked = index;
+						uph_ui_close_menu();
+					}
+					leaf({
+						.id = id,
+						.size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
+						.color = palette[index],
+						.border = {
+							.width = NAUI_DPI(2),
+							.color = track->color_index == index ?
+								LEAF_COLOR_WHITE : LEAF_COLOR_TRANSPARENT,
+							.sides = LEAF_SIDE_ALL
+						}
+					});
+				}
+			}
+		}
+	}
+
 	if (picked >= 0 && track->color_index != picked)
 	{
 		Uph_ActionTrackColor color_data = {
@@ -249,8 +288,9 @@ void uph_song_timeline_render_track_color_menu(Uph_SongTimelineData *data, Uph_U
 	}
 }
 
-void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph_UIMenuID track_options_context_menu)
+void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu)
 {
+	Uph_SongTimelineData *data = &uph_song_timeline_data;
 	if (naui_list_len(uph_state.project.tracks) == 0 || !data->current_options_track)
 		return;
 

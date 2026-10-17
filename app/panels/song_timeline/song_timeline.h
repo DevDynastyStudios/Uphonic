@@ -151,7 +151,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 void uph_song_timeline_render_top_bar(void);
 
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu);
-void uph_song_timeline_render_track_options_menu(Uph_SongTimelineData *data, Uph_UIMenuID track_options_context_menu);
+void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu);
 void uph_song_timeline_render_track_plus(void);
 
 void uph_song_timeline_render_track_timeline(Uph_Track *track);
