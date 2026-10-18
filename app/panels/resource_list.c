@@ -11,6 +11,18 @@ static struct
 }
 _Uph_ResourceListRename;
 
+static struct
+{
+    Uph_ResourceType type;
+    Uph_ResourceIndex index;
+}
+_Uph_ResourceListAnchor;
+
+static bool _Uph_ResourceListItemHovered;
+
+static const Uph_ResourceType uph_resource_list_types[] = { UPH_RESOURCE_PATTERN, UPH_RESOURCE_SAMPLE, UPH_RESOURCE_AUTOMATION };
+#define UPH_RESOURCE_LIST_TYPE_COUNT ((uint32_t)(sizeof(uph_resource_list_types) / sizeof(uph_resource_list_types[0])))
+
 static void uph_resource_list_on_attach(void)
 {
     
@@ -163,6 +175,156 @@ static Naui_String *uph_resource_list_name(Uph_ResourceType type, Uph_ResourceIn
     return NULL;
 }
 
+static uint32_t uph_resource_list_count(Uph_ResourceType type)
+{
+    if (type == UPH_RESOURCE_PATTERN)
+        return (uint32_t)naui_list_len(uph_state.project.midi_patterns);
+
+    if (type == UPH_RESOURCE_SAMPLE)
+        return (uint32_t)naui_list_len(uph_state.project.samples);
+
+    if (type == UPH_RESOURCE_AUTOMATION)
+        return (uint32_t)naui_list_len(uph_state.project.automations);
+
+    return 0;
+}
+
+static bool *uph_resource_list_selected_flag(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (index >= uph_resource_list_count(type))
+        return NULL;
+
+    if (type == UPH_RESOURCE_PATTERN)
+        return &uph_state.project.midi_patterns[index].selected;
+
+    if (type == UPH_RESOURCE_SAMPLE)
+        return &uph_state.project.samples[index].selected;
+
+    if (type == UPH_RESOURCE_AUTOMATION)
+        return &uph_state.project.automations[index].selected;
+
+    return NULL;
+}
+
+static bool uph_resource_list_is_selected(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    const bool *flag = uph_resource_list_selected_flag(type, index);
+    return flag && *flag;
+}
+
+static void uph_resource_list_clear_selection(void)
+{
+    for (uint32_t t = 0; t < UPH_RESOURCE_LIST_TYPE_COUNT; t++)
+    {
+        const Uph_ResourceType type = uph_resource_list_types[t];
+        for (uint32_t i = 0; i < uph_resource_list_count(type); i++)
+            *uph_resource_list_selected_flag(type, i) = false;
+    }
+}
+
+static void uph_resource_list_sync_selection(void)
+{
+    bool *flag = uph_resource_list_selected_flag(uph_state.shared.selected_resource.type, uph_state.shared.selected_resource.index);
+    if (flag && *flag)
+        return;
+
+    uph_resource_list_clear_selection();
+    if (flag)
+        *flag = true;
+}
+
+static void uph_resource_list_set_primary(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    uph_state.shared.selected_resource.type = type;
+    uph_state.shared.selected_resource.index = index;
+    uph_action_refresh_block_defaults();
+}
+
+static void uph_resource_list_select_single(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    uph_resource_list_clear_selection();
+    *uph_resource_list_selected_flag(type, index) = true;
+    uph_resource_list_set_primary(type, index);
+    _Uph_ResourceListAnchor.type = type;
+    _Uph_ResourceListAnchor.index = index;
+}
+
+static bool uph_resource_list_find_other_selected(Uph_ResourceType skip_type, Uph_ResourceIndex skip_index, Uph_ResourceType *out_type, Uph_ResourceIndex *out_index)
+{
+    for (uint32_t t = 0; t < UPH_RESOURCE_LIST_TYPE_COUNT; t++)
+    {
+        const Uph_ResourceType type = uph_resource_list_types[t];
+        for (uint32_t i = 0; i < uph_resource_list_count(type); i++)
+        {
+            if ((type == skip_type && i == skip_index) || !uph_resource_list_is_selected(type, i))
+                continue;
+
+            *out_type = type;
+            *out_index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void uph_resource_list_toggle(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    bool *flag = uph_resource_list_selected_flag(type, index);
+    _Uph_ResourceListAnchor.type = type;
+    _Uph_ResourceListAnchor.index = index;
+
+    if (!*flag)
+    {
+        *flag = true;
+        uph_resource_list_set_primary(type, index);
+        return;
+    }
+
+    const bool is_primary = uph_state.shared.selected_resource.type == type && uph_state.shared.selected_resource.index == index;
+    if (!is_primary)
+    {
+        *flag = false;
+        return;
+    }
+
+    Uph_ResourceType other_type;
+    Uph_ResourceIndex other_index;
+    if (uph_resource_list_find_other_selected(type, index, &other_type, &other_index))
+    {
+        *flag = false;
+        uph_resource_list_set_primary(other_type, other_index);
+    }
+}
+
+static void uph_resource_list_select_range(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (_Uph_ResourceListAnchor.type != type || _Uph_ResourceListAnchor.index >= uph_resource_list_count(type))
+    {
+        uph_resource_list_select_single(type, index);
+        return;
+    }
+
+    const Uph_ResourceIndex anchor = _Uph_ResourceListAnchor.index;
+    const Uph_ResourceIndex low = anchor < index ? anchor : index;
+    const Uph_ResourceIndex high = anchor < index ? index : anchor;
+
+    uph_resource_list_clear_selection();
+    for (Uph_ResourceIndex i = low; i <= high; i++)
+        *uph_resource_list_selected_flag(type, i) = true;
+
+    uph_resource_list_set_primary(type, index);
+}
+
+static void uph_resource_list_click_select(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (uph_ui_ctrl_down())
+        uph_resource_list_toggle(type, index);
+    else if (uph_ui_shift_down())
+        uph_resource_list_select_range(type, index);
+    else
+        uph_resource_list_select_single(type, index);
+}
+
 static void uph_resource_list_finish_rename(void)
 {
     _Uph_ResourceListRename.active = false;
@@ -273,24 +435,27 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 
 static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType type, Uph_UIMenuID context_menu, Leaf_ID id)
 {
-    bool is_selected = uph_state.shared.selected_resource.index == index && uph_state.shared.selected_resource.type == type;
-    bool is_renaming = is_selected && uph_state.shared.selected_resource.renaming;
+    bool is_primary = uph_state.shared.selected_resource.index == index && uph_state.shared.selected_resource.type == type;
+    bool is_selected = uph_resource_list_is_selected(type, index);
+    bool is_renaming = is_primary && uph_state.shared.selected_resource.renaming;
     bool hovered = !is_renaming && uph_ui_widget_hovered(id);
 
     if (hovered)
     {
+        _Uph_ResourceListItemHovered = true;
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
         {
             uph_state.shared.selected_resource.renaming = false;
-            uph_state.shared.selected_resource.index = index;
-            uph_state.shared.selected_resource.type = type;
+            if (is_selected)
+                uph_resource_list_set_primary(type, index);
+            else
+                uph_resource_list_select_single(type, index);
             uph_ui_open_context_menu(context_menu);
         }
-        else if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+        else if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT) && !uph_ui_ctrl_down() && !uph_ui_shift_down())
         {
-            uph_state.shared.selected_resource.index = index;
-            uph_state.shared.selected_resource.type = type;
+            uph_resource_list_select_single(type, index);
             uph_state.shared.selected_resource.renaming = true;
         }
     }
@@ -311,13 +476,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             is_renaming,
             NAUI_TR("pattern.default.name")
         ))
-        {
-            uph_state.shared.selected_resource.index = index;
-            uph_state.shared.selected_resource.type = type;
-
-            uph_state.shared.song_timeline_current_block_start_offset = 0;
-            uph_state.shared.song_timeline_current_block_length = uph_calculate_pattern_length(pattern);
-        }
+            uph_resource_list_click_select(type, index);
     }
     else if (type == UPH_RESOURCE_SAMPLE)
     {
@@ -335,14 +494,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             is_renaming,
             NAUI_TR("sample.default.name")
         ))
-        {
-            uph_state.shared.selected_resource.index = index;
-            uph_state.shared.selected_resource.type = type;
-
-            Uph_SampleData *sample_data = &uph_state.project.sample_data[sample->data_index];
-            double beats = ceil(uph_frames_to_beats(sample_data->frame_count, uph_state.settings.audio.sample_rate, uph_state.project.bpm));
-            uph_state.shared.song_timeline_current_block_length = beats;
-        }
+            uph_resource_list_click_select(type, index);
     }
     else if (type == UPH_RESOURCE_AUTOMATION)
     {
@@ -360,13 +512,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
             is_renaming,
             NAUI_TR("automation.default.name")
         ))
-        {
-            uph_state.shared.selected_resource.index = index;
-            uph_state.shared.selected_resource.type = type;
-
-            uph_state.shared.song_timeline_current_block_start_offset = 0;
-            uph_state.shared.song_timeline_current_block_length = uph_calculate_automation_length(automation);
-        }
+            uph_resource_list_click_select(type, index);
     }
 }
 
@@ -466,11 +612,8 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
     }
 }
 
-static void uph_resource_list_remove(void)
+static void uph_resource_list_remove(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    const Uph_ResourceType type = uph_state.shared.selected_resource.type;
-    const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
-
     if (type == UPH_RESOURCE_PATTERN)
     {
         Uph_ActionPatternDelete data = { .resource_index = index };
@@ -488,11 +631,8 @@ static void uph_resource_list_remove(void)
     }
 }
 
-static void uph_resource_list_duplicate(void)
+static void uph_resource_list_duplicate(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    const Uph_ResourceType type = uph_state.shared.selected_resource.type;
-    const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
-
     if (type == UPH_RESOURCE_PATTERN)
     {
         Uph_ActionPatternDuplicate data = { .source_index = index };
@@ -510,16 +650,59 @@ static void uph_resource_list_duplicate(void)
     }
 }
 
+static void uph_resource_list_remove_selected(void)
+{
+    naui_action_group_start(UPH_ACTION_RESOURCES_DELETE_GROUP);
+    for (uint32_t t = 0; t < UPH_RESOURCE_LIST_TYPE_COUNT; t++)
+    {
+        const Uph_ResourceType type = uph_resource_list_types[t];
+        for (uint32_t i = uph_resource_list_count(type); i > 0; i--)
+        {
+            if (uph_resource_list_is_selected(type, i - 1))
+                uph_resource_list_remove(type, i - 1);
+        }
+    }
+    naui_action_group_end();
+}
+
+static void uph_resource_list_duplicate_selected(void)
+{
+    naui_action_group_start(UPH_ACTION_RESOURCES_DUPLICATE_GROUP);
+    for (uint32_t t = 0; t < UPH_RESOURCE_LIST_TYPE_COUNT; t++)
+    {
+        const Uph_ResourceType type = uph_resource_list_types[t];
+        const uint32_t count = uph_resource_list_count(type);
+        for (uint32_t i = 0; i < count; i++)
+        {
+            bool *flag = uph_resource_list_selected_flag(type, i);
+            if (!*flag)
+                continue;
+
+            *flag = false;
+            uph_resource_list_duplicate(type, i);
+
+            bool *copy_flag = uph_resource_list_selected_flag(type, uph_resource_list_count(type) - 1);
+            if (copy_flag)
+                *copy_flag = true;
+        }
+    }
+    naui_action_group_end();
+}
+
 static void uph_resource_list_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("resource_list.title"));
 
 	const int32_t icon_size = NAUI_DPI(16);
     uph_resource_list_update_rename();
+    uph_resource_list_sync_selection();
+
+    const bool menu_was_open = uph_ui_any_menu_open();
+    _Uph_ResourceListItemHovered = false;
 
     if (naui_panel_is_hovered(naui_panel_current()) && naui_key_pressed(NAUI_KEY_DELETE) &&
         !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
-        uph_resource_list_remove();
+        uph_resource_list_remove_selected();
 
     Uph_UIMenuID context_menu = uph_ui_context_menu();
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
@@ -624,8 +807,14 @@ static void uph_resource_list_on_update(void)
         uph_state.shared.selected_resource.renaming = true;
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.remove"), leaf_id("uph_pattern_remove")))
-        uph_resource_list_remove();
+        uph_resource_list_remove_selected();
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.duplicate"), leaf_id("uph_pattern_duplicate")))
-        uph_resource_list_duplicate();
-}
+        uph_resource_list_duplicate_selected();
+
+    if (!menu_was_open && !_Uph_ResourceListItemHovered && naui_any_mouse_pressed())
+    {
+        uph_resource_list_clear_selection();
+        uph_resource_list_sync_selection();
+    }
+}

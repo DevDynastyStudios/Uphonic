@@ -7,6 +7,9 @@
 #define UPH_ACTION_SAMPLE_RENAME "Sample Rename"
 #define UPH_ACTION_SAMPLE_DUPLICATE "Sample Duplicate"
 
+#define UPH_ACTION_RESOURCES_DELETE_GROUP "Resources Delete"
+#define UPH_ACTION_RESOURCES_DUPLICATE_GROUP "Resources Duplicate"
+
 #define UPH_ACTION_TRACK_CREATE "Track Create"
 #define UPH_ACTION_TRACK_DELETE "Track Delete"
 #define UPH_ACTION_TRACKS_DELETE_GROUP "Tracks Delete"
