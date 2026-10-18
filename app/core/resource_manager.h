@@ -21,6 +21,7 @@ void uph_resources_clear_tracks(void);
 
 bool uph_resources_mixer_track_selected(const Uph_Track *track);
 void uph_resources_clear_mixer_selection(void);
+void uph_resources_collapse_mixer_selection(void);
 void uph_resources_select_mixer_track(Uph_Track *track);
 void uph_resources_toggle_mixer_track(Uph_Track *track);
 void uph_resources_select_mixer_track_range(Uph_Track *to);

@@ -27,6 +27,8 @@ typedef struct
     Naui_String rename_old_name;
 
     uint32_t effect_context_index;
+
+    bool strip_hovered;
 }
 Uph_MixerData;
 
@@ -826,6 +828,8 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
     const Leaf_ID name_id = leaf_id_indexed("uph_mixer_name", track_id);
     const bool editing_name = uph_mixer_renaming_hovered(strip.track, name_id);
     bool selection_kept_for_drag = false;
+    if (leaf_hovered_clipped(id))
+        uph_mixer_data.strip_hovered = true;
     if (!editing_name && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(id))
     {
         selection_kept_for_drag = uph_mixer_press_keeps_selection(&strip, handle_id);
@@ -1028,6 +1032,9 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
     const Leaf_ID header_id = leaf_id_indexed("uph_mixer_group_header", uph_mixer_strip_id(&strip));
     const Leaf_ID collapse_id = leaf_id_indexed("uph_mixer_group_collapse", uph_mixer_strip_id(&strip));
     const Leaf_ID name_id = leaf_id_indexed("uph_mixer_group_name", uph_mixer_strip_id(&strip));
+    const Leaf_ID group_id = leaf_id_indexed("uph_mixer_group", uph_mixer_strip_id(&strip));
+    if (leaf_hovered_clipped(group_id))
+        uph_mixer_data.strip_hovered = true;
     if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(header_id) && !leaf_hovered_clipped(collapse_id) && !uph_mixer_renaming_hovered(strip.track, name_id))
     {
         naui_set_cursor(NAUI_CURSOR_HAND);
@@ -1048,7 +1055,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
 
     const int32_t group_gap = (int32_t)NAUI_DPI(4);
     leaf({
-        .id = leaf_id_indexed("uph_mixer_group", uph_mixer_strip_id(&strip)),
+        .id = group_id,
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
         .padding = { group_gap, group_gap, group_gap, 0 }
     })
@@ -1360,6 +1367,8 @@ static void uph_mixer_on_update(void)
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
+        uph_mixer_data.strip_hovered = false;
+
         static float scroll = 0.0f;
         Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
             UPH_UI_SCROLL_DIRECTION_HORIZONTAL,
@@ -1375,6 +1384,9 @@ static void uph_mixer_on_update(void)
         }
         uph_mixer_update_drag();
         uph_ui_end_scroll_container(&scroll_container);
+
+        if (naui_any_mouse_pressed() && !uph_mixer_data.strip_hovered && !uph_ui_any_menu_open())
+            uph_resources_collapse_mixer_selection();
 
         if (!uph_state.shared.selected_mixer_master && uph_state.shared.current_mixer_track)
         {

@@ -364,7 +364,7 @@ void uph_resources_select_mixer_track_range(Uph_Track *to)
 		naui_list_push(uph_state.shared.selected_mixer_tracks, &list[i]);
 }
 
-static void uph_resources_collapse_mixer_selection(void)
+void uph_resources_collapse_mixer_selection(void)
 {
 	naui_list_clear(uph_state.shared.selected_mixer_tracks);
 	if (uph_state.shared.current_mixer_track)
