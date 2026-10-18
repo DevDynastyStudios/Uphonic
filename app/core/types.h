@@ -275,6 +275,7 @@ struct Uph_Track
 	Uph_ResourceType type;
 	Uph_TrackState state;
 	bool monitored;
+	bool mixer_collapsed;
 };
 
 typedef Uph_Track *Uph_TrackPtr;
