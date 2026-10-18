@@ -1569,6 +1569,9 @@ static void naui_push_textured_corner_fan(
     Naui_Vec2 img_tl, Naui_Vec2 img_size,
     uint32_t color)
 {
+    if (!naui_renderer_reserve(NAUI_RENDERER_CORNER_SEGMENTS * 3, NAUI_RENDERER_CORNER_SEGMENTS * 3))
+        return;
+
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
     {
         float cx0 = ax * s_cos[s],     cy0 = ay * s_sin[s];
