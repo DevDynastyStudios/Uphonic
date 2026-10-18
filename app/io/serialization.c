@@ -916,11 +916,10 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 {
 	Naui_List(Uph_Track) tracks = NULL;
 	bool complete = true;
-	int32_t soloed_index = -1;
-	int32_t soloed_child_index = -1;
+	Uph_ActionTrackRef soloed = uph_action_track_ref_root();
 	if (naui_path_exists(naui_path_join(load_path, NAUI_PATH(UPH_IO_FILE_TRACKS))))
 	{
-		if (!uph_io_load_track_list(&tracks, load_path, project, &complete, NULL, &soloed_index, &soloed_child_index))
+		if (!uph_io_load_track_list(&tracks, load_path, project, &complete, NULL, uph_action_track_ref_root(), &soloed))
 		{
 			uph_resources_clear_tracks_recursive(tracks);
 			return false;
@@ -934,20 +933,14 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	Naui_List(Uph_Track) previous = project->tracks;
 	project->tracks = tracks;
 	project->soloed_track = NULL;
-	if (soloed_index >= 0)
-	{
-		Uph_Track* solo = &project->tracks[soloed_index];
-		if (soloed_child_index >= 0)
-			solo = &solo->subtracks[soloed_child_index];
-
-		if (solo->type != UPH_RESOURCE_AUTOMATION)
-			project->soloed_track = solo;
-	}
+	Uph_Track* solo = uph_action_track_resolve_in(project->tracks, soloed);
+	if (solo && solo->type != UPH_RESOURCE_AUTOMATION)
+		project->soloed_track = solo;
 	uph_resources_clear_tracks_recursive(previous);
 	return complete;
 }
 
-static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, int32_t* soloed_index, int32_t* soloed_child_index)
+static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, Uph_ActionTrackRef list_ref, Uph_ActionTrackRef* soloed)
 {
 	const Naui_Path list_file = naui_path_join(list_dir, NAUI_PATH(UPH_IO_FILE_TRACKS));
 	Naui_Json json = naui_json_parse_file(list_file);
@@ -979,29 +972,17 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 		}
 
 		Uph_Track track = { 0 };
-		bool soloed = false;
-		int32_t soloed_child = -1;
-		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete, parent, &soloed, &soloed_child))
+		Uph_ActionTrackRef track_soloed = uph_action_track_ref_root();
+		const Uph_ActionTrackRef track_ref = uph_action_track_ref_child(list_ref, (uint32_t)naui_list_len(*tracks));
+		if (!uph_io_load_track(&track, naui_path_join(list_dir, naui_path_from_cstr(folder)), project, complete, parent, track_ref, &track_soloed))
 		{
 			naui_log(NAUI_LOG_WARNING, "Skipping track that can't be read: %s", folder);
 			*complete = false;
 			continue;
 		}
 
-		if (soloed_index && *soloed_index < 0)
-		{
-			if (soloed)
-			{
-				*soloed_index = (int32_t)naui_list_len(*tracks);
-				if (soloed_child_index)
-					*soloed_child_index = -1;
-			}
-			else if (soloed_child >= 0 && soloed_child_index)
-			{
-				*soloed_index = (int32_t)naui_list_len(*tracks);
-				*soloed_child_index = soloed_child;
-			}
-		}
+		if (!uph_action_track_ref_valid(*soloed))
+			*soloed = track_soloed;
 
 		naui_list_push(*tracks, track);
 	}
@@ -1010,10 +991,14 @@ static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path
 	return true;
 }
 
-static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, bool* soloed, int32_t* soloed_child_index)
+static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, Uph_ActionTrackRef track_ref, Uph_ActionTrackRef* soloed)
 {
-	if (!uph_io_load_track_meta(track, load_dir, parent, complete, soloed))
+	bool is_soloed = false;
+	if (!uph_io_load_track_meta(track, load_dir, parent, complete, &is_soloed))
 		return false;
+
+	if (is_soloed)
+		*soloed = track_ref;
 
 	if (!uph_io_load_track_blocks(track, load_dir, project, complete))
 		*complete = false;
@@ -1022,8 +1007,12 @@ static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const 
 		*complete = false;
 
 	const Naui_Path subtracks_dir = naui_path_join(load_dir, NAUI_PATH(UPH_IO_FOLDER_SUBTRACKS));
-	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete, track, soloed_child_index, NULL))
+	Uph_ActionTrackRef soloed_child = uph_action_track_ref_root();
+	if (naui_path_exists(subtracks_dir) && !uph_io_load_track_list(&track->subtracks, subtracks_dir, project, complete, track, track_ref, &soloed_child))
 		*complete = false;
+
+	if (!uph_action_track_ref_valid(*soloed))
+		*soloed = soloed_child;
 
 	if (track->type == UPH_RESOURCE_NONE)
 	{

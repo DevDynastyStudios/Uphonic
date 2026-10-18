@@ -30,7 +30,7 @@ bool uph_resources_can_group_track(const Uph_Track *track);
 
 uint32_t uph_resources_count_groupable_tracks(Naui_List(Uph_TrackPtr) tracks);
 Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char *name, int32_t color_index); // NULL if nothing could be grouped
-bool uph_resources_ungroup_track(Uph_Track *group); // children go back to the top level where the group was
+bool uph_resources_ungroup_track(Uph_Track *group); // children go back to the group's parent where the group was
 
 bool uph_resources_move_track(Uph_Track *track, Uph_Track *dest_group, uint32_t dest_index);
 

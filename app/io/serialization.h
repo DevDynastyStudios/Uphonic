@@ -49,8 +49,8 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 static bool uph_io_load_automation(Uph_Project* project, const Naui_Path load_path);
 
 static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path);
-static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, int32_t* soloed_index, int32_t* soloed_child_index);
-static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, bool* soloed, int32_t* soloed_child_index);
+static bool uph_io_load_track_list(Naui_List(Uph_Track)* tracks, const Naui_Path list_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, Uph_ActionTrackRef list_ref, Uph_ActionTrackRef* soloed);
+static bool uph_io_load_track(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete, Uph_Track* parent, Uph_ActionTrackRef track_ref, Uph_ActionTrackRef* soloed);
 static bool uph_io_load_track_meta(Uph_Track* track, const Naui_Path load_dir, Uph_Track* parent, bool* complete, bool* soloed);
 static bool uph_io_load_track_blocks(Uph_Track* track, const Naui_Path load_dir, const Uph_Project* project, bool* complete);
 static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir, bool* complete);

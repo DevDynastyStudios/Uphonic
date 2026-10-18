@@ -387,6 +387,25 @@ static void uph_resources_capture_pointer_slots(Uph_TrackPointerSlot slots[UPH_T
 		slots[i].ref = uph_action_track_ref(*slots[i].slot);
 }
 
+static Uph_ActionTrackRef *uph_resources_slot_refs(const Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT], const Uph_ActionTrackRef *extra, uint32_t extra_count, uint32_t reserve)
+{
+	Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * (UPH_TRACK_POINTER_SLOT_COUNT + extra_count + reserve));
+	if (!refs)
+		return NULL;
+
+	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
+		refs[i] = slots[i].ref;
+	for (uint32_t i = 0; i < extra_count; i++)
+		refs[UPH_TRACK_POINTER_SLOT_COUNT + i] = extra[i];
+	return refs;
+}
+
+static void uph_resources_restore_pointer_slots(const Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT], const Uph_ActionTrackRef *refs)
+{
+	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
+		*slots[i].slot = uph_action_track_resolve(refs[i]);
+}
+
 static void uph_resources_restructure_finished(void)
 {
 	uph_resources_link_tracks(uph_state.project.tracks);
@@ -395,87 +414,67 @@ static void uph_resources_restructure_finished(void)
 	naui_action_clear_history();
 }
 
-typedef struct
+static uint32_t uph_resources_track_height(const Uph_Track *track)
 {
-	const uint32_t *indices;
-	uint32_t count;
-	uint32_t first;
-}
-Uph_GroupRemap;
-
-static Uph_ActionTrackRef uph_resources_group_remap(Uph_ActionTrackRef ref, const Uph_GroupRemap *map)
-{
-	const Uph_ActionTrackRef invalid = { UPH_ACTION_TRACK_INVALID, 0 };
-	if (ref.parent == UPH_ACTION_TRACK_INVALID)
-		return ref;
-
-	const bool top_level = ref.parent == UPH_ACTION_TRACK_TOP;
-	const uint32_t old_top = top_level ? ref.index : (uint32_t)ref.parent;
-
-	uint32_t grouped_before = 0;
-	for (uint32_t k = 0; k < map->count; k++)
+	uint32_t height = 0;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
-		if (map->indices[k] < old_top)
-		{
-			grouped_before++;
-		}
-		else if (map->indices[k] == old_top)
-		{
-			if (!top_level)
-				return invalid;
-			return (Uph_ActionTrackRef){ (int32_t)map->first, k };
-		}
+		const uint32_t child_height = uph_resources_track_height(&track->subtracks[i]);
+		if (child_height > height)
+			height = child_height;
 	}
-
-	const uint32_t new_top = old_top - grouped_before + (old_top > map->first ? 1 : 0);
-	if (top_level)
-		ref.index = new_top;
-	else
-		ref.parent = (int32_t)new_top;
-	return ref;
+	return height + 1;
 }
 
-typedef struct
+static int uph_resources_ref_order(const void *a, const void *b)
 {
-	uint32_t group_index;
-	uint32_t child_count;
+	return uph_action_track_ref_compare(*(const Uph_ActionTrackRef *)a, *(const Uph_ActionTrackRef *)b);
 }
-Uph_UngroupRemap;
 
-static Uph_ActionTrackRef uph_resources_ungroup_remap(Uph_ActionTrackRef ref, const Uph_UngroupRemap *map)
+static uint32_t uph_resources_sort_outermost_refs(Uph_ActionTrackRef *refs, uint32_t count)
 {
-	const Uph_ActionTrackRef invalid = { UPH_ACTION_TRACK_INVALID, 0 };
-	if (ref.parent == UPH_ACTION_TRACK_INVALID)
-		return ref;
+	qsort(refs, count, sizeof(Uph_ActionTrackRef), uph_resources_ref_order);
 
-	if (ref.parent == UPH_ACTION_TRACK_TOP)
+	uint32_t kept = 0;
+	for (uint32_t i = 0; i < count; i++)
 	{
-		if (ref.index == map->group_index)
-			return invalid;
-		if (ref.index > map->group_index)
-			ref.index += map->child_count - 1;
-		return ref;
-	}
+		if (kept > 0 && uph_action_track_ref_has_prefix(refs[i], refs[kept - 1]))
+			continue;
 
-	const uint32_t parent = (uint32_t)ref.parent;
-	if (parent == map->group_index)
-		return (Uph_ActionTrackRef){ UPH_ACTION_TRACK_TOP, map->group_index + ref.index };
-	if (parent > map->group_index)
-		ref.parent = (int32_t)(parent + map->child_count - 1);
-	return ref;
+		refs[kept++] = refs[i];
+	}
+	return kept;
+}
+
+static Uph_ActionTrackRef uph_resources_move_subtree(Uph_ActionTrackRef src, Uph_ActionTrackRef dest_owner, uint32_t dest_index, Uph_ActionTrackRef *refs, uint32_t ref_count)
+{
+	const Uph_ActionTrackRef src_owner = uph_action_track_ref_owner(src);
+	const uint32_t src_index = uph_action_track_ref_index(src);
+
+	Naui_List(Uph_Track) *src_list = uph_action_track_list_ptr(src_owner);
+	const Uph_Track moved = (*src_list)[src_index];
+	naui_list_remove(*src_list, src_index);
+
+	dest_owner = uph_action_track_ref_after_remove(dest_owner, src);
+	if (uph_action_track_ref_equal(dest_owner, src_owner) && src_index < dest_index)
+		dest_index--;
+
+	Naui_List(Uph_Track) *dest_list = uph_action_track_list_ptr(dest_owner);
+	naui_list_insert(*dest_list, moved, dest_index);
+
+	const Uph_ActionTrackRef dst = uph_action_track_ref_child(dest_owner, dest_index);
+	for (uint32_t i = 0; i < ref_count; i++)
+		refs[i] = uph_action_track_ref_after_move(refs[i], src, dst);
+	return dst;
 }
 
 bool uph_resources_can_group_track(const Uph_Track *track)
 {
-	if (!track)
-		return false;
-	if (track->type == UPH_RESOURCE_GROUP || track->type == UPH_RESOURCE_AUTOMATION)
-		return false;
-	if (naui_list_len(track->subtracks) > 0)
+	if (!track || track->type == UPH_RESOURCE_AUTOMATION)
 		return false;
 
 	const Uph_ActionTrackRef ref = uph_action_track_ref(track);
-	return ref.parent == UPH_ACTION_TRACK_TOP;
+	return ref.depth > 0 && ref.depth + uph_resources_track_height(track) <= UPH_ACTION_TRACK_MAX_DEPTH;
 }
 
 static bool uph_resources_selection_shares_parent(Naui_List(Uph_TrackPtr) tracks)
@@ -493,75 +492,64 @@ static bool uph_resources_selection_shares_parent(Naui_List(Uph_TrackPtr) tracks
 	return true;
 }
 
-static uint32_t *uph_resources_collect_group_indices(Naui_List(Uph_TrackPtr) tracks, uint32_t *out_count)
+static Uph_ActionTrackRef *uph_resources_collect_group_refs(Naui_List(Uph_TrackPtr) tracks, uint32_t *out_count)
 {
 	*out_count = 0;
 
-	const uint32_t top_count = (uint32_t)naui_list_len(uph_state.project.tracks);
 	const uint32_t selected_count = (uint32_t)naui_list_len(tracks);
-	if (top_count == 0 || selected_count == 0)
+	if (selected_count == 0 || !uph_resources_selection_shares_parent(tracks))
 		return NULL;
 
-	if (!uph_resources_selection_shares_parent(tracks))
+	Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * selected_count);
+	if (!refs)
 		return NULL;
-
-	bool *marked = calloc(top_count, sizeof(bool));
-	uint32_t *indices = malloc(sizeof(uint32_t) * top_count);
-	if (!marked || !indices)
-	{
-		free(marked);
-		free(indices);
-		return NULL;
-	}
-
-	for (uint32_t i = 0; i < selected_count; i++)
-	{
-		if (!uph_resources_can_group_track(tracks[i]))
-			continue;
-
-		marked[uph_action_track_ref(tracks[i]).index] = true;
-	}
 
 	uint32_t count = 0;
-	for (uint32_t i = 0; i < top_count; i++)
+	for (uint32_t i = 0; i < selected_count; i++)
 	{
-		if (marked[i])
-			indices[count++] = i;
+		if (uph_resources_can_group_track(tracks[i]))
+			refs[count++] = uph_action_track_ref(tracks[i]);
 	}
-	free(marked);
 
+	count = uph_resources_sort_outermost_refs(refs, count);
 	if (count == 0)
 	{
-		free(indices);
+		free(refs);
 		return NULL;
 	}
 
 	*out_count = count;
-	return indices;
+	return refs;
 }
 
 uint32_t uph_resources_count_groupable_tracks(Naui_List(Uph_TrackPtr) tracks)
 {
 	uint32_t count;
-	uint32_t *indices = uph_resources_collect_group_indices(tracks, &count);
-	free(indices);
+	free(uph_resources_collect_group_refs(tracks, &count));
 	return count;
 }
 
 Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char *name, int32_t color_index)
 {
 	uint32_t count;
-	uint32_t *indices = uph_resources_collect_group_indices(tracks, &count);
-	if (!indices)
+	Uph_ActionTrackRef *grouped = uph_resources_collect_group_refs(tracks, &count);
+	if (!grouped)
 		return NULL;
-
-	const uint32_t first = indices[0];
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
 
 	Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT];
 	uph_resources_capture_pointer_slots(slots);
+
+	const uint32_t group_slot = UPH_TRACK_POINTER_SLOT_COUNT + count;
+	const uint32_t ref_count = group_slot + 1;
+	Uph_ActionTrackRef *refs = uph_resources_slot_refs(slots, grouped, count, 1);
+	const Uph_ActionTrackRef group_ref = grouped[0];
+	free(grouped);
+	if (!refs)
+		return NULL;
+
+	const bool was_running = uph_audio_engine_device_running();
+	if (was_running)
+		uph_audio_engine_stop();
 
 	Uph_Track group = {
 		.name = naui_string_from_cstr(name),
@@ -570,22 +558,22 @@ Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char
 		.volume = 1.0f
 	};
 
-	for (uint32_t k = 0; k < count; k++)
-		naui_list_push(group.subtracks, uph_state.project.tracks[indices[k]]);
-	for (uint32_t k = count; k-- > 0;)
-		naui_list_remove(uph_state.project.tracks, indices[k]);
+	Naui_List(Uph_Track) *owner_list = uph_action_track_list_ptr(uph_action_track_ref_owner(group_ref));
+	naui_list_insert(*owner_list, group, uph_action_track_ref_index(group_ref));
 
-	naui_list_insert(uph_state.project.tracks, group, first);
+	for (uint32_t i = 0; i < group_slot; i++)
+		refs[i] = uph_action_track_ref_after_insert(refs[i], group_ref);
+	refs[group_slot] = group_ref;
+
+	for (uint32_t k = 0; k < count; k++)
+		uph_resources_move_subtree(refs[UPH_TRACK_POINTER_SLOT_COUNT + k], refs[group_slot], k, refs, ref_count);
 
 	uph_resources_restructure_finished();
+	uph_resources_restore_pointer_slots(slots, refs);
 
-	const Uph_GroupRemap map = { .indices = indices, .count = count, .first = first };
-	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
-		*slots[i].slot = uph_action_track_resolve(uph_resources_group_remap(slots[i].ref, &map));
+	Uph_Track *result = uph_action_track_resolve(refs[group_slot]);
+	free(refs);
 
-	free(indices);
-
-	Uph_Track *result = &uph_state.project.tracks[first];
 	uph_resources_select_mixer_track(result);
 
 	if (was_running)
@@ -600,37 +588,41 @@ bool uph_resources_ungroup_track(Uph_Track *group)
 		return false;
 
 	const Uph_ActionTrackRef group_ref = uph_action_track_ref(group);
-	if (group_ref.parent != UPH_ACTION_TRACK_TOP)
+	if (group_ref.depth == 0)
 		return false;
 
 	const uint32_t child_count = (uint32_t)naui_list_len(group->subtracks);
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
 
 	Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT];
 	uph_resources_capture_pointer_slots(slots);
 
-	Uph_Track *children = child_count > 0 ? malloc(sizeof(Uph_Track) * child_count) : NULL;
-	for (uint32_t i = 0; i < child_count; i++)
-		children[i] = group->subtracks[i];
-	naui_list_free(group->subtracks);
+	const uint32_t group_slot = UPH_TRACK_POINTER_SLOT_COUNT;
+	const uint32_t ref_count = group_slot + 1;
+	Uph_ActionTrackRef *refs = uph_resources_slot_refs(slots, &group_ref, 1, 0);
+	if (!refs)
+		return false;
 
-	const uint32_t group_index = group_ref.index;
-	uph_resources_remove_track(group);
+	const bool was_running = uph_audio_engine_device_running();
+	if (was_running)
+		uph_audio_engine_stop();
+
+	const Uph_ActionTrackRef owner = uph_action_track_ref_owner(group_ref);
+	const uint32_t group_index = uph_action_track_ref_index(group_ref);
 	for (uint32_t i = 0; i < child_count; i++)
-		naui_list_insert(uph_state.project.tracks, children[i], group_index + i);
-	free(children);
+		uph_resources_move_subtree(uph_action_track_ref_child(refs[group_slot], 0), owner, group_index + 1 + i, refs, ref_count);
+
+	uph_resources_link_tracks(uph_state.project.tracks);
+	uph_resources_remove_track(uph_action_track_resolve(refs[group_slot]));
+	for (uint32_t i = 0; i < group_slot; i++)
+		refs[i] = uph_action_track_ref_after_remove(refs[i], refs[group_slot]);
 
 	uph_resources_restructure_finished();
-
-	const Uph_UngroupRemap map = { .group_index = group_index, .child_count = child_count };
-	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
-		*slots[i].slot = uph_action_track_resolve(uph_resources_ungroup_remap(slots[i].ref, &map));
+	uph_resources_restore_pointer_slots(slots, refs);
+	free(refs);
 
 	uph_resources_clear_mixer_selection();
 	for (uint32_t i = 0; i < child_count; i++)
-		uph_resources_toggle_mixer_track(&uph_state.project.tracks[group_index + i]);
+		uph_resources_toggle_mixer_track(uph_action_track_resolve(uph_action_track_ref_child(owner, group_index + i)));
 
 	if (was_running)
 		uph_audio_engine_start();
@@ -638,89 +630,17 @@ bool uph_resources_ungroup_track(Uph_Track *group)
 	return true;
 }
 
-static Uph_ActionTrackRef uph_resources_ref_after_remove(Uph_ActionTrackRef ref, int32_t list_parent, uint32_t index)
-{
-	if (ref.parent == UPH_ACTION_TRACK_INVALID)
-		return ref;
-
-	if (ref.parent == list_parent)
-	{
-		if (ref.index > index)
-			ref.index--;
-	}
-	else if (list_parent == UPH_ACTION_TRACK_TOP && ref.parent >= 0 && (uint32_t)ref.parent > index)
-	{
-		ref.parent--;
-	}
-	return ref;
-}
-
-static Uph_ActionTrackRef uph_resources_ref_after_insert(Uph_ActionTrackRef ref, int32_t list_parent, uint32_t index)
-{
-	if (ref.parent == UPH_ACTION_TRACK_INVALID)
-		return ref;
-
-	if (ref.parent == list_parent)
-	{
-		if (ref.index >= index)
-			ref.index++;
-	}
-	else if (list_parent == UPH_ACTION_TRACK_TOP && ref.parent >= 0 && (uint32_t)ref.parent >= index)
-	{
-		ref.parent++;
-	}
-	return ref;
-}
-
-static Uph_ActionTrackRef uph_resources_ref_after_move(Uph_ActionTrackRef ref, Uph_ActionTrackRef src, bool moved_group, int32_t new_parent, uint32_t new_index)
-{
-	if (ref.parent == UPH_ACTION_TRACK_INVALID)
-		return ref;
-
-	if (ref.parent == src.parent && ref.index == src.index)
-		return (Uph_ActionTrackRef){ new_parent, new_index };
-
-	if (moved_group && ref.parent == (int32_t)src.index)
-		return (Uph_ActionTrackRef){ (int32_t)new_index, ref.index };
-
-	return uph_resources_ref_after_insert(uph_resources_ref_after_remove(ref, src.parent, src.index), new_parent, new_index);
-}
-
-static int uph_resources_move_order(const void *a, const void *b)
-{
-	const Uph_ActionTrackRef *ra = a;
-	const Uph_ActionTrackRef *rb = b;
-
-	const uint32_t top_a = ra->parent == UPH_ACTION_TRACK_TOP ? ra->index : (uint32_t)ra->parent;
-	const uint32_t top_b = rb->parent == UPH_ACTION_TRACK_TOP ? rb->index : (uint32_t)rb->parent;
-	if (top_a != top_b)
-		return top_a < top_b ? -1 : 1;
-
-	const uint32_t sub_a = ra->parent == UPH_ACTION_TRACK_TOP ? 0 : ra->index + 1;
-	const uint32_t sub_b = rb->parent == UPH_ACTION_TRACK_TOP ? 0 : rb->index + 1;
-	if (sub_a != sub_b)
-		return sub_a < sub_b ? -1 : 1;
-
-	return 0;
-}
-
-static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPtr) tracks, bool allow_groups, uint32_t *out_count)
+static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPtr) tracks, Uph_ActionTrackRef dest_owner, uint32_t *out_count)
 {
 	*out_count = 0;
 
 	const uint32_t selected_count = (uint32_t)naui_list_len(tracks);
-	const uint32_t top_count = (uint32_t)naui_list_len(uph_state.project.tracks);
-	if (selected_count == 0 || top_count == 0)
+	if (selected_count == 0)
 		return NULL;
 
 	Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * selected_count);
-	bool *group_moves = calloc(top_count, sizeof(bool));
-	if (!refs || !group_moves)
-	{
-		free(refs);
-		free(group_moves);
+	if (!refs)
 		return NULL;
-	}
 
 	uint32_t count = 0;
 	for (uint32_t i = 0; i < selected_count; i++)
@@ -730,47 +650,16 @@ static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPt
 			continue;
 
 		const Uph_ActionTrackRef ref = uph_action_track_ref(track);
-		if (ref.parent == UPH_ACTION_TRACK_INVALID)
+		if (ref.depth == 0 || uph_action_track_ref_has_prefix(dest_owner, ref))
 			continue;
 
-		if (track->type == UPH_RESOURCE_GROUP)
-		{
-			if (!allow_groups || ref.parent != UPH_ACTION_TRACK_TOP)
-				continue;
-
-			group_moves[ref.index] = true;
-		}
-		else if (naui_list_len(track->subtracks) > 0)
-		{
+		if (dest_owner.depth + uph_resources_track_height(track) > UPH_ACTION_TRACK_MAX_DEPTH)
 			continue;
-		}
 
 		refs[count++] = ref;
 	}
 
-	uint32_t kept = 0;
-	for (uint32_t i = 0; i < count; i++)
-	{
-		if (refs[i].parent >= 0 && group_moves[refs[i].parent])
-			continue;
-
-		refs[kept++] = refs[i];
-	}
-	free(group_moves);
-	count = kept;
-
-	qsort(refs, count, sizeof(Uph_ActionTrackRef), uph_resources_move_order);
-
-	kept = 0;
-	for (uint32_t i = 0; i < count; i++)
-	{
-		if (kept > 0 && refs[kept - 1].parent == refs[i].parent && refs[kept - 1].index == refs[i].index)
-			continue;
-
-		refs[kept++] = refs[i];
-	}
-	count = kept;
-
+	count = uph_resources_sort_outermost_refs(refs, count);
 	if (count == 0)
 	{
 		free(refs);
@@ -784,55 +673,29 @@ static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPt
 uint32_t uph_resources_count_movable_tracks(Naui_List(Uph_TrackPtr) tracks)
 {
 	uint32_t count;
-	Uph_ActionTrackRef *refs = uph_resources_collect_move_refs(tracks, true, &count);
-	free(refs);
+	free(uph_resources_collect_move_refs(tracks, uph_action_track_ref_root(), &count));
 	return count;
-}
-
-static void uph_resources_move_step(Uph_ActionTrackRef src, int32_t *dest_parent, uint32_t *dest_index, Uph_ActionTrackRef *refs, uint32_t ref_count)
-{
-	Uph_Track *track = uph_action_track_resolve(src);
-	const bool moved_group = track->type == UPH_RESOURCE_GROUP;
-	Uph_Track moved = *track;
-
-	Naui_List(Uph_Track) *src_list = uph_action_track_list_ptr(src.parent);
-	naui_list_remove(*src_list, src.index);
-
-	int32_t new_parent = *dest_parent;
-	uint32_t new_index = *dest_index;
-	if (src.parent == new_parent && src.index < new_index)
-		new_index--;
-	if (src.parent == UPH_ACTION_TRACK_TOP && new_parent != UPH_ACTION_TRACK_TOP && (uint32_t)new_parent > src.index)
-		new_parent--;
-
-	Naui_List(Uph_Track) *target_list = uph_action_track_list_ptr(new_parent);
-	naui_list_insert(*target_list, moved, new_index);
-
-	for (uint32_t i = 0; i < ref_count; i++)
-		refs[i] = uph_resources_ref_after_move(refs[i], src, moved_group, new_parent, new_index);
-
-	*dest_parent = new_parent;
-	*dest_index = new_index + 1;
 }
 
 bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_group, uint32_t dest_index)
 {
-	int32_t dest_parent = UPH_ACTION_TRACK_TOP;
+	Uph_ActionTrackRef dest_owner = uph_action_track_ref_root();
 	if (dest_group)
 	{
-		const Uph_ActionTrackRef group_ref = uph_action_track_ref(dest_group);
-		if (dest_group->type != UPH_RESOURCE_GROUP || group_ref.parent != UPH_ACTION_TRACK_TOP)
+		if (dest_group->type != UPH_RESOURCE_GROUP)
 			return false;
 
-		dest_parent = (int32_t)group_ref.index;
+		dest_owner = uph_action_track_ref(dest_group);
+		if (dest_owner.depth == 0)
+			return false;
 	}
 
-	Naui_List(Uph_Track) *dest_list = uph_action_track_list_ptr(dest_parent);
+	Naui_List(Uph_Track) *dest_list = uph_action_track_list_ptr(dest_owner);
 	if (!dest_list)
 		return false;
 
 	uint32_t count;
-	Uph_ActionTrackRef *moving = uph_resources_collect_move_refs(tracks, dest_group == NULL, &count);
+	Uph_ActionTrackRef *moving = uph_resources_collect_move_refs(tracks, dest_owner, &count);
 	if (!moving)
 		return false;
 
@@ -840,9 +703,14 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	if (dest_index > dest_len)
 		dest_index = dest_len;
 
-	bool in_place = moving[0].parent == dest_parent && dest_index >= moving[0].index && dest_index <= moving[0].index + count;
+	const uint32_t first_index = uph_action_track_ref_index(moving[0]);
+	bool in_place = dest_index >= first_index && dest_index <= first_index + count;
 	for (uint32_t i = 0; in_place && i < count; i++)
-		in_place = moving[i].parent == dest_parent && moving[i].index == moving[0].index + i;
+	{
+		in_place =
+			uph_action_track_ref_equal(uph_action_track_ref_owner(moving[i]), dest_owner) &&
+			uph_action_track_ref_index(moving[i]) == first_index + i;
+	}
 
 	if (in_place)
 	{
@@ -850,36 +718,30 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 		return false;
 	}
 
+	Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT];
+	uph_resources_capture_pointer_slots(slots);
+
 	const uint32_t ref_count = UPH_TRACK_POINTER_SLOT_COUNT + count;
-	Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * ref_count);
+	Uph_ActionTrackRef *refs = uph_resources_slot_refs(slots, moving, count, 0);
+	free(moving);
 	if (!refs)
-	{
-		free(moving);
 		return false;
-	}
 
 	const bool was_running = uph_audio_engine_device_running();
 	if (was_running)
 		uph_audio_engine_stop();
 
-	Uph_TrackPointerSlot slots[UPH_TRACK_POINTER_SLOT_COUNT];
-	uph_resources_capture_pointer_slots(slots);
-
-	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
-		refs[i] = slots[i].ref;
-	for (uint32_t i = 0; i < count; i++)
-		refs[UPH_TRACK_POINTER_SLOT_COUNT + i] = moving[i];
-	free(moving);
-
-	int32_t cursor_parent = dest_parent;
+	Uph_ActionTrackRef cursor_owner = dest_owner;
 	uint32_t cursor_index = dest_index;
 	for (uint32_t i = 0; i < count; i++)
-		uph_resources_move_step(refs[UPH_TRACK_POINTER_SLOT_COUNT + i], &cursor_parent, &cursor_index, refs, ref_count);
+	{
+		const Uph_ActionTrackRef placed = uph_resources_move_subtree(refs[UPH_TRACK_POINTER_SLOT_COUNT + i], cursor_owner, cursor_index, refs, ref_count);
+		cursor_owner = uph_action_track_ref_owner(placed);
+		cursor_index = uph_action_track_ref_index(placed) + 1;
+	}
 
 	uph_resources_restructure_finished();
-
-	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
-		*slots[i].slot = uph_action_track_resolve(refs[i]);
+	uph_resources_restore_pointer_slots(slots, refs);
 
 	naui_list_clear(uph_state.shared.selected_mixer_tracks);
 	uph_state.shared.selected_mixer_master = false;

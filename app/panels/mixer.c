@@ -630,7 +630,7 @@ static void uph_mixer_commit_edit(void)
 
 static void uph_mixer_edit_value(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind, float before)
 {
-    if (_Uph_MixerEdit.active && (_Uph_MixerEdit.kind != kind || _Uph_MixerEdit.track.parent != ref.parent || _Uph_MixerEdit.track.index != ref.index))
+    if (_Uph_MixerEdit.active && (_Uph_MixerEdit.kind != kind || !uph_action_track_ref_equal(_Uph_MixerEdit.track, ref)))
         uph_mixer_commit_edit();
 
     if (!_Uph_MixerEdit.active)
@@ -972,6 +972,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
 
     const int32_t group_gap = (int32_t)NAUI_DPI(4);
     leaf({
+        .id = leaf_id_indexed("uph_mixer_group", uph_mixer_strip_id(&strip)),
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
         .padding = { group_gap, group_gap, group_gap, 0 }
     })
@@ -1004,18 +1005,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
 
 static int uph_mixer_remove_order(const void *a, const void *b)
 {
-    const Uph_ActionTrackRef *ra = a;
-    const Uph_ActionTrackRef *rb = b;
-
-    const bool child_a = ra->parent != UPH_ACTION_TRACK_TOP;
-    const bool child_b = rb->parent != UPH_ACTION_TRACK_TOP;
-    if (child_a != child_b)
-        return child_a ? -1 : 1;
-    if (ra->parent != rb->parent)
-        return ra->parent > rb->parent ? -1 : 1;
-    if (ra->index != rb->index)
-        return ra->index > rb->index ? -1 : 1;
-    return 0;
+    return uph_action_track_ref_compare(*(const Uph_ActionTrackRef *)b, *(const Uph_ActionTrackRef *)a);
 }
 
 static void uph_mixer_remove_selected_tracks(void)
@@ -1032,7 +1022,7 @@ static void uph_mixer_remove_selected_tracks(void)
     for (uint32_t i = 0; i < count; i++)
     {
         const Uph_ActionTrackRef ref = uph_action_track_ref(uph_state.shared.selected_mixer_tracks[i]);
-        if (ref.parent != UPH_ACTION_TRACK_INVALID)
+        if (uph_action_track_ref_valid(ref))
             refs[ref_count++] = ref;
     }
 
@@ -1056,7 +1046,7 @@ static void uph_mixer_remove_selected_tracks(void)
 
 typedef struct Uph_MixerDropTarget
 {
-    int32_t parent;
+    Uph_ActionTrackRef owner;
     uint32_t index;
     float line_x, line_y, line_height;
     bool valid;
@@ -1069,14 +1059,30 @@ static bool uph_mixer_strip_box(const Uph_Track *track, Leaf_BoundingBox *out)
     return out->width > 0.0f;
 }
 
-static bool uph_mixer_drop_on_strip(Uph_MixerDropTarget *target, float mouse_x, Leaf_BoundingBox box, int32_t parent, uint32_t index)
+static bool uph_mixer_group_box(const Uph_Track *group, Leaf_BoundingBox *out)
+{
+    *out = leaf_get_bounding_box(leaf_id_indexed("uph_mixer_group", (uint64_t)group));
+    return out->width > 0.0f;
+}
+
+static bool uph_mixer_track_dragged(const Uph_Track *track, Naui_List(Uph_TrackPtr) dragged)
+{
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(dragged); i++)
+    {
+        if (dragged[i] == track)
+            return true;
+    }
+    return false;
+}
+
+static bool uph_mixer_drop_on_strip(Uph_MixerDropTarget *target, float mouse_x, Leaf_BoundingBox box, Uph_ActionTrackRef owner, uint32_t index)
 {
     if (mouse_x >= box.x + box.width)
         return false;
 
     const bool after = mouse_x >= box.x + box.width * 0.5f;
     *target = (Uph_MixerDropTarget){
-        .parent = parent,
+        .owner = owner,
         .index = after ? index + 1 : index,
         .line_x = after ? box.x + box.width : box.x,
         .line_y = box.y,
@@ -1086,89 +1092,72 @@ static bool uph_mixer_drop_on_strip(Uph_MixerDropTarget *target, float mouse_x, 
     return true;
 }
 
-static Uph_MixerDropTarget uph_mixer_find_drop_target(float mouse_x, bool dragging_group)
+static bool uph_mixer_find_drop_in_list(Uph_MixerDropTarget *target, float mouse_x, Naui_List(Uph_Track) tracks, Uph_ActionTrackRef owner, Naui_List(Uph_TrackPtr) dragged, Leaf_BoundingBox *last_box)
 {
-    Uph_MixerDropTarget target = { 0 };
-    Naui_List(Uph_Track) tracks = uph_state.project.tracks;
     const uint32_t count = (uint32_t)naui_list_len(tracks);
-
-    Leaf_BoundingBox last_box = { 0 };
-    bool have_last = false;
-
     for (uint32_t i = 0; i < count; i++)
     {
+        Uph_Track *track = &tracks[i];
+
         Leaf_BoundingBox box;
-        if (!uph_mixer_strip_box(&tracks[i], &box))
+        if (!uph_mixer_strip_box(track, &box))
             continue;
 
-        have_last = true;
-        last_box = box;
+        *last_box = box;
 
-        if (tracks[i].type != UPH_RESOURCE_GROUP)
+        if (track->type != UPH_RESOURCE_GROUP)
         {
-            if (uph_mixer_drop_on_strip(&target, mouse_x, box, UPH_ACTION_TRACK_TOP, i))
-                return target;
-            continue;
-        }
-
-        if (dragging_group)
-        {
-            float block_right = box.x + box.width;
-            const uint32_t block_children = (uint32_t)naui_list_len(tracks[i].subtracks);
-            for (uint32_t s = 0; s < block_children; s++)
-            {
-                Leaf_BoundingBox child_box;
-                if (!uph_mixer_strip_box(&tracks[i].subtracks[s], &child_box))
-                    continue;
-
-                last_box = child_box;
-                if (child_box.x + child_box.width > block_right)
-                    block_right = child_box.x + child_box.width;
-            }
-
-            if (mouse_x < block_right)
-            {
-                const bool after = mouse_x >= box.x + (block_right - box.x) * 0.5f;
-                return (Uph_MixerDropTarget){
-                    .parent = UPH_ACTION_TRACK_TOP,
-                    .index = after ? i + 1 : i,
-                    .line_x = after ? block_right : box.x,
-                    .line_y = box.y,
-                    .line_height = box.height,
-                    .valid = true
-                };
-            }
+            if (uph_mixer_drop_on_strip(target, mouse_x, box, owner, i))
+                return true;
             continue;
         }
 
-        if (uph_mixer_drop_on_strip(&target, mouse_x, box, UPH_ACTION_TRACK_TOP, i))
+        if (uph_mixer_track_dragged(track, dragged))
         {
-            if (target.index > i)
+            Leaf_BoundingBox group_box;
+            if (uph_mixer_group_box(track, &group_box))
             {
-                target.parent = (int32_t)i;
-                target.index = 0;
+                box.x = group_box.x;
+                box.width = group_box.width;
             }
-            return target;
+
+            *last_box = box;
+            if (uph_mixer_drop_on_strip(target, mouse_x, box, owner, i))
+                return true;
+            continue;
         }
 
-        const uint32_t child_count = (uint32_t)naui_list_len(tracks[i].subtracks);
-        for (uint32_t s = 0; s < child_count; s++)
+        const Uph_ActionTrackRef group_ref = uph_action_track_ref_child(owner, i);
+        if (uph_mixer_drop_on_strip(target, mouse_x, box, owner, i))
         {
-            Leaf_BoundingBox child_box;
-            if (!uph_mixer_strip_box(&tracks[i].subtracks[s], &child_box))
-                continue;
-
-            last_box = child_box;
-            if (uph_mixer_drop_on_strip(&target, mouse_x, child_box, (int32_t)i, s))
-                return target;
+            if (target->index > i)
+            {
+                target->owner = group_ref;
+                target->index = 0;
+            }
+            return true;
         }
+
+        if (uph_mixer_find_drop_in_list(target, mouse_x, track->subtracks, group_ref, dragged, last_box))
+            return true;
     }
 
-    if (have_last)
+    return false;
+}
+
+static Uph_MixerDropTarget uph_mixer_find_drop_target(float mouse_x, Naui_List(Uph_TrackPtr) dragged)
+{
+    Uph_MixerDropTarget target = { 0 };
+    Leaf_BoundingBox last_box = { 0 };
+
+    if (uph_mixer_find_drop_in_list(&target, mouse_x, uph_state.project.tracks, uph_action_track_ref_root(), dragged, &last_box))
+        return target;
+
+    if (last_box.width > 0.0f)
     {
         target = (Uph_MixerDropTarget){
-            .parent = UPH_ACTION_TRACK_TOP,
-            .index = count,
+            .owner = uph_action_track_ref_root(),
+            .index = (uint32_t)naui_list_len(uph_state.project.tracks),
             .line_x = last_box.x + last_box.width,
             .line_y = last_box.y,
             .line_height = last_box.height,
@@ -1233,18 +1222,14 @@ static void uph_mixer_update_drag(void)
 
     Naui_List(Uph_TrackPtr) dragged = uph_mixer_drag_tracks(source);
 
-    bool dragging_group = false;
-    for (uint32_t i = 0; i < naui_list_len(dragged); i++)
-        dragging_group = dragging_group || dragged[i]->type == UPH_RESOURCE_GROUP;
-
     const Uph_MixerDropTarget target = naui_panel_is_hovered(uph_state.panels.mixer) ?
-        uph_mixer_find_drop_target(mouse.x, dragging_group) : (Uph_MixerDropTarget){ 0 };
+        uph_mixer_find_drop_target(mouse.x, dragged) : (Uph_MixerDropTarget){ 0 };
 
     if (!mouse_down)
     {
         if (target.valid)
         {
-            Uph_Track *dest_group = target.parent == UPH_ACTION_TRACK_TOP ? NULL : &uph_state.project.tracks[target.parent];
+            Uph_Track *dest_group = target.owner.depth == 0 ? NULL : uph_action_track_resolve(target.owner);
             uph_resources_move_tracks(dragged, dest_group, target.index);
         }
         naui_list_free(dragged);
@@ -1325,7 +1310,7 @@ static void uph_mixer_on_update(void)
                 restructured = true;
             }
 
-            if (!restructured && current->type == UPH_RESOURCE_GROUP && !current->parent &&
+            if (!restructured && current->type == UPH_RESOURCE_GROUP &&
                 uph_ui_menu_item(context_menu, "Ungroup", leaf_id("uph_mixer_ungroup_tracks")))
             {
                 uph_resources_ungroup_track(current);

@@ -96,15 +96,33 @@ static void uph_block_collect(Uph_Track *track, Uph_ActionTrackRef ref, Uph_Reso
 	}
 }
 
+static void uph_block_collect_list(Naui_List(Uph_Track) tracks, Uph_ActionTrackRef owner, Uph_ResourceType type, bool only_selected, bool match_resource, Uph_ResourceIndex resource_index, Naui_List(Uph_ActionBlockSnapshot) *out)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
+	{
+		const Uph_ActionTrackRef ref = uph_action_track_ref_child(owner, t);
+		uph_block_collect(&tracks[t], ref, type, only_selected, out, match_resource, resource_index);
+		uph_block_collect_list(tracks[t].subtracks, ref, type, only_selected, match_resource, resource_index, out);
+	}
+}
+
 static void uph_block_collect_all(Uph_ResourceType type, bool only_selected, bool match_resource, Uph_ResourceIndex resource_index, Naui_List(Uph_ActionBlockSnapshot) *out)
 {
-	for (uint32_t t = 0; t < (uint32_t)naui_list_len(uph_state.project.tracks); t++)
-	{
-		Uph_Track* track = &uph_state.project.tracks[t];
-		uph_block_collect(track, (Uph_ActionTrackRef){ -1, t }, type, only_selected, out, match_resource, resource_index);
+	uph_block_collect_list(uph_state.project.tracks, uph_action_track_ref_root(), type, only_selected, match_resource, resource_index, out);
+}
 
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-			uph_block_collect(&track->subtracks[s], (Uph_ActionTrackRef){ (int32_t)t, s }, type, only_selected, out, match_resource, resource_index);
+static void uph_block_shift_resource_indices(Naui_List(Uph_Track) tracks, Uph_ResourceType type, Uph_ResourceIndex from, int32_t delta)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
+	{
+		Uph_Track* track = &tracks[t];
+		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
+		{
+			if (track->blocks[b].type == type && track->blocks[b].resource_index >= from)
+				track->blocks[b].resource_index = (Uph_ResourceIndex)((int32_t)track->blocks[b].resource_index + delta);
+		}
+
+		uph_block_shift_resource_indices(track->subtracks, type, from, delta);
 	}
 }
 
@@ -118,48 +136,12 @@ static void uph_block_unlink_resource(Uph_ResourceType type, Uph_ResourceIndex r
 		uph_block_list_take(uph_action_track_resolve(snapshot->track), snapshot->index, &discarded);
 	}
 
-	for (uint32_t t = 0; t < (uint32_t)naui_list_len(uph_state.project.tracks); t++)
-	{
-		Uph_Track* track = &uph_state.project.tracks[t];
-		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
-		{
-			if (track->blocks[b].type == type && track->blocks[b].resource_index > resource_index)
-				track->blocks[b].resource_index--;
-		}
-
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			Uph_Track* sub = &track->subtracks[s];
-			for (uint32_t b = 0; b < (uint32_t)naui_list_len(sub->blocks); b++)
-			{
-				if (sub->blocks[b].type == type && sub->blocks[b].resource_index > resource_index)
-					sub->blocks[b].resource_index--;
-			}
-		}
-	}
+	uph_block_shift_resource_indices(uph_state.project.tracks, type, resource_index + 1, -1);
 }
 
 static void uph_block_relink_resource(Uph_ResourceType type, Uph_ResourceIndex resource_index, const Naui_List(Uph_ActionBlockSnapshot) removed)
 {
-	for (uint32_t t = 0; t < (uint32_t)naui_list_len(uph_state.project.tracks); t++)
-	{
-		Uph_Track* track = &uph_state.project.tracks[t];
-		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
-		{
-			if (track->blocks[b].type == type && track->blocks[b].resource_index >= resource_index)
-				track->blocks[b].resource_index++;
-		}
-
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			Uph_Track* sub = &track->subtracks[s];
-			for (uint32_t b = 0; b < (uint32_t)naui_list_len(sub->blocks); b++)
-			{
-				if (sub->blocks[b].type == type && sub->blocks[b].resource_index >= resource_index)
-					sub->blocks[b].resource_index++;
-			}
-		}
-	}
+	uph_block_shift_resource_indices(uph_state.project.tracks, type, resource_index, 1);
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(removed); i++)
 	{
@@ -173,41 +155,41 @@ static void uph_block_relink_resource(Uph_ResourceType type, Uph_ResourceIndex r
 
 #pragma region Block Selection
 
-static uint32_t uph_block_selected_count(void)
+static uint32_t uph_block_selected_count_in(Naui_List(Uph_Track) tracks)
 {
 	uint32_t count = 0;
-	for (uint32_t t = 0; t < (uint32_t)naui_list_len(uph_state.project.tracks); t++)
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
 	{
-		const Uph_Track* track = &uph_state.project.tracks[t];
+		const Uph_Track* track = &tracks[t];
 		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
 			count += track->blocks[b].selected;
 
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			const Uph_Track* sub = &track->subtracks[s];
-			for (uint32_t b = 0; b < (uint32_t)naui_list_len(sub->blocks); b++)
-				count += sub->blocks[b].selected;
-		}
+		count += uph_block_selected_count_in(track->subtracks);
 	}
 
 	return count;
 }
 
-static void uph_block_select_all(bool selected)
+static uint32_t uph_block_selected_count(void)
 {
-	for (uint32_t t = 0; t < (uint32_t)naui_list_len(uph_state.project.tracks); t++)
+	return uph_block_selected_count_in(uph_state.project.tracks);
+}
+
+static void uph_block_select_all_in(Naui_List(Uph_Track) tracks, bool selected)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
 	{
-		Uph_Track* track = &uph_state.project.tracks[t];
+		Uph_Track* track = &tracks[t];
 		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
 			track->blocks[b].selected = selected;
 
-		for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
-		{
-			Uph_Track* sub = &track->subtracks[s];
-			for (uint32_t b = 0; b < (uint32_t)naui_list_len(sub->blocks); b++)
-				sub->blocks[b].selected = selected;
-		}
+		uph_block_select_all_in(track->subtracks, selected);
 	}
+}
+
+static void uph_block_select_all(bool selected)
+{
+	uph_block_select_all_in(uph_state.project.tracks, selected);
 }
 
 #pragma endregion

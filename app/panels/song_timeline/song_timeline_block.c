@@ -222,7 +222,7 @@ void uph_song_timeline_finish_block_drag(void)
 	{
 		const Uph_TimelineBlock *block = &drag->track->blocks[drag->block_index];
 		const Uph_ActionTrackRef destination = uph_action_track_ref(drag->track);
-		const bool moved_track = destination.parent != drag->source_track.parent || destination.index != drag->source_track.index;
+		const bool moved_track = !uph_action_track_ref_equal(destination, drag->source_track);
 
 		const Uph_TimelineBlock initial = {
 			.start_beat = drag->initial_start_beat,
