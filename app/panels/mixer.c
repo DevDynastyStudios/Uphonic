@@ -725,8 +725,6 @@ static void uph_mixer_drag_begin(Uph_ActionTrackRef source, bool select_on_relea
     };
 }
 
-// Pressing the drag handle of a strip that is part of a multi-selection must leave the selection alone, otherwise
-// there would be nothing left to drag. (If it turns out to be a plain click, the drag code collapses it on release.)
 static bool uph_mixer_press_keeps_selection(const Uph_MixerStrip *strip, const Leaf_ID handle_id)
 {
     if (!strip->track || !uph_mixer_strip_selected(strip))
@@ -743,7 +741,7 @@ static bool uph_mixer_press_keeps_selection(const Uph_MixerStrip *strip, const L
     return leaf_hovered(handle_id);
 }
 
-static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
+static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
 {
     const uint64_t track_id = uph_mixer_strip_id(&strip);
     const Naui_Color accent_color = uph_resources_track_color(uph_mixer_strip_color_index(&strip));
@@ -767,14 +765,15 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
         uph_ui_open_context_menu(context_menu);
     }
 
-    Leaf_Color bg_color = uph_mixer_strip_selected(&strip) ?
-        naui_theme_color("uph_mixer_track_selected_bg_color") :
-        naui_theme_color("uph_mixer_track_bg_color");
-
+    const bool selected = uph_mixer_strip_selected(&strip);
     const Uph_Track *tint_track = !strip.track ? NULL :
         strip.track->type == UPH_RESOURCE_GROUP ? strip.track : strip.track->parent;
+
+    Leaf_Color bg_color;
     if (tint_track)
-        bg_color = uph_color_mix(bg_color, uph_resources_track_color(tint_track->color_index), 0.09f);
+        bg_color = uph_color_mix(naui_theme_color("uph_mixer_track_bg_color"), uph_resources_track_color(tint_track->color_index), selected ? 0.22f : 0.09f);
+    else
+        bg_color = selected ? naui_theme_color("uph_mixer_track_selected_bg_color") : naui_theme_color("uph_mixer_track_bg_color");
 
     leaf({
         .id = id,
@@ -782,13 +781,6 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
         .color = {bg_color}
     })
     {
-        if (strip.track && strip.track->type == UPH_RESOURCE_GROUP)
-        {
-            leaf({
-                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(8))},
-                .color = accent_color
-            }); 
-        }
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
@@ -826,8 +818,8 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
                             .color = accent_color,
                             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
                         });
+                        leaf_text(strip.track->name.data, { .font_size = font_size, .color = text_color });
                     }
-                    leaf_text(strip.track->name.data, { .font_size = font_size, .color = text_color });
                 }
             }
             else
@@ -945,23 +937,62 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
             }
         }
     }
+}
 
+static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
+{
     if (!strip.track || strip.track->type != UPH_RESOURCE_GROUP)
+    {
+        uph_mixer_render_strip_body(strip, context_menu);
         return;
+    }
 
+    const Naui_Color accent_color = uph_resources_track_color(strip.track->color_index);
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+
+    const Leaf_ID header_id = leaf_id_indexed("uph_mixer_group_header", uph_mixer_strip_id(&strip));
+    if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(header_id))
+    {
+        naui_set_cursor(NAUI_CURSOR_HAND);
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        {
+            const bool selection_kept_for_drag = uph_mixer_press_keeps_selection(&strip, header_id);
+            if (!selection_kept_for_drag)
+                uph_mixer_strip_select(&strip, true);
+            uph_mixer_drag_begin(strip.ref, selection_kept_for_drag);
+        }
+        else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+        {
+            if (!uph_mixer_strip_selected(&strip))
+                uph_mixer_strip_select(&strip, false);
+            uph_ui_open_context_menu(context_menu);
+        }
+    }
+
+    const int32_t group_gap = (int32_t)NAUI_DPI(4);
     leaf({
-        .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL}
+        .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+        .padding = { group_gap, group_gap, group_gap, 0 }
     })
     {
         leaf({
-            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(8))},
-            .color = uph_resources_track_color(strip.track->color_index)
-        });
+            .id = header_id,
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+            .color = {uph_color_mix(naui_theme_color("uph_mixer_track_bg_color"), accent_color, 0.45f)},
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(4), LEAF_CORNER_TL | LEAF_CORNER_TR)
+        })
+        {
+            leaf_text(strip.track->name.data, { .font_size = font_size, .color = naui_theme_color("uph_ui_text_color") });
+        }
         leaf({
             .size = {LEAF_SIZE_FIT, LEAF_SIZE_GROW},
             .direction = LEAF_DIRECTION_HORIZONTAL
         })
         {
+            uph_mixer_render_strip_body(strip, context_menu);
             for (uint32_t i = 0; i < naui_list_len(strip.track->subtracks); i++)
             {
                 Uph_Track *track = &strip.track->subtracks[i];
@@ -1007,7 +1038,6 @@ static void uph_mixer_remove_selected_tracks(void)
 
     qsort(refs, ref_count, sizeof(Uph_ActionTrackRef), uph_mixer_remove_order);
 
-    // Removing several tracks is a single undo step. (A lone track keeps its own "Track Delete" entry.)
     const bool grouped = ref_count > 1;
     if (grouped)
         naui_action_group_start(UPH_ACTION_TRACKS_DELETE_GROUP);
@@ -1148,8 +1178,6 @@ static Uph_MixerDropTarget uph_mixer_find_drop_target(float mouse_x, bool draggi
     return target;
 }
 
-// What the current drag carries: the whole selection when the grabbed strip is part of it, otherwise just that strip.
-// The caller frees the list.
 static Naui_List(Uph_TrackPtr) uph_mixer_drag_tracks(Uph_Track *source)
 {
     Naui_List(Uph_TrackPtr) tracks = NULL;
@@ -1205,7 +1233,6 @@ static void uph_mixer_update_drag(void)
 
     Naui_List(Uph_TrackPtr) dragged = uph_mixer_drag_tracks(source);
 
-    // Groups only fit between top-level strips, so one group in the drag restricts where everything can be dropped.
     bool dragging_group = false;
     for (uint32_t i = 0; i < naui_list_len(dragged); i++)
         dragging_group = dragging_group || dragged[i]->type == UPH_RESOURCE_GROUP;
@@ -1291,7 +1318,7 @@ static void uph_mixer_on_update(void)
 
             bool restructured = false;
 
-            if (uph_resources_count_groupable_tracks(uph_state.shared.selected_mixer_tracks) >= 2 &&
+            if (uph_resources_count_groupable_tracks(uph_state.shared.selected_mixer_tracks) >= 1 &&
                 uph_ui_menu_item(context_menu, "Group Tracks", leaf_id("uph_mixer_group_tracks")))
             {
                 uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, "Untitled Group", current->color_index);
