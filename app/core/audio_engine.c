@@ -647,40 +647,6 @@ static void uph_mark_block_held_notes(
     }
 }
 
-static bool uph_automation_value_at_beat(Uph_Automation *automation, double beat, float *out_value)
-{
-    uint64_t count = naui_list_len(automation->points);
-    if (count == 0)
-        return false;
-
-    if (beat <= automation->points[0].beat)
-    {
-        *out_value = automation->points[0].value;
-        return true;
-    }
-    if (beat >= automation->points[count - 1].beat)
-    {
-        *out_value = automation->points[count - 1].value;
-        return true;
-    }
-
-    for (uint64_t i = 0; i + 1 < count; i++)
-    {
-        Uph_AutomationPoint *a = &automation->points[i];
-        Uph_AutomationPoint *b = &automation->points[i + 1];
-
-        if (beat >= a->beat && beat <= b->beat)
-        {
-            double span = b->beat - a->beat;
-            double t = (span > 0.0) ? (beat - a->beat) / span : 0.0;
-            *out_value = (float)(a->value + (b->value - a->value) * t);
-            return true;
-        }
-    }
-
-    return false;
-}
-
 static void uph_queue_automation_block_params(
     Uph_Track *automation_track,
     Uph_Track *parent_track,

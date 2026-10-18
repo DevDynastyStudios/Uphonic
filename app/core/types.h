@@ -306,10 +306,21 @@ typedef struct
 }
 Uph_Version;
 
+typedef uint8_t Uph_AutomationCurve;
+enum
+{
+	UPH_AUTOMATION_CURVE_SINGLE,
+	UPH_AUTOMATION_CURVE_S,
+	UPH_AUTOMATION_CURVE_STEP,
+	UPH_AUTOMATION_CURVE_COUNT
+};
+
 typedef struct
 {
 	double beat;
 	float value;
+	float tension;
+	Uph_AutomationCurve curve;
 }
 Uph_AutomationPoint;
 

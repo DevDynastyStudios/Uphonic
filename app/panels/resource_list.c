@@ -124,7 +124,29 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
 
 static void uph_automation_list_custom_draw(Leaf_BoundingBox box, void **user_data)
 {
-    
+    const Uph_Automation *automation = (const Uph_Automation*)*user_data;
+    if (naui_list_len(automation->points) == 0 || box.width <= 0.0f || box.height <= 0.0f)
+        return;
+
+    const double length = uph_calculate_automation_length(automation);
+    if (length <= 0.0)
+        return;
+
+    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
+    const Leaf_Color fill_color = { fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * 0.3f) };
+
+    naui_push_clip_rect(box.x, box.y, box.width, box.height);
+    uph_ui_automation_curve(
+        automation,
+        box.x,
+        (float)((double)box.width / length),
+        box.y,
+        box.height,
+        fg_color,
+        fill_color,
+        1.0f
+    );
+    naui_pop_clip_rect();
 }
 
 static Naui_String *uph_resource_list_name(Uph_ResourceType type, Uph_ResourceIndex index)

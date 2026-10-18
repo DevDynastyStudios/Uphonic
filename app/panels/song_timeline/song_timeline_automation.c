@@ -147,6 +147,9 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 		}
 
 		Uph_AutomationPoint new_point = { .beat = new_beat, .value = new_value };
+		if (insert_index > 0)
+			new_point.curve = automation->points[insert_index - 1].curve;
+
 		naui_list_insert(automation->points, new_point, insert_index);
 		edit->track = track;
 		edit->block_index = block_index;

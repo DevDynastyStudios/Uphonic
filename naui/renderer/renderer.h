@@ -48,6 +48,9 @@ NAUI_API void naui_draw_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_V
 NAUI_API void naui_fill_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot, float angle, Naui_Color color, float rounding, Naui_CornerFlags corners);
 
 NAUI_API void naui_draw_line(Naui_Vec2 a, Naui_Vec2 b, Naui_Color color, float line_width);
+NAUI_API void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color color, float line_width);
+NAUI_API void naui_draw_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, Naui_Color color, float line_width);
+NAUI_API void naui_fill_bezier_area(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float baseline_y, Naui_Color color);
 
 NAUI_API void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint, float rounding, Naui_CornerFlags flags);
 NAUI_API void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient tint, float rounding, Naui_CornerFlags flags);

@@ -1404,6 +1404,156 @@ void naui_draw_line(Naui_Vec2 a, Naui_Vec2 b, Naui_Color color, float line_width
     );
 }
 
+#define NAUI_BEZIER_MAX_SEGMENTS 256
+
+static inline bool naui_segment_normal(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 *out)
+{
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
+    const float len_sq = dx * dx + dy * dy;
+    if (len_sq < 1e-12f)
+        return false;
+
+    const float inv = 1.0f / sqrtf(len_sq);
+    *out = (Naui_Vec2){ -dy * inv, dx * inv };
+    return true;
+}
+
+void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color color, float line_width)
+{
+    if (!points || point_count < 2)
+        return;
+
+    if (!naui_renderer_reserve((uint32_t)point_count * 2, (uint32_t)(point_count - 1) * 6))
+        return;
+
+    const uint32_t c = naui_pack_color(color);
+    const float half_w = line_width * 0.5f;
+    const float miter_limit = half_w * 2.0f;
+    const uint32_t base = rdata->vertex_count;
+
+    Naui_Vec2 last_normal = { 0.0f, 0.0f };
+    bool has_last_normal = false;
+    uint32_t emitted = 0;
+
+    for (int i = 0; i < point_count; i++)
+    {
+        Naui_Vec2 n_out;
+        bool has_out = false;
+        for (int j = i + 1; j < point_count && !has_out; j++)
+            has_out = naui_segment_normal(points[i], points[j], &n_out);
+
+        if (!has_out && !has_last_normal)
+            return;
+
+        const Naui_Vec2 n_in = has_last_normal ? last_normal : n_out;
+        if (!has_out)
+            n_out = n_in;
+
+        Naui_Vec2 m = { n_in.x + n_out.x, n_in.y + n_out.y };
+        const float m_len = sqrtf(m.x * m.x + m.y * m.y);
+        if (m_len < 1e-6f)
+            m = n_in;
+        else
+            m = (Naui_Vec2){ m.x / m_len, m.y / m_len };
+
+        const float d = m.x * n_in.x + m.y * n_in.y;
+        const float scale = naui_min(half_w / fmaxf(d, 1e-3f), miter_limit);
+        const Naui_Vec2 p = points[i];
+
+        Naui_BatchVertex *v = &rdata->vertices[base + emitted * 2];
+        v[0] = (Naui_BatchVertex){ { p.x + m.x * scale, p.y + m.y * scale }, {0, 0}, c, -1 };
+        v[1] = (Naui_BatchVertex){ { p.x - m.x * scale, p.y - m.y * scale }, {0, 0}, c, -1 };
+
+        if (emitted > 0)
+        {
+            const uint32_t a = base + (emitted - 1) * 2;
+            const uint32_t b = base + emitted * 2;
+            uint32_t *idx = &rdata->indices[rdata->index_count];
+            idx[0] = a + 0; idx[1] = b + 0; idx[2] = b + 1;
+            idx[3] = b + 1; idx[4] = a + 1; idx[5] = a + 0;
+            rdata->index_count += 6;
+        }
+
+        emitted++;
+        if (has_out)
+        {
+            last_normal = n_out;
+            has_last_normal = true;
+        }
+    }
+
+    rdata->vertex_count += emitted * 2;
+}
+
+static inline Naui_Vec2 naui_bezier_point(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float t)
+{
+    const float u = 1.0f - t;
+    const float w0 = u * u * u;
+    const float w1 = 3.0f * u * u * t;
+    const float w2 = 3.0f * u * t * t;
+    const float w3 = t * t * t;
+    return (Naui_Vec2){
+        w0 * p0.x + w1 * p1.x + w2 * p2.x + w3 * p3.x,
+        w0 * p0.y + w1 * p1.y + w2 * p2.y + w3 * p3.y
+    };
+}
+
+static inline float naui_distance(Naui_Vec2 a, Naui_Vec2 b)
+{
+    const float dx = b.x - a.x;
+    const float dy = b.y - a.y;
+    return sqrtf(dx * dx + dy * dy);
+}
+
+static int naui_flatten_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float margin, float include_y, Naui_Vec2 *out)
+{
+    const Naui_ClipRect clip = naui_current_clip();
+    const float min_x = fminf(fminf(p0.x, p1.x), fminf(p2.x, p3.x)) - margin;
+    const float max_x = fmaxf(fmaxf(p0.x, p1.x), fmaxf(p2.x, p3.x)) + margin;
+    const float min_y = fminf(fminf(fminf(p0.y, p1.y), fminf(p2.y, p3.y)), include_y) - margin;
+    const float max_y = fmaxf(fmaxf(fmaxf(p0.y, p1.y), fmaxf(p2.y, p3.y)), include_y) + margin;
+    if (max_x < clip.x0 || min_x > clip.x1 || max_y < clip.y0 || min_y > clip.y1)
+        return 0;
+
+    const float length = naui_distance(p0, p1) + naui_distance(p1, p2) + naui_distance(p2, p3);
+    const int segments = NAUI_CLAMP((int)(length * 0.25f), 1, NAUI_BEZIER_MAX_SEGMENTS);
+
+    out[0] = p0;
+    for (int i = 1; i < segments; i++)
+        out[i] = naui_bezier_point(p0, p1, p2, p3, (float)i / (float)segments);
+    out[segments] = p3;
+
+    return segments + 1;
+}
+
+void naui_draw_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, Naui_Color color, float line_width)
+{
+    Naui_Vec2 points[NAUI_BEZIER_MAX_SEGMENTS + 1];
+    const int count = naui_flatten_bezier(p0, p1, p2, p3, line_width, p0.y, points);
+    naui_draw_polyline(points, count, color, line_width);
+}
+
+void naui_fill_bezier_area(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float baseline_y, Naui_Color color)
+{
+    Naui_Vec2 points[NAUI_BEZIER_MAX_SEGMENTS + 1];
+    const int count = naui_flatten_bezier(p0, p1, p2, p3, 0.0f, baseline_y, points);
+    if (count < 2)
+        return;
+
+    const uint32_t c = naui_pack_color(color);
+    for (int i = 0; i + 1 < count; i++)
+    {
+        naui_push_quad4(
+            points[i],
+            points[i + 1],
+            (Naui_Vec2){ points[i + 1].x, baseline_y },
+            (Naui_Vec2){ points[i].x, baseline_y },
+            c, -1
+        );
+    }
+}
+
 static inline Naui_Vec4 uv_for_sub(Naui_Vec4 uv, Naui_Vec2 img_tl, Naui_Vec2 img_size, float sx0, float sy0, float sx1, float sy1)
 {
     float u0 = uv.x + ((sx0 - img_tl.x) / img_size.x) * uv.z;

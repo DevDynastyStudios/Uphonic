@@ -300,6 +300,11 @@ static bool uph_io_save_automation(const Uph_Project* project, const Naui_Path s
 			Naui_JsonValue* point = naui_json_push_object(&json, points);
 			naui_json_set_number(&json, point, "beat", automation->points[p].beat);
 			naui_json_set_number(&json, point, "value", uph_io_float_json(automation->points[p].value));
+			if (automation->points[p].curve != UPH_AUTOMATION_CURVE_SINGLE)
+				naui_json_set_number(&json, point, "curve", (double)automation->points[p].curve);
+
+			if (automation->points[p].tension != 0.0f)
+				naui_json_set_number(&json, point, "tension", uph_io_float_json(automation->points[p].tension));
 		}
 	}
 
@@ -824,7 +829,14 @@ static bool uph_io_load_automation(Uph_Project* project, const Naui_Path load_pa
 				if (!isfinite(beat) || !isfinite(point_value))
 					continue;
 
-				naui_list_push(automation.points, ((Uph_AutomationPoint){ .beat = beat, .value = (float)point_value }));
+				const double curve = naui_json_get_number(naui_json_object_get(point, "curve"), 0.0);
+				const double tension = naui_json_get_number(naui_json_object_get(point, "tension"), 0.0);
+				naui_list_push(automation.points, ((Uph_AutomationPoint){
+					.beat = beat,
+					.value = (float)point_value,
+					.tension = isfinite(tension) ? (float)NAUI_CLAMP(tension, -1.0, 1.0) : 0.0f,
+					.curve = (isfinite(curve) && curve >= 0.0 && curve < (double)UPH_AUTOMATION_CURVE_COUNT) ? (Uph_AutomationCurve)curve : UPH_AUTOMATION_CURVE_SINGLE
+				}));
 			}
 		}
 

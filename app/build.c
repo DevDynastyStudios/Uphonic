@@ -48,12 +48,14 @@
 
 #include "ui/titlebar.h"
 #include "ui/waveform.h"
+#include "ui/automation_curve.h"
 #include "ui/widgets.h"
 #include "ui/dialog.h"
 #include "ui/containers.h"
 
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
+#include "ui/automation_curve.c"
 #include "ui/widgets.c"
 #include "ui/dialog.c"
 #include "ui/containers.c"
@@ -106,6 +108,9 @@
 
 #include "panels/resource_editor/sample/sample_editor.h"
 #include "panels/resource_editor/sample/sample_editor.c"
+
+#include "panels/resource_editor/automation/automation_editor.h"
+#include "panels/resource_editor/automation/automation_editor.c"
 
 #include "panels/resource_editor.c"
 #include "panels/settings.c"

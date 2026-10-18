@@ -46,3 +46,6 @@ static inline Leaf_Color uph_color_mix(Leaf_Color a, Leaf_Color b, float t)
 
 double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);
 double uph_calculate_automation_length(const Uph_Automation *automation);
+void uph_automation_segment_controls(const Uph_AutomationPoint *from, float out[4]);
+float uph_automation_segment_value(const Uph_AutomationPoint *from, const Uph_AutomationPoint *to, double beat);
+bool uph_automation_value_at_beat(const Uph_Automation *automation, double beat, float *out_value);
