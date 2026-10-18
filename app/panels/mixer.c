@@ -767,21 +767,19 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
         uph_ui_open_context_menu(context_menu);
     }
 
-    const Leaf_Color bg_color = uph_mixer_strip_selected(&strip) ?
+    Leaf_Color bg_color = uph_mixer_strip_selected(&strip) ?
         naui_theme_color("uph_mixer_track_selected_bg_color") :
         naui_theme_color("uph_mixer_track_bg_color");
+
+    const Uph_Track *tint_track = !strip.track ? NULL :
+        strip.track->type == UPH_RESOURCE_GROUP ? strip.track : strip.track->parent;
+    if (tint_track)
+        bg_color = uph_color_mix(bg_color, uph_resources_track_color(tint_track->color_index), 0.09f);
 
     leaf({
         .id = id,
         .size = {LEAF_SIZE_FIXED(NAUI_DPI(100 + padding.x * 2)), LEAF_SIZE_FULL},
-        .color = (strip.track && strip.track->type == UPH_RESOURCE_GROUP) ?
-        LEAF_GRADIENT_PERCENT(
-            accent_color,
-            -0.5f,
-            bg_color,
-            0.5f,
-            LEAF_DEG(90.0f)
-        ) : (Leaf_ColorFill){bg_color}
+        .color = {bg_color}
     })
     {
         if (strip.track && strip.track->type == UPH_RESOURCE_GROUP)

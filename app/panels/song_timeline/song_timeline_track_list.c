@@ -27,7 +27,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 {
 	const int32_t depth_offset = depth * 13;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-	const Leaf_Color bg_color = naui_theme_color("uph_song_timeline_header_color");
+	const Leaf_Color base_bg_color = naui_theme_color("uph_song_timeline_header_color");
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_header_border_color");
 
 	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
@@ -40,7 +40,11 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 
 	uint64_t track_id = (uint64_t)track;
 	Naui_Color color = uph_resources_track_color(track->color_index);
-	Naui_Color tint_color = uph_color_mix(bg_color, color, 0.12f);	// Use this when adding track groups
+
+	const Uph_Track *tint_track = track->type == UPH_RESOURCE_GROUP ? track : track->parent;
+	const Leaf_Color bg_color = tint_track ?
+		uph_color_mix(base_bg_color, uph_resources_track_color(tint_track->color_index), 0.09f) :
+		base_bg_color;
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
