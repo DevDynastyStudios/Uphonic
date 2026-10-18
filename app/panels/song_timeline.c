@@ -130,12 +130,12 @@ static void uph_song_timeline_on_update(void)
 			}
 			uph_song_timeline_render_track_plus();
 		}
-		uph_song_timeline_update_track_drag();
 		leaf({
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 			.custom_draw = uph_song_timeline_render_playhead_overlay
 		});
+		uph_song_timeline_update_track_drag();
 	}
 
 	uph_song_timeline_update_empty_space_marquee();

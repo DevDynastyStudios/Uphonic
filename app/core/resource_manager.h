@@ -63,7 +63,7 @@ static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 
 static inline bool uph_track_monitors_instrument(const Uph_Track *track)
 {
-	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && track->monitored;
+	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && (track->state & UPH_TRACK_MONITORED);
 }
 
 static inline bool uph_track_is_descendant_of(const Uph_Track *track, const Uph_Track *ancestor)

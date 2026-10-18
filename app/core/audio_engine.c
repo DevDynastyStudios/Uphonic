@@ -931,7 +931,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     }
 
     if (ctx->input
-        && track->monitored
+        && (track->state & UPH_TRACK_MONITORED)
         && (track->type == UPH_RESOURCE_SAMPLE || track->type == UPH_RESOURCE_NONE))
     {
         for (ma_uint32 f = 0; f < frame_count; f++)

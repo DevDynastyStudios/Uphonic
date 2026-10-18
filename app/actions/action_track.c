@@ -421,7 +421,8 @@ bool _uph_action_track_state_execute(void* userdata)
 	if (!state)
 		return false;
 
-	*state = data->new_state;
+	const Uph_TrackState mask = data->old_state ^ data->new_state;
+	*state = (*state & (Uph_TrackState)~mask) | (data->new_state & mask);
 	return true;
 }
 
@@ -432,7 +433,8 @@ bool _uph_action_track_state_undo(void* userdata)
 	if (!state)
 		return false;
 
-	*state = data->old_state;
+	const Uph_TrackState mask = data->old_state ^ data->new_state;
+	*state = (*state & (Uph_TrackState)~mask) | (data->old_state & mask);
 	return true;
 }
 

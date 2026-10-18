@@ -188,7 +188,10 @@ typedef uint8_t Uph_TrackState;
 enum
 {
 	UPH_TRACK_MUTED = 1 << 0,
-	UPH_TRACK_ARMED = 1 << 1
+	UPH_TRACK_ARMED = 1 << 1,
+	UPH_TRACK_MONITORED = 1 << 2,
+	UPH_TRACK_MIXER_COLLAPSED = 1 << 3,
+	UPH_TRACK_TIMELINE_COLLAPSED = 1 << 4
 };
 
 typedef uint8_t Uph_PluginType;
@@ -274,8 +277,6 @@ struct Uph_Track
 
 	Uph_ResourceType type;
 	Uph_TrackState state;
-	bool monitored;
-	bool mixer_collapsed;
 };
 
 typedef Uph_Track *Uph_TrackPtr;

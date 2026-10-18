@@ -997,13 +997,13 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                         leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
                         (Naui_Vec2) { button_size, button_size },
                         text_color,
-                        strip.track->monitored
+                        strip.track->state & UPH_TRACK_MONITORED
                     ))
                     {
-                        strip.track->monitored = !strip.track->monitored;
+                        strip.track->state ^= UPH_TRACK_MONITORED;
 
                         if (strip.track->type == UPH_RESOURCE_PATTERN
-                            && !strip.track->monitored
+                            && !(strip.track->state & UPH_TRACK_MONITORED)
                             && strip.track->instrument.loaded)
                             uph_plugin_queue_stop_all(&strip.track->instrument, 0);
                     }
@@ -1079,8 +1079,8 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
                 .child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
             })
             {
-                if (uph_ui_text_button(strip.track->mixer_collapsed ? "+" : "-", collapse_id))
-                    strip.track->mixer_collapsed = !strip.track->mixer_collapsed;
+                if (uph_ui_text_button(strip.track->state & UPH_TRACK_MIXER_COLLAPSED ? "+" : "-", collapse_id))
+                    strip.track->state ^= UPH_TRACK_MIXER_COLLAPSED;
             }
         }
         leaf({
@@ -1089,7 +1089,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
         })
         {
             uph_mixer_render_strip_body(strip, context_menu);
-            for (uint32_t i = 0; !strip.track->mixer_collapsed && i < naui_list_len(strip.track->subtracks); i++)
+            for (uint32_t i = 0; !(strip.track->state & UPH_TRACK_MIXER_COLLAPSED) && i < naui_list_len(strip.track->subtracks); i++)
             {
                 Uph_Track *track = &strip.track->subtracks[i];
                 uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu);
@@ -1166,7 +1166,7 @@ static bool uph_mixer_find_drop_in_list(Uph_MixerDropTarget *target, float mouse
             continue;
         }
 
-        if (track->mixer_collapsed || uph_mixer_track_dragged(track, dragged))
+        if ((track->state & UPH_TRACK_MIXER_COLLAPSED) || uph_mixer_track_dragged(track, dragged))
         {
             Leaf_BoundingBox group_box;
             if (uph_mixer_group_box(track, &group_box))

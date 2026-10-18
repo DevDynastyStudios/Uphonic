@@ -137,13 +137,14 @@ static bool _uph_song_timeline_press_keeps_selection(const Uph_Track *track)
 static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_ID header_id, Uph_UIMenuID options_menu)
 {
 	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
-	if (!_uph_song_timeline_track_selectable(track) || timeline->rename_track == track || uph_ui_any_widget_hovered())
+	if (timeline->rename_track == track || uph_ui_any_widget_hovered())
 		return;
 
 	if (!timeline->panel_hovered || !leaf_hovered_clipped(header_id))
 		return;
 
-	if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+	const bool selectable = _uph_song_timeline_track_selectable(track);
+	if (selectable && naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{
 		const bool keep_selection = _uph_song_timeline_press_keeps_selection(track);
 		if (!keep_selection)
@@ -158,7 +159,7 @@ static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_
 	}
 	else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 	{
-		if (!_uph_song_timeline_track_selected(track))
+		if (selectable && !_uph_song_timeline_track_selected(track))
 			_uph_song_timeline_click_select(track, false);
 
 		timeline->current_options_track = track;
@@ -252,9 +253,10 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 			})
 			{
 				const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+				const int32_t title_height = button_size + NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").y) * 2;
 
 				leaf({
-					.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+					.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(title_height)},
 					.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 					.direction = LEAF_DIRECTION_HORIZONTAL
 				})
@@ -308,18 +310,9 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 						}
 					}
 
-					if (uph_ui_image_button_ex(
-						naui_asset_image("uph_icon_gear"),
-						leaf_id_indexed("uph_song_timeline_options", track_id),
-						(Naui_Vec2){button_size,button_size},
-						text_color,
-						LEAF_COLOR_TRANSPARENT,
-						NAUI_CORNER_ALL
-					))
-					{
-						uph_song_timeline_data.current_options_track = track;
-						uph_ui_open_context_menu(options_menu);
-					}
+					if (track->type == UPH_RESOURCE_GROUP &&
+						uph_ui_text_button(track->state & UPH_TRACK_TIMELINE_COLLAPSED ? "+" : "-", leaf_id_indexed("uph_song_timeline_collapse", track_id)))
+						track->state ^= UPH_TRACK_TIMELINE_COLLAPSED;
 				}
 
 				if (track->type != UPH_RESOURCE_GROUP)
@@ -368,6 +361,9 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 		if (track->type != UPH_RESOURCE_GROUP)
 			uph_song_timeline_render_track_timeline(track);
 	}
+
+	if (track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED))
+		return;
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
@@ -608,7 +604,7 @@ static bool _uph_song_timeline_row_box(const Uph_Track *track, Leaf_BoundingBox 
 static Leaf_BoundingBox _uph_song_timeline_subtree_box(const Uph_Track *track, Leaf_BoundingBox box)
 {
 	const uint32_t count = (uint32_t)naui_list_len(track->subtracks);
-	if (count == 0)
+	if (count == 0 || (track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED)))
 		return box;
 
 	Leaf_BoundingBox last;
@@ -657,7 +653,7 @@ static bool _uph_song_timeline_find_drop_in_list(Uph_TrackDropTarget *target, fl
 		if (!_uph_song_timeline_row_box(track, &box))
 			continue;
 
-		if (track->type != UPH_RESOURCE_GROUP || _uph_song_timeline_track_dragged(track, dragged))
+		if (track->type != UPH_RESOURCE_GROUP || (track->state & UPH_TRACK_TIMELINE_COLLAPSED) || _uph_song_timeline_track_dragged(track, dragged))
 		{
 			box = _uph_song_timeline_subtree_box(track, box);
 			*last_box = box;
