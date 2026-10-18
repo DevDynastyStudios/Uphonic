@@ -4,6 +4,7 @@
 #define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
 #define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
 #define UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH 6.0f
+#define UPH_SONG_TIMELINE_DEPTH_INDENT 12.0f
 
 typedef uint8_t Uph_BlockInteractionMode;
 enum
@@ -76,6 +77,7 @@ typedef struct
 	Uph_Track *rename_track;
 	Naui_String rename_old_name;
 	uint32_t visual_row_counter;
+	uint32_t max_track_depth;
 	float content_height;
 	Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
@@ -119,6 +121,28 @@ static inline bool uph_song_timeline_block_is_visible(double start_beat, double 
 		return false;
 
 	return true;
+}
+
+static uint32_t uph_song_timeline_track_depth(const Uph_Track *track)
+{
+	uint32_t max_depth = 0;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+	{
+		const uint32_t depth = uph_song_timeline_track_depth(&track->subtracks[i]) + 1;
+		if (depth > max_depth)
+			max_depth = depth;
+	}
+	return max_depth;
+}
+
+static float uph_song_timeline_header_depth_width(void)
+{
+	return uph_song_timeline_data.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
+}
+
+static float uph_song_timeline_header_column_width(void)
+{
+	return naui_theme_float("uph_song_timeline_header_width") + naui_theme_vec2("uph_song_timeline_header_padding").x * 2.0f + uph_song_timeline_header_depth_width();
 }
 
 static float uph_song_timeline_max_scroll_y(void)

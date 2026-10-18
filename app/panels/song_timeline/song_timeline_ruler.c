@@ -153,7 +153,7 @@ void uph_song_timeline_render_top_bar(void)
 	})
 	{
 		leaf({
-			.size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width)), LEAF_SIZE_FULL},
+			.size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width + uph_song_timeline_header_depth_width())), LEAF_SIZE_FULL},
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(header_padding.x), 0.0f),
 			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
 		});
@@ -180,7 +180,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 {
 	const Naui_Image *playhead_image = naui_asset_image("uph_icon_playhead");
 	const Naui_Color color = naui_theme_color("uph_playhead_color");
-	const float x_offset = NAUI_DPI(naui_theme_float("uph_song_timeline_header_width") + naui_theme_vec2("uph_song_timeline_header_padding").x * 2.0f);
+	const float x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
 	const float playhead_size = NAUI_DPI(16.0f);
 	const float playhead_half_size = playhead_size * 0.5f;
 	naui_push_clip_rect(bbox.x + x_offset - NAUI_DPI(1), bbox.y, bbox.width, bbox.height);

@@ -79,6 +79,13 @@ static void uph_song_timeline_on_update(void)
 	data->automation_edit.active = false;
 	data->hovered_block.active = false;
 	data->visual_row_counter = 0;
+	data->max_track_depth = 0;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+	{
+		const uint32_t depth = uph_song_timeline_track_depth(&uph_state.project.tracks[i]);
+		if (depth > data->max_track_depth)
+			data->max_track_depth = depth;
+	}
 
 	if (data->marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
 		data->marquee.active = false;

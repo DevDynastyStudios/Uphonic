@@ -1,8 +1,6 @@
 static float _uph_song_timeline_content_origin_x(void)
 {
-	const float header_width = naui_theme_float("uph_song_timeline_header_width");
-	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	return uph_song_timeline_data.panel_bounding_box.x + NAUI_DPI(header_width + header_padding.x * 2.0f);
+	return uph_song_timeline_data.panel_bounding_box.x + NAUI_DPI(uph_song_timeline_header_column_width());
 }
 
 void uph_song_timeline_update_input(void)

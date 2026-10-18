@@ -25,13 +25,12 @@ static void _uph_song_timeline_finish_rename(Uph_Track *track)
 
 static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
-	const int32_t depth_offset = depth * 13;
+	const float depth_offset = depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const Leaf_Color base_bg_color = naui_theme_color("uph_song_timeline_header_color");
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_header_border_color");
 
 	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	const float header_width = naui_theme_float("uph_song_timeline_header_width");
 
 	const int32_t strip_idle_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_WIDTH);
 	const int32_t strip_hover_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_HOVER_WIDTH);
@@ -42,13 +41,15 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	Naui_Color color = uph_resources_track_color(track->color_index);
 
 	const Uph_Track *tint_track = track->type == UPH_RESOURCE_GROUP ? track : track->parent;
+	if (track->type == UPH_RESOURCE_AUTOMATION && tint_track && tint_track->type != UPH_RESOURCE_GROUP)
+		tint_track = tint_track->parent;
 	const Leaf_Color bg_color = tint_track ?
 		uph_color_mix(base_bg_color, uph_resources_track_color(tint_track->color_index), 0.09f) :
 		base_bg_color;
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width + padding.x * 2.0f)), LEAF_SIZE_FULL}
+		.size = {LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width())), LEAF_SIZE_FULL}
 	})
 	{
 		leaf({
@@ -354,7 +355,7 @@ void uph_song_timeline_render_track_plus(void)
 	const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
 
 	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	const float header_width = NAUI_DPI(naui_theme_float("uph_song_timeline_header_width"));
+	const float header_width = NAUI_DPI(naui_theme_float("uph_song_timeline_header_width") + uph_song_timeline_header_depth_width());
 
 	Leaf_ID id = leaf_id("uph_song_timeline_plus");
 	Leaf_Color bg_color_result = bg_color;
