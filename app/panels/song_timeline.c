@@ -21,6 +21,9 @@ void uph_song_timeline_invalidate_tracks(void)
 	data->current_color_options_track = NULL;
 	data->current_hovered_track = NULL;
 	data->marquee.active = false;
+	data->track_drag = (Uph_TrackDragState){ 0 };
+	naui_list_clear(data->selected_tracks);
+	data->selection_anchor = NULL;
 
 	if (data->rename_track)
 	{
@@ -78,6 +81,7 @@ static void uph_song_timeline_on_update(void)
 	
 	data->automation_edit.active = false;
 	data->hovered_block.active = false;
+	data->track_header_hovered = false;
 	data->visual_row_counter = 0;
 	data->max_track_depth = 0;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
@@ -126,6 +130,7 @@ static void uph_song_timeline_on_update(void)
 			}
 			uph_song_timeline_render_track_plus();
 		}
+		uph_song_timeline_update_track_drag();
 		leaf({
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},

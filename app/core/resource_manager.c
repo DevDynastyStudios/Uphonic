@@ -274,6 +274,7 @@ void uph_resources_clear_tracks(void)
 	uph_state.project.soloed_track = NULL;
 	uph_state.shared.current_mixer_track = NULL;
 	naui_list_clear(uph_state.shared.selected_mixer_tracks);
+	uph_song_timeline_invalidate_tracks();
 }
 
 #pragma region Mixer Selection
@@ -363,7 +364,55 @@ void uph_resources_select_mixer_track_range(Uph_Track *to)
 		naui_list_push(uph_state.shared.selected_mixer_tracks, &list[i]);
 }
 
+static void uph_resources_collapse_mixer_selection(void)
+{
+	naui_list_clear(uph_state.shared.selected_mixer_tracks);
+	if (uph_state.shared.current_mixer_track)
+		naui_list_push(uph_state.shared.selected_mixer_tracks, uph_state.shared.current_mixer_track);
+}
+
 #pragma endregion
+
+static int uph_resources_delete_order(const void *a, const void *b)
+{
+	return uph_action_track_ref_compare(*(const Uph_ActionTrackRef *)b, *(const Uph_ActionTrackRef *)a);
+}
+
+void uph_resources_delete_tracks(Naui_List(Uph_TrackPtr) tracks)
+{
+	const uint32_t count = (uint32_t)naui_list_len(tracks);
+	if (count == 0)
+		return;
+
+	Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * count);
+	if (!refs)
+		return;
+
+	uint32_t ref_count = 0;
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const Uph_ActionTrackRef ref = uph_action_track_ref(tracks[i]);
+		if (uph_action_track_ref_valid(ref))
+			refs[ref_count++] = ref;
+	}
+
+	qsort(refs, ref_count, sizeof(Uph_ActionTrackRef), uph_resources_delete_order);
+
+	const bool grouped = ref_count > 1;
+	if (grouped)
+		naui_action_group_start(UPH_ACTION_TRACKS_DELETE_GROUP);
+
+	for (uint32_t i = 0; i < ref_count; i++)
+	{
+		Uph_ActionTrackDelete data = { .track = refs[i] };
+		naui_action_execute_stack(UPH_ACTION_TRACK_DELETE, data);
+	}
+
+	if (grouped)
+		naui_action_group_end();
+
+	free(refs);
+}
 
 #pragma region Track Groups
 
@@ -571,10 +620,10 @@ Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char
 	uph_resources_restructure_finished();
 	uph_resources_restore_pointer_slots(slots, refs);
 
+	uph_resources_collapse_mixer_selection();
+
 	Uph_Track *result = uph_action_track_resolve(refs[group_slot]);
 	free(refs);
-
-	uph_resources_select_mixer_track(result);
 
 	if (was_running)
 		uph_audio_engine_start();
@@ -582,7 +631,7 @@ Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char
 	return result;
 }
 
-bool uph_resources_ungroup_track(Uph_Track *group)
+bool uph_resources_ungroup_track(Uph_Track *group, Naui_List(Uph_TrackPtr) *out_children)
 {
 	if (!group || group->type != UPH_RESOURCE_GROUP)
 		return false;
@@ -620,9 +669,9 @@ bool uph_resources_ungroup_track(Uph_Track *group)
 	uph_resources_restore_pointer_slots(slots, refs);
 	free(refs);
 
-	uph_resources_clear_mixer_selection();
-	for (uint32_t i = 0; i < child_count; i++)
-		uph_resources_toggle_mixer_track(uph_action_track_resolve(uph_action_track_ref_child(owner, group_index + i)));
+	uph_resources_collapse_mixer_selection();
+	for (uint32_t i = 0; out_children && i < child_count; i++)
+		naui_list_push(*out_children, uph_action_track_resolve(uph_action_track_ref_child(owner, group_index + i)));
 
 	if (was_running)
 		uph_audio_engine_start();
@@ -677,7 +726,7 @@ uint32_t uph_resources_count_movable_tracks(Naui_List(Uph_TrackPtr) tracks)
 	return count;
 }
 
-bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_group, uint32_t dest_index)
+bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_group, uint32_t dest_index, Naui_List(Uph_TrackPtr) *out_moved)
 {
 	Uph_ActionTrackRef dest_owner = uph_action_track_ref_root();
 	if (dest_group)
@@ -743,12 +792,9 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	uph_resources_restructure_finished();
 	uph_resources_restore_pointer_slots(slots, refs);
 
-	naui_list_clear(uph_state.shared.selected_mixer_tracks);
-	uph_state.shared.selected_mixer_master = false;
-	for (uint32_t i = 0; i < count; i++)
-		naui_list_push(uph_state.shared.selected_mixer_tracks, uph_action_track_resolve(refs[UPH_TRACK_POINTER_SLOT_COUNT + i]));
-	if (!uph_resources_mixer_track_selected(uph_state.shared.current_mixer_track))
-		uph_state.shared.current_mixer_track = uph_state.shared.selected_mixer_tracks[count - 1];
+	uph_resources_collapse_mixer_selection();
+	for (uint32_t i = 0; out_moved && i < count; i++)
+		naui_list_push(*out_moved, uph_action_track_resolve(refs[UPH_TRACK_POINTER_SLOT_COUNT + i]));
 
 	free(refs);
 
@@ -762,7 +808,7 @@ bool uph_resources_move_track(Uph_Track *track, Uph_Track *dest_group, uint32_t 
 {
 	Naui_List(Uph_TrackPtr) tracks = NULL;
 	naui_list_push(tracks, track);
-	const bool moved = uph_resources_move_tracks(tracks, dest_group, dest_index);
+	const bool moved = uph_resources_move_tracks(tracks, dest_group, dest_index, NULL);
 	naui_list_free(tracks);
 	return moved;
 }

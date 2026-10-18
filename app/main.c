@@ -240,6 +240,7 @@ static void uph_update_all_track_plugins(Uph_Track *track)
 void naui_app_update(void)
 {
 	uph_mixer_apply_pending_move();
+	uph_song_timeline_apply_pending_move();
 
 	uph_render_main_titlebar();
 

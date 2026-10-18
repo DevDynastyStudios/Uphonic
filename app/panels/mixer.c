@@ -1098,47 +1098,6 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
     }
 }
 
-static int uph_mixer_remove_order(const void *a, const void *b)
-{
-    return uph_action_track_ref_compare(*(const Uph_ActionTrackRef *)b, *(const Uph_ActionTrackRef *)a);
-}
-
-static void uph_mixer_remove_selected_tracks(void)
-{
-    const uint32_t count = (uint32_t)naui_list_len(uph_state.shared.selected_mixer_tracks);
-    if (count == 0)
-        return;
-
-    Uph_ActionTrackRef *refs = malloc(sizeof(Uph_ActionTrackRef) * count);
-    if (!refs)
-        return;
-
-    uint32_t ref_count = 0;
-    for (uint32_t i = 0; i < count; i++)
-    {
-        const Uph_ActionTrackRef ref = uph_action_track_ref(uph_state.shared.selected_mixer_tracks[i]);
-        if (uph_action_track_ref_valid(ref))
-            refs[ref_count++] = ref;
-    }
-
-    qsort(refs, ref_count, sizeof(Uph_ActionTrackRef), uph_mixer_remove_order);
-
-    const bool grouped = ref_count > 1;
-    if (grouped)
-        naui_action_group_start(UPH_ACTION_TRACKS_DELETE_GROUP);
-
-    for (uint32_t i = 0; i < ref_count; i++)
-    {
-        Uph_ActionTrackDelete data = { .track = refs[i] };
-        naui_action_execute_stack(UPH_ACTION_TRACK_DELETE, data);
-    }
-
-    if (grouped)
-        naui_action_group_end();
-
-    free(refs);
-}
-
 typedef struct Uph_MixerDropTarget
 {
     Uph_ActionTrackRef owner;
@@ -1378,7 +1337,17 @@ static void uph_mixer_apply_pending_move(void)
     if (!move->tracks)
         return;
 
-    uph_resources_move_tracks(move->tracks, move->dest_group, move->dest_index);
+    Naui_List(Uph_TrackPtr) moved = NULL;
+    if (uph_resources_move_tracks(move->tracks, move->dest_group, move->dest_index, &moved))
+    {
+        naui_list_clear(uph_state.shared.selected_mixer_tracks);
+        uph_state.shared.selected_mixer_master = false;
+        for (uint32_t i = 0; i < naui_list_len(moved); i++)
+            naui_list_push(uph_state.shared.selected_mixer_tracks, moved[i]);
+        if (!uph_resources_mixer_track_selected(uph_state.shared.current_mixer_track))
+            uph_state.shared.current_mixer_track = moved[naui_list_len(moved) - 1];
+    }
+    naui_list_free(moved);
     naui_list_free(move->tracks);
     *move = (Uph_MixerPendingMove){ 0 };
 }
@@ -1417,7 +1386,9 @@ static void uph_mixer_on_update(void)
                 uph_ui_menu_item(context_menu, "Group Tracks", leaf_id("uph_mixer_group_tracks")))
             {
                 uph_mixer_data.rename_track = NULL;
-                uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, "Untitled Group", current->color_index);
+                Uph_Track *group = uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, "Untitled Group", current->color_index);
+                if (group)
+                    uph_resources_select_mixer_track(group);
                 restructured = true;
             }
 
@@ -1425,7 +1396,14 @@ static void uph_mixer_on_update(void)
                 uph_ui_menu_item(context_menu, "Ungroup", leaf_id("uph_mixer_ungroup_tracks")))
             {
                 uph_mixer_data.rename_track = NULL;
-                uph_resources_ungroup_track(current);
+                Naui_List(Uph_TrackPtr) children = NULL;
+                if (uph_resources_ungroup_track(current, &children))
+                {
+                    uph_resources_clear_mixer_selection();
+                    for (uint32_t i = 0; i < naui_list_len(children); i++)
+                        uph_resources_toggle_mixer_track(children[i]);
+                }
+                naui_list_free(children);
                 restructured = true;
             }
 
@@ -1435,7 +1413,7 @@ static void uph_mixer_on_update(void)
             if (!restructured && uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_mixer_remove_track")))
             {
                 uph_mixer_data.rename_track = NULL;
-                uph_mixer_remove_selected_tracks();
+                uph_resources_delete_tracks(uph_state.shared.selected_mixer_tracks);
             }
         }
 

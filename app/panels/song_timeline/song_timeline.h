@@ -64,12 +64,34 @@ Uph_MarqueeState;
 
 typedef struct
 {
+	Uph_ActionTrackRef source;
+	Naui_Vec2 press_position;
+	bool pending;
+	bool active;
+	bool select_on_release;
+}
+Uph_TrackDragState;
+
+typedef struct
+{
+	Naui_List(Uph_TrackPtr) tracks;
+	Uph_Track *dest_group;
+	uint32_t dest_index;
+}
+Uph_TrackPendingMove;
+
+typedef struct
+{
 	Naui_Vec2 scroll;
 	Naui_Vec2 zoom;
 	Uph_DraggingBlockState drag;
 	Uph_HoveredBlockState hovered_block;
 	Uph_AutomationEditState automation_edit;
 	Uph_MarqueeState marquee;
+	Uph_TrackDragState track_drag;
+	Uph_TrackPendingMove pending_move;
+	Naui_List(Uph_TrackPtr) selected_tracks;
+	Uph_Track *selection_anchor;
 	Leaf_BoundingBox panel_bounding_box;
 	Uph_Track *current_options_track;
 	Uph_Track *current_color_options_track;
@@ -84,6 +106,7 @@ typedef struct
 	bool panel_focused;
 	bool panel_hovered;
 	bool tracks_hovered;
+	bool track_header_hovered;
 	bool disable_space_to_play;
 }
 Uph_SongTimelineData;
@@ -177,6 +200,8 @@ void uph_song_timeline_render_top_bar(void);
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu);
 void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu);
 void uph_song_timeline_render_track_plus(void);
+void uph_song_timeline_update_track_drag(void);
+void uph_song_timeline_apply_pending_move(void);
 
 void uph_song_timeline_render_track_timeline(Uph_Track *track);
 

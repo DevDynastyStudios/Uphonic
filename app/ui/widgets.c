@@ -870,6 +870,11 @@ void uph_ui_close_menu(void)
     data->current_open_menu = NULL;
 }
 
+bool uph_ui_any_menu_open(void)
+{
+    return uph_global_widget_data.current_open_menu != NULL;
+}
+
 static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
 {
     if (!parent->first_child)
