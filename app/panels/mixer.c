@@ -12,7 +12,16 @@ Uph_MixerDrag;
 
 typedef struct
 {
+    Naui_List(Uph_TrackPtr) tracks;
+    Uph_Track *dest_group;
+    uint32_t dest_index;
+}
+Uph_MixerPendingMove;
+
+typedef struct
+{
     Uph_MixerDrag drag;
+    Uph_MixerPendingMove pending_move;
 
     Uph_Track *rename_track;
     Naui_String rename_old_name;
@@ -1315,10 +1324,14 @@ static void uph_mixer_update_drag(void)
     {
         if (target.valid)
         {
-            Uph_Track *dest_group = target.owner.depth == 0 ? NULL : uph_action_track_resolve(target.owner);
-            uph_resources_move_tracks(dragged, dest_group, target.index);
+            naui_list_free(uph_mixer_data.pending_move.tracks);
+            uph_mixer_data.pending_move = (Uph_MixerPendingMove){
+                .tracks = dragged,
+                .dest_group = target.owner.depth == 0 ? NULL : uph_action_track_resolve(target.owner),
+                .dest_index = target.index
+            };
         }
-        naui_list_free(dragged);
+        else naui_list_free(dragged);
         uph_mixer_data.drag = (Uph_MixerDrag){ 0 };
         return;
     }
@@ -1357,6 +1370,17 @@ static void uph_mixer_update_drag(void)
             .color = {naui_theme_color("uph_ui_text_color")}
         });
     }
+}
+
+static void uph_mixer_apply_pending_move(void)
+{
+    Uph_MixerPendingMove *move = &uph_mixer_data.pending_move;
+    if (!move->tracks)
+        return;
+
+    uph_resources_move_tracks(move->tracks, move->dest_group, move->dest_index);
+    naui_list_free(move->tracks);
+    *move = (Uph_MixerPendingMove){ 0 };
 }
 
 static void uph_mixer_on_update(void)
