@@ -30,11 +30,7 @@ typedef struct Uph_AudioSettings
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 	uint32_t channels;
-	float monitoring_gain;
-	float vu_meter_hold_time;
-	float vu_meter_decay_time;
 	bool exclusive_mode;
-	bool software_monitoring;
 	bool auto_restart_on_device_change;
 	bool underrun_protection;
 }

@@ -15,9 +15,6 @@ NAUI_PANEL(uph_settings)
 #define UPH_SETTINGS_AUTOSAVE_MAX		600
 #define UPH_SETTINGS_UNDO_MIN			1
 #define UPH_SETTINGS_UNDO_MAX			1000
-#define UPH_SETTINGS_VU_HOLD_MAX		10.0f
-#define UPH_SETTINGS_VU_DECAY_MIN		0.05f
-#define UPH_SETTINGS_VU_DECAY_MAX		5.0f
 #define UPH_SETTINGS_SENSITIVITY_MIN	0.05f
 #define UPH_SETTINGS_SENSITIVITY_MAX	5.0f
 #define UPH_SETTINGS_COUNT_IN_MAX		8
@@ -79,6 +76,8 @@ typedef struct
 	Uph_SettingsMidiList midi_inputs;
 	Uph_SettingsMidiList midi_outputs;
 
+	Uph_AudioSettings audio_pending;
+
 	Uph_SettingsLanguage languages[UPH_SETTINGS_MAX_LANGUAGES];
 	uint32_t language_count;
 
@@ -90,9 +89,6 @@ typedef struct
 Uph_SettingsData;
 
 static Uph_SettingsData uph_settings_data;
-
-static ma_context uph_settings_audio_context;
-static bool uph_settings_audio_context_ready;
 
 static const uint32_t uph_settings_sample_rates[] = { 44100, 48000, 88200, 96000, 176400, 192000 };
 static const char *const uph_settings_sample_rate_labels[] = { "44.1 kHz", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz" };
@@ -125,11 +121,7 @@ void uph_settings_set_defaults(void)
 	settings->audio.sample_rate = 48000;
 	settings->audio.buffer_size = 512;
 	settings->audio.channels = 2;
-	settings->audio.monitoring_gain = 1.0f;
-	settings->audio.vu_meter_hold_time = 1.0f;
-	settings->audio.vu_meter_decay_time = 0.3f;
 	settings->audio.exclusive_mode = false;
-	settings->audio.software_monitoring = false;
 	settings->audio.auto_restart_on_device_change = true;
 	settings->audio.underrun_protection = true;
 
@@ -191,9 +183,6 @@ void uph_settings_sanitize(void)
 	settings->audio.sample_rate = uph_settings_nearest(settings->audio.sample_rate, uph_settings_sample_rates, UPH_SETTINGS_COUNT(uph_settings_sample_rates));
 	settings->audio.buffer_size = uph_settings_nearest(settings->audio.buffer_size, uph_settings_buffer_sizes, UPH_SETTINGS_COUNT(uph_settings_buffer_sizes));
 	settings->audio.channels = uph_settings_nearest(settings->audio.channels, uph_settings_channel_counts, UPH_SETTINGS_COUNT(uph_settings_channel_counts));
-	settings->audio.monitoring_gain = NAUI_CLAMP(settings->audio.monitoring_gain, 0.0f, 1.0f);
-	settings->audio.vu_meter_hold_time = NAUI_CLAMP(settings->audio.vu_meter_hold_time, 0.0f, UPH_SETTINGS_VU_HOLD_MAX);
-	settings->audio.vu_meter_decay_time = NAUI_CLAMP(settings->audio.vu_meter_decay_time, UPH_SETTINGS_VU_DECAY_MIN, UPH_SETTINGS_VU_DECAY_MAX);
 
 	settings->ui.scroll_sensitivity.x = NAUI_CLAMP(settings->ui.scroll_sensitivity.x, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
 	settings->ui.scroll_sensitivity.y = NAUI_CLAMP(settings->ui.scroll_sensitivity.y, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
@@ -272,20 +261,16 @@ static void uph_settings_refresh_audio_devices(Uph_SettingsData *data)
 	data->audio_outputs.count = 0;
 	data->audio_inputs.count = 0;
 
-	if (!uph_settings_audio_context_ready)
-	{
-		if (ma_context_init(NULL, 0, NULL, &uph_settings_audio_context) != MA_SUCCESS)
-			return;
-
-		uph_settings_audio_context_ready = true;
-	}
+	ma_context *context = uph_audio_engine_get_context();
+	if (!context)
+		return;
 
 	ma_device_info *playback = NULL;
 	ma_device_info *capture = NULL;
 	ma_uint32 playback_count = 0;
 	ma_uint32 capture_count = 0;
 
-	if (ma_context_get_devices(&uph_settings_audio_context, &playback, &playback_count, &capture, &capture_count) != MA_SUCCESS)
+	if (ma_context_get_devices(context, &playback, &playback_count, &capture, &capture_count) != MA_SUCCESS)
 		return;
 
 	for (ma_uint32 i = 0; i < playback_count && data->audio_outputs.count < UPH_SETTINGS_MAX_OPTIONS; i++)
@@ -319,7 +304,48 @@ static void uph_settings_refresh_all(Uph_SettingsData *data)
 	uph_settings_refresh_languages(data);
 	uph_settings_refresh_audio_devices(data);
 	uph_settings_refresh_midi_devices(data);
+	data->audio_pending = uph_state.settings.audio;
 	data->lists_ready = true;
+}
+
+static bool uph_settings_audio_pending_changed(const Uph_AudioSettings *pending)
+{
+	const Uph_AudioSettings *audio = &uph_state.settings.audio;
+
+	return strcmp(pending->output_device.name.data, audio->output_device.name.data) != 0
+		|| strcmp(pending->input_device.name.data, audio->input_device.name.data) != 0
+		|| pending->exclusive_mode != audio->exclusive_mode
+		|| pending->sample_rate != audio->sample_rate
+		|| pending->buffer_size != audio->buffer_size
+		|| pending->channels != audio->channels;
+}
+
+static void uph_settings_audio_copy_device_fields(Uph_AudioSettings *dst, const Uph_AudioSettings *src)
+{
+	dst->output_device = src->output_device;
+	dst->input_device = src->input_device;
+	dst->exclusive_mode = src->exclusive_mode;
+	dst->sample_rate = src->sample_rate;
+	dst->buffer_size = src->buffer_size;
+	dst->channels = src->channels;
+}
+
+static void uph_settings_apply_audio(Uph_SettingsData *data)
+{
+	Uph_AudioSettings *audio = &uph_state.settings.audio;
+	const Uph_AudioSettings previous = *audio;
+
+	uph_audio_engine_stop();
+	uph_settings_audio_copy_device_fields(audio, &data->audio_pending);
+
+	if (!uph_audio_engine_recreate())
+	{
+		uph_settings_audio_copy_device_fields(audio, &previous);
+		uph_audio_engine_recreate();
+	}
+
+	uph_settings_audio_copy_device_fields(&data->audio_pending, audio);
+	uph_settings_save();
 }
 
 static void uph_settings_apply_theme_deferred(void *name)
@@ -759,69 +785,69 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 static void uph_settings_page_audio(Uph_SettingsData *data)
 {
 	Uph_AudioSettings *audio = &uph_state.settings.audio;
+	Uph_AudioSettings *pending = &data->audio_pending;
 
 	if (uph_settings_section(NAUI_TR("settings.audio.devices"), true, NAUI_TR("settings.refresh"), leaf_id("uph_settings_audio_refresh")))
 		uph_settings_refresh_audio_devices(data);
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.output_device"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_name_dropdown(&audio->output_device.name, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
+		uph_settings_name_dropdown(&pending->output_device.name, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.input_device"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_name_dropdown(&audio->input_device.name, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
+		uph_settings_name_dropdown(&pending->input_device.name, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
 	}
 
-	uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &audio->exclusive_mode, leaf_id("uph_settings_exclusive"));
+	uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &pending->exclusive_mode, leaf_id("uph_settings_exclusive"));
 	uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
 
 	uph_settings_section(NAUI_TR("settings.audio.performance"), false, NULL, UPH_SETTINGS_NO_ID);
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.sample_rate"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_value_dropdown(&audio->sample_rate, uph_settings_sample_rates, uph_settings_sample_rate_labels,
+		uph_settings_value_dropdown(&pending->sample_rate, uph_settings_sample_rates, uph_settings_sample_rate_labels,
 			UPH_SETTINGS_COUNT(uph_settings_sample_rates), leaf_id("uph_settings_sample_rate"));
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.buffer_size"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_value_dropdown(&audio->buffer_size, uph_settings_buffer_sizes, uph_settings_buffer_size_labels,
+		uph_settings_value_dropdown(&pending->buffer_size, uph_settings_buffer_sizes, uph_settings_buffer_size_labels,
 			UPH_SETTINGS_COUNT(uph_settings_buffer_sizes), leaf_id("uph_settings_buffer_size"));
 
-		if (audio->sample_rate > 0)
+		if (pending->sample_rate > 0)
 		{
-			const Naui_String latency = naui_string_format("%.1f ms", (float)audio->buffer_size * 1000.0f / (float)audio->sample_rate);
+			const Naui_String latency = naui_string_format("%.1f ms", (float)pending->buffer_size * 1000.0f / (float)pending->sample_rate);
 			uph_settings_hint(latency.data);
 		}
 	}
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.channels"), UPH_SETTINGS_NO_ID)
 	{
-		uph_settings_value_dropdown(&audio->channels, uph_settings_channel_counts, uph_settings_channel_labels,
+		uph_settings_value_dropdown(&pending->channels, uph_settings_channel_counts, uph_settings_channel_labels,
 			UPH_SETTINGS_COUNT(uph_settings_channel_counts), leaf_id("uph_settings_channels"));
 	}
 
 	uph_settings_checkbox_row(NAUI_TR("settings.audio.underrun_protection"), &audio->underrun_protection, leaf_id("uph_settings_underrun"));
 
-	uph_settings_section(NAUI_TR("settings.audio.monitoring"), false, NULL, UPH_SETTINGS_NO_ID);
+	if (!uph_settings_audio_pending_changed(pending))
+		return;
 
-	uph_settings_checkbox_row(NAUI_TR("settings.audio.software_monitoring"), &audio->software_monitoring, leaf_id("uph_settings_software_monitoring"));
+	bool apply = false;
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.monitoring_gain"), UPH_SETTINGS_NO_ID)
+	leaf({
+		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIT },
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.child_alignment = { LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER },
+		.padding = { 0, 0, (int32_t)NAUI_DPI(4.0f), 0 }
+	})
 	{
-		uph_ui_slider_float(&audio->monitoring_gain, leaf_id("uph_settings_monitoring_gain"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAG_NONE);
+		apply = uph_ui_text_button(NAUI_TR("settings.audio.apply"), leaf_id("uph_settings_audio_apply"));
 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.vu_hold"), UPH_SETTINGS_NO_ID)
-	{
-		uph_ui_drag_float(&audio->vu_meter_hold_time, leaf_id("uph_settings_vu_hold"), 0.01f, 0.0f, UPH_SETTINGS_VU_HOLD_MAX, "%.2f s", UPH_UI_DRAG_FLAG_CLAMPED);
-	}
-
-	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.vu_decay"), UPH_SETTINGS_NO_ID)
-	{
-		uph_ui_drag_float(&audio->vu_meter_decay_time, leaf_id("uph_settings_vu_decay"), 0.01f, UPH_SETTINGS_VU_DECAY_MIN, UPH_SETTINGS_VU_DECAY_MAX, "%.2f s", UPH_UI_DRAG_FLAG_CLAMPED);
-	}
+	if (apply)
+		uph_settings_apply_audio(data);
 }
 
 static void uph_settings_axis_pair(Naui_Vec2 *value, const float speed, const float min, const float max, const char *id_x, const char *id_y)
@@ -1118,11 +1144,7 @@ static void uph_settings_on_attach(void)
 
 static void uph_settings_on_detach(void)
 {
-	if (uph_settings_audio_context_ready)
-	{
-		ma_context_uninit(&uph_settings_audio_context);
-		uph_settings_audio_context_ready = false;
-	}
+
 }
 
 static void uph_settings_on_open(void)

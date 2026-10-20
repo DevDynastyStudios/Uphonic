@@ -123,6 +123,7 @@
 
 "sample.default.name": "Échantillon sans nom",
 
+"settings.audio.apply": "Appliquer",
 "settings.audio.auto_restart": "Redémarrer lors du changement de périphérique",
 "settings.audio.buffersize": "Taille du tampon",
 "settings.audio.buffersize.1024": "1024 échantillons",
@@ -138,8 +139,6 @@
 "settings.audio.devices": "Périphériques",
 "settings.audio.exclusive_mode": "Mode exclusif",
 "settings.audio.input_device": "Périphérique d’entrée",
-"settings.audio.monitoring": "Monitoring",
-"settings.audio.monitoring_gain": "Gain du monitoring",
 "settings.audio.output_device": "Périphérique de sortie",
 "settings.audio.performance": "Performances",
 "settings.audio.samplerate": "Fréquence d’échantillonnage",
@@ -149,10 +148,7 @@
 "settings.audio.samplerate.48khz": "48 kHz",
 "settings.audio.samplerate.882khz": "88,2 kHz",
 "settings.audio.samplerate.96khz": "96 kHz",
-"settings.audio.software_monitoring": "Monitoring logiciel",
 "settings.audio.underrun_protection": "Protection contre les sous-débits",
-"settings.audio.vu_decay": "Temps de décroissance du vumètre",
-"settings.audio.vu_hold": "Temps de maintien du vumètre",
 
 "settings.general.appearance": "Apparence",
 "settings.general.autosave": "Intervalle de sauvegarde automatique",

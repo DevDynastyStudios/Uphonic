@@ -125,6 +125,7 @@
     "sample.default.name": "Untitled Sample",
     "sample.recording.default.name": "Untitled Recording",
 
+    "settings.audio.apply": "Apply",
     "settings.audio.auto_restart": "Restart On Device Change",
     "settings.audio.buffer_size": "Buffer Size",
     "settings.audio.buffer_size.1024": "1024 samples",
@@ -140,8 +141,6 @@
     "settings.audio.devices": "Devices",
     "settings.audio.exclusive_mode": "Exclusive Mode",
     "settings.audio.input_device": "Input Device",
-    "settings.audio.monitoring": "Monitoring",
-    "settings.audio.monitoring_gain": "Monitoring Gain",
     "settings.audio.output_device": "Output Device",
     "settings.audio.performance": "Performance",
     "settings.audio.sample_rate": "Sample Rate",
@@ -151,10 +150,7 @@
     "settings.audio.sample_rate.48khz": "48 kHz",
     "settings.audio.sample_rate.88_2khz": "88.2 kHz",
     "settings.audio.sample_rate.96khz": "96 kHz",
-    "settings.audio.software_monitoring": "Software Monitoring",
     "settings.audio.underrun_protection": "Underrun Protection",
-    "settings.audio.vu_decay": "Meter Decay Time",
-    "settings.audio.vu_hold": "Meter Hold Time",
 
     "settings.general.appearance": "Appearance",
     "settings.general.autosave": "Autosave Interval",

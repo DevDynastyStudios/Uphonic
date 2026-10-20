@@ -563,11 +563,7 @@ static void uph_io_save_editor_settings_audio(Naui_Json* json, Naui_JsonValue* o
 	naui_json_set_int(json, object, "sample_rate", (int)audio->sample_rate);
 	naui_json_set_int(json, object, "buffer_size", (int)audio->buffer_size);
 	naui_json_set_int(json, object, "channels", (int)audio->channels);
-	naui_json_set_number(json, object, "monitoring_gain", uph_io_float_json(audio->monitoring_gain));
-	naui_json_set_number(json, object, "vu_meter_hold_time", uph_io_float_json(audio->vu_meter_hold_time));
-	naui_json_set_number(json, object, "vu_meter_decay_time", uph_io_float_json(audio->vu_meter_decay_time));
 	naui_json_set_bool(json, object, "exclusive_mode", audio->exclusive_mode);
-	naui_json_set_bool(json, object, "software_monitoring", audio->software_monitoring);
 	naui_json_set_bool(json, object, "auto_restart_on_device_change", audio->auto_restart_on_device_change);
 	naui_json_set_bool(json, object, "underrun_protection", audio->underrun_protection);
 }
@@ -1290,11 +1286,7 @@ static void uph_io_load_editor_settings_audio(Uph_AudioSettings* audio, const Na
 	uph_io_read_uint32(object, "sample_rate", &audio->sample_rate);
 	uph_io_read_uint32(object, "buffer_size", &audio->buffer_size);
 	uph_io_read_uint32(object, "channels", &audio->channels);
-	uph_io_read_float(object, "monitoring_gain", &audio->monitoring_gain);
-	uph_io_read_float(object, "vu_meter_hold_time", &audio->vu_meter_hold_time);
-	uph_io_read_float(object, "vu_meter_decay_time", &audio->vu_meter_decay_time);
 	uph_io_read_bool(object, "exclusive_mode", &audio->exclusive_mode);
-	uph_io_read_bool(object, "software_monitoring", &audio->software_monitoring);
 	uph_io_read_bool(object, "auto_restart_on_device_change", &audio->auto_restart_on_device_change);
 	uph_io_read_bool(object, "underrun_protection", &audio->underrun_protection);
 }

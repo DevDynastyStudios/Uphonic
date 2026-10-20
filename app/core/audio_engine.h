@@ -51,6 +51,8 @@ static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, dou
 
 void uph_audio_engine_init(void);
 void uph_audio_engine_shutdown(void);
+bool uph_audio_engine_recreate(void);
+ma_context *uph_audio_engine_get_context(void);
 
 void uph_audio_engine_stop(void);
 void uph_audio_engine_start(void);
