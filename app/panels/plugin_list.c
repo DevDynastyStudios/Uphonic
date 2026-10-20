@@ -43,19 +43,19 @@ static void uph_plugin_list_load(void)
     {
         case UPH_PLUGIN_LIST_TRACK_INSTRUMENT:
         {
-            uph_state.shared.current_plugin_list_track->instrument = uph_plugin_load(plugin_path);
+            uph_state.shared.current_plugin_list_track->instrument = uph_plugin_load(plugin_path, true);
             uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
             break;
         }
         case UPH_PLUGIN_LIST_TRACK_EFFECT:
         {
-            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path), .enabled = true };
+            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
             naui_list_push(uph_state.shared.current_plugin_list_track->effects, effect);
             break;
         }
         case UPH_PLUGIN_LIST_MASTER_EFFECT:
         {
-            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path), .enabled = true };
+            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
             naui_list_push(uph_state.project.master_track.effects, effect);
             break;
         }

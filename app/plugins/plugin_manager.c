@@ -2561,7 +2561,8 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 #endif
 
     gui->set_parent(plugin, &window);
-    gui->show(plugin);
+    if (internal_handle->visible)
+        gui->show(plugin);
 
     const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
     plugin->activate(
@@ -2575,7 +2576,7 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     internal_handle->clap.ready = 1;
 }
 
-Uph_Plugin uph_plugin_load(Naui_Path path)
+Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
     Uph_Plugin effect = { 0 };
 
@@ -2633,7 +2634,8 @@ Uph_Plugin uph_plugin_load(Naui_Path path)
     XSetTransientForHint(dpy, child, parent);
     XStoreName(dpy, child, internal_handle->display_name.data);
 
-    XMapWindow(dpy, child);
+    if (show_window)
+        XMapWindow(dpy, child);
     XFlush(dpy);
 
     Atom wm_window_type = XInternAtom(
@@ -2680,7 +2682,7 @@ Uph_Plugin uph_plugin_load(Naui_Path path)
 
     internal_handle->window = child;
     internal_handle->display = dpy;
-    internal_handle->visible = true;
+    internal_handle->visible = show_window;
 #elif NAUI_WINDOWS
     HWND parent = (HWND)mgapp_primary_handle();
 
@@ -2714,11 +2716,14 @@ Uph_Plugin uph_plugin_load(Naui_Path path)
 
     SetWindowLongPtrA(child, GWLP_USERDATA, (LONG_PTR)internal_handle);
 
-    ShowWindow(child, SW_SHOW);
-    UpdateWindow(child);
+    if (show_window)
+    {
+        ShowWindow(child, SW_SHOW);
+        UpdateWindow(child);
+    }
 
     internal_handle->window = child;
-    internal_handle->visible = true;
+    internal_handle->visible = show_window;
 #endif
 
     if (effect.format == UPH_PLUGIN_CLAP)

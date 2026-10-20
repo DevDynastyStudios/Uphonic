@@ -1,4 +1,4 @@
-Uph_Plugin          uph_plugin_load             (Naui_Path path);
+Uph_Plugin          uph_plugin_load             (Naui_Path path, bool show_window);
 void                uph_plugin_unload           (Uph_Plugin *plugin);
 void                uph_plugin_update           (Uph_Plugin *plugin);
 
