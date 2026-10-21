@@ -226,10 +226,24 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
         return result;
     }
 
+    Uph_DragData *ddata = &uph_global_widget_data.drag_data;
     Leaf_BoundingBox box = leaf_get_bounding_box(id);
     const bool vertical = (flags & UPH_UI_SLIDER_FLAG_VERTICAL) != 0;
 
-    if (hovered && (naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_dragging(NAUI_MOUSE_LEFT)))
+    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        ddata->id = id;
+
+    bool dragging_this = (ddata->id.value == id.value);
+    if (dragging_this && !naui_mouse_down(NAUI_MOUSE_LEFT))
+    {
+        ddata->id.value = 0;
+        dragging_this = false;
+    }
+
+    if (dragging_this)
+        naui_set_cursor(NAUI_CURSOR_HAND);
+
+    if (dragging_this)
     {
         float t;
         if (vertical)
@@ -277,7 +291,21 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
-    const float rounding = naui_theme_float("uph_ui_frame_rounding");
+    const float rounding = NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
+    const float handle_size = NAUI_DPI(3.0f);
+
+    const Leaf_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
+    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
+    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
+    const Leaf_Color frame_color = dragging_this ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
+
+    const Leaf_Color handle_color = naui_theme_color("uph_ui_slider_fill_color");
+    const Leaf_Color fill_color = { handle_color.r, handle_color.g, handle_color.b, (uint8_t)(handle_color.a * 0.35f) };
+
+    const float track_length = vertical ? box.height : box.width;
+    const float fill_length = t * track_length;
+    const float fill_rounding = NAUI_MIN(rounding, fill_length * 0.5f);
+    const float handle_offset = t * NAUI_MAX(track_length - handle_size, 0.0f);
 
     leaf({
         .id = id,
@@ -285,17 +313,32 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
             .width = LEAF_SIZE_GROW,
             .height = LEAF_SIZE_FIXED(font_size + NAUI_DPI(padding.y) * 2.0f)
         },
-        .color = {naui_theme_color("uph_ui_frame_bg_color")},
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
+        .color = {frame_color},
+        .rounding = LEAF_ROUNDING_FIXED(rounding, NAUI_CORNER_ALL)
     })
     {
         leaf({
             .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_PERCENT(t) }
                 : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FULL },
-            .color = {naui_theme_color("uph_ui_slider_fill_color")},
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL),
+            .color = {fill_color},
+            .rounding = LEAF_ROUNDING_FIXED(fill_rounding, vertical ? (NAUI_CORNER_BL | NAUI_CORNER_BR) : (NAUI_CORNER_TL | NAUI_CORNER_BL)),
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
             .floating = {
+                .parent_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
+                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+                .self_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
+                    : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
+            }
+        });
+
+        leaf({
+            .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(handle_size) }
+                : (Leaf_Size){ .width = LEAF_SIZE_FIXED(handle_size), .height = LEAF_SIZE_FULL },
+            .color = {handle_color},
+            .rounding = LEAF_ROUNDING_FIXED(handle_size * 0.5f, NAUI_CORNER_ALL),
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+            .floating = {
+                .offset = vertical ? (Leaf_Vec2){ 0.0f, -handle_offset } : (Leaf_Vec2){ handle_offset, 0.0f },
                 .parent_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
                     : (Leaf_Alignment){LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
                 .self_alignment = vertical ? (Leaf_Alignment){LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM}
@@ -309,7 +352,8 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
             .floating = {
                 .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
                 .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-            }
+            },
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
         })
         {
             leaf_text(display.data, {
