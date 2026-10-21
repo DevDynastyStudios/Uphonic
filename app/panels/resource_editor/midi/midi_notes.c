@@ -5,7 +5,7 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 	const float note_label_padding = NAUI_DPI(3.0f);
 	const float note_rounding = NAUI_DPI(3.0f);
 	const Leaf_Color note_label_color = LEAF_COLOR_WHITE;
-	const Leaf_Color note_color = naui_theme_color("uph_midi_editor_default_note_color");
+	const Leaf_Color note_color = uph_midi_view_note_color();
 
 	for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
 	{

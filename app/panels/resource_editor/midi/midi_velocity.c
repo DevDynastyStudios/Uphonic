@@ -366,7 +366,7 @@ void uph_midi_velocity_render(const Uph_MidiEditorData *editor, Leaf_BoundingBox
 {
 	const Uph_VelocityLane *lane = &editor->velocity_lane;
 	const Leaf_Color guide_color = naui_theme_color("uph_timeline_grid_subbeat_color");
-	const Leaf_Color note_color = naui_theme_color("uph_midi_editor_default_note_color");
+	const Leaf_Color note_color = uph_midi_view_note_color();
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_timeline_row_bg2_color"), 0.0f, NAUI_CORNER_NONE);
 	uph_midi_grid_render_beats(box, &editor->view, editor->snap_resolution);
