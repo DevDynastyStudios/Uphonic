@@ -80,7 +80,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 
-	if (data->current_action_mode != UPH_ACTION_SELECT || !data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
+	if (uph_song_timeline_tool() != UPH_ACTION_SELECT || !data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
 		return;
 
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())

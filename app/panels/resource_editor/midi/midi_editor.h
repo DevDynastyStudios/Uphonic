@@ -1,4 +1,5 @@
 #define UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH 6.0f
+#define UPH_MIDI_EDITOR_CLICK_THRESHOLD 3.0f
 #define UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH 1.0
 #define UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY 100
 
@@ -43,10 +44,13 @@ typedef struct
 	uint32_t note_index;
 	Uph_ResourceIndex pattern_index;
 	Naui_List(Uph_NoteSnapshot) group_notes;
+	Naui_Vec2 initial_mouse;
 	bool active;
+	bool moved;
 	bool creating;
 	bool group;
 	bool additive;
+	bool select_tool;
 	Uph_NoteInteractionMode mode;
 }
 Uph_DraggingNoteState;

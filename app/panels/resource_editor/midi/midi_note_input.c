@@ -1,3 +1,11 @@
+static Uph_ActionMode _uph_note_input_tool(const Uph_MidiEditorData *editor)
+{
+	if (editor->current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
+		return UPH_ACTION_SELECT;
+
+	return editor->current_action_mode;
+}
+
 static Uph_NoteInteractionMode _uph_note_input_classify_hover(Naui_Vec4 hover_box, float mouse_x)
 {
 	if (mouse_x <= hover_box.x + UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH)
@@ -40,6 +48,8 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorData *editor, Uph_MidiPatte
 	drag->creating = false;
 	drag->group = false;
 	drag->additive = false;
+	drag->moved = false;
+	drag->initial_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
 	drag->note_index = note_index;
 	drag->pattern_index = uph_state.shared.selected_resource.index;
 	drag->mode = mode;
@@ -54,25 +64,26 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorData *editor, Uph_MidiPatte
 	const int32_t note_row = uph_note_map_row(&editor->note_map, note->key_number);
 	drag->initial_drag_key_offset = note_row - mouse_row_at_grab;
 
-	if (editor->current_action_mode == UPH_ACTION_SELECT)
+	drag->select_tool = _uph_note_input_tool(editor) == UPH_ACTION_SELECT;
+	drag->additive = drag->select_tool && (uph_ui_ctrl_down() || uph_ui_shift_down());
+	if (drag->additive)
 	{
-		drag->additive = uph_ui_ctrl_down() || uph_ui_shift_down();
-		if (drag->additive)
+		note->selected = !note->selected;
+		if (!note->selected)
 		{
-			note->selected = !note->selected;
-			if (!note->selected)
-			{
-				drag->active = false;
-				drag->mode = UPH_NOTE_INTERACTION_NONE;
-				return;
-			}
+			drag->active = false;
+			drag->mode = UPH_NOTE_INTERACTION_NONE;
+			return;
 		}
-		else if (!note->selected)
-		{
-			uph_note_select_all(pattern, false);
-			note->selected = true;
-		}
+	}
+	else if (!note->selected)
+	{
+		uph_note_select_all(pattern, false);
+		note->selected = drag->select_tool;
+	}
 
+	if (note->selected)
+	{
 		drag->group = true;
 		uph_note_collect_selected(pattern, &drag->group_notes);
 	}
@@ -181,7 +192,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorData *editor, Uph_MidiPatt
 		}
 
 		naui_action_group_end();
-		if (!changed && !drag->additive && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+		if (!changed && !drag->moved && !drag->additive && drag->select_tool && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
 		{
 			uph_note_select_all(pattern, false);
 			pattern->notes[drag->note_index].selected = true;
@@ -223,6 +234,10 @@ static void _uph_note_input_update_drag(Uph_MidiEditorData *editor, Leaf_Boundin
 
 		if (is_dragging_this_note)
 		{
+			const float threshold = NAUI_DPI(UPH_MIDI_EDITOR_CLICK_THRESHOLD);
+			if (fabsf((float)naui_mouse_x() - drag->initial_mouse.x) > threshold || fabsf((float)naui_mouse_y() - drag->initial_mouse.y) > threshold)
+				drag->moved = true;
+
 			double mouse_beat = uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
 
 			if (drag->mode == UPH_NOTE_INTERACTION_MOVE)
@@ -329,12 +344,14 @@ static void _uph_note_input_update_draw(Uph_MidiEditorData *editor, Leaf_Boundin
 		.velocity = input->last_note_velocity
 	};
 
+	uph_note_select_all(pattern, false);
 	naui_list_free(input->drag.group_notes);
 	input->drag.group_notes = NULL;
 	input->drag.active = true;
 	input->drag.creating = true;
 	input->drag.group = false;
 	input->drag.additive = false;
+	input->drag.select_tool = false;
 	input->drag.pattern_index = uph_state.shared.selected_resource.index;
 	input->drag.note_index = (uint32_t)naui_list_len(pattern->notes);
 	input->drag.mode = UPH_NOTE_INTERACTION_MOVE;
@@ -424,7 +441,7 @@ static void _uph_note_input_update_delete(Uph_MidiEditorData *editor, Uph_MidiPa
 	if (note_index >= (uint32_t)naui_list_len(pattern->notes))
 		return;
 
-	if (editor->current_action_mode == UPH_ACTION_SELECT && pattern->notes[note_index].selected && uph_note_selected_count(pattern) > 1)
+	if (pattern->notes[note_index].selected && uph_note_selected_count(pattern) > 1)
 	{
 		uph_note_delete_selected(uph_state.shared.selected_resource.index);
 		return;
@@ -437,14 +454,15 @@ static void _uph_note_input_update_delete(Uph_MidiEditorData *editor, Uph_MidiPa
 void uph_midi_note_input_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	_uph_note_input_update_drag(editor, box, pattern);
-	
-	if (editor->current_action_mode == UPH_ACTION_SELECT)
+
+	const Uph_ActionMode tool = _uph_note_input_tool(editor);
+	if (tool == UPH_ACTION_SELECT)
 		_uph_note_input_update_select(editor, box, pattern);
 
-	else if (editor->current_action_mode == UPH_ACTION_DRAW)
+	else if (tool == UPH_ACTION_DRAW)
 		_uph_note_input_update_draw(editor, box, pattern);
 
-	else if (editor->current_action_mode == UPH_ACTION_CUT)
+	else if (tool == UPH_ACTION_CUT)
 		_uph_note_input_update_cut(editor, box);
 
 	_uph_note_input_update_delete(editor, pattern);

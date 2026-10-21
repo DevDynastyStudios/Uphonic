@@ -4,6 +4,7 @@
 #define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
 #define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
 #define UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH 6.0f
+#define UPH_SONG_TIMELINE_CLICK_THRESHOLD 3.0f
 #define UPH_SONG_TIMELINE_DEPTH_INDENT 12.0f
 
 typedef uint8_t Uph_BlockInteractionMode;
@@ -26,10 +27,16 @@ typedef struct
 	Uph_ActionTrackRef source_track;
 	uint32_t source_index;
 	Naui_List(Uph_ActionBlockSnapshot) group_blocks;
+	uint32_t group_grabbed;
+	uint32_t group_base;
+	Naui_Vec2 initial_mouse;
 	bool active;
 	bool creating;
 	bool group;
 	bool additive;
+	bool select_tool;
+	bool moved;
+	bool group_relocated;
 	Uph_BlockInteractionMode mode;
 }
 Uph_DraggingBlockState;
@@ -124,6 +131,14 @@ static inline bool uph_ui_shift_down(void)
 	return naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
 }
 #pragma endregion
+
+static inline Uph_ActionMode uph_song_timeline_tool(void)
+{
+	if (uph_song_timeline_data.current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
+		return UPH_ACTION_SELECT;
+
+	return uph_song_timeline_data.current_action_mode;
+}
 
 #pragma region Shared Helpers
 
