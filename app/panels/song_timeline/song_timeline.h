@@ -245,7 +245,7 @@ void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, 
 void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed);
 void uph_song_timeline_finish_block_drag(void);
 
-void uph_song_timeline_render_track_timeline_blocks(Leaf_BoundingBox bbox, Uph_Track *track);
+void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track);
 
 void uph_song_timeline_render_toolbox(void);
 #pragma endregion

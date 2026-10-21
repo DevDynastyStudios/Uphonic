@@ -312,7 +312,6 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 	}
 
 	_uph_song_timeline_update_marquee(bbox, track);
-	uph_song_timeline_render_track_timeline_blocks(bbox, track);
 
 	naui_pop_clip_rect();
 }
@@ -332,12 +331,22 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 	leaf({
 		.size = { LEAF_SIZE_GROW, LEAF_SIZE_FULL },
 		.color = bg_color,
-		.border = {
-			.width = 1,
-			.color = {border_color},
-			.sides = LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM
-		},
 		.custom_draw_data = row_visible ? LEAF_DATA_SLICE(track_ref) : (Leaf_DataSlice){ 0 },
-		.custom_draw = row_visible ? (Leaf_CustomDrawFn)_uph_song_timeline_render_track_timeline_overlay : NULL
-	});
+		.custom_draw = row_visible ? (Leaf_CustomDrawFn)_uph_song_timeline_render_track_timeline_overlay : NULL,
+		.clip_children = true
+	})
+	{
+		if (row_visible)
+			uph_song_timeline_render_track_timeline_blocks(track);
+
+		leaf({
+			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
+			.border = {
+				.width = 1,
+				.color = {border_color},
+				.sides = LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM
+			}
+		});
+	}
 }
