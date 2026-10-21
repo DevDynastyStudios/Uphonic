@@ -860,6 +860,8 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     {
         if (track->instrument.loaded)
         {
+            uph_midi_preview_render_track(track);
+
             if (ctx->timeline_playing)
             {
                 bool should_be_held[128] = { false };
@@ -885,7 +887,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
                 for (int key = 0; key < 128; key++)
                 {
-                    if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
+                    if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)) && !uph_midi_preview_key_held(track, (uint8_t)key))
                         uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
                 }
             }
@@ -1341,7 +1343,9 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
     uph_midi_recorder_process(playhead_start_beat, frame_count, engine_sample_rate, bpm, is_playing);
 
     float *rendered = output_channels == 2 ? out : alloca(frame_count * 2 * sizeof(float));
+    uph_midi_preview_begin_buffer(frame_count, engine_sample_rate, bpm, is_playing);
     uph_render_audio(playhead_start_beat, engine_sample_rate, rendered, frame_count, is_playing, input_f);
+    uph_midi_preview_end_buffer();
 
     if (output_channels != 2)
     {

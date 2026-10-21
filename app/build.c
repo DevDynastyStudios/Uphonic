@@ -29,6 +29,7 @@
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
 #include "core/midi_recorder.h"
+#include "core/midi_preview.h"
 #include "io/file_signature.h"
 #include "io/file_signature.c"
 #include "io/serialization.h"
@@ -69,6 +70,7 @@
 
 #include "core/resource_manager.c"
 
+#include "core/midi_preview.c"
 #include "core/audio_engine.c"
 #include "core/midi_recorder.c"
 
@@ -102,6 +104,8 @@
 #include "panels/resource_editor/midi/midi_notes.c"
 #include "panels/resource_editor/midi/midi_note_input.h"
 #include "panels/resource_editor/midi/midi_note_input.c"
+#include "panels/resource_editor/midi/midi_velocity.h"
+#include "panels/resource_editor/midi/midi_velocity.c"
 #include "panels/resource_editor/midi/midi_toolbar.h"
 #include "panels/resource_editor/midi/midi_toolbar.c"
 #include "panels/resource_editor/midi/midi_editor.c"

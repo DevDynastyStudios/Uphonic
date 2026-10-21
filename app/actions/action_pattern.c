@@ -38,6 +38,14 @@ typedef struct
 	bool applied_live;
 } Uph_ActionNoteTransform;
 
+typedef struct
+{
+	Uph_ResourceIndex pattern_index;
+	uint32_t note_index;
+	uint8_t old_velocity, new_velocity;
+	bool applied_live;
+} Uph_ActionNoteVelocity;
+
 #pragma region Pattern Create
 bool _uph_action_pattern_create_execute(void* userdata)
 {
@@ -304,6 +312,44 @@ bool _uph_action_note_transform_redo(void* userdata)
 {
 	Uph_ActionNoteTransform* data = userdata;
 	return uph_note_apply(data->pattern_index, data->note_index, data->new_start, data->new_length, data->new_key);
+}
+
+#pragma endregion
+
+#pragma region Note Velocity
+static bool uph_note_apply_velocity(Uph_ResourceIndex pattern_index, uint32_t note_index, uint8_t velocity)
+{
+	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern || note_index >= (uint32_t)naui_list_len(pattern->notes))
+		return false;
+
+	pattern->notes[note_index].velocity = velocity;
+	uph_state.shared.current_pattern_updated = true;
+	return true;
+}
+
+bool _uph_action_note_velocity_execute(void* userdata)
+{
+	Uph_ActionNoteVelocity* data = userdata;
+	if (data->applied_live)
+	{
+		data->applied_live = false;
+		return uph_note_pattern(data->pattern_index) != NULL;
+	}
+
+	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->new_velocity);
+}
+
+bool _uph_action_note_velocity_undo(void* userdata)
+{
+	Uph_ActionNoteVelocity* data = userdata;
+	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->old_velocity);
+}
+
+bool _uph_action_note_velocity_redo(void* userdata)
+{
+	Uph_ActionNoteVelocity* data = userdata;
+	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->new_velocity);
 }
 
 #pragma endregion

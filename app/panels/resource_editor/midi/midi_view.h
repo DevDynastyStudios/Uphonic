@@ -54,3 +54,9 @@ static inline Uph_PianoCanvas uph_midi_view_piano_canvas(const Uph_MidiView *vie
 {
 	return (Uph_PianoCanvas) { box, uph_midi_view_lane_height(view), view->scroll.y };
 }
+
+static inline Leaf_Color uph_midi_view_velocity_color(Leaf_Color base, uint8_t velocity)
+{
+	const Leaf_Color dim = uph_color_mix(base, (Leaf_Color) { 0, 0, 0, base.a }, 0.55f);
+	return uph_color_mix(dim, base, (float)velocity / 127.0f);
+}

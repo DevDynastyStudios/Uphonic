@@ -20,7 +20,7 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 		naui_fill_rect(
 			(Naui_Vec2) { note_x, y_position },
 			(Naui_Vec2) { note_width, lane_height },
-			note_color,
+			uph_midi_view_velocity_color(note_color, note->velocity),
 			note_rounding,
 			LEAF_CORNER_ALL
 		);

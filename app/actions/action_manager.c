@@ -116,6 +116,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_DELETE, _uph_action_note_delete);
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_MOVE, _uph_action_note_transform);
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_RESIZE, _uph_action_note_transform);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_VELOCITY, _uph_action_note_velocity);
 }
 
 void uph_action_shutdown()
