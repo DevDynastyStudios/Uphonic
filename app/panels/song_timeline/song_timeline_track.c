@@ -233,7 +233,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 				uph_song_timeline_data.drag.group = false;
 				uph_song_timeline_data.drag.additive = false;
 				uph_song_timeline_data.drag.select_tool = false;
-				uph_song_timeline_data.drag.group_relocated = false;
+				uph_song_timeline_data.drag.group_row_offset = 0;
 				uph_song_timeline_data.drag.block_index = naui_list_len(track->blocks);
 				uph_song_timeline_data.drag.track = track;
 				uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;

@@ -5,72 +5,215 @@ static bool _uph_song_timeline_block_geometry_equal(const Uph_TimelineBlock *a, 
 
 static Uph_TimelineBlock *_uph_song_timeline_group_block(const Uph_DraggingBlockState *drag, uint32_t k)
 {
-	Uph_Track *track = drag->group_relocated ? drag->track : uph_action_track_resolve(drag->group_blocks[k].track);
-	const uint32_t index = drag->group_relocated ? drag->group_base + k : drag->group_blocks[k].index;
+	const bool relocated = drag->group_row_offset != 0 && k < (uint32_t)naui_list_len(drag->group_moves);
+	Uph_Track *track = relocated ? drag->group_moves[k].dst_track : uph_action_track_resolve(drag->group_blocks[k].track);
+	const uint32_t index = relocated ? drag->group_moves[k].current_index : drag->group_blocks[k].index;
 	if (!track || index >= (uint32_t)naui_list_len(track->blocks))
 		return NULL;
 
 	return &track->blocks[index];
 }
 
-static bool _uph_song_timeline_group_single_track(const Uph_DraggingBlockState *drag)
+static void _uph_song_timeline_collect_rows(Naui_List(Uph_Track) tracks, Naui_List(Uph_TrackPtr) *rows)
 {
-	for (uint32_t k = 0; k < (uint32_t)naui_list_len(drag->group_blocks); k++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
-		if (!uph_action_track_ref_equal(drag->group_blocks[k].track, drag->source_track))
+		Uph_Track *track = &tracks[i];
+		naui_list_push(*rows, track);
+
+		if (!(track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED)))
+			_uph_song_timeline_collect_rows(track->subtracks, rows);
+	}
+}
+
+static int32_t _uph_song_timeline_row_of(Naui_List(Uph_TrackPtr) rows, const Uph_Track *track)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(rows); i++)
+	{
+		if (rows[i] == track)
+			return (int32_t)i;
+	}
+
+	return -1;
+}
+
+static Uph_ResourceType _uph_song_timeline_home_type(const Uph_DraggingBlockState *drag, const Uph_Track *track)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->type_backups); i++)
+	{
+		if (drag->type_backups[i].track == track)
+			return drag->type_backups[i].type;
+	}
+
+	return track->type;
+}
+
+static void _uph_song_timeline_set_track_type(Uph_DraggingBlockState *drag, Uph_Track *track, Uph_ResourceType type)
+{
+	if (track->type == type)
+		return;
+
+	bool backed_up = false;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->type_backups); i++)
+		backed_up |= drag->type_backups[i].track == track;
+
+	if (!backed_up)
+	{
+		Uph_TrackTypeBackup backup = { .track = track, .type = track->type };
+		naui_list_push(drag->type_backups, backup);
+	}
+
+	track->type = type;
+}
+
+static Uph_Track *_uph_song_timeline_group_target(const Uph_DraggingBlockState *drag, Naui_List(Uph_TrackPtr) rows, uint32_t k, int32_t offset)
+{
+	const Uph_Track *source = uph_action_track_resolve(drag->group_blocks[k].track);
+	const int32_t row = source ? _uph_song_timeline_row_of(rows, source) : -1;
+	if (row < 0 || row + offset < 0 || row + offset >= (int32_t)naui_list_len(rows))
+		return NULL;
+
+	return rows[row + offset];
+}
+
+static bool _uph_song_timeline_group_offset_valid(const Uph_DraggingBlockState *drag, Naui_List(Uph_TrackPtr) rows, int32_t offset)
+{
+	const uint32_t count = (uint32_t)naui_list_len(drag->group_blocks);
+	for (uint32_t k = 0; k < count; k++)
+	{
+		const Uph_Track *target = _uph_song_timeline_group_target(drag, rows, k, offset);
+		if (!target)
 			return false;
+
+		const Uph_ResourceType block_type = drag->group_blocks[k].block.type;
+		const Uph_ResourceType target_type = _uph_song_timeline_home_type(drag, target);
+
+		if (block_type == UPH_RESOURCE_AUTOMATION)
+		{
+			if (target_type != UPH_RESOURCE_AUTOMATION)
+				return false;
+
+			continue;
+		}
+
+		if (target_type == block_type)
+			continue;
+
+		if (target_type != UPH_RESOURCE_NONE)
+			return false;
+
+		for (uint32_t j = 0; j < k; j++)
+		{
+			if (_uph_song_timeline_group_target(drag, rows, j, offset) == target && drag->group_blocks[j].block.type != block_type)
+				return false;
+		}
 	}
 
 	return true;
 }
 
-static void _uph_song_timeline_move_group(Uph_DraggingBlockState *drag, Uph_Track *old_track, Uph_Track *new_track)
+static void _uph_song_timeline_group_revert(Uph_DraggingBlockState *drag)
+{
+	for (uint32_t k = (uint32_t)naui_list_len(drag->group_moves); k > 0; k--)
+	{
+		const Uph_GroupBlockMove *move = &drag->group_moves[k - 1];
+		const Uph_TimelineBlock block = move->dst_track->blocks[move->dst_index];
+		naui_list_remove(move->dst_track->blocks, move->dst_index);
+		naui_list_insert(move->src_track->blocks, block, move->src_index);
+	}
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->type_backups); i++)
+		drag->type_backups[i].track->type = drag->type_backups[i].type;
+
+	naui_list_clear(drag->group_moves);
+	naui_list_clear(drag->type_backups);
+	drag->group_row_offset = 0;
+}
+
+static void _uph_song_timeline_group_apply(Uph_DraggingBlockState *drag, Naui_List(Uph_TrackPtr) rows, int32_t offset)
 {
 	const uint32_t count = (uint32_t)naui_list_len(drag->group_blocks);
-	Naui_List(Uph_TimelineBlock) moving = NULL;
 	for (uint32_t k = 0; k < count; k++)
 	{
-		const Uph_TimelineBlock *block = _uph_song_timeline_group_block(drag, k);
-		if (!block)
+		Uph_Track *source = uph_action_track_resolve(drag->group_blocks[k].track);
+		uint32_t taken_before = 0;
+		for (uint32_t j = 0; j < k; j++)
+			taken_before += uph_action_track_ref_equal(drag->group_blocks[j].track, drag->group_blocks[k].track);
+
+		Uph_GroupBlockMove move = {
+			.src_track = source,
+			.dst_track = _uph_song_timeline_group_target(drag, rows, k, offset),
+			.src_index = drag->group_blocks[k].index - taken_before
+		};
+
+		const Uph_TimelineBlock block = source->blocks[move.src_index];
+		naui_list_remove(source->blocks, move.src_index);
+		move.dst_index = (uint32_t)naui_list_len(move.dst_track->blocks);
+		naui_list_push(move.dst_track->blocks, block);
+		naui_list_push(drag->group_moves, move);
+	}
+
+	for (uint32_t k = 0; k < count; k++)
+	{
+		Uph_GroupBlockMove *move = &drag->group_moves[k];
+		uint32_t incoming = 0;
+		uint32_t rank = 0;
+		for (uint32_t j = 0; j < count; j++)
 		{
-			naui_list_free(moving);
-			return;
+			if (drag->group_moves[j].dst_track != move->dst_track)
+				continue;
+
+			incoming++;
+			rank += j < k;
 		}
 
-		naui_list_push(moving, *block);
+		move->current_index = (uint32_t)naui_list_len(move->dst_track->blocks) - incoming + rank;
 	}
 
-	for (uint32_t k = count; k > 0; k--)
-		naui_list_remove(old_track->blocks, drag->group_relocated ? drag->group_base + k - 1 : drag->group_blocks[k - 1].index);
-
-	if (new_track == uph_action_track_resolve(drag->source_track))
+	for (uint32_t k = 0; k < count; k++)
 	{
-		for (uint32_t k = 0; k < count; k++)
-			naui_list_insert(new_track->blocks, moving[k], drag->group_blocks[k].index);
+		const Uph_GroupBlockMove *move = &drag->group_moves[k];
+		if (drag->group_blocks[k].block.type == UPH_RESOURCE_AUTOMATION)
+			continue;
 
-		drag->group_relocated = false;
-		drag->block_index = drag->group_blocks[drag->group_grabbed].index;
+		if (move->dst_track->type == UPH_RESOURCE_NONE)
+			_uph_song_timeline_set_track_type(drag, move->dst_track, drag->group_blocks[k].block.type);
+
+		if (naui_list_len(move->src_track->blocks) == 0 && !move->src_track->instrument.loaded)
+			_uph_song_timeline_set_track_type(drag, move->src_track, UPH_RESOURCE_NONE);
 	}
-	else
+
+	drag->group_row_offset = offset;
+	drag->track = drag->group_moves[drag->group_grabbed].dst_track;
+	drag->block_index = drag->group_moves[drag->group_grabbed].current_index;
+}
+
+static void _uph_song_timeline_update_group_track_switch(Uph_DraggingBlockState *drag, Uph_Track *hovered)
+{
+	Naui_List(Uph_TrackPtr) rows = NULL;
+	_uph_song_timeline_collect_rows(uph_state.project.tracks, &rows);
+
+	const Uph_Track *home = uph_action_track_resolve(drag->source_track);
+	const int32_t home_row = home ? _uph_song_timeline_row_of(rows, home) : -1;
+	const int32_t hovered_row = _uph_song_timeline_row_of(rows, hovered);
+
+	if (home_row >= 0 && hovered_row >= 0)
 	{
-		drag->group_base = (uint32_t)naui_list_len(new_track->blocks);
-		for (uint32_t k = 0; k < count; k++)
-			naui_list_push(new_track->blocks, moving[k]);
-
-		drag->group_relocated = true;
-		drag->block_index = drag->group_base + drag->group_grabbed;
+		const int32_t offset = hovered_row - home_row;
+		if (offset != drag->group_row_offset && _uph_song_timeline_group_offset_valid(drag, rows, offset))
+		{
+			_uph_song_timeline_group_revert(drag);
+			if (offset != 0)
+				_uph_song_timeline_group_apply(drag, rows, offset);
+			else
+			{
+				drag->track = uph_action_track_resolve(drag->source_track);
+				drag->block_index = drag->source_index;
+			}
+		}
 	}
 
-	if (old_track->type != UPH_RESOURCE_AUTOMATION)
-	{
-		if (new_track->type == UPH_RESOURCE_NONE)
-			new_track->type = moving[0].type;
-		if (naui_list_len(old_track->blocks) == 0 && !old_track->instrument.loaded)
-			old_track->type = UPH_RESOURCE_NONE;
-	}
-
-	drag->track = new_track;
-	naui_list_free(moving);
+	naui_list_free(rows);
 }
 
 #pragma region Public API
@@ -101,13 +244,19 @@ void uph_song_timeline_update_drag_track_switch(void)
 	if (!drag->active)
 		return;
 
-	if (drag->mode != UPH_BLOCK_INTERACTION_MOVE || (drag->group && !_uph_song_timeline_group_single_track(drag)))
+	if (drag->mode != UPH_BLOCK_INTERACTION_MOVE)
 		return;
 
 	Uph_Track *new_track = uph_song_timeline_data.current_hovered_track;
 
 	if (!new_track || new_track == drag->track)
 		return;
+
+	if (drag->group)
+	{
+		_uph_song_timeline_update_group_track_switch(drag, new_track);
+		return;
+	}
 
 	Uph_Track *old_track = drag->track;
 
@@ -116,12 +265,6 @@ void uph_song_timeline_update_drag_track_switch(void)
 	
 	if (old_track->type == UPH_RESOURCE_AUTOMATION && new_track->type != UPH_RESOURCE_AUTOMATION)
 		return;
-
-	if (drag->group)
-	{
-		_uph_song_timeline_move_group(drag, old_track, new_track);
-		return;
-	}
 
 	Uph_TimelineBlock moved = old_track->blocks[drag->block_index];
 	naui_list_remove(old_track->blocks, drag->block_index);
@@ -150,8 +293,10 @@ void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, 
 	drag->group = false;
 	drag->additive = false;
 	drag->moved = false;
-	drag->group_relocated = false;
+	drag->group_row_offset = 0;
 	drag->group_grabbed = 0;
+	naui_list_clear(drag->group_moves);
+	naui_list_clear(drag->type_backups);
 	drag->initial_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
 	drag->track = track;
 	drag->block_index = block_index;
@@ -268,7 +413,7 @@ void uph_song_timeline_finish_block_drag(void)
 	else if (drag->group)
 	{
 		bool changed = false;
-		const Uph_ActionTrackRef destination = uph_action_track_ref(drag->track);
+		const bool relocated = drag->group_row_offset != 0;
 		naui_action_group_start(drag->mode == UPH_BLOCK_INTERACTION_MOVE ? UPH_ACTION_BLOCKS_MOVE_GROUP : UPH_ACTION_BLOCKS_RESIZE_GROUP);
 
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_blocks); i++)
@@ -278,12 +423,13 @@ void uph_song_timeline_finish_block_drag(void)
 			if (!block)
 				continue;
 
-			if (!drag->group_relocated && _uph_song_timeline_block_geometry_equal(block, &snapshot->block))
+			if (!relocated && _uph_song_timeline_block_geometry_equal(block, &snapshot->block))
 				continue;
 
+			const Uph_GroupBlockMove *move = relocated ? &drag->group_moves[i] : NULL;
 			Uph_ActionBlockTransform data = {
-				.src_track = snapshot->track, .src_index = drag->group_relocated ? snapshot->index - i : snapshot->index,
-				.dst_track = drag->group_relocated ? destination : snapshot->track, .dst_index = drag->group_relocated ? drag->group_base + i : snapshot->index,
+				.src_track = move ? uph_action_track_ref(move->src_track) : snapshot->track, .src_index = move ? move->src_index : snapshot->index,
+				.dst_track = move ? uph_action_track_ref(move->dst_track) : snapshot->track, .dst_index = move ? move->dst_index : snapshot->index,
 				.old_start = snapshot->block.start_beat, .old_length = snapshot->block.length_beats, .old_offset = snapshot->block.start_offset_beats,
 				.new_start = block->start_beat, .new_length = block->length_beats, .new_offset = block->start_offset_beats,
 				.applied_live = true
@@ -333,7 +479,9 @@ void uph_song_timeline_finish_block_drag(void)
 	drag->active = false;
 	drag->creating = false;
 	drag->group = false;
-	drag->group_relocated = false;
+	drag->group_row_offset = 0;
+	naui_list_clear(drag->group_moves);
+	naui_list_clear(drag->type_backups);
 	drag->mode = UPH_BLOCK_INTERACTION_NONE;
 }
 

@@ -18,6 +18,23 @@ enum
 
 typedef struct
 {
+	Uph_Track *src_track;
+	Uph_Track *dst_track;
+	uint32_t src_index;
+	uint32_t dst_index;
+	uint32_t current_index;
+}
+Uph_GroupBlockMove;
+
+typedef struct
+{
+	Uph_Track *track;
+	Uph_ResourceType type;
+}
+Uph_TrackTypeBackup;
+
+typedef struct
+{
 	double initial_drag_beat_offset;
 	double initial_start_beat;
 	double initial_length_beats;
@@ -27,8 +44,10 @@ typedef struct
 	Uph_ActionTrackRef source_track;
 	uint32_t source_index;
 	Naui_List(Uph_ActionBlockSnapshot) group_blocks;
+	Naui_List(Uph_GroupBlockMove) group_moves;
+	Naui_List(Uph_TrackTypeBackup) type_backups;
+	int32_t group_row_offset;
 	uint32_t group_grabbed;
-	uint32_t group_base;
 	Naui_Vec2 initial_mouse;
 	bool active;
 	bool creating;
@@ -36,7 +55,6 @@ typedef struct
 	bool additive;
 	bool select_tool;
 	bool moved;
-	bool group_relocated;
 	Uph_BlockInteractionMode mode;
 }
 Uph_DraggingBlockState;
