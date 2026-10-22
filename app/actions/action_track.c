@@ -207,9 +207,7 @@ static void uph_action_track_hide_plugins(Uph_Track *track)
 
 void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 {
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	bool removed_lane = false;
 	for (int32_t s = (int32_t)naui_list_len(track->subtracks) - 1; s >= 0; s--)
@@ -230,20 +228,16 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 
 	uph_plugin_unload(plugin);
 
-	if (was_running)
-		uph_audio_engine_start();
+	uph_audio_engine_unlock();
 }
 
 void uph_action_master_unload_plugin(Uph_Plugin *plugin)
 {
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	uph_plugin_unload(plugin);
 
-	if (was_running)
-		uph_audio_engine_start();
+	uph_audio_engine_unlock();
 }
 
 #pragma endregion

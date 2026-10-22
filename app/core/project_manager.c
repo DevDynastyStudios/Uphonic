@@ -42,7 +42,7 @@ bool uph_project_create(Naui_String project_name)
 		return false;
 	}
 
-	uph_audio_engine_stop();
+	uph_audio_engine_lock();
 	uint64_t current_time = naui_unix_time();
 	uph_state.project.bpm = 120.0f;
 	uph_state.project.time_created = current_time;
@@ -67,13 +67,13 @@ bool uph_project_create(Naui_String project_name)
 	if (!uph_recovery_acquire_lock(project_dest))
 		naui_log(NAUI_LOG_WARNING, "Project may be open in another Uphonic instance: %s", project_dest.data);
 
-	uph_audio_engine_start();
+	uph_audio_engine_unlock();
 	return true;
 }
 
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
-	uph_audio_engine_stop();
+	uph_audio_engine_lock();
 	const Naui_Path project_folder = uph_project_get_path(project);
 	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP)); // May not exist. CHECK!
 	const Naui_Path save_dest = (save_type == UPH_SAVE_TYPE_CANONICAL) ? project_folder : temp_folder;
@@ -96,7 +96,7 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 		}
 	}
 	
-	uph_audio_engine_start();
+	uph_audio_engine_unlock();
 	const bool saved = uph_io_save_project(project, save_dest);
 	if (saved && save_type == UPH_SAVE_TYPE_CANONICAL)
 	{
@@ -113,21 +113,21 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 {
 	uph_state.shared.song_timeline_playing = false;
-	uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	Naui_Path load_path = project_path;
 	const bool from_uph = !naui_path_is_directory(project_path);
 	bool reused_copy = false;
 	if (from_uph && !uph_project_extract_uph(project_path, &load_path, &reused_copy))
 	{
-		uph_audio_engine_start();
+		uph_audio_engine_unlock();
 		return false;
 	}
 
 	if (reused_copy && !naui_string_is_empty(project->title) && strcmp(naui_path_normalize(uph_project_get_path(project)).data, naui_path_normalize(load_path).data) == 0)
 	{
 		naui_log(NAUI_LOG_INFO, "This file's project is already open: %s", project->title.data);
-		uph_audio_engine_start();
+		uph_audio_engine_unlock();
 		return true;
 	}
 
@@ -183,7 +183,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;
 	uph_state.shared.selected_resource.type = naui_list_len(project->midi_patterns) > 0 ? UPH_RESOURCE_PATTERN : UPH_RESOURCE_NONE;
-	uph_audio_engine_start();
+	uph_audio_engine_unlock();
 	return loaded;
 }
 

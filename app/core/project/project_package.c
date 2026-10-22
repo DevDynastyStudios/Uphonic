@@ -261,9 +261,9 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 			return false;
 		}
 
-		uph_audio_engine_stop();
+		uph_audio_engine_lock();
 		const bool exported = uph_audio_engine_export_to_wav(output_path.data, 0, length);
-		uph_audio_engine_start();
+		uph_audio_engine_unlock();
 		return exported;
 	}
 

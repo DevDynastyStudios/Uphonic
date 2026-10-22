@@ -596,9 +596,7 @@ Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char
 	if (!refs)
 		return NULL;
 
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	Uph_Track group = {
 		.name = naui_string_from_cstr(name),
@@ -625,8 +623,7 @@ Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char
 	Uph_Track *result = uph_action_track_resolve(refs[group_slot]);
 	free(refs);
 
-	if (was_running)
-		uph_audio_engine_start();
+	uph_audio_engine_unlock();
 
 	return result;
 }
@@ -651,9 +648,7 @@ bool uph_resources_ungroup_track(Uph_Track *group, Naui_List(Uph_TrackPtr) *out_
 	if (!refs)
 		return false;
 
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	const Uph_ActionTrackRef owner = uph_action_track_ref_owner(group_ref);
 	const uint32_t group_index = uph_action_track_ref_index(group_ref);
@@ -673,8 +668,7 @@ bool uph_resources_ungroup_track(Uph_Track *group, Naui_List(Uph_TrackPtr) *out_
 	for (uint32_t i = 0; out_children && i < child_count; i++)
 		naui_list_push(*out_children, uph_action_track_resolve(uph_action_track_ref_child(owner, group_index + i)));
 
-	if (was_running)
-		uph_audio_engine_start();
+	uph_audio_engine_unlock();
 
 	return true;
 }
@@ -776,9 +770,7 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	if (!refs)
 		return false;
 
-	const bool was_running = uph_audio_engine_device_running();
-	if (was_running)
-		uph_audio_engine_stop();
+	uph_audio_engine_lock();
 
 	Uph_ActionTrackRef cursor_owner = dest_owner;
 	uint32_t cursor_index = dest_index;
@@ -798,8 +790,7 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 
 	free(refs);
 
-	if (was_running)
-		uph_audio_engine_start();
+	uph_audio_engine_unlock();
 
 	return true;
 }

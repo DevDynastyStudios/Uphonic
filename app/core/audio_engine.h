@@ -58,6 +58,9 @@ ma_context *uph_audio_engine_get_context(void);
 void uph_audio_engine_stop(void);
 void uph_audio_engine_start(void);
 
+void uph_audio_engine_lock(void);
+void uph_audio_engine_unlock(void);
+
 bool uph_audio_engine_device_running(void);
 
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path);

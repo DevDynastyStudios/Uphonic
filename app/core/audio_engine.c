@@ -2,15 +2,30 @@
 #define UPH_INVALID_TIMELINE_BLOCK NULL
 #endif
 
+enum
+{
+    UPH_RENDER_RUNNING,
+    UPH_RENDER_REQUESTED,
+    UPH_RENDER_PARKED
+};
+
 typedef struct
 {
     ma_context context;
     bool context_ready;
     ma_device device;
+
+    _Atomic int render_state;
+    int render_lock_depth;
+    bool render_lock_stopped_device;
+    float render_gain;
 }
 Uph_AudioEngineData;
 
-static Uph_AudioEngineData uph_audio_engine_data;
+static Uph_AudioEngineData uph_audio_engine_data = {
+    .render_state = UPH_RENDER_RUNNING,
+    .render_gain = 1.0f
+};
 
 static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, float *out_left, float *out_right)
 {
@@ -1058,6 +1073,50 @@ void uph_audio_engine_start(void)
     ma_device_start(&uph_audio_engine_data.device);
 }
 
+void uph_audio_engine_lock(void)
+{
+    if (uph_audio_engine_data.render_lock_depth++ > 0)
+        return;
+
+    if (!ma_device_is_started(&uph_audio_engine_data.device))
+    {
+        atomic_store(&uph_audio_engine_data.render_state, UPH_RENDER_PARKED);
+        return;
+    }
+
+    atomic_store(&uph_audio_engine_data.render_state, UPH_RENDER_REQUESTED);
+
+    const float deadline = naui_time() + 0.25f;
+    while (atomic_load(&uph_audio_engine_data.render_state) != UPH_RENDER_PARKED)
+    {
+        if (naui_time() > deadline)
+        {
+            fprintf(stderr, "uph_audio_engine_lock: audio thread did not park in time, stopping device\n");
+            ma_device_stop(&uph_audio_engine_data.device);
+            uph_audio_engine_data.render_lock_stopped_device = true;
+            uph_audio_engine_data.render_gain = 0.0f;
+            atomic_store(&uph_audio_engine_data.render_state, UPH_RENDER_PARKED);
+            break;
+        }
+
+        ma_sleep(0);
+    }
+}
+
+void uph_audio_engine_unlock(void)
+{
+    if (uph_audio_engine_data.render_lock_depth == 0 || --uph_audio_engine_data.render_lock_depth > 0)
+        return;
+
+    atomic_store(&uph_audio_engine_data.render_state, UPH_RENDER_RUNNING);
+
+    if (uph_audio_engine_data.render_lock_stopped_device)
+    {
+        uph_audio_engine_data.render_lock_stopped_device = false;
+        ma_device_start(&uph_audio_engine_data.device);
+    }
+}
+
 static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_frame_count)
 {
     if (!sample_data->frames || sample_data->frame_count == 0)
@@ -1345,6 +1404,13 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
 {
     static bool was_playing = false;
 
+    const int render_state = atomic_load(&uph_audio_engine_data.render_state);
+    if (render_state == UPH_RENDER_PARKED)
+    {
+        memset(output, 0, (size_t)frame_count * device->playback.channels * sizeof(float));
+        return;
+    }
+
     float *out = (float*)output;
     uint32_t engine_sample_rate = device->sampleRate;
     double playhead_start_beat = uph_state.shared.song_timeline_playhead_position;
@@ -1396,6 +1462,20 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
         }
     }
 
+    const float gain_from = uph_audio_engine_data.render_gain;
+    const float gain_to = render_state == UPH_RENDER_REQUESTED ? 0.0f : 1.0f;
+    if (gain_from != 1.0f || gain_to != 1.0f)
+    {
+        const float gain_step = (gain_to - gain_from) / (float)frame_count;
+        for (ma_uint32 f = 0; f < frame_count; f++)
+        {
+            const float gain = gain_from + gain_step * (float)f;
+            for (ma_uint32 c = 0; c < output_channels; c++)
+                out[f * output_channels + c] *= gain;
+        }
+    }
+    uph_audio_engine_data.render_gain = gain_to;
+
     if (is_playing && input_f && bpm > 0.0f)
         uph_record_input(uph_state.project.tracks, input_f, frame_count, engine_sample_rate, bpm);
 
@@ -1408,10 +1488,8 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
     }
 
     was_playing = is_playing;
-    if (!is_playing)
-        return;
 
-    if (bpm > 0.0f)
+    if (is_playing && bpm > 0.0f)
     {
         double buffer_beats = uph_seconds_to_beats((double)frame_count / (double)engine_sample_rate, bpm);
         double new_beat = playhead_start_beat + buffer_beats;
@@ -1420,6 +1498,9 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
 
         uph_state.shared.song_timeline_playhead_position = new_beat;
     }
+
+    if (render_state == UPH_RENDER_REQUESTED)
+        atomic_store(&uph_audio_engine_data.render_state, UPH_RENDER_PARKED);
 }
 
 static bool uph_audio_engine_find_device(const ma_device_type type, const char *name, ma_device_id *id)
@@ -1750,7 +1831,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
     uint64_t frames_processed = 0;
     bool ok = true;
 
-    ma_device_stop(&uph_audio_engine_data.device);
+    uph_audio_engine_lock();
     while (frames_processed < total_frames)
     {
         ma_uint32 frames_to_process = (ma_uint32)((total_frames - frames_processed) < chunk_frames
@@ -1774,7 +1855,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
 
     free(buffer);
     ma_encoder_uninit(&encoder);
-    ma_device_start(&uph_audio_engine_data.device);
+    uph_audio_engine_unlock();
 
     uph_audio_engine_stop_all_notes();
 

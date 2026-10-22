@@ -2796,9 +2796,7 @@ void uph_plugin_unload(Uph_Plugin *plug)
     if (!plug->loaded)
         return;
 
-    const bool was_running = uph_audio_engine_device_running();
-    if (was_running)
-        uph_audio_engine_stop();
+    uph_audio_engine_lock();
 
     plug->loaded = false;
 
@@ -2816,8 +2814,7 @@ void uph_plugin_unload(Uph_Plugin *plug)
 
     naui_list_free(plug->params);
 
-    if (was_running)
-        uph_audio_engine_start();
+    uph_audio_engine_unlock();
 }
 
 static inline long uph_ms_since(float then)
