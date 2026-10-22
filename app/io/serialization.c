@@ -737,6 +737,83 @@ static bool uph_io_load_patterns(Uph_Project* project, const Naui_Path load_path
 	return true;
 }
 
+static bool uph_io_is_in_samples_folder(const Naui_Path path)
+{
+	const Naui_Path folder = naui_path_parent(path);
+	const Naui_StringView folder_name = naui_file_filename(&folder);
+	return folder_name.length == strlen(UPH_IO_FOLDER_SAMPLES) && strncmp(folder_name.data, UPH_IO_FOLDER_SAMPLES, folder_name.length) == 0;
+}
+
+// The names of the files samples.json defines inside the project's samples folder.
+static Naui_List(Naui_String) uph_io_defined_sample_files(const Naui_Path samples_dir)
+{
+	Naui_List(Naui_String) names = NULL;
+	Naui_Json json = naui_json_parse_file(naui_path_join(samples_dir, NAUI_PATH(UPH_IO_FILE_SAMPLES)));
+	if (!json.root)
+		return names;
+
+	if (json.root->type == NAUI_JSON_ARRAY)
+	{
+		NAUI_JSON_FOREACH(json.root, key, value)
+		{
+			if (!value || value->type != NAUI_JSON_OBJECT)
+				continue;
+
+			const Naui_JsonValue* jpath = naui_json_object_get(value, "path");
+			if (!jpath || jpath->type != NAUI_JSON_STRING)
+				continue;
+
+			const Naui_Path saved_path = naui_path_from_cstr(jpath->string.data);
+			if (uph_io_is_in_samples_folder(saved_path))
+				naui_list_push(names, naui_view_to_string(naui_file_filename(&saved_path)));
+		}
+	}
+
+	naui_json_free(&json);
+	return names;
+}
+
+// The names of the MIDI files patterns.json defines
+static Naui_List(Naui_String) uph_io_defined_pattern_files(const Naui_Path patterns_dir)
+{
+	Naui_List(Naui_String) names = NULL;
+	Naui_Json json = naui_json_parse_file(naui_path_join(patterns_dir, NAUI_PATH(UPH_IO_FILE_PATTERNS)));
+	if (!json.root)
+		return names;
+
+	if (json.root->type == NAUI_JSON_ARRAY)
+	{
+		NAUI_JSON_FOREACH(json.root, key, value)
+		{
+			if (!value || value->type != NAUI_JSON_OBJECT)
+				continue;
+
+			const Naui_JsonValue* jfile = naui_json_object_get(value, "midi_file");
+			if (!jfile || jfile->type != NAUI_JSON_STRING)
+				continue;
+
+			const Naui_Path saved_path = naui_path_from_cstr(jfile->string.data);
+			naui_list_push(names, naui_view_to_string(naui_file_filename(&saved_path)));
+		}
+	}
+
+	naui_json_free(&json);
+	return names;
+}
+
+static Naui_Path uph_io_localize_sample_path(const Naui_Path saved_path, const Naui_Path samples_dir)
+{
+	if (!uph_io_is_in_samples_folder(saved_path))
+		return saved_path;
+
+	const Naui_StringView file_name = naui_file_filename(&saved_path);
+	if (file_name.length == 0)
+		return saved_path;
+
+	const Naui_Path local_path = naui_path_join(samples_dir, naui_path_from_cstr(file_name.data));
+	return naui_path_exists(local_path) && !naui_path_is_directory(local_path) ? local_path : saved_path;
+}
+
 static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 {
 	if(naui_path_exists(load_path) && !naui_path_is_directory(load_path))
@@ -773,7 +850,7 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 			continue;
 		}
 
-		Naui_Path sample_path = naui_path_from_cstr(jvalue_path->string.data);
+		Naui_Path sample_path = uph_io_localize_sample_path(naui_path_from_cstr(jvalue_path->string.data), load_path);
 		if(!uph_resources_add_sample_from_file(sample_path))
 		{
 			naui_log(NAUI_LOG_ERROR, "Resource Engine failed to load sample: %s", sample_path.data);
@@ -943,6 +1020,7 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	Uph_Track* solo = uph_action_track_resolve_in(project->tracks, soloed);
 	if (solo && solo->type != UPH_RESOURCE_AUTOMATION)
 		project->soloed_track = solo;
+
 	uph_resources_clear_tracks_recursive(previous);
 	return complete;
 }

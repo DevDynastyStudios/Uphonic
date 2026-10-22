@@ -185,7 +185,7 @@ void naui_app_start(void)
 
 	Naui_Path crashed_project = {0};
 	const bool crashed = uph_recovery_find_crashed_project(UPHONIC_WORKSPACE_FOLDER, &crashed_project);
-	uph_project_create(naui_string_from_cstr("Test Project"));
+	uph_project_create(uph_project_untitled_name());
 
 	if (crashed)
 		uph_show_restore_dialog(crashed_project);

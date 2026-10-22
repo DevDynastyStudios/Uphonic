@@ -1,0 +1,1 @@
+bool uph_project_extract_uph(const Naui_Path uph_path, Naui_Path *out_folder, bool *out_reused);
