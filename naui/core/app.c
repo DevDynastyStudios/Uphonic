@@ -19,9 +19,12 @@ typedef struct
     events;
     Naui_List(Naui_DeferredEntry) deferred_entries;
     Naui_Arena deferred_arg_arena;
+    float ui_scale;
 }
 Naui_AppState;
-static Naui_AppState _naui_app_state;
+static Naui_AppState _naui_app_state = {
+    .ui_scale = 1.0f
+};
 
 extern void naui_renderer_initialize(void);
 extern void naui_renderer_shutdown(void);
@@ -232,7 +235,17 @@ bool naui_app_maximized(void)
 
 float naui_app_dpi_scale(void)
 {
-    return mgapp_dpi_scale();
+    return mgapp_dpi_scale() * naui_app_get_ui_scale();
+}
+
+float naui_app_get_ui_scale(void)
+{
+    return _naui_app_state.ui_scale;
+}
+
+void naui_app_set_ui_scale(float value)
+{
+    _naui_app_state.ui_scale = value;
 }
 
 void naui_app_set_clipboard(const char *text)

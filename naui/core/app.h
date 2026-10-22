@@ -44,6 +44,9 @@ NAUI_API bool       naui_app_maximized  (void);
 
 NAUI_API float      naui_app_dpi_scale  (void);
 
+NAUI_API float      naui_app_get_ui_scale(void);
+NAUI_API void       naui_app_set_ui_scale(float value);
+
 NAUI_API void       naui_app_set_clipboard(const char *text);
 NAUI_API const char *naui_app_get_clipboard(void);
 

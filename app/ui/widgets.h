@@ -26,6 +26,7 @@ void uph_ui_widgets_init(void);
 void uph_ui_widgets_flush(void);
 
 bool uph_ui_widget_hovered(const Leaf_ID id);
+bool uph_ui_widget_active(const Leaf_ID id);
 bool uph_ui_any_widget_hovered(void);
 
 Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id);

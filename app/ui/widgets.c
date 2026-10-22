@@ -665,6 +665,11 @@ static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
 #pragma endregion
 
 #pragma region Public API
+bool uph_ui_widget_active(const Leaf_ID id)
+{
+    return uph_global_widget_data.drag_data.id.value == id.value;
+}
+
 bool uph_ui_widget_hovered(const Leaf_ID id)
 {
     if (uph_dialog_blocks_input())

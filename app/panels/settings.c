@@ -360,6 +360,16 @@ static void uph_settings_apply_theme(const char *name)
 	naui_defer(uph_settings_apply_theme_deferred, buffer, sizeof(buffer));
 }
 
+static void uph_settings_apply_ui_scale_deferred(void *value)
+{
+	naui_app_set_ui_scale(*(const float*)value);
+}
+
+static void uph_settings_apply_ui_scale(float value)
+{
+	naui_defer(uph_settings_apply_ui_scale_deferred, &value, sizeof(value));
+}
+
 static void uph_settings_apply_midi_thru(void)
 {
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
@@ -746,7 +756,10 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.ui_scale"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_slider_float(&general->ui_scale, leaf_id("uph_settings_ui_scale"), UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX, "%.2fx", UPH_UI_SLIDER_FLAG_NONE);
+		const Leaf_ID ui_scale_id = leaf_id("uph_settings_ui_scale");
+		uph_ui_slider_float(&general->ui_scale, ui_scale_id, UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX, "%.2fx", UPH_UI_SLIDER_FLAG_NONE);
+		if (!uph_ui_widget_active(ui_scale_id) && general->ui_scale != naui_app_get_ui_scale())
+			uph_settings_apply_ui_scale(general->ui_scale);
 	}
 
 	uph_settings_section(NAUI_TR("settings.general.behavior"), false, NULL, UPH_SETTINGS_NO_ID);
