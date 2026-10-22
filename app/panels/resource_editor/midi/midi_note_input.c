@@ -24,6 +24,8 @@ void uph_midi_note_input_cancel_drag(Uph_MidiEditorData *editor)
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	naui_list_free(drag->group_notes);
 	drag->group_notes = NULL;
+	naui_list_free(drag->tail_blocks);
+	drag->tail_blocks = NULL;
 	drag->active = false;
 	drag->creating = false;
 	drag->group = false;
@@ -43,6 +45,9 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorData *editor, Uph_MidiPatte
 
 	naui_list_free(drag->group_notes);
 	drag->group_notes = NULL;
+	naui_list_free(drag->tail_blocks);
+	drag->tail_blocks = NULL;
+	uph_pattern_collect_tail_blocks(uph_state.shared.selected_resource.index, &drag->tail_blocks);
 
 	drag->active = true;
 	drag->creating = false;
@@ -152,6 +157,11 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorData *editor, Uph_MidiPatt
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	const char *transform_action = drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTE_MOVE : UPH_ACTION_MIDI_NOTE_RESIZE;
 
+	const bool stretched = uph_pattern_stretch_tail_blocks(drag->pattern_index, drag->tail_blocks);
+	const bool tail_group = stretched && !drag->group;
+	if (tail_group)
+		naui_action_group_start(drag->creating ? UPH_ACTION_MIDI_NOTE_CREATE : transform_action);
+
 	if (drag->creating)
 	{
 		if (drag->note_index < (uint32_t)naui_list_len(pattern->notes))
@@ -191,6 +201,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorData *editor, Uph_MidiPatt
 			changed = true;
 		}
 
+		uph_pattern_commit_tail_blocks(drag->tail_blocks);
 		naui_action_group_end();
 		if (!changed && !drag->moved && !drag->additive && drag->select_tool && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
 		{
@@ -212,6 +223,12 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorData *editor, Uph_MidiPatt
 			};
 			naui_action_execute_stack(transform_action, data);
 		}
+	}
+
+	if (tail_group)
+	{
+		uph_pattern_commit_tail_blocks(drag->tail_blocks);
+		naui_action_group_end();
 	}
 
 	uph_midi_note_input_cancel_drag(editor);
@@ -283,6 +300,8 @@ static void _uph_note_input_update_drag(Uph_MidiEditorData *editor, Leaf_Boundin
 			if (drag->group)
 				_uph_note_input_apply_group_drag(editor, pattern, note);
 
+			uph_pattern_stretch_tail_blocks(drag->pattern_index, drag->tail_blocks);
+
 			if (naui_mouse_released(NAUI_MOUSE_LEFT))
 				_uph_note_input_finish_drag(editor, pattern);
 
@@ -347,6 +366,9 @@ static void _uph_note_input_update_draw(Uph_MidiEditorData *editor, Leaf_Boundin
 	uph_note_select_all(pattern, false);
 	naui_list_free(input->drag.group_notes);
 	input->drag.group_notes = NULL;
+	naui_list_free(input->drag.tail_blocks);
+	input->drag.tail_blocks = NULL;
+	uph_pattern_collect_tail_blocks(uph_state.shared.selected_resource.index, &input->drag.tail_blocks);
 	input->drag.active = true;
 	input->drag.creating = true;
 	input->drag.group = false;

@@ -44,6 +44,7 @@ typedef struct
 	uint32_t note_index;
 	Uph_ResourceIndex pattern_index;
 	Naui_List(Uph_NoteSnapshot) group_notes;
+	Naui_List(Uph_ActionBlockSnapshot) tail_blocks;
 	Naui_Vec2 initial_mouse;
 	bool active;
 	bool moved;

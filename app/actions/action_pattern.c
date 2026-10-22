@@ -390,6 +390,82 @@ static void uph_note_select_all(Uph_MidiPattern *pattern, bool selected)
 
 #pragma endregion
 
+#pragma region Pattern Tail Blocks
+
+static void uph_pattern_collect_tail_blocks(Uph_ResourceIndex pattern_index, Naui_List(Uph_ActionBlockSnapshot) *out)
+{
+	const Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern)
+		return;
+
+	const double pattern_length = uph_calculate_pattern_length(pattern);
+
+	Naui_List(Uph_ActionBlockSnapshot) blocks = NULL;
+	uph_block_collect_all(UPH_RESOURCE_PATTERN, false, true, pattern_index, &blocks);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
+	{
+		const Uph_TimelineBlock* block = &blocks[i].block;
+		if (block->start_offset_beats + block->length_beats >= pattern_length - 1e-9)
+			naui_list_push(*out, blocks[i]);
+	}
+
+	naui_list_free(blocks);
+}
+
+static Uph_TimelineBlock* uph_pattern_resolve_tail_block(const Uph_ActionBlockSnapshot *snapshot)
+{
+	Uph_Track* track = uph_action_track_resolve(snapshot->track);
+	if (!track || snapshot->index >= (uint32_t)naui_list_len(track->blocks))
+		return NULL;
+
+	Uph_TimelineBlock* block = &track->blocks[snapshot->index];
+	if (block->type != UPH_RESOURCE_PATTERN || block->resource_index != snapshot->block.resource_index)
+		return NULL;
+
+	return block;
+}
+
+static bool uph_pattern_stretch_tail_blocks(Uph_ResourceIndex pattern_index, const Naui_List(Uph_ActionBlockSnapshot) tail)
+{
+	const Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern)
+		return false;
+
+	const double pattern_length = uph_calculate_pattern_length(pattern);
+	bool stretched = false;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tail); i++)
+	{
+		Uph_TimelineBlock* block = uph_pattern_resolve_tail_block(&tail[i]);
+		if (!block)
+			continue;
+
+		block->length_beats = fmax(tail[i].block.length_beats, pattern_length - tail[i].block.start_offset_beats);
+		stretched |= block->length_beats != tail[i].block.length_beats;
+	}
+
+	return stretched;
+}
+
+static void uph_pattern_commit_tail_blocks(const Naui_List(Uph_ActionBlockSnapshot) tail)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tail); i++)
+	{
+		const Uph_TimelineBlock* block = uph_pattern_resolve_tail_block(&tail[i]);
+		if (!block || block->length_beats == tail[i].block.length_beats)
+			continue;
+
+		Uph_ActionBlockTransform data = {
+			.src_track = tail[i].track, .src_index = tail[i].index, .dst_track = tail[i].track, .dst_index = tail[i].index,
+			.old_start = tail[i].block.start_beat, .old_length = tail[i].block.length_beats, .old_offset = tail[i].block.start_offset_beats,
+			.new_start = block->start_beat, .new_length = block->length_beats, .new_offset = block->start_offset_beats,
+			.applied_live = true
+		};
+		naui_action_execute_stack(UPH_ACTION_BLOCK_RESIZE, data);
+	}
+}
+
+#pragma endregion
+
 #pragma region Note Group Operations
 
 static void uph_note_delete_selected(Uph_ResourceIndex pattern_index)
@@ -437,6 +513,9 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 	const double shift = last_end - first_start;
 	uph_note_select_all(pattern, false);
 
+	Naui_List(Uph_ActionBlockSnapshot) tail = NULL;
+	uph_pattern_collect_tail_blocks(pattern_index, &tail);
+
 	naui_action_group_start(UPH_ACTION_MIDI_NOTES_DUPLICATE_GROUP);
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
 	{
@@ -446,7 +525,11 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
 	}
 
+	uph_pattern_stretch_tail_blocks(pattern_index, tail);
+	uph_pattern_commit_tail_blocks(tail);
+
 	naui_action_group_end();
+	naui_list_free(tail);
 	naui_list_free(selected);
 }
 
