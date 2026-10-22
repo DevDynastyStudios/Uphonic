@@ -766,6 +766,35 @@ typedef struct
 }
 Uph_RenderContext;
 
+static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *track, bool should_be_held[128])
+{
+    uph_midi_preview_queue_audition(track, should_be_held);
+
+    Uph_MidiPreviewRange range;
+    if (!uph_midi_preview_playback_range(track, &range))
+        return;
+
+    Uph_TimelineBlock block = {
+        .length_beats = range.length,
+        .resource_index = range.pattern_index,
+        .type = UPH_RESOURCE_PATTERN
+    };
+
+    for (block.start_beat = 0.0; block.start_beat < range.end_beat; block.start_beat += range.length)
+    {
+        uph_queue_pattern_block_notes(
+            track, &block,
+            range.start_beat, range.end_beat,
+            ctx->engine_sample_rate, ctx->bpm
+        );
+
+        uph_mark_block_held_notes(track, &block, range.end_beat, should_be_held);
+
+        if (!range.loop)
+            break;
+    }
+}
+
 static void uph_clear_track_peaks(Uph_Track *track)
 {
     track->peak_left = 0.0f;
@@ -860,12 +889,12 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     {
         if (track->instrument.loaded)
         {
-            uph_midi_preview_render_track(track);
+            bool should_be_held[128] = { false };
+
+            uph_queue_preview_notes(ctx, track, should_be_held);
 
             if (ctx->timeline_playing)
             {
-                bool should_be_held[128] = { false };
-
                 for (uint64_t b = 0; b < block_count; b++)
                 {
                     Uph_TimelineBlock *block = &track->blocks[b];
@@ -884,12 +913,12 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
                         should_be_held
                     );
                 }
+            }
 
-                for (int key = 0; key < 128; key++)
-                {
-                    if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)) && !uph_midi_preview_key_held(track, (uint8_t)key))
-                        uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
-                }
+            for (int key = 0; key < 128; key++)
+            {
+                if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
+                    uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
             }
 
             uph_render_track_instrument(
