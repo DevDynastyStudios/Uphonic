@@ -50,7 +50,6 @@ Uph_UISettings;
 typedef struct Uph_MIDISettings
 {
 	cmidi_port_t* input;
-	cmidi_port_t* output;
 	Naui_String input_device;
 	Naui_String output_device;
 	uint32_t record_quantize_grid;

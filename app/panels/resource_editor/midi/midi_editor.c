@@ -29,16 +29,10 @@ void uph_midi_editor_init(void)
 static void _uph_midi_editor_send_preview(Uph_PianoEvents events)
 {
 	if (events.released != -1)
-	{
-		cmidi_stop_note(uph_state.settings.midi.output, UPH_MIDI_EDITOR_PREVIEW_CHANNEL, (uint8_t)events.released);
 		uph_midi_preview_note_off((uint8_t)events.released);
-	}
 
 	if (events.pressed != -1)
-	{
-		cmidi_play_note(uph_state.settings.midi.output, UPH_MIDI_EDITOR_PREVIEW_CHANNEL, (uint8_t)events.pressed, UPH_MIDI_EDITOR_PREVIEW_VELOCITY);
 		uph_midi_preview_note_on((uint8_t)events.pressed, (uint8_t)uph_midi_editor_data.note_input.last_note_velocity);
-	}
 }
 
 static void _uph_midi_editor_set_audition(Uph_MidiEditorData *editor, int16_t key, uint8_t velocity)

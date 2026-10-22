@@ -13,12 +13,13 @@ bool uph_recovery_project_crashed(const Naui_Path project_folder);
 // Deletes a stale `.lock` so the project no longer counts as crashed.
 void uph_recovery_clear_crash(const Naui_Path project_folder);
 
-// Scans the workspace for a project that crashed and has an autosave to restore.
-// If several qualify, the most recently autosaved one is returned.
-bool uph_recovery_find_crashed_project(const Naui_Path workspace_folder, Naui_Path *out_project_folder);
+bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Naui_Path *out_project_folder);
 
 bool uph_recovery_has_autosave(const Naui_Path project_folder);
 void uph_recovery_discard_autosave(const Naui_Path project_folder);
+
+// Throws away a project's unsaved changes.
+void uph_recovery_discard_project(const Naui_Path project_folder);
 
 // Wrap the write of an autosave with these (invalidate before writing, commit after succeeding).
 void uph_recovery_invalidate_autosave(const Naui_Path project_folder);
