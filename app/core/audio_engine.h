@@ -2,6 +2,7 @@
 
 #define UPH_WAVEFORM_INV_65535 0.000015259f
 #define UPH_WAVEFORM_INV_65535_2 0.000030518f
+#define UPH_WAVEFORM_BIN_FRAMES 256
 
 static const char* uph_audio_engine_extensions[] = { ".wav", ".mp3", ".flac", ".ogg", NULL };
 

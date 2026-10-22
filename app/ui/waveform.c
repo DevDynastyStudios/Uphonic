@@ -44,7 +44,7 @@ void uph_ui_waveform_zoomable(
     float *max_y = (float*)alloca(sizeof(float) * (size_t)(x_end - x_start));
     float *min_y = (float*)alloca(sizeof(float) * (size_t)(x_end - x_start));
 
-    const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
+    const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
 
     for (int32_t x = x_start; x < x_end; x++)
     {

@@ -1066,7 +1066,7 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
     const float *samples = (const float*)sample_data->frames;
     const int channel_count = (sample_data->channel_type == UPH_SAMPLE_STEREO) ? 2 : 1;
 
-    const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
+    const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
 
     const uint64_t first_bin = old_frame_count / max_frame_count;
     const uint64_t bin_count = (sample_data->frame_count + max_frame_count - 1) / max_frame_count;
@@ -1111,7 +1111,7 @@ static void uph_build_waveform_peaks(Uph_SampleData *sample_data)
     if (!sample_data->frames || sample_data->frame_count == 0)
         return;
 
-    const uint32_t max_frame_count = uph_state.settings.audio.buffer_size;
+    const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
     const uint64_t bin_count = (sample_data->frame_count + max_frame_count - 1) / max_frame_count;
     naui_list_reserve(sample_data->waveform_peaks, bin_count);
 
