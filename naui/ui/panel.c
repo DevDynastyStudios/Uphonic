@@ -1305,6 +1305,9 @@ static void naui_update_split_resizing(Naui_PanelNode *node)
     static float drag_start_ratio;
     static float drag_total_size;
 
+    if (naui_panel_manager.occlude_all)
+        return;
+
     if (naui_panel_manager.split_resizing_node)
     {
         if (naui_panel_manager.split_resizing_node != node)
