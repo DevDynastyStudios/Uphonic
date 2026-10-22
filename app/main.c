@@ -8,6 +8,8 @@ static bool s_exit_confirmed;
 static bool s_exit_dialog_open;
 static Naui_Path s_restore_project_folder;
 
+static void uph_show_restore_dialog(const Naui_Path project_folder);
+
 static void uph_exit_dialog_result(int32_t button, void *user_data)
 {
 	(void)user_data;
@@ -22,7 +24,10 @@ static void uph_exit_dialog_result(int32_t button, void *user_data)
 		}
 	}
 	else if (button == 1)
-		uph_recovery_discard_autosave(uph_project_get_path(&uph_state.project));
+	{
+		uph_recovery_discard_project(uph_project_get_path(&uph_state.project));
+		uph_autosave_mark_clean();	// An autosave in the last frames would bring the folder back
+	}
 	else
 		return;	// Cancel
 
@@ -73,15 +78,19 @@ static void uph_restore_dialog_result(int32_t button, void *user_data)
 		return;
 	}
 
-	uph_recovery_discard_autosave(s_restore_project_folder);
-	uph_recovery_clear_crash(s_restore_project_folder);
+	uph_recovery_discard_project(s_restore_project_folder);
+
+	Naui_Path next_project = {0};
+	if (uph_recovery_find_recoverable_project(UPHONIC_WORKSPACE_FOLDER, &next_project))
+		uph_show_restore_dialog(next_project);
 }
 
 static void uph_show_restore_dialog(const Naui_Path project_folder)
 {
 	s_restore_project_folder = project_folder;
+	const char *message_key = uph_recovery_project_crashed(project_folder) ? "dialog.restore.message" : "dialog.restore.unsaved_message";
 	char message[512];
-	snprintf(message, sizeof(message), "%s\n\n%s", NAUI_TR("dialog.restore.message"), naui_view_to_string(naui_file_filename(&project_folder)).data);
+	snprintf(message, sizeof(message), "%s\n\n%s", NAUI_TR(message_key), naui_view_to_string(naui_file_filename(&project_folder)).data);
 
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("dialog.restore.title"),
@@ -184,12 +193,12 @@ void naui_app_start(void)
 	uph_settings_open_midi_ports(!settings_loaded);
 	uph_action_initialize();
 
-	Naui_Path crashed_project = {0};
-	const bool crashed = uph_recovery_find_crashed_project(UPHONIC_WORKSPACE_FOLDER, &crashed_project);
+	Naui_Path recoverable_project = {0};
+	const bool recoverable = uph_recovery_find_recoverable_project(UPHONIC_WORKSPACE_FOLDER, &recoverable_project);
 	uph_project_create(uph_project_untitled_name());
 
-	if (crashed)
-		uph_show_restore_dialog(crashed_project);
+	if (recoverable)
+		uph_show_restore_dialog(recoverable_project);
 }
 
 void naui_app_end(void)
@@ -248,7 +257,7 @@ void naui_app_update(void)
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
 	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
 
-	if (naui_key_down(NAUI_KEY_LCONTROL))
+	if (!uph_dialog_blocks_input() && naui_key_down(NAUI_KEY_LCONTROL))
 	{
 		if (naui_key_pressed(NAUI_KEY_P))
 			naui_action_execute_stack(UPH_ACTION_PATTERN_CREATE, (Uph_ActionResourceCreate){0});
@@ -260,6 +269,7 @@ void naui_app_update(void)
 	}
 
 	naui_render_panels_and_viewport();
+	uph_dialog_render();
 	uph_ui_widgets_flush();
 
 	uph_update_master_track_plugins();
@@ -272,7 +282,9 @@ void naui_app_update(void)
 
 void naui_app_event(const Naui_AppEventData *data)
 {
-	if (data->type == NAUI_APP_EVENT_FILE_DROP)
+	if (data->type == NAUI_APP_EVENT_WINDOW_CLOSE_REQUEST)
+		uph_handle_close_request();
+	else if (data->type == NAUI_APP_EVENT_FILE_DROP && !uph_dialog_blocks_input())
 	{
 		for (uint32_t i = 0; i < data->file_drop.path_count; i++)
 			uph_project_add_file(&uph_state.project, NAUI_PATH(data->file_drop.paths[i]));

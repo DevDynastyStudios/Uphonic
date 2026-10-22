@@ -85,7 +85,6 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 		uint64_t current_time = naui_unix_time();
 		uph_state._last_autosave_time = current_time;
 		uph_state._last_modified_time = current_time;
-
 		sample_candidates = uph_project_collect_sample_candidates(project_folder, temp_folder);
 		
 		if(naui_path_exists(temp_folder))
@@ -125,8 +124,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		return false;
 	}
 
-	if (reused_copy && !naui_string_is_empty(project->title)
-		&& strcmp(naui_path_normalize(uph_project_get_path(project)).data, naui_path_normalize(load_path).data) == 0)
+	if (reused_copy && !naui_string_is_empty(project->title) && strcmp(naui_path_normalize(uph_project_get_path(project)).data, naui_path_normalize(load_path).data) == 0)
 	{
 		naui_log(NAUI_LOG_INFO, "This file's project is already open: %s", project->title.data);
 		uph_audio_engine_start();
@@ -146,7 +144,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 
 	if (!loaded && from_autosave)
 	{
-		naui_log(NAUI_LOG_WARNING, "Autosave could not be read, loading the last saved version instead");
+		naui_log(NAUI_LOG_WARNING, "Could not read autosave, loading the last saved version...");
 		naui_list_clear(project->midi_patterns);
 		uph_resources_clear_tracks();
 		uph_resources_remove_all_automation();
@@ -159,8 +157,8 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		const Naui_Path normalized_load_path = naui_path_normalize(load_path);
 		project->title = naui_view_to_string(naui_file_filename(&normalized_load_path));
 		uph_project_sweep_deleted_samples(project);	// a crash can leave a pending delete list behind
-
 		naui_action_clear_history();
+
 		if (from_autosave)
 		{
 			uph_autosave_mark_recovered();
