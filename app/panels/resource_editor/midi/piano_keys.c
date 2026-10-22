@@ -270,7 +270,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 {
 	const Leaf_BoundingBox box = canvas->box;
 	const float font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
-	const float label_x = box.x + box.width * piano->style.black_key_length_ratio + NAUI_DPI(24.0f);
+	const float label_x = box.x + box.width * piano->style.black_key_length_ratio + NAUI_DPI(18.0f);
 
 	Leaf_Color label_color = uph_color_mix(naui_theme_color("uph_piano_natural_color"), LEAF_COLOR_BLACK, UPH_PIANO_LABEL_DARKEN_MIX);
 	label_color.a = UPH_PIANO_LABEL_ALPHA;

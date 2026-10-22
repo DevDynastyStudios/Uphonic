@@ -367,9 +367,7 @@ static void uph_settings_apply_midi_thru(void)
 	if (!midi->input)
 		return;
 
-	if (midi->midi_thru_enabled && midi->output)
-		cmidi_set_thru(midi->input, midi->output);
-	else
+	if (!midi->midi_thru_enabled)
 		cmidi_clear_thru(midi->input);
 }
 
@@ -391,13 +389,6 @@ static void uph_settings_select_midi_output(const cmidi_device_t *device)
 	if (midi->input)
 		cmidi_clear_thru(midi->input);
 
-	if (midi->output)
-	{
-		cmidi_stop_all_notes(midi->output);
-		cmidi_close(midi->output);
-	}
-
-	midi->output = device ? cmidi_open_output(device->id) : NULL;
 	midi->output_device = device ? naui_string_from_cstr(device->name) : (Naui_String){ 0 };
 	uph_settings_apply_midi_thru();
 }
@@ -422,24 +413,18 @@ void uph_settings_open_midi_ports(const bool use_first_device)
 	uph_settings_refresh_midi_devices(data);
 
 	const cmidi_device_t *input = NULL;
-	const cmidi_device_t *output = NULL;
 
 	if (use_first_device)
 	{
 		input = data->midi_inputs.count > 0 ? &data->midi_inputs.device[0] : NULL;
-		output = data->midi_outputs.count > 0 ? &data->midi_outputs.device[0] : NULL;
 	}
 	else
 	{
 		input = uph_settings_find_midi_device(&data->midi_inputs, midi->input_device.data);
-		output = uph_settings_find_midi_device(&data->midi_outputs, midi->output_device.data);
 	}
 
 	if (input)
 		uph_settings_select_midi_input(input);
-
-	if (output)
-		uph_settings_select_midi_output(output);
 }
 
 static inline float uph_settings_font_size(void)
@@ -646,7 +631,7 @@ static bool uph_settings_midi_dropdown(Uph_SettingsData *data, const bool input,
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
 	const Uph_SettingsMidiList *list = input ? &data->midi_inputs : &data->midi_outputs;
 	Naui_String *unlisted = &data->midi_unlisted[input ? 0 : 1];
-	cmidi_port_t *port = input ? midi->input : midi->output;
+	cmidi_port_t *port = midi->input;
 	const char *port_name = port ? cmidi_port_name(port) : NULL;
 
 	const char *items[UPH_SETTINGS_MAX_OPTIONS + 2];
@@ -908,13 +893,13 @@ static void uph_settings_page_midi(Uph_SettingsData *data)
 		uph_settings_midi_dropdown(data, true, leaf_id("uph_settings_midi_input"));
 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.midi.output"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_midi_dropdown(data, false, leaf_id("uph_settings_midi_output"));
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.midi.output"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_midi_dropdown(data, false, leaf_id("uph_settings_midi_output"));
+	// }
 
-	if (uph_settings_checkbox_row(NAUI_TR("settings.midi.thru"), &midi->midi_thru_enabled, leaf_id("uph_settings_midi_thru")))
-		uph_settings_apply_midi_thru();
+	// if (uph_settings_checkbox_row(NAUI_TR("settings.midi.thru"), &midi->midi_thru_enabled, leaf_id("uph_settings_midi_thru")))
+	// 	uph_settings_apply_midi_thru();
 
 	uph_settings_section(NAUI_TR("settings.midi.recording"), false, NULL, UPH_SETTINGS_NO_ID);
 
