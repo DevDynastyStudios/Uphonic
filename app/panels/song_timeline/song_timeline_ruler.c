@@ -45,6 +45,7 @@ void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float s
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 {
 	static bool dragging_playhead;
+	static double drag_beat;
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 
 	const bool mouse_over_ruler = uph_song_timeline_vec4_contains_vec2(
@@ -53,28 +54,31 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 	);
 
 	if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
+	{
 		dragging_playhead = true;
+		drag_beat = -1.0;
+	}
 
 	if (!dragging_playhead)
 		return;
 
 	const double mouse_beat_raw = ((double)naui_mouse_x() - bbox.x + data->scroll.x) / data->zoom.x;
-	const double mouse_beat = fmax(0.0, mouse_beat_raw);
-	if (uph_state.shared.song_timeline_playing)
+	double beat = fmax(0.0, uph_snap_beat_floor(mouse_beat_raw, data->snap_resolution));
+	if (uph_state.project.loop_enabled)
 	{
-		const double current_beat = (double)uph_state.shared.song_timeline_playhead_position;
-		const double distance = mouse_beat - current_beat;
-
-		if (fabs(distance) > 1.0)
-			uph_state.shared.song_timeline_playhead_position = (float)round(mouse_beat);
+		const double length = uph_audio_engine_get_song_length();
+		if (length > 0.0 && beat >= length)
+			beat = fmax(0.0, length - uph_snap_division(data->snap_resolution));
 	}
-	else
+
+	if (beat != drag_beat)
 	{
-		uph_state.shared.song_timeline_playhead_position = (float)round(mouse_beat);
+		drag_beat = beat;
+		uph_state.shared.song_timeline_playhead_position = beat;
 	}
 
 	naui_set_cursor(NAUI_CURSOR_HAND);
-	if (naui_mouse_released(NAUI_MOUSE_LEFT))
+	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 		dragging_playhead = false;
 }
 
