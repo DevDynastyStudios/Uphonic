@@ -69,6 +69,7 @@ static void uph_restore_dialog_result(int32_t button, void *user_data)
 	{
 		if (!uph_project_load(&uph_state.project, s_restore_project_folder))
 			naui_log(NAUI_LOG_ERROR, "Failed to restore project: %s", s_restore_project_folder.data);
+
 		return;
 	}
 
@@ -175,9 +176,9 @@ void naui_app_start(void)
 		naui_panel_dock(
 			uph_state.panels.mixer,
 			uph_state.panels.resource_editor,
-			NAUI_DOCK_DIRECTION_LEFT, 0.6f
+			NAUI_DOCK_DIRECTION_LEFT, 0.75f
 		),
-		NAUI_DOCK_DIRECTION_BOTTOM, 0.6f
+		NAUI_DOCK_DIRECTION_BOTTOM, 0.5f
 	));
 
 	uph_settings_open_midi_ports(!settings_loaded);

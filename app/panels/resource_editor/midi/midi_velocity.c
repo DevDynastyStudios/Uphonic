@@ -30,7 +30,7 @@ void uph_midi_velocity_init(Uph_VelocityLane *lane)
 {
 	lane->height = UPH_MIDI_EDITOR_VELOCITY_LANE_HEIGHT;
 	lane->hovered_note = -1;
-	lane->visible = true;
+	lane->visible = false;
 }
 
 void uph_midi_velocity_cancel_drag(Uph_VelocityLane *lane)

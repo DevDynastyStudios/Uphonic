@@ -38,7 +38,7 @@ static void uph_song_timeline_on_attach(void)
 	Naui_PanelID panel = naui_panel_current();
 
 	uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
-	uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 90.0f };
+	uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 85.0f };
 	uph_song_timeline_data.snap_resolution = UPH_SNAP_QUARTER;
 	uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
 	uph_song_timeline_data.automation_edit.dragging_point_index = -1;
