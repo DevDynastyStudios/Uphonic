@@ -150,5 +150,7 @@ void uph_song_timeline_render_toolbox(void)
 				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 			}
 		}
+
+		uph_ui_time_signature(&uph_state.project.time_signature, "uph_song_timeline_time_signature");
 	}
 }

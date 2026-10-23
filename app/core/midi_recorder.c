@@ -194,7 +194,7 @@ static void uph_midi_record_begin_take(Uph_Track *track, double start_beat)
 	Uph_TimelineBlock block = {
 		.type = UPH_RESOURCE_PATTERN,
 		.start_beat = start_beat,
-		.length_beats = (double)uph_state.project.time_signature.denominator,
+		.length_beats = uph_time_signature_bar_length(),
 		.resource_index = pattern_index
 	};
 
@@ -306,7 +306,7 @@ static void uph_midi_record_tracks(
 		}
 
 		block->length_beats = NAUI_MAX(
-            (double)uph_state.project.time_signature.denominator,
+            uph_time_signature_bar_length(),
             buffer_end_beat - block->start_beat
         );
 	}

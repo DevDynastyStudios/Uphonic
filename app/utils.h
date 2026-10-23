@@ -33,6 +33,28 @@ static inline double uph_snap_beat_floor(double beat, Uph_SnapResolution resolut
     return floor(beat / division) * division;
 }
 
+typedef enum
+{
+    UPH_GRID_LINE_SUBDIVISION,
+    UPH_GRID_LINE_BEAT,
+    UPH_GRID_LINE_BAR
+}
+Uph_GridLineKind;
+
+typedef void (*Uph_GridLineFn)(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data);
+
+static inline double uph_time_signature_beat_length(void)
+{
+    const uint32_t denominator = uph_state.project.time_signature.denominator;
+    return denominator > 0 ? 4.0 / (double)denominator : 1.0;
+}
+
+static inline double uph_time_signature_bar_length(void)
+{
+    const uint32_t numerator = uph_state.project.time_signature.numerator;
+    return (double)(numerator > 0 ? numerator : 1) * uph_time_signature_beat_length();
+}
+
 static inline Leaf_Color uph_color_mix(Leaf_Color a, Leaf_Color b, float t)
 {
     t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
@@ -44,6 +66,9 @@ static inline Leaf_Color uph_color_mix(Leaf_Color a, Leaf_Color b, float t)
     };
 }
 
+void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data);
+void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
+void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
 double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);
 double uph_calculate_automation_length(const Uph_Automation *automation);
 void uph_automation_segment_controls(const Uph_AutomationPoint *from, float out[4]);

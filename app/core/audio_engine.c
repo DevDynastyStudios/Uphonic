@@ -1784,9 +1784,9 @@ double uph_audio_engine_get_song_length_seconds(void)
 
 double uph_audio_engine_get_song_length(void)
 {
-    const double bpm = (double)uph_state.project.time_signature.numerator;
+    const double bar = uph_time_signature_bar_length();
     double length_beats = uph_audio_engine_get_song_length_beats();
-    return length_beats > 0.0 ? ceil(length_beats / bpm) * bpm : bpm;
+    return length_beats > 0.0 ? ceil(length_beats / bar - 1e-9) * bar : bar;
 }
 
 bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)

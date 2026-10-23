@@ -1,45 +1,6 @@
 void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x)
 {
-	const Leaf_Color beat_color = naui_theme_color("uph_timeline_grid_beat_color");
-	const Leaf_Color bar_color = naui_theme_color("uph_timeline_grid_bar_color");
-	const Leaf_Color sub_color = naui_theme_color("uph_timeline_grid_subbeat_color");
-
-	const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-	const float division_px = (float)(division * zoom_x);
-	const bool draw_subdivisions = division < 1.0 && division_px >= 3.0f;
-	const int64_t first_div = (int64_t)floor((double)scroll_x / division_px);
-	const uint32_t div_count = (uint32_t)(bbox.width / division_px) + 2;
-
-	for (uint32_t i = 0; i < div_count; i++)
-	{
-		const int64_t div_index = first_div + (int64_t)i;
-		if (div_index < 0)
-			continue;
-
-		const float x = bbox.x + (float)div_index * division_px - scroll_x;
-		if (x < bbox.x || x > bbox.x + bbox.width)
-			continue;
-
-		const double divs_per_beat = 1.0 / division;
-		const bool is_beat = fmod((double)div_index, divs_per_beat) < 0.5;
-		if (!is_beat)
-		{
-			if (draw_subdivisions)
-				naui_draw_line((Naui_Vec2){x, bbox.y}, (Naui_Vec2){x, bbox.y + bbox.height}, sub_color, 1.0f);
-
-			continue;
-		}
-
-		const int64_t beat_index = (int64_t)llround((double)div_index / divs_per_beat);
-		const bool is_downbeat = (beat_index % 4) == 0;
-		const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
-		naui_draw_line(
-			(Naui_Vec2){x, bbox.y},
-			(Naui_Vec2){x, bbox.y + bbox.height},
-			line_color,
-			1.0f
-		);
-	}
+	uph_grid_render_beats(bbox, zoom_x, scroll_x, uph_snap_division(uph_song_timeline_data.snap_resolution));
 }
 
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
@@ -84,65 +45,8 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 
 static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)
 {
-	const Leaf_Color beat_color = naui_theme_color("uph_timeline_top_ruler_grid_beat_color");
-	const Leaf_Color bar_color = naui_theme_color("uph_timeline_top_ruler_grid_bar_color");
-	const Leaf_Color sub_color = naui_theme_color("uph_timeline_top_ruler_grid_subbeat_color");
-	const Leaf_Color number_color = naui_theme_color("uph_timeline_top_ruler_grid_text_color");
-
-	const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-	const float division_px = (float)(division * uph_song_timeline_data.zoom.x);
-	const bool draw_subdivisions = division < 1.0 && division_px >= 3.0f;
-	const double divs_per_beat = 1.0 / division;
-	const float scroll_x = uph_song_timeline_data.scroll.x;
-	const int64_t first_div = (int64_t)floor((double)scroll_x / division_px);
-	const uint32_t div_count = (uint32_t)(bbox.width / division_px) + 2;
-
 	uph_song_timeline_update_playhead_drag(bbox);
-	naui_push_clip_rect(bbox.x - 0.5f, bbox.y, bbox.width, bbox.height);
-	for (uint32_t i = 0; i < div_count; i++)
-	{
-		const int64_t div_index = first_div + (int64_t)i;
-		if (div_index < 0)
-			continue;
-
-		const float x = bbox.x + (float)div_index * division_px - scroll_x;
-		if (x < bbox.x - division_px || x > bbox.x + bbox.width)
-			continue;
-
-		const bool is_beat = fmod((double)div_index, divs_per_beat) < 0.5;
-		if (!is_beat)
-		{
-			if (draw_subdivisions)
-			{
-				naui_draw_line(
-					(Naui_Vec2){ x, bbox.y + bbox.height * 0.6f },
-					(Naui_Vec2){ x, bbox.y + bbox.height },
-					sub_color,
-					1.0f
-				);
-			}
-			continue;
-		}
-
-		const int64_t beat_index = (int64_t)llround((double)div_index / divs_per_beat);
-		const bool is_downbeat = (beat_index % 4) == 0;
-		const Leaf_Color line_color = is_downbeat ? bar_color : beat_color;
-		naui_draw_line(
-			(Naui_Vec2){ x, bbox.y + bbox.height * (is_downbeat ? 0.4f : 0.6f)},
-			(Naui_Vec2){ x, bbox.y + bbox.height },
-			line_color,
-			1.0f
-		);
-
-		if (is_downbeat)
-		{
-			char label[16];
-			snprintf(label, sizeof(label), "%d", (int)(beat_index / 4));
-			naui_draw_text((Naui_Vec2) { x + 4.0f, bbox.y + bbox.height * 0.4f }, label, NAUI_DPI(13.0f), 0, number_color);
-		}
-	}
-
-	naui_pop_clip_rect();
+	uph_grid_render_ruler(bbox, uph_song_timeline_data.zoom.x, uph_song_timeline_data.scroll.x, uph_snap_division(uph_song_timeline_data.snap_resolution));
 }
 
 void uph_song_timeline_render_top_bar(void)

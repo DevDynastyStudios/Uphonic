@@ -1797,4 +1797,56 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
     return result;
 }
 
+bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
+{
+    static const char *denominator_labels[] = { "2", "4", "8", "16" };
+    static const uint32_t denominator_values[] = { 2, 4, 8, 16 };
+
+    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+    bool changed = false;
+
+    uint32_t denominator_index = 1;
+    for (uint32_t i = 0; i < 4; i++)
+    {
+        if (denominator_values[i] == signature->denominator)
+            denominator_index = i;
+    }
+
+    leaf({
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+        .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+        .child_gap = NAUI_DPI(4)
+    })
+    {
+        leaf_text("Time: ", {.font_size = font_size, .color = text_color});
+
+        leaf({
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(32)), LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            if (uph_ui_drag_int((int32_t*)&signature->numerator, leaf_id_indexed(id, 0), 0.1f, 1, 32, "%d", UPH_UI_DRAG_FLAG_CLAMPED))
+                changed = true;
+        }
+
+        leaf_text("/", {.font_size = font_size, .color = text_color});
+
+        leaf({
+            .size = {LEAF_SIZE_FIXED(NAUI_DPI(48)), LEAF_SIZE_FULL},
+            .child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
+        })
+        {
+            if (uph_ui_dropdown(denominator_labels, 4, &denominator_index, leaf_id_indexed(id, 1)))
+            {
+                signature->denominator = denominator_values[denominator_index];
+                changed = true;
+            }
+        }
+    }
+
+    return changed;
+}
+
 #pragma endregion

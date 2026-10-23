@@ -149,7 +149,7 @@ double uph_midi_preview_position(void)
 
 double uph_midi_preview_loop_length(const Uph_MidiPattern *pattern)
 {
-	const double bar = (double)NAUI_MAX(uph_state.project.time_signature.denominator, 1u);
+	const double bar = uph_time_signature_bar_length();
 	return ceil(uph_calculate_pattern_length(pattern) / bar - 1e-9) * bar;
 }
 
