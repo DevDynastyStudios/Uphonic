@@ -94,6 +94,9 @@ static void uph_song_timeline_on_update(void)
 	if (data->marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
 		data->marquee.active = false;
 
+	if (data->drag.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
+		uph_song_timeline_finish_block_drag();
+
 	if (naui_key_pressed(NAUI_KEY_SPACE) && !data->disable_space_to_play && data->panel_focused)
 		uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
 	

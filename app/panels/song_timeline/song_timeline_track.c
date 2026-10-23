@@ -100,9 +100,6 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 			if (drag->group)
 				uph_song_timeline_apply_group_drag(&blocks[i]);
 
-			if (naui_mouse_released(NAUI_MOUSE_LEFT))
-				uph_song_timeline_finish_block_drag();
-
 			return;
 		}
 
