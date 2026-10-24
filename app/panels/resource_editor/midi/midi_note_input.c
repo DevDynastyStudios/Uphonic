@@ -556,9 +556,13 @@ static void _uph_note_input_begin_erase(Uph_MidiEditorData *editor, Leaf_Boundin
 
 	const int32_t pressed = _uph_note_input_note_at(editor, box, pattern, mouse);
 	if (pressed < 0)
+	{
+		uph_note_select_all(pattern, false);
 		return;
+	}
 
-	if (!pattern->notes[pressed].selected || uph_note_selected_count(pattern) <= 1)
+	const bool erase_selection = _uph_note_input_tool(editor) == UPH_ACTION_SELECT && pattern->notes[pressed].selected && uph_note_selected_count(pattern) > 1;
+	if (!erase_selection)
 	{
 		_uph_note_input_erase_note(erase, (uint32_t)pressed);
 		return;
