@@ -43,8 +43,12 @@ static void uph_plugin_list_load(void)
     {
         case UPH_PLUGIN_LIST_TRACK_INSTRUMENT:
         {
-            uph_state.shared.current_plugin_list_track->instrument = uph_plugin_load(plugin_path, true);
-            uph_state.shared.current_plugin_list_track->type = UPH_RESOURCE_PATTERN;
+            Uph_Track *track = uph_state.shared.current_plugin_list_track;
+            if (track->instrument.loaded)
+                uph_action_track_unload_plugin(track, &track->instrument);
+
+            track->instrument = uph_plugin_load(plugin_path, true);
+            track->type = UPH_RESOURCE_PATTERN;
             break;
         }
         case UPH_PLUGIN_LIST_TRACK_EFFECT:
