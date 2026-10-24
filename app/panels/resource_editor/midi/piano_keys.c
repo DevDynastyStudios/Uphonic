@@ -3,7 +3,20 @@
 #define UPH_PIANO_LABEL_DARKEN_MIX 0.60f
 #define UPH_PIANO_LABEL_ALPHA 215
 #define UPH_PIANO_LABEL_FONT_SIZE 16.0f
+#define UPH_PIANO_LABEL_ALIGNMENT LEAF_TEXT_ALIGN_RIGHT
+#define UPH_PIANO_LABEL_EDGE_PADDING 8.0f
 #define UPH_PIANO_HIGHLIGHT_BAR_WIDTH 3.0f
+
+static const float _uph_piano_accidental_offsets[UPH_NOTES_PER_OCTAVE] =
+{
+	0.0f, -1.0f / 6.0f,		// C  C#
+	0.0f, 1.0f / 6.0f,		// D  D#
+	0.0f,					// E
+	0.0f, -1.0f / 4.0f,		// F  F#
+	0.0f, 0.0f,				// G  G#
+	0.0f, 1.0f / 4.0f,		// A  A#
+	0.0f					// B
+};
 
 void uph_piano_init(Uph_Piano *piano)
 {
@@ -69,7 +82,7 @@ bool uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t 
 		const int32_t run_length = run_end - run_start + 1;
 		const float slot = natural_height / (float)run_length;
 		const float height = fminf(natural_height * piano->style.black_key_height_ratio, slot);
-		const float center = boundary - ((float)(semitone - run_start) - (float)(run_length - 1) * 0.5f) * slot;
+		const float center = boundary - ((float)(semitone - run_start) - (float)(run_length - 1) * 0.5f) * slot - _uph_piano_accidental_offsets[semitone] * height;
 		top = center - height * 0.5f;
 		bottom = center + height * 0.5f;
 		width = full_width * piano->style.black_key_length_ratio;
@@ -266,11 +279,22 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	}
 }
 
+static float _uph_piano_text_x(float anchor_x, float text_width, Leaf_TextAlignment alignment)
+{
+	if (alignment == LEAF_TEXT_ALIGN_RIGHT)
+		return anchor_x - text_width;
+
+	if (alignment == LEAF_TEXT_ALIGN_CENTER)
+		return anchor_x - text_width * 0.5f;
+
+	return anchor_x;
+}
+
 static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Leaf_BoundingBox box = canvas->box;
 	const float font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
-	const float label_x = box.x + box.width * piano->style.black_key_length_ratio + NAUI_DPI(18.0f);
+	const float label_anchor_x = box.x + box.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
 
 	Leaf_Color label_color = uph_color_mix(naui_theme_color("uph_piano_natural_color"), LEAF_COLOR_BLACK, UPH_PIANO_LABEL_DARKEN_MIX);
 	label_color.a = UPH_PIANO_LABEL_ALPHA;
@@ -294,6 +318,8 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 		if (label_y < box.y || label_y + font_size > box.y + box.height)
 			continue;
 
+		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), font_size, 0).x;
+		const float label_x = _uph_piano_text_x(label_anchor_x, label_width, UPH_PIANO_LABEL_ALIGNMENT);
 		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, font_size, 0, label_color);
 	}
 }
