@@ -1,11 +1,25 @@
+#define UPH_MIDI_NOTE_VELOCITY_BAR_HEIGHT 3.0f
+#define UPH_MIDI_NOTE_VELOCITY_BAR_INSET 2.0f
+#define UPH_MIDI_NOTE_VELOCITY_BAR_MAX_LANE_RATIO 0.25f
+#define UPH_MIDI_NOTE_VELOCITY_BAR_MIN_LANE_HEIGHT 10.0f
+#define UPH_MIDI_NOTE_VELOCITY_TRACK_DARKEN_MIX 0.45f
+#define UPH_MIDI_NOTE_VELOCITY_FILL_LIGHTEN_MIX 0.60f
+
 void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_MidiPattern *pattern)
 {
 	const float lane_height = uph_midi_view_lane_height(view);
-	const float note_label_font_size = fminf(NAUI_DPI(11.0f), lane_height * 0.8f);
+	const bool show_velocity_bar = lane_height >= NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_MIN_LANE_HEIGHT);
+	const float velocity_bar_height = fminf(NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_HEIGHT), lane_height * UPH_MIDI_NOTE_VELOCITY_BAR_MAX_LANE_RATIO);
+	const float velocity_bar_inset = NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_INSET);
+	const float velocity_bar_reserved = show_velocity_bar ? velocity_bar_height + velocity_bar_inset : 0.0f;
+	const float note_label_font_size = fminf(NAUI_DPI(11.0f), (lane_height - velocity_bar_reserved) * (show_velocity_bar ? 0.9f : 0.8f));
 	const float note_label_padding = NAUI_DPI(3.0f);
 	const float note_rounding = NAUI_DPI(3.0f);
 	const Leaf_Color note_label_color = LEAF_COLOR_WHITE;
 	const Leaf_Color note_color = uph_midi_view_note_color();
+	Leaf_Color velocity_track_color = uph_color_mix(note_color, LEAF_COLOR_BLACK, UPH_MIDI_NOTE_VELOCITY_TRACK_DARKEN_MIX);
+	velocity_track_color.a = 150;
+	const Leaf_Color velocity_fill_color = uph_color_mix(note_color, LEAF_COLOR_WHITE, UPH_MIDI_NOTE_VELOCITY_FILL_LIGHTEN_MIX);
 
 	for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
 	{
@@ -20,10 +34,21 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 		naui_fill_rect(
 			(Naui_Vec2) { note_x, y_position },
 			(Naui_Vec2) { note_width, lane_height },
-			uph_midi_view_velocity_color(note_color, note->velocity),
+			note_color,
 			note_rounding,
 			LEAF_CORNER_ALL
 		);
+
+		const float track_width = note_width - velocity_bar_inset * 2.0f;
+		if (show_velocity_bar && track_width > 1.0f)
+		{
+			const float track_y = y_position + lane_height - velocity_bar_inset - velocity_bar_height;
+			const float fill_width = track_width * (float)NAUI_MIN((int32_t)note->velocity, UPH_MIDI_EDITOR_VELOCITY_MAX) / (float)UPH_MIDI_EDITOR_VELOCITY_MAX;
+			const float bar_rounding = velocity_bar_height * 0.5f;
+
+			naui_fill_rect((Naui_Vec2) { note_x + velocity_bar_inset, track_y }, (Naui_Vec2) { track_width, velocity_bar_height }, velocity_track_color, bar_rounding, LEAF_CORNER_ALL);
+			naui_fill_rect((Naui_Vec2) { note_x + velocity_bar_inset, track_y }, (Naui_Vec2) { fill_width, velocity_bar_height }, velocity_fill_color, fminf(bar_rounding, fill_width * 0.5f), LEAF_CORNER_ALL);
+		}
 
 		if (note->selected)
 		{
@@ -42,7 +67,7 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 		{
 			naui_push_clip_rect(note_x, y_position, note_width, lane_height);
 			naui_draw_text(
-				(Naui_Vec2) { note_x + note_label_padding, y_position + (lane_height - note_label_font_size) * 0.5f },
+				(Naui_Vec2) { note_x + note_label_padding, y_position + (lane_height - velocity_bar_reserved - note_label_font_size) * 0.5f },
 				map->notes[note->key_number].name,
 				note_label_font_size,
 				0,

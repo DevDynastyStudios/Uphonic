@@ -1,4 +1,5 @@
-#define UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH 6.0f
+#define UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH 9.0f
+#define UPH_MIDI_EDITOR_RESIZE_HANDLE_MAX_RATIO 0.33f
 #define UPH_MIDI_EDITOR_CLICK_THRESHOLD 3.0f
 #define UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH 1.0
 #define UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY 100
@@ -73,9 +74,20 @@ Uph_NoteMarqueeState;
 
 typedef struct
 {
+	Naui_List(Uph_NoteSnapshot) erased;
+	Naui_Vec2 last_mouse;
+	uint64_t revision;
+	Uph_ResourceIndex pattern_index;
+	bool active;
+}
+Uph_NoteEraseState;
+
+typedef struct
+{
 	Uph_DraggingNoteState drag;
 	Uph_HoveredNoteState hovered_note;
 	Uph_NoteMarqueeState marquee;
+	Uph_NoteEraseState erase;
 	double last_note_length;
 	double last_note_velocity;
 }

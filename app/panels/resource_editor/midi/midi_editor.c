@@ -67,6 +67,7 @@ void uph_midi_editor_reset_interaction(void)
 {
 	Uph_MidiEditorData *editor = &uph_midi_editor_data;
 	uph_midi_note_input_cancel_drag(editor);
+	uph_midi_note_input_cancel_erase(editor);
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
 	editor->velocity_lane.resizing = false;
 	editor->note_input.marquee.active = false;

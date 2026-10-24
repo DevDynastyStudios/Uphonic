@@ -46,6 +46,19 @@ typedef struct
 	bool applied_live;
 } Uph_ActionNoteVelocity;
 
+typedef struct
+{
+	uint32_t index;
+	Uph_MidiNote note;
+} Uph_NoteSnapshot;
+
+typedef struct
+{
+	Uph_ResourceIndex pattern_index;
+	Naui_List(Uph_NoteSnapshot) erased;
+	bool applied_live;
+} Uph_ActionNotesErase;
+
 #pragma region Pattern Create
 bool _uph_action_pattern_create_execute(void* userdata)
 {
@@ -289,6 +302,57 @@ bool _uph_action_note_delete_redo(void* userdata)
 
 #pragma endregion
 
+#pragma region Notes Erase
+static bool _uph_action_notes_erase_apply(Uph_ActionNotesErase* data)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(data->erased); i++)
+	{
+		Uph_MidiNote removed;
+		if (!uph_note_list_take(data->pattern_index, data->erased[i].index, &removed))
+			return false;
+	}
+
+	return true;
+}
+
+bool _uph_action_notes_erase_execute(void* userdata)
+{
+	Uph_ActionNotesErase* data = userdata;
+	if (data->applied_live)
+	{
+		data->applied_live = false;
+		return uph_note_pattern(data->pattern_index) != NULL;
+	}
+
+	return _uph_action_notes_erase_apply(data);
+}
+
+bool _uph_action_notes_erase_undo(void* userdata)
+{
+	Uph_ActionNotesErase* data = userdata;
+	for (uint32_t i = (uint32_t)naui_list_len(data->erased); i > 0; i--)
+	{
+		if (!uph_note_list_insert(data->pattern_index, data->erased[i - 1].index, data->erased[i - 1].note))
+			return false;
+	}
+
+	return true;
+}
+
+bool _uph_action_notes_erase_redo(void* userdata)
+{
+	return _uph_action_notes_erase_apply(userdata);
+}
+
+void _uph_action_notes_erase_destroy(void* userdata)
+{
+	Uph_ActionNotesErase* data = userdata;
+	naui_list_free(data->erased);
+	data->erased = NULL;
+}
+
+#pragma endregion
+
 #pragma region Note Move / Resize
 bool _uph_action_note_transform_execute(void* userdata)
 {
@@ -355,12 +419,6 @@ bool _uph_action_note_velocity_redo(void* userdata)
 #pragma endregion
 
 #pragma region Note Selection
-typedef struct
-{
-	uint32_t index;
-	Uph_MidiNote note;
-} Uph_NoteSnapshot;
-
 static void uph_note_collect_selected(const Uph_MidiPattern *pattern, Naui_List(Uph_NoteSnapshot) *out)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
