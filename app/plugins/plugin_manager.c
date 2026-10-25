@@ -2581,10 +2581,13 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 
 #pragma region Module Registry
 
-static Naui_Mutex s_module_lock;
-static Naui_List(Naui_Path) s_modules_in_use;
-static Naui_Path s_module_scanning;
-static atomic_bool s_prefetch_abort;
+static struct
+{
+    Naui_Mutex lock;
+    Naui_List(Naui_Path) in_use;
+    Naui_Path scanning;
+    atomic_bool prefetch_abort;
+} uph_plugin_module_registry;
 
 static bool _uph_module_path_equal(const Naui_Path a, const Naui_Path b)
 {
@@ -2600,68 +2603,68 @@ static bool _uph_module_path_equal(const Naui_Path a, const Naui_Path b)
 // CLAP forbids init() while anything else in the DSO is running
 static void _uph_module_acquire(const Naui_Path path)
 {
-    if (!s_module_lock)
+    if (!uph_plugin_module_registry.lock)
         return;
 
     for (uint32_t waited = 0; ; waited += 2)
     {
-        naui_mutex_lock(s_module_lock);
-        if (waited >= UPH_MODULE_SCAN_WAIT_MS || !_uph_module_path_equal(s_module_scanning, path))
+        naui_mutex_lock(uph_plugin_module_registry.lock);
+        if (waited >= UPH_MODULE_SCAN_WAIT_MS || !_uph_module_path_equal(uph_plugin_module_registry.scanning, path))
         {
-            naui_list_push(s_modules_in_use, path);
-            naui_mutex_unlock(s_module_lock);
+            naui_list_push(uph_plugin_module_registry.in_use, path);
+            naui_mutex_unlock(uph_plugin_module_registry.lock);
             return;
         }
 
-        naui_mutex_unlock(s_module_lock);
+        naui_mutex_unlock(uph_plugin_module_registry.lock);
         naui_thread_sleep_ms(2);
     }
 }
 
 static void _uph_module_release(const Naui_Path path)
 {
-    if (!s_module_lock)
+    if (!uph_plugin_module_registry.lock)
         return;
 
-    naui_mutex_lock(s_module_lock);
-    for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_modules_in_use); i++)
+    naui_mutex_lock(uph_plugin_module_registry.lock);
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_module_registry.in_use); i++)
     {
-        if (_uph_module_path_equal(s_modules_in_use[i], path))
+        if (_uph_module_path_equal(uph_plugin_module_registry.in_use[i], path))
         {
-            naui_list_remove(s_modules_in_use, i);
+            naui_list_remove(uph_plugin_module_registry.in_use, i);
             break;
         }
     }
-    naui_mutex_unlock(s_module_lock);
+    naui_mutex_unlock(uph_plugin_module_registry.lock);
 }
 
 void uph_plugin_modules_init(void)
 {
-    if (!s_module_lock)
-        s_module_lock = naui_mutex_create();
+    if (!uph_plugin_module_registry.lock)
+        uph_plugin_module_registry.lock = naui_mutex_create();
 }
 
 void uph_plugin_modules_shutdown(void)
 {
-    if (!s_module_lock)
+    if (!uph_plugin_module_registry.lock)
         return;
 
-    naui_mutex_destroy(s_module_lock);
-    s_module_lock = NULL;
-    naui_list_free(s_modules_in_use);
-    s_modules_in_use = NULL;
+    naui_mutex_destroy(uph_plugin_module_registry.lock);
+    uph_plugin_module_registry.lock = NULL;
+    naui_list_free(uph_plugin_module_registry.in_use);
+    uph_plugin_module_registry.in_use = NULL;
 }
 
 bool uph_plugin_module_scan_begin(Naui_Path path)
 {
-    if (!s_module_lock)
+    if (!uph_plugin_module_registry.lock)
         return true;
 
-    naui_mutex_lock(s_module_lock);
+    naui_mutex_lock(uph_plugin_module_registry.lock);
     bool free_to_scan = true;
-    for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_modules_in_use); i++)
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_module_registry.in_use); i++)
     {
-        if (_uph_module_path_equal(s_modules_in_use[i], path))
+        if (_uph_module_path_equal(uph_plugin_module_registry.in_use[i], path))
         {
             free_to_scan = false;
             break;
@@ -2669,25 +2672,25 @@ bool uph_plugin_module_scan_begin(Naui_Path path)
     }
 
     if (free_to_scan)
-        s_module_scanning = path;
+        uph_plugin_module_registry.scanning = path;
 
-    naui_mutex_unlock(s_module_lock);
+    naui_mutex_unlock(uph_plugin_module_registry.lock);
     return free_to_scan;
 }
 
 void uph_plugin_module_scan_end(void)
 {
-    if (!s_module_lock)
+    if (!uph_plugin_module_registry.lock)
         return;
 
-    naui_mutex_lock(s_module_lock);
-    s_module_scanning = (Naui_Path){ 0 };
-    naui_mutex_unlock(s_module_lock);
+    naui_mutex_lock(uph_plugin_module_registry.lock);
+    uph_plugin_module_registry.scanning = (Naui_Path){ 0 };
+    naui_mutex_unlock(uph_plugin_module_registry.lock);
 }
 
 void uph_plugin_prefetch_abort(void)
 {
-    atomic_store(&s_prefetch_abort, true);
+    atomic_store(&uph_plugin_module_registry.prefetch_abort, true);
 }
 
 void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
@@ -2707,7 +2710,7 @@ void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
         return;
 
     char *chunk = (char*)malloc(UPH_PREFETCH_CHUNK_SIZE);
-    while (chunk && !atomic_load(&s_prefetch_abort) && !(cancel && atomic_load(cancel)))
+    while (chunk && !atomic_load(&uph_plugin_module_registry.prefetch_abort) && !(cancel && atomic_load(cancel)))
     {
         if (fread(chunk, 1, UPH_PREFETCH_CHUNK_SIZE, stream) < UPH_PREFETCH_CHUNK_SIZE)
             break;
