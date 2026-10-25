@@ -2576,7 +2576,150 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     internal_handle->clap.ready = 1;
 }
 
-Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
+#define UPH_MODULE_SCAN_WAIT_MS 15000
+#define UPH_PREFETCH_CHUNK_SIZE (1024 * 1024)
+
+#pragma region Module Registry
+
+static Naui_Mutex s_module_lock;
+static Naui_List(Naui_Path) s_modules_in_use;
+static Naui_Path s_module_scanning;
+static atomic_bool s_prefetch_abort;
+
+static bool _uph_module_path_equal(const Naui_Path a, const Naui_Path b)
+{
+    const Naui_Path left = naui_path_normalize(a);
+    const Naui_Path right = naui_path_normalize(b);
+#if NAUI_WINDOWS
+    return _stricmp(left.data, right.data) == 0;
+#else
+    return strcmp(left.data, right.data) == 0;
+#endif
+}
+
+// CLAP forbids init() while anything else in the DSO is running
+static void _uph_module_acquire(const Naui_Path path)
+{
+    if (!s_module_lock)
+        return;
+
+    for (uint32_t waited = 0; ; waited += 2)
+    {
+        naui_mutex_lock(s_module_lock);
+        if (waited >= UPH_MODULE_SCAN_WAIT_MS || !_uph_module_path_equal(s_module_scanning, path))
+        {
+            naui_list_push(s_modules_in_use, path);
+            naui_mutex_unlock(s_module_lock);
+            return;
+        }
+
+        naui_mutex_unlock(s_module_lock);
+        naui_thread_sleep_ms(2);
+    }
+}
+
+static void _uph_module_release(const Naui_Path path)
+{
+    if (!s_module_lock)
+        return;
+
+    naui_mutex_lock(s_module_lock);
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_modules_in_use); i++)
+    {
+        if (_uph_module_path_equal(s_modules_in_use[i], path))
+        {
+            naui_list_remove(s_modules_in_use, i);
+            break;
+        }
+    }
+    naui_mutex_unlock(s_module_lock);
+}
+
+void uph_plugin_modules_init(void)
+{
+    if (!s_module_lock)
+        s_module_lock = naui_mutex_create();
+}
+
+void uph_plugin_modules_shutdown(void)
+{
+    if (!s_module_lock)
+        return;
+
+    naui_mutex_destroy(s_module_lock);
+    s_module_lock = NULL;
+    naui_list_free(s_modules_in_use);
+    s_modules_in_use = NULL;
+}
+
+bool uph_plugin_module_scan_begin(Naui_Path path)
+{
+    if (!s_module_lock)
+        return true;
+
+    naui_mutex_lock(s_module_lock);
+    bool free_to_scan = true;
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_modules_in_use); i++)
+    {
+        if (_uph_module_path_equal(s_modules_in_use[i], path))
+        {
+            free_to_scan = false;
+            break;
+        }
+    }
+
+    if (free_to_scan)
+        s_module_scanning = path;
+
+    naui_mutex_unlock(s_module_lock);
+    return free_to_scan;
+}
+
+void uph_plugin_module_scan_end(void)
+{
+    if (!s_module_lock)
+        return;
+
+    naui_mutex_lock(s_module_lock);
+    s_module_scanning = (Naui_Path){ 0 };
+    naui_mutex_unlock(s_module_lock);
+}
+
+void uph_plugin_prefetch_abort(void)
+{
+    atomic_store(&s_prefetch_abort, true);
+}
+
+void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
+{
+    char binary[1024];
+    const char *file = path.data;
+    if (naui_string_view_equals_cstr(naui_file_extension(&path), ".vst3", false))
+    {
+        if (!uph_vst3_resolve_binary(path.data, binary, sizeof(binary)))
+            return;
+
+        file = binary;
+    }
+
+    FILE *stream = fopen(file, "rb");
+    if (!stream)
+        return;
+
+    char *chunk = (char*)malloc(UPH_PREFETCH_CHUNK_SIZE);
+    while (chunk && !atomic_load(&s_prefetch_abort) && !(cancel && atomic_load(cancel)))
+    {
+        if (fread(chunk, 1, UPH_PREFETCH_CHUNK_SIZE, stream) < UPH_PREFETCH_CHUNK_SIZE)
+            break;
+    }
+
+    free(chunk);
+    fclose(stream);
+}
+
+#pragma endregion
+
+static Uph_Plugin _uph_plugin_load_impl(Naui_Path path, bool show_window)
 {
     Uph_Plugin effect = { 0 };
 
@@ -2736,6 +2879,17 @@ Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
     return effect;
 }
 
+Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
+{
+    _uph_module_acquire(path);
+
+    Uph_Plugin plugin = _uph_plugin_load_impl(path, show_window);
+    if (!plugin.loaded)
+        _uph_module_release(path);
+
+    return plugin;
+}
+
 static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 {
     internal_handle->clap.ready = 0;
@@ -2796,7 +2950,9 @@ void uph_plugin_unload(Uph_Plugin *plug)
     if (!plug->loaded)
         return;
 
-    uph_audio_engine_lock();
+    const bool was_running = uph_audio_engine_device_running();
+    if (was_running)
+        uph_audio_engine_stop();
 
     plug->loaded = false;
 
@@ -2813,8 +2969,10 @@ void uph_plugin_unload(Uph_Plugin *plug)
     }
 
     naui_list_free(plug->params);
+    _uph_module_release(plug->file_path);
 
-    uph_audio_engine_unlock();
+    if (was_running)
+        uph_audio_engine_start();
 }
 
 static inline long uph_ms_since(float then)

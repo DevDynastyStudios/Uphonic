@@ -37,3 +37,13 @@ void uph_plugin_process(
 
 bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path);
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path);
+
+// ONLY init/deinit a DSO that is loaded or being loaded on the main thread
+void                uph_plugin_modules_init     (void);
+void                uph_plugin_modules_shutdown (void);
+bool                uph_plugin_module_scan_begin(Naui_Path path);
+void                uph_plugin_module_scan_end  (void);
+
+// Prefetch and read the plugin binary
+void                uph_plugin_prefetch         (Naui_Path path, const atomic_bool *cancel);
+void                uph_plugin_prefetch_abort   (void);
