@@ -83,6 +83,7 @@ static void uph_song_timeline_on_update(void)
 	data->hovered_block.active = false;
 	data->track_header_hovered = false;
 	data->visual_row_counter = 0;
+	data->visual_row_y = 0.0f;
 	data->max_track_depth = 0;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 	{

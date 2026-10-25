@@ -86,7 +86,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
 		return;
 
-	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + (float)data->visual_row_counter * NAUI_DPI(data->zoom.y);
+	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + data->content_height;
 	if ((float)naui_mouse_y() < rows_bottom)
 		return;
 

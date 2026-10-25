@@ -124,6 +124,7 @@ typedef struct
 	Uph_Track *rename_track;
 	Naui_String rename_old_name;
 	uint32_t visual_row_counter;
+	float visual_row_y;
 	uint32_t max_track_depth;
 	float content_height;
 	Uph_SnapResolution snap_resolution;

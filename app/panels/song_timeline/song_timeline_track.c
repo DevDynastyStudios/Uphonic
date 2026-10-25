@@ -320,7 +320,7 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_border_color");
 
 	const float row_height = NAUI_DPI(uph_song_timeline_data.zoom.y);
-	const float row_y = uph_song_timeline_data.panel_bounding_box.y - uph_song_timeline_data.scroll.y + (float)row_counter * row_height;
+	const float row_y = uph_song_timeline_data.panel_bounding_box.y - uph_song_timeline_data.scroll.y + uph_song_timeline_data.visual_row_y;
 
 	Uph_ActionTrackRef track_ref = uph_action_track_ref(track);
 	const bool row_visible = row_y + row_height >= uph_song_timeline_data.panel_bounding_box.y && row_y <= uph_song_timeline_data.panel_bounding_box.y + uph_song_timeline_data.panel_bounding_box.height;

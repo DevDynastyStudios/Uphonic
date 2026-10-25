@@ -367,16 +367,18 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	const float row_height = track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(48) : NAUI_DPI(uph_song_timeline_data.zoom.y);
 	leaf({
 		.id = leaf_id_indexed("uph_song_timeline_row", (uint64_t)track),
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(48) : NAUI_DPI(uph_song_timeline_data.zoom.y))}
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(row_height)}
 	})
 	{
 		_uph_song_timeline_render_track_header(track, depth, options_menu, color_menu);
 		if (track->type != UPH_RESOURCE_GROUP)
 			uph_song_timeline_render_track_timeline(track);
 	}
+	data->visual_row_y += row_height;
 
 	if (track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED))
 		return;
