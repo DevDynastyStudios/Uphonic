@@ -35,7 +35,6 @@ static void uph_open_project_picked(const Naui_DialogResult *result, void *user_
 	if (is_cancelled || result->count == 0)
 		return;
 
-	// The dialog hands back either a project folder or a .uph file. A .uph is validated while it is unpacked
 	const Naui_Path picked = naui_path_normalize(result->paths[0]);
 	bool opened = false;
 	if (naui_path_is_directory(picked))
