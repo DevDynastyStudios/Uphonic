@@ -8,6 +8,8 @@
 
 "automation.default.name": "無題のオートメーション",
 "automation.menu.title": "オートメーション一覧",
+"automation.menu.none": "オートメーション可能なパラメーターがありません",
+"automation.menu.target": "オートメーション対象",
 
 "dialog.cancel": "キャンセル",
 "dialog.deletefile": "$「{0}」を削除してもよろしいですか？",
@@ -104,8 +106,12 @@
 "plugin.menu.name": "名前",
 "plugin.menu.none.detected": "プラグインが見つかりません！",
 "plugin.menu.title": "プラグイン一覧",
+"plugin.menu.none.matching": "検索に一致するプラグインがありません",
+"plugin.menu.target.effect": "エフェクトの追加先",
+"plugin.menu.target.instrument": "音源の読み込み先",
 "plugin.menu.type": "種類",
 "plugin.menu.vendor": "メーカー",
+"master.track.title": "マスター",
 
 "recovery.discard": "破棄",
 "recovery.project_found": "保存されていないプロジェクトが見つかりました。復元または破棄しますか？",

@@ -7,6 +7,8 @@
 
 "automation.default.name": "Automatisation sans nom",
 "automation.menu.title": "Liste des automatisations",
+"automation.menu.none": "Aucun paramètre à automatiser",
+"automation.menu.target": "Automatisation de",
 
 "dialog.cancel": "Annuler",
 "dialog.delete_file": "$Êtes-vous sûr de vouloir supprimer « {0} » ?",
@@ -103,8 +105,12 @@
 "plugin.menu.name": "Nom",
 "plugin.menu.none.detected": "Aucun plugin détecté !",
 "plugin.menu.title": "Liste des plugins",
+"plugin.menu.none.matching": "Aucun plugin ne correspond à votre recherche",
+"plugin.menu.target.effect": "Ajout d'un effet à",
+"plugin.menu.target.instrument": "Chargement de l'instrument sur",
 "plugin.menu.type": "Type",
 "plugin.menu.vendor": "Éditeur",
+"master.track.title": "Master",
 
 "recovery.discard": "Ignorer",
 "recovery.project_found": "Un projet non enregistré a été trouvé. Voulez-vous le restaurer ou l’ignorer ?",

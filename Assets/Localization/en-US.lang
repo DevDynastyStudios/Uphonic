@@ -7,6 +7,8 @@
 
     "automation.default.name": "Untitled Automation",
     "automation.menu.title": "Automation List",
+    "automation.menu.none": "No parameters to automate",
+    "automation.menu.target": "Automating",
 
     "dialog.cancel": "Cancel",
     "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",
@@ -105,6 +107,9 @@
 	"plugin.menu.scanning": "Scanning plugins...",
     "plugin.menu.none.detected": "No plugins detected!",
     "plugin.menu.title": "Plugin List",
+    "plugin.menu.none.matching": "No plugins match your search",
+    "plugin.menu.target.effect": "Adding effect to",
+    "plugin.menu.target.instrument": "Loading instrument on",
     "plugin.menu.type": "Type",
     "plugin.menu.vendor": "Vendor",
 

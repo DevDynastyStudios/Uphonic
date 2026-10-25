@@ -1198,6 +1198,7 @@ static void uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_dat
     const Naui_Vec2 lo_pos = naui_measure_text(data->target_string->data, lo, font_size, 0);
     const Naui_Vec2 hi_pos = naui_measure_text(data->target_string->data, hi, font_size, 0);
 
+    naui_push_clip_rect(box.x, box.y, box.width, box.height);
     naui_fill_rect(
         (Naui_Vec2) { draw_x + lo_pos.x, box.y },
         (Naui_Vec2) { hi_pos.x - lo_pos.x, box.height },
@@ -1205,6 +1206,7 @@ static void uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_dat
         0.0f,
         NAUI_CORNER_NONE
     );
+    naui_pop_clip_rect();
 }
 
 static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
@@ -1215,20 +1217,23 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     const float draw_x = box.x - data->scroll_x;
 
     const Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size, 0);
+    const float cursor_width = NAUI_DPI(2.0f);
 
+    naui_push_clip_rect(box.x, box.y, box.width + cursor_width, box.height);
     naui_fill_rect(
         (Naui_Vec2) {
             draw_x + text_size.x,
             box.y
         },
         (Naui_Vec2) {
-            NAUI_DPI(2.0f),
+            cursor_width,
             box.height
         },
         naui_theme_color("uph_ui_text_color"),
         0.0f,
         NAUI_CORNER_NONE
     );
+    naui_pop_clip_rect();
 }
 
 bool uph_ui_textfield_active(const Leaf_ID id)
@@ -1507,8 +1512,6 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
     })
     {
-        naui_push_clip_rect(field_box.x + padding_x, field_box.y, visible_width, field_box.height);
-
         Uph_TextfieldDrawData draw_data = { value, placeholder, data->scroll_x };
 
         if (active)
@@ -1555,8 +1558,6 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             },
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
         });
-
-        naui_pop_clip_rect();
     }
 
     if (data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT)
