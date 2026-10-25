@@ -320,7 +320,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 						}
 					}
 
-					if (uph_ui_image_button_ex(naui_asset_image("uph_icon_dots"), leaf_id_indexed("uph_song_timeline_options", track_id), (Naui_Vec2) { button_size, button_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
+					if (uph_ui_image_button_ex(naui_asset_image("uph_icon_gear"), leaf_id_indexed("uph_song_timeline_options", track_id), (Naui_Vec2) { button_size, button_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
 						_uph_song_timeline_open_options(track, options_menu);
 
 					if (track->type == UPH_RESOURCE_GROUP && uph_ui_text_button(track->state & UPH_TRACK_TIMELINE_COLLAPSED ? "+" : "-", leaf_id_indexed("uph_song_timeline_collapse", track_id)))
