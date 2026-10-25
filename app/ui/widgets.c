@@ -1277,6 +1277,54 @@ static void uph_ui__textfield_paste(Uph_TextfieldData *data, Naui_String *value,
     }
 }
 
+static void uph_ui__textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawData *draw_data, bool active)
+{
+    if (active)
+    {
+        leaf({
+            .custom_draw = uph_ui_textfield_selection_draw,
+            .custom_draw_data = LEAF_DATA_SLICE(*data),
+            .size = {
+                .width = LEAF_SIZE_FULL,
+                .height = LEAF_SIZE_FULL
+            },
+            .floating = {
+                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            },
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+        });
+    }
+
+    leaf({
+        .custom_draw = uph_ui_textfield_text_draw,
+        .custom_draw_data = LEAF_DATA_SLICE(*draw_data),
+        .size = {
+            .width = LEAF_SIZE_FULL,
+            .height = LEAF_SIZE_FULL
+        },
+        .floating = {
+            .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+            .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        },
+        .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+    });
+
+    leaf({
+        .custom_draw = active ? uph_ui_textfield_cursor : NULL,
+        .custom_draw_data = LEAF_DATA_SLICE(*data),
+        .size = {
+            .width = LEAF_SIZE_FULL,
+            .height = LEAF_SIZE_FULL
+        },
+        .floating = {
+            .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+            .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+        },
+        .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+    });
+}
+
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
 {
     Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
@@ -1285,6 +1333,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
     const bool hovered = uph_ui_widget_hovered(id);
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const float text_offset = (flags & UPH_UI_TEXTFIELD_FLAG_SEARCH) ? font_size + NAUI_DPI(6.0f) : 0.0f;
 
     bool active = (data->id.value == id.value) && (data->mode == UPH_UI_EDIT_MODE_TEXT);
 
@@ -1302,7 +1351,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         if (hovered)
         {
             Leaf_BoundingBox box = leaf_get_bounding_box(id);
-            float local_x = (float)naui_mouse_x() - box.x + (active ? data->scroll_x : 0.0f);
+            float local_x = (float)naui_mouse_x() - box.x - text_offset + (active ? data->scroll_x : 0.0f);
 
             uph_ui__begin_text_edit(data, id, value, uph_ui__cursor_from_x(value, local_x, font_size));
             active = true;
@@ -1329,7 +1378,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     if (active && hovered && naui_mouse_dragging(NAUI_MOUSE_LEFT))
     {
         Leaf_BoundingBox box = leaf_get_bounding_box(id);
-        float local_x = (float)naui_mouse_x() - box.x + data->scroll_x;
+        float local_x = (float)naui_mouse_x() - box.x - text_offset + data->scroll_x;
 
         size_t new_cursor = uph_ui__cursor_from_x(value, local_x, font_size);
         if (!data->select_active)
@@ -1481,7 +1530,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     const float padding_y = NAUI_DPI(padding.y);
 
     Leaf_BoundingBox field_box = leaf_get_bounding_box(id);
-    const float visible_width = NAUI_MAX(field_box.width - padding_x * 2.0f, 0.0f);
+    const float visible_width = NAUI_MAX(field_box.width - padding_x * 2.0f - text_offset, 0.0f);
 
     if (active)
     {
@@ -1509,55 +1558,29 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         },
         .padding = LEAF_PADDING_AXES(padding_x, padding_y),
         .color = {naui_theme_color("uph_ui_frame_bg_color")},
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+        .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+        .direction = LEAF_DIRECTION_HORIZONTAL,
+        .child_gap = (flags & UPH_UI_TEXTFIELD_FLAG_SEARCH) ? text_offset - font_size : 0
     })
     {
         Uph_TextfieldDrawData draw_data = { value, placeholder, data->scroll_x };
 
-        if (active)
+        if (flags & UPH_UI_TEXTFIELD_FLAG_SEARCH)
         {
             leaf({
-                .custom_draw = uph_ui_textfield_selection_draw,
-                .custom_draw_data = LEAF_DATA_SLICE(*data),
-                .size = {
-                    .width = LEAF_SIZE_FULL,
-                    .height = LEAF_SIZE_FULL
-                },
-                .floating = {
-                    .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-                    .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-                },
-                .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+                .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
+                .image = naui_asset_image("uph_icon_zoom"),
+                .color = {naui_theme_color("naui_panel_text_color")}
             });
+            leaf({
+                .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+            })
+            {
+                uph_ui__textfield_layers(data, &draw_data, active);
+            }
         }
-
-        leaf({
-            .custom_draw = uph_ui_textfield_text_draw,
-            .custom_draw_data = LEAF_DATA_SLICE(draw_data),
-            .size = {
-                .width = LEAF_SIZE_FULL,
-                .height = LEAF_SIZE_FULL
-            },
-            .floating = {
-                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-            },
-            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
-        });
-
-        leaf({
-            .custom_draw = active ? uph_ui_textfield_cursor : NULL,
-            .custom_draw_data = LEAF_DATA_SLICE(*data),
-            .size = {
-                .width = LEAF_SIZE_FULL,
-                .height = LEAF_SIZE_FULL
-            },
-            .floating = {
-                .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-                .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-            },
-            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
-        });
+        else uph_ui__textfield_layers(data, &draw_data, active);
     }
 
     if (data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT)

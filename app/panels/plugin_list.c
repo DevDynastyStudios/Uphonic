@@ -525,7 +525,7 @@ void uph_plugin_list_on_update(void)
         .child_gap = NAUI_DPI(padding.x)
     })
     {
-        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, "Search");
+        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_SEARCH, "Search");
         if (uph_ui_text_button("Refresh", leaf_id("uph_plugin_list_refresh")))
             uph_plugin_scan_start(uph_plugin_list_data.plugin_infos);
     }
