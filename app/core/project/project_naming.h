@@ -1,3 +1,4 @@
+Naui_Path uph_project_unique_folder(const Naui_Path parent, const char *name);
 Naui_Path uph_project_unique_workspace_folder(const char *name);
 Naui_String uph_project_untitled_name(void);
 bool uph_project_name_is_untitled(const char *name);

@@ -17,12 +17,13 @@
     "dialog.exit.save": "Save",
     "dialog.exit.title": "Unsaved Changes",
     "dialog.ok": "OK",
-    "dialog.open_project.invalid.message": "Choose a project folder inside the Uphonic workspace.",
     "dialog.open_project.invalid.title": "Can't Open Project",
     "dialog.restore.discard": "Discard",
     "dialog.restore.message": "Uphonic closed unexpectedly. Would you like to restore the unsaved changes of this project?",
     "dialog.restore.restore": "Restore",
     "dialog.restore.title": "Recover Project",
+	"dialog.save_project.failed.title": "Couldn't Save Project",
+	"dialog.save_project.failed.message": "The project couldn't be saved under that name. Try a different name.",
 
     "effect_list.show": "Show",
     "effect_list.hide": "Hide",
@@ -73,6 +74,7 @@
     "menu.file.new": "New Project",
     "menu.file.open": "Open",
     "menu.file.save": "Save",
+	"menu.file.save_as": "Save As",
 
     "menu.help": "Help",
     "menu.help.about": "About",
@@ -194,8 +196,10 @@
     "settings.page.interface": "Interface",
     "settings.page.midi": "MIDI",
     "settings.page.plugins": "Plugins",
+	"settings.page.shortcuts": "Shortcuts",
 
     "settings.plugins.add": "Add",
+	"settings.plugins.browse_title": "Select Plugin Folder",
     "settings.plugins.no_paths": "No plugin paths added.",
     "settings.plugins.options": "Options",
     "settings.plugins.path_invalid": "That folder doesn't exist.",

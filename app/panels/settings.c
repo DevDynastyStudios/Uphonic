@@ -83,8 +83,6 @@ typedef struct
 
 	Naui_String language_unlisted;
 	Naui_String midi_unlisted[2];
-	Naui_String new_plugin_path;
-	Naui_String rejected_plugin_path;
 }
 Uph_SettingsData;
 
@@ -952,38 +950,49 @@ static void uph_settings_page_midi(Uph_SettingsData *data)
 	uph_settings_checkbox_row(NAUI_TR("settings.midi.filter_channel"), &midi->filter_by_channel, leaf_id("uph_settings_filter_channel"));
 }
 
-static bool uph_settings_add_plugin_path(Uph_SettingsData *data)
+#define UPH_SETTINGS_PLUGIN_DIALOG_KEY "uph_settings_plugin_folder"
+
+static bool uph_settings_add_plugin_path(const Naui_Path folder)
 {
 	Uph_PluginSettings *plugin = &uph_state.settings.plugin;
 
-	const Naui_String text = naui_string_trim(data->new_plugin_path);
-	if (text.length == 0)
-		return false;
-
-	const Naui_Path path = naui_path_from_cstr(text.data);
+	const Naui_Path path = naui_path_normalize(folder);
 	if (!naui_path_is_directory(path))
 	{
-		data->rejected_plugin_path = text;
+		naui_log(NAUI_LOG_WARNING, "Not adding plugin path, it isn't a folder: %s", path.data);
 		return false;
 	}
 
 	for (int32_t i = 0; i < (int32_t)naui_list_len(plugin->plugin_paths); i++)
 	{
-		if (strcmp(plugin->plugin_paths[i].data, path.data) == 0)
-		{
-			data->new_plugin_path = (Naui_String){ 0 };
+		if (strcmp(naui_path_normalize(plugin->plugin_paths[i]).data, path.data) == 0)
 			return false;
-		}
 	}
 
 	naui_list_push(plugin->plugin_paths, path);
-	data->new_plugin_path = (Naui_String){ 0 };
-	data->rejected_plugin_path = (Naui_String){ 0 };
 	return true;
+}
+
+static void uph_settings_plugin_folder_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+{
+	(void)user_data;
+	if (is_cancelled || result->count == 0)
+		return;
+
+	uph_settings_add_plugin_path(result->paths[0]);
+}
+
+static void uph_settings_open_plugin_folder_dialog(void)
+{
+	if (!naui_dialog_open_folder(UPH_SETTINGS_PLUGIN_DIALOG_KEY, NULL, uph_settings_plugin_folder_picked, NULL))
+		return;
+
+	naui_dialog_title_set(UPH_SETTINGS_PLUGIN_DIALOG_KEY, NAUI_TR("settings.plugins.browse_title"));
 }
 
 static void uph_settings_page_plugins(Uph_SettingsData *data)
 {
+	(void)data;
 	Uph_PluginSettings *plugin = &uph_state.settings.plugin;
 	const float font_size = uph_settings_font_size();
 
@@ -1023,27 +1032,16 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 	if (remove_index >= 0)
 		naui_list_remove(plugin->plugin_paths, remove_index);
 
-	bool add = false;
 	leaf({
 		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIT },
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(8.0f),
 		.padding = { 0, 0, (int32_t)NAUI_DPI(4.0f), 0 }
 	})
 	{
-		if (uph_ui_textfield(&data->new_plugin_path, leaf_id("uph_settings_plugin_path"), UPH_UI_TEXTFIELD_FLAG_NONE, NAUI_TR("settings.plugins.path_placeholder")))
-			add = true;
-
 		if (uph_ui_text_button(NAUI_TR("settings.plugins.add"), leaf_id("uph_settings_plugin_add")))
-			add = true;
+			uph_settings_open_plugin_folder_dialog();
 	}
-
-	if (add)
-		uph_settings_add_plugin_path(data);
-
-	if (data->rejected_plugin_path.length > 0 && strcmp(data->rejected_plugin_path.data, data->new_plugin_path.data) == 0)
-		leaf_text(NAUI_TR("settings.plugins.path_invalid"), { .font_size = { font_size }, .color = { naui_theme_color("uph_stop_icon_color") } });
 
 	uph_settings_section(NAUI_TR("settings.plugins.options"), false, NULL, UPH_SETTINGS_NO_ID);
 	uph_settings_checkbox_row(NAUI_TR("settings.plugins.sandbox"), &plugin->sandbox_plugins, leaf_id("uph_settings_sandbox"));

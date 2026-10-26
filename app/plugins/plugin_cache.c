@@ -19,25 +19,45 @@ static inline Naui_Path _uph_plugin_get_cache_file(void)
 	return naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json"));
 }
 
-static void _uph_plugin_cache_collect(Naui_List(Naui_Path) *files, const Naui_Path folder, const atomic_bool *cancel)
-{
-	static const char* plugin_extensions[] = {".clap", ".vst3"};
-	static const size_t plugin_ext_count = sizeof(plugin_extensions) / sizeof(plugin_extensions[0]);
+#define UPH_PLUGIN_SCAN_MAX_DEPTH 16
 
-	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NULL, true);
+static bool _uph_plugin_cache_is_plugin(const Naui_Path path)
+{
+	static const char *const plugin_extensions[] = { ".clap", ".vst3" };
+
+	const Naui_StringView extension = naui_file_extension(&path);
+	for (size_t i = 0; i < sizeof(plugin_extensions) / sizeof(plugin_extensions[0]); i++)
+	{
+		if (naui_string_view_equals_cstr(extension, plugin_extensions[i], false))
+			return true;
+	}
+
+	return false;
+}
+
+static bool _uph_plugin_cache_files_contain(const Naui_List(Naui_Path) files, const Naui_Path path)
+{
+	for (size_t i = 0; i < naui_list_len(files); i++)
+	{
+		if (_uph_module_path_equal(files[i], path))
+			return true;
+	}
+
+	return false;
+}
+
+static void _uph_plugin_cache_collect(Naui_List(Naui_Path) *files, const Naui_Path folder, const atomic_bool *cancel, uint32_t depth)
+{
+	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NULL, false);
 	while (naui_dir_iterator_valid(&it) && !atomic_load(cancel))
 	{
-		if (it.entry.is_directory)
-			_uph_plugin_cache_collect(files, it.entry.path, cancel);
-
-		for (size_t i = 0; i < plugin_ext_count; i++)
+		if (_uph_plugin_cache_is_plugin(it.entry.path))
 		{
-			if (naui_string_view_equals_cstr(naui_file_extension(&it.entry.path), plugin_extensions[i], true))
-			{
+			if (!_uph_plugin_cache_files_contain(*files, it.entry.path))
 				naui_list_push(*files, it.entry.path);
-				break;
-			}
 		}
+		else if (it.entry.is_directory && depth < UPH_PLUGIN_SCAN_MAX_DEPTH)
+			_uph_plugin_cache_collect(files, it.entry.path, cancel, depth + 1);
 
 		naui_dir_iterator_next(&it);
 	}
@@ -124,7 +144,7 @@ static void _uph_plugin_scan_job(void *data, char *err_buf, size_t err_size)
 
 	Naui_List(Naui_Path) files = NULL;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(scan->folders); i++)
-		_uph_plugin_cache_collect(&files, scan->folders[i], &scan->cancel);
+		_uph_plugin_cache_collect(&files, scan->folders[i], &scan->cancel, 0);
 
 	atomic_store(&scan->total, (uint32_t)naui_list_len(files));
 

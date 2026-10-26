@@ -276,6 +276,9 @@ void uph_project_queue_dropped_samples(const Uph_Project *project, const Naui_Pa
 void uph_project_sweep_deleted_samples(const Uph_Project *project)
 {
 	const Naui_Path folder = uph_project_get_path(project);
+	if (!folder.data[0])
+		return;
+
 	Naui_List(Naui_String) queue = _uph_pending_delete_read(folder);
 	if (naui_list_len(queue) == 0)
 	{

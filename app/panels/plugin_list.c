@@ -108,8 +108,7 @@ static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
     naui_panel_close(naui_panel_current());
 }
 
-// The plugin itself has to be created on this thread (CLAP and VST3 both require init and the GUI to be on the main thread),
-// so the load only starts once the file is cached and the loading text has actually been drawn
+// Load plugins on the main thread only plz
 static void uph_plugin_list_load(void)
 {
     Uph_PluginListLoad *load = &uph_plugin_list_data.load;
@@ -148,7 +147,6 @@ static bool uph_plugin_list_update_load(void)
     return true;
 }
 
-// Finished scans can drop entries, so the selection is found again by path instead of by index
 static void uph_plugin_list_poll_scan(void)
 {
     Uph_PluginListData *data = &uph_plugin_list_data;
@@ -279,7 +277,6 @@ static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
 {
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
-
     const Leaf_ID id = leaf_id_indexed("uph_plugin_list_item", item_index);
     const bool hovered = uph_ui_widget_hovered(id);
     const bool selected = uph_plugin_list_data.current_plugin_index == (int32_t)item_index;
@@ -329,8 +326,7 @@ static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
     if (uph_plugin_list_data.filter.length == 0)
         return true;
 
-    return naui_string_contains(info->name, uph_plugin_list_data.filter, false)
-        || naui_string_contains(info->vendor, uph_plugin_list_data.filter, false);
+    return naui_string_contains(info->name, uph_plugin_list_data.filter, false) || naui_string_contains(info->vendor, uph_plugin_list_data.filter, false);
 }
 
 static void uph_plugin_list_main_menu(void)
@@ -507,7 +503,6 @@ static void uph_plugin_list_current_menu(void)
 void uph_plugin_list_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("plugin.menu.title"));
-
     uph_plugin_list_poll_scan();
 
     if (uph_plugin_list_update_load())
@@ -564,6 +559,7 @@ void uph_plugin_list_on_update(void)
         {
             uph_plugin_list_main_menu();
         }
+		
         uph_plugin_list_current_menu();
     }
 }

@@ -333,6 +333,7 @@ Uph_Automation;
 typedef struct
 {
 	Naui_String title;
+	Naui_Path folder;
 	Uph_Version project_version;
 	Uph_TimeSignature time_signature;
 
