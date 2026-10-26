@@ -1,13 +1,18 @@
-Naui_Path uph_project_unique_workspace_folder(const char *name)
+Naui_Path uph_project_unique_folder(const Naui_Path parent, const char *name)
 {
-	Naui_Path folder = naui_path_join(UPHONIC_WORKSPACE_FOLDER, naui_path_from_cstr(name));
+	Naui_Path folder = naui_path_join(parent, naui_path_from_cstr(name));
 	for (int32_t counter = 1; naui_path_exists(folder); counter++)
 	{
 		const Naui_String numbered = naui_string_format("%s (%d)", name, counter);
-		folder = naui_path_join(UPHONIC_WORKSPACE_FOLDER, naui_path_from_cstr(numbered.data));
+		folder = naui_path_join(parent, naui_path_from_cstr(numbered.data));
 	}
 
 	return folder;
+}
+
+Naui_Path uph_project_unique_workspace_folder(const char *name)
+{
+	return uph_project_unique_folder(UPHONIC_WORKSPACE_FOLDER, name);
 }
 
 Naui_String uph_project_untitled_name(void)

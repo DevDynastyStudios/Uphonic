@@ -6,8 +6,11 @@
 bool uph_project_create(Naui_String project_name);
 void uph_project_close(Uph_Project* project);
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type);
+
+bool uph_project_has_been_saved(const Uph_Project* project);
+bool uph_project_save_as(Uph_Project* project, const Naui_Path destination);
 bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_ExportFormat format);
 bool uph_project_load(Uph_Project* project, const Naui_Path project_path);
-
 bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path);
+
 Naui_Path uph_project_get_path(const Uph_Project* project);

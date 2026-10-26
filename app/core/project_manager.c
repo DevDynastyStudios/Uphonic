@@ -29,7 +29,16 @@ void uph_project_close(Uph_Project *project)
 
 bool uph_project_create(Naui_String project_name)
 {
+	const Naui_Path old_folder = uph_project_get_path(&uph_state.project);
+	const bool discard_old = !naui_string_is_empty(uph_state.project.title) && !uph_project_has_been_saved(&uph_state.project);
+
 	uph_project_close(&uph_state.project);
+	if (discard_old && naui_path_exists(old_folder))
+	{
+		uph_recovery_release_lock();
+		uph_recovery_discard_project(old_folder);
+	}
+
 	uph_project_remove_abandoned_untitled();
 	uph_project_clear_adopted_samples();
 
@@ -49,6 +58,7 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.project.last_accessed = current_time;
 	uph_state.project.last_modified = current_time;
 	uph_state.project.title = project_name;
+	uph_state.project.folder = naui_path_normalize(project_dest);
 	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4 };
 	naui_list_clear(uph_state.project.midi_patterns);
 	naui_list_clear(uph_state.project.samples);
@@ -110,6 +120,150 @@ bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 	return saved;
 }
 
+bool uph_project_has_been_saved(const Uph_Project* project)
+{
+	const Naui_Path folder = uph_project_get_path(project);
+	if (naui_string_is_empty(project->title) || !folder.data[0])
+		return false;
+
+	return naui_path_exists(naui_path_join(folder, NAUI_PATH(UPH_IO_FILE_PROJECT)));
+}
+
+#pragma region Save As
+
+static Naui_String _uph_project_clean_name(const char *name)
+{
+	char buffer[NAUI_STRING_MAX_SIZE];
+	snprintf(buffer, sizeof(buffer), "%s", name ? name : "");
+
+	size_t length = strlen(buffer);
+	const size_t extension_length = strlen(".uph");
+	if (length > extension_length)
+	{
+		const char *tail = buffer + length - extension_length;
+		bool is_extension = true;
+		for (size_t i = 0; i < extension_length && is_extension; i++)
+			is_extension = tolower((unsigned char)tail[i]) == ".uph"[i];
+
+		if (is_extension)
+			buffer[length -= extension_length] = '\0';
+	}
+
+	while (length > 0 && (buffer[length - 1] == ' ' || buffer[length - 1] == '.'))
+		buffer[--length] = '\0';
+
+	const char *start = buffer;
+	while (*start == ' ')
+		start++;
+
+	Naui_String clean = naui_string_from_cstr(start);
+	for (char *c = clean.data; *c; c++)
+	{
+		if ((unsigned char)*c < 0x20 || strchr("<>:\"/\\|?*", *c))
+			*c = '_';
+	}
+
+	return clean;
+}
+
+static void _uph_project_adopt_new_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+{
+	uph_audio_engine_lock();
+	project->title = naui_view_to_string(naui_file_filename(&new_folder));
+	project->folder = naui_path_normalize(new_folder);
+	uph_project_rebase_sample_paths(project, old_folder, new_folder);
+	uph_audio_engine_unlock();
+
+	if (!uph_recovery_acquire_lock(new_folder))
+		naui_log(NAUI_LOG_WARNING, "Project may be open in another Uphonic instance: %s", new_folder.data);
+}
+
+static bool _uph_project_move_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+{
+	uph_recovery_release_lock();
+	if (!naui_directory_rename(old_folder, new_folder))
+	{
+		if (!naui_directory_merge(old_folder, new_folder, NAUI_FILE_COPY_OVERRIDE))
+		{
+			naui_log(NAUI_LOG_ERROR, "Failed to move the project folder to: %s", new_folder.data);
+			naui_directory_remove_all(new_folder);
+			uph_recovery_acquire_lock(old_folder);
+			return false;
+		}
+
+		naui_directory_remove_all(old_folder);
+	}
+
+	_uph_project_adopt_new_folder(project, old_folder, new_folder);
+	return true;
+}
+
+static bool _uph_project_copy_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+{
+	uph_recovery_release_lock();
+	if (!naui_directory_merge(old_folder, new_folder, NAUI_FILE_COPY_OVERRIDE))
+	{
+		naui_log(NAUI_LOG_ERROR, "Failed to copy the project folder to: %s", new_folder.data);
+		naui_directory_remove_all(new_folder);
+		uph_recovery_acquire_lock(old_folder);
+		return false;
+	}
+
+	const Naui_Path origin = naui_path_join(new_folder, NAUI_PATH(UPH_ORIGIN_FILE));
+	if (naui_path_exists(origin))
+		naui_file_delete(origin);
+
+	_uph_project_adopt_new_folder(project, old_folder, new_folder);
+	return true;
+}
+
+bool uph_project_save_as(Uph_Project* project, const Naui_Path destination)
+{
+	const Naui_String clean_name = _uph_project_clean_name(naui_view_to_string(naui_file_filename(&destination)).data);
+	if (clean_name.length == 0)
+		return false;
+
+	const Naui_Path parent = naui_path_normalize(naui_path_parent(destination));
+	const Naui_Path old_folder = uph_project_get_path(project);
+	const Naui_Path chosen_folder = naui_path_normalize(naui_path_join(parent, naui_path_from_cstr(clean_name.data)));
+
+	if (uph_project_names_equal(chosen_folder.data, naui_path_normalize(old_folder).data))
+		return uph_project_save(project, UPH_SAVE_TYPE_CANONICAL);
+
+	if (_uph_path_is_inside(chosen_folder, old_folder))
+	{
+		naui_log(NAUI_LOG_ERROR, "Can't save a project inside its own folder: %s", chosen_folder.data);
+		return false;
+	}
+
+	if (!naui_path_exists(parent) && !naui_directories_create(parent))
+	{
+		naui_log(NAUI_LOG_ERROR, "Failed to create the folder to save into: %s", parent.data);
+		return false;
+	}
+
+	const Naui_Path new_folder = uph_project_unique_folder(parent, clean_name.data);
+	const bool moving = !uph_project_has_been_saved(project);
+
+	if (!moving && !uph_project_save(project, UPH_SAVE_TYPE_TEMP))
+		return false;
+
+	const bool relocated = moving ?
+		_uph_project_move_to_folder(project, old_folder, new_folder) :
+		_uph_project_copy_to_folder(project, old_folder, new_folder);
+
+	if (!relocated)
+		return false;
+
+	const bool saved = uph_project_save(project, UPH_SAVE_TYPE_CANONICAL);
+	if (saved && !moving)
+		uph_recovery_discard_autosave(old_folder);
+
+	return saved;
+}
+
+#pragma endregion
+
 bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 {
 	uph_state.shared.song_timeline_playing = false;
@@ -156,7 +310,8 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	{
 		const Naui_Path normalized_load_path = naui_path_normalize(load_path);
 		project->title = naui_view_to_string(naui_file_filename(&normalized_load_path));
-		uph_project_sweep_deleted_samples(project);	// a crash can leave a pending delete list behind
+		project->folder = normalized_load_path;
+		uph_project_sweep_deleted_samples(project);
 		naui_action_clear_history();
 
 		if (from_autosave)
@@ -200,5 +355,8 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 
 Naui_Path uph_project_get_path(const Uph_Project* project)
 {
-	return naui_path_normalize(naui_path_join(UPHONIC_WORKSPACE_FOLDER, NAUI_PATH(project->title.data)));
+	if (project->folder.data[0])
+		return project->folder;
+
+	return (Naui_Path){ 0 };
 }

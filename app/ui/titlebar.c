@@ -1,3 +1,5 @@
+#define UPH_SAVE_PROJECT_DIALOG_KEY "_uph_save_project"
+
 static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_Color fg_color, Leaf_Color bg_color, void (*event)(void))
 {
 	const float dpi_scale = naui_app_dpi_scale();
@@ -29,35 +31,25 @@ static inline void uph_defer_maximize(void) { naui_defer(naui_app_maximized() ? 
 
 #pragma region File Dialogs
 
-static void uph_open_project_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+static void _uph_open_project_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
 	(void)user_data;
 	if (is_cancelled || result->count == 0)
 		return;
 
 	const Naui_Path picked = naui_path_normalize(result->paths[0]);
-	bool opened = false;
-	if (naui_path_is_directory(picked))
-	{
-		const bool in_workspace = strcmp(naui_path_normalize(naui_path_parent(picked)).data, naui_path_normalize(UPHONIC_WORKSPACE_FOLDER).data) == 0;
-		opened = in_workspace && naui_path_exists(naui_path_join(picked, NAUI_PATH(UPH_IO_FILE_PROJECT))) && uph_project_load(&uph_state.project, picked);
-	}
-	else
-		opened = uph_project_load(&uph_state.project, picked);
-
-	if (!opened)
-	{
-		uph_dialog_open(&(Uph_DialogConfig){
-			.title = NAUI_TR("dialog.open_project.invalid.title"),
-			.message = NAUI_TR("dialog.open_project.invalid.message"),
-			.buttons = { NAUI_TR("dialog.ok") },
-			.default_button = 0,
-			.cancel_button = 0
-		});
-	}
+	uph_project_load(&uph_state.project, picked);
 }
 
-static void uph_export_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+static void _uph_import_midi(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+{
+	if (is_cancelled || result->count == 0)
+		return;
+
+	uph_project_add_file(&uph_state.project, result->paths[0]);
+}
+
+static void _uph_export_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
 	if (is_cancelled || result->count == 0)
 		return;
@@ -65,15 +57,61 @@ static void uph_export_picked(const Naui_DialogResult *result, void *user_data, 
 	uph_project_export(&uph_state.project, result->paths[0], (Uph_ExportFormat)(uintptr_t)user_data);
 }
 
-static void uph_open_export_dialog(const char *key, const char *title, const char *extension, Uph_ExportFormat format)
+static void _uph_open_export_dialog(const char *key, const char *title, const char *extension, Uph_ExportFormat format)
 {
-	if (!naui_dialog_save_file(key, NAUI_EXTENSIONS(extension), uph_export_picked, (void*)(uintptr_t)format))
+	if (!naui_dialog_save_file(key, NAUI_EXTENSIONS(extension), _uph_export_picked, (void*)(uintptr_t)format))
 		return;
 
 	char name[NAUI_STRING_MAX_SIZE];
 	snprintf(name, sizeof(name), "%s%s", uph_state.project.title.data, extension);
 	naui_dialog_title_set(key, title);
 	naui_dialog_name_set(key, name);
+}
+
+static void _uph_save_project_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+{
+	(void)user_data;
+	if (is_cancelled || result->count == 0)
+		return;
+
+	if (uph_project_save_as(&uph_state.project, result->paths[0]))
+		return;
+
+	uph_dialog_open(&(Uph_DialogConfig){
+		.title = NAUI_TR("dialog.save_project.failed.title"),
+		.message = NAUI_TR("dialog.save_project.failed.message"),
+		.buttons = { NAUI_TR("dialog.ok") },
+		.default_button = 0,
+		.cancel_button = 0
+	});
+}
+
+static void _uph_open_save_dialog(const char *title)
+{
+	if (naui_dialog_find(UPH_SAVE_PROJECT_DIALOG_KEY))
+		return;
+
+	naui_dialog_default_path_set(UPHONIC_WORKSPACE_FOLDER);
+	if (!naui_dialog_save_file(UPH_SAVE_PROJECT_DIALOG_KEY, NULL, _uph_save_project_picked, NULL))
+		return;
+
+	Naui_String suggestion = { 0 };
+	if (uph_project_has_been_saved(&uph_state.project))
+	{
+		const Naui_Path free_folder = uph_project_unique_workspace_folder(uph_state.project.title.data);
+		suggestion = naui_view_to_string(naui_file_filename(&free_folder));
+	}
+
+	naui_dialog_title_set(UPH_SAVE_PROJECT_DIALOG_KEY, title);
+	naui_dialog_name_set(UPH_SAVE_PROJECT_DIALOG_KEY, suggestion.data);
+}
+
+static void _uph_save_project(void)
+{
+	if (uph_project_has_been_saved(&uph_state.project))
+		uph_project_save(&uph_state.project, UPH_SAVE_TYPE_CANONICAL);
+	else
+		_uph_open_save_dialog(NAUI_TR("menu.file.save"));
 }
 
 #pragma endregion
@@ -123,59 +161,61 @@ void uph_render_main_titlebar(void)
 				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")))
 				{
+					// Check if project has initial save
+					// If not, delete the project folder
 					uph_project_create(uph_project_untitled_name());
 				}
 
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")))
 				{
 					naui_dialog_default_path_set(UPHONIC_WORKSPACE_FOLDER);
-					naui_dialog_open_file_or_folder("uph_open_project", NAUI_EXTENSIONS(".uph"), uph_open_project_picked, NULL);
+					naui_dialog_open_file_or_folder("uph_open_project", NAUI_EXTENSIONS(".uph"), _uph_open_project_picked, NULL);
 					naui_dialog_title_set("uph_open_project", NAUI_TR("menu.file.open"));
 				}
 
 				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")))
-				{
-					uph_project_save(&uph_state.project, UPH_SAVE_TYPE_CANONICAL);
-				}
+					_uph_save_project();
 
+				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save_as"), leaf_id("uph_file_menu_save_as")))
+					_uph_open_save_dialog(NAUI_TR("menu.file.save_as"));
 
 				Uph_UIMenuID import_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.import"), leaf_id("uph_file_import_menu"));
 				if (uph_ui_menu_item(import_menu, NAUI_TR("menu.file.import.midi"), leaf_id("uph_file_import_midi")))
 				{
-
+					naui_dialog_open_file("menu.file.import.midi", NAUI_EXTENSIONS(".mid", ".midi", ".smf", ".kar", ".rmi"), _uph_import_midi, NULL);
 				}
 
 				Uph_UIMenuID export_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.export"), leaf_id("uph_file_export_menu"));
 				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.uph"), leaf_id("uph_file_export_uph")))
-					uph_open_export_dialog("uph_export_uph", NAUI_TR("menu.file.export.uph"), ".uph", UPH_EXPORT_UPH);
+					_uph_open_export_dialog("uph_export_uph", NAUI_TR("menu.file.export.uph"), ".uph", UPH_EXPORT_UPH);
 
 				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.wav"), leaf_id("uph_file_export_wav")))
-					uph_open_export_dialog("uph_export_wav", NAUI_TR("menu.file.export.wav"), ".wav", UPH_EXPORT_WAV);
+					_uph_open_export_dialog("uph_export_wav", NAUI_TR("menu.file.export.wav"), ".wav", UPH_EXPORT_WAV);
 
-				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.ogg"), leaf_id("uph_file_export_ogg")))
-				{
+				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.ogg"), leaf_id("uph_file_export_ogg")))
+				// {
 
-				}
+				// }
 					
-				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.mp3"), leaf_id("uph_file_export_mp3")))
-				{
+				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.mp3"), leaf_id("uph_file_export_mp3")))
+				// {
 
-				}
+				// }
 
-				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.flac"), leaf_id("uph_file_export_flac")))
-				{
+				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.flac"), leaf_id("uph_file_export_flac")))
+				// {
 
-				}
+				// }
 
-				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.m4a"), leaf_id("uph_file_export_m4a")))
-				{
+				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.m4a"), leaf_id("uph_file_export_m4a")))
+				// {
 
-				}
+				// }
 
-				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.midi"), leaf_id("uph_file_export_midi")))
-				{
+				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.midi"), leaf_id("uph_file_export_midi")))
+				// {
 
-				}
+				// }
 
 
 				Uph_UIMenuID edit_menu = uph_ui_menu(NAUI_TR("menu.edit"), leaf_id("uph_edit_menu"));

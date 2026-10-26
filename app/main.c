@@ -29,7 +29,7 @@ static void uph_exit_dialog_result(int32_t button, void *user_data)
 	else if (button == 1)
 	{
 		uph_recovery_discard_project(uph_project_get_path(&uph_state.project));
-		uph_autosave_mark_clean();	// An autosave in the last frames would bring the folder back
+		uph_autosave_mark_clean();
 	}
 	else
 		return;	// Cancel
@@ -49,11 +49,29 @@ static void uph_handle_close_request(void)
 		return;
 	}
  
+	const Naui_Path project_folder = uph_project_get_path(&uph_state.project);
+	const bool never_saved = !uph_project_has_been_saved(&uph_state.project);
+ 
 	if (!uph_autosave_has_unsaved_changes())
+	{
+		if (never_saved)
+			uph_recovery_discard_project(project_folder);
+ 
 		return;
+	}
  
 	if (!uph_state.settings.general.confirm_on_exit)
 	{
+		if (never_saved)
+		{
+			uph_recovery_discard_project(project_folder);
+			if (!naui_path_exists(project_folder))
+			{
+				uph_autosave_mark_clean();
+				return;
+			}
+		}
+ 
 		uph_autosave_flush();
 		return;
 	}
@@ -268,9 +286,6 @@ void naui_app_update(void)
  
 	if (!uph_dialog_blocks_input() && naui_key_down(NAUI_KEY_LCONTROL))
 	{
-		if (naui_key_pressed(NAUI_KEY_P))
-			naui_action_execute_stack(UPH_ACTION_PATTERN_CREATE, (Uph_ActionResourceCreate){0});
- 
 		if (naui_key_pressed(NAUI_KEY_Z))
 			naui_action_undo();
 		else if (naui_key_pressed(NAUI_KEY_Y))
