@@ -215,3 +215,5 @@ void uph_action_resource_removed(Uph_ResourceType type, Uph_ResourceIndex index)
 void uph_action_resource_restored(Uph_ResourceType type, Uph_ResourceIndex index);
 
 void uph_song_timeline_invalidate_tracks(void);
+void uph_song_timeline_reset_scroll(void);
+void uph_midi_editor_reset_scroll(void);

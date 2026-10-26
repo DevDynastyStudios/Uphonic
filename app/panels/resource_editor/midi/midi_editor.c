@@ -20,6 +20,12 @@ void uph_midi_editor_init(void)
 	editor->snap_resolution = UPH_SNAP_QUARTER;
 	editor->note_input.last_note_length = UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH;
 	editor->note_input.last_note_velocity = UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY;
+	uph_midi_editor_reset_scroll();
+}
+
+void uph_midi_editor_reset_scroll(void)
+{
+	Uph_MidiEditorData *editor = &uph_midi_editor_data;
 	const int32_t top_row = uph_note_map_row(&editor->note_map, UPH_MIDI_EDITOR_INITIAL_TOP_KEY);
 	editor->view.scroll = (Naui_Vec2) { 0.0f, fmaxf(0.0f, (float)top_row * uph_midi_view_lane_height(&editor->view)) };
 }

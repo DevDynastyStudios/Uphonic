@@ -32,6 +32,11 @@ void uph_song_timeline_invalidate_tracks(void)
 	}
 }
 
+void uph_song_timeline_reset_scroll(void)
+{
+	uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
+}
+
 #pragma region Panel Events
 static void uph_song_timeline_on_attach(void)
 {

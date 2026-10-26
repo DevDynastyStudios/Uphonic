@@ -63,6 +63,8 @@ bool uph_project_create(Naui_String project_name)
 
 	uph_state.shared.song_timeline_playhead_position = 0.0;
 	_uph_project_default_shared_state();
+	uph_song_timeline_reset_scroll();
+	uph_midi_editor_reset_scroll();
 
 	if (!uph_recovery_acquire_lock(project_dest))
 		naui_log(NAUI_LOG_WARNING, "Project may be open in another Uphonic instance: %s", project_dest.data);
@@ -172,6 +174,8 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 
 		_uph_project_default_shared_state();
 		uph_state.shared.song_timeline_playhead_position = 0.0;
+		uph_song_timeline_reset_scroll();
+		uph_midi_editor_reset_scroll();
 		uph_recovery_acquire_lock(uph_project_get_path(project));
 	}
 	else if (from_uph && !reused_copy)
