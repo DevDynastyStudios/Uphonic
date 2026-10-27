@@ -35,7 +35,7 @@ typedef enum
 {
 	UPH_SETTINGS_PAGE_GENERAL,
 	UPH_SETTINGS_PAGE_AUDIO,
-	UPH_SETTINGS_PAGE_INTERFACE,
+	// UPH_SETTINGS_PAGE_INTERFACE,
 	UPH_SETTINGS_PAGE_MIDI,
 	UPH_SETTINGS_PAGE_PLUGINS,
 	UPH_SETTINGS_PAGE_COUNT
@@ -679,41 +679,41 @@ static bool uph_settings_midi_dropdown(Uph_SettingsData *data, const bool input,
 	return true;
 }
 
-static bool uph_settings_drag_u32(uint32_t *value, const Leaf_ID id, const float speed, const int32_t min, const int32_t max, const char *format)
-{
-	static int32_t scratch;
-	scratch = (int32_t)NAUI_CLAMP((int64_t)*value, (int64_t)min, (int64_t)max);
+// static bool uph_settings_drag_u32(uint32_t *value, const Leaf_ID id, const float speed, const int32_t min, const int32_t max, const char *format)
+// {
+// 	static int32_t scratch;
+// 	scratch = (int32_t)NAUI_CLAMP((int64_t)*value, (int64_t)min, (int64_t)max);
 
-	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
-		return false;
+// 	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
+// 		return false;
 
-	*value = (uint32_t)scratch;
-	return true;
-}
+// 	*value = (uint32_t)scratch;
+// 	return true;
+// }
 
-static bool uph_settings_drag_u8(uint8_t *value, const Leaf_ID id, const float speed, const int32_t min, const int32_t max, const char *format)
-{
-	static int32_t scratch;
-	scratch = NAUI_CLAMP((int32_t)*value, min, max);
+// static bool uph_settings_drag_u8(uint8_t *value, const Leaf_ID id, const float speed, const int32_t min, const int32_t max, const char *format)
+// {
+// 	static int32_t scratch;
+// 	scratch = NAUI_CLAMP((int32_t)*value, min, max);
 
-	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
-		return false;
+// 	if (!uph_ui_drag_int(&scratch, id, speed, min, max, format, UPH_UI_DRAG_FLAG_CLAMPED))
+// 		return false;
 
-	*value = (uint8_t)scratch;
-	return true;
-}
+// 	*value = (uint8_t)scratch;
+// 	return true;
+// }
 
-static bool uph_settings_slider_u8(uint8_t *value, const Leaf_ID id, const int32_t min, const int32_t max, const char *format)
-{
-	static int32_t scratch;
-	scratch = NAUI_CLAMP((int32_t)*value, min, max);
+// static bool uph_settings_slider_u8(uint8_t *value, const Leaf_ID id, const int32_t min, const int32_t max, const char *format)
+// {
+// 	static int32_t scratch;
+// 	scratch = NAUI_CLAMP((int32_t)*value, min, max);
 
-	if (!uph_ui_slider_int(&scratch, id, min, max, format, UPH_UI_SLIDER_FLAG_NONE))
-		return false;
+// 	if (!uph_ui_slider_int(&scratch, id, min, max, format, UPH_UI_SLIDER_FLAG_NONE))
+// 		return false;
 
-	*value = (uint8_t)scratch;
-	return true;
-}
+// 	*value = (uint8_t)scratch;
+// 	return true;
+// }
 
 static bool uph_settings_checkbox_row(const char *label, bool *value, const Leaf_ID id)
 {
@@ -768,13 +768,13 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 		uph_settings_hint(NAUI_TR("settings.general.autosave_hint"));
 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.general.undo_limit"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_drag_u32(&general->undo_history_limit, leaf_id("uph_settings_undo_limit"), 1.0f, UPH_SETTINGS_UNDO_MIN, UPH_SETTINGS_UNDO_MAX, "%d steps");
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.general.undo_limit"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_drag_u32(&general->undo_history_limit, leaf_id("uph_settings_undo_limit"), 1.0f, UPH_SETTINGS_UNDO_MIN, UPH_SETTINGS_UNDO_MAX, "%d steps");
+	// }
 
 	uph_settings_checkbox_row(NAUI_TR("settings.general.confirm_on_exit"), &general->confirm_on_exit, leaf_id("uph_settings_confirm_exit"));
-	uph_settings_checkbox_row(NAUI_TR("settings.general.confirm_on_delete"), &general->confirm_on_delete, leaf_id("uph_settings_confirm_delete"));
+	// uph_settings_checkbox_row(NAUI_TR("settings.general.confirm_on_delete"), &general->confirm_on_delete, leaf_id("uph_settings_confirm_delete"));
 	uph_settings_checkbox_row(NAUI_TR("settings.general.copy_resources"), &general->copy_resources, leaf_id("uph_settings_copy_resources"));
 }
 
@@ -797,7 +797,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 	}
 
 	uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &pending->exclusive_mode, leaf_id("uph_settings_exclusive"));
-	uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
+	// uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
 
 	uph_settings_section(NAUI_TR("settings.audio.performance"), false, NULL, UPH_SETTINGS_NO_ID);
 
@@ -825,7 +825,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 			UPH_SETTINGS_COUNT(uph_settings_channel_counts), leaf_id("uph_settings_channels"));
 	}
 
-	uph_settings_checkbox_row(NAUI_TR("settings.audio.underrun_protection"), &audio->underrun_protection, leaf_id("uph_settings_underrun"));
+	// uph_settings_checkbox_row(NAUI_TR("settings.audio.underrun_protection"), &audio->underrun_protection, leaf_id("uph_settings_underrun"));
 
 	if (!uph_settings_audio_pending_changed(pending))
 		return;
@@ -846,51 +846,51 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 		uph_settings_apply_audio(data);
 }
 
-static void uph_settings_axis_pair(Naui_Vec2 *value, const float speed, const float min, const float max, const char *id_x, const char *id_y)
-{
-	const Leaf_Color axis_color = naui_theme_color("naui_panel_text_color");
-	const float font_size = uph_settings_font_size();
+// static void uph_settings_axis_pair(Naui_Vec2 *value, const float speed, const float min, const float max, const char *id_x, const char *id_y)
+// {
+// 	const Leaf_Color axis_color = naui_theme_color("naui_panel_text_color");
+// 	const float font_size = uph_settings_font_size();
 
-	leaf_text("X", { .font_size = { font_size }, .color = { axis_color } });
-	uph_ui_drag_float(&value->x, leaf_id(id_x), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
-	leaf_text("Y", { .font_size = { font_size }, .color = { axis_color } });
-	uph_ui_drag_float(&value->y, leaf_id(id_y), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
-}
+// 	leaf_text("X", { .font_size = { font_size }, .color = { axis_color } });
+// 	uph_ui_drag_float(&value->x, leaf_id(id_x), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
+// 	leaf_text("Y", { .font_size = { font_size }, .color = { axis_color } });
+// 	uph_ui_drag_float(&value->y, leaf_id(id_y), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
+// }
 
-static void uph_settings_page_interface(Uph_SettingsData *data)
-{
-	(void)data;
-	Uph_UISettings *ui = &uph_state.settings.ui;
+// static void uph_settings_page_interface(Uph_SettingsData *data)
+// {
+// 	(void)data;
+// 	Uph_UISettings *ui = &uph_state.settings.ui;
 
-	uph_settings_section(NAUI_TR("settings.ui.navigation"), true, NULL, UPH_SETTINGS_NO_ID);
+// 	uph_settings_section(NAUI_TR("settings.ui.navigation"), true, NULL, UPH_SETTINGS_NO_ID);
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.scroll_sensitivity"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_axis_pair(&ui->scroll_sensitivity, 0.01f, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX, "uph_settings_scroll_x", "uph_settings_scroll_y");
-	}
+// 	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.scroll_sensitivity"), UPH_SETTINGS_NO_ID)
+// 	{
+// 		uph_settings_axis_pair(&ui->scroll_sensitivity, 0.01f, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX, "uph_settings_scroll_x", "uph_settings_scroll_y");
+// 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.zoom_sensitivity"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_axis_pair(&ui->zoom_sensitivity, 0.01f, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX, "uph_settings_zoom_x", "uph_settings_zoom_y");
-	}
+// 	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.zoom_sensitivity"), UPH_SETTINGS_NO_ID)
+// 	{
+// 		uph_settings_axis_pair(&ui->zoom_sensitivity, 0.01f, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX, "uph_settings_zoom_x", "uph_settings_zoom_y");
+// 	}
 
-	uph_settings_section(NAUI_TR("settings.ui.editing"), false, NULL, UPH_SETTINGS_NO_ID);
+// 	uph_settings_section(NAUI_TR("settings.ui.editing"), false, NULL, UPH_SETTINGS_NO_ID);
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.default_snap"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_value_dropdown(&ui->default_snap, uph_settings_snap_values, uph_settings_snap_labels,
-			UPH_SETTINGS_COUNT(uph_settings_snap_values), leaf_id("uph_settings_default_snap"));
-	}
+// 	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.default_snap"), UPH_SETTINGS_NO_ID)
+// 	{
+// 		uph_settings_value_dropdown(&ui->default_snap, uph_settings_snap_values, uph_settings_snap_labels,
+// 			UPH_SETTINGS_COUNT(uph_settings_snap_values), leaf_id("uph_settings_default_snap"));
+// 	}
 
-	uph_settings_checkbox_row(NAUI_TR("settings.ui.follow_playhead"), &ui->follow_playhead, leaf_id("uph_settings_follow_playhead"));
+// 	uph_settings_checkbox_row(NAUI_TR("settings.ui.follow_playhead"), &ui->follow_playhead, leaf_id("uph_settings_follow_playhead"));
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.playhead_lock"), UPH_SETTINGS_NO_ID)
-	{
-		uph_ui_slider_float(&ui->playhead_lock_position, leaf_id("uph_settings_playhead_lock"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAG_NONE);
-	}
+// 	UPH_SETTINGS_ROW(NAUI_TR("settings.ui.playhead_lock"), UPH_SETTINGS_NO_ID)
+// 	{
+// 		uph_ui_slider_float(&ui->playhead_lock_position, leaf_id("uph_settings_playhead_lock"), 0.0f, 1.0f, "%.2f", UPH_UI_SLIDER_FLAG_NONE);
+// 	}
 
-	uph_settings_checkbox_row(NAUI_TR("settings.ui.show_tooltips"), &ui->show_tooltips, leaf_id("uph_settings_tooltips"));
-}
+// 	uph_settings_checkbox_row(NAUI_TR("settings.ui.show_tooltips"), &ui->show_tooltips, leaf_id("uph_settings_tooltips"));
+// }
 
 static void uph_settings_page_midi(Uph_SettingsData *data)
 {
@@ -922,32 +922,32 @@ static void uph_settings_page_midi(Uph_SettingsData *data)
 			UPH_SETTINGS_COUNT(uph_settings_snap_values), leaf_id("uph_settings_quantize_grid"));
 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.midi.count_in"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_drag_u32(&midi->count_in_bars, leaf_id("uph_settings_count_in"), 0.1f, 0, UPH_SETTINGS_COUNT_IN_MAX, "%d bars");
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.midi.count_in"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_drag_u32(&midi->count_in_bars, leaf_id("uph_settings_count_in"), 0.1f, 0, UPH_SETTINGS_COUNT_IN_MAX, "%d bars");
+	// }
 
-	uph_settings_checkbox_row(NAUI_TR("settings.midi.overdub"), &midi->record_over_dub, leaf_id("uph_settings_overdub"));
+	// uph_settings_checkbox_row(NAUI_TR("settings.midi.overdub"), &midi->record_over_dub, leaf_id("uph_settings_overdub"));
 
-	uph_settings_section(NAUI_TR("settings.midi.editing"), false, NULL, UPH_SETTINGS_NO_ID);
+	// uph_settings_section(NAUI_TR("settings.midi.editing"), false, NULL, UPH_SETTINGS_NO_ID);
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.midi.grid_division"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_value_dropdown(&midi->grid_division, uph_settings_snap_values, uph_settings_snap_labels,
-			UPH_SETTINGS_COUNT(uph_settings_snap_values), leaf_id("uph_settings_grid_division"));
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.midi.grid_division"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_value_dropdown(&midi->grid_division, uph_settings_snap_values, uph_settings_snap_labels,
+	// 		UPH_SETTINGS_COUNT(uph_settings_snap_values), leaf_id("uph_settings_grid_division"));
+	// }
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.midi.default_velocity"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_slider_u8(&midi->default_velocity, leaf_id("uph_settings_default_velocity"), UPH_SETTINGS_VELOCITY_MIN, UPH_SETTINGS_VELOCITY_MAX, "%d");
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.midi.default_velocity"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_slider_u8(&midi->default_velocity, leaf_id("uph_settings_default_velocity"), UPH_SETTINGS_VELOCITY_MIN, UPH_SETTINGS_VELOCITY_MAX, "%d");
+	// }
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.midi.default_channel"), UPH_SETTINGS_NO_ID)
-	{
-		uph_settings_drag_u8(&midi->default_channel, leaf_id("uph_settings_default_channel"), 0.1f, UPH_SETTINGS_CHANNEL_MIN, UPH_SETTINGS_CHANNEL_MAX, "%d");
-	}
+	// UPH_SETTINGS_ROW(NAUI_TR("settings.midi.default_channel"), UPH_SETTINGS_NO_ID)
+	// {
+	// 	uph_settings_drag_u8(&midi->default_channel, leaf_id("uph_settings_default_channel"), 0.1f, UPH_SETTINGS_CHANNEL_MIN, UPH_SETTINGS_CHANNEL_MAX, "%d");
+	// }
 
-	uph_settings_checkbox_row(NAUI_TR("settings.midi.filter_channel"), &midi->filter_by_channel, leaf_id("uph_settings_filter_channel"));
+	// uph_settings_checkbox_row(NAUI_TR("settings.midi.filter_channel"), &midi->filter_by_channel, leaf_id("uph_settings_filter_channel"));
 }
 
 #define UPH_SETTINGS_PLUGIN_DIALOG_KEY "uph_settings_plugin_folder"
@@ -1043,8 +1043,8 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 			uph_settings_open_plugin_folder_dialog();
 	}
 
-	uph_settings_section(NAUI_TR("settings.plugins.options"), false, NULL, UPH_SETTINGS_NO_ID);
-	uph_settings_checkbox_row(NAUI_TR("settings.plugins.sandbox"), &plugin->sandbox_plugins, leaf_id("uph_settings_sandbox"));
+	// uph_settings_section(NAUI_TR("settings.plugins.options"), false, NULL, UPH_SETTINGS_NO_ID);
+	// uph_settings_checkbox_row(NAUI_TR("settings.plugins.sandbox"), &plugin->sandbox_plugins, leaf_id("uph_settings_sandbox"));
 }
 
 static void uph_settings_sidebar(Uph_SettingsData *data)
@@ -1053,7 +1053,7 @@ static void uph_settings_sidebar(Uph_SettingsData *data)
 	{
 		"settings.page.general",
 		"settings.page.audio",
-		"settings.page.interface",
+		// "settings.page.interface",
 		"settings.page.midi",
 		"settings.page.plugins"
 	};
@@ -1188,9 +1188,9 @@ static void uph_settings_on_update(void)
 					uph_settings_page_audio(data);
 					break;
 
-				case UPH_SETTINGS_PAGE_INTERFACE:
-					uph_settings_page_interface(data);
-					break;
+				// case UPH_SETTINGS_PAGE_INTERFACE:
+				// 	uph_settings_page_interface(data);
+				// 	break;
 
 				case UPH_SETTINGS_PAGE_MIDI:
 					uph_settings_page_midi(data);
