@@ -1404,23 +1404,8 @@ static void uph_record_input(
         uint64_t old_frame_count = data->frame_count;
         data->frame_count += frame_count;
 
-        const double real_beats = uph_seconds_to_beats(
+        block->length_beats = uph_seconds_to_beats(
             (double)data->frame_count / (double)sample_rate, bpm);
-        const double tempo_beats = block->length_beats + uph_seconds_to_beats(
-            (double)frame_count / (double)sample_rate, bpm);
-        const double time_scale = tempo_beats / real_beats;
-
-        if (fabs(time_scale - 1.0) < 1e-6)
-        {
-            block->length_beats = real_beats;
-            sample->time_scale = 1.0f;
-        }
-        else
-        {
-            block->length_beats = tempo_beats;
-            sample->time_scale = (float)time_scale;
-            sample->mode = UPH_SAMPLE_STRETCH;
-        }
 
         uph_update_waveform_peaks(data, old_frame_count);
     }
