@@ -455,16 +455,16 @@ Naui_Path naui_directory_get(const Naui_Dir directory)
 		#ifdef __APPLE__
 			const char* h = getenv("HOME");
 			if (h)
-				snprintf(resolved, sizeof(resolved), "%s/Library/Caches", h);
+				snprintf(resolved, sizeof(resolved), "%s/Library/Application Support", h);
 		#else
-			const char* xdg = getenv("XDG_CACHE_HOME");
+			const char* xdg = getenv("XDG_DATA_HOME");
 			if (xdg)
 				snprintf(resolved, sizeof(resolved), "%s", xdg);
 			else
 			{
 				const char* h = getenv("HOME");
 				if (h)
-					snprintf(resolved, sizeof(resolved), "%s/.cache", h);
+					snprintf(resolved, sizeof(resolved), "%s/.local/share", h);
 			}
 		#endif
 			break;
