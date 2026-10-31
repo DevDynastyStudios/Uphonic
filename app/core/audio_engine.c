@@ -412,6 +412,7 @@ static void uph_render_sample_block(
 
     const double time_scale  = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     const double pitch_ratio = pow(2.0, (double)sample->pitch / 1200.0);
+    const float gain = uph_sample_gain(sample, data);
 
     const double start_offset_frames = block->start_offset_beats * frames_per_beat;
     const double block_length_frames = block->length_beats * frames_per_beat;
@@ -459,8 +460,8 @@ static void uph_render_sample_block(
         else
             uph_read_sample_frame(data, start_offset_frames + out_pos * speed, &left, &right);
 
-        track_l[f] += left;
-        track_r[f] += right;
+        track_l[f] += left * gain;
+        track_r[f] += right * gain;
     }
 }
 
@@ -1141,6 +1142,8 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
     const uint64_t first_bin = old_frame_count / max_frame_count;
     const uint64_t bin_count = (sample_data->frame_count + max_frame_count - 1) / max_frame_count;
 
+    float abs_peak = (old_frame_count == 0) ? 0.0f : sample_data->peak;
+
     for (uint64_t bin = first_bin; bin < bin_count; bin++)
     {
         uint64_t frame_start = bin * max_frame_count;
@@ -1156,7 +1159,10 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
             float value = 0.0f;
             for (int c = 0; c < channel_count; c++)
             {
-                value += samples[f * channel_count + c];
+                const float s = samples[f * channel_count + c];
+                const float a = fabsf(s);
+                if (a > abs_peak) abs_peak = a;
+                value += s;
             }
             value /= (float)channel_count;
 
@@ -1174,6 +1180,15 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
         else
             naui_list_push(sample_data->waveform_peaks, peak);
     }
+
+    sample_data->peak = abs_peak;
+}
+
+float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data)
+{
+    if (!sample->normalized || data->peak <= 1e-6f)
+        return 1.0f;
+    return 1.0f / data->peak;
 }
 
 static void uph_build_waveform_peaks(Uph_SampleData *sample_data)

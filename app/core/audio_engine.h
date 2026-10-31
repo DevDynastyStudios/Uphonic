@@ -67,6 +67,7 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path);
 void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 
 bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data);
+float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data);
 
 void uph_audio_engine_stop_all_notes(void);
 

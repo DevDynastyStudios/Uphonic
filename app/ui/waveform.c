@@ -26,6 +26,7 @@ void uph_ui_waveform_zoomable(
     const uint32_t sample_rate = uph_state.settings.audio.sample_rate;
     const float mid_y = position.y + size.y * 0.5f;
     const float half_height = size.y * 0.5f;
+    const float gain = uph_sample_gain(sample, sample_data);
 
     int32_t x_start = 0;
     int32_t x_end = (int32_t)size.x;
@@ -52,6 +53,12 @@ void uph_ui_waveform_zoomable(
         double source_beats = normalized_zoom / time_scale + start_offset;
         double source_seconds = uph_beats_to_seconds(source_beats, bpm);
         double source_frame_pos = source_seconds * (double)sample_rate;
+
+        if (source_frame_pos >= (double)sample_data->frame_count)
+        {
+            x_end = x;
+            break;
+        }
 
         double bin_pos = source_frame_pos / (double)max_frame_count;
 
@@ -81,8 +88,8 @@ void uph_ui_waveform_zoomable(
         float p1_max = uph_waveform_decode_uint16(p1.max);
         float p1_min = uph_waveform_decode_uint16(p1.min);
 
-        float max_v = p0_max + (p1_max - p0_max) * (float)frac;
-        float min_v = p0_min + (p1_min - p0_min) * (float)frac;
+        float max_v = NAUI_CLAMP((p0_max + (p1_max - p0_max) * (float)frac) * gain, -1.0f, 1.0f);
+        float min_v = NAUI_CLAMP((p0_min + (p1_min - p0_min) * (float)frac) * gain, -1.0f, 1.0f);
 
         max_y[x - x_start] = mid_y - max_v * half_height;
         min_y[x - x_start] = mid_y - min_v * half_height;

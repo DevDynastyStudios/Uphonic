@@ -137,6 +137,7 @@ typedef struct
 	float *frames;
 	uint64_t frame_count;
 	uint64_t frame_capacity; // used when recording
+	float peak;
 	uint32_t original_sample_rate;
 	uint32_t ref_count;
 	Uph_SampleChannelType channel_type;
@@ -158,6 +159,7 @@ typedef struct
 	Uph_ResourceIndex data_index;
 	int32_t pitch;
 	Uph_SampleMode mode;
+	bool normalized;
 	bool selected;
 }
 Uph_Sample;

@@ -268,6 +268,7 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 		naui_json_set_string(&json, sample_obj, "name", sample->name.data);
 		naui_json_set_string(&json, sample_obj, "path", sample_data.file_path.data);
 		naui_json_set_number(&json, sample_obj, "time_scale", sample->time_scale);
+		naui_json_set_bool(&json, sample_obj, "normalized", sample->normalized);
 	}
 
 	bool written = naui_json_write_file(root, naui_path_join(save_path, NAUI_PATH(UPH_IO_FILE_SAMPLES)), true); 
@@ -865,6 +866,7 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		const char* file_name_cstr = naui_json_get_string(jvalue_path, NAUI_TR("samples.default.name"));
 		sample->name = naui_string_from_cstr(naui_json_get_string(name, file_name_cstr));
 		sample->time_scale = naui_json_get_number(time_scale, 0);
+		sample->normalized = naui_json_get_bool(naui_json_object_get(value, "normalized"), false);
 	}
 
 	naui_json_free(&json);

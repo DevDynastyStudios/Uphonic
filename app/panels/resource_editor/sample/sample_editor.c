@@ -50,6 +50,7 @@ typedef struct
 
 	double start_frame;
 	double frames_per_pixel;
+	float gain;
 	Naui_Vec2 pan_last_mouse;
 	Leaf_BoundingBox wave_box;
 
@@ -413,7 +414,7 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		Naui_Vec2 previous = { 0.0f, 0.0f };
 		for (int64_t i = first; i <= last; i++)
 		{
-			const float v = _uph_sample_editor_clamp_amplitude(source->frames[(uint64_t)i * channels + channel]);
+			const float v = _uph_sample_editor_clamp_amplitude(source->frames[(uint64_t)i * channels + channel] * editor->gain);
 			const Naui_Vec2 point = { _uph_sample_editor_frame_to_x(editor, lane, (double)i), mid_y - v * half };
 
 			if (draw_stems)
@@ -486,8 +487,8 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		if (max_v < min_v)
 			continue;
 
-		min_v = _uph_sample_editor_clamp_amplitude(min_v);
-		max_v = _uph_sample_editor_clamp_amplitude(max_v);
+		min_v = _uph_sample_editor_clamp_amplitude(min_v * editor->gain);
+		max_v = _uph_sample_editor_clamp_amplitude(max_v * editor->gain);
 
 		const float raw_min = min_v;
 		const float raw_max = max_v;
@@ -767,6 +768,17 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 					sample->mode = (Uph_SampleMode)mode;
 			}
 		}
+
+		leaf({
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+			.child_gap = NAUI_DPI(6)
+		})
+		{
+			uph_ui_checkbox(&sample->normalized, leaf_id("uph_sample_editor_normalized"));
+			_uph_sample_editor_render_label("Normalize");
+		}
 	}
 }
 
@@ -833,6 +845,7 @@ void uph_sample_editor_update(void)
 	source->channels = data->channel_type == UPH_SAMPLE_STEREO ? 2 : 1;
 	source->sample_rate = uph_state.settings.audio.sample_rate;
 	source->valid = source->frames && source->frame_count > 0 && source->sample_rate > 0;
+	editor->gain = uph_sample_gain(sample, data);
 
 	if (source->valid)
 		_uph_sample_editor_cache_update(&editor->cache, source, sample->data_index);
