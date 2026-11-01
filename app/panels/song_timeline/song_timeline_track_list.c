@@ -257,14 +257,15 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 				});
 			}
 
+			const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+			const int32_t title_height = button_size + NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").y) * 2;
 			leaf({
 				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+				.child_alignment = {LEAF_ALIGN_X_LEFT, track->type == UPH_RESOURCE_GROUP ? LEAF_ALIGN_Y_CENTER : LEAF_ALIGN_Y_TOP},
+				.padding = { .top = track->type == UPH_RESOURCE_GROUP ? 0 : NAUI_DPI(4) },
 				.child_gap = NAUI_DPI(8)
 			})
 			{
-				const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-				const int32_t title_height = button_size + NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").y) * 2;
 
 				leaf({
 					.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(title_height)},
