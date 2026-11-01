@@ -91,6 +91,20 @@ void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 	uph_resources_link_track_list(tracks, NULL);
 }
 
+void uph_resources_set_track_color(Uph_Track *track, int32_t color_index)
+{
+	if (!track || color_index < 0 || track->color_index == color_index)
+		return;
+
+	Uph_ActionTrackColor color_data = {
+		.track = uph_action_track_ref(track),
+		.old_color = track->color_index,
+		.new_color = color_index
+	};
+
+	naui_action_execute_stack(UPH_ACTION_TRACK_COLOR, color_data);
+}
+
 void uph_resources_add_track(Naui_String name, int32_t color_index)
 {
 	Uph_Track track = {

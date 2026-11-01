@@ -26,6 +26,9 @@ typedef struct
     Uph_Track *rename_track;
     Naui_String rename_old_name;
 
+    Uph_Track *color_track;
+    Uph_UIMenuID color_menu;
+
     uint32_t effect_context_index;
 
     bool strip_hovered;
@@ -33,6 +36,18 @@ typedef struct
 Uph_MixerData;
 
 static Uph_MixerData uph_mixer_data = { 0 };
+
+static void uph_mixer_render_color_menu(Uph_UIMenuID menu)
+{
+    if (uph_mixer_data.color_track)
+        uph_resources_set_track_color(uph_mixer_data.color_track, uph_ui_track_color_palette(uph_mixer_data.color_track));
+}
+
+static void uph_mixer_open_color_menu(Uph_Track *track)
+{
+    uph_mixer_data.color_track = track;
+    uph_ui_open_context_menu(uph_mixer_data.color_menu);
+}
 
 static void uph_mixer_on_attach(void)
 {
@@ -52,6 +67,7 @@ static void uph_mixer_on_open(void)
 static void uph_mixer_on_close(void)
 {
 	uph_mixer_data.rename_track = NULL;
+	uph_mixer_data.color_track = NULL;
 	
 }
 
@@ -875,7 +891,15 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
             if (!is_master)
             {
-                if (!editing_name && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(handle_id))
+                const Leaf_ID color_strip_id = leaf_id_indexed("uph_mixer_color_strip", track_id);
+                const bool color_strip_hovered = naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(color_strip_id);
+                if (color_strip_hovered)
+                {
+                    naui_set_cursor(NAUI_CURSOR_HAND);
+                    if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                        uph_mixer_open_color_menu(strip.track);
+                }
+                else if (!editing_name && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(handle_id))
                 {
                     naui_set_cursor(NAUI_CURSOR_HAND);
                     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -889,15 +913,20 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                     .child_gap = NAUI_DPI(8)
                 })
                 {
-                    if (strip.track->type != UPH_RESOURCE_GROUP)
+                    leaf({
+                        .id = color_strip_id,
+                        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(10))},
+                        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+                    })
                     {
                         leaf({
-                            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(6))},
+                            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(color_strip_hovered ? 8 : 6))},
                             .color = accent_color,
                             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
                         });
-                        uph_mixer_render_name(strip.track, name_id, font_size);
                     }
+                    if (strip.track->type != UPH_RESOURCE_GROUP)
+                        uph_mixer_render_name(strip.track, name_id, font_size);
                 }
             }
             else
@@ -1376,6 +1405,7 @@ static void uph_mixer_on_update(void)
             leaf_id("uph_mixer_scrollbar")
         );
         Uph_UIMenuID context_menu = uph_ui_context_menu();
+        uph_mixer_data.color_menu = uph_ui_context_menu_custom(uph_mixer_render_color_menu);
         uph_mixer_render_strip(uph_mixer_strip_master(), context_menu);
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
@@ -1421,6 +1451,9 @@ static void uph_mixer_on_update(void)
 
             if (!restructured && uph_ui_menu_item(context_menu, "Rename", leaf_id("uph_mixer_rename_track")))
                 uph_mixer_begin_rename(current);
+
+            if (!restructured && uph_ui_menu_item(context_menu, "Color", leaf_id("uph_mixer_color_track")))
+                uph_mixer_open_color_menu(current);
 
             if (!restructured && uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_mixer_remove_track")))
             {

@@ -41,6 +41,8 @@ void            uph_ui_open_context_menu    (Uph_UIMenuID menu);
 void            uph_ui_close_menu           (void);
 bool            uph_ui_any_menu_open        (void);
 
+int32_t         uph_ui_track_color_palette  (const Uph_Track *track);
+
 bool uph_ui_text_button(const char *string, const Leaf_ID id);
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners);
 

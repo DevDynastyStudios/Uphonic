@@ -304,6 +304,7 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
             group->root       = target->root;
             group->root_index = target->root_index;
             group->parent     = target->parent;
+            group->visual_scale = target->root->visual_scale;
 
             if (target->parent)
             {
@@ -367,6 +368,7 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
     naui_reset_root_indexes(guest->root_index);
 
     Naui_PanelNode *dock_node = naui_alloc_panel_node();
+    dock_node->visual_scale = target->root->visual_scale;
 
     if (target_is_viewport)
     {

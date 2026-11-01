@@ -167,6 +167,9 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 	const float title_height = font_size + title_padding * 2.0f;
 	const int32_t rounding = (int32_t)NAUI_DPI(4.0f);
 
+	const float visible_left = offset.x + (size.x - anim_size.x) * 0.5f;
+	const float title_shift = fminf(fmaxf(-visible_left, 0.0f), fmaxf(anim_size.x - title_padding * 2.0f, 0.0f));
+
 	Uph_BlockContentDrawData content_data = {
 		.block = *block,
 		.color = leaf_rgba(color.r, color.g, color.b, (uint8_t)(255 * opacity))
@@ -185,7 +188,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 	{
 		leaf({
 			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED((int32_t)title_height) },
-			.padding = LEAF_PADDING_ALL((int32_t)title_padding),
+			.padding = { (int32_t)(title_padding + title_shift), (int32_t)title_padding, (int32_t)title_padding, (int32_t)title_padding },
 			.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)) },
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_TL | LEAF_CORNER_TR)
 		})

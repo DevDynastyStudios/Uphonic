@@ -1035,8 +1035,9 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
 
 bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
-    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
+    const bool overlay = bg_color.a == 0;
+    const Leaf_Color hovered_bg_color = overlay ? (Leaf_Color) { 255, 255, 255, 36 } : naui_theme_color("uph_ui_frame_hovered_bg_color");
+    const Leaf_Color pressed_bg_color = overlay ? (Leaf_Color) { 255, 255, 255, 64 } : naui_theme_color("uph_ui_frame_pressed_bg_color");
 
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const float rounding = naui_theme_float("uph_ui_frame_rounding");
@@ -1871,6 +1872,59 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
     }
 
     return changed;
+}
+
+int32_t uph_ui_track_color_palette(const Uph_Track *track)
+{
+    const Naui_List(Naui_Color) palette = naui_theme_color_list("uph_track_palette");
+    const uint32_t color_count = (uint32_t)naui_list_len(palette);
+    if (color_count == 0)
+        return -1;
+
+    const uint32_t rows = 2;
+    const uint32_t columns = (uint32_t)ceilf((color_count + rows - 1) / rows);
+    const int32_t current = track->color_index % (int32_t)color_count;
+
+    const uint32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")) * 1.5f;
+    int32_t picked = -1;
+
+    leaf({
+        .child_gap = NAUI_DPI(4)
+    })
+    {
+        for (uint32_t i = 0; i < rows; i++)
+        {
+            leaf({
+                .direction = LEAF_DIRECTION_HORIZONTAL,
+                .child_gap = NAUI_DPI(4)
+            })
+            {
+                for (uint32_t j = 0; j < columns; j++)
+                {
+                    const int32_t index = j + i * columns;
+                    const Leaf_ID id = leaf_id_indexed("uph_track_color_picker", index);
+                    if (leaf_hovered(id) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                    {
+                        picked = index;
+                        uph_ui_close_menu();
+                    }
+                    leaf({
+                        .id = id,
+                        .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
+                        .color = palette[index],
+                        .border = {
+                            .width = NAUI_DPI(2),
+                            .color = track->color_index == index ?
+                                LEAF_COLOR_WHITE : LEAF_COLOR_TRANSPARENT,
+                            .sides = LEAF_SIDE_ALL
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    return picked;
 }
 
 #pragma endregion
