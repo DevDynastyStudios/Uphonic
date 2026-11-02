@@ -26,6 +26,7 @@
 #include "core/language.c"
 #include "core/audio_engine.h"
 #include "core/resource_manager.h"
+#include "core/tempo_map.h"
 #include "core/midi_manager.h"
 #include "core/midi_manager.c"
 #include "core/midi_recorder.h"
@@ -81,6 +82,7 @@
 #include "actions/action_manager.c"
 
 #include "core/resource_manager.c"
+#include "core/tempo_map.c"
 
 #include "core/midi_preview.c"
 #include "core/audio_engine.c"

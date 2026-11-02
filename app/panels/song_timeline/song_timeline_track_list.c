@@ -482,15 +482,13 @@ void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_cont
 			if (uph_ui_menu_item(track_options_context_menu, "Load Instrument", leaf_id("uph_song_timeline_options_load_instrument")))
 				_uph_song_timeline_open_instrument_list(track);
 		}
+	}
 
-		if (track->instrument.loaded || naui_list_len(track->effects) != 0)
-		{
-			if (uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
-			{
-				uph_state.shared.current_automation_list_track = track;
-				naui_panel_open(uph_state.panels.automation_list);
-			}
-		}
+	if (track->type != UPH_RESOURCE_AUTOMATION &&
+		uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
+	{
+		uph_state.shared.current_automation_list_track = track;
+		naui_panel_open(uph_state.panels.automation_list);
 	}
 
 	if (uph_ui_menu_item(track_options_context_menu, "Remove", leaf_id("uph_song_timeline_options_remove"))) 

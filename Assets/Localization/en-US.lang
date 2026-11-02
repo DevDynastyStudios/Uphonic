@@ -9,6 +9,12 @@
     "automation.menu.title": "Automation List",
     "automation.menu.none": "No parameters to automate",
     "automation.menu.target": "Automating",
+    "automation.menu.track": "Track",
+    "automation.target.volume": "Volume",
+    "automation.target.pan": "Pan",
+    "automation.target.tempo": "Tempo",
+    "automation.menu.automate": "Automate",
+    "automation.menu.remove": "Remove Automation",
 
     "dialog.cancel": "Cancel",
     "dialog.delete_file": "$Are you sure you want to delete \"{0}\"?",

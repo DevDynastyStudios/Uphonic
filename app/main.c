@@ -237,6 +237,7 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Closing Audio Engine...");
 	uph_audio_engine_shutdown();
+	uph_tempo_map_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Destoying Actions...");
 	uph_action_shutdown();
@@ -278,6 +279,7 @@ void naui_app_update(void)
 {
 	uph_mixer_apply_pending_move();
 	uph_song_timeline_apply_pending_move();
+	uph_tempo_map_update();
  
 	uph_render_main_titlebar();
  

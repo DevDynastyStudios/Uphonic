@@ -130,7 +130,8 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
         zoom,
         start_offset,
         box,
-        sample
+        sample,
+        NULL
     );
 }
 

@@ -10,6 +10,12 @@
 "automation.menu.title": "オートメーション一覧",
 "automation.menu.none": "オートメーション可能なパラメーターがありません",
 "automation.menu.target": "オートメーション対象",
+"automation.menu.track": "トラック",
+"automation.target.volume": "音量",
+"automation.target.pan": "パン",
+"automation.target.tempo": "テンポ",
+"automation.menu.automate": "オートメーション",
+"automation.menu.remove": "オートメーションを削除",
 
 "dialog.cancel": "キャンセル",
 "dialog.deletefile": "$「{0}」を削除してもよろしいですか？",

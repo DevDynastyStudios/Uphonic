@@ -74,3 +74,11 @@ double uph_calculate_automation_length(const Uph_Automation *automation);
 void uph_automation_segment_controls(const Uph_AutomationPoint *from, float out[4]);
 float uph_automation_segment_value(const Uph_AutomationPoint *from, const Uph_AutomationPoint *to, double beat);
 bool uph_automation_value_at_beat(const Uph_Automation *automation, double beat, float *out_value);
+
+#define UPH_MIXER_DB_MIN -60.0f
+#define UPH_MIXER_DB_MAX 6.0f
+
+float uph_linear_to_db(float linear);
+float uph_db_to_linear(float db);
+float uph_automation_to_volume(float value);
+float uph_automation_to_pan(float value);

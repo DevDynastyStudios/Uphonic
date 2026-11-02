@@ -9,6 +9,12 @@
 "automation.menu.title": "Liste des automatisations",
 "automation.menu.none": "Aucun paramètre à automatiser",
 "automation.menu.target": "Automatisation de",
+"automation.menu.track": "Piste",
+"automation.target.volume": "Volume",
+"automation.target.pan": "Panoramique",
+"automation.target.tempo": "Tempo",
+"automation.menu.automate": "Automatiser",
+"automation.menu.remove": "Supprimer l'automatisation",
 
 "dialog.cancel": "Annuler",
 "dialog.delete_file": "$Êtes-vous sûr de vouloir supprimer « {0} » ?",

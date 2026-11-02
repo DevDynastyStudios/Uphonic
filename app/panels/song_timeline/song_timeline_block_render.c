@@ -113,7 +113,8 @@ static void _uph_song_timeline_render_block_content(Leaf_BoundingBox box, Uph_Bl
 			uph_song_timeline_data.zoom.x,
 			block->start_offset_beats,
 			visible_bbox,
-			&uph_state.project.samples[block->resource_index]
+			&uph_state.project.samples[block->resource_index],
+			block
 		);
 	}
 	else if (block->type == UPH_RESOURCE_PATTERN)

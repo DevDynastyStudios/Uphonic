@@ -5,5 +5,6 @@ void uph_ui_waveform_zoomable(
     double zoom,
     double start_offset,
     Leaf_BoundingBox visible_bbox,
-    Uph_Sample* sample
+    Uph_Sample* sample,
+    const Uph_TimelineBlock* block
 );

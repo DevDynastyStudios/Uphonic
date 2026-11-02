@@ -432,8 +432,34 @@ static bool uph_io_save_track_blocks(const Uph_Track* track, const Naui_Path tra
 	return written;
 }
 
+static const char* uph_io_automation_target_name(Uph_AutomationTarget target)
+{
+	switch (target)
+	{
+		case UPH_AUTOMATION_TARGET_TRACK_VOLUME: return "volume";
+		case UPH_AUTOMATION_TARGET_TRACK_PAN: return "pan";
+		case UPH_AUTOMATION_TARGET_TEMPO: return "tempo";
+		default: return "param";
+	}
+}
+
+static Uph_AutomationTarget uph_io_automation_target_from_name(const char* name)
+{
+	if (strcmp(name, "volume") == 0)
+		return UPH_AUTOMATION_TARGET_TRACK_VOLUME;
+	if (strcmp(name, "pan") == 0)
+		return UPH_AUTOMATION_TARGET_TRACK_PAN;
+	if (strcmp(name, "tempo") == 0)
+		return UPH_AUTOMATION_TARGET_TEMPO;
+	return UPH_AUTOMATION_TARGET_PLUGIN_PARAM;
+}
+
 static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object, const Uph_Track* track, const Uph_Track* parent)
 {
+	naui_json_set_string(json, object, "target", uph_io_automation_target_name(track->automation_target));
+	if (track->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
+		return;
+
 	int32_t effect_index;
 	if (!parent || !uph_resources_param_owner_index(parent, track->automation_param, &effect_index))
 		return;
@@ -1284,6 +1310,9 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue* object, Uph_Track* parent, bool* complete)
 {
 	track->automation_param = NULL;
+	track->automation_target = uph_io_automation_target_from_name(naui_json_get_string(naui_json_object_get(object, "target"), "param"));
+	if (track->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
+		return;
 
 	const Naui_JsonValue* id_value = naui_json_object_get(object, "param_id");
 	if (!id_value)

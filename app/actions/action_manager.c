@@ -91,6 +91,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_CREATE, _uph_action_track_create);
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_TRACK_DELETE, _uph_action_track_delete);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_AUTOMATION_CREATE, _uph_action_track_automation_create);
+	UPH_REGISTER_ACTION(UPH_ACTION_TEMPO_AUTOMATION_CREATE, _uph_action_tempo_automation_create);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_RENAME, _uph_action_track_rename);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_COLOR, _uph_action_track_color);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_MUTE, _uph_action_track_state);

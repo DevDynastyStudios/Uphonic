@@ -546,20 +546,6 @@ static void uph_mixer_render_effect_list(void)
     }
 }
 
-static inline float uph_linear_to_db(float linear)
-{
-    if (linear <= 0.0001f) return -80.0f;
-    return 20.0f * log10f(linear);
-}
-
-static inline float uph_db_to_linear(float db)
-{
-    return powf(10.0f, db / 20.0f);
-}
-
-#define UPH_MIXER_DB_MIN -60.0f
-#define UPH_MIXER_DB_MAX 6.0f
-
 static const float uph_mixer_db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 #define UPH_MIXER_DB_TICK_COUNT ((int)(sizeof(uph_mixer_db_ticks) / sizeof(uph_mixer_db_ticks[0])))
 
@@ -656,6 +642,28 @@ typedef struct Uph_MixerVolumeArrowData
     uint64_t id;
 } Uph_MixerVolumeArrowData;
 
+static bool uph_mixer_volume_held(const Uph_MixerStrip *strip)
+{
+    return strip->track && strip->track->volume_automated && !strip->track->volume_release_requested;
+}
+
+static bool uph_mixer_pan_held(const Uph_MixerStrip *strip)
+{
+    return strip->track && strip->track->pan_automated && !strip->track->pan_release_requested;
+}
+
+static void uph_mixer_release_volume(const Uph_MixerStrip *strip)
+{
+    if (uph_mixer_volume_held(strip))
+        strip->track->volume_release_requested = true;
+}
+
+static void uph_mixer_release_pan(const Uph_MixerStrip *strip)
+{
+    if (uph_mixer_pan_held(strip))
+        strip->track->pan_release_requested = true;
+}
+
 static void uph_mixer_commit_edit(void)
 {
     if (!_Uph_MixerEdit.active)
@@ -701,7 +709,9 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
     const float arrow_height = NAUI_DPI(12.0f);
     const float hit_padding = NAUI_DPI(4.0f);
 
-    float db = uph_linear_to_db(*strip.volume);
+    const bool held = uph_mixer_volume_held(&strip);
+    const bool automated = held && uph_state.shared.song_timeline_playing;
+    float db = uph_linear_to_db(held ? strip.track->live_volume : *strip.volume);
     float fraction = uph_mixer_db_to_fraction(db);
     float y = bounding_box.y + (1.0f - fraction) * bounding_box.height;
 
@@ -719,8 +729,11 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
         mouse.y >= hit_box.y && mouse.y <= hit_box.y + hit_box.height;
 
     static uint64_t active_id = 0;
-    if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+    if (hovered && !automated && naui_mouse_pressed(NAUI_MOUSE_LEFT))
         active_id = data->id;
+
+    if (automated && active_id == data->id)
+        active_id = 0;
 
     bool dragging = (active_id == data->id);
     if (dragging)
@@ -731,6 +744,7 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
             float new_db = UPH_MIXER_DB_MIN + t * (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
             uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
             *strip.volume = uph_db_to_linear(new_db);
+            uph_mixer_release_volume(&strip);
 
             y = bounding_box.y + (1.0f - t) * bounding_box.height;
         }
@@ -935,14 +949,22 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             }
 
             const float old_pan = *strip.pan;
+            const bool pan_held = uph_mixer_pan_held(&strip);
+            const bool pan_automated = pan_held && uph_state.shared.song_timeline_playing;
+            float shown_pan = pan_held ? strip.track->live_pan : old_pan;
+            bool pan_changed = false;
             leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_DERIVED}, .aspect_ratio = 1.0f})
-            if (uph_ui_knob_float(strip.pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, accent_color, UPH_UI_KNOB_START_TYPE_CENTER))
-                uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+            pan_changed |= uph_ui_knob_float(&shown_pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, accent_color, UPH_UI_KNOB_START_TYPE_CENTER);
 
             leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
             {
-                if (uph_ui_drag_float(strip.pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
+                pan_changed |= uph_ui_drag_float(&shown_pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
+                if (pan_changed && !pan_automated)
+                {
                     uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+                    *strip.pan = shown_pan;
+                    uph_mixer_release_pan(&strip);
+                }
 
                 if (!naui_mouse_down(NAUI_MOUSE_LEFT))
                     uph_mixer_commit_edit();
@@ -997,14 +1019,17 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                 });
             }
 
-            float volume_db = uph_linear_to_db(*strip.volume);
+            const bool volume_held = uph_mixer_volume_held(&strip);
+            const bool volume_automated = volume_held && uph_state.shared.song_timeline_playing;
+            float volume_db = uph_linear_to_db(volume_held ? strip.track->live_volume : *strip.volume);
 
             leaf({.size = {LEAF_SIZE_PERCENT(0.5f), LEAF_SIZE_FIT}})
             {
-                if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
+                if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED) && !volume_automated)
                 {
                     uph_mixer_edit_value(strip.ref, UPH_ACTION_TRACK_VALUE_VOLUME, *strip.volume);
                     *strip.volume = uph_db_to_linear(volume_db);
+                    uph_mixer_release_volume(&strip);
                 }
 
                 if (!naui_mouse_down(NAUI_MOUSE_LEFT))
@@ -1048,6 +1073,9 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
 
 static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
 {
+    if (strip.track && strip.track->type == UPH_RESOURCE_AUTOMATION)
+        return;
+
     if (!strip.track || strip.track->type != UPH_RESOURCE_GROUP)
     {
         uph_mixer_render_strip_body(strip, context_menu);

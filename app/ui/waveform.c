@@ -5,7 +5,8 @@ void uph_ui_waveform_zoomable(
     double zoom,
     double start_offset,
     Leaf_BoundingBox visible_bbox,
-    Uph_Sample* sample
+    Uph_Sample* sample,
+    const Uph_TimelineBlock* block
 ) {
     if (!uph_state.project.sample_data)
         return;
@@ -47,11 +48,23 @@ void uph_ui_waveform_zoomable(
 
     const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
 
+    const double block_start_seconds = block ? uph_tempo_beat_to_seconds(block->start_beat) : 0.0;
+    const double offset_seconds = block ? block_start_seconds - uph_tempo_beat_to_seconds(block->start_beat - start_offset) : 0.0;
+
     for (int32_t x = x_start; x < x_end; x++)
     {
         double normalized_zoom = (double)(x) / zoom;
-        double source_beats = normalized_zoom / time_scale + start_offset;
-        double source_seconds = uph_beats_to_seconds(source_beats, bpm);
+        double source_seconds;
+        if (block)
+        {
+            const double elapsed_seconds = uph_tempo_beat_to_seconds(block->start_beat + normalized_zoom) - block_start_seconds;
+            source_seconds = elapsed_seconds / time_scale + offset_seconds;
+        }
+        else
+        {
+            double source_beats = normalized_zoom / time_scale + start_offset;
+            source_seconds = uph_beats_to_seconds(source_beats, bpm);
+        }
         double source_frame_pos = source_seconds * (double)sample_rate;
 
         if (source_frame_pos >= (double)sample_data->frame_count)

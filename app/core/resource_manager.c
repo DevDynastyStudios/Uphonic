@@ -116,7 +116,7 @@ void uph_resources_add_track(Naui_String name, int32_t color_index)
 	naui_list_push(uph_state.project.tracks, track);
 }
 
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_PluginParam *param)
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param)
 {
 	Uph_Track track = {
 		.name = name,
@@ -124,9 +124,30 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph
 		.color_index = 0,
 		.index = naui_list_len(parent->subtracks),
 		.parent = parent,
-		.automation_param = param
+		.automation_target = target,
+		.automation_param = target == UPH_AUTOMATION_TARGET_PLUGIN_PARAM ? param : NULL
 	};
 	naui_list_push(parent->subtracks, track);
+}
+
+void uph_resources_add_tempo_track(Naui_String name)
+{
+	Uph_Track track = {
+		.name = name,
+		.type = UPH_RESOURCE_AUTOMATION,
+		.automation_target = UPH_AUTOMATION_TARGET_TEMPO
+	};
+	naui_list_insert(uph_state.project.tracks, track, 0);
+	uph_resources_link_tracks(uph_state.project.tracks);
+}
+
+static uint32_t uph_resources_root_first_free_index(void)
+{
+	const uint32_t count = (uint32_t)naui_list_len(uph_state.project.tracks);
+	uint32_t index = 0;
+	while (index < count && uph_state.project.tracks[index].type == UPH_RESOURCE_AUTOMATION && uph_state.project.tracks[index].automation_target == UPH_AUTOMATION_TARGET_TEMPO)
+		index++;
+	return index;
 }
 
 void uph_resources_init_master_track(void)
@@ -211,6 +232,18 @@ Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index
 	return NULL;
 }
 
+bool uph_resources_track_has_automation_target(const Uph_Track *track, Uph_AutomationTarget target)
+{
+	const uint64_t lane_count = naui_list_len(track->subtracks);
+	for (uint64_t s = 0; s < lane_count; s++)
+	{
+		const Uph_Track *lane = &track->subtracks[s];
+		if (lane->type == UPH_RESOURCE_AUTOMATION && lane->automation_target == target)
+			return true;
+	}
+	return false;
+}
+
 static void uph_resources_clear_plugin_usage(Uph_Plugin *plugin)
 {
 	const uint64_t param_count = naui_list_len(plugin->params);
@@ -234,7 +267,7 @@ void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks)
 		for (uint64_t s = 0; s < lane_count; s++)
 		{
 			Uph_Track *lane = &track->subtracks[s];
-			if (lane->type != UPH_RESOURCE_AUTOMATION)
+			if (lane->type != UPH_RESOURCE_AUTOMATION || lane->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
 				continue;
 
 			int32_t effect_index;
@@ -759,6 +792,12 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	const uint32_t dest_len = (uint32_t)naui_list_len(*dest_list);
 	if (dest_index > dest_len)
 		dest_index = dest_len;
+	if (dest_owner.depth == 0)
+	{
+		const uint32_t first_free = uph_resources_root_first_free_index();
+		if (dest_index < first_free)
+			dest_index = first_free;
+	}
 
 	const uint32_t first_index = uph_action_track_ref_index(moving[0]);
 	bool in_place = dest_index >= first_index && dest_index <= first_index + count;

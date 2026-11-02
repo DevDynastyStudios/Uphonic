@@ -11,6 +11,7 @@ typedef struct
 	int32_t effect_index;
 	uint64_t param_id;
 	uint32_t index;
+	Uph_AutomationTarget target;
 	bool resource_exists;
 } Uph_ActionTrackAutomationCreate;
 
@@ -213,7 +214,7 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 	for (int32_t s = (int32_t)naui_list_len(track->subtracks) - 1; s >= 0; s--)
 	{
 		Uph_Track *lane = &track->subtracks[s];
-		if (lane->type != UPH_RESOURCE_AUTOMATION || !uph_plugin_owns_param(plugin, lane->automation_param))
+		if (lane->type != UPH_RESOURCE_AUTOMATION || lane->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM || !uph_plugin_owns_param(plugin, lane->automation_param))
 			continue;
 
 		const Uph_ActionTrackRef ref = uph_action_track_ref(lane);
@@ -510,12 +511,20 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	if (!parent)
 		return false;
 
-	Uph_PluginParam* param = uph_resources_find_param(parent, data->effect_index, data->param_id);
-	if (!param)
+	Uph_PluginParam* param = NULL;
+	if (data->target == UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
+	{
+		param = uph_resources_find_param(parent, data->effect_index, data->param_id);
+		if (!param)
+			return false;
+	}
+	else if (uph_resources_track_has_automation_target(parent, data->target))
+	{
 		return false;
+	}
 
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_add_automation_track(parent, data->name, param);
+	uph_resources_add_automation_track(parent, data->name, data->target, param);
 	data->index = (uint32_t)naui_list_len(parent->subtracks) - 1;
 	data->resource_exists = true;
 	uph_action_tracks_changed(before, uph_action_track_ref_child(data->parent, data->index), 1);
@@ -543,6 +552,49 @@ bool _uph_action_track_automation_create_undo(void* userdata)
 bool _uph_action_track_automation_create_redo(void* userdata)
 {
 	return _uph_action_track_automation_create_execute(userdata);
+}
+
+#pragma endregion
+
+#pragma region Tempo Automation Create
+bool _uph_action_tempo_automation_create_execute(void* userdata)
+{
+	Uph_ActionResourceCreate* data = userdata;
+	if (uph_tempo_find_lane())
+		return false;
+
+	uph_audio_engine_lock();
+	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
+	uph_resources_add_tempo_track(naui_string_from_cstr(NAUI_TR("automation.target.tempo")));
+	data->resource_exists = true;
+	uph_action_tracks_changed(before, uph_action_track_ref_top(0), 1);
+	uph_audio_engine_unlock();
+	return true;
+}
+
+bool _uph_action_tempo_automation_create_undo(void* userdata)
+{
+	Uph_ActionResourceCreate* data = userdata;
+	if (!data->resource_exists)
+		return false;
+
+	const Uph_ActionTrackRef ref = uph_action_track_ref_top(0);
+	Uph_Track* track = uph_action_track_resolve(ref);
+	if (!track || track->type != UPH_RESOURCE_AUTOMATION || track->automation_target != UPH_AUTOMATION_TARGET_TEMPO)
+		return false;
+
+	uph_audio_engine_lock();
+	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
+	uph_resources_remove_track(track);
+	data->resource_exists = false;
+	uph_action_tracks_changed(before, ref, -1);
+	uph_audio_engine_unlock();
+	return true;
+}
+
+bool _uph_action_tempo_automation_create_redo(void* userdata)
+{
+	return _uph_action_tempo_automation_create_execute(userdata);
 }
 
 #pragma endregion

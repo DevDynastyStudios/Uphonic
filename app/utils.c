@@ -215,3 +215,28 @@ bool uph_automation_value_at_beat(const Uph_Automation *automation, double beat,
     *out_value = automation->points[count - 1].value;
     return true;
 }
+
+float uph_linear_to_db(float linear)
+{
+    if (linear <= 0.0001f) return -80.0f;
+    return 20.0f * log10f(linear);
+}
+
+float uph_db_to_linear(float db)
+{
+    return powf(10.0f, db / 20.0f);
+}
+
+float uph_automation_to_volume(float value)
+{
+    if (value <= 0.0f)
+        return 0.0f;
+    const float clamped = value > 1.0f ? 1.0f : value;
+    return uph_db_to_linear(UPH_MIXER_DB_MIN + clamped * (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN));
+}
+
+float uph_automation_to_pan(float value)
+{
+    const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+    return clamped * 2.0f - 1.0f;
+}

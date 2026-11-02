@@ -179,6 +179,66 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
     return true;
 }
 
+static bool uph_automation_list_track_target_visible(const Uph_Track *track, Uph_AutomationTarget target, const char *name)
+{
+    if (uph_resources_track_has_automation_target(track, target))
+        return false;
+
+    return uph_automation_list_data.filter.length == 0
+        || naui_string_contains(naui_string_from_cstr(name), uph_automation_list_data.filter, false);
+}
+
+static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *row_index)
+{
+    const struct { Uph_AutomationTarget target; const char *name; } targets[] = {
+        { UPH_AUTOMATION_TARGET_TRACK_VOLUME, NAUI_TR("automation.target.volume") },
+        { UPH_AUTOMATION_TARGET_TRACK_PAN, NAUI_TR("automation.target.pan") }
+    };
+    const uint32_t target_count = sizeof(targets) / sizeof(targets[0]);
+
+    bool any_visible = false;
+    for (uint32_t i = 0; i < target_count; i++)
+        any_visible |= uph_automation_list_track_target_visible(track, targets[i].target, targets[i].name);
+    if (!any_visible)
+        return false;
+
+    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+
+    leaf({
+        .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+        .child_gap = NAUI_DPI(UPH_AUTOMATION_LIST_ROW_GAP)
+    })
+    {
+        leaf({
+            .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x * 2.0f), NAUI_DPI(padding.y)),
+            .color = naui_theme_color("uph_resource_list_section_bg_color"),
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+            .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+            .clip_children = true
+        }) leaf_text(NAUI_TR("automation.menu.track"), { .font_size = font_size, .color = naui_theme_color("uph_resource_list_section_text_color") });
+
+        for (uint32_t i = 0; i < target_count; i++)
+        {
+            if (!uph_automation_list_track_target_visible(track, targets[i].target, targets[i].name))
+                continue;
+
+            if (uph_automation_list_param_row(targets[i].name, leaf_id_indexed("uph_automation_list_param", (*row_index)++)))
+            {
+                Uph_ActionTrackAutomationCreate lane = {
+                    .parent = uph_action_track_ref(track),
+                    .name = naui_string_from_cstr(targets[i].name),
+                    .target = targets[i].target
+                };
+                naui_action_execute_stack(UPH_ACTION_TRACK_AUTOMATION_CREATE, lane);
+                naui_panel_close(naui_panel_current());
+            }
+        }
+    }
+    return true;
+}
+
 void uph_automation_list_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("automation.menu.title"));
@@ -216,7 +276,8 @@ void uph_automation_list_on_update(void)
     })
     {
         uint32_t row_index = 0;
-        bool any_visible = uph_automation_list_render_plugin_params(&track->instrument, track, -1, &row_index);
+        bool any_visible = uph_automation_list_render_track_params(track, &row_index);
+        any_visible |= uph_automation_list_render_plugin_params(&track->instrument, track, -1, &row_index);
         for (uint32_t i = 0; i < naui_list_len(track->effects); i++)
             any_visible |= uph_automation_list_render_plugin_params(&track->effects[i].plugin, track, i, &row_index);
 

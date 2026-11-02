@@ -146,8 +146,30 @@ void uph_song_timeline_render_toolbox(void)
 				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
 			})
 			{
-				const Naui_String bpm = naui_string_format("BPM: %.1f", uph_state.project.bpm);
-				uph_ui_drag_float(&uph_state.project.bpm, leaf_id("uph_bpm_drag"), 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
+				const Leaf_ID bpm_id = leaf_id("uph_bpm_drag");
+				const bool tempo_live = uph_tempo_lane_active() && uph_state.shared.song_timeline_playing;
+				float shown_bpm = tempo_live ? uph_tempo_current_bpm() : uph_state.project.bpm;
+				if (uph_ui_drag_float(&shown_bpm, bpm_id, 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED) && !tempo_live)
+					uph_state.project.bpm = shown_bpm;
+
+				Uph_UIMenuID bpm_menu = uph_ui_context_menu();
+				const bool bpm_hovered = !uph_dialog_blocks_input() && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(bpm_id);
+				if (bpm_hovered && naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+					uph_ui_open_context_menu(bpm_menu);
+
+				Uph_Track *tempo_lane = uph_tempo_find_lane();
+				if (!tempo_lane)
+				{
+					if (uph_ui_menu_item(bpm_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_bpm_menu_automate")))
+						naui_action_execute_stack(UPH_ACTION_TEMPO_AUTOMATION_CREATE, (Uph_ActionResourceCreate){0});
+				}
+				else if (uph_ui_menu_item(bpm_menu, NAUI_TR("automation.menu.remove"), leaf_id("uph_bpm_menu_remove_automation")))
+				{
+					Naui_List(Uph_TrackPtr) targets = NULL;
+					naui_list_push(targets, tempo_lane);
+					uph_resources_delete_tracks(targets);
+					naui_list_free(targets);
+				}
 			}
 		}
 

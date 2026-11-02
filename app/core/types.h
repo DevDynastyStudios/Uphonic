@@ -249,6 +249,15 @@ typedef struct
 }
 Uph_EffectPlugin;
 
+typedef uint8_t Uph_AutomationTarget;
+enum
+{
+	UPH_AUTOMATION_TARGET_PLUGIN_PARAM,
+	UPH_AUTOMATION_TARGET_TRACK_VOLUME,
+	UPH_AUTOMATION_TARGET_TRACK_PAN,
+	UPH_AUTOMATION_TARGET_TEMPO
+};
+
 typedef struct Uph_Track Uph_Track;
 struct Uph_Track
 {
@@ -272,7 +281,15 @@ struct Uph_Track
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
 
+	float live_volume;
+	float live_pan;
+	bool volume_automated;
+	bool pan_automated;
+	bool volume_release_requested;
+	bool pan_release_requested;
+
 	Uph_PluginParam *automation_param;
+	Uph_AutomationTarget automation_target;
 
 	Uph_ResourceType type;
 	Uph_TrackState state;

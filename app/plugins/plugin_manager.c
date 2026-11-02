@@ -1752,7 +1752,7 @@ static void uph_vst3_process(
     ctx.sampleRate = (double)uph_state.settings.audio.sample_rate;
     ctx.projectTimeSamples = ih->vst3.sample_position;
     ctx.projectTimeMusic = playhead_beat;
-    ctx.tempo = uph_state.project.bpm;
+    ctx.tempo = uph_tempo_current_bpm();
     ctx.timeSigNumerator = 4;
     ctx.timeSigDenominator = 4;
 
@@ -3191,7 +3191,7 @@ void uph_plugin_process(
             | (is_playing ? CLAP_TRANSPORT_IS_PLAYING : 0),
         .song_pos_beats = song_pos_beats,
         .song_pos_seconds = 0,
-        .tempo = uph_state.project.bpm,
+        .tempo = uph_tempo_current_bpm(),
         .tempo_inc = 0,
         .loop_start_beats = 0,
         .loop_end_beats = 0,
