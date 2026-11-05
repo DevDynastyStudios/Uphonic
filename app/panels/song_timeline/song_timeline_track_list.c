@@ -33,7 +33,7 @@ static void _uph_song_timeline_begin_rename(Uph_Track *track)
 
 static bool _uph_song_timeline_track_selectable(const Uph_Track *track)
 {
-	return track && track->type != UPH_RESOURCE_AUTOMATION;
+	return track != NULL;
 }
 
 static bool _uph_song_timeline_track_selected(const Uph_Track *track)
@@ -160,10 +160,10 @@ static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_
 		return;
 
 	const bool selectable = _uph_song_timeline_track_selectable(track);
-	if ((selectable || track->type == UPH_RESOURCE_AUTOMATION) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+	if (selectable && naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{
-		const bool keep_selection = selectable && _uph_song_timeline_press_keeps_selection(track);
-		if (selectable && !keep_selection)
+		const bool keep_selection = _uph_song_timeline_press_keeps_selection(track);
+		if (!keep_selection)
 			_uph_song_timeline_click_select(track, true);
 
 		timeline->track_drag = (Uph_TrackDragState){
@@ -424,12 +424,19 @@ void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_cont
 		naui_list_push(targets, track);
 	}
 
+	Naui_List(Uph_TrackPtr) group_targets = NULL;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(targets); i++)
+	{
+		if (targets[i]->type != UPH_RESOURCE_AUTOMATION)
+			naui_list_push(group_targets, targets[i]);
+	}
+
 	bool restructured = false;
 
-	if (uph_resources_count_groupable_tracks(targets) >= 1 &&
+	if (uph_resources_count_groupable_tracks(group_targets) >= 1 &&
 		uph_ui_menu_item(track_options_context_menu, "Group Tracks", leaf_id("uph_song_timeline_options_group")))
 	{
-		Uph_Track *group = uph_resources_group_tracks(targets, "Untitled Group", track->color_index);
+		Uph_Track *group = uph_resources_group_tracks(group_targets, "Untitled Group", track->color_index);
 		if (group)
 		{
 			_uph_song_timeline_select_track(group);
@@ -448,6 +455,8 @@ void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_cont
 		}
 		naui_list_free(children);
 	}
+
+	naui_list_free(group_targets);
 
 	if (restructured)
 	{
@@ -700,14 +709,21 @@ static Naui_List(Uph_TrackPtr) _uph_song_timeline_drag_tracks(Uph_Track *source)
 {
 	Naui_List(Uph_TrackPtr) tracks = NULL;
 
-	if (_uph_song_timeline_track_selected(source))
-	{
-		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_song_timeline_data.selected_tracks); i++)
-			naui_list_push(tracks, uph_song_timeline_data.selected_tracks[i]);
-	}
-	else
+	if (!_uph_song_timeline_track_selected(source))
 	{
 		naui_list_push(tracks, source);
+		return tracks;
+	}
+
+	const bool automation = source->type == UPH_RESOURCE_AUTOMATION;
+	Naui_List(Uph_TrackPtr) selected = uph_song_timeline_data.selected_tracks;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
+	{
+		const bool compatible = automation ?
+			selected[i]->parent == source->parent :
+			selected[i]->type != UPH_RESOURCE_AUTOMATION;
+		if (compatible)
+			naui_list_push(tracks, selected[i]);
 	}
 
 	return tracks;
@@ -781,7 +797,8 @@ void uph_song_timeline_update_track_drag(void)
 		return;
 	}
 
-	const uint32_t carried = uph_resources_count_movable_tracks(dragged);
+	const uint32_t carried = source->type == UPH_RESOURCE_AUTOMATION ?
+		(uint32_t)naui_list_len(dragged) : uph_resources_count_movable_tracks(dragged);
 	naui_list_free(dragged);
 
 	char label[256];
