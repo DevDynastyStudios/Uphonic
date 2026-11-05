@@ -141,15 +141,6 @@ void uph_resources_add_tempo_track(Naui_String name)
 	uph_resources_link_tracks(uph_state.project.tracks);
 }
 
-static uint32_t uph_resources_root_first_free_index(void)
-{
-	const uint32_t count = (uint32_t)naui_list_len(uph_state.project.tracks);
-	uint32_t index = 0;
-	while (index < count && uph_state.project.tracks[index].type == UPH_RESOURCE_AUTOMATION && uph_state.project.tracks[index].automation_target == UPH_AUTOMATION_TARGET_TEMPO)
-		index++;
-	return index;
-}
-
 void uph_resources_init_master_track(void)
 {
 	uph_state.project.master_track = (Uph_MasterTrack){
@@ -732,15 +723,25 @@ static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPt
 	if (!refs)
 		return NULL;
 
+	const Uph_Track *dest_track = dest_owner.depth == 0 ? NULL : uph_action_track_resolve(dest_owner);
+
 	uint32_t count = 0;
 	for (uint32_t i = 0; i < selected_count; i++)
 	{
 		const Uph_Track *track = tracks[i];
-		if (!track || track->type == UPH_RESOURCE_AUTOMATION)
+		if (!track)
 			continue;
 
 		const Uph_ActionTrackRef ref = uph_action_track_ref(track);
 		if (ref.depth == 0 || uph_action_track_ref_has_prefix(dest_owner, ref))
+			continue;
+
+		if (track->type == UPH_RESOURCE_AUTOMATION)
+		{
+			if (!uph_action_track_ref_equal(uph_action_track_ref_owner(ref), dest_owner))
+				continue;
+		}
+		else if (dest_track && dest_track->type != UPH_RESOURCE_GROUP)
 			continue;
 
 		if (dest_owner.depth + uph_resources_track_height(track) > UPH_ACTION_TRACK_MAX_DEPTH)
@@ -772,9 +773,6 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	Uph_ActionTrackRef dest_owner = uph_action_track_ref_root();
 	if (dest_group)
 	{
-		if (dest_group->type != UPH_RESOURCE_GROUP)
-			return false;
-
 		dest_owner = uph_action_track_ref(dest_group);
 		if (dest_owner.depth == 0)
 			return false;
@@ -792,12 +790,6 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	const uint32_t dest_len = (uint32_t)naui_list_len(*dest_list);
 	if (dest_index > dest_len)
 		dest_index = dest_len;
-	if (dest_owner.depth == 0)
-	{
-		const uint32_t first_free = uph_resources_root_first_free_index();
-		if (dest_index < first_free)
-			dest_index = first_free;
-	}
 
 	const uint32_t first_index = uph_action_track_ref_index(moving[0]);
 	bool in_place = dest_index >= first_index && dest_index <= first_index + count;

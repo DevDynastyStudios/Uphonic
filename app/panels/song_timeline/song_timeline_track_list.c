@@ -160,10 +160,10 @@ static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_
 		return;
 
 	const bool selectable = _uph_song_timeline_track_selectable(track);
-	if (selectable && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+	if ((selectable || track->type == UPH_RESOURCE_AUTOMATION) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{
-		const bool keep_selection = _uph_song_timeline_press_keeps_selection(track);
-		if (!keep_selection)
+		const bool keep_selection = selectable && _uph_song_timeline_press_keeps_selection(track);
+		if (selectable && !keep_selection)
 			_uph_song_timeline_click_select(track, true);
 
 		timeline->track_drag = (Uph_TrackDragState){
@@ -663,6 +663,39 @@ static Uph_TrackDropTarget _uph_song_timeline_find_drop_target(float mouse_y, Na
 	return target;
 }
 
+static Uph_TrackDropTarget _uph_song_timeline_find_sibling_drop_target(float mouse_y, const Uph_Track *source)
+{
+	Uph_TrackDropTarget target = { 0 };
+	Uph_Track *parent = source->parent;
+	Naui_List(Uph_Track) siblings = parent ? parent->subtracks : uph_state.project.tracks;
+	const Uph_ActionTrackRef owner = parent ? uph_action_track_ref(parent) : uph_action_track_ref_root();
+	const uint32_t count = (uint32_t)naui_list_len(siblings);
+	Leaf_BoundingBox last_box = { 0 };
+	for (uint32_t i = 0; i < count; i++)
+	{
+		Leaf_BoundingBox box;
+		if (!_uph_song_timeline_row_box(&siblings[i], &box))
+			continue;
+
+		box = _uph_song_timeline_subtree_box(&siblings[i], box);
+		last_box = box;
+		if (_uph_song_timeline_drop_on_row(&target, mouse_y, box, owner, i))
+			return target;
+	}
+
+	if (last_box.height > 0.0f)
+	{
+		target = (Uph_TrackDropTarget){
+			.owner = owner,
+			.index = count,
+			.row = last_box,
+			.after = true,
+			.valid = true
+		};
+	}
+	return target;
+}
+
 static Naui_List(Uph_TrackPtr) _uph_song_timeline_drag_tracks(Uph_Track *source)
 {
 	Naui_List(Uph_TrackPtr) tracks = NULL;
@@ -724,8 +757,13 @@ void uph_song_timeline_update_track_drag(void)
 
 	Naui_List(Uph_TrackPtr) dragged = _uph_song_timeline_drag_tracks(source);
 
-	const Uph_TrackDropTarget target = timeline->panel_hovered ?
-		_uph_song_timeline_find_drop_target(mouse.y, dragged) : (Uph_TrackDropTarget){ 0 };
+	Uph_TrackDropTarget target = { 0 };
+	if (timeline->panel_hovered)
+	{
+		target = source->type == UPH_RESOURCE_AUTOMATION ?
+			_uph_song_timeline_find_sibling_drop_target(mouse.y, source) :
+			_uph_song_timeline_find_drop_target(mouse.y, dragged);
+	}
 
 	if (!mouse_down)
 	{
