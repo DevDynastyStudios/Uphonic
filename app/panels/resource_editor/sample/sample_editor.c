@@ -696,14 +696,15 @@ static void _uph_sample_editor_render_label(const char *label)
 {
 	leaf_text(label, {
 		.color = {naui_theme_color("uph_ui_text_color")},
-		.font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
+		.font_size = {NAUI_DPI(naui_theme_float("uph_toolbox_font_size"))}
 	});
 }
 
 static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 {
+	uph_ui_set_style_scope("uph_toolbox");
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(32))},
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_toolbox_height")))},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
@@ -780,6 +781,7 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 			_uph_sample_editor_render_label("Normalize");
 		}
 	}
+	uph_ui_set_style_scope(NULL);
 }
 
 #pragma endregion

@@ -208,6 +208,8 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	if (uph_song_timeline_data.panel_hovered && leaf_hovered_clipped(header_id))
 		uph_song_timeline_data.track_header_hovered = true;
 
+	uph_ui_set_style_scope("uph_ui_tinted");
+
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.size = {LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width())), LEAF_SIZE_FULL}
@@ -258,7 +260,8 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 			}
 
 			const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-			const int32_t title_height = button_size + NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").y) * 2;
+			const int32_t action_icon_size = button_size + NAUI_DPI(1);
+			const int32_t title_height = NAUI_DPI(naui_theme_float("uph_ui_frame_height"));
 			leaf({
 				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_LEFT, track->type == UPH_RESOURCE_GROUP ? LEAF_ALIGN_Y_CENTER : LEAF_ALIGN_Y_TOP},
@@ -323,7 +326,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 						}
 					}
 
-					if (uph_ui_image_button_ex(naui_asset_image("uph_icon_gear"), leaf_id_indexed("uph_song_timeline_options", track_id), (Naui_Vec2) { button_size, button_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
+					if (uph_ui_image_button_ex(naui_asset_image("uph_icon_gear"), leaf_id_indexed("uph_song_timeline_options", track_id), (Naui_Vec2) { action_icon_size, action_icon_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
 						_uph_song_timeline_open_options(track, options_menu);
 
 					if (track->type == UPH_RESOURCE_GROUP && uph_ui_text_button(track->state & UPH_TRACK_TIMELINE_COLLAPSED ? "+" : "-", leaf_id_indexed("uph_song_timeline_collapse", track_id)))
@@ -358,7 +361,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 
 						leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} });
 
-						if ((track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN) && uph_ui_image_button_ex(naui_asset_image("uph_icon_add_instrument"), leaf_id_indexed("uph_song_timeline_add_instrument", track_id), (Naui_Vec2) { button_size, button_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
+						if ((track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN) && uph_ui_image_button_ex(naui_asset_image("uph_icon_add_instrument"), leaf_id_indexed("uph_song_timeline_add_instrument", track_id), (Naui_Vec2) { action_icon_size, action_icon_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
 							_uph_song_timeline_open_instrument_list(track);
 					}
 				}
@@ -367,6 +370,8 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 			_uph_song_timeline_update_header_input(track, header_id, options_menu);
 		}
 	}
+
+	uph_ui_set_style_scope(NULL);
 	
 }
 

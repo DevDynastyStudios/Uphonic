@@ -44,7 +44,7 @@ static void _uph_midi_toolbar_render_voice(void)
 	})
 	{
 		leaf_text("Voice: ", {
-			.font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+			.font_size = NAUI_DPI(naui_theme_float("uph_toolbox_font_size")),
 			.color = naui_theme_color("uph_ui_text_color")
 		});
 
@@ -63,10 +63,11 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 {
 	Uph_ActionMode *action_mode = &editor->current_action_mode;
 	Uph_SnapResolution *snap_resolution = &editor->snap_resolution;
+	uph_ui_set_style_scope("uph_toolbox");
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(38))},
-		.padding = LEAF_PADDING_ALL(1),
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_toolbox_height")))},
+		.padding = { .top = 1, .bottom = 1 },
 		.color = {naui_theme_color("uph_toolbox_border_color")}
 	})
 	leaf({
@@ -74,13 +75,12 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
-		.child_gap = NAUI_DPI(12),
+		.child_gap = NAUI_DPI(22),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const int32_t button_size = NAUI_DPI(naui_theme_float("uph_song_timeline_icon_size"));
+		const int32_t button_size = NAUI_DPI(naui_theme_float("uph_toolbox_icon_size"));
 		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
-		const Naui_Color line_color = naui_theme_color("uph_toolbox_separator_color");
 		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
 
 		leaf({
@@ -128,7 +128,6 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 				uph_midi_preview_looping()
 			)) uph_midi_preview_set_loop(!uph_midi_preview_looping());
 		}
-		leaf({.size = {LEAF_SIZE_FIXED(NAUI_DPI(1)), LEAF_SIZE_PERCENT(0.5f)}, .color = {line_color}});
 		leaf({
 			.direction = LEAF_DIRECTION_HORIZONTAL,
 			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
@@ -165,7 +164,6 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 				*action_mode == UPH_ACTION_CUT
 			)) *action_mode = UPH_ACTION_CUT;
 		}
-		leaf({.size = {LEAF_SIZE_FIXED(NAUI_DPI(1)), LEAF_SIZE_PERCENT(0.5f)}, .color = {line_color}});
 		leaf({
 			.direction = LEAF_DIRECTION_HORIZONTAL,
 			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
@@ -173,7 +171,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 		})
 		{
 			leaf_text("Snap: ", {
-				.font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+				.font_size = NAUI_DPI(naui_theme_float("uph_toolbox_font_size")),
 				.color = naui_theme_color("uph_ui_text_color")
 			});
 			static const char *snap_options[] = {
@@ -185,15 +183,14 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 			};
 
 			leaf({
-				.size = {LEAF_SIZE_FIXED(NAUI_DPI(60)), LEAF_SIZE_FULL},
+				.size = {LEAF_SIZE_FIXED(NAUI_DPI(64)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
 			}) uph_ui_dropdown(snap_options, 5, (uint32_t*)snap_resolution, leaf_id("uph_midi_editor_snap"));
 		}
-		leaf({.size = {LEAF_SIZE_FIXED(NAUI_DPI(1)), LEAF_SIZE_PERCENT(0.5f)}, .color = {line_color}});
 		_uph_midi_toolbar_render_voice();
-		leaf({.size = {LEAF_SIZE_FIXED(NAUI_DPI(1)), LEAF_SIZE_PERCENT(0.5f)}, .color = {line_color}});
 
 		if (uph_ui_text_toggle_button("Velocity", leaf_id("uph_midi_editor_velocity_toggle"), editor->velocity_lane.visible))
 			editor->velocity_lane.visible = !editor->velocity_lane.visible;
 	}
+	uph_ui_set_style_scope(NULL);
 }

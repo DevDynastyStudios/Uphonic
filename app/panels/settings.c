@@ -754,9 +754,21 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.ui_scale"), UPH_SETTINGS_NO_ID)
 	{
-		const Leaf_ID ui_scale_id = leaf_id("uph_settings_ui_scale");
-		uph_ui_slider_float(&general->ui_scale, ui_scale_id, UPH_SETTINGS_UI_SCALE_MIN, UPH_SETTINGS_UI_SCALE_MAX, "%.2fx", UPH_UI_SLIDER_FLAG_NONE);
-		if (!uph_ui_widget_active(ui_scale_id) && general->ui_scale != naui_app_get_ui_scale())
+		static const float scales[] = { 0.5f, 0.75f, 0.9f, 1.0f, 1.1f, 1.25f, 1.5f, 1.75f, 2.0f };
+		static const char *labels[] = { "50%", "75%", "90%", "100%", "110%", "125%", "150%", "175%", "200%" };
+		const uint32_t count = sizeof(scales) / sizeof(scales[0]);
+
+		uint32_t selected = 0;
+		for (uint32_t i = 1; i < count; i++)
+		{
+			if (fabsf(scales[i] - general->ui_scale) < fabsf(scales[selected] - general->ui_scale))
+				selected = i;
+		}
+
+		if (uph_ui_dropdown(labels, count, &selected, leaf_id("uph_settings_ui_scale")))
+			general->ui_scale = scales[selected];
+
+		if (general->ui_scale != naui_app_get_ui_scale())
 			uph_settings_apply_ui_scale(general->ui_scale);
 	}
 

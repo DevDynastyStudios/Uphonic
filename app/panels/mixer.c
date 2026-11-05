@@ -193,6 +193,7 @@ static uint64_t uph_mixer_strip_id(const Uph_MixerStrip *strip)
 #define UPH_MIXER_EFFECT_ROW_PAD    4.0f
 #define UPH_MIXER_EFFECT_ROW_GAP    4.0f
 #define UPH_MIXER_EFFECT_ROW_HEIGHT 28.0f
+#define UPH_MIXER_METER_MIN_HEIGHT 60.0f
 #define UPH_MIXER_EFFECT_LED_HIT    18.0f
 #define UPH_MIXER_EFFECT_LED_DOT    8.0f
 
@@ -853,6 +854,8 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
 
     const bool is_master = (strip.track == NULL);
 
+    uph_ui_set_style_scope("uph_ui_tinted");
+
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
     const Leaf_ID name_id = leaf_id_indexed("uph_mixer_name", track_id);
@@ -992,7 +995,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             }
 
             leaf({
-                .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+                .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW_MIN(NAUI_DPI(UPH_MIXER_METER_MIN_HEIGHT))},
                 .direction = LEAF_DIRECTION_HORIZONTAL,
                 .child_gap = NAUI_DPI(8)
             })
@@ -1004,7 +1007,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                 Uph_ActionTrackRef track_ref = strip.ref;
                 leaf({
                     .size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-                    .color = {naui_theme_color("uph_ui_frame_bg_color")},
+                    .color = {naui_theme_color("uph_ui_well_bg_color")},
                     .custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
                     .custom_draw_data = LEAF_DATA_SLICE(track_ref)
                 });
@@ -1069,6 +1072,8 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             }
         }
     }
+
+    uph_ui_set_style_scope(NULL);
 }
 
 static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)

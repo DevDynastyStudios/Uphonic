@@ -41,6 +41,7 @@ typedef struct
 	Uph_ActionTrackRef track;
 	Uph_TrackState old_state;
 	Uph_TrackState new_state;
+	bool cleared_solo;
 } Uph_ActionTrackState;
 
 typedef struct
@@ -48,6 +49,7 @@ typedef struct
 	Uph_ActionTrackRef track;
 	Uph_ActionTrackRef old_solo;
 	Uph_ActionTrackRef new_solo;
+	bool unmuted;
 } Uph_ActionTrackSolo;
 
 typedef uint8_t Uph_ActionTrackValueKind;
@@ -418,6 +420,11 @@ bool _uph_action_track_state_execute(void* userdata)
 
 	const Uph_TrackState mask = data->old_state ^ data->new_state;
 	*state = (*state & (Uph_TrackState)~mask) | (data->new_state & mask);
+
+	Uph_Track* track = uph_action_track_resolve(data->track);
+	data->cleared_solo = track && (mask & data->new_state & UPH_TRACK_MUTED) && uph_state.project.soloed_track == track;
+	if (data->cleared_solo)
+		uph_state.project.soloed_track = NULL;
 	return true;
 }
 
@@ -430,6 +437,9 @@ bool _uph_action_track_state_undo(void* userdata)
 
 	const Uph_TrackState mask = data->old_state ^ data->new_state;
 	*state = (*state & (Uph_TrackState)~mask) | (data->old_state & mask);
+
+	if (data->cleared_solo)
+		uph_state.project.soloed_track = uph_action_track_resolve(data->track);
 	return true;
 }
 
@@ -454,12 +464,22 @@ bool _uph_action_track_solo_execute(void* userdata)
 	data->old_solo = uph_action_track_ref(project->soloed_track);
 	project->soloed_track = (project->soloed_track == track) ? NULL : track;
 	data->new_solo = uph_action_track_ref(project->soloed_track);
+
+	data->unmuted = project->soloed_track && (project->soloed_track->state & UPH_TRACK_MUTED);
+	if (data->unmuted)
+		project->soloed_track->state &= (Uph_TrackState)~UPH_TRACK_MUTED;
 	return true;
 }
 
 bool _uph_action_track_solo_undo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
+	if (data->unmuted)
+	{
+		Uph_Track* track = uph_action_track_resolve(data->new_solo);
+		if (track)
+			track->state |= UPH_TRACK_MUTED;
+	}
 	uph_state.project.soloed_track = uph_action_track_resolve(data->old_solo);
 	return true;
 }
@@ -468,6 +488,8 @@ bool _uph_action_track_solo_redo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	uph_state.project.soloed_track = uph_action_track_resolve(data->new_solo);
+	if (data->unmuted && uph_state.project.soloed_track)
+		uph_state.project.soloed_track->state &= (Uph_TrackState)~UPH_TRACK_MUTED;
 	return true;
 }
 

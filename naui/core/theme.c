@@ -117,6 +117,15 @@ float naui_theme_float(const char *name)
     return naui_strmap_get(naui_theme_state.float_map, name);
 }
 
+bool naui_theme_has(const char *name)
+{
+    return
+        naui_strmap_get_index(naui_theme_state.color_map, name) >= 0 ||
+        naui_strmap_get_index(naui_theme_state.float_map, name) >= 0 ||
+        naui_strmap_get_index(naui_theme_state.vec2_map, name) >= 0 ||
+        naui_strmap_get_index(naui_theme_state.color_list_map, name) >= 0;
+}
+
 Naui_Vec2 naui_theme_vec2(const char *name)
 {
     return naui_strmap_get(naui_theme_state.vec2_map, name);

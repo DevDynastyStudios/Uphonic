@@ -4,7 +4,8 @@ enum
     UPH_UI_TEXTFIELD_FLAG_NONE = 0,
     UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE = 1 << 0,
     UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY = 1 << 1,
-    UPH_UI_TEXTFIELD_FLAG_SEARCH = 1 << 2
+    UPH_UI_TEXTFIELD_FLAG_SEARCH = 1 << 2,
+    UPH_UI_TEXTFIELD_FLAG_INLINE = 1 << 3
 };
 
 typedef uint32_t Uph_UIDragFlags;
@@ -25,6 +26,7 @@ typedef uint64_t Uph_UIMenuID;
 
 void uph_ui_widgets_init(void);
 void uph_ui_widgets_flush(void);
+void uph_ui_set_style_scope(const char *scope);
 
 bool uph_ui_widget_hovered(const Leaf_ID id);
 bool uph_ui_widget_active(const Leaf_ID id);

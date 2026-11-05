@@ -196,7 +196,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 
 	leaf({
 		.size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
-		.color = {naui_theme_color("uph_ui_frame_bg_color")},
+		.color = {naui_theme_color("uph_ui_well_bg_color")},
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
 		.clip_children = true
 	})

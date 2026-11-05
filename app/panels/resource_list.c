@@ -414,7 +414,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
         }) {
             if (renaming)
             {
-                if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, placeholder_name))
+                if (uph_ui_textfield(name, id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_INLINE, placeholder_name))
                 {
                     if (name->length == 0)
                         *name = naui_string_from_cstr(placeholder_name);
@@ -581,7 +581,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
             .sides = LEAF_SIDE_ALL,
             .color = {naui_theme_color("uph_ui_frame_border")}
         },
-        .color = {naui_theme_color("uph_ui_frame_bg_color")},
+        .color = {naui_theme_color("uph_song_timeline_header_color")},
         .child_alignment = {
             LEAF_ALIGN_X_CENTER,
             LEAF_ALIGN_Y_CENTER
@@ -594,7 +594,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
                 .width = LEAF_SIZE_PERCENT(0.1f),
                 .height = LEAF_SIZE_DERIVED
             },
-            .color = naui_theme_color("uph_ui_frame_border"),
+            .color = naui_theme_color("uph_ui_text_disabled_color"),
             .aspect_ratio = 1.0f
         });
     }
