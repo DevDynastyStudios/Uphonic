@@ -843,25 +843,35 @@ static inline void naui_render_basic_panel_titlebar(Naui_PanelNode *node)
 static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_PanelNode *group, bool is_active, Leaf_ID id)
 {
     const float font_size = NAUI_DPI(naui_theme_float(NAUI_PANEL_FONT_SIZE_TAG));
-    const float rounding = naui_theme_float(NAUI_PANEL_ROUNDING_TAG);
-    const Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);
     const Naui_Vec2 padding = naui_vec2_scale(naui_theme_vec2(NAUI_PANEL_TITLEBAR_PADDING_TAG), naui_app_dpi_scale());
 
-    const Leaf_Color bg_color = is_active
-        ? naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG)
-        : naui_theme_color(NAUI_PANEL_TITLEBAR_BG_COLOR_TAG);
+    const bool hovered = !group->occluded && leaf_hovered(id);
+    const Leaf_Color text_color = is_active || hovered
+        ? naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG)
+        : naui_theme_color(NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG);
 
     leaf({
         .id = id,
         .direction = LEAF_DIRECTION_HORIZONTAL,
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIXED(font_size)},
         .padding = LEAF_PADDING_AXES(padding.x, padding.y),
-        .rounding = { NAUI_DPI(rounding), LEAF_CORNER_TL | LEAF_CORNER_TR },
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-        .color = bg_color,
         .child_gap = NAUI_DPI(2.0f)
     })
     {
+        if (is_active)
+        {
+            leaf({
+                .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+                .size = {LEAF_SIZE_PERCENT(1.0f), LEAF_SIZE_FIXED(NAUI_DPI(2.0f))},
+                .color = naui_theme_color(NAUI_PANEL_TAB_ACCENT_COLOR_TAG),
+                .floating = {
+                    .parent_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM},
+                    .self_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM}
+                }
+            });
+        }
+
         leaf_text(node->title, { .font_size = font_size, .color = text_color });
         if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !group->occluded && leaf_hovered(id))
             naui_render_close_button(node, group, font_size);
@@ -886,8 +896,7 @@ static inline void naui_render_docked_panel_titlebar(Naui_PanelNode *node)
         leaf({
             .direction = LEAF_DIRECTION_HORIZONTAL,
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
-            .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-            .child_gap = NAUI_DPI(2.0f)
+            .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
         })
         {
             if (node->tabs)
@@ -903,6 +912,14 @@ static inline void naui_render_docked_panel_titlebar(Naui_PanelNode *node)
     }
 }
 
+static inline float naui_floating_panel_rounding(const Naui_PanelNode *node)
+{
+    if (node->root == naui_panel_manager.main_viewport)
+        return 0.0f;
+
+    return NAUI_DPI(naui_theme_float(NAUI_PANEL_ROUNDING_TAG));
+}
+
 static inline void naui_render_panel_titlebar(Naui_PanelNode *node)
 {
     const Leaf_Color bg_color = naui_theme_color(NAUI_PANEL_TITLEBAR_BG_COLOR_TAG);
@@ -911,10 +928,7 @@ static inline void naui_render_panel_titlebar(Naui_PanelNode *node)
         .id = leaf_id_indexed(NAUI_PANEL_TITLEBAR_ID, (Naui_PanelID)node),
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .color = bg_color,
-        .rounding = {
-            NAUI_DPI(naui_theme_float(NAUI_PANEL_ROUNDING_TAG)),
-            LEAF_CORNER_TL | LEAF_CORNER_TR
-        }
+        .rounding = { naui_floating_panel_rounding(node), LEAF_CORNER_TL | LEAF_CORNER_TR }
     })
     {
         if (node->parent || node->root == naui_panel_manager.main_viewport || node->tabs)
@@ -928,10 +942,7 @@ static inline void naui_render_panel_body(Naui_PanelNode *node)
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
         .color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG),
-        .rounding = {
-            NAUI_DPI(naui_theme_float(NAUI_PANEL_ROUNDING_TAG)),
-            LEAF_CORNER_BL | LEAF_CORNER_BR
-        },
+        .rounding = { naui_floating_panel_rounding(node), LEAF_CORNER_BL | LEAF_CORNER_BR },
         .clip_children = true
     })
     {

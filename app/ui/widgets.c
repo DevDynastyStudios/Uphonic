@@ -1139,12 +1139,22 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
     return uph_ui_image_toggle_button_ex(image, id, size, tint, naui_theme_color(uph_ui__style_key("frame_bg_color")), NAUI_CORNER_ALL, enabled);
 }
 
+static Leaf_BoundingBox uph_ui__textfield_line_box(Leaf_BoundingBox box, float font_size)
+{
+    const float line_height = NAUI_MIN(naui_measure_text("Ag", 2, font_size, 0).y, box.height);
+    box.y += (box.height - line_height) * 0.5f;
+    box.height = line_height;
+    return box;
+}
+
 static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_TextfieldDrawData *draw_data = (Uph_TextfieldDrawData*)user_data;
     const float font_size = NAUI_DPI(naui_theme_float(uph_ui__style_key("font_size")));
+    const Leaf_BoundingBox clip = box;
+    box = uph_ui__textfield_line_box(box, font_size);
 
-    naui_push_clip_rect(box.x, box.y, box.width, box.height);
+    naui_push_clip_rect(clip.x, clip.y, clip.width, clip.height);
     if (draw_data->value->length)
     {
         naui_draw_text(
@@ -1176,6 +1186,7 @@ static void uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_dat
         return;
 
     const float font_size = NAUI_DPI(naui_theme_float(uph_ui__style_key("font_size")));
+    box = uph_ui__textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
     size_t lo = NAUI_MIN(data->cursor, data->select_start);
@@ -1200,6 +1211,7 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     const Uph_TextfieldData* data = (Uph_TextfieldData*)user_data;
 
     const float font_size = NAUI_DPI(naui_theme_float(uph_ui__style_key("font_size")));
+    box = uph_ui__textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
     const Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size, 0);

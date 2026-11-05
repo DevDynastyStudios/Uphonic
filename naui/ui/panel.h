@@ -26,6 +26,14 @@
     #define NAUI_PANEL_ROUNDING_TAG "naui_panel_rounding"
 #endif
 
+#ifndef NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG
+    #define NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG "naui_panel_tab_inactive_text_color"
+#endif
+
+#ifndef NAUI_PANEL_TAB_ACCENT_COLOR_TAG
+    #define NAUI_PANEL_TAB_ACCENT_COLOR_TAG "naui_panel_tab_accent_color"
+#endif
+
 #ifndef NAUI_PANEL_SHADOW_COLOR_TAG
     #define NAUI_PANEL_SHADOW_COLOR_TAG "naui_panel_shadow_color"
 #endif

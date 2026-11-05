@@ -10,7 +10,7 @@ void uph_song_timeline_render_toolbox(void)
 	})
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), 0.0f),
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_float("uph_toolbox_padding_x")), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_gap = NAUI_DPI(22),

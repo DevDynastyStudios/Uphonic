@@ -264,9 +264,8 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 			const int32_t title_height = NAUI_DPI(naui_theme_float("uph_ui_frame_height"));
 			leaf({
 				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-				.child_alignment = {LEAF_ALIGN_X_LEFT, track->type == UPH_RESOURCE_GROUP ? LEAF_ALIGN_Y_CENTER : LEAF_ALIGN_Y_TOP},
-				.padding = { .top = track->type == UPH_RESOURCE_GROUP ? 0 : NAUI_DPI(4) },
-				.child_gap = NAUI_DPI(8)
+				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+				.child_gap = NAUI_DPI(10)
 			})
 			{
 
@@ -274,14 +273,14 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 					.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(title_height)},
 					.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 					.direction = LEAF_DIRECTION_HORIZONTAL,
-					.child_gap = NAUI_DPI(4)
+					.child_gap = NAUI_DPI(6)
 				})
 				{
 					leaf({
 						.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
 						.direction = LEAF_DIRECTION_HORIZONTAL,
 						.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-						.child_gap = NAUI_DPI(6)
+						.child_gap = NAUI_DPI(8)
 					})
 					{
 						if (track->type != UPH_RESOURCE_NONE)
@@ -339,12 +338,12 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 						.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
 						.direction = LEAF_DIRECTION_HORIZONTAL,
 						.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-						.child_gap = NAUI_DPI(4)
+						.child_gap = NAUI_DPI(6)
 					})
 					{
-						if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), track->state & UPH_TRACK_MUTED))
+						if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_mute"), leaf_id_indexed("uph_song_timeline_mute_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, track->state & UPH_TRACK_MUTED))
 							uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
-						if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), uph_state.project.soloed_track == track))
+						if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_image_toggle_button(naui_asset_image("uph_icon_solo"), leaf_id_indexed("uph_song_timeline_solo_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, uph_state.project.soloed_track == track))
 						{
 							Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
 							naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);

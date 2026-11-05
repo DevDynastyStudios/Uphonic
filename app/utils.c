@@ -2,10 +2,11 @@ void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, d
 {
     const double beat_length = uph_time_signature_beat_length();
     const int64_t beats_per_bar = (int64_t)llround(uph_time_signature_bar_length() / beat_length);
-    const float min_spacing = NAUI_DPI(3.0f);
+    const float min_sub_spacing = NAUI_DPI(8.0f);
+    const float min_beat_spacing = NAUI_DPI(5.0f);
 
     const float division_px = (float)(division * zoom_x);
-    if (division < beat_length && division_px >= min_spacing)
+    if (division < beat_length && division_px >= min_sub_spacing)
     {
         const int64_t first = (int64_t)floor((double)scroll_x / division_px) - 1;
         const int64_t last = (int64_t)ceil((double)(scroll_x + width) / division_px);
@@ -20,7 +21,7 @@ void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, d
         }
     }
 
-    const bool draw_beats = beat_length * zoom_x >= min_spacing;
+    const bool draw_beats = beat_length * zoom_x >= min_beat_spacing;
     const double step = draw_beats ? beat_length : beat_length * (double)beats_per_bar;
     const float step_px = (float)(step * zoom_x);
     const int64_t first = (int64_t)floor((double)scroll_x / step_px) - 1;

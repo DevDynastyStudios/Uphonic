@@ -979,7 +979,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                 .child_gap = NAUI_DPI(2)
             })
             {
-                if (uph_ui_text_toggle_button("M", leaf_id_indexed("uph_mixer_mute_toggle", track_id), *strip.state & UPH_TRACK_MUTED))
+                if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_mute"), leaf_id_indexed("uph_mixer_mute_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, *strip.state & UPH_TRACK_MUTED))
                 {
                     if (!is_master)
                         uph_resources_toggle_track_state(strip.track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
@@ -987,7 +987,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
                         uph_resources_toggle_master_state(UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
                 }
 
-                if (!is_master && uph_ui_text_toggle_button("S", leaf_id_indexed("uph_mixer_solo_toggle", track_id), uph_state.project.soloed_track == strip.track))
+                if (!is_master && uph_ui_image_toggle_button(naui_asset_image("uph_icon_solo"), leaf_id_indexed("uph_mixer_solo_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, uph_state.project.soloed_track == strip.track))
                 {
                     Uph_ActionTrackSolo data = { .track = strip.ref };
                     naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
