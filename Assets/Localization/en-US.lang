@@ -58,6 +58,10 @@
 	"file_dialog.select": "Select",
 	"file_dialog.up": "Up",
 
+	"layout.default": "Default",
+	"layout.composition": "Composition",
+	"layout.midi": "MIDI",
+
 	"menu.edit": "Edit",
 	"menu.edit.copy": "Copy",
 	"menu.edit.cut": "Cut",

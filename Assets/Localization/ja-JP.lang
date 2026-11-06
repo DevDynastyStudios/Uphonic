@@ -60,6 +60,10 @@
 	"file_dialog.select": "選択",
 	"file_dialog.up": "上へ",
 
+	"layout.default": "標準",
+	"layout.composition": "作曲",
+	"layout.midi": "MIDI編集"
+
 	"menu.edit": "編集",
 	"menu.edit.copy": "コピー",
 	"menu.edit.cut": "切り取り",
