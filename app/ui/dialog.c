@@ -15,6 +15,8 @@ typedef struct
 	char buttons[UPH_DIALOG_MAX_BUTTONS][UPH_DIALOG_BUTTON_TEXT_MAX];
 	Uph_DialogCallback callback;
 	void *user_data;
+	Naui_String *input;
+	char input_placeholder[UPH_DIALOG_BUTTON_TEXT_MAX];
 }
 Uph_DialogState;
 static Uph_DialogState s_dialog;
@@ -38,6 +40,8 @@ bool uph_dialog_open(const Uph_DialogConfig *config)
 
 	_uph_dialog_copy(s_dialog.title, sizeof(s_dialog.title), config->title);
 	_uph_dialog_copy(s_dialog.message, sizeof(s_dialog.message), config->message);
+	_uph_dialog_copy(s_dialog.input_placeholder, sizeof(s_dialog.input_placeholder), config->input_placeholder);
+	s_dialog.input = config->input;
 
 	s_dialog.default_button = (config->default_button >= 0 && config->default_button < s_dialog.button_count) ? config->default_button : -1;
 	s_dialog.cancel_button = (config->cancel_button >= 0 && config->cancel_button < s_dialog.button_count) ? config->cancel_button : -1;
@@ -107,16 +111,30 @@ void uph_dialog_render(void)
 				.font_size = {font_size * 1.15f}
 			});
 
-			leaf({
-				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
-				.direction = LEAF_DIRECTION_VERTICAL
-			})
+			if (s_dialog.message[0])
 			{
-				leaf_text(s_dialog.message, {
-					.color = {text_color},
-					.font_size = {font_size},
-					.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
-				});
+				leaf({
+					.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+					.direction = LEAF_DIRECTION_VERTICAL
+				})
+				{
+					leaf_text(s_dialog.message, {
+						.color = {text_color},
+						.font_size = {font_size},
+						.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
+					});
+				}
+			}
+
+			if (s_dialog.input)
+			{
+				leaf({
+					.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+					.direction = LEAF_DIRECTION_HORIZONTAL
+				})
+				{
+					uph_ui_textfield(s_dialog.input, leaf_id("uph_dialog_input"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, s_dialog.input_placeholder[0] ? s_dialog.input_placeholder : NULL);
+				}
 			}
 
 			leaf({

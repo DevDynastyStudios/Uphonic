@@ -10,6 +10,8 @@ typedef struct
 	int32_t cancel_button;
 	Uph_DialogCallback callback;
 	void* user_data;
+	Naui_String* input;
+	const char* input_placeholder;
 }
 Uph_DialogConfig;
 
