@@ -143,7 +143,7 @@ void uph_render_main_titlebar(void)
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0.0f),
-			.child_gap = NAUI_DPI(4.0f)
+			.child_gap = NAUI_DPI(10.0f)
 		})
 		{
 			leaf({

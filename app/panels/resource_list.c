@@ -383,7 +383,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 {
     const float final_scale = 0.8f + naui_ease_out_elastic(visual_scale) * 0.2f;
     const float title_padding = NAUI_DPI(2.0f);
-    const int32_t rounding = (int32_t)NAUI_DPI(4.0f);
+    const int32_t rounding = (int32_t)NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
     const Leaf_Color bg_color = naui_theme_color("uph_resource_list_item_bg_color");
     const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     leaf({

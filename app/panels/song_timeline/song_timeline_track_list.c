@@ -314,7 +314,9 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 								_uph_song_timeline_begin_rename(track);
 
 							leaf({
-								.id = name_id
+								.id = name_id,
+								.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+								.clip_children = true
 							})
 							{
 								leaf_text(track->name.data, {

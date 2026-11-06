@@ -211,13 +211,14 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		if (block->selected)
 		{
 			const int32_t line_width = (int32_t)NAUI_DPI(2);
+			const Leaf_Color outline_color = naui_theme_color("uph_selection_outline_color");
 			leaf({
 				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 				.floating.offset = { (float)line_width, (float)line_width },
 				.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - line_width * 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - line_width * 2) },
 				.border = {
 					.width = line_width,
-					.color = { leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity)) },
+					.color = { leaf_rgba(outline_color.r, outline_color.g, outline_color.b, (uint8_t)(outline_color.a * opacity)) },
 					.sides = LEAF_SIDE_ALL
 				},
 				.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)

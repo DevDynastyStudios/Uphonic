@@ -55,7 +55,7 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 			naui_draw_rect(
 				(Naui_Vec2) { note_x, y_position },
 				(Naui_Vec2) { note_width, lane_height },
-				LEAF_COLOR_WHITE,
+				naui_theme_color("uph_selection_outline_color"),
 				NAUI_DPI(2.0f),
 				note_rounding,
 				LEAF_CORNER_ALL,
