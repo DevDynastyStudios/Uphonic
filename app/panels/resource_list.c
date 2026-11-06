@@ -722,7 +722,7 @@ static void uph_resource_list_on_update(void)
         !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
         uph_resource_list_remove_selected();
 
-    Uph_UIMenuID context_menu = uph_ui_context_menu();
+    Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_resource_list_context_menu"));
     const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
     const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
     const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");

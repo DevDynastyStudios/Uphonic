@@ -1105,8 +1105,8 @@ void uph_automation_editor_update(void)
 	editor->lane_box = leaf_get_bounding_box(lane_id);
 	editor->lane_hovered = editor->panel_hovered && leaf_hovered(lane_id);
 
-	const Uph_UIMenuID point_menu = uph_ui_context_menu();
-	const Uph_UIMenuID segment_menu = uph_ui_context_menu();
+	const Uph_UIMenuID point_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_point_menu"));
+	const Uph_UIMenuID segment_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_segment_menu"));
 	_uph_automation_editor_update_view(editor, automation);
 	_uph_automation_editor_update_hover(editor, automation);
 	_uph_automation_editor_update_mouse(editor, automation, point_menu, segment_menu);

@@ -64,6 +64,7 @@ typedef struct
     Uph_KnobData knob_data;
     Naui_Arena menu_arena;
     Uph_UIMenuNode *current_open_menu;
+    uint64_t open_menu_key;
     Naui_Vec2 current_context_menu_position;
     bool is_current_menu_context;
     bool menu_opened_last_frame;
@@ -818,6 +819,34 @@ static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec
     }
 }
 
+static Uph_UIMenuNode *uph_ui__menu_root(Uph_GlobalWidgetData *data, const Leaf_ID element_id)
+{
+    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    menu->element_id = element_id;
+    if (data->open_menu_key != 0 && element_id.value == data->open_menu_key)
+        data->current_open_menu = menu;
+    return menu;
+}
+
+static void uph_ui__open_menu(Uph_GlobalWidgetData *data, Uph_UIMenuNode *menu, bool context)
+{
+    data->current_open_menu = menu;
+    data->open_menu_key = menu->element_id.value;
+    data->is_current_menu_context = context;
+    data->menu_opened_last_frame = false;
+}
+
+static void uph_ui__close_menu(Uph_GlobalWidgetData *data)
+{
+    data->current_open_menu = NULL;
+    data->open_menu_key = 0;
+}
+
+static bool uph_ui__menu_is_open(const Uph_GlobalWidgetData *data, const Uph_UIMenuNode *menu)
+{
+    return data->open_menu_key != 0 && menu->element_id.value == data->open_menu_key;
+}
+
 static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 {
     if (data->current_open_menu)
@@ -845,7 +874,7 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 
             if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !leaf_hovered(id))
             {
-                data->current_open_menu = NULL;
+                uph_ui__close_menu(data);
                 return;
             }
 
@@ -856,7 +885,7 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
         Uph_UIMenuNode *current_node = data->current_open_menu->first_child;
         if (!current_node)
         {
-            data->current_open_menu = NULL;
+            uph_ui__close_menu(data);
             return;
         }
 
@@ -864,7 +893,7 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 
         if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !uph_ui_menu_dropdown_hovered(data->current_open_menu))
         {
-            data->current_open_menu = NULL;
+            uph_ui__close_menu(data);
             return;
         }
 
@@ -892,6 +921,9 @@ void uph_ui_widgets_flush(void)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
     uph_ui_render_menu_dropdown(data);
+    if (!data->current_open_menu)
+        data->open_menu_key = 0;
+    data->current_open_menu = NULL;
 
     if (data->textfield_data.mode != UPH_UI_EDIT_MODE_NONE && !data->textfield_submitted_this_frame)
         uph_ui__end_edit(&data->textfield_data);
@@ -907,20 +939,23 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
 
-    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
-    menu->element_id = element_id;
+    Uph_UIMenuNode *menu = uph_ui__menu_root(data, element_id);
 
     const bool hovered = uph_ui_widget_hovered(element_id);
     if (hovered)
     {
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
-            data->current_open_menu = data->current_open_menu ? NULL : menu;
-            data->is_current_menu_context = false;
-            data->menu_opened_last_frame = false;
+            if (data->open_menu_key != 0)
+                uph_ui__close_menu(data);
+            else
+                uph_ui__open_menu(data, menu, false);
         }
-        else if (!data->is_current_menu_context && data->current_open_menu)
+        else if (!data->is_current_menu_context && data->open_menu_key != 0)
+        {
             data->current_open_menu = menu;
+            data->open_menu_key = element_id.value;
+        }
     }
 
 
@@ -928,7 +963,7 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     leaf({
         .id = element_id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = {(data->current_open_menu == menu || hovered) ?
+        .color = {(uph_ui__menu_is_open(data, menu) || hovered) ?
             naui_theme_color(uph_ui__style_key("frame_hovered_bg_color")) : LEAF_COLOR_TRANSPARENT},
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL)
     })
@@ -942,17 +977,17 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     return (Uph_UIMenuID)menu;
 }
 
-Uph_UIMenuID uph_ui_context_menu(void)
+Uph_UIMenuID uph_ui_context_menu(const Leaf_ID id)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     return (Uph_UIMenuID)menu;
 }
 
-Uph_UIMenuID uph_ui_context_menu_custom(void (*custom_render)(Uph_UIMenuID menu_id))
+Uph_UIMenuID uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id))
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
+    Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     menu->deferred_render = custom_render;
     return (Uph_UIMenuID)menu;
 }
@@ -960,22 +995,18 @@ Uph_UIMenuID uph_ui_context_menu_custom(void (*custom_render)(Uph_UIMenuID menu_
 void uph_ui_open_context_menu(Uph_UIMenuID menu)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    Uph_UIMenuNode *node = (Uph_UIMenuNode*)menu;
-    data->current_open_menu = node;
+    uph_ui__open_menu(data, (Uph_UIMenuNode*)menu, true);
     data->current_context_menu_position = (Naui_Vec2){naui_mouse_x(), naui_mouse_y()};
-    data->is_current_menu_context = true;
-    data->menu_opened_last_frame = false;
 }
 
 void uph_ui_close_menu(void)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    data->current_open_menu = NULL;
+    uph_ui__close_menu(&uph_global_widget_data);
 }
 
 bool uph_ui_any_menu_open(void)
 {
-    return uph_global_widget_data.current_open_menu != NULL;
+    return uph_global_widget_data.open_menu_key != 0;
 }
 
 static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
@@ -1032,7 +1063,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     bool result;
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        uph_global_widget_data.current_open_menu = NULL;
+        uph_ui__close_menu(&uph_global_widget_data);
         result = true;
     }
     else result = false;
@@ -1764,11 +1795,10 @@ static void uph_ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id)
 {
     Uph_GlobalWidgetData *data = &uph_global_widget_data;
-    Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
-    menu->element_id = id;
+    Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     bool result = false;
 
-    const bool was_open = data->current_open_menu == menu;
+    const bool was_open = uph_ui__menu_is_open(data, menu);
     const bool hovered = uph_ui_widget_hovered(id) || (was_open && leaf_hovered(id));
 
     if (hovered)
@@ -1776,13 +1806,14 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
-            data->current_open_menu = was_open ? NULL : menu;
-            data->is_current_menu_context = false;
-            data->menu_opened_last_frame = false;
+            if (was_open)
+                uph_ui__close_menu(data);
+            else
+                uph_ui__open_menu(data, menu, false);
         }
     }
 
-    const bool open = data->current_open_menu == menu;
+    const bool open = uph_ui__menu_is_open(data, menu);
     const uint32_t shown_index = (*current_index < item_count) ? *current_index : 0;
     const char *shown_text = item_count > 0 ? items[shown_index] : "";
 

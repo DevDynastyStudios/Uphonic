@@ -111,8 +111,8 @@ static void uph_song_timeline_on_update(void)
 	uph_song_timeline_update_drag_track_switch();
 	uph_song_timeline_render_toolbox();
 
-	Uph_UIMenuID track_options_context_menu = uph_ui_context_menu();
-	Uph_UIMenuID track_color_options_context_menu = uph_ui_context_menu_custom(uph_song_timeline_render_track_color_menu);
+	Uph_UIMenuID track_options_context_menu = uph_ui_context_menu(leaf_id("uph_song_timeline_track_options_menu"));
+	Uph_UIMenuID track_color_options_context_menu = uph_ui_context_menu_custom(leaf_id("uph_song_timeline_track_color_menu"), uph_song_timeline_render_track_color_menu);
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL}

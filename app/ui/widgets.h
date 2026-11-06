@@ -36,8 +36,8 @@ Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id)
 Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
 
-Uph_UIMenuID    uph_ui_context_menu (void);
-Uph_UIMenuID    uph_ui_context_menu_custom(void (*custom_render)(Uph_UIMenuID menu_id));
+Uph_UIMenuID    uph_ui_context_menu (const Leaf_ID id);
+Uph_UIMenuID    uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id));
 
 void            uph_ui_open_context_menu    (Uph_UIMenuID menu);
 void            uph_ui_close_menu           (void);

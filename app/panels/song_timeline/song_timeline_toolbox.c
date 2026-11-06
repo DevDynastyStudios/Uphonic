@@ -150,7 +150,7 @@ void uph_song_timeline_render_toolbox(void)
 				if (uph_ui_drag_float(&shown_bpm, bpm_id, 1.0f, 1.0f, 10000.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED) && !tempo_live)
 					uph_state.project.bpm = shown_bpm;
 
-				Uph_UIMenuID bpm_menu = uph_ui_context_menu();
+				Uph_UIMenuID bpm_menu = uph_ui_context_menu(leaf_id("uph_song_timeline_bpm_menu"));
 				const bool bpm_hovered = !uph_dialog_blocks_input() && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered_clipped(bpm_id);
 				if (bpm_hovered && naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 					uph_ui_open_context_menu(bpm_menu);

@@ -395,7 +395,7 @@ static void uph_mixer_render_effect_row(
 static void uph_mixer_render_effect_list(void)
 {
     Uph_MixerStrip strip = uph_mixer_selected_strip();
-    Uph_UIMenuID context_menu = uph_ui_context_menu();
+    Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_effect_list_menu"));
 
     const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
     const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
@@ -1437,8 +1437,8 @@ static void uph_mixer_on_update(void)
             &scroll,
             leaf_id("uph_mixer_scrollbar")
         );
-        Uph_UIMenuID context_menu = uph_ui_context_menu();
-        uph_mixer_data.color_menu = uph_ui_context_menu_custom(uph_mixer_render_color_menu);
+        Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_strip_menu"));
+        uph_mixer_data.color_menu = uph_ui_context_menu_custom(leaf_id("uph_mixer_color_menu"), uph_mixer_render_color_menu);
         uph_mixer_render_strip(uph_mixer_strip_master(), context_menu);
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
