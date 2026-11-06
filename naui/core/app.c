@@ -20,6 +20,7 @@ typedef struct
     Naui_List(Naui_DeferredEntry) deferred_entries;
     Naui_Arena deferred_arg_arena;
     float ui_scale;
+    bool relaunch;
 }
 Naui_AppState;
 static Naui_AppState _naui_app_state = {
@@ -213,6 +214,59 @@ void naui_app_cancel_close(void)
     mgapp_cancel_close();
 }
 
+void naui_app_relaunch(void)
+{
+    _naui_app_state.relaunch = true;
+    mgapp_close();
+}
+
+static void _naui_app_spawn_self(void)
+{
+#if NAUI_WINDOWS
+    wchar_t path[32768];
+    const DWORD length = GetModuleFileNameW(NULL, path, (DWORD)(sizeof(path) / sizeof(path[0])));
+    if (!length || length >= sizeof(path) / sizeof(path[0]))
+        return;
+
+    wchar_t command_line[32772];
+    swprintf(command_line, sizeof(command_line) / sizeof(command_line[0]), L"\"%ls\"", path);
+
+    STARTUPINFOW startup_info = { .cb = sizeof(startup_info) };
+    PROCESS_INFORMATION process_info;
+    if (CreateProcessW(path, command_line, NULL, NULL, FALSE, 0, NULL, NULL, &startup_info, &process_info))
+    {
+        CloseHandle(process_info.hThread);
+        CloseHandle(process_info.hProcess);
+    }
+#elif NAUI_LINUX || NAUI_MACOS
+    char path[4096];
+#if NAUI_MACOS
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) != 0)
+        return;
+#else
+    const ssize_t length = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (length <= 0)
+        return;
+    path[length] = '\0';
+#endif
+
+    const pid_t pid = fork();
+    if (pid != 0)
+        return;
+
+    long max_fd = sysconf(_SC_OPEN_MAX);
+    if (max_fd < 0 || max_fd > 65536)
+        max_fd = 65536;
+    for (long fd = 3; fd < max_fd; fd++)
+        close((int)fd);
+
+    char *const argv[] = { path, NULL };
+    execv(path, argv);
+    _exit(127);
+#endif
+}
+
 void naui_app_minimize(void)
 {
     mgapp_minimize();
@@ -289,4 +343,7 @@ void naui_app_run(
             .event = __naui_app_event
         }
     });
+
+    if (_naui_app_state.relaunch)
+        _naui_app_spawn_self();
 }

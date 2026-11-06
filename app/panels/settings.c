@@ -347,6 +347,53 @@ static void uph_settings_apply_audio(Uph_SettingsData *data)
 	uph_settings_save();
 }
 
+static void uph_settings_restart_deferred(void *unused)
+{
+	(void)unused;
+	naui_app_relaunch();
+}
+
+static void uph_settings_restart_dialog_result(int32_t button, void *user_data)
+{
+	if (button != 0)
+		return;
+
+	Uph_SettingsData *data = (Uph_SettingsData*)user_data;
+	const bool unsaved_changes = uph_autosave_has_unsaved_changes();
+	const bool reopen_project = unsaved_changes || uph_project_has_been_saved(&uph_state.project);
+
+	if (unsaved_changes && !uph_project_save(&uph_state.project, UPH_SAVE_TYPE_CANONICAL))
+	{
+		naui_log(NAUI_LOG_ERROR, "Save failed, not restarting");
+		return;
+	}
+
+	uph_settings_audio_copy_device_fields(&uph_state.settings.audio, &data->audio_pending);
+	uph_state.settings.general.reopen_project = reopen_project ? uph_project_get_path(&uph_state.project) : (Naui_Path){ 0 };
+	uph_settings_save();
+
+	naui_defer(uph_settings_restart_deferred, NULL, 0);
+}
+
+static void uph_settings_request_audio_apply(Uph_SettingsData *data)
+{
+	if (data->audio_pending.sample_rate == uph_state.settings.audio.sample_rate)
+	{
+		uph_settings_apply_audio(data);
+		return;
+	}
+
+	uph_dialog_open(&(Uph_DialogConfig){
+		.title = NAUI_TR("dialog.restart.title"),
+		.message = NAUI_TR("dialog.restart.message"),
+		.buttons = { NAUI_TR("dialog.restart.confirm"), NAUI_TR("dialog.cancel") },
+		.default_button = 0,
+		.cancel_button = 1,
+		.callback = uph_settings_restart_dialog_result,
+		.user_data = data
+	});
+}
+
 static void uph_settings_apply_theme_deferred(void *name)
 {
 	naui_load_theme((const char*)name);
@@ -856,7 +903,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 	}
 
 	if (apply)
-		uph_settings_apply_audio(data);
+		uph_settings_request_audio_apply(data);
 }
 
 // static void uph_settings_axis_pair(Naui_Vec2 *value, const float speed, const float min, const float max, const char *id_x, const char *id_y)

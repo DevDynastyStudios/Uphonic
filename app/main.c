@@ -213,6 +213,16 @@ void naui_app_start(void)
 	Naui_Path recoverable_project = {0};
 	const bool recoverable = uph_recovery_find_recoverable_project(UPHONIC_WORKSPACE_FOLDER, &recoverable_project);
 	uph_project_create(uph_project_untitled_name());
+
+	const Naui_Path reopen_path = uph_state.settings.general.reopen_project;
+	if (reopen_path.data[0])
+	{
+		uph_state.settings.general.reopen_project = (Naui_Path){ 0 };
+		uph_settings_save();
+
+		if (!uph_project_load(&uph_state.project, reopen_path))
+			naui_log(NAUI_LOG_ERROR, "Failed to reopen project after restart: %s", reopen_path.data);
+	}
  
 	if (recoverable)
 		uph_show_restore_dialog(recoverable_project);

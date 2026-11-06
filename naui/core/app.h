@@ -37,6 +37,7 @@ NAUI_API int32_t    naui_app_height     (void);
 
 NAUI_API void       naui_app_close      (void);
 NAUI_API void       naui_app_cancel_close(void);
+NAUI_API void       naui_app_relaunch   (void);
 NAUI_API void       naui_app_minimize   (void);
 NAUI_API void       naui_app_maximize   (void);
 NAUI_API void       naui_app_restore    (void);
