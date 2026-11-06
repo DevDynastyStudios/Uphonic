@@ -1,0 +1,43 @@
+{
+    "version": 1,
+    "viewport": 
+    {
+        "kind": "split",
+        "axis": "horizontal",
+        "ratio": 0.692968726158142,
+        "child0": 
+        {
+            "kind": "split",
+            "axis": "horizontal",
+            "ratio": 0.105480395257473,
+            "child0": 
+            {
+                "kind": "panel",
+                "type": "uph_resource_list"
+            },
+            "child1": 
+            {
+                "kind": "panel",
+                "type": "uph_song_timeline"
+            }
+        },
+        "child1": 
+        {
+            "kind": "split",
+            "axis": "vertical",
+            "ratio": 0.5,
+            "child0": 
+            {
+                "kind": "panel",
+                "type": "uph_resource_editor"
+            },
+            "child1": 
+            {
+                "kind": "panel",
+                "type": "uph_mixer"
+            }
+        }
+    },
+    "floating": 
+    []
+}
