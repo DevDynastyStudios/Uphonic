@@ -91,7 +91,6 @@
 	"menu.help.tutorials": "Tutorials",
 
 	"menu.layout": "Layouts",
-	"menu.layout.default": "Default",
 	"menu.layout.delete": "Delete Layout",
 	"menu.layout.popup.cancel": "Cancel",
 	"menu.layout.popup.cancel_btn": "Cancel",

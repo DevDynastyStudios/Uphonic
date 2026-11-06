@@ -61,7 +61,7 @@
 
 	"layout.default": "標準",
 	"layout.composition": "作曲",
-	"layout.midi": "MIDI編集"
+	"layout.midi": "MIDI編集",
 
 	"menu.edit": "編集",
 	"menu.edit.copy": "コピー",
@@ -92,7 +92,6 @@
 	"menu.help.tutorials": "チュートリアル",
 
 	"menu.layout": "レイアウト",
-	"menu.layout.default": "デフォルト",
 	"menu.layout.delete": "レイアウトを削除",
 	"menu.layout.popup.cancel": "キャンセル",
 	"menu.layout.popup.cancel_btn": "キャンセル",

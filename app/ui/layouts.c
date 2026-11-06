@@ -3,6 +3,8 @@
 
 typedef struct
 {
+	char builtin_names[UPH_LAYOUT_MAX_COUNT][UPH_LAYOUT_NAME_MAX];
+	uint32_t builtin_count;
 	char names[UPH_LAYOUT_MAX_COUNT][UPH_LAYOUT_NAME_MAX];
 	uint32_t count;
 	char pending_delete[UPH_LAYOUT_NAME_MAX];
@@ -11,11 +13,26 @@ typedef struct
 Uph_LayoutsState;
 static Uph_LayoutsState uph_layouts_state = { 0 };
 
-static Naui_Path uph_layouts_path(const char *name)
+static Naui_Path uph_layouts_path_in(const Naui_Path folder, const char *name)
 {
 	char file_name[UPH_LAYOUT_NAME_MAX + sizeof(UPH_LAYOUT_EXTENSION)];
 	snprintf(file_name, sizeof(file_name), "%s%s", name, UPH_LAYOUT_EXTENSION);
-	return naui_path_join(UPHONIC_LAYOUTS_FOLDER, NAUI_PATH(file_name));
+	return naui_path_join(folder, NAUI_PATH(file_name));
+}
+
+static Naui_Path uph_layouts_path(const char *name)
+{
+	return uph_layouts_path_in(UPHONIC_LAYOUTS_FOLDER, name);
+}
+
+static Naui_Path uph_layouts_builtin_path(const char *name)
+{
+	return uph_layouts_path_in(UPHONIC_BUILTIN_LAYOUTS_FOLDER, name);
+}
+
+static bool uph_layouts_is_builtin_selection(const char *selection)
+{
+	return !strncmp(selection, UPH_LAYOUT_BUILTIN_PREFIX, sizeof(UPH_LAYOUT_BUILTIN_PREFIX) - 1);
 }
 
 static void uph_layouts_select(const char *name)
@@ -23,19 +40,12 @@ static void uph_layouts_select(const char *name)
 	uph_state.settings.general.layout = naui_string_from_cstr(name);
 }
 
-static void uph_layouts_select_default(void)
+static void uph_layouts_scan(const Naui_Path folder, char names[UPH_LAYOUT_MAX_COUNT][UPH_LAYOUT_NAME_MAX], uint32_t *count)
 {
-	uph_layouts_select("");
-	uph_layouts_apply_default();
-}
+	*count = 0;
 
-static void uph_layouts_refresh(void)
-{
-	Uph_LayoutsState *state = &uph_layouts_state;
-	state->count = 0;
-
-	Naui_List(Naui_DirEntry) entries = naui_directory_filter(UPHONIC_LAYOUTS_FOLDER, NULL, NAUI_EXTENSIONS(UPH_LAYOUT_EXTENSION));
-	for (size_t i = 0; i < (size_t)naui_list_len(entries) && state->count < UPH_LAYOUT_MAX_COUNT; i++)
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter(folder, NULL, NAUI_EXTENSIONS(UPH_LAYOUT_EXTENSION));
+	for (size_t i = 0; i < (size_t)naui_list_len(entries) && *count < UPH_LAYOUT_MAX_COUNT; i++)
 	{
 		if (entries[i].is_directory)
 			continue;
@@ -44,35 +54,51 @@ static void uph_layouts_refresh(void)
 		if (stem.length == 0 || stem.length >= UPH_LAYOUT_NAME_MAX || !naui_utf8_is_valid(stem.data, stem.length))
 			continue;
 
-		memcpy(state->names[state->count], stem.data, stem.length);
-		state->names[state->count][stem.length] = '\0';
-		state->count++;
+		memcpy(names[*count], stem.data, stem.length);
+		names[*count][stem.length] = '\0';
+		(*count)++;
 	}
 
 	naui_directory_filter_free(entries);
 }
 
+static void uph_layouts_refresh(void)
+{
+	Uph_LayoutsState *state = &uph_layouts_state;
+	uph_layouts_scan(UPHONIC_BUILTIN_LAYOUTS_FOLDER, state->builtin_names, &state->builtin_count);
+	uph_layouts_scan(UPHONIC_LAYOUTS_FOLDER, state->names, &state->count);
+
+	for (uint32_t i = 1; i < state->builtin_count; i++)
+	{
+		if (strcmp(state->builtin_names[i], UPH_LAYOUT_BUILTIN_DEFAULT))
+			continue;
+
+		char name[UPH_LAYOUT_NAME_MAX];
+		memcpy(name, state->builtin_names[i], sizeof(name));
+		memmove(state->builtin_names[1], state->builtin_names[0], (size_t)i * sizeof(state->builtin_names[0]));
+		memcpy(state->builtin_names[0], name, sizeof(name));
+		break;
+	}
+}
+
+static bool uph_layouts_load_builtin(const char *name)
+{
+	const Naui_Path path = uph_layouts_builtin_path(name);
+	if (!naui_panel_layout_load(path.data))
+	{
+		naui_log(NAUI_LOG_ERROR, "Failed to load built-in layout: %s", path.data);
+		return false;
+	}
+
+	char selection[UPH_LAYOUT_NAME_MAX + sizeof(UPH_LAYOUT_BUILTIN_PREFIX)];
+	snprintf(selection, sizeof(selection), "%s%s", UPH_LAYOUT_BUILTIN_PREFIX, name);
+	uph_layouts_select(selection);
+	return true;
+}
+
 void uph_layouts_apply_default(void)
 {
-	const char uph_default_layout[] =
-		"{"
-			"\"version\": 1,"
-			"\"viewport\": {"
-				"\"kind\": \"split\", \"axis\": \"vertical\", \"ratio\": 0.55,"
-				"\"child0\": {"
-					"\"kind\": \"split\", \"axis\": \"horizontal\", \"ratio\": 0.8,"
-					"\"child0\": { \"kind\": \"panel\", \"type\": \"uph_song_timeline\" },"
-					"\"child1\": { \"kind\": \"panel\", \"type\": \"uph_resource_list\" }"
-				"},"
-				"\"child1\": {"
-					"\"kind\": \"split\", \"axis\": \"horizontal\", \"ratio\": 0.65,"
-					"\"child0\": { \"kind\": \"panel\", \"type\": \"uph_resource_editor\" },"
-					"\"child1\": { \"kind\": \"panel\", \"type\": \"uph_mixer\" }"
-				"}"
-			"},"
-			"\"floating\": []"
-		"}";
-	naui_panel_layout_load_from_memory(uph_default_layout, sizeof(uph_default_layout) - 1);
+	uph_layouts_load_builtin(UPH_LAYOUT_BUILTIN_DEFAULT);
 }
 
 bool uph_layouts_load(const char *name)
@@ -91,10 +117,16 @@ bool uph_layouts_load(const char *name)
 void uph_layouts_apply_saved(void)
 {
 	const char *name = uph_state.settings.general.layout.data;
-	if (name[0] && naui_path_exists(uph_layouts_path(name)) && uph_layouts_load(name))
+	if (uph_layouts_is_builtin_selection(name))
+	{
+		const char *builtin = name + sizeof(UPH_LAYOUT_BUILTIN_PREFIX) - 1;
+		if (naui_path_exists(uph_layouts_builtin_path(builtin)) && uph_layouts_load_builtin(builtin))
+			return;
+	}
+	else if (name[0] && naui_path_exists(uph_layouts_path(name)) && uph_layouts_load(name))
 		return;
 
-	uph_layouts_select_default();
+	uph_layouts_apply_default();
 }
 
 static Naui_String uph_layouts_save_name;
@@ -215,7 +247,8 @@ static void _uph_open_save_layout_dialog(void)
 	if (uph_dialog_is_open())
 		return;
 
-	uph_layouts_save_name = naui_string_from_cstr(uph_state.settings.general.layout.data);
+	const char *current = uph_state.settings.general.layout.data;
+	uph_layouts_save_name = naui_string_from_cstr(uph_layouts_is_builtin_selection(current) ? "" : current);
 	_uph_open_save_layout_dialog_ex(NULL);
 }
 
@@ -258,8 +291,11 @@ void uph_layouts_render_menu(void)
 	state->menu_was_open = menu_open;
 
 	Uph_UIMenuID layout_menu = uph_ui_menu(NAUI_TR("menu.layout"), leaf_id("uph_layout_menu"));
-	if (uph_ui_menu_item(layout_menu, NAUI_TR("menu.layout.default"), leaf_id("uph_layout_menu_default")))
-		uph_layouts_select_default();
+	for (uint32_t i = 0; i < state->builtin_count; i++)
+	{
+		if (uph_ui_menu_item(layout_menu, NAUI_TR(state->builtin_names[i]), leaf_id_indexed("uph_layout_menu_builtin_item", i)))
+			uph_layouts_load_builtin(state->builtin_names[i]);
+	}
 
 	for (uint32_t i = 0; i < state->count; i++)
 	{

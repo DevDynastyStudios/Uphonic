@@ -60,6 +60,10 @@
 "filedialog.select": "Sélectionner",
 "filedialog.up": "Dossier parent",
 
+"layout.default": "Par défaut",
+"layout.composition": "Composition",
+"layout.midi": "MIDI",
+
 "menu.edit": "Édition",
 "menu.edit.copy": "Copier",
 "menu.edit.cut": "Couper",
@@ -88,7 +92,6 @@
 "menu.help.tutorials": "Tutoriels",
 
 "menu.layout": "Agencements",
-"menu.layout.default": "Par défaut",
 "menu.layout.delete": "Supprimer l’agencement",
 "menu.layout.popup.cancel": "Annuler",
 "menu.layout.popup.cancel_btn": "Annuler",
