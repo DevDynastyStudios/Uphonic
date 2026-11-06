@@ -855,7 +855,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
         .id = id,
         .direction = LEAF_DIRECTION_HORIZONTAL,
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIXED(font_size)},
-        .padding = LEAF_PADDING_AXES(padding.x, padding.y),
+        .padding = (Leaf_Padding){ 0.0f, padding.x, padding.y, padding.y },
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .child_gap = NAUI_DPI(2.0f)
     })
@@ -873,6 +873,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
             });
         }
 
+        leaf({ .size = {LEAF_SIZE_FIXED(padding.x - NAUI_DPI(2.0f)), LEAF_SIZE_FIXED(0.0f)} });
         leaf_text(node->title, { .font_size = font_size, .color = text_color });
         if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !group->occluded && leaf_hovered(id))
             naui_render_close_button(node, group, font_size);

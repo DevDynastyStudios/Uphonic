@@ -12,8 +12,9 @@ static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_
 
 	leaf({
 		.id = id,
-		.size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
-		.padding = LEAF_PADDING_AXES(8.0f * dpi_scale, 8.0f * dpi_scale),
+		.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+		.padding = LEAF_PADDING_AXES(8.0f * dpi_scale, 0.0f),
+		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 		.color = hovered ?
 			bg_color :
 			LEAF_COLOR_TRANSPARENT
@@ -124,7 +125,7 @@ void uph_render_main_titlebar(void)
 	bool titlebar_widgets_hovered = leaf_hovered(left_area_id) || leaf_hovered(right_area_id);
 
 	const float dpi_scale = naui_app_dpi_scale();
-	const float titlebar_height = 32.0f * dpi_scale;
+	const float titlebar_height = 34.0f * dpi_scale;
 	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_panel_is_any_hovered() ? 0 : titlebar_height);
 
 	Naui_Vec2 padding = naui_theme_vec2(NAUI_PANEL_TITLEBAR_PADDING_TAG);
@@ -141,7 +142,7 @@ void uph_render_main_titlebar(void)
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-			.padding = LEAF_PADDING_AXES(padding.x, 0.0f),
+			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0.0f),
 			.child_gap = NAUI_DPI(4.0f)
 		})
 		{
@@ -269,7 +270,8 @@ void uph_render_main_titlebar(void)
 			leaf({
 				.id = right_area_id,
 				.direction = LEAF_DIRECTION_HORIZONTAL,
-				.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL}
+				.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+				.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
 			})
 			{
 				uph_render_titlebar_icon_button(naui_asset_image(NAUI_MINIMIZE_ICON_TAG), leaf_id_indexed("__naui_titlebar_btn", 0), text_color, naui_theme_color(NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG), uph_defer_minimize);
