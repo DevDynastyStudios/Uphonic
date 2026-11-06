@@ -86,6 +86,7 @@
 "menu.help.tutorials": "チュートリアル",
 
 "menu.layout": "レイアウト",
+"menu.layout.default": "デフォルト",
 "menu.layout.delete": "レイアウトを削除",
 "menu.layout.popup.cancel": "キャンセル",
 "menu.layout.popup.cancelbtn": "キャンセル",

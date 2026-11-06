@@ -85,6 +85,7 @@
 "menu.help.tutorials": "Tutoriels",
 
 "menu.layout": "Agencements",
+"menu.layout.default": "Par défaut",
 "menu.layout.delete": "Supprimer l’agencement",
 "menu.layout.popup.cancel": "Annuler",
 "menu.layout.popup.cancel_btn": "Annuler",

@@ -107,6 +107,7 @@ void uph_settings_set_defaults(void)
 	settings->general.theme = naui_string_from_cstr("Fish");
 	settings->general.language_code = naui_string_from_cstr("en");
 	settings->general.region_code = naui_string_from_cstr("US");
+	settings->general.layout = naui_string_from_cstr("");
 	settings->general.ui_scale = 1.0f;
 	settings->general.autosave_idle_timer = 5;
 	settings->general.undo_history_limit = 100;

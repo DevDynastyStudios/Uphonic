@@ -575,6 +575,7 @@ static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue*
 	naui_json_set_string(json, object, "theme", general->theme.data);
 	naui_json_set_string(json, object, "language_code", general->language_code.data);
 	naui_json_set_string(json, object, "region_code", general->region_code.data);
+	naui_json_set_string(json, object, "layout", general->layout.data);
 	naui_json_set_number(json, object, "ui_scale", uph_io_float_json(general->ui_scale));
 	naui_json_set_int(json, object, "autosave_timer", general->autosave_idle_timer);
 	naui_json_set_int(json, object, "undo_history_limit", (int)general->undo_history_limit);
@@ -1380,6 +1381,7 @@ static void uph_io_load_editor_settings_general(Uph_GeneralSettings* general, co
 	uph_io_read_string(object, "theme", &general->theme);
 	uph_io_read_string(object, "language_code", &general->language_code);
 	uph_io_read_string(object, "region_code", &general->region_code);
+	uph_io_read_string(object, "layout", &general->layout);
 	uph_io_read_float(object, "ui_scale", &general->ui_scale);
 	uph_io_read_int32(object, "autosave_timer", &general->autosave_idle_timer);
 	uph_io_read_uint32(object, "undo_history_limit", &general->undo_history_limit);

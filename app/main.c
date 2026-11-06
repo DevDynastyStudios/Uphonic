@@ -198,21 +198,14 @@ void naui_app_start(void)
 	naui_panel_close(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 	naui_panel_close(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
  
+	naui_panel_enable_flags(uph_state.panels.song_timeline, NAUI_PANEL_FLAG_SERIALIZABLE);
+	naui_panel_enable_flags(uph_state.panels.resource_list, NAUI_PANEL_FLAG_SERIALIZABLE);
+	naui_panel_enable_flags(uph_state.panels.mixer, NAUI_PANEL_FLAG_SERIALIZABLE);
+	naui_panel_enable_flags(uph_state.panels.resource_editor, NAUI_PANEL_FLAG_SERIALIZABLE);
+ 
 	uph_file_dialog_register();
  
-	naui_viewport_set(naui_panel_dock(
-		naui_panel_dock(
-			uph_state.panels.song_timeline,
-			uph_state.panels.resource_list,
-			NAUI_DOCK_DIRECTION_RIGHT, 0.8f
-		),
-		naui_panel_dock(
-			uph_state.panels.mixer,
-			uph_state.panels.resource_editor,
-			NAUI_DOCK_DIRECTION_LEFT, 0.65f
-		),
-		NAUI_DOCK_DIRECTION_BOTTOM, 0.55f
-	));
+	uph_layouts_apply_saved();
  
 	uph_settings_open_midi_ports(!settings_loaded);
 	uph_action_initialize();

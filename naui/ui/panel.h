@@ -158,8 +158,9 @@ NAUI_API Naui_PanelID       naui_panel_focused              (void);
 NAUI_API Naui_PanelID       naui_panel_current              (void);
 NAUI_API void              *naui_panel_current_data         (void);
 
-NAUI_API bool               naui_viewport_serialize         (const char *file_path);
-NAUI_API bool               naui_viewport_deserialize       (const char *file_path);
+NAUI_API bool               naui_panel_layout_save          (const char *file_path);
+NAUI_API bool               naui_panel_layout_load          (const char *file_path);
+NAUI_API bool               naui_panel_layout_load_from_memory(const char *json, size_t length);
 
 #ifdef _MSC_VER
   #pragma section(".CRT$XCU", read)

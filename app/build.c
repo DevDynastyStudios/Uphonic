@@ -66,6 +66,7 @@
 #include "ui/widgets.h"
 #include "ui/dialog.h"
 #include "ui/containers.h"
+#include "ui/layouts.h"
 
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
@@ -73,6 +74,7 @@
 #include "ui/widgets.c"
 #include "ui/dialog.c"
 #include "ui/containers.c"
+#include "ui/layouts.c"
 
 #include "actions/action_track.c"
 #include "actions/action_block.c"
