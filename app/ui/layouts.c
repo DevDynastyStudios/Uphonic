@@ -1,4 +1,4 @@
-#define UPH_LAYOUT_NAME_MAX 64
+#define UPH_LAYOUT_NAME_MAX 192
 #define UPH_LAYOUT_MAX_COUNT 64
 
 typedef struct
@@ -41,7 +41,7 @@ static void uph_layouts_refresh(void)
 			continue;
 
 		const Naui_StringView stem = naui_file_stem(&entries[i].path);
-		if (stem.length == 0 || stem.length >= UPH_LAYOUT_NAME_MAX)
+		if (stem.length == 0 || stem.length >= UPH_LAYOUT_NAME_MAX || !naui_utf8_is_valid(stem.data, stem.length))
 			continue;
 
 		memcpy(state->names[state->count], stem.data, stem.length);
@@ -107,6 +107,9 @@ static bool _uph_layout_name_valid(const char *name)
 	if (length == 0 || length >= UPH_LAYOUT_NAME_MAX || !strcmp(name, ".") || !strcmp(name, ".."))
 		return false;
 
+	if (!naui_utf8_is_valid(name, length))
+		return false;
+
 	for (size_t i = 0; i < length; i++)
 	{
 		const unsigned char c = (unsigned char)name[i];
@@ -166,6 +169,8 @@ static void _uph_save_layout_result(int32_t button, void *user_data)
 
 	char name[NAUI_STRING_MAX_SIZE];
 	snprintf(name, sizeof(name), "%s", uph_layouts_save_name.data);
+	_uph_layout_name_trim(name);
+	name[naui_utf8_clip_length(name, strlen(name), UPH_LAYOUT_NAME_MAX - 1)] = '\0';
 	_uph_layout_name_trim(name);
 	uph_layouts_save_name = naui_string_from_cstr(name);
 
