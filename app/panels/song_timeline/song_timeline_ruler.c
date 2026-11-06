@@ -53,7 +53,7 @@ void uph_song_timeline_render_top_bar(void)
 {
 	const float header_width = naui_theme_float("uph_song_timeline_header_width");
 	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	const uint32_t height = NAUI_DPI(24);
+	const uint32_t height = NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT);
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
@@ -91,6 +91,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 	const float x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
 	const float playhead_size = NAUI_DPI(16.0f);
 	const float playhead_half_size = playhead_size * 0.5f;
+	const float playhead_y = bbox.y + NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT) - playhead_size;
 	naui_push_clip_rect(bbox.x + x_offset - NAUI_DPI(1), bbox.y, bbox.width, bbox.height);
 
 	if (uph_song_timeline_data.current_action_mode == UPH_ACTION_CUT)
@@ -99,7 +100,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 		const double cut_beat = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
 		const float x = bbox.x + x_offset + (float)(cut_beat * uph_song_timeline_data.zoom.x) - uph_song_timeline_data.scroll.x;
 		naui_draw_line(
-			(Naui_Vec2){ x, bbox.y + playhead_half_size },
+			(Naui_Vec2){ x, playhead_y },
 			(Naui_Vec2){ x, bbox.y + bbox.height },
 			color,
 			NAUI_DPI(1.0f)
@@ -109,7 +110,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 	const Uph_MarqueeState *marquee = &uph_song_timeline_data.marquee;
 	const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * uph_song_timeline_data.zoom.x - uph_song_timeline_data.scroll.x;
 	naui_draw_line(
-		(Naui_Vec2){ x, bbox.y + playhead_half_size },
+		(Naui_Vec2){ x, playhead_y },
 		(Naui_Vec2){ x, bbox.y + bbox.height },
 		color,
 		NAUI_DPI(1.0f)
@@ -117,7 +118,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 
 	naui_draw_image(
 		playhead_image,
-		(Naui_Vec2){x - playhead_half_size, bbox.y + playhead_half_size},
+		(Naui_Vec2){x - playhead_half_size, playhead_y},
 		(Naui_Vec2){playhead_size, playhead_size},
 		color,
 		0.0f,
