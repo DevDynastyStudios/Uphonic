@@ -70,6 +70,7 @@
     "uph_timeline_grid_bar_color": "#4E4B6290",
     "uph_timeline_top_ruler_bg_color": "#1B1A22",
     "uph_timeline_top_ruler_border_color": "#2C2B36",
+    "uph_timeline_block_rounding": 3.0,
     "uph_timeline_top_ruler_grid_beat_color": "#4A4760B0",
     "uph_timeline_top_ruler_grid_subbeat_color": "#35334170",
     "uph_timeline_top_ruler_grid_bar_color": "#7A7790FF",

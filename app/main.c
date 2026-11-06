@@ -209,9 +209,9 @@ void naui_app_start(void)
 		naui_panel_dock(
 			uph_state.panels.mixer,
 			uph_state.panels.resource_editor,
-			NAUI_DOCK_DIRECTION_LEFT, 0.75f
+			NAUI_DOCK_DIRECTION_LEFT, 0.65f
 		),
-		NAUI_DOCK_DIRECTION_BOTTOM, 0.5f
+		NAUI_DOCK_DIRECTION_BOTTOM, 0.55f
 	));
  
 	uph_settings_open_midi_ports(!settings_loaded);
