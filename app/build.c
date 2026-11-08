@@ -66,6 +66,7 @@
 #include "ui/automation_curve.h"
 #include "ui/widgets.h"
 #include "ui/dialog.h"
+#include "ui/particles.h"
 #include "ui/containers.h"
 #include "ui/layouts.h"
 
@@ -74,6 +75,7 @@
 #include "ui/automation_curve.c"
 #include "ui/widgets.c"
 #include "ui/dialog.c"
+#include "ui/particles.c"
 #include "ui/containers.c"
 #include "ui/layouts.c"
 

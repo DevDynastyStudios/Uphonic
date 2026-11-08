@@ -30,6 +30,28 @@ void uph_midi_editor_reset_scroll(void)
 	editor->view.scroll = (Naui_Vec2) { 0.0f, fmaxf(0.0f, (float)top_row * uph_midi_view_lane_height(&editor->view)) };
 }
 
+void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const Uph_MidiNote *note)
+{
+	if (naui_panel_closed(uph_state.panels.resource_editor))
+		return;
+
+	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN || uph_state.shared.selected_resource.index != pattern_index)
+		return;
+
+	const Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	const Leaf_BoundingBox box = editor->lanes_bounding_box;
+	const Naui_Vec4 note_box = uph_midi_view_note_box(&editor->view, &editor->note_map, box, note);
+	const Leaf_Color color = uph_midi_view_velocity_color(uph_midi_view_note_color(), note->velocity);
+
+	uph_particle_emit_shockwave(
+		(Naui_Vec2){ note_box.x, note_box.y },
+		(Naui_Vec2){ note_box.z, note_box.w },
+		uph_color_mix(color, leaf_rgba(255, 255, 255, 255), 0.35f),
+		NAUI_DPI(3.0f),
+		box
+	);
+}
+
 #pragma region Piano preview
 
 static void _uph_midi_editor_send_preview(Uph_PianoEvents events)

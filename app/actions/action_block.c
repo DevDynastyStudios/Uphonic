@@ -235,7 +235,12 @@ bool _uph_action_block_create_redo(void* userdata)
 bool _uph_action_block_delete_execute(void* userdata)
 {
 	Uph_ActionBlockDelete* data = userdata;
-	return uph_block_list_take(uph_action_track_resolve(data->track), data->block_index, &data->block);
+	Uph_Track* track = uph_action_track_resolve(data->track);
+	if (!uph_block_list_take(track, data->block_index, &data->block))
+		return false;
+
+	uph_song_timeline_emit_block_shockwave(track, &data->block);
+	return true;
 }
 
 bool _uph_action_block_delete_undo(void* userdata)
@@ -245,6 +250,7 @@ bool _uph_action_block_delete_undo(void* userdata)
 	if (!track)
 		return false;
 
+	data->block.visual.lifetime = 0.0f;
 	uph_block_list_insert(track, data->block_index, data->block);
 	return true;
 }

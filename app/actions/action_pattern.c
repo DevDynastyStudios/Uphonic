@@ -286,7 +286,11 @@ bool _uph_action_note_create_redo(void* userdata)
 bool _uph_action_note_delete_execute(void* userdata)
 {
 	Uph_ActionNoteDelete* data = userdata;
-	return uph_note_list_take(data->pattern_index, data->note_index, &data->note);
+	if (!uph_note_list_take(data->pattern_index, data->note_index, &data->note))
+		return false;
+
+	uph_midi_editor_emit_note_shockwave(data->pattern_index, &data->note);
+	return true;
 }
 
 bool _uph_action_note_delete_undo(void* userdata)
@@ -310,6 +314,8 @@ static bool _uph_action_notes_erase_apply(Uph_ActionNotesErase* data)
 		Uph_MidiNote removed;
 		if (!uph_note_list_take(data->pattern_index, data->erased[i].index, &removed))
 			return false;
+
+		uph_midi_editor_emit_note_shockwave(data->pattern_index, &removed);
 	}
 
 	return true;

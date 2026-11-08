@@ -496,6 +496,8 @@ static bool _uph_note_input_erase_note(Uph_NoteEraseState *erase, uint32_t note_
 	if (!uph_note_list_take(erase->pattern_index, note_index, &snapshot.note))
 		return false;
 
+	uph_midi_editor_emit_note_shockwave(erase->pattern_index, &snapshot.note);
+
 	naui_list_push(erase->erased, snapshot);
 	return true;
 }

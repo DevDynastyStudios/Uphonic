@@ -217,5 +217,7 @@ void uph_action_resource_removed(Uph_ResourceType type, Uph_ResourceIndex index)
 void uph_action_resource_restored(Uph_ResourceType type, Uph_ResourceIndex index);
 
 void uph_song_timeline_invalidate_tracks(void);
+void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_TimelineBlock *block);
+void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const Uph_MidiNote *note);
 void uph_song_timeline_reset_scroll(void);
 void uph_midi_editor_reset_scroll(void);
