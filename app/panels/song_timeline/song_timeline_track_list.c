@@ -177,6 +177,18 @@ static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_
 		_uph_song_timeline_open_options(track, options_menu);
 }
 
+static const char *_uph_song_timeline_automation_target_name(const Uph_Track *track)
+{
+	switch (track->automation_target)
+	{
+		case UPH_AUTOMATION_TARGET_PLUGIN_PARAM: return track->automation_param ? track->automation_param->name.data : NULL;
+		case UPH_AUTOMATION_TARGET_TRACK_VOLUME: return NAUI_TR("automation.target.volume");
+		case UPH_AUTOMATION_TARGET_TRACK_PAN: return NAUI_TR("automation.target.pan");
+		case UPH_AUTOMATION_TARGET_TEMPO: return NAUI_TR("automation.target.tempo");
+	}
+	return NULL;
+}
+
 static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	const float depth_offset = depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
@@ -359,7 +371,19 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 								track->state & UPH_TRACK_ARMED
 						)) uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
 
-						leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} });
+						const char *target_name = track->type == UPH_RESOURCE_AUTOMATION ? _uph_song_timeline_automation_target_name(track) : NULL;
+						leaf({
+							.padding = {.left = NAUI_DPI(4)},
+							.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+							.clip_children = true
+						})
+						{
+							if (target_name)
+								leaf_text(target_name, {
+									.font_size = {NAUI_DPI(14)},
+									.color = {naui_theme_color("uph_ui_text_disabled_color")}
+								});
+						}
 
 						if ((track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN) && uph_ui_image_button_ex(naui_asset_image("uph_icon_add_instrument"), leaf_id_indexed("uph_song_timeline_add_instrument", track_id), (Naui_Vec2) { action_icon_size, action_icon_size }, text_color, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
 							_uph_song_timeline_open_instrument_list(track);

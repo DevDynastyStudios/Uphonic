@@ -80,6 +80,9 @@ typedef struct
     Leaf_BoundingBox dock_guide_area;
     bool any_panel_hovered;
     bool occlude_all;
+
+    Naui_Json pending_layout;
+    bool has_pending_layout;
 }
 Naui_PanelManager;
 static Naui_PanelManager naui_panel_manager = { 0 };
@@ -1532,8 +1535,6 @@ void naui_render_panels_and_viewport(void)
 
 #define NAUI_PANEL_LAYOUT_VERSION 1
 
-static Naui_Json naui_pending_layout = { 0 };
-static bool naui_has_pending_layout = false;
 
 static inline bool naui_panel_leaf_serializable(const Naui_PanelNode *node)
 {
@@ -1863,12 +1864,12 @@ static void naui_apply_layout(const Naui_JsonValue *root)
 static void naui_apply_pending_layout(void *data)
 {
     (void)data;
-    if (!naui_has_pending_layout)
+    if (!naui_panel_manager.has_pending_layout)
         return;
 
-    naui_apply_layout(naui_pending_layout.root);
-    naui_json_free(&naui_pending_layout);
-    naui_has_pending_layout = false;
+    naui_apply_layout(naui_panel_manager.pending_layout.root);
+    naui_json_free(&naui_panel_manager.pending_layout);
+    naui_panel_manager.has_pending_layout = false;
 }
 
 static bool naui_queue_layout(Naui_Json json)
@@ -1879,13 +1880,13 @@ static bool naui_queue_layout(Naui_Json json)
         return false;
     }
 
-    if (naui_has_pending_layout)
-        naui_json_free(&naui_pending_layout);
+    if (naui_panel_manager.has_pending_layout)
+        naui_json_free(&naui_panel_manager.pending_layout);
     else
         naui_defer(naui_apply_pending_layout, NULL, 0);
 
-    naui_pending_layout = json;
-    naui_has_pending_layout = true;
+    naui_panel_manager.pending_layout = json;
+    naui_panel_manager.has_pending_layout = true;
     return true;
 }
 

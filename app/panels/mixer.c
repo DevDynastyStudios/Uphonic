@@ -1223,9 +1223,18 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
                 uph_mixer_render_name(strip.track, name_id, font_size);
             else
             {
-                leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} });
-                uph_mixer_render_name(strip.track, name_id, font_size);
-                leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} });
+                const Leaf_ID title_id = leaf_id_indexed("uph_mixer_group_title", (uint64_t)strip.track);
+                const float title_width = naui_measure_text(strip.track->name.data, (uint32_t)strip.track->name.length, font_size, 0).x;
+                const bool title_overflows = title_width > leaf_get_bounding_box(title_id).width;
+                leaf({
+                    .id = title_id,
+                    .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+                    .child_alignment = {title_overflows ? LEAF_ALIGN_X_LEFT : LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                    .clip_children = true
+                })
+                {
+                    uph_mixer_render_name(strip.track, name_id, font_size);
+                }
             }
             leaf({
                 .size = {LEAF_SIZE_FIXED(collapse_slot), LEAF_SIZE_FIT},

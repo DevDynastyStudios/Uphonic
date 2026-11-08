@@ -7,8 +7,14 @@ typedef struct
 	int fd;
 } Naui_LockEntry;
 
-static Naui_LockEntry s_locks[NAUI_LOCK_MAX];
-static int s_lock_count = 0;
+typedef struct
+{
+	Naui_LockEntry locks[NAUI_LOCK_MAX];
+	int lock_count;
+	char* dir_cache[NAUI_DIR_MAX_COUNT];
+}
+Naui_FilesystemData;
+static Naui_FilesystemData _naui_filesystem_data;
 
 static Naui_Path path_empty(void)
 {
@@ -382,8 +388,6 @@ bool naui_directory_rename(const Naui_Path old_path, const Naui_Path new_path)
 	return naui_file_rename(old_path, new_path);
 }
 
-static char* s_dir_cache[NAUI_DIR_MAX_COUNT] = {0};
-
 static char* heap_dup(const char* s)
 {
 	if (!s)
@@ -402,14 +406,14 @@ static void _naui_dir_cache_set(Naui_Dir directory, const char* value)
 	if (directory >= NAUI_DIR_MAX_COUNT || !value || !value[0])
 		return;
 
-	free(s_dir_cache[directory]);
-	s_dir_cache[directory] = heap_dup(value);
+	free(_naui_filesystem_data.dir_cache[directory]);
+	_naui_filesystem_data.dir_cache[directory] = heap_dup(value);
 }
 
 Naui_Path naui_directory_get(const Naui_Dir directory)
 {
-	if (directory < NAUI_DIR_MAX_COUNT && s_dir_cache[directory])
-		return path_from(s_dir_cache[directory]);
+	if (directory < NAUI_DIR_MAX_COUNT && _naui_filesystem_data.dir_cache[directory])
+		return path_from(_naui_filesystem_data.dir_cache[directory]);
 
 	char resolved[NAUI_PATH_MAX] = {0};
 
@@ -749,15 +753,15 @@ Naui_Path naui_path_weakly_canonical(const Naui_Path path)
 
 bool naui_path_lock(const Naui_Path path)
 {
-	if (path.data[0] == '\0' || s_lock_count >= NAUI_LOCK_MAX)
+	if (path.data[0] == '\0' || _naui_filesystem_data.lock_count >= NAUI_LOCK_MAX)
 		return false;
 
 	char target[NAUI_PATH_MAX];
 	_naui_resolve_lock_target(path.data, target);
 
-	for (int i = 0; i < s_lock_count; ++i)
+	for (int i = 0; i < _naui_filesystem_data.lock_count; ++i)
 	{
-		if (strcmp(s_locks[i].path, target) == 0)
+		if (strcmp(_naui_filesystem_data.locks[i].path, target) == 0)
 			return false;
 	}
 
@@ -786,9 +790,9 @@ bool naui_path_lock(const Naui_Path path)
 		return false;
 	}
 
-	snprintf(s_locks[s_lock_count].path, NAUI_PATH_MAX, "%s", target);
-	s_locks[s_lock_count].fd = fd;
-	++s_lock_count;
+	snprintf(_naui_filesystem_data.locks[_naui_filesystem_data.lock_count].path, NAUI_PATH_MAX, "%s", target);
+	_naui_filesystem_data.locks[_naui_filesystem_data.lock_count].fd = fd;
+	++_naui_filesystem_data.lock_count;
 	return true;
 }
 
@@ -799,9 +803,9 @@ bool naui_path_is_locked(const Naui_Path path)
 
 	char target[NAUI_PATH_MAX];
 	_naui_resolve_lock_target(path.data, target);
-	for (int i = 0; i < s_lock_count; ++i)
+	for (int i = 0; i < _naui_filesystem_data.lock_count; ++i)
 	{
-		if (strcmp(s_locks[i].path, target) == 0)
+		if (strcmp(_naui_filesystem_data.locks[i].path, target) == 0)
 			return true;
 	}
 
@@ -828,14 +832,14 @@ void naui_path_unlock(const Naui_Path path)
 
 	char target[NAUI_PATH_MAX];
 	_naui_resolve_lock_target(path.data, target);
-	for (int i = 0; i < s_lock_count; ++i)
+	for (int i = 0; i < _naui_filesystem_data.lock_count; ++i)
 	{
-		if (strcmp(s_locks[i].path, target) != 0)
+		if (strcmp(_naui_filesystem_data.locks[i].path, target) != 0)
 			continue;
 
-		flock(s_locks[i].fd, LOCK_UN);
-		close(s_locks[i].fd);
-		s_locks[i] = s_locks[--s_lock_count];
+		flock(_naui_filesystem_data.locks[i].fd, LOCK_UN);
+		close(_naui_filesystem_data.locks[i].fd);
+		_naui_filesystem_data.locks[i] = _naui_filesystem_data.locks[--_naui_filesystem_data.lock_count];
 		return;
 	}
 }

@@ -16,19 +16,24 @@ typedef struct
 }
 Naui_RegisteredShortcut;
 
-static Naui_List(Naui_RegisteredShortcut) s_shortcuts;
-static bool s_initialized = false;
-static Naui_ShortcutKind s_kind;
-static Naui_List(Naui_ShortcutCtx) s_active_contexts;
+typedef struct
+{
+	Naui_List(Naui_RegisteredShortcut) shortcuts;
+	bool initialized;
+	Naui_ShortcutKind kind;
+	Naui_List(Naui_ShortcutCtx) active_contexts;
+}
+Naui_ShortcutData;
+static Naui_ShortcutData _naui_shortcut_data;
 
 bool naui_shortcut_context_active(Naui_ShortcutCtx context)
 {
 	if(context == NAUI_SHORTCUT_CONTEXT_GLOBAL)
 		return true;
 
-	for(size_t i = 0; i < naui_list_len(s_active_contexts); i++)
+	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.active_contexts); i++)
 	{
-		if(s_active_contexts[i] == context)
+		if(_naui_shortcut_data.active_contexts[i] == context)
 			return true;
 	}
 
@@ -40,16 +45,16 @@ void naui_shortcut_context_enable(Naui_ShortcutCtx context)
 	if(naui_shortcut_context_active(context))
 		return;
 
-	naui_list_push(s_active_contexts, context);
+	naui_list_push(_naui_shortcut_data.active_contexts, context);
 }
 
 void naui_shortcut_context_disable(Naui_ShortcutCtx context)
 {
-	for(size_t i = 0; i < naui_list_len(s_active_contexts); i++)
+	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.active_contexts); i++)
 	{
-		if(s_active_contexts[i] == context)
+		if(_naui_shortcut_data.active_contexts[i] == context)
 		{
-			naui_list_uremove(s_active_contexts, i);
+			naui_list_uremove(_naui_shortcut_data.active_contexts, i);
 			return;
 		}
 	}
@@ -77,22 +82,22 @@ static void free_registered_shortcut(Naui_RegisteredShortcut *s)
 
 void naui_shortcut_init(Naui_ShortcutKind kind)
 {
-	for(size_t i = 0; i < naui_list_len(s_shortcuts); i++)
+	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
 	{
-		free_registered_shortcut(&s_shortcuts[i]);
+		free_registered_shortcut(&_naui_shortcut_data.shortcuts[i]);
 	}
 
-	naui_list_clear(s_shortcuts);
-	s_kind = kind;
-	s_initialized = true;
+	naui_list_clear(_naui_shortcut_data.shortcuts);
+	_naui_shortcut_data.kind = kind;
+	_naui_shortcut_data.initialized = true;
 }
 
 void __naui_register_shortcut(Naui_StringView name, Naui_Shortcut shortcut)
 {
-	NAUI_SHORTCUT_FATAL_IF(!s_initialized, "naui_register_shortcut called before naui_shortcut_init -- the system doesn't know which mode to validate against.");
+	NAUI_SHORTCUT_FATAL_IF(!_naui_shortcut_data.initialized, "naui_register_shortcut called before naui_shortcut_init -- the system doesn't know which mode to validate against.");
 	NAUI_SHORTCUT_FATAL_IF(shortcut.keys.count == 0, "No keys were registered. A shortcut needs at least one key.");
 
-	if(s_kind == NAUI_SHORTCUT_CHORD)
+	if(_naui_shortcut_data.kind == NAUI_SHORTCUT_CHORD)
 	{
 		NAUI_SHORTCUT_FATAL_IF(shortcut.sequence_timeout != 0.0f && shortcut.sequence_timeout != -1.0f,
 			"sequence_timeout was set on a shortcut registered while the system is in CHORD mode -- "
@@ -124,17 +129,17 @@ void __naui_register_shortcut(Naui_StringView name, Naui_Shortcut shortcut)
 		naui_list_push(entry.contexts, shortcut.contexts.items[i]);
 	}
 
-	naui_list_push(s_shortcuts, entry);
+	naui_list_push(_naui_shortcut_data.shortcuts, entry);
 }
 
 void naui_unregister_shortcut(Naui_StringView name)
 {
-	for(size_t i = 0; i < naui_list_len(s_shortcuts); i++)
+	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
 	{
-		if(naui_string_views_equal(s_shortcuts[i].name, name, true))
+		if(naui_string_views_equal(_naui_shortcut_data.shortcuts[i].name, name, true))
 		{
-			free_registered_shortcut(&s_shortcuts[i]);
-			naui_list_uremove(s_shortcuts, i);
+			free_registered_shortcut(&_naui_shortcut_data.shortcuts[i]);
+			naui_list_uremove(_naui_shortcut_data.shortcuts, i);
 			return;
 		}
 	}
@@ -209,21 +214,21 @@ static void update_sequence(Naui_RegisteredShortcut *s)
 
 void naui_shortcut_update(void)
 {
-	if(!s_initialized)
+	if(!_naui_shortcut_data.initialized)
 		return;
 
-	if(s_kind == NAUI_SHORTCUT_CHORD)
+	if(_naui_shortcut_data.kind == NAUI_SHORTCUT_CHORD)
 	{
-		for(size_t i = 0; i < naui_list_len(s_shortcuts); i++)
+		for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
 		{
-			update_chord(&s_shortcuts[i]);
+			update_chord(&_naui_shortcut_data.shortcuts[i]);
 		}
 	}
 	else
 	{
-		for(size_t i = 0; i < naui_list_len(s_shortcuts); i++)
+		for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
 		{
-			update_sequence(&s_shortcuts[i]);
+			update_sequence(&_naui_shortcut_data.shortcuts[i]);
 		}
 	}
 }
