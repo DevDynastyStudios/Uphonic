@@ -220,7 +220,7 @@ Usage:
 Actions:
   build       Compile the target
   run         Run an already-built target
-  build_run   Compile the target, then run it if the build succeeds
+  buildrun    Compile the target, then run it if the build succeeds
 
 Targets:
   debug       Debug build
@@ -228,7 +228,7 @@ Targets:
 
 Examples:
   lua build.lua build debug
-  lua build.lua build_run release
+  lua build.lua buildrun release
   lua build.lua run debug
   lua build.lua clean
 ]]):format(COLOR.bold, COLOR.reset))
@@ -237,7 +237,7 @@ end
 local ACTIONS = {
     build     = function(release) return compile(release) end,
     run       = function(release) return run(release) end,
-    build_run = function(release)
+    buildrun = function(release)
         local status = compile(release)
         if not ran_ok(status) then
             return status
@@ -264,7 +264,7 @@ local function main(args)
     end
 
     local release = false
-    if action_name == "build" or action_name == "run" or action_name == "build_run" then
+    if action_name == "build" or action_name == "run" or action_name == "buildrun" then
         local target_name = args[2]
         if not target_name then
             fail("Action '%s' requires a target: debug or release", action_name)
