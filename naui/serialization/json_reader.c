@@ -317,20 +317,12 @@ int naui_json_reader_copy_str(const Naui_JsonReader* reader, char* dest, size_t 
 				}
 
 				src += 4;
-				if (cp < 0x80 && written < dest_size - 1)
+				char bytes[4];
+				const size_t count = naui_utf8_encode_or_replace(cp, bytes);
+				if (written + count < dest_size)
 				{
-					dest[written++] = (char)cp;
-				}
-				else if (cp < 0x800 && written + 1 < dest_size - 1)
-				{
-					dest[written++] = (char)(0xC0 | (cp >> 6));
-					dest[written++] = (char)(0x80 | (cp & 0x3F));
-				}
-				else if (written + 2 < dest_size - 1)
-				{
-					dest[written++] = (char)(0xE0 | (cp >> 12));
-					dest[written++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-					dest[written++] = (char)(0x80 | (cp & 0x3F));
+					memcpy(dest + written, bytes, count);
+					written += count;
 				}
 
 				break;

@@ -63,10 +63,10 @@ static void _uph_open_export_dialog(const char *key, const char *title, const ch
 	if (!naui_dialog_save_file(key, NAUI_EXTENSIONS(extension), _uph_export_picked, (void*)(uintptr_t)format))
 		return;
 
-	char name[NAUI_STRING_MAX_SIZE];
-	snprintf(name, sizeof(name), "%s%s", uph_state.project.title.data, extension);
+	Naui_String name = uph_state.project.title;
+	naui_string_append_cstr(&name, extension);
 	naui_dialog_title_set(key, title);
-	naui_dialog_name_set(key, name);
+	naui_dialog_name_set(key, name.data);
 }
 
 static void _uph_save_project_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)

@@ -23,7 +23,7 @@ NAUI_API Naui_String        naui_view_to_string                 (Naui_StringView
 NAUI_API Naui_StringView    naui_sub_string                     (const Naui_String *str, size_t start, size_t len);
 NAUI_API Naui_StringView    naui_sub_string_view                (Naui_StringView view, size_t start, size_t len);
 
-NAUI_API char               naui_string_pop                     (Naui_String *dest);
+NAUI_API uint32_t           naui_string_pop                     (Naui_String *dest);
 NAUI_API void               naui_string_copy                    (Naui_String *dest, const Naui_String src);
 NAUI_API void               naui_string_copy_view               (Naui_String *dest, const Naui_StringView src);
 NAUI_API void               naui_string_append                  (Naui_String *dest, Naui_String str);
@@ -75,6 +75,16 @@ NAUI_API size_t             naui_utf8_clip_length               (const char *s, 
 // Decodes the character at s. Returns the bytes it takes, or 0 if the bytes are not valid UTF-8.
 NAUI_API size_t             naui_utf8_next                      (const char *s, size_t len, uint32_t *out_codepoint);
 NAUI_API bool               naui_utf8_is_valid                  (const char *s, size_t len);
+NAUI_API size_t             naui_utf8_decode                    (const char *s, size_t len, uint32_t *out_codepoint);
+NAUI_API size_t             naui_utf8_encode                    (uint32_t codepoint, char out[4]);
+NAUI_API size_t             naui_utf8_encode_or_replace         (uint32_t codepoint, char out[4]);
+static inline bool          naui_utf8_is_continuation           (char c) { return ((unsigned char)c & 0xC0) == 0x80; }
+
+NAUI_API bool               naui_string_is_char_boundary        (const Naui_String *str, size_t index);
+NAUI_API size_t             naui_string_prev_char               (const Naui_String *str, size_t index);
+NAUI_API size_t             naui_string_next_char               (const Naui_String *str, size_t index);
+NAUI_API size_t             naui_string_insert_codepoint        (Naui_String *dest, size_t index, uint32_t codepoint);
+NAUI_API bool               naui_string_append_codepoint        (Naui_String *dest, uint32_t codepoint);
 
 typedef Naui_List(char) Naui_StringBuilder;
 static inline void          naui_string_builder_reserve         (Naui_StringBuilder *builder, size_t capacity) { naui_list_reserve(*builder, capacity); }

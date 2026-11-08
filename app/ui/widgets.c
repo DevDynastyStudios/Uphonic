@@ -116,81 +116,6 @@ static bool uph_ui__is_word_char(char c)
     return (unsigned char)c >= 0x80 || isalnum((unsigned char)c) || c == '_';
 }
 
-static bool uph_ui__is_utf8_continuation(const Naui_String *value, size_t index)
-{
-    return index < value->length && ((unsigned char)value->data[index] & 0xC0) == 0x80;
-}
-
-static size_t uph_ui__prev_char(const Naui_String *value, size_t cursor)
-{
-    if (cursor == 0)
-        return 0;
-
-    size_t i = cursor - 1;
-    while (i > 0 && uph_ui__is_utf8_continuation(value, i))
-        --i;
-    return i;
-}
-
-static size_t uph_ui__next_char(const Naui_String *value, size_t cursor)
-{
-    if (cursor >= value->length)
-        return value->length;
-
-    size_t i = cursor + 1;
-    while (uph_ui__is_utf8_continuation(value, i))
-        ++i;
-    return i;
-}
-
-static size_t uph_ui__utf8_encode(uint32_t codepoint, char out[4])
-{
-    if (codepoint < 0x80)
-    {
-        out[0] = (char)codepoint;
-        return 1;
-    }
-    if (codepoint < 0x800)
-    {
-        out[0] = (char)(0xC0 | (codepoint >> 6));
-        out[1] = (char)(0x80 | (codepoint & 0x3F));
-        return 2;
-    }
-    if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
-        return 0;
-    if (codepoint < 0x10000)
-    {
-        out[0] = (char)(0xE0 | (codepoint >> 12));
-        out[1] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
-        out[2] = (char)(0x80 | (codepoint & 0x3F));
-        return 3;
-    }
-    if (codepoint < 0x110000)
-    {
-        out[0] = (char)(0xF0 | (codepoint >> 18));
-        out[1] = (char)(0x80 | ((codepoint >> 12) & 0x3F));
-        out[2] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
-        out[3] = (char)(0x80 | (codepoint & 0x3F));
-        return 4;
-    }
-    return 0;
-}
-
-static bool uph_ui__insert_codepoint(Naui_String *value, size_t *cursor, uint32_t codepoint)
-{
-    char bytes[4];
-    const size_t count = uph_ui__utf8_encode(codepoint, bytes);
-    if (count == 0 || *cursor > value->length || value->length + count > NAUI_STRING_MAX_SIZE - 1)
-        return false;
-
-    memmove(&value->data[*cursor + count], &value->data[*cursor], value->length - *cursor);
-    memcpy(&value->data[*cursor], bytes, count);
-    value->length += count;
-    value->data[value->length] = '\0';
-    *cursor += count;
-    return true;
-}
-
 static void uph_ui__begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
 {
     data->id = id;
@@ -283,7 +208,7 @@ static size_t uph_ui__cursor_from_x(const Naui_String *value, float local_x, flo
 
     for (size_t i = 0; i <= value->length; ++i)
     {
-        if (uph_ui__is_utf8_continuation(value, i))
+        if (!naui_string_is_char_boundary(value, i))
             continue;
 
         float x = naui_measure_text(value->data, i, font_size, 0).x;
@@ -1411,8 +1336,11 @@ static void uph_ui__textfield_paste(Uph_TextfieldData *data, Naui_String *value,
         if (!uph_ui__char_allowed(codepoint, flags, value, data->cursor))
             continue;
 
-        if (!uph_ui__insert_codepoint(value, &data->cursor, codepoint))
+        const size_t inserted = naui_string_insert_codepoint(value, data->cursor, codepoint);
+        if (inserted == 0)
             break;
+
+        data->cursor += inserted;
     }
 }
 
@@ -1543,7 +1471,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
                 if (uph_ui__char_allowed(codepoint, flags, value, data->cursor))
                 {
                     uph_ui__textfield_delete_selection(data);
-                    uph_ui__insert_codepoint(value, &data->cursor, codepoint);
+                    data->cursor += naui_string_insert_codepoint(value, data->cursor, codepoint);
                 }
             }
             codepoint = naui_app_codepoint();
@@ -1555,7 +1483,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
                 uph_ui__textfield_delete_selection(data);
             else if (data->cursor > 0)
             {
-                size_t remove_from = ctrl ? uph_ui__prev_word(value, data->cursor) : uph_ui__prev_char(value, data->cursor);
+                size_t remove_from = ctrl ? uph_ui__prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
                 naui_string_remove(value, remove_from, data->cursor - remove_from);
                 data->cursor = remove_from;
             }
@@ -1566,7 +1494,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
                 uph_ui__textfield_delete_selection(data);
             else if (data->cursor < value->length)
             {
-                size_t remove_to = ctrl ? uph_ui__next_word(value, data->cursor) : uph_ui__next_char(value, data->cursor);
+                size_t remove_to = ctrl ? uph_ui__next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
                 naui_string_remove(value, data->cursor, remove_to - data->cursor);
             }
         }
@@ -1583,7 +1511,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         }
         else if (naui_key_pressed(NAUI_KEY_LEFT))
         {
-            size_t new_cursor = ctrl ? uph_ui__prev_word(value, data->cursor) : uph_ui__prev_char(value, data->cursor);
+            size_t new_cursor = ctrl ? uph_ui__prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
             if (shift)
             {
                 if (!data->select_active)
@@ -1601,7 +1529,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         }
         else if (naui_key_pressed(NAUI_KEY_RIGHT))
         {
-            size_t new_cursor = ctrl ? uph_ui__next_word(value, data->cursor) : uph_ui__next_char(value, data->cursor);
+            size_t new_cursor = ctrl ? uph_ui__next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
             if (shift)
             {
                 if (!data->select_active)

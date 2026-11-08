@@ -72,6 +72,123 @@ bool naui_utf8_is_valid(const char *s, size_t len)
     return true;
 }
 
+size_t naui_utf8_decode(const char *s, size_t len, uint32_t *out_codepoint)
+{
+    if (!s || len == 0)
+        return 0;
+
+    const size_t n = naui_utf8_next(s, len, out_codepoint);
+    if (n > 0)
+        return n;
+
+    if (out_codepoint)
+        *out_codepoint = 0xFFFD;
+
+    return 1;
+}
+
+size_t naui_utf8_encode(uint32_t codepoint, char out[4])
+{
+    if (codepoint < 0x80)
+    {
+        out[0] = (char)codepoint;
+        return 1;
+    }
+
+    if (codepoint < 0x800)
+    {
+        out[0] = (char)(0xC0 | (codepoint >> 6));
+        out[1] = (char)(0x80 | (codepoint & 0x3F));
+        return 2;
+    }
+
+    if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+        return 0;
+
+    if (codepoint < 0x10000)
+    {
+        out[0] = (char)(0xE0 | (codepoint >> 12));
+        out[1] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+        out[2] = (char)(0x80 | (codepoint & 0x3F));
+        return 3;
+    }
+
+    if (codepoint < 0x110000)
+    {
+        out[0] = (char)(0xF0 | (codepoint >> 18));
+        out[1] = (char)(0x80 | ((codepoint >> 12) & 0x3F));
+        out[2] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+        out[3] = (char)(0x80 | (codepoint & 0x3F));
+        return 4;
+    }
+
+    return 0;
+}
+
+size_t naui_utf8_encode_or_replace(uint32_t codepoint, char out[4])
+{
+    const size_t n = naui_utf8_encode(codepoint, out);
+    return n ? n : naui_utf8_encode(0xFFFD, out);
+}
+
+bool naui_string_is_char_boundary(const Naui_String *str, size_t index)
+{
+    if (index >= str->length)
+        return index == str->length;
+
+    return !naui_utf8_is_continuation(str->data[index]);
+}
+
+size_t naui_string_prev_char(const Naui_String *str, size_t index)
+{
+    if (index == 0)
+        return 0;
+
+    if (index > str->length)
+        index = str->length;
+
+    size_t i = index - 1;
+    while (i > 0 && naui_utf8_is_continuation(str->data[i]))
+        --i;
+
+    return i;
+}
+
+size_t naui_string_next_char(const Naui_String *str, size_t index)
+{
+    if (index >= str->length)
+        return str->length;
+
+    size_t i = index + 1;
+    while (i < str->length && naui_utf8_is_continuation(str->data[i]))
+        ++i;
+
+    return i;
+}
+
+size_t naui_string_insert_codepoint(Naui_String *dest, size_t index, uint32_t codepoint)
+{
+    if (!dest || index > dest->length)
+        return 0;
+
+    char bytes[4];
+    const size_t count = naui_utf8_encode(codepoint, bytes);
+    if (count == 0 || dest->length + count > NAUI_STRING_MAX_SIZE - 1)
+        return 0;
+
+    memmove(&dest->data[index + count], &dest->data[index], dest->length - index);
+    memcpy(&dest->data[index], bytes, count);
+    dest->length += count;
+    dest->data[dest->length] = '\0';
+
+    return count;
+}
+
+bool naui_string_append_codepoint(Naui_String *dest, uint32_t codepoint)
+{
+    return dest && naui_string_insert_codepoint(dest, dest->length, codepoint) > 0;
+}
+
 static int naui__char_eq(char a, char b, bool case_sensitive)
 {
     if (case_sensitive)
@@ -172,24 +289,24 @@ Naui_StringView naui_sub_string_view(Naui_StringView src, size_t start, size_t l
     return view;
 }
 
-char naui_string_pop(Naui_String *dest) {
-    if (!dest->length)
-        return '\0';
-    
-    char ch = dest->data[--dest->length];
+uint32_t naui_string_pop(Naui_String *dest)
+{
+    if (!dest || !dest->length)
+        return 0;
+
+    const size_t start = naui_string_prev_char(dest, dest->length);
+    uint32_t codepoint = 0;
+    naui_utf8_decode(dest->data + start, dest->length - start, &codepoint);
+
+    dest->length = start;
     dest->data[dest->length] = '\0';
-    
-    return ch;
+
+    return codepoint;
 }
 
 void naui_string_copy(Naui_String *dest, const Naui_String src)
 {
-    if (!dest)
-        return;
-
-    memcpy(dest->data, src.data, src.length);
-    dest->data[src.length] = '\0';
-    dest->length = src.length;
+    naui_string_copy_view(dest, naui_string_to_view(&src));
 }
 
 void naui_string_copy_view(Naui_String *dest, const Naui_StringView src)
@@ -197,9 +314,11 @@ void naui_string_copy_view(Naui_String *dest, const Naui_StringView src)
     if (!dest)
         return;
 
-    memcpy(dest->data, src.data, src.length);
-    dest->data[src.length] = '\0';
-    dest->length = src.length;
+    const size_t copy_len = src.data ? naui_utf8_clip_length(src.data, src.length, NAUI_STRING_MAX_SIZE - 1) : 0;
+
+    memmove(dest->data, src.data, copy_len);
+    dest->data[copy_len] = '\0';
+    dest->length = copy_len;
 }
 
 void naui_string_append_view(Naui_String *dest, Naui_StringView view)

@@ -1070,10 +1070,10 @@ static void uph_vst3_param_changes_add(Uph_Vst3ParamChanges *c, Steinberg_Vst_Pa
     q->values[q->count] = value;
     q->count++;
 }
-static void uph_vst3_string128_to_utf8(const Steinberg_Vst_String128 src, char *dst, size_t dst_size)
+static Naui_String uph_vst3_string128_to_string(const Steinberg_Vst_String128 src)
 {
-    size_t o = 0;
-    for (size_t i = 0; i < 128 && src[i] && o + 4 < dst_size; i++)
+    Naui_String result = { 0 };
+    for (size_t i = 0; i < 128 && src[i]; i++)
     {
         uint32_t c = (uint16_t)src[i];
 
@@ -1083,27 +1083,13 @@ static void uph_vst3_string128_to_utf8(const Steinberg_Vst_String128 src, char *
             i++;
         }
 
-        if (c < 0x80) dst[o++] = (char)c;
-        else if (c < 0x800)
-        {
-            dst[o++] = (char)(0xC0 | (c >> 6));
-            dst[o++] = (char)(0x80 | (c & 0x3F));
-        }
-        else if (c < 0x10000)
-        {
-            dst[o++] = (char)(0xE0 | (c >> 12));
-            dst[o++] = (char)(0x80 | ((c >> 6) & 0x3F));
-            dst[o++] = (char)(0x80 | (c & 0x3F));
-        }
-        else
-        {
-            dst[o++] = (char)(0xF0 | (c >> 18));
-            dst[o++] = (char)(0x80 | ((c >> 12) & 0x3F));
-            dst[o++] = (char)(0x80 | ((c >> 6) & 0x3F));
-            dst[o++] = (char)(0x80 | (c & 0x3F));
-        }
+        if (c >= 0xD800 && c <= 0xDFFF)
+            c = 0xFFFD;
+
+        if (!naui_string_append_codepoint(&result, c))
+            break;
     }
-    dst[o] = '\0';
+    return result;
 }
 
 static Naui_List(Uph_PluginParam) uph_vst3_get_param_list(Uph_Plugin *plug)
@@ -1127,14 +1113,10 @@ static Naui_List(Uph_PluginParam) uph_vst3_get_param_list(Uph_Plugin *plug)
         if (info.flags & Steinberg_Vst_ParameterInfo_ParameterFlags_kIsHidden)
             continue;
 
-        char name[256], module[256];
-        uph_vst3_string128_to_utf8(info.title, name, sizeof(name));
-        uph_vst3_string128_to_utf8(info.units, module, sizeof(module));
-
         Uph_PluginParam p = {
             .id = info.id,
-            .name = naui_string_from_cstr(name),
-            .module = naui_string_from_cstr(module),
+            .name = uph_vst3_string128_to_string(info.title),
+            .module = uph_vst3_string128_to_string(info.units),
             .min_value = 0.0,
             .max_value = 1.0,
             .default_value = info.defaultNormalizedValue,

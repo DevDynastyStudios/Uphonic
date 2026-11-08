@@ -96,28 +96,7 @@ static char* arena_decode_string(Naui_Json* json, const char* src, size_t src_le
 					}
 				}
 
-				if (code_point <= 0x7F)
-				{
-					dest[decode_len++] = (char)code_point;
-				}
-				else if (code_point <= 0x7FF)
-				{
-					dest[decode_len++] = (char)(0xC0 | (code_point >> 6));
-					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
-				}
-				else if (code_point <= 0xFFFF)
-				{
-					dest[decode_len++] = (char)(0xE0 | (code_point >> 12));
-					dest[decode_len++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
-					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
-				}
-				else
-				{
-					dest[decode_len++] = (char)(0xF0 | (code_point >> 18));
-					dest[decode_len++] = (char)(0x80 | ((code_point >> 12) & 0x3F));
-					dest[decode_len++] = (char)(0x80 | ((code_point >> 6) & 0x3F));
-					dest[decode_len++] = (char)(0x80 | (code_point & 0x3F));
-				}
+				decode_len += naui_utf8_encode_or_replace(code_point, dest + decode_len);
 				break;
 			}
 
@@ -452,31 +431,7 @@ static char* naui_json_utf16_to_utf8(const unsigned char* src, size_t byte_len, 
 			}
 		}
 
-		if (cp >= 0xD800 && cp <= 0xDFFF)
-			cp = 0xFFFD;
-
-		if (cp <= 0x7F)
-		{
-			dest[w++] = (char)cp;
-		}
-		else if (cp <= 0x7FF)
-		{
-			dest[w++] = (char)(0xC0 | (cp >> 6));
-			dest[w++] = (char)(0x80 | (cp & 0x3F));
-		}
-		else if (cp <= 0xFFFF)
-		{
-			dest[w++] = (char)(0xE0 | (cp >> 12));
-			dest[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-			dest[w++] = (char)(0x80 | (cp & 0x3F));
-		}
-		else
-		{
-			dest[w++] = (char)(0xF0 | (cp >> 18));
-			dest[w++] = (char)(0x80 | ((cp >> 12) & 0x3F));
-			dest[w++] = (char)(0x80 | ((cp >> 6) & 0x3F));
-			dest[w++] = (char)(0x80 | (cp & 0x3F));
-		}
+		w += naui_utf8_encode_or_replace(cp, dest + w);
 	}
 
 	dest[w] = '\0';

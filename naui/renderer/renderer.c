@@ -189,40 +189,6 @@ static inline Naui_Color NAUI_LERP_color(Naui_Color a, Naui_Color b, float t)
     };
 }
 
-static const char *naui_utf8_decode(const char *s, int *cp_out)
-{
-    unsigned char c = (unsigned char)*s++;
-
-    if (c < 0x80)
-    {
-        *cp_out = c;
-    }
-    else if (c < 0xC0)
-    {
-        *cp_out = c;
-    }
-    else if (c < 0xE0)
-    {
-        *cp_out = (c & 0x1F) << 6;
-        if ((*s & 0xC0) == 0x80) *cp_out |= (*s++ & 0x3F);
-    }
-    else if (c < 0xF0)
-    {
-        *cp_out = (c & 0x0F) << 12;
-        if ((*s   & 0xC0) == 0x80) *cp_out |= (*s++   & 0x3F) << 6;
-        if ((*s   & 0xC0) == 0x80) *cp_out |= (*s++   & 0x3F);
-    }
-    else
-    {
-        *cp_out = (c & 0x07) << 18;
-        if ((*s   & 0xC0) == 0x80) *cp_out |= (*s++   & 0x3F) << 12;
-        if ((*s   & 0xC0) == 0x80) *cp_out |= (*s++   & 0x3F) << 6;
-        if ((*s   & 0xC0) == 0x80) *cp_out |= (*s++   & 0x3F);
-    }
-
-    return s;
-}
-
 static const stbtt_packedchar *naui_bake_lookup(const Naui_FontBake *bake, int cp)
 {
     for (int i = 0; i < bake->range_count; i++)
@@ -1234,8 +1200,8 @@ static const Naui_FontBake *naui_select_text_bake(uint8_t font_index, const char
 
     for (const char *p = text; p < end && *p; )
     {
-        int cp;
-        p = naui_utf8_decode(p, &cp);
+        uint32_t cp;
+        p += naui_utf8_decode(p, (size_t)(end - p), &cp);
 
         if (cp == '\n' || cp == '\r')
             continue;
@@ -1271,8 +1237,8 @@ Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size, 
 
     while (p < end)
     {
-        int cp;
-        p = naui_utf8_decode(p, &cp);
+        uint32_t cp;
+        p += naui_utf8_decode(p, (size_t)(end - p), &cp);
 
         if (cp == '\n')
         {
@@ -1307,7 +1273,8 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t fo
     if (font_index >= NAUI_FONT_MAX_SLOTS) return;
     if (!rdata->font_loaded[font_index]) return;
 
-    const Naui_FontBake *bake = naui_select_text_bake(font_index, text, text + strlen(text), size);
+    const char *end = text + strlen(text);
+    const Naui_FontBake *bake = naui_select_text_bake(font_index, text, end, size);
 
     if (rdata->font_bound_atlas != bake->atlas)
     {
@@ -1331,10 +1298,10 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t fo
 
     Naui_ClipRect clip = naui_current_clip();
 
-    for (const char *p = text; *p; )
+    for (const char *p = text; p < end; )
     {
-        int cp;
-        p = naui_utf8_decode(p, &cp);
+        uint32_t cp;
+        p += naui_utf8_decode(p, (size_t)(end - p), &cp);
 
         if (cp == '\n')
         {
