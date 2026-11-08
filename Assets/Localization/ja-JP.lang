@@ -241,6 +241,7 @@
 	"settings.ui.zoom_sensitivity": "ズーム感度",
 
 	"song_timeline.title": "曲のタイムライン",
+	"song_timeline.track.color": "トラックの色",
 	"song_timeline.track.title": "無題のトラック",
 
 	"master.track.title": "マスター",

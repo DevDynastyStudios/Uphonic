@@ -873,12 +873,13 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
                     .offset = {data->current_context_menu_position.x, data->current_context_menu_position.y}
                 },
                 .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
-                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+                .border = uph_ui__frame_border(),
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 1.5f, LEAF_CORNER_ALL),
                 .shadow = {
                     .blur_radius = NAUI_DPI(16.0f),
                     .color = naui_theme_color("uph_ui_dropdown_shadow_color")
                 },
-                .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y))
+                .padding = LEAF_PADDING_ALL(NAUI_DPI(padding.x + 2.0f))
             }) data->current_open_menu->deferred_render((Uph_UIMenuID)data->current_open_menu);
 
             if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !leaf_hovered(id))
@@ -2292,44 +2293,85 @@ int32_t uph_ui_track_color_palette(const Uph_Track *track)
     if (color_count == 0)
         return -1;
 
-    const uint32_t rows = 2;
-    const uint32_t columns = (uint32_t)ceilf((color_count + rows - 1) / rows);
+    const uint32_t rows = color_count > 6 ? 2 : 1;
+    const uint32_t columns = (color_count + rows - 1) / rows;
     const int32_t current = track->color_index % (int32_t)color_count;
 
-    const uint32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE) * 1.5f;
+    const float swatch_size = NAUI_DPI(20.0f);
+    const float ring_width = NAUI_MAX(1.0f, NAUI_DPI(2.0f));
+    const float ring_gap = NAUI_DPI(1.0f);
+    const float cell_size = swatch_size + (ring_width + ring_gap) * 2.0f;
+    const Leaf_Color ring_color = naui_theme_color("uph_ui_text_color");
     int32_t picked = -1;
 
     leaf({
-        .child_gap = NAUI_DPI(4)
+        .direction = LEAF_DIRECTION_VERTICAL,
+        .padding = LEAF_PADDING_ALL(NAUI_DPI(2.0f)),
+        .child_gap = NAUI_DPI(8.0f)
     })
     {
-        for (uint32_t i = 0; i < rows; i++)
+        leaf_text(NAUI_TR("song_timeline.track.color"), {
+            .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE) * 0.95f},
+            .color = {naui_theme_color("naui_panel_text_color")}
+        });
+
+        leaf({
+            .direction = LEAF_DIRECTION_VERTICAL,
+            .child_gap = NAUI_DPI(5.0f)
+        })
         {
-            leaf({
-                .direction = LEAF_DIRECTION_HORIZONTAL,
-                .child_gap = NAUI_DPI(4)
-            })
+            for (uint32_t row = 0; row < rows; row++)
             {
-                for (uint32_t j = 0; j < columns; j++)
+                leaf({
+                    .direction = LEAF_DIRECTION_HORIZONTAL,
+                    .child_gap = NAUI_DPI(5.0f)
+                })
                 {
-                    const int32_t index = j + i * columns;
-                    const Leaf_ID id = leaf_id_indexed("uph_track_color_picker", index);
-                    if (leaf_hovered(id) && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                    for (uint32_t column = 0; column < columns; column++)
                     {
-                        picked = index;
-                        uph_ui_close_menu();
-                    }
-                    leaf({
-                        .id = id,
-                        .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
-                        .color = palette[index],
-                        .border = {
-                            .width = NAUI_DPI(2),
-                            .color = track->color_index == index ?
-                                LEAF_COLOR_WHITE : LEAF_COLOR_TRANSPARENT,
-                            .sides = LEAF_SIDE_ALL
+                        const uint32_t index = row * columns + column;
+                        if (index >= color_count)
+                            break;
+
+                        const Leaf_ID id = leaf_id_indexed("uph_track_color_picker", index);
+                        const bool hovered = leaf_hovered(id);
+                        const bool selected = (int32_t)index == current;
+
+                        if (hovered)
+                        {
+                            naui_set_cursor(NAUI_CURSOR_HAND);
+                            if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+                            {
+                                picked = (int32_t)index;
+                                uph_ui_close_menu();
+                            }
                         }
-                    });
+
+                        Leaf_Color ring = LEAF_COLOR_TRANSPARENT;
+                        if (selected)
+                            ring = ring_color;
+                        else if (hovered)
+                            ring = palette[index];
+
+                        leaf({
+                            .id = id,
+                            .size = {LEAF_SIZE_FIXED(cell_size), LEAF_SIZE_FIXED(cell_size)},
+                            .padding = LEAF_PADDING_ALL((int32_t)(ring_width + ring_gap)),
+                            .border = {
+                                .width = (int32_t)ring_width,
+                                .color = {ring},
+                                .sides = LEAF_SIDE_ALL
+                            },
+                            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(4.0f), LEAF_CORNER_ALL)
+                        })
+                        {
+                            leaf({
+                                .size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+                                .color = {palette[index]},
+                                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2.0f), LEAF_CORNER_ALL)
+                            });
+                        }
+                    }
                 }
             }
         }

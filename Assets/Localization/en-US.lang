@@ -240,6 +240,7 @@
 	"settings.ui.zoom_sensitivity": "Zoom Sensitivity",
 
 	"song_timeline.title": "Song Timeline",
+	"song_timeline.track.color": "Track Color",
 	"song_timeline.track.title": "Untitled Track",
 
 	"master.track.title": "Master",

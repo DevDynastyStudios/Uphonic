@@ -233,6 +233,7 @@
 "settings.ui.zoom_sensitivity": "Sensibilité du zoom",
 
 "song_timeline.title": "Chronologie du morceau",
+"song_timeline.track.color": "Couleur de la piste",
 "song_timeline.track.title": "Piste sans nom",
 
 "uphonic.title": "Uphonic" }
