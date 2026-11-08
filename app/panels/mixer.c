@@ -1148,7 +1148,7 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
                 .child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
             })
             {
-                if (uph_ui_text_button(strip.track->state & UPH_TRACK_MIXER_COLLAPSED ? "+" : "-", collapse_id))
+                if (uph_ui_image_button_ex(naui_asset_image(strip.track->state & UPH_TRACK_MIXER_COLLAPSED ? "uph_icon_arrow_right" : "uph_icon_arrow_down"), collapse_id, (Naui_Vec2) { font_size, font_size }, naui_theme_color("uph_ui_text_color"), LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
                     strip.track->state ^= UPH_TRACK_MIXER_COLLAPSED;
             }
         }
