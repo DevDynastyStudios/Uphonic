@@ -2073,33 +2073,40 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
     })
     {
         leaf({
-            .id = tap_id,
-            .size = {LEAF_SIZE_FIXED(icon_size + NAUI_DPI(padding.x) * 2.0f), LEAF_SIZE_FIXED(frame_height - NAUI_DPI(6.0f))},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-            .color = {tap_background},
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
+            .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
         })
         {
             leaf({
-                .size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
-                .image = naui_asset_image("uph_icon_metronome"),
-                .color = {tap_hovered ? naui_theme_color("uph_ui_text_color") : uph_ui__dim_text_color()}
-            });
-        }
+                .id = tap_id,
+                .size = {LEAF_SIZE_FIXED(icon_size + NAUI_DPI(padding.x) * 2.0f), LEAF_SIZE_FIXED(frame_height - NAUI_DPI(6.0f))},
+                .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                .color = {tap_background},
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
+            })
+            {
+                leaf({
+                    .size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
+                    .image = naui_asset_image("uph_icon_metronome"),
+                    .color = {tap_hovered ? naui_theme_color("uph_ui_text_color") : uph_ui__dim_text_color()}
+                });
+            }
 
-        leaf({
-            .direction = LEAF_DIRECTION_VERTICAL,
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(54.0f)), LEAF_SIZE_FIT},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-        })
-        {
-            if (uph_ui_drag_float(value, leaf_id_indexed(id, 0), 1.0f, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_FRAMELESS))
-                changed = true;
+            leaf({
+                .direction = LEAF_DIRECTION_VERTICAL,
+                .size = {LEAF_SIZE_FIXED(NAUI_DPI(48.0f)), LEAF_SIZE_FIT},
+                .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            })
+            {
+                if (uph_ui_drag_float(value, leaf_id_indexed(id, 0), 1.0f, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_FRAMELESS))
+                    changed = true;
 
-            leaf_text("BPM", {
-                .font_size = font_size * 0.72f,
-                .color = uph_ui__dim_text_color()
-            });
+                leaf_text("BPM", {
+                    .font_size = font_size * 0.72f,
+                    .color = uph_ui__dim_text_color()
+                });
+            }
         }
 
         uph_ui__frame_divider(frame_height - NAUI_DPI(12.0f));
@@ -2148,8 +2155,8 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
     bool changed = false;
 
     const bool was_open = uph_ui__menu_is_open(data, menu);
-    const bool denominator_hovered = uph_ui_widget_hovered(denominator_id);
-    const bool arrow_hovered = uph_ui_widget_hovered(arrow_id);
+    const bool denominator_hovered = uph_ui_widget_hovered(denominator_id) || (was_open && leaf_hovered(denominator_id));
+    const bool arrow_hovered = uph_ui_widget_hovered(arrow_id) || (was_open && leaf_hovered(arrow_id));
     if (denominator_hovered || arrow_hovered)
     {
         naui_set_cursor(NAUI_CURSOR_HAND);
@@ -2188,27 +2195,35 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
     })
     {
-        uph_ui__frame_icon("uph_icon_treble-clef", font_size * 1.6f);
-
         leaf({
-            .direction = LEAF_DIRECTION_VERTICAL,
-            .size = {LEAF_SIZE_FIXED(NAUI_DPI(22.0f)), LEAF_SIZE_FIT},
-            .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+            .direction = LEAF_DIRECTION_HORIZONTAL,
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
+            .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+            .child_gap = NAUI_DPI(1.0f)
         })
         {
-            if (uph_ui_drag_int((int32_t*)&signature->numerator, leaf_id_indexed(id, 0), 0.1f, 1, 32, "%d", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_FRAMELESS))
-                changed = true;
+            uph_ui__frame_icon("uph_icon_treble-clef", font_size * 1.9f);
 
             leaf({
-                .id = denominator_id,
-                .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+                .direction = LEAF_DIRECTION_VERTICAL,
+                .size = {LEAF_SIZE_FIXED(NAUI_DPI(16.0f)), LEAF_SIZE_FIT},
                 .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
             })
             {
-                leaf_text(denominator_text, {
-                    .font_size = font_size,
-                    .color = text_color
-                });
+                if (uph_ui_drag_int((int32_t*)&signature->numerator, leaf_id_indexed(id, 0), 0.1f, 1, 32, "%d", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_FRAMELESS))
+                    changed = true;
+
+                leaf({
+                    .id = denominator_id,
+                    .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+                    .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+                })
+                {
+                    leaf_text(denominator_text, {
+                        .font_size = font_size,
+                        .color = text_color
+                    });
+                }
             }
         }
 
