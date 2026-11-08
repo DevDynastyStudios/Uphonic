@@ -15,7 +15,7 @@
 		.destroy = prefix##_destroy \
 	})
 
-static void uph_action_refresh_block_defaults(void)
+void uph_action_refresh_block_defaults(void)
 {
 	const Uph_ResourceType type = uph_state.shared.selected_resource.type;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;

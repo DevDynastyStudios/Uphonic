@@ -212,6 +212,7 @@ Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track);
 Uph_Track *uph_action_track_resolve(Uph_ActionTrackRef ref);
 Uph_Track *uph_action_track_resolve_in(Naui_List(Uph_Track) tracks, Uph_ActionTrackRef ref);
 
+void uph_action_refresh_block_defaults(void);
 void uph_action_resource_removed(Uph_ResourceType type, Uph_ResourceIndex index);
 void uph_action_resource_restored(Uph_ResourceType type, Uph_ResourceIndex index);
 

@@ -70,6 +70,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id);
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id);
 bool uph_ui_bpm(float *value, const char *id, float min, float max);
 bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id);
+bool uph_ui_time_display(double beat, bool *show_seconds, const char *id);
 
 typedef uint8_t Uph_UIKnobStartType;
 enum

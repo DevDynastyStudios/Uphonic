@@ -3,7 +3,7 @@ static void _uph_project_default_shared_state()
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;
 	uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
-	uph_state.shared.song_timeline_current_block_length = 4;
+	uph_state.shared.song_timeline_current_block_length = uph_time_signature_bar_length();
 }
 
 static void _uph_project_adopt_folder_files(Uph_Project *project, const Naui_Path project_folder)
@@ -342,6 +342,8 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;
 	uph_state.shared.selected_resource.type = naui_list_len(project->midi_patterns) > 0 ? UPH_RESOURCE_PATTERN : UPH_RESOURCE_NONE;
+	uph_state.shared.song_timeline_current_block_length = uph_time_signature_bar_length();
+	uph_action_refresh_block_defaults();
 	uph_audio_engine_unlock();
 	return loaded;
 }

@@ -142,6 +142,7 @@ typedef struct
 	bool tracks_hovered;
 	bool track_header_hovered;
 	bool disable_space_to_play;
+	bool time_display_seconds;
 }
 Uph_SongTimelineData;
 

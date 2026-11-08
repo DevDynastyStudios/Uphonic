@@ -2098,6 +2098,78 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
     return changed;
 }
 
+bool uph_ui_time_display(double beat, bool *show_seconds, const char *id)
+{
+    const Leaf_ID frame_id = leaf_id(id);
+    const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const float frame_height = uph_ui__tall_frame_height();
+    bool changed = false;
+
+    const bool hovered = uph_ui_widget_hovered(frame_id);
+    if (hovered)
+    {
+        naui_set_cursor(NAUI_CURSOR_HAND);
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        {
+            *show_seconds = !*show_seconds;
+            changed = true;
+        }
+    }
+
+    char value_text[32];
+    const char *label_text;
+    if (*show_seconds)
+    {
+        const double seconds = NAUI_MAX(uph_tempo_beat_to_seconds(NAUI_MAX(beat, 0.0)), 0.0);
+        const int64_t total_ms = (int64_t)floor(seconds * 1000.0);
+        snprintf(value_text, sizeof(value_text), "%02d:%02d.%03d",
+            (int)(total_ms / 60000),
+            (int)((total_ms / 1000) % 60),
+            (int)(total_ms % 1000));
+        label_text = "MIN:SEC";
+    }
+    else
+    {
+        const double beat_length = uph_time_signature_beat_length();
+        const int64_t beats_per_bar = NAUI_MAX((int64_t)llround(uph_time_signature_bar_length() / beat_length), (int64_t)1);
+        const double beat_units = NAUI_MAX(beat, 0.0) / beat_length + 1e-9;
+        const int64_t whole_beats = (int64_t)floor(beat_units);
+        const int ticks = (int)floor((beat_units - (double)whole_beats) * 96.0);
+        snprintf(value_text, sizeof(value_text), "%d:%d:%02d",
+            (int)(whole_beats / beats_per_bar),
+            (int)(whole_beats % beats_per_bar) + 1,
+            ticks);
+        label_text = "BAR:BEAT:TICK";
+    }
+
+    Leaf_Color background = naui_theme_color("uph_ui_frame_bg_color");
+    if (hovered)
+        background = naui_mouse_down(NAUI_MOUSE_LEFT) ? naui_theme_color("uph_ui_frame_pressed_bg_color") : naui_theme_color("uph_ui_frame_hovered_bg_color");
+
+    leaf({
+        .id = frame_id,
+        .direction = LEAF_DIRECTION_VERTICAL,
+        .size = {LEAF_SIZE_FIXED(NAUI_DPI(96.0f)), UPH_UI_SIZE_EXACT(frame_height)},
+        .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+        .color = {background},
+        .border = uph_ui__frame_border(),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL)
+    })
+    {
+        leaf_text(value_text, {
+            .font_size = font_size * 1.15f,
+            .color = naui_theme_color("uph_ui_text_color")
+        });
+
+        leaf_text(label_text, {
+            .font_size = font_size * 0.72f,
+            .color = uph_ui__dim_text_color()
+        });
+    }
+
+    return changed;
+}
+
 bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
 {
     static const uint32_t denominator_values[] = { 2, 4, 8, 16 };
