@@ -13,6 +13,19 @@
 #define UPH_SAMPLE_EDITOR_STEM_MIN_PIXELS		6.0f
 #define UPH_SAMPLE_EDITOR_DOT_SIZE				4.0f
 
+#define UPH_SAMPLE_EDITOR_TIME_SCALE_MIN		0.0001
+#define UPH_SAMPLE_EDITOR_TIME_SCALE_MAX		10000.0
+
+typedef enum
+{
+	UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO,
+	UPH_SAMPLE_EDITOR_TIME_UNIT_BEATS,
+	UPH_SAMPLE_EDITOR_TIME_UNIT_SECONDS,
+	UPH_SAMPLE_EDITOR_TIME_UNIT_BPM,
+	UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT
+}
+Uph_SampleEditorTimeUnit;
+
 typedef struct
 {
 	float min;
@@ -51,6 +64,8 @@ typedef struct
 	double start_frame;
 	double frames_per_pixel;
 	float gain;
+	float time_value;
+	uint32_t time_unit;
 	Naui_Vec2 pan_last_mouse;
 	Leaf_BoundingBox wave_box;
 
@@ -700,7 +715,100 @@ static void _uph_sample_editor_render_label(const char *label)
 	});
 }
 
-static void _uph_sample_editor_render_controls(Uph_Sample *sample)
+static double _uph_sample_editor_time_from_scale(uint32_t unit, double scale, double seconds, double bpm)
+{
+	switch (unit)
+	{
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BEATS: return seconds * scale * bpm / 60.0;
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_SECONDS: return seconds * scale;
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return bpm / scale;
+		default: return scale;
+	}
+}
+
+static double _uph_sample_editor_time_to_scale(uint32_t unit, double value, double seconds, double bpm)
+{
+	switch (unit)
+	{
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BEATS: return value * 60.0 / (bpm * seconds);
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_SECONDS: return value / seconds;
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return bpm / value;
+		default: return value;
+	}
+}
+
+static void _uph_sample_editor_render_time_scale(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+{
+	static const char *units[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
+		"Ratio",
+		"Beats",
+		"Seconds",
+		"BPM"
+	};
+	static const char *formats[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
+		"%.4f",
+		"%.3f",
+		"%.3f",
+		"%.2f"
+	};
+	static const float speeds[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
+		0.01f,
+		0.05f,
+		0.01f,
+		0.1f
+	};
+
+	const double seconds = source->valid ? (double)source->frame_count / (double)source->sample_rate : 0.0;
+	const double bpm = uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
+
+	if (seconds <= 0.0)
+		editor->time_unit = UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO;
+
+	const uint32_t unit = editor->time_unit < UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT ? editor->time_unit : UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO;
+	const double scale = sample->time_scale > 0.0f ? (double)sample->time_scale : 1.0;
+
+	double min_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, seconds, bpm);
+	double max_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX, seconds, bpm);
+	if (min_value > max_value)
+	{
+		const double swap = min_value;
+		min_value = max_value;
+		max_value = swap;
+	}
+
+	static const char *ids[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
+		"uph_sample_editor_time_scale",
+		"uph_sample_editor_time_beats",
+		"uph_sample_editor_time_seconds",
+		"uph_sample_editor_time_bpm"
+	};
+
+	editor->time_value = (float)_uph_sample_editor_time_from_scale(unit, scale, seconds, bpm);
+	leaf({
+		.size = {LEAF_SIZE_FIXED(NAUI_DPI(90)), LEAF_SIZE_FULL},
+		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+	})
+	{
+		if (uph_ui_drag_float(&editor->time_value, leaf_id(ids[unit]), speeds[unit], (float)min_value, (float)max_value, formats[unit], UPH_UI_DRAG_FLAG_CLAMPED)
+			&& editor->time_value > 0.0f)
+		{
+			const double new_scale = _uph_sample_editor_time_to_scale(unit, (double)editor->time_value, seconds, bpm);
+			sample->time_scale = (float)NAUI_CLAMP(new_scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
+		}
+	}
+
+	uint32_t selected = unit;
+	leaf({
+		.size = {LEAF_SIZE_FIXED(NAUI_DPI(80)), LEAF_SIZE_FULL},
+		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+	})
+	{
+		if (uph_ui_dropdown(units, seconds > 0.0 ? UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT : 1, &selected, leaf_id("uph_sample_editor_time_unit")))
+			editor->time_unit = selected;
+	}
+}
+
+static void _uph_sample_editor_render_controls(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
 	uph_ui_set_style_scope("uph_toolbox");
 	leaf({
@@ -738,11 +846,8 @@ static void _uph_sample_editor_render_controls(Uph_Sample *sample)
 			.child_gap = NAUI_DPI(6)
 		})
 		{
-			_uph_sample_editor_render_label("Time scale");
-			leaf({
-				.size = {LEAF_SIZE_FIXED(NAUI_DPI(90)), LEAF_SIZE_FULL},
-				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_drag_float(&sample->time_scale, leaf_id("uph_sample_editor_time_scale"), 0.01f, 0.0001f, 10000.0f, "%.4f", UPH_UI_DRAG_FLAG_CLAMPED);
+			_uph_sample_editor_render_label("Time");
+			_uph_sample_editor_render_time_scale(editor, sample, source);
 		}
 
 		leaf({
@@ -858,7 +963,7 @@ void uph_sample_editor_update(void)
 	_uph_sample_editor_update_input(editor, editor->wave_box);
 
 	_uph_sample_editor_render_info(sample, data, source);
-	_uph_sample_editor_render_controls(sample);
+	_uph_sample_editor_render_controls(editor, sample, source);
 
 	if (!source->valid)
 	{
