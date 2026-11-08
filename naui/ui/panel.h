@@ -2,8 +2,8 @@
     #define NAUI_PANEL_BORDER_COLOR_TAG "naui_panel_border_color"
 #endif
 
-#ifndef NAUI_PANEL_BORDER_WIDTH_TAG
-    #define NAUI_PANEL_BORDER_WIDTH_TAG "naui_panel_border_width"
+#ifndef NAUI_PANEL_BORDER_WIDTH
+    #define NAUI_PANEL_BORDER_WIDTH 1.0f
 #endif
 
 #ifndef NAUI_PANEL_TITLEBAR_BG_COLOR_TAG
@@ -14,16 +14,16 @@
     #define NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG "naui_panel_title_text_color"
 #endif
 
-#ifndef NAUI_PANEL_TITLEBAR_PADDING_TAG
-    #define NAUI_PANEL_TITLEBAR_PADDING_TAG "naui_panel_title_padding"
+#ifndef NAUI_PANEL_TITLEBAR_PADDING
+    #define NAUI_PANEL_TITLEBAR_PADDING ((Naui_Vec2){ 14.0f, 10.0f })
 #endif
 
 #ifndef NAUI_PANEL_BODY_BG_COLOR_TAG
     #define NAUI_PANEL_BODY_BG_COLOR_TAG "naui_panel_body_bg_color"
 #endif
 
-#ifndef NAUI_PANEL_ROUNDING_TAG
-    #define NAUI_PANEL_ROUNDING_TAG "naui_panel_rounding"
+#ifndef NAUI_PANEL_ROUNDING
+    #define NAUI_PANEL_ROUNDING 6.0f
 #endif
 
 #ifndef NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG
@@ -42,8 +42,8 @@
     #define NAUI_PANEL_INNER_SHADOW_COLOR_TAG "naui_panel_inner_shadow_color"
 #endif
 
-#ifndef NAUI_PANEL_FONT_SIZE_TAG
-    #define NAUI_PANEL_FONT_SIZE_TAG "naui_panel_font_size"
+#ifndef NAUI_PANEL_FONT_SIZE
+    #define NAUI_PANEL_FONT_SIZE 14.0f
 #endif
 
 #ifndef NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG

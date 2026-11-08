@@ -63,8 +63,8 @@ static Naui_Color uph_automation_list_muted_color(void)
 
 static void uph_automation_list_target_bar(const Uph_Track *track)
 {
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Naui_Color accent = uph_resources_track_color(track->color_index);
 
     leaf({
@@ -93,7 +93,7 @@ static void uph_automation_list_target_bar(const Uph_Track *track)
 
 static bool uph_automation_list_param_row(const char *name, const Leaf_ID id)
 {
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const bool hovered = uph_ui_widget_hovered(id);
 
     Naui_Color color = { 0 };
@@ -111,12 +111,12 @@ static bool uph_automation_list_param_row(const char *name, const Leaf_ID id)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x * 2.0f), NAUI_DPI(padding.y)),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .color = color,
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
         .clip_children = true
     })
     {
         leaf_text(name, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = naui_theme_color("uph_ui_text_color")
         });
     }
@@ -129,8 +129,8 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
     if (!uph_automation_list_plugin_has_visible_params(plugin))
         return false;
 
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
@@ -141,7 +141,7 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x * 2.0f), NAUI_DPI(padding.y)),
             .color = naui_theme_color("uph_resource_list_section_bg_color"),
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .direction = LEAF_DIRECTION_HORIZONTAL,
             .child_gap = NAUI_DPI(padding.x)
@@ -202,8 +202,8 @@ static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *
     if (!any_visible)
         return false;
 
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
@@ -214,7 +214,7 @@ static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x * 2.0f), NAUI_DPI(padding.y)),
             .color = naui_theme_color("uph_resource_list_section_bg_color"),
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .clip_children = true
         }) leaf_text(NAUI_TR("automation.menu.track"), { .font_size = font_size, .color = naui_theme_color("uph_resource_list_section_text_color") });
@@ -246,7 +246,7 @@ void uph_automation_list_on_update(void)
     if (!track)
         return;
 
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     uph_automation_list_target_bar(track);
 
@@ -290,7 +290,7 @@ void uph_automation_list_on_update(void)
             })
             {
                 leaf_text(NAUI_TR("automation.menu.none"), {
-                    .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+                    .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
                     .color = uph_automation_list_muted_color()
                 });
             }

@@ -659,14 +659,14 @@ static void _uph_sample_editor_render_message(const char *message)
 	{
 		leaf_text(message, {
 			.color = {naui_theme_color("uph_ui_text_disabled_color")},
-			.font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
+			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
 		});
 	}
 }
 
 static void _uph_sample_editor_render_info(const Uph_Sample *sample, const Uph_SampleData *data, const Uph_SampleEditorSource *source)
 {
-	const float font_size = naui_theme_float("uph_ui_font_size");
+	const float font_size = UPH_UI_FONT_SIZE;
 
 	char info[320];
 	if (source->valid)
@@ -691,7 +691,7 @@ static void _uph_sample_editor_render_info(const Uph_Sample *sample, const Uph_S
 	leaf({
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_vec2("uph_ui_frame_padding").x * 2.0f), NAUI_DPI(6.0f)),
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x * 2.0f), NAUI_DPI(6.0f)),
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_gap = NAUI_DPI(2.0f)
 	})
@@ -711,7 +711,7 @@ static void _uph_sample_editor_render_label(const char *label)
 {
 	leaf_text(label, {
 		.color = {naui_theme_color("uph_ui_text_color")},
-		.font_size = {NAUI_DPI(naui_theme_float("uph_toolbox_font_size"))}
+		.font_size = {NAUI_DPI(UPH_TOOLBOX_FONT_SIZE)}
 	});
 }
 
@@ -822,10 +822,9 @@ static void _uph_sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMo
 
 static void _uph_sample_editor_render_controls(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
-	uph_ui_set_style_scope("uph_toolbox");
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_toolbox_height")))},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_float("uph_toolbox_padding_x")), 0.0f),
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(UPH_SAMPLE_EDITOR_TOOLBAR_FIELD_GAP),
@@ -911,7 +910,6 @@ static void _uph_sample_editor_render_controls(Uph_SampleEditorData *editor, Uph
 			_uph_sample_editor_render_label("Normalize");
 		}
 	}
-	uph_ui_set_style_scope(NULL);
 }
 
 #pragma endregion

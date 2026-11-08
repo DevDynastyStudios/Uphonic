@@ -4,6 +4,10 @@ NAUI_PANEL(uph_settings)
 #define UPH_SETTINGS_MAX_LANGUAGES		32
 
 #define UPH_SETTINGS_THEME_NAME_MAX		48
+#define UPH_SETTINGS_THEME_ROWS			3
+#define UPH_SETTINGS_THEME_CARD_WIDTH	184.0f
+#define UPH_SETTINGS_THEME_CARD_PREVIEW	104.0f
+#define UPH_SETTINGS_THEME_HEADER_WIDTH	36.0f
 
 #define UPH_SETTINGS_SIDEBAR_WIDTH		150.0f
 #define UPH_SETTINGS_LABEL_WIDTH		200.0f
@@ -34,6 +38,7 @@ NAUI_PANEL(uph_settings)
 typedef enum
 {
 	UPH_SETTINGS_PAGE_GENERAL,
+	UPH_SETTINGS_PAGE_THEMES,
 	UPH_SETTINGS_PAGE_AUDIO,
 	// UPH_SETTINGS_PAGE_INTERFACE,
 	UPH_SETTINGS_PAGE_MIDI,
@@ -66,11 +71,28 @@ Uph_SettingsLanguage;
 
 typedef struct
 {
+	Leaf_Color viewport;
+	Leaf_Color toolbox;
+	Leaf_Color border;
+	Leaf_Color header;
+	Leaf_Color header_border;
+	Leaf_Color row[2];
+	Leaf_Color logo;
+	Leaf_Color text;
+	Leaf_Color accent;
+	Leaf_Color palette[UPH_SETTINGS_THEME_ROWS];
+}
+Uph_SettingsThemePreview;
+
+typedef struct
+{
 	Uph_SettingsPage page;
 	bool lists_ready;
 	bool was_opened;
 
 	Uph_SettingsNameList themes;
+	Uph_SettingsThemePreview theme_previews[UPH_SETTINGS_MAX_OPTIONS];
+	float themes_scroll;
 	Uph_SettingsNameList audio_outputs;
 	Uph_SettingsNameList audio_inputs;
 	Uph_SettingsMidiList midi_inputs;
@@ -218,6 +240,84 @@ bool uph_settings_save(void)
 	return uph_io_save_editor_settings(&uph_state, UPHONIC_SETTINGS_FILE);
 }
 
+static uint8_t uph_settings_hex_byte(const char *hex)
+{
+	uint8_t value = 0;
+
+	for (int i = 0; i < 2; i++)
+	{
+		const char c = hex[i];
+		uint8_t digit = 0;
+
+		if (c >= '0' && c <= '9')
+			digit = (uint8_t)(c - '0');
+		else if (c >= 'a' && c <= 'f')
+			digit = (uint8_t)(c - 'a' + 10);
+		else if (c >= 'A' && c <= 'F')
+			digit = (uint8_t)(c - 'A' + 10);
+
+		value = (uint8_t)(value * 16 + digit);
+	}
+
+	return value;
+}
+
+static Leaf_Color uph_settings_parse_color(const char *hex, const Leaf_Color fallback)
+{
+	if (!hex)
+		return fallback;
+
+	if (*hex == '#')
+		hex++;
+
+	const size_t length = strlen(hex);
+	if (length != 6 && length != 8)
+		return fallback;
+
+	return (Leaf_Color){
+		uph_settings_hex_byte(hex),
+		uph_settings_hex_byte(hex + 2),
+		uph_settings_hex_byte(hex + 4),
+		length == 8 ? uph_settings_hex_byte(hex + 6) : 255
+	};
+}
+
+static Leaf_Color uph_settings_theme_key(const Naui_JsonValue *root, const char *key, const Leaf_Color fallback)
+{
+	return uph_settings_parse_color(naui_json_get_string(naui_json_object_get(root, key), NULL), fallback);
+}
+
+static void uph_settings_load_theme_preview(const Naui_Path path, Uph_SettingsThemePreview *preview)
+{
+	const Leaf_Color gray = leaf_rgb(40, 40, 40);
+	const Leaf_Color light = leaf_rgb(200, 200, 200);
+
+	Naui_Json json = naui_json_parse_file(path);
+	const Naui_JsonValue *root = json.root;
+
+	preview->viewport = uph_settings_theme_key(root, "naui_viewport_bg_color", gray);
+	preview->toolbox = uph_settings_theme_key(root, "uph_toolbox_bg_color", gray);
+	preview->border = uph_settings_theme_key(root, "uph_toolbox_border_color", gray);
+	preview->header = uph_settings_theme_key(root, "uph_song_timeline_header_color", gray);
+	preview->header_border = uph_settings_theme_key(root, "uph_song_timeline_header_border_color", gray);
+	preview->row[0] = uph_settings_theme_key(root, "uph_timeline_row_bg1_color", gray);
+	preview->row[1] = uph_settings_theme_key(root, "uph_timeline_row_bg2_color", gray);
+	preview->logo = uph_settings_theme_key(root, "uph_logo_color", light);
+	preview->text = uph_settings_theme_key(root, "naui_panel_text_color", light);
+	preview->accent = uph_settings_theme_key(root, "uph_ui_slider_fill_color", light);
+
+	const Naui_JsonValue *palette = naui_json_object_get(root, "uph_track_palette");
+	const size_t palette_count = palette && palette->type == NAUI_JSON_ARRAY ? palette->array.count : 0;
+
+	for (size_t i = 0; i < UPH_SETTINGS_THEME_ROWS; i++)
+	{
+		const char *hex = palette_count > 0 ? naui_json_get_string(naui_json_array_get(palette, i % palette_count), NULL) : NULL;
+		preview->palette[i] = uph_settings_parse_color(hex, preview->accent);
+	}
+
+	naui_json_free(&json);
+}
+
 static void uph_settings_refresh_themes(Uph_SettingsData *data)
 {
 	data->themes.count = 0;
@@ -234,6 +334,7 @@ static void uph_settings_refresh_themes(Uph_SettingsData *data)
 		if (stem.length == 0 || stem.length >= UPH_SETTINGS_THEME_NAME_MAX)
 			continue;
 
+		uph_settings_load_theme_preview(entries[i].path, &data->theme_previews[data->themes.count]);
 		data->themes.name[data->themes.count++] = naui_view_to_string(stem);
 	}
 
@@ -485,7 +586,7 @@ void uph_settings_open_midi_ports(const bool use_first_device)
 
 static inline float uph_settings_font_size(void)
 {
-	return NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+	return NAUI_DPI(UPH_UI_FONT_SIZE);
 }
 
 static void uph_settings_row_begin(const char *label, const Leaf_ID label_id)
@@ -789,12 +890,6 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 
 	uph_settings_section(NAUI_TR("settings.general.appearance"), true, NULL, UPH_SETTINGS_NO_ID);
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.general.theme"), UPH_SETTINGS_NO_ID)
-	{
-		if (uph_settings_name_dropdown(&general->theme, &data->themes, NULL, leaf_id("uph_settings_theme")))
-			uph_settings_apply_theme(general->theme.data);
-	}
-
 	UPH_SETTINGS_ROW(NAUI_TR("settings.general.language"), UPH_SETTINGS_NO_ID)
 	{
 		uph_settings_language_dropdown(data, leaf_id("uph_settings_language"));
@@ -836,6 +931,186 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 	uph_settings_checkbox_row(NAUI_TR("settings.general.confirm_on_exit"), &general->confirm_on_exit, leaf_id("uph_settings_confirm_exit"));
 	// uph_settings_checkbox_row(NAUI_TR("settings.general.confirm_on_delete"), &general->confirm_on_delete, leaf_id("uph_settings_confirm_delete"));
 	uph_settings_checkbox_row(NAUI_TR("settings.general.copy_resources"), &general->copy_resources, leaf_id("uph_settings_copy_resources"));
+}
+
+static void uph_settings_theme_dot(const Leaf_Color color, const float size)
+{
+	leaf({
+		.size = { LEAF_SIZE_FIXED(NAUI_DPI(size)), LEAF_SIZE_FIXED(NAUI_DPI(size)) },
+		.color = { color },
+		.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+	});
+}
+
+static void uph_settings_theme_thumbnail(const Uph_SettingsThemePreview *preview)
+{
+	static const float block_offsets[UPH_SETTINGS_THEME_ROWS] = { 8.0f, 30.0f, 16.0f };
+	static const float block_widths[UPH_SETTINGS_THEME_ROWS] = { 48.0f, 40.0f, 60.0f };
+
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
+
+	leaf({
+		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_THEME_CARD_PREVIEW)) },
+		.direction = LEAF_DIRECTION_VERTICAL,
+		.color = { preview->viewport },
+		.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
+		.clip_children = true
+	})
+	{
+		leaf({
+			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(16.0f)) },
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+			.padding = LEAF_PADDING_AXES(NAUI_DPI(7.0f), 0),
+			.color = { preview->toolbox },
+			.border = { .width = 1, .sides = LEAF_SIDE_BOTTOM, .color = { preview->border } }
+		})
+		{
+			uph_settings_theme_dot(preview->logo, 6.0f);
+			leaf({ .size = { LEAF_SIZE_GROW, LEAF_SIZE_FIT } });
+			leaf({
+				.size = { LEAF_SIZE_FIXED(NAUI_DPI(16.0f)), LEAF_SIZE_FIXED(NAUI_DPI(3.0f)) },
+				.color = { preview->text },
+				.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+			});
+		}
+
+		leaf({
+			.size = { LEAF_SIZE_FULL, LEAF_SIZE_GROW },
+			.direction = LEAF_DIRECTION_HORIZONTAL
+		})
+		{
+			leaf({
+				.size = { LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_THEME_HEADER_WIDTH)), LEAF_SIZE_FULL },
+				.direction = LEAF_DIRECTION_VERTICAL,
+				.color = { preview->header },
+				.border = { .width = 1, .sides = LEAF_SIDE_RIGHT, .color = { preview->header_border } }
+			})
+			{
+				for (uint32_t r = 0; r < UPH_SETTINGS_THEME_ROWS; r++)
+				{
+					leaf({
+						.size = { LEAF_SIZE_FULL, LEAF_SIZE_GROW },
+						.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+						.padding = { (int32_t)NAUI_DPI(6.0f), 0, 0, 0 }
+					})
+					{
+						leaf({
+							.size = { LEAF_SIZE_FIXED(NAUI_DPI(3.0f)), LEAF_SIZE_PERCENT(0.5f) },
+							.color = { preview->palette[r] },
+							.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
+						});
+					}
+				}
+			}
+
+			leaf({
+				.size = { LEAF_SIZE_GROW, LEAF_SIZE_FULL },
+				.direction = LEAF_DIRECTION_VERTICAL
+			})
+			{
+				for (uint32_t r = 0; r < UPH_SETTINGS_THEME_ROWS; r++)
+				{
+					leaf({
+						.size = { LEAF_SIZE_FULL, LEAF_SIZE_GROW },
+						.direction = LEAF_DIRECTION_HORIZONTAL,
+						.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+						.padding = { (int32_t)NAUI_DPI(block_offsets[r]), 0, 0, 0 },
+						.color = { preview->row[r % 2] }
+					})
+					{
+						leaf({
+							.size = { LEAF_SIZE_FIXED(NAUI_DPI(block_widths[r])), LEAF_SIZE_PERCENT(0.6f) },
+							.color = { preview->palette[r] },
+							.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(2.0f), LEAF_CORNER_ALL)
+						});
+					}
+				}
+			}
+		}
+	}
+}
+
+static void uph_settings_theme_card(Uph_SettingsData *data, const uint32_t index)
+{
+	Uph_GeneralSettings *general = &uph_state.settings.general;
+	const Naui_String *name = &data->themes.name[index];
+	const Leaf_ID id = leaf_id_indexed("uph_settings_theme_card", index);
+	const bool selected = strcmp(name->data, general->theme.data) == 0;
+	const bool hovered = uph_ui_widget_hovered(id);
+
+	if (hovered)
+	{
+		naui_set_cursor(NAUI_CURSOR_HAND);
+		if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !selected)
+		{
+			general->theme = *name;
+			uph_settings_apply_theme(general->theme.data);
+		}
+	}
+
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
+	Leaf_Color border = naui_theme_color("uph_ui_frame_border");
+	if (selected)
+		border = naui_theme_color("uph_ui_slider_fill_color");
+	else if (hovered)
+		border = naui_theme_color("uph_ui_frame_pressed_bg_color");
+
+	leaf({
+		.id = id,
+		.size = { LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_THEME_CARD_WIDTH)), LEAF_SIZE_FIT },
+		.direction = LEAF_DIRECTION_VERTICAL,
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(4.0f)),
+		.child_gap = NAUI_DPI(4.0f),
+		.color = { naui_theme_color(hovered || selected ? "uph_ui_frame_hovered_bg_color" : "uph_ui_frame_secondary_bg_color") },
+		.border = { .width = (int32_t)NAUI_DPI(selected ? 2.0f : 1.0f), .sides = LEAF_SIDE_ALL, .color = { border } },
+		.rounding = LEAF_ROUNDING_FIXED(rounding + NAUI_DPI(2.0f), LEAF_CORNER_ALL)
+	})
+	{
+		uph_settings_theme_thumbnail(&data->theme_previews[index]);
+
+		leaf({
+			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(24.0f)) },
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+			.padding = LEAF_PADDING_AXES(NAUI_DPI(4.0f), 0),
+			.child_gap = NAUI_DPI(6.0f)
+		})
+		{
+			uph_settings_theme_dot(data->theme_previews[index].accent, 8.0f);
+
+			leaf({ .size = { LEAF_SIZE_GROW, LEAF_SIZE_FIT }, .clip_children = true })
+			{
+				leaf_text(name->data, { .font_size = { uph_settings_font_size() }, .color = { naui_theme_color("uph_ui_text_color") } });
+			}
+		}
+	}
+}
+
+static void uph_settings_page_themes(Uph_SettingsData *data)
+{
+	uph_settings_section(NAUI_TR("settings.general.theme"), true, NULL, UPH_SETTINGS_NO_ID);
+
+	Uph_UIScrollContainer container = uph_ui_begin_scroll_container(
+		UPH_UI_SCROLL_DIRECTION_VERTICAL,
+		&data->themes_scroll,
+		leaf_id("uph_settings_themes_scrollbar")
+	);
+
+	leaf({
+		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIT },
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(4.0f)),
+		.child_gap = NAUI_DPI(12.0f),
+		.child_cross_gap = NAUI_DPI(12.0f),
+		.wrap_children = true
+	})
+	{
+		for (uint32_t i = 0; i < data->themes.count; i++)
+			uph_settings_theme_card(data, i);
+	}
+
+	uph_ui_end_scroll_container(&container);
 }
 
 static void uph_settings_page_audio(Uph_SettingsData *data)
@@ -1074,7 +1349,7 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 				.size = { LEAF_SIZE_GROW, LEAF_SIZE_FIT },
 				.padding = LEAF_PADDING_AXES(NAUI_DPI(8.0f), NAUI_DPI(6.0f)),
 				.color = { naui_theme_color("uph_ui_frame_bg_color") },
-				.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+				.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
 				.clip_children = true
 			})
 			{
@@ -1112,6 +1387,7 @@ static void uph_settings_sidebar(Uph_SettingsData *data)
 	static const char *const keys[UPH_SETTINGS_PAGE_COUNT] =
 	{
 		"settings.page.general",
+		"settings.page.themes",
 		"settings.page.audio",
 		// "settings.page.interface",
 		"settings.page.midi",
@@ -1119,7 +1395,7 @@ static void uph_settings_sidebar(Uph_SettingsData *data)
 	};
 
 	const float font_size = uph_settings_font_size();
-	const float rounding = NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 
 	leaf({
 		.size = { LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_SIDEBAR_WIDTH)), LEAF_SIZE_FULL },
@@ -1241,6 +1517,10 @@ static void uph_settings_on_update(void)
 			{
 				case UPH_SETTINGS_PAGE_GENERAL:
 					uph_settings_page_general(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_THEMES:
+					uph_settings_page_themes(data);
 					break;
 
 				case UPH_SETTINGS_PAGE_AUDIO:

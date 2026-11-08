@@ -174,8 +174,8 @@ static Naui_Color uph_plugin_list_muted_color(void)
 
 static void uph_plugin_list_target_bar(void)
 {
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     const Uph_PluginListTarget target = uph_state.shared.plugin_list_target;
     const Uph_Track *track = target == UPH_PLUGIN_LIST_MASTER_EFFECT ? NULL : uph_state.shared.current_plugin_list_track;
@@ -226,14 +226,14 @@ static void uph_plugin_list_status(void)
     if (!text[0])
         return;
 
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x * 2.0f), NAUI_DPI(padding.y))
     })
     {
         leaf_text(text, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = uph_plugin_list_muted_color()
         });
     }
@@ -241,7 +241,7 @@ static void uph_plugin_list_status(void)
 
 static void uph_plugin_list_text_cell(const char *text, const Leaf_SizeAxis width, const Naui_Color color)
 {
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     leaf({
         .size = {width, LEAF_SIZE_FIT},
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
@@ -250,7 +250,7 @@ static void uph_plugin_list_text_cell(const char *text, const Leaf_SizeAxis widt
     })
     {
         leaf_text(text, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = color
         });
     }
@@ -261,14 +261,14 @@ static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
     leaf({
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(6), NAUI_DPI(2)),
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
         .color = format == UPH_PLUGIN_VST3 ?
             naui_theme_color("uph_plugin_list_vst3_color") :
             naui_theme_color("uph_plugin_list_clap_color")
     })
     {
         leaf_text(format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP", {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = naui_theme_color("uph_plugin_list_text_color")
         });
     }
@@ -276,7 +276,7 @@ static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
 
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
 {
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Leaf_ID id = leaf_id_indexed("uph_plugin_list_item", item_index);
     const bool hovered = uph_ui_widget_hovered(id);
     const bool selected = uph_plugin_list_data.current_plugin_index == (int32_t)item_index;
@@ -300,7 +300,7 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
         .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
         .color = color,
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
@@ -331,7 +331,7 @@ static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
 
 static void uph_plugin_list_main_menu(void)
 {
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Naui_Color muted_color = uph_plugin_list_muted_color();
 
     leaf({
@@ -382,7 +382,7 @@ static void uph_plugin_list_main_menu(void)
             })
             {
                 leaf_text(NAUI_TR("plugin.menu.none.matching"), {
-                    .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+                    .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
                     .color = muted_color
                 });
             }
@@ -393,7 +393,7 @@ static void uph_plugin_list_main_menu(void)
 
 static void uph_plugin_list_property(const char *label, const char *value)
 {
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
@@ -411,7 +411,7 @@ static void uph_plugin_list_property(const char *label, const char *value)
 
 static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
 {
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const bool hovered = uph_ui_widget_hovered(id);
 
     Naui_Color color = naui_theme_color("uph_ui_selection_color");
@@ -429,11 +429,11 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 1.5f)),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
         .color = color,
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), NAUI_CORNER_ALL)
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL)
     })
     {
         leaf_text(label, {
-            .font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+            .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = naui_theme_color("uph_plugin_list_text_color")
         });
     }
@@ -443,8 +443,8 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
 
 static void uph_plugin_list_current_menu(void)
 {
-    const int32_t font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
 
     leaf({
@@ -508,7 +508,7 @@ void uph_plugin_list_on_update(void)
     if (uph_plugin_list_update_load())
         return;
 
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     uph_plugin_list_target_bar();
 
@@ -536,7 +536,7 @@ void uph_plugin_list_on_update(void)
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
         }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
-            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_ui_font_size"))),
+            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)),
             .color = {uph_plugin_list_muted_color()},
             .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
         });

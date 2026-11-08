@@ -167,7 +167,7 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
                     (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_length)} :
                     (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_length), LEAF_SIZE_FULL}
                 ),
-                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_scrollbar_handle_rounding")), LEAF_CORNER_ALL),
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_SCROLLBAR_HANDLE_ROUNDING), LEAF_CORNER_ALL),
                 .color = naui_theme_color("uph_ui_scrollbar_handle_color")
             });
         }

@@ -210,6 +210,7 @@
 	"settings.page.midi": "MIDI",
 	"settings.page.plugins": "Plugins",
 	"settings.page.shortcuts": "Shortcuts",
+	"settings.page.themes": "Themes",
 
 	"settings.plugins.add": "Add",
 	"settings.plugins.browse_title": "Select Plugin Folder",

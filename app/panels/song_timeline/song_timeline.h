@@ -200,7 +200,7 @@ static float uph_song_timeline_header_depth_width(void)
 
 static float uph_song_timeline_header_column_width(void)
 {
-	return naui_theme_float("uph_song_timeline_header_width") + naui_theme_vec2("uph_song_timeline_header_padding").x * 2.0f + uph_song_timeline_header_depth_width();
+	return UPH_SONG_TIMELINE_HEADER_WIDTH + UPH_SONG_TIMELINE_HEADER_PADDING.x * 2.0f + uph_song_timeline_header_depth_width();
 }
 
 static float uph_song_timeline_max_scroll_y(void)

@@ -383,7 +383,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 {
     const float final_scale = 0.8f + naui_ease_out_elastic(visual_scale) * 0.2f;
     const float title_padding = NAUI_DPI(2.0f);
-    const int32_t rounding = (int32_t)NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
+    const int32_t rounding = (int32_t)NAUI_DPI(UPH_UI_FRAME_ROUNDING);
     const Leaf_Color bg_color = naui_theme_color("uph_resource_list_item_bg_color");
     const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
     leaf({
@@ -431,7 +431,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             {
                 leaf_text(name->data, {
                     .color = {naui_theme_color("uph_resource_list_item_text_color")},
-                    .font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
+                    .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
                 });
             }
         }
@@ -723,10 +723,10 @@ static void uph_resource_list_on_update(void)
         uph_resource_list_remove_selected();
 
     Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_resource_list_context_menu"));
-    const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+    const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
     const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");
-    const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	static float scroll = 0.0f;
 
       Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(

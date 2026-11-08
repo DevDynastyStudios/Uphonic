@@ -51,8 +51,8 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user
 
 void uph_song_timeline_render_top_bar(void)
 {
-	const float header_width = naui_theme_float("uph_song_timeline_header_width");
-	const Naui_Vec2 header_padding = naui_theme_vec2("uph_song_timeline_header_padding");
+	const float header_width = UPH_SONG_TIMELINE_HEADER_WIDTH;
+	const Naui_Vec2 header_padding = UPH_SONG_TIMELINE_HEADER_PADDING;
 	const uint32_t height = NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT);
 
 	leaf({

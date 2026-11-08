@@ -184,7 +184,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	const Leaf_Color base_bg_color = naui_theme_color("uph_song_timeline_header_color");
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_header_border_color");
 
-	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
+	const Naui_Vec2 padding = UPH_SONG_TIMELINE_HEADER_PADDING;
 
 	const int32_t strip_idle_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_WIDTH);
 	const int32_t strip_hover_width = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_HOVER_WIDTH);
@@ -208,7 +208,6 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	if (uph_song_timeline_data.panel_hovered && leaf_hovered_clipped(header_id))
 		uph_song_timeline_data.track_header_hovered = true;
 
-	uph_ui_set_style_scope("uph_ui_tinted");
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
@@ -259,9 +258,9 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 				});
 			}
 
-			const int32_t button_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+			const int32_t button_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 			const int32_t action_icon_size = button_size + NAUI_DPI(1);
-			const int32_t title_height = NAUI_DPI(naui_theme_float("uph_ui_frame_height"));
+			const int32_t title_height = NAUI_DPI(UPH_UI_FRAME_HEIGHT);
 			leaf({
 				.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
@@ -293,7 +292,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 								case UPH_RESOURCE_AUTOMATION: icon = naui_asset_image("uph_icon_automation"); break;
 								case UPH_RESOURCE_GROUP: icon = naui_asset_image("uph_icon_folder"); break;
 							}
-							const float icon_size = NAUI_DPI(naui_theme_float("uph_song_timeline_icon_size"));
+							const float icon_size = NAUI_DPI(UPH_SONG_TIMELINE_ICON_SIZE);
 							leaf({
 								.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
 								.image = icon,
@@ -305,7 +304,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 
 						if (uph_song_timeline_data.rename_track == track)
 						{
-							if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, NAUI_TR("song_timeline.track.title")))
+							if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_TINTED, NAUI_TR("song_timeline.track.title")))
 								_uph_song_timeline_finish_rename(track);
 						}
 						else
@@ -372,7 +371,6 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 		}
 	}
 
-	uph_ui_set_style_scope(NULL);
 	
 }
 
@@ -519,8 +517,8 @@ void uph_song_timeline_render_track_plus(void)
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_header_border_color");
 	const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
 
-	const Naui_Vec2 padding = naui_theme_vec2("uph_song_timeline_header_padding");
-	const float header_width = NAUI_DPI(naui_theme_float("uph_song_timeline_header_width") + uph_song_timeline_header_depth_width());
+	const Naui_Vec2 padding = UPH_SONG_TIMELINE_HEADER_PADDING;
+	const float header_width = NAUI_DPI(UPH_SONG_TIMELINE_HEADER_WIDTH + uph_song_timeline_header_depth_width());
 
 	Leaf_ID id = leaf_id("uph_song_timeline_plus");
 	Leaf_Color bg_color_result = bg_color;
@@ -831,13 +829,13 @@ void uph_song_timeline_update_track_drag(void)
 	leaf({
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), NAUI_DPI(4)),
 		.color = {naui_theme_color("uph_ui_dropdown_bg_color")},
-		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
 		.floating = { .offset = { mouse.x + NAUI_DPI(12), mouse.y + NAUI_DPI(12) } }
 	})
 	{
 		leaf_text(label, {
-			.font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size")),
+			.font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
 			.color = {naui_theme_color("uph_ui_text_color")}
 		});
 	}

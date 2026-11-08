@@ -286,7 +286,7 @@ void uph_midi_velocity_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, 
 
 void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 {
-	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const float small_font_size = NAUI_DPI(10.0f);
 	const float padding = NAUI_DPI(6.0f);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");

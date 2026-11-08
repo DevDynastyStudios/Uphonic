@@ -204,6 +204,7 @@
 "settings.page.interface": "Interface",
 "settings.page.midi": "MIDI",
 "settings.page.plugins": "Plugins",
+"settings.page.themes": "Thèmes",
 
 "settings.plugins.add": "Ajouter",
 "settings.plugins.no_paths": "Aucun chemin de plugin ajouté.",

@@ -128,7 +128,7 @@ void uph_render_main_titlebar(void)
 	const float titlebar_height = 34.0f * dpi_scale;
 	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_panel_is_any_hovered() ? 0 : titlebar_height);
 
-	Naui_Vec2 padding = naui_theme_vec2(NAUI_PANEL_TITLEBAR_PADDING_TAG);
+	Naui_Vec2 padding = NAUI_PANEL_TITLEBAR_PADDING;
 	Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);
 
 	leaf({
@@ -256,7 +256,7 @@ void uph_render_main_titlebar(void)
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
 		})
 		leaf_text(NAUI_TR("uphonic.title"), {
-			.font_size = {NAUI_DPI(naui_theme_float(NAUI_PANEL_FONT_SIZE_TAG))},
+			.font_size = {NAUI_DPI(NAUI_PANEL_FONT_SIZE)},
 			.color = {text_color},
 			.alignment = LEAF_TEXT_ALIGN_CENTER
 		});

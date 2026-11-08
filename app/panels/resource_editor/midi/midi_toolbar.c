@@ -44,7 +44,7 @@ static void _uph_midi_toolbar_render_voice(void)
 	})
 	{
 		leaf_text("Voice: ", {
-			.font_size = NAUI_DPI(naui_theme_float("uph_toolbox_font_size")),
+			.font_size = NAUI_DPI(UPH_TOOLBOX_FONT_SIZE),
 			.color = naui_theme_color("uph_ui_text_color")
 		});
 
@@ -63,23 +63,22 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 {
 	Uph_ActionMode *action_mode = &editor->current_action_mode;
 	Uph_SnapResolution *snap_resolution = &editor->snap_resolution;
-	uph_ui_set_style_scope("uph_toolbox");
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(naui_theme_float("uph_toolbox_height")))},
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
 		.padding = { .top = 1, .bottom = 1 },
 		.color = {naui_theme_color("uph_toolbox_border_color")}
 	})
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(naui_theme_float("uph_toolbox_padding_x")), 0.0f),
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_gap = NAUI_DPI(22),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const int32_t button_size = NAUI_DPI(naui_theme_float("uph_toolbox_icon_size"));
+		const int32_t button_size = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
 		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
 		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
 
@@ -171,7 +170,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 		})
 		{
 			leaf_text("Snap: ", {
-				.font_size = NAUI_DPI(naui_theme_float("uph_toolbox_font_size")),
+				.font_size = NAUI_DPI(UPH_TOOLBOX_FONT_SIZE),
 				.color = naui_theme_color("uph_ui_text_color")
 			});
 			static const char *snap_options[] = {
@@ -192,5 +191,4 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 		if (uph_ui_text_toggle_button("Velocity", leaf_id("uph_midi_editor_velocity_toggle"), editor->velocity_lane.visible))
 			editor->velocity_lane.visible = !editor->velocity_lane.visible;
 	}
-	uph_ui_set_style_scope(NULL);
 }

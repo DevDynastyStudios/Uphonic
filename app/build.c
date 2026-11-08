@@ -11,6 +11,7 @@
 #include <vendor/cmidi/cmidi.h>
 
 #include "core/types.h"
+#include "ui/metrics.h"
 #include "actions/action_manager.h"
 
 #include "utils.h"

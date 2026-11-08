@@ -150,8 +150,8 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 			actions->activated_row = index;
 	}
 
-	const Naui_Vec2 padding = naui_theme_vec2("uph_ui_frame_padding");
-	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
@@ -170,7 +170,7 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = {background},
-		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL)
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
 	})
 	{
 		leaf({
@@ -197,7 +197,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 	leaf({
 		.size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
 		.color = {naui_theme_color("uph_ui_well_bg_color")},
-		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(naui_theme_float("uph_ui_frame_rounding")), LEAF_CORNER_ALL),
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.clip_children = true
 	})
 	{
@@ -215,7 +215,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 		{
 			leaf_text(NAUI_TR("file_dialog.empty"), {
 				.color = {naui_theme_color("uph_ui_text_color")},
-				.font_size = {NAUI_DPI(naui_theme_float("uph_ui_font_size"))}
+				.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
 			});
 		}
 
@@ -259,7 +259,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID name_id = leaf_id_indexed("uph_file_dialog_name", data->instance);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
+	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	if (data->error_key)
 		leaf_text(NAUI_TR(data->error_key), { .color = {text_color}, .font_size = {font_size} });

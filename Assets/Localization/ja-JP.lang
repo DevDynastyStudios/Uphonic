@@ -211,6 +211,7 @@
 	"settings.page.midi": "MIDI",
 	"settings.page.plugins": "プラグイン",
 	"settings.page.shortcuts": "ショートカット",
+	"settings.page.themes": "テーマ",
 
 	"settings.plugins.add": "追加",
 	"settings.plugins.browse_title": "プラグインフォルダーを選択",

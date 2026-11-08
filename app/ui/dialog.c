@@ -80,8 +80,8 @@ void uph_dialog_render(void)
 	naui_panel_occlude_all();
 
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-	const float font_size = NAUI_DPI(naui_theme_float("uph_ui_font_size"));
-	const float rounding = NAUI_DPI(naui_theme_float("uph_ui_frame_rounding"));
+	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 
 	int32_t pressed = -1;
 	s_dialog.drawing = true;
