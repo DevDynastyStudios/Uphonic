@@ -9,6 +9,46 @@ enum
     UPH_RENDER_PARKED
 };
 
+#define UPH_WSOLA_GRAIN_FRAMES  2048
+#define UPH_WSOLA_HOP_FRAMES    (UPH_WSOLA_GRAIN_FRAMES / 2)
+#define UPH_WSOLA_TOLERANCE     512
+#define UPH_WSOLA_COARSE_STEP   4
+#define UPH_WSOLA_RING_FRAMES   4096
+#define UPH_WSOLA_RING_MASK     (UPH_WSOLA_RING_FRAMES - 1)
+#define UPH_WSOLA_MAX_STATES    32
+
+#define UPH_WSOLA_COARSE_REF    (UPH_WSOLA_HOP_FRAMES / UPH_WSOLA_COARSE_STEP)
+#define UPH_WSOLA_COARSE_CANDS  (2 * UPH_WSOLA_TOLERANCE / UPH_WSOLA_COARSE_STEP + 1)
+
+typedef struct
+{
+    const void *key;
+    uint64_t    last_used;
+    bool        valid;
+
+    const void *frames;
+    uint64_t    frame_count;
+    double      start_offset_frames;
+    double      beta;
+    double      read_rate;
+
+    double      next_out_pos;
+    double      q;
+    double      anchor_q;
+    double      anchor_src;
+    uint64_t    last_callback;
+    bool        follow;
+
+    int64_t     next_grain;
+    int64_t     complete_up_to;
+    int64_t     prev_start;
+    bool        has_prev;
+
+    float       ring_l[UPH_WSOLA_RING_FRAMES];
+    float       ring_r[UPH_WSOLA_RING_FRAMES];
+}
+Uph_Stretcher;
+
 typedef struct
 {
     ma_context context;
@@ -23,6 +63,11 @@ typedef struct
     int render_lock_depth;
     bool render_lock_stopped_device;
     float render_gain;
+
+    float stretch_window[UPH_WSOLA_GRAIN_FRAMES];
+    Uph_Stretcher stretchers[UPH_WSOLA_MAX_STATES];
+    uint64_t stretcher_clock;
+    uint64_t stretcher_callback;
 }
 Uph_AudioEngineData;
 
@@ -66,58 +111,14 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, floa
     }
 }
 
-#define UPH_WSOLA_GRAIN_FRAMES  2048
-#define UPH_WSOLA_HOP_FRAMES    (UPH_WSOLA_GRAIN_FRAMES / 2)
-#define UPH_WSOLA_TOLERANCE     512
-#define UPH_WSOLA_COARSE_STEP   4
-#define UPH_WSOLA_RING_FRAMES   4096
-#define UPH_WSOLA_RING_MASK     (UPH_WSOLA_RING_FRAMES - 1)
-#define UPH_WSOLA_MAX_STATES    32
-
-#define UPH_WSOLA_COARSE_REF    (UPH_WSOLA_HOP_FRAMES / UPH_WSOLA_COARSE_STEP)
-#define UPH_WSOLA_COARSE_CANDS  (2 * UPH_WSOLA_TOLERANCE / UPH_WSOLA_COARSE_STEP + 1)
-
-static float uph_stretch_window[UPH_WSOLA_GRAIN_FRAMES];
-
 static void uph_stretch_init_window(void)
 {
     for (uint32_t i = 0; i < UPH_WSOLA_GRAIN_FRAMES; i++)
     {
-        uph_stretch_window[i] = 0.5f - 0.5f * cosf(
+        uph_audio_engine_data.stretch_window[i] = 0.5f - 0.5f * cosf(
             2.0f * (float)NAUI_PI * (float)i / (float)UPH_WSOLA_GRAIN_FRAMES);
     }
 }
-
-typedef struct
-{
-    const void *key;
-    uint64_t    last_used;
-    bool        valid;
-
-    const void *frames;
-    uint64_t    frame_count;
-    double      start_offset_frames;
-    double      beta;
-    double      read_rate;
-
-    double      next_out_pos;
-    double      q;
-    double      anchor_q;
-    double      anchor_src;
-    bool        follow;
-
-    int64_t     next_grain;
-    int64_t     complete_up_to;
-    int64_t     prev_start;
-    bool        has_prev;
-
-    float       ring_l[UPH_WSOLA_RING_FRAMES];
-    float       ring_r[UPH_WSOLA_RING_FRAMES];
-}
-Uph_Stretcher;
-
-static Uph_Stretcher uph_stretchers[UPH_WSOLA_MAX_STATES];
-static uint64_t      uph_stretcher_clock;
 
 static inline float uph_sample_mono_at(const Uph_SampleData *s, int64_t i)
 {
@@ -282,7 +283,7 @@ static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample,
 
     for (int64_t i = 0; i < grain; i++)
     {
-        const float w = (k == 0 && i < hop) ? 1.0f : uph_stretch_window[i];
+        const float w = (k == 0 && i < hop) ? 1.0f : uph_audio_engine_data.stretch_window[i];
 
         float l, r;
         uph_sample_stereo_at(sample, a + i, &l, &r);
@@ -320,14 +321,14 @@ static void uph_stretcher_reset(Uph_Stretcher *st, double out_pos)
 
 static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 {
-    Uph_Stretcher *oldest = &uph_stretchers[0];
+    Uph_Stretcher *oldest = &uph_audio_engine_data.stretchers[0];
 
     for (int i = 0; i < UPH_WSOLA_MAX_STATES; i++)
     {
-        Uph_Stretcher *st = &uph_stretchers[i];
+        Uph_Stretcher *st = &uph_audio_engine_data.stretchers[i];
         if (st->key == key)
         {
-            st->last_used = ++uph_stretcher_clock;
+            st->last_used = ++uph_audio_engine_data.stretcher_clock;
             return st;
         }
         if (st->last_used < oldest->last_used)
@@ -336,7 +337,7 @@ static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 
     oldest->key       = key;
     oldest->valid     = false;
-    oldest->last_used = ++uph_stretcher_clock;
+    oldest->last_used = ++uph_audio_engine_data.stretcher_clock;
     return oldest;
 }
 
@@ -382,12 +383,16 @@ static void uph_stretcher_prepare_follow(
     double src_pos
 )
 {
+    const double predicted_src = st->anchor_src + (st->q - st->anchor_q) * st->beta;
     const bool continuing = st->valid
         && st->follow
         && st->frames == data->frames
         && st->frame_count == data->frame_count
         && st->start_offset_frames == start_offset_frames
-        && fabs(st->next_out_pos - out_pos) < 1.5;
+        && st->last_callback + 1 == uph_audio_engine_data.stretcher_callback
+        && fabs(predicted_src - src_pos) < (double)UPH_WSOLA_GRAIN_FRAMES;
+
+    st->last_callback = uph_audio_engine_data.stretcher_callback;
 
     st->beta      = beta;
     st->read_rate = read_rate;
@@ -488,7 +493,7 @@ static void uph_render_sample_block(
         const double follow_read_rate = (resample ? src_rate : 1.0) * pitch_ratio;
 
         Uph_Stretcher *follow_stretcher = NULL;
-        if (sample->pitch != 0 || (!resample && fabs(src_rate - 1.0) > 1e-6))
+        if (sample->pitch != 0 || !resample)
         {
             follow_stretcher = uph_stretcher_acquire(block);
             uph_stretcher_prepare_follow(
@@ -1200,6 +1205,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count, bool timeline_playing, const float *input)
 {
     memset(out, 0, sizeof(float) * 2 * frame_count);
+    uph_audio_engine_data.stretcher_callback++;
 
     Uph_Project *project = &uph_state.project;
     if (project->bpm <= 0.0f || frame_count == 0)
