@@ -268,6 +268,10 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 		naui_json_set_string(&json, sample_obj, "name", sample->name.data);
 		naui_json_set_string(&json, sample_obj, "path", sample_data.file_path.data);
 		naui_json_set_number(&json, sample_obj, "time_scale", sample->time_scale);
+		naui_json_set_number(&json, sample_obj, "pitch", sample->pitch);
+		naui_json_set_number(&json, sample_obj, "mode", sample->mode);
+		naui_json_set_bool(&json, sample_obj, "follow_tempo", sample->follow_tempo);
+		naui_json_set_number(&json, sample_obj, "tempo_bpm", sample->tempo_bpm);
 		naui_json_set_bool(&json, sample_obj, "normalized", sample->normalized);
 	}
 
@@ -894,6 +898,12 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		const char* file_name_cstr = naui_json_get_string(jvalue_path, NAUI_TR("samples.default.name"));
 		sample->name = naui_string_from_cstr(naui_json_get_string(name, file_name_cstr));
 		sample->time_scale = naui_json_get_number(time_scale, 0);
+		sample->pitch = naui_json_get_int(naui_json_object_get(value, "pitch"), 0);
+		const int mode = naui_json_get_int(naui_json_object_get(value, "mode"), UPH_SAMPLE_RESAMPLE);
+		sample->mode = mode == UPH_SAMPLE_STRETCH ? UPH_SAMPLE_STRETCH : UPH_SAMPLE_RESAMPLE;
+		sample->follow_tempo = naui_json_get_bool(naui_json_object_get(value, "follow_tempo"), false);
+		const double tempo_bpm = naui_json_get_number(naui_json_object_get(value, "tempo_bpm"), project->bpm);
+		sample->tempo_bpm = tempo_bpm > 0.0 ? (float)tempo_bpm : project->bpm;
 		sample->normalized = naui_json_get_bool(naui_json_object_get(value, "normalized"), false);
 	}
 

@@ -157,10 +157,12 @@ typedef struct
 {
 	Naui_String name;
 	float time_scale;
+	float tempo_bpm;
 	float visual_lifetime;
 	Uph_ResourceIndex data_index;
 	int32_t pitch;
 	Uph_SampleMode mode;
+	bool follow_tempo;
 	bool normalized;
 	bool selected;
 }

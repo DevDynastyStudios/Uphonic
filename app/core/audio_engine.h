@@ -68,6 +68,10 @@ void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 
 bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data);
 float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data);
+bool uph_sample_follows_tempo(const Uph_Sample *sample);
+double uph_sample_tempo_bpm(const Uph_Sample *sample);
+double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm);
+double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat);
 
 void uph_audio_engine_stop_all_notes(void);
 

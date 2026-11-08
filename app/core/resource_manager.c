@@ -858,6 +858,7 @@ Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String
 	Uph_Sample sample = {
 		.data_index = naui_list_len(uph_state.project.sample_data),
 		.time_scale = 1.0f,
+		.tempo_bpm = uph_state.project.bpm > 0.0f ? uph_state.project.bpm : 120.0f,
 		.name = name
 	};
 

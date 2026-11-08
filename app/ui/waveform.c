@@ -19,10 +19,11 @@ void uph_ui_waveform_zoomable(
     if (peak_count == 0)
         return;
 
-    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
     const float bpm = uph_state.project.bpm;
     if (bpm <= 0.0f)
         return;
+
+    const double time_scale = uph_sample_effective_time_scale(sample, (double)bpm);
 
     const uint32_t sample_rate = uph_state.settings.audio.sample_rate;
     const float mid_y = position.y + size.y * 0.5f;
@@ -48,17 +49,13 @@ void uph_ui_waveform_zoomable(
 
     const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
 
-    const double block_start_seconds = block ? uph_tempo_beat_to_seconds(block->start_beat) : 0.0;
-    const double offset_seconds = block ? block_start_seconds - uph_tempo_beat_to_seconds(block->start_beat - start_offset) : 0.0;
-
     for (int32_t x = x_start; x < x_end; x++)
     {
         double normalized_zoom = (double)(x) / zoom;
         double source_seconds;
         if (block)
         {
-            const double elapsed_seconds = uph_tempo_beat_to_seconds(block->start_beat + normalized_zoom) - block_start_seconds;
-            source_seconds = elapsed_seconds / time_scale + offset_seconds;
+            source_seconds = uph_sample_block_source_seconds(sample, block->start_beat, start_offset, block->start_beat + normalized_zoom);
         }
         else
         {

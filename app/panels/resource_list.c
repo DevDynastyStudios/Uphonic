@@ -110,7 +110,7 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     if (bpm <= 0.0f || box.width <= 0.0f)
         return;
 
-    const double time_scale = (sample->time_scale > 0.0) ? sample->time_scale : 1.0;
+    const double time_scale = uph_sample_effective_time_scale(sample, (double)bpm);
     const uint32_t sample_rate = uph_state.settings.audio.sample_rate;
 
     const double total_seconds = (double)sample_data->frame_count / (double)sample_rate;

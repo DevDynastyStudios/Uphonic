@@ -765,7 +765,7 @@ static void _uph_sample_editor_render_time_scale(Uph_SampleEditorData *editor, U
 		editor->time_unit = UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO;
 
 	const uint32_t unit = editor->time_unit < UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT ? editor->time_unit : UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO;
-	const double scale = sample->time_scale > 0.0f ? (double)sample->time_scale : 1.0;
+	const double scale = uph_sample_effective_time_scale(sample, bpm);
 
 	double min_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, seconds, bpm);
 	double max_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX, seconds, bpm);
@@ -793,6 +793,7 @@ static void _uph_sample_editor_render_time_scale(Uph_SampleEditorData *editor, U
 			&& editor->time_value > 0.0f)
 		{
 			const double new_scale = _uph_sample_editor_time_to_scale(unit, (double)editor->time_value, seconds, bpm);
+			sample->tempo_bpm = (float)bpm;
 			sample->time_scale = (float)NAUI_CLAMP(new_scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
 		}
 	}
@@ -806,6 +807,17 @@ static void _uph_sample_editor_render_time_scale(Uph_SampleEditorData *editor, U
 		if (uph_ui_dropdown(units, seconds > 0.0 ? UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT : 1, &selected, leaf_id("uph_sample_editor_time_unit")))
 			editor->time_unit = selected;
 	}
+}
+
+static void _uph_sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMode mode, bool follow_tempo)
+{
+	const double bpm = uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
+	const double scale = uph_sample_effective_time_scale(sample, bpm);
+
+	sample->mode = mode;
+	sample->follow_tempo = follow_tempo;
+	sample->tempo_bpm = (float)bpm;
+	sample->time_scale = (float)NAUI_CLAMP(scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
 }
 
 static void _uph_sample_editor_render_controls(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
@@ -871,8 +883,21 @@ static void _uph_sample_editor_render_controls(Uph_SampleEditorData *editor, Uph
 			})
 			{
 				if (uph_ui_dropdown(sample_modes, 2, &mode, leaf_id("uph_sample_editor_mode")))
-					sample->mode = (Uph_SampleMode)mode;
+					_uph_sample_editor_set_tempo_follow(sample, (Uph_SampleMode)mode, sample->follow_tempo);
 			}
+		}
+
+		leaf({
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+			.child_gap = NAUI_DPI(6)
+		})
+		{
+			bool follow_tempo = sample->follow_tempo;
+			if (uph_ui_checkbox(&follow_tempo, leaf_id("uph_sample_editor_follow_tempo")))
+				_uph_sample_editor_set_tempo_follow(sample, sample->mode, follow_tempo);
+			_uph_sample_editor_render_label("Follow tempo");
 		}
 
 		leaf({

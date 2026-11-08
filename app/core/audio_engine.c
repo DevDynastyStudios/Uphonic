@@ -102,6 +102,9 @@ typedef struct
 
     double      next_out_pos;
     double      q;
+    double      anchor_q;
+    double      anchor_src;
+    bool        follow;
 
     int64_t     next_grain;
     int64_t     complete_up_to;
@@ -260,7 +263,7 @@ static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample,
 
     int64_t nominal = start;
     if (k > 0)
-        nominal = start + (int64_t)llround((double)(k + 1) * (double)hop * st->beta) - hop;
+        nominal = (int64_t)llround(st->anchor_src + ((double)(k + 1) * (double)hop - st->anchor_q) * st->beta) - hop;
     if (nominal < start)
         nominal = start;
 
@@ -302,6 +305,8 @@ static void uph_stretcher_reset(Uph_Stretcher *st, double out_pos)
 
     st->q            = out_pos * st->read_rate;
     st->next_out_pos = out_pos;
+    st->anchor_q     = 0.0;
+    st->anchor_src   = (double)llround(st->start_offset_frames);
 
     int64_t k = (int64_t)floor(st->q / (double)UPH_WSOLA_HOP_FRAMES) - 2;
     if (k < 0)
@@ -350,6 +355,7 @@ static void uph_stretcher_prepare(
         && st->start_offset_frames == start_offset_frames
         && st->beta == beta
         && st->read_rate == read_rate
+        && !st->follow
         && fabs(st->next_out_pos - out_pos) < 1.5;
 
     if (same)
@@ -361,8 +367,44 @@ static void uph_stretcher_prepare(
     st->start_offset_frames = start_offset_frames;
     st->beta                = beta;
     st->read_rate           = read_rate;
+    st->follow              = false;
 
     uph_stretcher_reset(st, out_pos);
+}
+
+static void uph_stretcher_prepare_follow(
+    Uph_Stretcher *st,
+    const Uph_SampleData *data,
+    double start_offset_frames,
+    double beta,
+    double read_rate,
+    double out_pos,
+    double src_pos
+)
+{
+    const bool continuing = st->valid
+        && st->follow
+        && st->frames == data->frames
+        && st->frame_count == data->frame_count
+        && st->start_offset_frames == start_offset_frames
+        && fabs(st->next_out_pos - out_pos) < 1.5;
+
+    st->beta      = beta;
+    st->read_rate = read_rate;
+
+    if (!continuing)
+    {
+        st->valid               = true;
+        st->follow              = true;
+        st->frames              = data->frames;
+        st->frame_count         = data->frame_count;
+        st->start_offset_frames = start_offset_frames;
+
+        uph_stretcher_reset(st, out_pos);
+    }
+
+    st->anchor_q   = st->q;
+    st->anchor_src = src_pos;
 }
 
 static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, float *out_left, float *out_right)
@@ -432,6 +474,47 @@ static void uph_render_sample_block(
     if (first_out_pos + (double)f >= block_length_frames)
         return;
 
+    if (uph_sample_follows_tempo(sample))
+    {
+        const double frames_per_beat = 60.0 / (uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
+        const double offset_frames = block->start_offset_beats * frames_per_beat;
+        const double buffer_start_seconds = uph_tempo_beat_to_seconds(buffer_start_beat);
+        const double first_beat = (f == 0) ? buffer_start_beat : uph_tempo_seconds_to_beat(buffer_start_seconds + (double)f / sample_rate);
+        const double last_beat = uph_tempo_seconds_to_beat(buffer_start_seconds + (double)frame_count / sample_rate);
+        const double src_start = offset_frames + (first_beat - block->start_beat) * frames_per_beat;
+        const double src_rate = (last_beat - first_beat) * frames_per_beat / (double)(frame_count - f);
+        const uint32_t f0 = f;
+        const bool resample = sample->mode == UPH_SAMPLE_RESAMPLE;
+        const double follow_read_rate = (resample ? src_rate : 1.0) * pitch_ratio;
+
+        Uph_Stretcher *follow_stretcher = NULL;
+        if (sample->pitch != 0 || (!resample && fabs(src_rate - 1.0) > 1e-6))
+        {
+            follow_stretcher = uph_stretcher_acquire(block);
+            uph_stretcher_prepare_follow(
+                follow_stretcher, data,
+                offset_frames, src_rate / follow_read_rate, follow_read_rate,
+                first_out_pos + (double)f, src_start
+            );
+        }
+
+        for (; f < frame_count; f++)
+        {
+            if (first_out_pos + (double)f >= block_length_frames)
+                break;
+
+            float left, right;
+            if (follow_stretcher)
+                uph_stretcher_read(follow_stretcher, data, &left, &right);
+            else
+                uph_read_sample_frame(data, src_start + (double)(f - f0) * src_rate, &left, &right);
+
+            track_l[f] += left * gain;
+            track_r[f] += right * gain;
+        }
+        return;
+    }
+
     const double speed = 1.0 / time_scale;
 
     const double read_rate = ((sample->mode == UPH_SAMPLE_RESAMPLE) ? speed : 1.0) * pitch_ratio;
@@ -472,7 +555,7 @@ double uph_sample_playback_length_beats(const Uph_Sample *sample, const Uph_Samp
     if (bpm <= 0.0f || data->frame_count == 0)
         return 0.0;
 
-    const double time_scale = (sample->time_scale > 0.0) ? (double)sample->time_scale : 1.0;
+    const double time_scale = uph_sample_effective_time_scale(sample, (double)bpm);
     const double seconds = (double)data->frame_count / (double)uph_audio_engine_data.device.sampleRate;
 
     return uph_seconds_to_beats(seconds * time_scale, bpm);
@@ -1323,6 +1406,37 @@ float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data)
     if (!sample->normalized || data->peak <= 1e-6f)
         return 1.0f;
     return 1.0f / data->peak;
+}
+
+bool uph_sample_follows_tempo(const Uph_Sample *sample)
+{
+    return sample->follow_tempo;
+}
+
+double uph_sample_tempo_bpm(const Uph_Sample *sample)
+{
+    if (sample->tempo_bpm > 0.0f)
+        return (double)sample->tempo_bpm;
+    return uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
+}
+
+double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
+{
+    const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
+    if (!uph_sample_follows_tempo(sample) || bpm <= 0.0)
+        return time_scale;
+    return time_scale * uph_sample_tempo_bpm(sample) / bpm;
+}
+
+double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat)
+{
+    const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
+    if (uph_sample_follows_tempo(sample))
+        return (beat - block_start_beat + start_offset_beats) * 60.0 / (uph_sample_tempo_bpm(sample) * time_scale);
+
+    const double block_start_seconds = uph_tempo_beat_to_seconds(block_start_beat);
+    const double offset_seconds = block_start_seconds - uph_tempo_beat_to_seconds(block_start_beat - start_offset_beats);
+    return (uph_tempo_beat_to_seconds(beat) - block_start_seconds) / time_scale + offset_seconds;
 }
 
 static void uph_build_waveform_peaks(Uph_SampleData *sample_data)
