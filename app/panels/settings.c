@@ -136,6 +136,7 @@ void uph_settings_set_defaults(void)
 	settings->general.confirm_on_exit = true;
 	settings->general.confirm_on_delete = true;
 	settings->general.copy_resources = false;
+	settings->general.animations = true;
 
 	settings->audio.output_device = (Uph_AudioIODevice){ 0 };
 	settings->audio.input_device = (Uph_AudioIODevice){ 0 };
@@ -914,6 +915,9 @@ static void uph_settings_page_general(Uph_SettingsData *data)
 		if (general->ui_scale != naui_app_get_ui_scale())
 			uph_settings_apply_ui_scale(general->ui_scale);
 	}
+
+	if (uph_settings_checkbox_row(NAUI_TR("settings.general.animations"), &general->animations, leaf_id("uph_settings_animations")))
+		naui_app_set_animations_enabled(general->animations);
 
 	uph_settings_section(NAUI_TR("settings.general.behavior"), false, NULL, UPH_SETTINGS_NO_ID);
 

@@ -62,6 +62,9 @@ NAUI_API bool naui_font_has_codepoint(uint8_t index, uint32_t codepoint);
 NAUI_API void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t font_index, Naui_Color color);
 NAUI_API Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size, uint8_t font_index);
 
+NAUI_API void naui_set_opacity(float opacity);
+NAUI_API float naui_get_opacity(void);
+
 NAUI_API void naui_push_clip_rect(float x, float y, float width, float height);
 NAUI_API void naui_pop_clip_rect(void);
 

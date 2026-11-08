@@ -20,6 +20,7 @@ typedef struct
     Naui_List(Naui_DeferredEntry) deferred_entries;
     Naui_Arena deferred_arg_arena;
     float ui_scale;
+    bool animations_enabled;
     bool relaunch;
 }
 Naui_AppState;
@@ -50,6 +51,7 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
     for (Leaf_RenderCmdNode *n = list->first; n; n = n->next)
     {
         Leaf_RenderCmd cmd = n->cmd;
+        naui_set_opacity(cmd.opacity);
         switch (cmd.type)
         {
             case LEAF_RENDER_CMD_RECT:
@@ -113,6 +115,7 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
             break;
         }
     }
+    naui_set_opacity(1.0f);
 }
 
 static void __naui_app_render(void)
@@ -300,6 +303,16 @@ float naui_app_get_ui_scale(void)
 void naui_app_set_ui_scale(float value)
 {
     _naui_app_state.ui_scale = value;
+}
+
+bool naui_app_animations_enabled(void)
+{
+    return _naui_app_state.animations_enabled;
+}
+
+void naui_app_set_animations_enabled(bool enabled)
+{
+    _naui_app_state.animations_enabled = enabled;
 }
 
 void naui_app_set_clipboard(const char *text)

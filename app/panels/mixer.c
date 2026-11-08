@@ -32,6 +32,11 @@ typedef struct
     uint32_t effect_context_index;
 
     bool strip_hovered;
+    struct
+    {
+        float settled_x;
+    }
+    visual;
 }
 Uph_MixerData;
 
@@ -854,7 +859,6 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
 
     const bool is_master = (strip.track == NULL);
 
-
     Leaf_ID id = leaf_id_indexed("uph_mixer_track", track_id);
     const Leaf_ID handle_id = leaf_id_indexed("uph_mixer_drag_handle", track_id);
     const Leaf_ID name_id = leaf_id_indexed("uph_mixer_name", track_id);
@@ -975,7 +979,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             const int32_t button_size = NAUI_DPI(UPH_UI_FONT_SIZE);
             leaf({
                 .direction = LEAF_DIRECTION_HORIZONTAL,
-                .child_gap = NAUI_DPI(2)
+                .child_gap = NAUI_DPI(4)
             })
             {
                 if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_mute"), leaf_id_indexed("uph_mixer_mute_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, *strip.state & UPH_TRACK_MUTED))
@@ -1042,7 +1046,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
             {
                 leaf({
                     .direction = LEAF_DIRECTION_HORIZONTAL,
-                    .child_gap = NAUI_DPI(2)
+                    .child_gap = NAUI_DPI(4)
                 })
                 {
                     if (uph_ui_image_toggle_button(
@@ -1074,14 +1078,55 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
 
 }
 
-static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu)
+static float uph_mixer_strip_width(void)
+{
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+    return (float)(int32_t)NAUI_DPI(100 + padding.x * 2);
+}
+
+static float uph_mixer_approach(float current, float target, float speed, float epsilon)
+{
+    const float next = current + (target - current) * (naui_app_animations_enabled() ? 1.0f - expf(-speed * naui_delta_time()) : 1.0f);
+    return fabsf(target - next) < epsilon ? target : next;
+}
+
+static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_menu, float parent_offset)
 {
     if (strip.track && strip.track->type == UPH_RESOURCE_AUTOMATION)
         return;
 
-    if (!strip.track || strip.track->type != UPH_RESOURCE_GROUP)
+    if (!strip.track)
     {
         uph_mixer_render_strip_body(strip, context_menu);
+        uph_mixer_data.visual.settled_x += uph_mixer_strip_width();
+        return;
+    }
+
+    Uph_Track *track = strip.track;
+    const float target_x = uph_mixer_data.visual.settled_x;
+    if (track->visual.mixer_lifetime <= 0.0f)
+        track->visual.mixer_x = target_x;
+
+    track->visual.mixer_lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(track->visual.mixer_lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED * 1.4f) : 1.0f;
+    track->visual.mixer_x = uph_mixer_approach(track->visual.mixer_x, target_x, NAUI_UI_MOTION_SPEED, 0.5f);
+
+    const float appear = naui_ease_out_cubic(track->visual.mixer_lifetime);
+    const float offset = track->visual.mixer_x - target_x;
+    const float local_offset = offset - parent_offset;
+
+    if (track->type != UPH_RESOURCE_GROUP)
+    {
+        const float width = floorf(uph_mixer_strip_width() * appear + 0.5f);
+        leaf({
+            .transparency = 1.0f - appear,
+            .size = {LEAF_SIZE_FIXED(width), LEAF_SIZE_FULL},
+            .child_offset = {-local_offset, (1.0f - appear) * NAUI_DPI(-12.0f)},
+            .clip_children = appear < 1.0f
+        })
+        {
+            uph_mixer_render_strip_body(strip, context_menu);
+        }
+        uph_mixer_data.visual.settled_x += uph_mixer_strip_width();
         return;
     }
 
@@ -1114,10 +1159,13 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
     }
 
     const int32_t group_gap = (int32_t)NAUI_DPI(4);
+    uph_mixer_data.visual.settled_x += (float)group_gap;
     leaf({
+        .transparency = 1.0f - appear,
         .id = group_id,
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
-        .padding = { group_gap, group_gap, group_gap, 0 }
+        .padding = { group_gap, group_gap, group_gap, 0 },
+        .child_offset = {-local_offset, (1.0f - appear) * NAUI_DPI(-12.0f)}
     })
     {
         leaf({
@@ -1156,13 +1204,15 @@ static void uph_mixer_render_strip(Uph_MixerStrip strip, Uph_UIMenuID context_me
         })
         {
             uph_mixer_render_strip_body(strip, context_menu);
+            uph_mixer_data.visual.settled_x += uph_mixer_strip_width();
             for (uint32_t i = 0; !(strip.track->state & UPH_TRACK_MIXER_COLLAPSED) && i < naui_list_len(strip.track->subtracks); i++)
             {
-                Uph_Track *track = &strip.track->subtracks[i];
-                uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu);
+                Uph_Track *subtrack = &strip.track->subtracks[i];
+                uph_mixer_render_strip(uph_mixer_strip_track(subtrack), context_menu, offset);
             }
         }
     }
+    uph_mixer_data.visual.settled_x += (float)group_gap;
 }
 
 typedef struct Uph_MixerDropTarget
@@ -1437,11 +1487,12 @@ static void uph_mixer_on_update(void)
         );
         Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_strip_menu"));
         uph_mixer_data.color_menu = uph_ui_context_menu_custom(leaf_id("uph_mixer_color_menu"), uph_mixer_render_color_menu);
-        uph_mixer_render_strip(uph_mixer_strip_master(), context_menu);
+        uph_mixer_data.visual.settled_x = 0.0f;
+        uph_mixer_render_strip(uph_mixer_strip_master(), context_menu, 0.0f);
         for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
         {
             Uph_Track *track = &uph_state.project.tracks[i];
-            uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu);
+            uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu, 0.0f);
         }
         uph_mixer_update_drag();
         uph_ui_end_scroll_container(&scroll_container);

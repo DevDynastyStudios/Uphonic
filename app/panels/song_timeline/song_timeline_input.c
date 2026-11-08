@@ -76,6 +76,24 @@ void uph_song_timeline_update_selection_keys(void)
 		uph_block_select_all(false);
 }
 
+static bool _uph_song_timeline_group_row_hovered(Naui_List(Uph_Track) tracks, float mouse_x, float mouse_y)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
+	{
+		const Uph_Track *track = &tracks[i];
+		if (track->type != UPH_RESOURCE_GROUP)
+			continue;
+
+		const Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed("uph_song_timeline_row", (uint64_t)track));
+		if (mouse_x >= box.x && mouse_x < box.x + box.width && mouse_y >= box.y && mouse_y < box.y + box.height)
+			return true;
+
+		if (!(track->state & UPH_TRACK_TIMELINE_COLLAPSED) && _uph_song_timeline_group_row_hovered(track->subtracks, mouse_x, mouse_y))
+			return true;
+	}
+	return false;
+}
+
 void uph_song_timeline_update_empty_space_marquee(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
@@ -86,11 +104,14 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
 		return;
 
-	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + data->content_height;
-	if ((float)naui_mouse_y() < rows_bottom)
-		return;
-
 	const float origin_x = _uph_song_timeline_content_origin_x();
+	const float mouse_x = (float)naui_mouse_x();
+	const float mouse_y = (float)naui_mouse_y();
+	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + data->content_height;
+	const bool below_rows = mouse_y >= rows_bottom;
+	const bool on_group_lane = mouse_x >= origin_x && _uph_song_timeline_group_row_hovered(uph_state.project.tracks, mouse_x, mouse_y);
+	if (!below_rows && !on_group_lane)
+		return;
 
 	data->marquee.active = true;
 	data->marquee.start_beat = ((double)naui_mouse_x() - origin_x + data->scroll.x) / data->zoom.x;

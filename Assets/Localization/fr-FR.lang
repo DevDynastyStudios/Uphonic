@@ -177,6 +177,7 @@
 "settings.general.confirm_on_delete": "Confirmer la suppression",
 "settings.general.confirm_on_exit": "Confirmer à la fermeture",
 "settings.general.copy_resources": "Copier les fichiers importés dans le projet",
+"settings.general.animations": "Animations",
 "settings.general.language": "Langue",
 "settings.general.language_restart": "Redémarrage requis",
 "settings.general.theme": "Thème",

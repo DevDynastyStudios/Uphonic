@@ -157,7 +157,7 @@ static const char *_uph_song_timeline_block_name(const Uph_TimelineBlock *block)
 
 static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2 size, Naui_Color color, float opacity, const Uph_TimelineBlock *block)
 {
-	const float anim_offset = (naui_ease_out_elastic(block->visual_lifetime) - 1.0f) * NAUI_DPI(30.0f);
+	const float anim_offset = (naui_ease_out_quint(block->visual.lifetime) - 1.0f) * NAUI_DPI(8.0f);
 	const Naui_Vec2 anim_size = {
 		fmaxf(size.x + anim_offset + 0.5f, 0.0f),
 		fmaxf(size.y + anim_offset, 0.0f)
@@ -178,6 +178,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 
 	leaf({
 		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+		.transparency = 1.0f - naui_ease_out_quint(block->visual.lifetime),
 		.floating.offset = { offset.x, offset.y },
 		.size = { LEAF_SIZE_FIXED((int32_t)size.x), LEAF_SIZE_FIXED((int32_t)size.y) },
 		.child_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER }
@@ -242,7 +243,7 @@ void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track)
 		if (!uph_song_timeline_block_is_visible(blocks[i].start_beat, blocks[i].length_beats, zoom_x, scroll_x, viewport_width))
 			continue;
 
-		blocks[i].visual_lifetime = NAUI_MIN(blocks[i].visual_lifetime + naui_delta_time(), 1.0f);
+		blocks[i].visual.lifetime = naui_app_animations_enabled() ? NAUI_MIN(blocks[i].visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED, 1.0f) : 1.0f;
 		_uph_song_timeline_render_timeline_block(
 			(Naui_Vec2) { zoom_x * (float)blocks[i].start_beat - scroll_x, 0.0f },
 			(Naui_Vec2) { zoom_x * (float)blocks[i].length_beats, row_height },

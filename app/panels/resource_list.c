@@ -381,12 +381,18 @@ static void uph_resource_list_update_rename(void)
 
 bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Leaf_DataSlice content_draw_data, Leaf_ID id, float visual_scale, bool hovered, bool selected, bool renaming, const char *placeholder_name)
 {
-    const float final_scale = 0.8f + naui_ease_out_elastic(visual_scale) * 0.2f;
+    const float final_scale = 0.94f + naui_ease_out_quint(visual_scale) * 0.06f;
     const float title_padding = NAUI_DPI(2.0f);
     const int32_t rounding = (int32_t)NAUI_DPI(UPH_UI_FRAME_ROUNDING);
     const Leaf_Color bg_color = naui_theme_color("uph_resource_list_item_bg_color");
     const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
+    const Leaf_Color selected_color = naui_theme_color("uph_resource_list_item_selected_border_color");
+    const Leaf_Color border_color = selected ? selected_color :
+        hovered ? leaf_rgba(selected_color.r, selected_color.g, selected_color.b, (uint8_t)(selected_color.a * 0.35f)) :
+        LEAF_COLOR_TRANSPARENT;
+
     leaf({
+        .transparency = 1.0f - naui_ease_out_quint(visual_scale),
         .id = id,
         .size = {
             .width = LEAF_SIZE_FIXED(NAUI_DPI(172)),
@@ -397,11 +403,11 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     })
     leaf({
         .size = {LEAF_SIZE_PERCENT(final_scale), LEAF_SIZE_PERCENT(final_scale)},
-        .border = selected ? (Leaf_Border){
+        .border = (Leaf_Border){
             .width = NAUI_DPI(2),
             .sides = LEAF_SIDE_ALL,
-            .color = {naui_theme_color("uph_resource_list_item_selected_border_color")}
-        } : (Leaf_Border){0},
+            .color = {border_color}
+        },
         .color = {bg_color},
         .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
         .clip_children = true
@@ -481,14 +487,14 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     if (type == UPH_RESOURCE_PATTERN)
     {
         Uph_MidiPattern *pattern = &uph_state.project.midi_patterns[index];
-        pattern->visual_lifetime = NAUI_CLAMP01(pattern->visual_lifetime + naui_delta_time());
+        pattern->visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(pattern->visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
 
         if (uph_resource_list_box(
             &pattern->name,
             (Leaf_CustomDrawFn)uph_pattern_list_custom_draw,
             LEAF_DATA_SLICE(pattern),
             id,
-            pattern->visual_lifetime,
+            pattern->visual.lifetime,
             hovered,
             is_selected,
             is_renaming,
@@ -499,14 +505,14 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     else if (type == UPH_RESOURCE_SAMPLE)
     {
         Uph_Sample *sample = &uph_state.project.samples[index];
-        sample->visual_lifetime = NAUI_CLAMP01(sample->visual_lifetime + naui_delta_time());
+        sample->visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(sample->visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
 
         if (uph_resource_list_box(
             &sample->name,
             (Leaf_CustomDrawFn)uph_sample_list_custom_draw,
             LEAF_DATA_SLICE(sample),
             id,
-            sample->visual_lifetime,
+            sample->visual.lifetime,
             hovered,
             is_selected,
             is_renaming,
@@ -517,14 +523,14 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     else if (type == UPH_RESOURCE_AUTOMATION)
     {
         Uph_Automation *automation = &uph_state.project.automations[index];
-        automation->visual_lifetime = NAUI_CLAMP01(automation->visual_lifetime + naui_delta_time());
+        automation->visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(automation->visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
 
         if (uph_resource_list_box(
             &automation->name,
             (Leaf_CustomDrawFn)uph_automation_list_custom_draw,
             LEAF_DATA_SLICE(automation),
             id,
-            automation->visual_lifetime,
+            automation->visual.lifetime,
             hovered,
             is_selected,
             is_renaming,

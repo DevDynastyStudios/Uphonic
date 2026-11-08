@@ -330,7 +330,7 @@ static void uph_block_duplicate_selected(void)
 		Uph_ActionBlockCreate data = { .track = selected[i].track, .block_index = (uint32_t)naui_list_len(track->blocks), .block = selected[i].block };
 		data.block.start_beat += shift;
 		data.block.selected = true;
-		data.block.visual_lifetime = 0.0f;
+		data.block.visual.lifetime = 0.0f;
 		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
 	}
 

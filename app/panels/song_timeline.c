@@ -87,8 +87,11 @@ static void uph_song_timeline_on_update(void)
 	data->automation_edit.active = false;
 	data->hovered_block.active = false;
 	data->track_header_hovered = false;
-	data->visual_row_counter = 0;
-	data->visual_row_y = 0.0f;
+	data->visual.row_counter = 0;
+	data->visual.row_y = 0.0f;
+	data->visual.settled_row_y = 0.0f;
+	data->visual.snap_track_motion = data->visual.zoom_y != data->zoom.y;
+	data->visual.zoom_y = data->zoom.y;
 	data->max_track_depth = 0;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 	{
@@ -134,7 +137,7 @@ static void uph_song_timeline_on_update(void)
 				for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 				{
 					uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu, track_color_options_context_menu);
-					data->visual_row_counter++;
+					data->visual.row_counter++;
 				}
 			}
 			uph_song_timeline_render_track_plus();

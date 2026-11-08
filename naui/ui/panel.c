@@ -43,7 +43,11 @@ struct Naui_PanelNode
     uint32_t        root_index;
     int32_t         active_tab;
     float           split_ratio;
-    float           visual_scale;
+    struct
+    {
+        float scale;
+    }
+    visual;
     Naui_SplitAxis  split_axis;
     bool            occluded;
     bool            closed;
@@ -110,7 +114,7 @@ Naui_PanelID naui_panel_attach(const char *type_name)
     node->root = node;
     node->root_index = (uint32_t)naui_list_len(naui_panel_manager.root_nodes);
     node->title = "\0";
-    node->visual_scale = 1.0f;
+    node->visual.scale = 1.0f;
 
     if (node->type.user_data_size)
         node->user_data = malloc(node->type.user_data_size);
@@ -207,7 +211,7 @@ void naui_panel_open(Naui_PanelID panel_id)
     node->position.x = NAUI_MAX(0.0f, (naui_app_width() - node->size.x) * 0.5f);
     node->position.y = NAUI_MAX(0.0f, (naui_app_height() - node->size.y) * 0.5f);
 
-    node->visual_scale = 0.0f;
+    node->visual.scale = 0.0f;
 
     naui_panel_bring_to_front(node);
 
@@ -305,7 +309,7 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
             group->root       = target->root;
             group->root_index = target->root_index;
             group->parent     = target->parent;
-            group->visual_scale = target->root->visual_scale;
+            group->visual.scale = target->root->visual.scale;
 
             if (target->parent)
             {
@@ -369,7 +373,7 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
     naui_reset_root_indexes(guest->root_index);
 
     Naui_PanelNode *dock_node = naui_alloc_panel_node();
-    dock_node->visual_scale = target->root->visual_scale;
+    dock_node->visual.scale = target->root->visual.scale;
 
     if (target_is_viewport)
     {
@@ -1005,8 +1009,8 @@ static void naui_render_next_panel_child(Naui_PanelNode *node)
 
 static void naui_render_panel(Naui_PanelNode *node)
 {
-    const float scale = naui_ease_out_elastic(node->visual_scale);
-    const float size_px = NAUI_DPI(32 - 32 * scale);
+    const float scale = naui_ease_out_quint(node->visual.scale);
+    const float size_px = NAUI_DPI(12 - 12 * scale);
 
     const Naui_Vec2 scaled_size = {
         node->size.x - size_px,
@@ -1019,6 +1023,7 @@ static void naui_render_panel(Naui_PanelNode *node)
     };
 
     leaf({
+        .transparency = 1.0f - scale,
         .id = leaf_id_indexed(NAUI_ROOT_PANEL_ID, (Naui_PanelID)node),
         .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
         .size = {LEAF_SIZE_FIXED(scaled_size.x), LEAF_SIZE_FIXED(scaled_size.y)},
@@ -1511,9 +1516,9 @@ void naui_render_panels_and_viewport(void)
         if (!naui_panel_manager.root_nodes[i]->closed)
         {
             naui_render_panel(naui_panel_manager.root_nodes[i]);
-            naui_panel_manager.root_nodes[i]->visual_scale = NAUI_CLAMP01(
-                naui_panel_manager.root_nodes[i]->visual_scale + naui_delta_time()
-            );
+            naui_panel_manager.root_nodes[i]->visual.scale = naui_app_animations_enabled() ? NAUI_CLAMP01(
+                naui_panel_manager.root_nodes[i]->visual.scale + naui_delta_time() * NAUI_UI_ANIM_SPEED
+            ) : 1.0f;
         }
     }
 

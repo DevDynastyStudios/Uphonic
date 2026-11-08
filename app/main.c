@@ -183,6 +183,7 @@ void naui_app_start(void)
  
 	uph_language_apply();
 	naui_app_set_ui_scale(uph_state.settings.general.ui_scale);
+	naui_app_set_animations_enabled(uph_state.settings.general.animations);
 	naui_load_theme(uph_state.settings.general.theme.data);
 	cmidi_set_thru_filter(_uph_midi_thru_filter, NULL);
 	uph_audio_engine_init();

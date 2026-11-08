@@ -284,6 +284,7 @@ extern "C" {
         Leaf_Alignment child_alignment;
         
         Leaf_Floating floating;
+        float transparency;
         
 #ifdef LEAF_FEATURE_SHADOWS
         Leaf_Shadow shadow;
@@ -404,6 +405,7 @@ extern "C" {
         Leaf_RenderCmdType type;
         Leaf_BoundingBox bounding_box;
         Leaf_ColorFill color;
+        float opacity;
     }
     Leaf_RenderCmd;
     
@@ -516,6 +518,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         Leaf_Node *first_child;
         Leaf_Node *last_child;
         Leaf_Node *next_sibling;
+        float opacity;
         
         float row_cross_offset;
         float row_cross_size;
@@ -639,6 +642,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         Leaf_MeasureTextFn measure_text;
         
         uint32_t frame;
+        float render_opacity;
     }
     Leaf_Context;
     
@@ -770,6 +774,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
     {
         Leaf_Node *node = (Leaf_Node*)leaf_arena_alloc(&leaf_ctx->arena, sizeof(Leaf_Node));
         memset(node, 0, sizeof(Leaf_Node));
+        node->opacity = leaf_ctx->stack_top > 0 ? leaf_ctx->stack[leaf_ctx->stack_top - 1]->opacity : 1.0f;
         return node;
     }
     
@@ -920,6 +925,8 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         node->type = LEAF_NODE_TYPE_ELEMENT;
         node->element.config = config;
         
+        node->opacity *= 1.0f - LEAF_CLAMP(config.transparency, 0.0f, 1.0f);
+        
         if (config.size.width.type == LEAF_SIZE_TYPE_FIXED)
             node->bounding_box.width = config.size.width.size.min_max.min;
         if (config.size.height.type == LEAF_SIZE_TYPE_FIXED)
@@ -944,6 +951,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         if (!node)
             return;
         node->cmd = cmd;
+        node->cmd.opacity = leaf_ctx->render_opacity;
         node->next = NULL;
         
         if (leaf_ctx->render_cmds.last)
@@ -1002,7 +1010,9 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
     
     static void leaf_render_node(Leaf_Node *node)
     {
-        if (node->bounding_box.width <= 0 ||
+        leaf_ctx->render_opacity = node->opacity;
+        if (node->opacity <= 0.0f ||
+            node->bounding_box.width <= 0 ||
             node->bounding_box.height <= 0 ||
             leaf_box_offscreen(node->bounding_box))
             return;
@@ -1182,6 +1192,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                 line_node->bounding_box.width  = d.width;
                 line_node->bounding_box.height = d.height;
                 line_node->parent = parent;
+                line_node->opacity = node->opacity;
                 
                 line_node->next_sibling = last_inserted->next_sibling;
                 last_inserted->next_sibling = line_node;
@@ -1827,6 +1838,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_arena_reset(&leaf_ctx->arena);
         leaf_ctx->stack_top = 0;
         leaf_ctx->frame++;
+        leaf_ctx->render_opacity = 1.0f;
         
         Leaf_Node *root = leaf_alloc_node();
         root->element.config.size.width.type = LEAF_SIZE_TYPE_FIXED;
@@ -1841,6 +1853,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         Leaf_Node *root = leaf_stack_top();
         
         leaf_ctx->render_cmds = (Leaf_RenderCmdList){0};
+        leaf_ctx->render_opacity = 1.0f;
         
         leaf_size_pass(root);
         leaf_position_render(root, root->bounding_box);

@@ -183,6 +183,7 @@
 	"settings.general.confirm_on_delete": "削除時に確認",
 	"settings.general.confirm_on_exit": "終了時に確認",
 	"settings.general.copy_resources": "インポートしたファイルをプロジェクトにコピー",
+	"settings.general.animations": "アニメーション",
 	"settings.general.language": "言語",
 	"settings.general.language_restart": "再起動が必要です",
 	"settings.general.theme": "テーマ",

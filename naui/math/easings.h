@@ -1,3 +1,6 @@
+#define NAUI_UI_ANIM_SPEED 3.0f
+#define NAUI_UI_MOTION_SPEED 24.0f
+
 static inline float naui_ease_in_sine(float x)
 {
     return 1.0f - cosf((x * NAUI_PI) / 2.0f);

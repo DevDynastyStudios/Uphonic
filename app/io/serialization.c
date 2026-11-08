@@ -587,6 +587,7 @@ static void uph_io_save_editor_settings_general(Naui_Json* json, Naui_JsonValue*
 	naui_json_set_bool(json, object, "confirm_on_exit", general->confirm_on_exit);
 	naui_json_set_bool(json, object, "confirm_on_delete", general->confirm_on_delete);
 	naui_json_set_bool(json, object, "copy_resources", general->copy_resources);
+	naui_json_set_bool(json, object, "animations", general->animations);
 }
 
 static void uph_io_save_editor_settings_audio(Naui_Json* json, Naui_JsonValue* object, const Uph_AudioSettings* audio)
@@ -1402,6 +1403,7 @@ static void uph_io_load_editor_settings_general(Uph_GeneralSettings* general, co
 	uph_io_read_bool(object, "confirm_on_exit", &general->confirm_on_exit);
 	uph_io_read_bool(object, "confirm_on_delete", &general->confirm_on_delete);
 	uph_io_read_bool(object, "copy_resources", &general->copy_resources);
+	uph_io_read_bool(object, "animations", &general->animations);
 }
 
 static void uph_io_load_editor_settings_audio(Uph_AudioSettings* audio, const Naui_JsonValue* object)

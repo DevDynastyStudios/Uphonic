@@ -68,6 +68,11 @@ typedef struct
     Naui_Vec2 current_context_menu_position;
     bool is_current_menu_context;
     bool menu_opened_last_frame;
+    struct
+    {
+        float menu_lifetime;
+    }
+    visual;
     bool textfield_submitted_this_frame;
     bool any_widget_hovered;
 }
@@ -724,9 +729,12 @@ static bool uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
     return false;
 }
 
-static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset)
+static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset, float reveal)
 {
+    position_offset.y += (1.0f - reveal) * NAUI_DPI(-4.0f);
+
     leaf({
+        .transparency = 1.0f - reveal,
         .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
         .floating = {
             .offset = {position_offset.x, position_offset.y}
@@ -745,7 +753,7 @@ static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec
             if (uph_ui_menu_dropdown_hovered(node))
             {
                 Leaf_BoundingBox bbox = leaf_get_bounding_box(node->element_id);
-                uph_ui_render_menu_dropdown_recursive(node->first_child, (Naui_Vec2){bbox.x + bbox.width, bbox.y});
+                uph_ui_render_menu_dropdown_recursive(node->first_child, (Naui_Vec2){bbox.x + bbox.width, bbox.y}, 1.0f);
             }
             uph_ui_render_menu_dropdown_child(node);
             node = node->next_sibling;
@@ -768,6 +776,7 @@ static void uph_ui__open_menu(Uph_GlobalWidgetData *data, Uph_UIMenuNode *menu, 
     data->open_menu_key = menu->element_id.value;
     data->is_current_menu_context = context;
     data->menu_opened_last_frame = false;
+    data->visual.menu_lifetime = 0.0f;
 }
 
 static void uph_ui__close_menu(Uph_GlobalWidgetData *data)
@@ -785,17 +794,21 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 {
     if (data->current_open_menu)
     {
+        data->visual.menu_lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(data->visual.menu_lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
+
         if (data->current_open_menu->deferred_render)
         {
             naui_panel_occlude_all();
             Leaf_ID id = leaf_id("uph_widget_current_custom_context_menu");
             Leaf_BoundingBox bbox = leaf_get_bounding_box(data->current_open_menu->element_id);
             Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+            const float reveal = naui_ease_out_cubic(data->visual.menu_lifetime);
             leaf({
+                .transparency = 1.0f - reveal,
                 .id = id,
                 .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
                 .floating = {
-                    .offset = {data->current_context_menu_position.x, data->current_context_menu_position.y}
+                    .offset = {data->current_context_menu_position.x, data->current_context_menu_position.y + (1.0f - reveal) * NAUI_DPI(-4.0f)}
                 },
                 .color = {naui_theme_color("uph_ui_dropdown_bg_color")},
                 .border = uph_ui__frame_border(),
@@ -835,11 +848,11 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
         if (!data->is_current_menu_context)
         {
             Leaf_BoundingBox bbox = leaf_get_bounding_box(data->current_open_menu->element_id);
-            uph_ui_render_menu_dropdown_recursive(current_node, (Naui_Vec2){bbox.x, bbox.y + bbox.height});
+            uph_ui_render_menu_dropdown_recursive(current_node, (Naui_Vec2){bbox.x, bbox.y + bbox.height}, naui_ease_out_cubic(data->visual.menu_lifetime));
         }
         else
         {
-            uph_ui_render_menu_dropdown_recursive(current_node, data->current_context_menu_position);
+            uph_ui_render_menu_dropdown_recursive(current_node, data->current_context_menu_position, naui_ease_out_cubic(data->visual.menu_lifetime));
         }
 
         data->menu_opened_last_frame = true;
@@ -888,6 +901,8 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
         }
         else if (!data->is_current_menu_context && data->open_menu_key != 0)
         {
+            if (data->open_menu_key != element_id.value)
+                data->visual.menu_lifetime = 1.0f;
             data->current_open_menu = menu;
             data->open_menu_key = element_id.value;
         }
@@ -1627,7 +1642,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         },
         .padding = LEAF_PADDING_AXES(padding_x, padding_y),
         .color = {naui_theme_color(tinted ? "uph_ui_tinted_frame_bg_color" : "uph_ui_frame_bg_color")},
-        .border = inline_field ? (Leaf_Border){0} : uph_ui__border(naui_theme_color(tinted ? "uph_ui_tinted_frame_border" : "uph_ui_frame_border")),
+        .border = inline_field ? (Leaf_Border){0} : uph_ui__border(active ? naui_theme_color("naui_panel_tab_accent_color") : naui_theme_color(tinted ? "uph_ui_tinted_frame_border" : "uph_ui_frame_border")),
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
         .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
         .direction = LEAF_DIRECTION_HORIZONTAL,

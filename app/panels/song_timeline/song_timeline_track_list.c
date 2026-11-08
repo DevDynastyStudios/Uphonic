@@ -177,7 +177,7 @@ static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_
 		_uph_song_timeline_open_options(track, options_menu);
 }
 
-static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
+static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	const float depth_offset = depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
@@ -374,28 +374,60 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, uint32_t de
 	
 }
 
+static float _uph_song_timeline_approach(float current, float target, float speed, float epsilon)
+{
+	const float next = current + (target - current) * (naui_app_animations_enabled() ? 1.0f - expf(-speed * naui_delta_time()) : 1.0f);
+	return fabsf(target - next) < epsilon ? target : next;
+}
+
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
-	const float row_height = track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(56) : NAUI_DPI(uph_song_timeline_data.zoom.y);
+	const float full_height = track->type == UPH_RESOURCE_GROUP ? NAUI_DPI(56) : NAUI_DPI(uph_song_timeline_data.zoom.y);
+	const float target_y = data->visual.settled_row_y;
+
+	if (track->visual.lifetime <= 0.0f || data->visual.snap_track_motion)
+	{
+		track->visual.y = target_y;
+		track->visual.depth = (float)depth;
+	}
+
+	track->visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(track->visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED * 1.4f) : 1.0f;
+	track->visual.y = _uph_song_timeline_approach(track->visual.y, target_y, NAUI_UI_MOTION_SPEED, 0.5f);
+	track->visual.depth = _uph_song_timeline_approach(track->visual.depth, (float)depth, NAUI_UI_MOTION_SPEED, 0.01f);
+
+	const float appear = naui_ease_out_cubic(track->visual.lifetime);
+	const float row_height = floorf(full_height * appear + 0.5f);
+	const float motion_offset = track->visual.y - target_y;
+
 	leaf({
+		.transparency = 1.0f - appear,
 		.id = leaf_id_indexed("uph_song_timeline_row", (uint64_t)track),
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(row_height)}
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(row_height)},
+		.child_offset = {(1.0f - appear) * NAUI_DPI(-12.0f), -motion_offset},
+		.clip_children = appear < 1.0f
 	})
 	{
-		_uph_song_timeline_render_track_header(track, depth, options_menu, color_menu);
-		if (track->type != UPH_RESOURCE_GROUP)
-			uph_song_timeline_render_track_timeline(track);
+		leaf({
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(full_height)}
+		})
+		{
+			_uph_song_timeline_render_track_header(track, track->visual.depth, options_menu, color_menu);
+			if (track->type != UPH_RESOURCE_GROUP)
+				uph_song_timeline_render_track_timeline(track);
+		}
 	}
-	data->visual_row_y += row_height;
+	data->visual.row_y += row_height;
+	data->visual.settled_row_y += full_height;
 
 	if (track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED))
 		return;
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 	{
-		data->visual_row_counter++;
+		data->visual.row_counter++;
 		uph_song_timeline_render_track(&track->subtracks[i], depth + 1, options_menu, color_menu);
 	}
 }

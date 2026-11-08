@@ -17,6 +17,11 @@ typedef struct
 	void *user_data;
 	Naui_String *input;
 	char input_placeholder[UPH_DIALOG_BUTTON_TEXT_MAX];
+	struct
+	{
+		float lifetime;
+	}
+	visual;
 }
 Uph_DialogState;
 static Uph_DialogState s_dialog;
@@ -86,10 +91,14 @@ void uph_dialog_render(void)
 	int32_t pressed = -1;
 	s_dialog.drawing = true;
 
+	s_dialog.visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(s_dialog.visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
+	const float reveal = naui_ease_out_cubic(s_dialog.visual.lifetime);
 	leaf({
+		.transparency = 1.0f - reveal,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 		.color = {leaf_rgba(0, 0, 0, 150)},
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+		.child_offset = {0.0f, (1.0f - reveal) * NAUI_DPI(-8.0f)},
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	})
 	{
@@ -153,6 +162,7 @@ void uph_dialog_render(void)
 			}
 		}
 	}
+
 
 	s_dialog.drawing = false;
 	if (s_dialog.opened_this_frame)

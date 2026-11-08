@@ -182,6 +182,7 @@
 	"settings.general.confirm_on_delete": "Confirm On Delete",
 	"settings.general.confirm_on_exit": "Confirm On Exit",
 	"settings.general.copy_resources": "Copy Imported Files To Project",
+	"settings.general.animations": "Animations",
 	"settings.general.language": "Language",
 	"settings.general.language_restart": "Restart required",
 	"settings.general.theme": "Theme",

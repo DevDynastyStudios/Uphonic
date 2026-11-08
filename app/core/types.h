@@ -15,6 +15,7 @@ typedef struct Uph_GeneralSettings
 	bool confirm_on_exit;
 	bool confirm_on_delete;
 	bool copy_resources;
+	bool animations;
 }
 Uph_GeneralSettings;
 
@@ -111,7 +112,11 @@ typedef struct
 	double start_beat;
 	double start_offset_beats;
 	double length_beats;
-	float visual_lifetime;
+	struct
+	{
+		float lifetime;
+	}
+	visual;
 	Uph_ResourceIndex resource_index;
 	Uph_ResourceType type;
 	bool selected;
@@ -158,7 +163,11 @@ typedef struct
 	Naui_String name;
 	float time_scale;
 	float tempo_bpm;
-	float visual_lifetime;
+	struct
+	{
+		float lifetime;
+	}
+	visual;
 	Uph_ResourceIndex data_index;
 	int32_t pitch;
 	Uph_SampleMode mode;
@@ -182,7 +191,11 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
-	float visual_lifetime;
+	struct
+	{
+		float lifetime;
+	}
+	visual;
 	bool selected;
 }
 Uph_MidiPattern;
@@ -285,6 +298,16 @@ struct Uph_Track
 	float smooth_peak_left, smooth_peak_right;
 	float glow_effect;
 
+	struct
+	{
+		float lifetime;
+		float y;
+		float depth;
+		float mixer_lifetime;
+		float mixer_x;
+	}
+	visual;
+
 	float live_volume;
 	float live_pan;
 	bool volume_automated;
@@ -348,7 +371,11 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_AutomationPoint) points;
-	float visual_lifetime;
+	struct
+	{
+		float lifetime;
+	}
+	visual;
 	bool selected;
 }
 Uph_Automation;
