@@ -610,6 +610,44 @@ void mgapp_cancel_close(void)
     mgapp_state.close_cancelled = true;
 }
 
+static inline bool mgapp_modifier_pair(mg_key key, mg_key *generic, mg_key *other)
+{
+    switch (key)
+    {
+        case MG_KEY_LSHIFT:
+            *generic = MG_KEY_SHIFT;
+            *other = MG_KEY_RSHIFT;
+            return true;
+            
+        case MG_KEY_RSHIFT:
+            *generic = MG_KEY_SHIFT;
+            *other = MG_KEY_LSHIFT;
+            return true;
+            
+        case MG_KEY_LCONTROL:
+            *generic = MG_KEY_CONTROL;
+            *other = MG_KEY_RCONTROL;
+            return true;
+            
+        case MG_KEY_RCONTROL:
+            *generic = MG_KEY_CONTROL;
+            *other = MG_KEY_LCONTROL;
+            return true;
+            
+        case MG_KEY_LALT:
+            *generic = MG_KEY_ALT;
+            *other = MG_KEY_RALT;
+            return true;
+            
+        case MG_KEY_RALT:
+            *generic = MG_KEY_ALT;
+            *other = MG_KEY_LALT;
+            return true;
+            
+        default: return false;
+    }
+}
+
 static inline void mgapp_input_process_key(mg_key key, bool pressed)
 {
     if (pressed)
@@ -624,6 +662,24 @@ static inline void mgapp_input_process_key(mg_key key, bool pressed)
         mgapp_state.input.clear.keyboard.keys_released[key] = true;
 
     mgapp_state.input.keyboard.keys[key] = pressed;
+    mg_key generic, other;
+    if (mgapp_modifier_pair(key, &generic, &other))
+    {
+        bool was_down = mgapp_state.input.keyboard.keys[generic];
+        bool now_down = pressed || mgapp_state.input.keyboard.keys[other];
+        if (pressed)
+        {
+            mgapp_state.input.clear.keyboard.keys_pressed_repeat[generic] = true;
+
+            if (!was_down && !mgapp_state.input.clear.keyboard.keys_released[generic])
+                mgapp_state.input.clear.keyboard.keys_pressed[generic] = true;
+        }
+
+        if (was_down && !now_down)
+            mgapp_state.input.clear.keyboard.keys_released[generic] = true;
+
+        mgapp_state.input.keyboard.keys[generic] = now_down;
+    }
 }
 
 static inline void mgapp_input_process_char(uint32_t codepoint)
