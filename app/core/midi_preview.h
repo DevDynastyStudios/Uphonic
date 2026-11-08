@@ -13,6 +13,8 @@ Uph_MidiPreviewRange;
 void uph_midi_preview_set_voice(Uph_Track *track);
 Uph_Track *uph_midi_preview_voice(void);
 void uph_midi_preview_refresh_voice(void);
+void uph_midi_preview_update_live_target(bool any_track_monitored);
+Uph_Track *uph_midi_preview_live_target(void);
 bool uph_midi_preview_is_voice_candidate(const Uph_Track *track);
 
 void uph_midi_preview_note_on(uint8_t key, uint8_t velocity);

@@ -1151,7 +1151,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
             for (int key = 0; key < 128; key++)
             {
-                if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
+                if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !((uph_track_monitors_instrument(track) || track == uph_midi_preview_live_target()) && uph_midi_recorder_key_held((uint8_t)key)))
                     uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
             }
 

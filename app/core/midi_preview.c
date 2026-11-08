@@ -3,6 +3,7 @@ typedef struct
 	Uph_Track *voice;
 	Uph_ActionTrackRef voice_ref;
 	bool none_chosen;
+	_Atomic(Uph_Track *) live_target;
 
 	bool playing;
 	bool loop;
@@ -84,6 +85,22 @@ void uph_midi_preview_refresh_voice(void)
 		p->voice_ref = uph_action_track_ref(refreshed);
 
 	p->voice = refreshed;
+}
+
+// Live MIDI input (controller) falls back to the editor's voice when no track monitors an instrument.
+// Choosing "None" as the voice disables the fallback.
+void uph_midi_preview_update_live_target(bool any_track_monitored)
+{
+	Uph_MidiPreviewData *p = &uph_midi_preview_data;
+	uph_midi_preview_refresh_voice();
+
+	Uph_Track *target = (!any_track_monitored && uph_midi_preview_is_voice_candidate(p->voice)) ? p->voice : NULL;
+	atomic_store_explicit(&p->live_target, target, memory_order_relaxed);
+}
+
+Uph_Track *uph_midi_preview_live_target(void)
+{
+	return atomic_load_explicit(&uph_midi_preview_data.live_target, memory_order_relaxed);
 }
 
 #pragma endregion
