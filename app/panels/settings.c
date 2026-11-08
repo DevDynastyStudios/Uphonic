@@ -1195,7 +1195,6 @@ static void uph_settings_on_attach(void)
 		size.y = NAUI_MIN(size.y, (float)naui_app_height() - 64.0f);
 
 	naui_panel_set_size(this, size);
-	naui_panel_set_min_size(this, (Naui_Vec2){ 620.0f * scale, 560.0f * scale });
 }
 
 static void uph_settings_on_detach(void)
