@@ -882,6 +882,7 @@ bool uph_resources_add_sample_from_file(Naui_Path path)
 void uph_resources_copy_sample(Uph_ResourceIndex sample_index)
 {
 	Uph_Sample sample = uph_state.project.samples[sample_index];
+	sample.visual.lifetime = 0.0f;
 	uph_state.project.sample_data[sample.data_index].ref_count++;
 	naui_list_push(uph_state.project.samples, sample);
 }
@@ -921,6 +922,7 @@ void uph_resources_add_pattern(void)
 void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 {
 	Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
+	pattern.visual.lifetime = 0.0f;
 	pattern.notes = naui_list_clone(pattern.notes);
 	naui_list_push(uph_state.project.midi_patterns, pattern);
 }
@@ -951,6 +953,7 @@ void uph_resources_add_automation(void)
 void uph_resources_copy_automation(Uph_ResourceIndex automation_index)
 {
 	Uph_Automation automation = uph_state.project.automations[automation_index];
+	automation.visual.lifetime = 0.0f;
 	automation.points = naui_list_clone(automation.points);
 	naui_list_push(uph_state.project.automations, automation);
 }

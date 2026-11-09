@@ -79,14 +79,14 @@
     "uph_timeline_top_ruler_grid_text_color": "#C8C8C8",
 
     "uph_track_palette": [
-        "#606060",
-        "#8A8A8A",
         "#4A4A4A",
-        "#A0A0A0",
-        "#6F6F6F",
         "#555555",
-        "#B0B0B0",
-        "#787878"
+        "#606060",
+        "#6F6F6F",
+        "#787878",
+        "#8A8A8A",
+        "#A0A0A0",
+        "#B0B0B0"
     ],
 
     "uph_plugin_list_clap_color": "#E6E6E6",

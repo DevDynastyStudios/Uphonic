@@ -102,6 +102,7 @@ bool _uph_action_pattern_delete_execute(void* userdata)
 
 	data->pattern = uph_state.project.midi_patterns[data->resource_index];
 	uph_block_unlink_resource(UPH_RESOURCE_PATTERN, data->resource_index, &data->blocks);
+	uph_resource_list_emit_item_shockwave(UPH_RESOURCE_PATTERN, data->resource_index);
 	naui_list_remove(uph_state.project.midi_patterns, data->resource_index);
 
 	data->deleted = true;

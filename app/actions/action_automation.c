@@ -80,6 +80,7 @@ bool _uph_action_automation_delete_execute(void* userdata)
 
 	data->automation = uph_state.project.automations[data->resource_index];
 	uph_block_unlink_resource(UPH_RESOURCE_AUTOMATION, data->resource_index, &data->blocks);
+	uph_resource_list_emit_item_shockwave(UPH_RESOURCE_AUTOMATION, data->resource_index);
 	naui_list_remove(uph_state.project.automations, data->resource_index);
 
 	data->deleted = true;

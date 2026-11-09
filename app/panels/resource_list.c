@@ -176,6 +176,35 @@ static Naui_String *uph_resource_list_name(Uph_ResourceType type, Uph_ResourceIn
     return NULL;
 }
 
+static Leaf_ID uph_resource_list_item_id(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (type == UPH_RESOURCE_PATTERN)
+        return leaf_id_indexed("uph_pattern_list_item", index);
+
+    if (type == UPH_RESOURCE_SAMPLE)
+        return leaf_id_indexed("uph_sample_list_item", index);
+
+    return leaf_id_indexed("uph_automation_list_item", index);
+}
+
+void uph_resource_list_emit_item_shockwave(Uph_ResourceType type, Uph_ResourceIndex index)
+{
+    if (naui_panel_closed(uph_state.panels.resource_list))
+        return;
+
+    const Leaf_BoundingBox box = leaf_get_bounding_box(uph_resource_list_item_id(type, index));
+    if (box.width <= 0.0f || box.height <= 0.0f)
+        return;
+
+    uph_particle_emit_shockwave(
+        (Naui_Vec2){ box.x, box.y },
+        (Naui_Vec2){ box.width, box.height },
+        uph_color_mix(naui_theme_color("uph_resource_list_item_fg_color"), leaf_rgba(255, 255, 255, 255), 0.35f),
+        NAUI_DPI(UPH_UI_FRAME_ROUNDING),
+        naui_panel_bounding_box(uph_state.panels.resource_list)
+    );
+}
+
 static uint32_t uph_resource_list_count(Uph_ResourceType type)
 {
     if (type == UPH_RESOURCE_PATTERN)
@@ -796,7 +825,7 @@ static void uph_resource_list_on_update(void)
         })
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.midi_patterns); i++)
-                uph_resource_list_render_resource(i, UPH_RESOURCE_PATTERN, context_menu, leaf_id_indexed("uph_pattern_list_item", i));
+                uph_resource_list_render_resource(i, UPH_RESOURCE_PATTERN, context_menu, uph_resource_list_item_id(UPH_RESOURCE_PATTERN, i));
             uph_resource_list_plus_box(UPH_RESOURCE_PATTERN, leaf_id("uph_pattern_list_plus"));
         }
 
@@ -821,7 +850,7 @@ static void uph_resource_list_on_update(void)
         })
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.samples); i++)
-                uph_resource_list_render_resource(i, UPH_RESOURCE_SAMPLE, context_menu, leaf_id_indexed("uph_sample_list_item", i));
+                uph_resource_list_render_resource(i, UPH_RESOURCE_SAMPLE, context_menu, uph_resource_list_item_id(UPH_RESOURCE_SAMPLE, i));
             uph_resource_list_plus_box(UPH_RESOURCE_SAMPLE, leaf_id("uph_sample_list_plus"));
         }
 
@@ -846,7 +875,7 @@ static void uph_resource_list_on_update(void)
         })
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.automations); i++)
-                uph_resource_list_render_resource(i, UPH_RESOURCE_AUTOMATION, context_menu, leaf_id_indexed("uph_automation_list_item", i));
+                uph_resource_list_render_resource(i, UPH_RESOURCE_AUTOMATION, context_menu, uph_resource_list_item_id(UPH_RESOURCE_AUTOMATION, i));
             uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
         }
     }
@@ -866,4 +895,4 @@ static void uph_resource_list_on_update(void)
         uph_resource_list_clear_selection();
         uph_resource_list_sync_selection();
     }
-}
+}
