@@ -35,8 +35,11 @@
 #define UPH_ACTION_BLOCK_DELETE "Block Delete"
 #define UPH_ACTION_BLOCK_MOVE "Block Move"
 #define UPH_ACTION_BLOCK_RESIZE "Block Resize"
+#define UPH_ACTION_BLOCK_RELINK "Block Relink"
 
 #define UPH_ACTION_BLOCK_CUT_GROUP "Block Cut"
+#define UPH_ACTION_BLOCK_SLICE_GROUP "Block Slice"
+#define UPH_ACTION_BLOCK_MAKE_UNIQUE_GROUP "Block Make Unique"
 #define UPH_ACTION_BLOCKS_MOVE_GROUP "Blocks Move"
 #define UPH_ACTION_BLOCKS_RESIZE_GROUP "Blocks Resize"
 #define UPH_ACTION_BLOCKS_DELETE_GROUP "Blocks Delete"

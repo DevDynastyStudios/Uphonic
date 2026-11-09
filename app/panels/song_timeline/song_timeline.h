@@ -7,6 +7,8 @@
 #define UPH_SONG_TIMELINE_CLICK_THRESHOLD 3.0f
 #define UPH_SONG_TIMELINE_DEPTH_INDENT 12.0f
 #define UPH_SONG_TIMELINE_TOP_RULER_HEIGHT 28
+#define UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE 13.0f
+#define UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING 2.0f
 
 typedef uint8_t Uph_BlockInteractionMode;
 enum
@@ -90,6 +92,29 @@ Uph_MarqueeState;
 
 typedef struct
 {
+	const Uph_Track *track;
+	uint32_t block_index;
+	bool button_hovered;
+	bool active;
+}
+Uph_BlockMenuHover;
+
+typedef struct
+{
+	Uph_BlockMenuHover hover;
+	Uph_BlockMenuHover next_hover;
+	Uph_ActionTrackRef target_track;
+	uint32_t target_index;
+	float view_width;
+	float measured_title_height;
+	bool title_probe_used;
+	bool target_valid;
+	bool open_requested;
+}
+Uph_BlockMenuState;
+
+typedef struct
+{
 	Uph_ActionTrackRef source;
 	Naui_Vec2 press_position;
 	bool pending;
@@ -114,6 +139,7 @@ typedef struct
 	Uph_HoveredBlockState hovered_block;
 	Uph_AutomationEditState automation_edit;
 	Uph_MarqueeState marquee;
+	Uph_BlockMenuState block_menu;
 	Uph_LoopRegionDrag loop_drag;
 	Uph_TrackDragState track_drag;
 	Uph_TrackPendingMove pending_move;
@@ -217,6 +243,31 @@ static float uph_song_timeline_max_scroll_y(void)
 	return uph_song_timeline_data.content_height - uph_song_timeline_data.zoom.y;
 }
 
+static inline float uph_song_timeline_block_title_height(void)
+{
+	return NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE) + NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING) * 2.0f;
+}
+
+static inline float uph_song_timeline_block_title_bar_height(void)
+{
+	const float measured = uph_song_timeline_data.block_menu.measured_title_height;
+	return measured > 0.0f ? measured : uph_song_timeline_block_title_height();
+}
+
+static inline bool uph_song_timeline_block_menu_button_rect(float block_left, float block_width, float view_left, float view_right, Naui_Vec4 *out)
+{
+	const float bar_height = uph_song_timeline_block_title_bar_height();
+	const float size = fmaxf(bar_height - NAUI_DPI(4.0f), 1.0f);
+	const float inset = (bar_height - size) * 0.5f;
+	const float visible_left = fmaxf(block_left, view_left);
+	const float visible_right = fminf(block_left + block_width, view_right);
+	if (visible_right - visible_left < size * 2.0f + inset)
+		return false;
+
+	*out = (Naui_Vec4){ floorf(visible_right - inset - size), floorf((bar_height - size) * 0.5f), floorf(size), floorf(size) };
+	return true;
+}
+
 static Uph_BlockInteractionMode uph_song_timeline_classify_hover(Naui_Vec4 hover_box, float mouse_x)
 {
     if (mouse_x <= hover_box.x + UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH)
@@ -257,6 +308,8 @@ void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed);
 void uph_song_timeline_finish_block_drag(void);
 
 void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track);
+void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index);
+void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu);
 
 void uph_song_timeline_render_toolbox(void);
 #pragma endregion

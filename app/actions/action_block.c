@@ -31,6 +31,14 @@ typedef struct
 	Uph_TimelineBlock block;
 } Uph_ActionBlockSnapshot;
 
+typedef struct
+{
+	Uph_ActionTrackRef track;
+	uint32_t block_index;
+	Uph_ResourceIndex old_resource_index;
+	Uph_ResourceIndex new_resource_index;
+} Uph_ActionBlockRelink;
+
 #pragma region Block Helpers
 static void uph_block_refresh_track_type(Uph_Track *track)
 {
@@ -285,6 +293,36 @@ bool _uph_action_block_transform_redo(void* userdata)
 {
 	Uph_ActionBlockTransform* data = userdata;
 	return uph_block_relocate(data->src_track, data->src_index, data->dst_track, data->dst_index, data->new_start, data->new_length, data->new_offset);
+}
+
+#pragma endregion
+
+#pragma region Block Relink
+static bool uph_block_set_resource(Uph_ActionTrackRef ref, uint32_t block_index, Uph_ResourceIndex resource_index)
+{
+	Uph_Track* track = uph_action_track_resolve(ref);
+	if (!track || block_index >= (uint32_t)naui_list_len(track->blocks))
+		return false;
+
+	track->blocks[block_index].resource_index = resource_index;
+	return true;
+}
+
+bool _uph_action_block_relink_execute(void* userdata)
+{
+	Uph_ActionBlockRelink* data = userdata;
+	return uph_block_set_resource(data->track, data->block_index, data->new_resource_index);
+}
+
+bool _uph_action_block_relink_undo(void* userdata)
+{
+	Uph_ActionBlockRelink* data = userdata;
+	return uph_block_set_resource(data->track, data->block_index, data->old_resource_index);
+}
+
+bool _uph_action_block_relink_redo(void* userdata)
+{
+	return _uph_action_block_relink_execute(userdata);
 }
 
 #pragma endregion

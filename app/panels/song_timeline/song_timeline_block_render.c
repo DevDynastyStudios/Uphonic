@@ -155,7 +155,36 @@ static const char *_uph_song_timeline_block_name(const Uph_TimelineBlock *block)
 	return "";
 }
 
-static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2 size, Naui_Color color, float opacity, const Uph_TimelineBlock *block)
+typedef struct
+{
+	float opacity;
+	bool hovered;
+}
+Uph_BlockMenuButtonDrawData;
+
+static void _uph_song_timeline_render_block_menu_button(Leaf_BoundingBox box, Uph_BlockMenuButtonDrawData *data)
+{
+	const uint8_t bg_alpha = (uint8_t)((data->hovered ? 110.0f : 55.0f) * data->opacity);
+	naui_fill_rect(
+		(Naui_Vec2){ box.x, box.y },
+		(Naui_Vec2){ box.width, box.height },
+		leaf_rgba(0, 0, 0, bg_alpha),
+		NAUI_DPI(UPH_UI_FRAME_ROUNDING),
+		NAUI_CORNER_ALL
+	);
+
+	const float padding = NAUI_DPI(3.0f);
+	naui_draw_image(
+		naui_asset_image("uph_icon_dots"),
+		(Naui_Vec2){ box.x + padding, box.y + padding },
+		(Naui_Vec2){ box.width - padding * 2.0f, box.height - padding * 2.0f },
+		leaf_rgba(255, 255, 255, (uint8_t)(255 * data->opacity)),
+		0.0f,
+		NAUI_CORNER_NONE
+	);
+}
+
+static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2 size, Naui_Color color, float opacity, const Uph_TimelineBlock *block, bool show_menu_button, bool menu_button_hovered)
 {
 	const float anim_offset = (naui_ease_out_quint(block->visual.lifetime) - 1.0f) * NAUI_DPI(8.0f);
 	const Naui_Vec2 anim_size = {
@@ -163,9 +192,9 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		fmaxf(size.y + anim_offset, 0.0f)
 	};
 
-	const float title_padding = NAUI_DPI(2.0f);
-	const float font_size = NAUI_DPI(13.0f);
-	const float title_height = font_size + title_padding * 2.0f;
+	const float title_padding = NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING);
+	const float font_size = NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE);
+	const float title_height = uph_song_timeline_block_title_height();
 	const int32_t rounding = (int32_t)NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING);
 
 	const float visible_left = offset.x + (size.x - anim_size.x) * 0.5f;
@@ -188,7 +217,15 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		.clip_children = true
 	})
 	{
+		Leaf_ID title_id = { 0 };
+		if (show_menu_button && !uph_song_timeline_data.block_menu.title_probe_used)
+		{
+			title_id = leaf_id("uph_song_timeline_block_menu_title");
+			uph_song_timeline_data.block_menu.title_probe_used = true;
+		}
+
 		leaf({
+			.id = title_id,
 			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED((int32_t)title_height) },
 			.padding = { (int32_t)(title_padding + title_shift), (int32_t)title_padding, (int32_t)title_padding, (int32_t)title_padding },
 			.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)) },
@@ -208,6 +245,21 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_block_content,
 			.custom_draw_data = LEAF_DATA_SLICE(content_data)
 		});
+
+		const float view_width = uph_song_timeline_data.block_menu.view_width > 0.0f ? uph_song_timeline_data.block_menu.view_width : FLT_MAX;
+		Naui_Vec4 menu_button;
+		if (show_menu_button && uph_song_timeline_block_menu_button_rect(offset.x, size.x, 0.0f, view_width, &menu_button))
+		{
+			menu_button.x -= visible_left;
+			Uph_BlockMenuButtonDrawData button_data = { .opacity = opacity, .hovered = menu_button_hovered };
+			leaf({
+				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+				.floating.offset = { menu_button.x, menu_button.y },
+				.size = { LEAF_SIZE_FIXED((int32_t)menu_button.z), LEAF_SIZE_FIXED((int32_t)menu_button.w) },
+				.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_block_menu_button,
+				.custom_draw_data = LEAF_DATA_SLICE(button_data)
+			});
+		}
 
 		if (block->selected)
 		{
@@ -255,9 +307,15 @@ void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track)
 	const float viewport_width = uph_song_timeline_data.panel_bounding_box.width;
 	const float opacity = uph_track_is_audible(&uph_state.project, track) ? 1.0f : 0.25f;
 
+	const Uph_BlockMenuState *block_menu = &uph_song_timeline_data.block_menu;
+	const bool menu_targets_track = block_menu->target_valid && uph_ui_any_menu_open() && uph_action_track_resolve(block_menu->target_track) == track;
+
 	Naui_Color color = uph_resources_track_color(track->color_index);
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
 	{
+		const bool hovered = block_menu->hover.active && block_menu->hover.track == track && block_menu->hover.block_index == i;
+		const bool menu_target = menu_targets_track && block_menu->target_index == i;
+
 		if (!uph_song_timeline_block_is_visible(blocks[i].start_beat, blocks[i].length_beats, zoom_x, scroll_x, viewport_width))
 			continue;
 
@@ -267,7 +325,9 @@ void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track)
 			(Naui_Vec2) { zoom_x * (float)blocks[i].length_beats, row_height },
 			color,
 			opacity,
-			&blocks[i]
+			&blocks[i],
+			(hovered || menu_target) && !uph_song_timeline_data.drag.active,
+			(hovered && block_menu->hover.button_hovered) || menu_target
 		);
 	}
 }

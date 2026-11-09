@@ -112,6 +112,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_DELETE, _uph_action_block_delete);
 	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_MOVE, _uph_action_block_transform);
 	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RESIZE, _uph_action_block_transform);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RELINK, _uph_action_block_relink);
 
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_CREATE, _uph_action_note_create);
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_DELETE, _uph_action_note_delete);

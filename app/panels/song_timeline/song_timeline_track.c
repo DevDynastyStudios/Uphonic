@@ -37,6 +37,8 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 		return;
 	}
 
+	uph_song_timeline_data.block_menu.view_width = bbox.width;
+
 	if (!uph_song_timeline_data.tracks_hovered)
 		return;
 
@@ -121,8 +123,30 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 				blocks[i].type == UPH_RESOURCE_AUTOMATION ? title_height : bbox.height
 			};
 
-			if (uph_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
+			const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
+			Naui_Vec4 menu_button;
+			if (uph_song_timeline_block_menu_button_rect(block_left, zoom_x * (float)blocks[i].length_beats, bbox.x, bbox.x + bbox.width, &menu_button))
 			{
+				menu_button.y += bbox.y;
+				if (uph_song_timeline_vec4_contains_vec2(menu_button, mouse))
+				{
+					uph_song_timeline_data.block_menu.next_hover = (Uph_BlockMenuHover){ .track = track, .block_index = i, .button_hovered = true, .active = true };
+					uph_song_timeline_data.hovered_block.block_index = i;
+					uph_song_timeline_data.hovered_block.track = track;
+					uph_song_timeline_data.hovered_block.active = true;
+					naui_set_cursor(NAUI_CURSOR_HAND);
+
+					if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+						uph_song_timeline_request_block_menu(track, i);
+					continue;
+				}
+			}
+
+			if (uph_song_timeline_vec4_contains_vec2(hover_box, mouse))
+			{
+				if (!uph_song_timeline_data.block_menu.next_hover.button_hovered)
+					uph_song_timeline_data.block_menu.next_hover = (Uph_BlockMenuHover){ .track = track, .block_index = i, .active = true };
+
 				Uph_BlockInteractionMode hover_mode = uph_song_timeline_classify_hover(hover_box, (float)naui_mouse_x());
 				if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && (uph_song_timeline_data.current_action_mode == UPH_ACTION_SELECT || uph_song_timeline_data.current_action_mode == UPH_ACTION_DRAW))
 				{
@@ -182,6 +206,10 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 		return;
 
 	if (uph_song_timeline_data.automation_edit.active)
+		return;
+
+	const Uph_BlockMenuHover *menu_hover = &uph_song_timeline_data.block_menu.next_hover;
+	if (menu_hover->button_hovered && menu_hover->track == track)
 		return;
 
 	if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && uph_song_timeline_data.hovered_block.active && uph_song_timeline_data.hovered_block.track == track)

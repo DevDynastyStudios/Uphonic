@@ -216,6 +216,184 @@ static void _uph_song_timeline_update_group_track_switch(Uph_DraggingBlockState 
 	naui_list_free(rows);
 }
 
+
+#pragma region Block Options Menu
+
+static bool _uph_song_timeline_block_menu_resolve(Uph_Track **out_track, Uph_TimelineBlock **out_block)
+{
+	Uph_BlockMenuState *menu = &uph_song_timeline_data.block_menu;
+	if (!menu->target_valid)
+		return false;
+
+	Uph_Track *track = uph_action_track_resolve(menu->target_track);
+	if (!track || menu->target_index >= (uint32_t)naui_list_len(track->blocks))
+	{
+		menu->target_valid = false;
+		return false;
+	}
+
+	Uph_TimelineBlock *block = &track->blocks[menu->target_index];
+	const Uph_DragResource resource = { .type = block->type, .index = block->resource_index };
+	if (!_uph_song_timeline_resource_valid(&resource))
+	{
+		menu->target_valid = false;
+		return false;
+	}
+
+	*out_track = track;
+	*out_block = block;
+	return true;
+}
+
+static uint32_t _uph_song_timeline_resource_count(Uph_ResourceType type)
+{
+	if (type == UPH_RESOURCE_PATTERN)
+		return (uint32_t)naui_list_len(uph_state.project.midi_patterns);
+
+	if (type == UPH_RESOURCE_SAMPLE)
+		return (uint32_t)naui_list_len(uph_state.project.samples);
+
+	if (type == UPH_RESOURCE_AUTOMATION)
+		return (uint32_t)naui_list_len(uph_state.project.automations);
+
+	return 0;
+}
+
+static void _uph_song_timeline_block_edit(const Uph_TimelineBlock *block)
+{
+	uph_state.shared.selected_resource.type = block->type;
+	uph_state.shared.selected_resource.index = block->resource_index;
+	uph_state.shared.selected_resource.renaming = false;
+	uph_action_refresh_block_defaults();
+	naui_panel_open(uph_state.panels.resource_editor);
+}
+
+static void _uph_song_timeline_block_make_unique(Uph_ActionTrackRef ref, uint32_t block_index, Uph_ResourceType type, Uph_ResourceIndex resource_index)
+{
+	naui_action_group_start(UPH_ACTION_BLOCK_MAKE_UNIQUE_GROUP);
+
+	const uint32_t count_before = _uph_song_timeline_resource_count(type);
+	if (type == UPH_RESOURCE_PATTERN)
+	{
+		Uph_ActionPatternDuplicate data = { .source_index = resource_index };
+		naui_action_execute_stack(UPH_ACTION_PATTERN_DUPLICATE, data);
+	}
+	else if (type == UPH_RESOURCE_SAMPLE)
+	{
+		Uph_ActionSampleDuplicate data = { .source_index = resource_index };
+		naui_action_execute_stack(UPH_ACTION_SAMPLE_DUPLICATE, data);
+	}
+	else if (type == UPH_RESOURCE_AUTOMATION)
+	{
+		Uph_ActionAutomationDuplicate data = { .source_index = resource_index };
+		naui_action_execute_stack(UPH_ACTION_AUTOMATION_DUPLICATE, data);
+	}
+
+	const uint32_t count_after = _uph_song_timeline_resource_count(type);
+	if (count_after > count_before)
+	{
+		Uph_ActionBlockRelink data = {
+			.track = ref,
+			.block_index = block_index,
+			.old_resource_index = resource_index,
+			.new_resource_index = count_after - 1
+		};
+		naui_action_execute_stack(UPH_ACTION_BLOCK_RELINK, data);
+	}
+
+	naui_action_group_end();
+}
+
+static void _uph_song_timeline_block_duplicate(Uph_TimelineBlock *block)
+{
+	if (!block->selected)
+	{
+		uph_block_select_all(false);
+		block->selected = true;
+	}
+
+	uph_block_duplicate_selected();
+}
+
+static void _uph_song_timeline_block_select_instances(Uph_ResourceType type, Uph_ResourceIndex resource_index)
+{
+	Naui_List(Uph_ActionBlockSnapshot) instances = NULL;
+	uph_block_collect_all(type, false, true, resource_index, &instances);
+	uph_block_select_all(false);
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(instances); i++)
+	{
+		Uph_Track *track = uph_action_track_resolve(instances[i].track);
+		if (track && instances[i].index < (uint32_t)naui_list_len(track->blocks))
+			track->blocks[instances[i].index].selected = true;
+	}
+
+	naui_list_free(instances);
+}
+
+static void _uph_song_timeline_block_delete(Uph_ActionTrackRef ref, uint32_t block_index, bool selected)
+{
+	if (selected && uph_block_selected_count() > 1)
+	{
+		uph_block_delete_selected();
+		return;
+	}
+
+	Uph_ActionBlockDelete data = { .track = ref, .block_index = block_index };
+	naui_action_execute_stack(UPH_ACTION_BLOCK_DELETE, data);
+}
+
+static void _uph_song_timeline_block_fit_to_source(Uph_ActionTrackRef ref, uint32_t block_index, const Uph_TimelineBlock *block)
+{
+	const Uph_DragResource resource = { .type = block->type, .index = block->resource_index };
+	const double length = _uph_song_timeline_resource_length(&resource);
+	if (length <= 0.0 || (block->length_beats == length && block->start_offset_beats == 0.0))
+		return;
+
+	Uph_ActionBlockTransform data = {
+		.src_track = ref, .src_index = block_index, .dst_track = ref, .dst_index = block_index,
+		.old_start = block->start_beat, .old_length = block->length_beats, .old_offset = block->start_offset_beats,
+		.new_start = block->start_beat, .new_length = length, .new_offset = 0.0
+	};
+	naui_action_execute_stack(UPH_ACTION_BLOCK_RESIZE, data);
+}
+
+static void _uph_song_timeline_block_slice(Uph_ActionTrackRef ref, uint32_t block_index, double step)
+{
+	Uph_Track *track = uph_action_track_resolve(ref);
+	if (!track || block_index >= (uint32_t)naui_list_len(track->blocks) || step <= 0.0)
+		return;
+
+	const Uph_TimelineBlock block = track->blocks[block_index];
+	const double epsilon = 1e-6;
+	if (block.length_beats <= step + epsilon)
+		return;
+
+	naui_action_group_start(UPH_ACTION_BLOCK_SLICE_GROUP);
+
+	Uph_ActionBlockTransform shrink = {
+		.src_track = ref, .src_index = block_index, .dst_track = ref, .dst_index = block_index,
+		.old_start = block.start_beat, .old_length = block.length_beats, .old_offset = block.start_offset_beats,
+		.new_start = block.start_beat, .new_length = step, .new_offset = block.start_offset_beats
+	};
+	naui_action_execute_stack(UPH_ACTION_BLOCK_RESIZE, shrink);
+
+	for (uint32_t k = 1; (double)k * step < block.length_beats - epsilon; k++)
+	{
+		const double local = (double)k * step;
+		Uph_ActionBlockCreate piece = { .track = ref, .block_index = (uint32_t)naui_list_len(track->blocks), .block = block };
+		piece.block.start_beat = block.start_beat + local;
+		piece.block.length_beats = fmin(step, block.length_beats - local);
+		piece.block.start_offset_beats = block.start_offset_beats + local;
+		piece.block.visual.lifetime = 0.0f;
+		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, piece);
+	}
+
+	naui_action_group_end();
+}
+
+#pragma endregion
+
 #pragma region Public API
 
 Uph_TimelineBlock uph_song_timeline_block_create(double start_beat, uint32_t resource_index, Uph_ResourceType block_type)
@@ -483,6 +661,67 @@ void uph_song_timeline_finish_block_drag(void)
 	naui_list_clear(drag->group_moves);
 	naui_list_clear(drag->type_backups);
 	drag->mode = UPH_BLOCK_INTERACTION_NONE;
+}
+
+
+void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index)
+{
+	Uph_BlockMenuState *menu = &uph_song_timeline_data.block_menu;
+	menu->target_track = uph_action_track_ref(track);
+	menu->target_index = block_index;
+	menu->target_valid = true;
+	menu->open_requested = true;
+}
+
+void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu)
+{
+	Uph_BlockMenuState *state = &uph_song_timeline_data.block_menu;
+	if (!uph_ui_any_menu_open())
+	{
+		state->target_valid = false;
+		return;
+	}
+
+	Uph_Track *track;
+	Uph_TimelineBlock *block;
+	if (!_uph_song_timeline_block_menu_resolve(&track, &block))
+		return;
+
+	const Uph_ActionTrackRef ref = state->target_track;
+	const uint32_t index = state->target_index;
+	const Uph_TimelineBlock snapshot = *block;
+
+	if (uph_ui_menu_item(block_options_menu, "Edit", leaf_id("uph_song_timeline_block_edit")))
+		_uph_song_timeline_block_edit(&snapshot);
+
+	if (uph_ui_menu_item(block_options_menu, "Make Unique", leaf_id("uph_song_timeline_block_make_unique")))
+		_uph_song_timeline_block_make_unique(ref, index, snapshot.type, snapshot.resource_index);
+
+	if (uph_ui_menu_item(block_options_menu, "Duplicate", leaf_id("uph_song_timeline_block_duplicate")))
+		_uph_song_timeline_block_duplicate(block);
+
+	if (uph_ui_menu_item(block_options_menu, "Select All Instances", leaf_id("uph_song_timeline_block_select_instances")))
+		_uph_song_timeline_block_select_instances(snapshot.type, snapshot.resource_index);
+
+	if (snapshot.type == UPH_RESOURCE_SAMPLE || snapshot.type == UPH_RESOURCE_PATTERN)
+	{
+		Uph_UIMenuID slice_menu = uph_ui_submenu(block_options_menu, "Slice", leaf_id("uph_song_timeline_block_slice"));
+		if (uph_ui_menu_item(slice_menu, "Every Bar", leaf_id("uph_song_timeline_block_slice_bar")))
+			_uph_song_timeline_block_slice(ref, index, uph_time_signature_bar_length());
+
+		if (uph_ui_menu_item(slice_menu, "Every Beat", leaf_id("uph_song_timeline_block_slice_beat")))
+			_uph_song_timeline_block_slice(ref, index, uph_time_signature_beat_length());
+
+		if (uph_ui_menu_item(slice_menu, "Every Grid Step", leaf_id("uph_song_timeline_block_slice_grid")))
+			_uph_song_timeline_block_slice(ref, index, uph_snap_division(uph_song_timeline_data.snap_resolution));
+	}
+
+	const char *fit_label = snapshot.type == UPH_RESOURCE_SAMPLE ? "Reset to Full Sample" : "Fit to Content";
+	if (uph_ui_menu_item(block_options_menu, fit_label, leaf_id("uph_song_timeline_block_fit")))
+		_uph_song_timeline_block_fit_to_source(ref, index, &snapshot);
+
+	if (uph_ui_menu_item(block_options_menu, "Delete", leaf_id("uph_song_timeline_block_delete")))
+		_uph_song_timeline_block_delete(ref, index, snapshot.selected);
 }
 
 #pragma endregion
