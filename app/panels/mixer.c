@@ -37,6 +37,12 @@ typedef struct
         float settled_x;
     }
     visual;
+
+    struct
+    {
+        float x, y;
+    }
+    scroll;
 }
 Uph_MixerData;
 
@@ -92,6 +98,7 @@ static Uph_MixerData uph_mixer_data = { 0 };
 #define UPH_MIXER_EFFECT_ROW_GAP	4.0f
 #define UPH_MIXER_EFFECT_ROW_HEIGHT 28.0f
 #define UPH_MIXER_METER_MIN_HEIGHT	60.0f
+#define UPH_MIXER_METER_SCROLL_HEIGHT 100.0f
 #define UPH_MIXER_EFFECT_LED_HIT	18.0f
 #define UPH_MIXER_EFFECT_LED_DOT	8.0f
 
@@ -1036,6 +1043,7 @@ static void uph_mixer_render_strip_body(Uph_MixerStrip strip, Uph_UIMenuID conte
 			}
 
 			leaf({
+				.id = leaf_id_indexed("uph_mixer_meter", track_id),
 				.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW_MIN(NAUI_DPI(UPH_MIXER_METER_MIN_HEIGHT))},
 				.direction = LEAF_DIRECTION_HORIZONTAL,
 				.child_gap = NAUI_DPI(8)
@@ -1507,6 +1515,23 @@ static void uph_mixer_apply_pending_move(void)
 	*move = (Uph_MixerPendingMove){ 0 };
 }
 
+static float uph_mixer_min_meter_height(const Uph_Track *track, float current)
+{
+	if (track->type == UPH_RESOURCE_AUTOMATION)
+		return current;
+
+	const Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed("uph_mixer_meter", (uint64_t)track));
+	if (box.width > 0.0f && box.height > 0.0f)
+		current = NAUI_MIN(current, box.height);
+
+	if (track->type == UPH_RESOURCE_GROUP && !(track->state & UPH_TRACK_MIXER_COLLAPSED))
+	{
+		for (uint32_t i = 0; i < naui_list_len(track->subtracks); i++)
+			current = uph_mixer_min_meter_height(&track->subtracks[i], current);
+	}
+	return current;
+}
+
 static void uph_mixer_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("mixer.title"));
@@ -1517,23 +1542,39 @@ static void uph_mixer_on_update(void)
 	{
 		uph_mixer_data.strip_hovered = false;
 
-        static float scroll = 0.0f;
-        Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
-            UPH_UI_SCROLL_DIRECTION_HORIZONTAL,
-            &scroll,
+        const Leaf_BoundingBox last_content = leaf_get_bounding_box((Leaf_ID){ .value = leaf_id("uph_mixer_scrollbar").value + 1 });
+        float min_meter = FLT_MAX;
+        for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+            min_meter = uph_mixer_min_meter_height(&uph_state.project.tracks[i], min_meter);
+
+        float required_height = 0.0f;
+        if (min_meter < FLT_MAX && last_content.height > 0.0f)
+            required_height = floorf(last_content.height - min_meter + NAUI_DPI(UPH_MIXER_METER_SCROLL_HEIGHT) + 0.5f);
+
+        Uph_UIScrollArea scroll_area = uph_ui_begin_scroll_area(
+            &uph_mixer_data.scroll.x,
+            &uph_mixer_data.scroll.y,
+            required_height,
             leaf_id("uph_mixer_scrollbar")
         );
+
         Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_strip_menu"));
         uph_mixer_data.color_menu = uph_ui_context_menu_custom(leaf_id("uph_mixer_color_menu"), uph_mixer_render_color_menu);
-        uph_mixer_data.visual.settled_x = 0.0f;
-        uph_mixer_render_strip(uph_mixer_strip_master(), context_menu, 0.0f);
-        for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+        leaf({
+            .size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+            .direction = LEAF_DIRECTION_HORIZONTAL
+        })
         {
-            Uph_Track *track = &uph_state.project.tracks[i];
-            uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu, 0.0f);
+            uph_mixer_data.visual.settled_x = 0.0f;
+            uph_mixer_render_strip(uph_mixer_strip_master(), context_menu, 0.0f);
+            for (uint32_t i = 0; i < naui_list_len(uph_state.project.tracks); i++)
+            {
+                Uph_Track *track = &uph_state.project.tracks[i];
+                uph_mixer_render_strip(uph_mixer_strip_track(track), context_menu, 0.0f);
+            }
         }
         uph_mixer_update_drag();
-        uph_ui_end_scroll_container(&scroll_container);
+        uph_ui_end_scroll_area(&scroll_area);
 
 		if (naui_any_mouse_pressed() && !uph_mixer_data.strip_hovered && !uph_ui_any_menu_open())
 			uph_resources_collapse_mixer_selection();

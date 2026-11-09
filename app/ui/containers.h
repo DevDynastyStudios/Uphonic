@@ -18,3 +18,15 @@ Uph_UIScrollContainer;
 
 Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direction, float *out_scroll, Leaf_ID scroll_id);
 void uph_ui_end_scroll_container(Uph_UIScrollContainer *container);
+
+typedef struct
+{
+    Leaf_ID handle_x_id, handle_y_id;
+    float *scroll_x, *scroll_y;
+    Leaf_Vec2 viewport_size;
+    Leaf_Vec2 content_size;
+}
+Uph_UIScrollArea;
+
+Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, float min_content_height, Leaf_ID scroll_id);
+void uph_ui_end_scroll_area(Uph_UIScrollArea *area);
