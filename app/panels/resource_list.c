@@ -457,6 +457,18 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
+static void uph_resource_list_render_drag(const void *payload)
+{
+    const Uph_DragResource *resource = payload;
+    Naui_String *name = uph_resource_list_name(resource->type, resource->index);
+    if (!name)
+        return;
+
+    const char *icon = resource->type == UPH_RESOURCE_PATTERN ? "uph_icon_piano" :
+        resource->type == UPH_RESOURCE_SAMPLE ? "uph_icon_wave" : "uph_icon_automation";
+    uph_drag_label(naui_asset_image(icon), name->data, naui_theme_color("naui_panel_tab_accent_color"));
+}
+
 static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType type, Uph_UIMenuID context_menu, Leaf_ID id)
 {
     bool is_primary = uph_state.shared.selected_resource.index == index && uph_state.shared.selected_resource.type == type;
@@ -468,6 +480,12 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     {
         _Uph_ResourceListItemHovered = true;
         naui_set_cursor(NAUI_CURSOR_HAND);
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        {
+            const Uph_DragResource resource = { .type = type, .index = index };
+            uph_drag_begin(UPH_DRAG_TYPE_RESOURCE, &resource, sizeof(resource), uph_resource_list_render_drag);
+        }
+
         if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
         {
             uph_state.shared.selected_resource.renaming = false;
@@ -720,6 +738,13 @@ static void uph_resource_list_on_update(void)
 	const int32_t icon_size = NAUI_DPI(16);
     uph_resource_list_update_rename();
     uph_resource_list_sync_selection();
+
+    if (naui_panel_is_hovered(naui_panel_current()))
+    {
+        const Naui_Path *dropped_file = uph_drag_drop(UPH_DRAG_TYPE_SAMPLE_FILE);
+        if (dropped_file)
+            uph_sample_browser_add_to_project(*dropped_file, NULL);
+    }
 
     const bool menu_was_open = uph_ui_any_menu_open();
     _Uph_ResourceListItemHovered = false;

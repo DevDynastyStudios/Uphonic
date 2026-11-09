@@ -615,7 +615,9 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 	const float padding = NAUI_DPI(UPH_SAMPLE_EDITOR_LANE_PADDING);
 	for (uint32_t c = 0; c < channels; c++)
 	{
-		const Leaf_BoundingBox lane = { box.x, box.y + lane_height * (float)c, box.width, lane_height };
+		const int32_t lane_top = (int32_t)roundf((float)box.y + lane_height * (float)c);
+		const int32_t lane_bottom = (int32_t)roundf((float)box.y + lane_height * (float)(c + 1));
+		const Leaf_BoundingBox lane = { box.x, lane_top, box.width, lane_bottom - lane_top };
 		const float mid_y = lane.y + lane.height * 0.5f;
 		const float half = fmaxf(1.0f, (lane.height - padding * 2.0f) * 0.5f);
 

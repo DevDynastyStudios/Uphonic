@@ -172,6 +172,8 @@ static bool uph_io_save_settings(const Uph_Project* project, const Naui_Path sav
 	naui_json_set_string(&json, root, "projectName", project->title.data);
 	naui_json_set_number(&json, root, "bpm", project->bpm);
 	naui_json_set_bool(&json, root, "loop_enabled", uph_state.project.loop_enabled);
+	naui_json_set_number(&json, root, "loop_start", uph_state.project.loop_region.start);
+	naui_json_set_number(&json, root, "loop_end", uph_state.project.loop_region.end);
 
 	Naui_JsonValue* time_sig_obj = naui_json_set_array(&json, root, "time_sig");
 	naui_json_push_int(&json, time_sig_obj, project->time_signature.numerator);
@@ -238,6 +240,11 @@ static bool uph_io_save_patterns(const Uph_Project* project, const Naui_Path sav
 		Naui_JsonValue* pattern_obj = naui_json_push_object(&json, root);
 		naui_json_set_string(&json, pattern_obj, "name", pattern->name.data);
 		naui_json_set_string(&json, pattern_obj, "midi_file", filename);
+		if (uph_loop_region_valid(&pattern->loop_region))
+		{
+			naui_json_set_number(&json, pattern_obj, "loop_start", pattern->loop_region.start);
+			naui_json_set_number(&json, pattern_obj, "loop_end", pattern->loop_region.end);
+		}
 	}
 		
 	bool written = naui_json_write_file(root, naui_path_join(save_path, NAUI_PATH(UPH_IO_FILE_PATTERNS)), true);
@@ -558,6 +565,7 @@ static bool uph_io_save_editor_settings(const Uph_State* state, const Naui_Path 
 	uph_io_save_editor_settings_ui(&json, naui_json_set_object(&json, root, "ui"), &settings->ui);
 	uph_io_save_editor_settings_midi(&json, naui_json_set_object(&json, root, "midi"), &settings->midi);
 	uph_io_save_editor_settings_plugin(&json, naui_json_set_object(&json, root, "plugin"), &settings->plugin);
+	uph_io_save_editor_settings_browser(&json, naui_json_set_object(&json, root, "browser"), &settings->browser);
 
 	char temp_name[NAUI_PATH_MAX];
 	snprintf(temp_name, sizeof(temp_name), "%s.tmp", save_path.data);
@@ -643,6 +651,16 @@ static void uph_io_save_editor_settings_plugin(Naui_Json* json, Naui_JsonValue* 
 	naui_json_set_bool(json, object, "sandbox_plugins", plugin->sandbox_plugins);
 }
 
+static void uph_io_save_editor_settings_browser(Naui_Json* json, Naui_JsonValue* object, const Uph_BrowserSettings* browser)
+{
+	Naui_JsonValue* folders = naui_json_set_array(json, object, "folders");
+	for (size_t i = 0; i < (size_t)naui_list_len(browser->folders); i++)
+		naui_json_push_string(json, folders, browser->folders[i].data);
+
+	naui_json_set_number(json, object, "preview_volume", browser->preview_volume);
+	naui_json_set_bool(json, object, "auto_preview", browser->auto_preview);
+}
+
 #pragma endregion
 
 #pragma region Project Loading
@@ -707,6 +725,8 @@ static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path
 	}
 
 	project->loop_enabled = naui_json_get_bool(naui_json_object_get(root, "loop_enabled"), false);
+	project->loop_region.start = naui_json_get_number(naui_json_object_get(root, "loop_start"), 0.0);
+	project->loop_region.end = naui_json_get_number(naui_json_object_get(root, "loop_end"), 0.0);
 
 	const Naui_JsonValue* version = naui_json_object_get(root, "version");
 	if (version && version->type == NAUI_JSON_ARRAY)
@@ -759,6 +779,8 @@ static bool uph_io_load_patterns(Uph_Project* project, const Naui_Path load_path
 			}
 			else
 				naui_log(NAUI_LOG_WARNING, "Found malformed file name in patterns, loading it as an empty pattern");
+			pattern.loop_region.start = naui_json_get_number(naui_json_object_get(value, "loop_start"), 0.0);
+			pattern.loop_region.end = naui_json_get_number(naui_json_object_get(value, "loop_end"), 0.0);
 		}
 		else
 			naui_log(NAUI_LOG_WARNING, "Found malformed pattern entry, loading it as an empty pattern");
@@ -1384,6 +1406,9 @@ static bool uph_io_load_editor_settings(Uph_State* state, const Naui_Path load_p
 	if ((section = naui_json_object_get(root, "plugin")))
 		uph_io_load_editor_settings_plugin(&settings->plugin, section);
 
+	if ((section = naui_json_object_get(root, "browser")))
+		uph_io_load_editor_settings_browser(&settings->browser, section);
+
 	naui_json_free(&json);
 	return true;
 }
@@ -1456,6 +1481,23 @@ static void uph_io_load_editor_settings_plugin(Uph_PluginSettings* plugin, const
 		const char* text = naui_json_get_string(value, NULL);
 		if (text && text[0])
 			naui_list_push(plugin->plugin_paths, naui_path_from_cstr(text));
+	}
+}
+
+static void uph_io_load_editor_settings_browser(Uph_BrowserSettings* browser, const Naui_JsonValue* object)
+{
+	uph_io_read_float(object, "preview_volume", &browser->preview_volume);
+	uph_io_read_bool(object, "auto_preview", &browser->auto_preview);
+	const Naui_JsonValue* folders = naui_json_object_get(object, "folders");
+	if (!folders || folders->type != NAUI_JSON_ARRAY)
+		return;
+
+	naui_list_clear(browser->folders);
+	NAUI_JSON_FOREACH(folders, key, value)
+	{
+		const char* text = naui_json_get_string(value, NULL);
+		if (text && text[0])
+			naui_list_push(browser->folders, naui_path_from_cstr(text));
 	}
 }
 

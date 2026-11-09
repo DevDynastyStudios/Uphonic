@@ -48,7 +48,7 @@ void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const 
 		(Naui_Vec2){ note_box.z, note_box.w },
 		uph_color_mix(color, leaf_rgba(255, 255, 255, 255), 0.35f),
 		NAUI_DPI(3.0f),
-		box
+		naui_panel_bounding_box(uph_state.panels.resource_editor)
 	);
 }
 
@@ -102,6 +102,7 @@ void uph_midi_editor_reset_interaction(void)
 	_uph_midi_editor_send_preview(uph_piano_release_mouse(&editor->piano));
 	_uph_midi_editor_set_audition(editor, -1, 0);
 	editor->playhead_dragging = false;
+	editor->loop_drag.mode = UPH_LOOP_DRAG_NONE;
 	uph_midi_preview_pause();
 }
 
@@ -150,8 +151,26 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Le
 {
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
 	const bool over_ruler = uph_song_timeline_vec4_contains_vec2((Naui_Vec4) { box.x, box.y, box.width, box.height }, mouse);
+	Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 
-	if (!editor->playhead_dragging && over_ruler && editor->panel_hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+	bool loop_busy = false;
+	if (pattern)
+	{
+		loop_busy = uph_loop_region_update(
+			&pattern->loop_region, &editor->loop_drag, box,
+			editor->view.zoom.x, editor->view.scroll.x, uph_snap_division(editor->snap_resolution),
+			!editor->playhead_dragging && editor->panel_hovered
+		);
+		if (editor->loop_drag.created)
+		{
+			editor->loop_drag.created = false;
+			uph_midi_preview_set_loop(true);
+		}
+	}
+	else
+		editor->loop_drag.mode = UPH_LOOP_DRAG_NONE;
+
+	if (!editor->playhead_dragging && !loop_busy && over_ruler && editor->panel_hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{
 		editor->playhead_dragging = true;
 		editor->playhead_drag_beat = -1.0;
@@ -161,10 +180,11 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Le
 		return;
 
 	double beat = fmax(0.0, uph_snap_beat_floor(uph_midi_view_x_to_beat(&editor->view, box, mouse.x), editor->snap_resolution));
-	const Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 	if (pattern)
 	{
-		const double length = uph_midi_preview_loop_length(pattern);
+		double length = uph_midi_preview_loop_length(pattern);
+		if (uph_midi_preview_looping() && uph_loop_region_valid(&pattern->loop_region))
+			length = fmax(length, pattern->loop_region.end);
 		if (beat >= length)
 			beat = fmax(0.0, length - uph_snap_division(editor->snap_resolution));
 	}
@@ -303,6 +323,7 @@ static void _uph_midi_editor_lanes_draw(Leaf_BoundingBox box, void *user_data)
 	uph_midi_note_input_update(editor, box, pattern);
 	_uph_midi_editor_update_audition(editor, pattern);
 	_uph_midi_editor_render_loop_end(editor, box, pattern);
+	uph_loop_region_render_bounds(&pattern->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), editor->view.zoom.x, editor->view.scroll.x, uph_midi_preview_looping());
 	uph_midi_notes_render(box, &editor->view, &editor->note_map, pattern);
 	uph_midi_notes_render_marquee(&editor->view, box, &editor->note_input.marquee);
 	naui_pop_clip_rect();
@@ -312,6 +333,9 @@ static void _uph_midi_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
 	Uph_MidiEditorData *editor = &uph_midi_editor_data;
 	_uph_midi_editor_update_playhead_drag(editor, box);
+	const Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
+	if (pattern)
+		uph_loop_region_render_ruler(&pattern->loop_region, box, editor->view.zoom.x, editor->view.scroll.x, uph_midi_preview_looping());
 	uph_midi_grid_render_ruler(box, &editor->view, editor->snap_resolution);
 }
 

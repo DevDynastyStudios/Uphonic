@@ -133,6 +133,7 @@ NAUI_API void               naui_panel_register_type        (const char *name, N
 NAUI_API void               naui_panel_open                 (Naui_PanelID panel_id);
 NAUI_API void               naui_panel_close                (Naui_PanelID panel_id);
 NAUI_API bool               naui_panel_closed               (Naui_PanelID panel_id);
+NAUI_API Leaf_BoundingBox   naui_panel_bounding_box         (Naui_PanelID panel_id);
 
 NAUI_API void               naui_panel_set_title            (Naui_PanelID panel_id, const char *title);
 NAUI_API void               naui_panel_set_size             (Naui_PanelID panel_id, Naui_Vec2 size);

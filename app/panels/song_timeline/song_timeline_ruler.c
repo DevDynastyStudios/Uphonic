@@ -14,7 +14,18 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 		(Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() }
 	);
 
-	if (!dragging_playhead && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
+	const bool loop_busy = uph_loop_region_update(
+		&uph_state.project.loop_region, &data->loop_drag, bbox,
+		data->zoom.x, data->scroll.x, uph_snap_division(data->snap_resolution),
+		!dragging_playhead && naui_panel_is_hovered(uph_state.panels.song_timeline)
+	);
+	if (data->loop_drag.created)
+	{
+		data->loop_drag.created = false;
+		uph_state.project.loop_enabled = true;
+	}
+
+	if (!dragging_playhead && !loop_busy && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
 	{
 		dragging_playhead = true;
 		drag_beat = -1.0;
@@ -25,7 +36,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 
 	const double mouse_beat_raw = ((double)naui_mouse_x() - bbox.x + data->scroll.x) / data->zoom.x;
 	double beat = fmax(0.0, uph_snap_beat_floor(mouse_beat_raw, data->snap_resolution));
-	if (uph_state.project.loop_enabled)
+	if (uph_state.project.loop_enabled && !uph_loop_region_valid(&uph_state.project.loop_region))
 	{
 		const double length = uph_audio_engine_get_song_length();
 		if (length > 0.0 && beat >= length)
@@ -46,6 +57,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)
 {
 	uph_song_timeline_update_playhead_drag(bbox);
+	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, uph_song_timeline_data.zoom.x, uph_song_timeline_data.scroll.x, uph_state.project.loop_enabled);
 	uph_grid_render_ruler(bbox, uph_song_timeline_data.zoom.x, uph_song_timeline_data.scroll.x, uph_snap_division(uph_song_timeline_data.snap_resolution));
 }
 
@@ -106,6 +118,12 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 			NAUI_DPI(1.0f)
 		);
 	}
+
+	uph_loop_region_render_bounds(
+		&uph_state.project.loop_region,
+		bbox.x + x_offset, bbox.y + NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT), bbox.y + bbox.height,
+		uph_song_timeline_data.zoom.x, uph_song_timeline_data.scroll.x, uph_state.project.loop_enabled
+	);
 
 	const Uph_MarqueeState *marquee = &uph_song_timeline_data.marquee;
 	const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * uph_song_timeline_data.zoom.x - uph_song_timeline_data.scroll.x;

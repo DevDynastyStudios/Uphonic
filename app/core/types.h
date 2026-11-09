@@ -76,6 +76,14 @@ typedef struct Uph_PluginSettings
 }
 Uph_PluginSettings;
 
+typedef struct Uph_BrowserSettings
+{
+	Naui_List(Naui_Path) folders;
+	float preview_volume;
+	bool auto_preview;
+}
+Uph_BrowserSettings;
+
 typedef uint8_t Uph_SaveType;
 enum
 {
@@ -189,8 +197,16 @@ Uph_MidiNote;
 
 typedef struct
 {
+	double start;
+	double end;
+}
+Uph_LoopRegion;
+
+typedef struct
+{
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
+	Uph_LoopRegion loop_region;
 	struct
 	{
 		float lifetime;
@@ -399,6 +415,7 @@ typedef struct
 	uint64_t last_accessed;
 	uint64_t last_modified;
 	float bpm;
+	Uph_LoopRegion loop_region;
 	bool loop_enabled;
 }
 Uph_Project;
@@ -410,6 +427,7 @@ typedef struct
 	Uph_UISettings ui;
 	Uph_MIDISettings midi;
 	Uph_PluginSettings plugin;
+	Uph_BrowserSettings browser;
 }
 Uph_Settings;
 
@@ -469,6 +487,7 @@ typedef struct
 	Naui_PanelID settings;
 	Naui_PanelID plugin_list;
 	Naui_PanelID automation_list;
+	Naui_PanelID sample_browser;
 }
 Uph_Panels;
 

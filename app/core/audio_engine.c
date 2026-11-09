@@ -943,7 +943,7 @@ static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *tra
 
         uph_mark_block_held_notes(track, &block, range.end_beat, should_be_held);
 
-        if (!range.loop)
+        if (!range.repeat)
             break;
     }
 }
@@ -981,7 +981,8 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
         track->pan_release_requested = false;
     }
 
-    if (!uph_track_is_audible(project, track))
+    const bool audible = uph_track_is_audible(project, track);
+    if (!audible && track->type != UPH_RESOURCE_PATTERN && track->type != UPH_RESOURCE_GROUP)
     {
         uph_clear_track_peaks(track);
         return;
@@ -1127,7 +1128,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
             uph_queue_preview_notes(ctx, track, should_be_held);
 
-            if (ctx->timeline_playing)
+            if (ctx->timeline_playing && audible)
             {
                 for (uint64_t b = 0; b < block_count; b++)
                 {
@@ -1151,7 +1152,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
             for (int key = 0; key < 128; key++)
             {
-                if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !((uph_track_monitors_instrument(track) || track == uph_midi_preview_live_target()) && uph_midi_recorder_key_held((uint8_t)key)))
+                if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
                     uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
             }
 
@@ -1741,6 +1742,432 @@ static void uph_audio_engine_read_input(float *dst, ma_uint32 frame_count, ma_ui
     }
 }
 
+#define UPH_PREVIEW_STREAM_THRESHOLD_SECONDS 30
+#define UPH_PREVIEW_STREAM_BUFFER_SECONDS 2
+#define UPH_PREVIEW_STREAM_CHUNK_FRAMES 4096
+#define UPH_PREVIEW_PEAK_CHUNK_FRAMES (UPH_WAVEFORM_BIN_FRAMES * 64)
+#define UPH_PREVIEW_STREAM_IDLE_MS 5
+
+struct Uph_PreviewStream
+{
+    ma_decoder decoder;
+    ma_decoder peak_decoder;
+    ma_pcm_rb buffer;
+    Naui_Thread thread;
+    Naui_Path path;
+    float *peak_scratch;
+    Uph_WaveformPeak *peaks;
+    uint64_t peak_capacity;
+    _Atomic uint64_t peak_count;
+    uint64_t frame_count;
+    uint32_t original_sample_rate;
+    Uph_SampleChannelType channel_type;
+    atomic_bool stop;
+    atomic_bool seek_request;
+    atomic_bool end_of_stream;
+    bool decoder_ready;
+    bool peak_decoder_ready;
+    bool buffer_ready;
+    bool peaks_done;
+};
+
+static struct
+{
+    volatile ma_spinlock lock;
+    Uph_PreviewSource source;
+    _Atomic uint64_t position;
+    _Atomic bool playing;
+}
+uph_audio_engine_preview;
+
+static ma_result uph_preview_decoder_init_file(const Naui_Path *path, const ma_decoder_config *config, ma_decoder *decoder)
+{
+#if defined(_WIN32) || defined(_WIN64)
+    wchar_t wide_path[NAUI_PATH_MAX];
+    if (MultiByteToWideChar(CP_UTF8, 0, path->data, -1, wide_path, NAUI_PATH_MAX) > 0)
+        return ma_decoder_init_file_w(wide_path, config, decoder);
+#endif
+    return ma_decoder_init_file(path->data, config, decoder);
+}
+
+static bool uph_preview_stream_fill_chunk(Uph_PreviewStream *stream)
+{
+    if (atomic_load_explicit(&stream->end_of_stream, memory_order_acquire))
+        return false;
+
+    ma_uint32 frames = UPH_PREVIEW_STREAM_CHUNK_FRAMES;
+    void *region = NULL;
+    if (ma_pcm_rb_acquire_write(&stream->buffer, &frames, &region) != MA_SUCCESS || frames == 0)
+        return false;
+
+    ma_uint64 frames_read = 0;
+    const ma_result result = ma_decoder_read_pcm_frames(&stream->decoder, region, frames, &frames_read);
+    ma_pcm_rb_commit_write(&stream->buffer, (ma_uint32)frames_read);
+
+    if (result != MA_SUCCESS || frames_read < frames)
+        atomic_store_explicit(&stream->end_of_stream, true, memory_order_release);
+
+    return frames_read > 0;
+}
+
+static void uph_preview_stream_prefill(Uph_PreviewStream *stream)
+{
+    while (uph_preview_stream_fill_chunk(stream))
+    {
+    }
+}
+
+static void uph_preview_stream_peaks_chunk(Uph_PreviewStream *stream)
+{
+    if (!stream->peak_decoder_ready || !stream->peaks || !stream->peak_scratch)
+    {
+        stream->peaks_done = true;
+        return;
+    }
+
+    ma_uint64 frames_read = 0;
+    const ma_result result = ma_decoder_read_pcm_frames(&stream->peak_decoder, stream->peak_scratch, UPH_PREVIEW_PEAK_CHUNK_FRAMES, &frames_read);
+
+    uint64_t count = atomic_load_explicit(&stream->peak_count, memory_order_relaxed);
+    for (uint64_t start = 0; start < frames_read && count < stream->peak_capacity; start += UPH_WAVEFORM_BIN_FRAMES, count++)
+    {
+        uint64_t end = start + UPH_WAVEFORM_BIN_FRAMES;
+        if (end > frames_read)
+            end = frames_read;
+
+        float min_v = 1.0f;
+        float max_v = -1.0f;
+        for (uint64_t f = start; f < end; f++)
+        {
+            const float value = (stream->peak_scratch[f * 2 + 0] + stream->peak_scratch[f * 2 + 1]) * 0.5f;
+            if (value < min_v) min_v = value;
+            if (value > max_v) max_v = value;
+        }
+
+        stream->peaks[count] = (Uph_WaveformPeak){
+            .min = uph_waveform_encode_uint16(min_v),
+            .max = uph_waveform_encode_uint16(max_v)
+        };
+    }
+    atomic_store_explicit(&stream->peak_count, count, memory_order_release);
+
+    if (result != MA_SUCCESS || frames_read < UPH_PREVIEW_PEAK_CHUNK_FRAMES || count >= stream->peak_capacity)
+        stream->peaks_done = true;
+}
+
+static int uph_preview_stream_thread(void *arg)
+{
+    Uph_PreviewStream *stream = arg;
+
+    while (!atomic_load_explicit(&stream->stop, memory_order_acquire))
+    {
+        if (atomic_load_explicit(&stream->seek_request, memory_order_acquire))
+        {
+            ma_pcm_rb_reset(&stream->buffer);
+            ma_decoder_seek_to_pcm_frame(&stream->decoder, 0);
+            atomic_store_explicit(&stream->end_of_stream, false, memory_order_release);
+            uph_preview_stream_prefill(stream);
+            atomic_store_explicit(&stream->seek_request, false, memory_order_release);
+        }
+
+        if (uph_preview_stream_fill_chunk(stream))
+            continue;
+
+        if (!stream->peaks_done)
+        {
+            uph_preview_stream_peaks_chunk(stream);
+            continue;
+        }
+
+        naui_thread_sleep_ms(UPH_PREVIEW_STREAM_IDLE_MS);
+    }
+
+    return 0;
+}
+
+static void uph_preview_stream_free(Uph_PreviewStream *stream)
+{
+    if (!stream)
+        return;
+
+    if (stream->thread)
+    {
+        atomic_store_explicit(&stream->stop, true, memory_order_release);
+        naui_thread_join(stream->thread, NULL);
+    }
+
+    if (stream->decoder_ready)
+        ma_decoder_uninit(&stream->decoder);
+
+    if (stream->peak_decoder_ready)
+        ma_decoder_uninit(&stream->peak_decoder);
+
+    if (stream->buffer_ready)
+        ma_pcm_rb_uninit(&stream->buffer);
+
+    free(stream->peak_scratch);
+    free(stream->peaks);
+    free(stream);
+}
+
+static Uph_PreviewStream *uph_preview_stream_open(const Naui_Path path, uint32_t device_rate, uint64_t frame_count, uint32_t original_sample_rate, ma_uint32 native_channels)
+{
+    Uph_PreviewStream *stream = calloc(1, sizeof(Uph_PreviewStream));
+    if (!stream)
+        return NULL;
+
+    stream->path = path;
+    stream->frame_count = frame_count;
+    stream->original_sample_rate = original_sample_rate;
+    stream->channel_type = native_channels == 1 ? UPH_SAMPLE_MONO : UPH_SAMPLE_STEREO;
+    atomic_init(&stream->peak_count, 0);
+    atomic_init(&stream->stop, false);
+    atomic_init(&stream->seek_request, false);
+    atomic_init(&stream->end_of_stream, false);
+
+    const ma_decoder_config config = ma_decoder_config_init(ma_format_f32, 2, device_rate);
+    stream->decoder_ready = uph_preview_decoder_init_file(&path, &config, &stream->decoder) == MA_SUCCESS;
+    stream->buffer_ready = stream->decoder_ready &&
+        ma_pcm_rb_init(ma_format_f32, 2, device_rate * UPH_PREVIEW_STREAM_BUFFER_SECONDS, NULL, NULL, &stream->buffer) == MA_SUCCESS;
+
+    if (!stream->buffer_ready)
+    {
+        fprintf(stderr, "uph_preview_stream_open: failed to open '%s'\n", path.data);
+        uph_preview_stream_free(stream);
+        return NULL;
+    }
+
+    if (frame_count > 0)
+    {
+        stream->peak_capacity = (frame_count + UPH_WAVEFORM_BIN_FRAMES - 1) / UPH_WAVEFORM_BIN_FRAMES;
+        stream->peaks = calloc((size_t)stream->peak_capacity, sizeof(Uph_WaveformPeak));
+        stream->peak_scratch = malloc(UPH_PREVIEW_PEAK_CHUNK_FRAMES * 2 * sizeof(float));
+        stream->peak_decoder_ready = stream->peaks && stream->peak_scratch &&
+            uph_preview_decoder_init_file(&path, &config, &stream->peak_decoder) == MA_SUCCESS;
+    }
+
+    stream->peaks_done = !stream->peak_decoder_ready;
+    uph_preview_stream_prefill(stream);
+    return stream;
+}
+
+Uph_PreviewSource uph_audio_engine_preview_open(const Naui_Path path)
+{
+    Uph_PreviewSource source = { 0 };
+    const uint32_t device_rate = uph_audio_engine_data.device.sampleRate;
+
+    ma_decoder probe;
+    const ma_decoder_config probe_config = ma_decoder_config_init(ma_format_f32, 0, 0);
+    if (uph_preview_decoder_init_file(&path, &probe_config, &probe) == MA_SUCCESS)
+    {
+        const uint32_t original_sample_rate = probe.outputSampleRate;
+        const ma_uint32 native_channels = probe.outputChannels;
+        ma_uint64 native_length = 0;
+        ma_decoder_get_length_in_pcm_frames(&probe, &native_length);
+        ma_decoder_uninit(&probe);
+
+        const uint64_t frame_count = original_sample_rate > 0
+            ? (uint64_t)((double)native_length * (double)device_rate / (double)original_sample_rate)
+            : 0;
+
+        if (frame_count == 0 || frame_count > (uint64_t)device_rate * UPH_PREVIEW_STREAM_THRESHOLD_SECONDS)
+        {
+            source.stream = uph_preview_stream_open(path, device_rate, frame_count, original_sample_rate, native_channels);
+            if (source.stream)
+                return source;
+        }
+    }
+
+    Uph_SampleData *data = malloc(sizeof(Uph_SampleData));
+    if (!data)
+        return source;
+
+    *data = uph_audio_engine_load_sample_data(path);
+    if (!uph_audio_engine_sample_data_valid(data))
+    {
+        uph_audio_engine_unload_sample_data(data);
+        free(data);
+        return source;
+    }
+
+    source.data = data;
+    return source;
+}
+
+bool uph_audio_engine_preview_source_valid(const Uph_PreviewSource *source)
+{
+    return source->data || source->stream;
+}
+
+void uph_audio_engine_preview_close(Uph_PreviewSource *source)
+{
+    if (source->data)
+    {
+        uph_audio_engine_unload_sample_data(source->data);
+        free(source->data);
+    }
+
+    uph_preview_stream_free(source->stream);
+    *source = (Uph_PreviewSource){ 0 };
+}
+
+static void uph_audio_engine_preview_mix_stream(Uph_PreviewStream *stream, float *out, ma_uint32 frame_count, float gain)
+{
+    if (atomic_load_explicit(&stream->seek_request, memory_order_acquire))
+        return;
+
+    uint64_t position = atomic_load_explicit(&uph_audio_engine_preview.position, memory_order_relaxed);
+    ma_uint32 mixed = 0;
+    while (mixed < frame_count)
+    {
+        ma_uint32 frames = frame_count - mixed;
+        void *region = NULL;
+        if (ma_pcm_rb_acquire_read(&stream->buffer, &frames, &region) != MA_SUCCESS || frames == 0)
+            break;
+
+        const float *samples = region;
+        for (ma_uint32 f = 0; f < frames; f++)
+        {
+            out[(mixed + f) * 2 + 0] += samples[f * 2 + 0] * gain;
+            out[(mixed + f) * 2 + 1] += samples[f * 2 + 1] * gain;
+        }
+
+        ma_pcm_rb_commit_read(&stream->buffer, frames);
+        mixed += frames;
+        position += frames;
+    }
+    atomic_store_explicit(&uph_audio_engine_preview.position, position, memory_order_relaxed);
+
+    if (mixed < frame_count && atomic_load_explicit(&stream->end_of_stream, memory_order_acquire) && ma_pcm_rb_available_read(&stream->buffer) == 0)
+        atomic_store_explicit(&uph_audio_engine_preview.playing, false, memory_order_release);
+}
+
+static void uph_audio_engine_preview_mix_data(const Uph_SampleData *data, float *out, ma_uint32 frame_count, float gain)
+{
+    uint64_t position = atomic_load_explicit(&uph_audio_engine_preview.position, memory_order_relaxed);
+    const bool stereo = data->channel_type == UPH_SAMPLE_STEREO;
+    for (ma_uint32 f = 0; f < frame_count && position < data->frame_count; f++, position++)
+    {
+        const float left = stereo ? data->frames[position * 2 + 0] : data->frames[position];
+        const float right = stereo ? data->frames[position * 2 + 1] : left;
+        out[f * 2 + 0] += left * gain;
+        out[f * 2 + 1] += right * gain;
+    }
+    atomic_store_explicit(&uph_audio_engine_preview.position, position, memory_order_relaxed);
+
+    if (position >= data->frame_count)
+        atomic_store_explicit(&uph_audio_engine_preview.playing, false, memory_order_release);
+}
+
+static void uph_audio_engine_preview_mix(float *out, ma_uint32 frame_count)
+{
+    if (!atomic_load_explicit(&uph_audio_engine_preview.playing, memory_order_acquire))
+        return;
+
+    ma_spinlock_lock(&uph_audio_engine_preview.lock);
+    const float gain = NAUI_CLAMP(uph_state.settings.browser.preview_volume, 0.0f, 1.0f);
+    const Uph_PreviewSource source = uph_audio_engine_preview.source;
+
+    if (source.data && source.data->frames)
+        uph_audio_engine_preview_mix_data(source.data, out, frame_count, gain);
+    else if (source.stream)
+        uph_audio_engine_preview_mix_stream(source.stream, out, frame_count, gain);
+    else
+        atomic_store_explicit(&uph_audio_engine_preview.playing, false, memory_order_release);
+
+    ma_spinlock_unlock(&uph_audio_engine_preview.lock);
+}
+
+void uph_audio_engine_preview_play(Uph_PreviewSource source)
+{
+    if (source.stream && !source.stream->thread)
+    {
+        source.stream->thread = naui_thread_create(uph_preview_stream_thread, source.stream);
+        if (!source.stream->thread)
+        {
+            uph_audio_engine_preview_close(&source);
+            return;
+        }
+    }
+
+    ma_spinlock_lock(&uph_audio_engine_preview.lock);
+    Uph_PreviewSource old = uph_audio_engine_preview.source;
+    uph_audio_engine_preview.source = source;
+    atomic_store_explicit(&uph_audio_engine_preview.position, 0, memory_order_relaxed);
+    atomic_store_explicit(&uph_audio_engine_preview.playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
+    ma_spinlock_unlock(&uph_audio_engine_preview.lock);
+
+    uph_audio_engine_preview_close(&old);
+}
+
+void uph_audio_engine_preview_restart(void)
+{
+    ma_spinlock_lock(&uph_audio_engine_preview.lock);
+    const Uph_PreviewSource source = uph_audio_engine_preview.source;
+    if (source.stream)
+        atomic_store_explicit(&source.stream->seek_request, true, memory_order_release);
+
+    atomic_store_explicit(&uph_audio_engine_preview.position, 0, memory_order_relaxed);
+    atomic_store_explicit(&uph_audio_engine_preview.playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
+    ma_spinlock_unlock(&uph_audio_engine_preview.lock);
+}
+
+void uph_audio_engine_preview_stop(void)
+{
+    atomic_store_explicit(&uph_audio_engine_preview.playing, false, memory_order_release);
+}
+
+bool uph_audio_engine_preview_playing(void)
+{
+    return atomic_load_explicit(&uph_audio_engine_preview.playing, memory_order_acquire);
+}
+
+double uph_audio_engine_preview_progress(void)
+{
+    const Uph_PreviewSource source = uph_audio_engine_preview.source;
+    const uint64_t frame_count = source.data ? source.data->frame_count : source.stream ? source.stream->frame_count : 0;
+    if (frame_count == 0)
+        return 0.0;
+
+    return (double)atomic_load_explicit(&uph_audio_engine_preview.position, memory_order_relaxed) / (double)frame_count;
+}
+
+bool uph_audio_engine_preview_info(Uph_PreviewInfo *out)
+{
+    const Uph_PreviewSource source = uph_audio_engine_preview.source;
+    if (source.data)
+    {
+        *out = (Uph_PreviewInfo){
+            .path = &source.data->file_path,
+            .peaks = source.data->waveform_peaks,
+            .peak_count = (uint64_t)naui_list_len(source.data->waveform_peaks),
+            .peak_total = (uint64_t)naui_list_len(source.data->waveform_peaks),
+            .frame_count = source.data->frame_count,
+            .original_sample_rate = source.data->original_sample_rate,
+            .channel_type = source.data->channel_type,
+            .streaming = false
+        };
+        return true;
+    }
+
+    if (source.stream)
+    {
+        *out = (Uph_PreviewInfo){
+            .path = &source.stream->path,
+            .peaks = source.stream->peaks,
+            .peak_count = atomic_load_explicit(&source.stream->peak_count, memory_order_acquire),
+            .peak_total = source.stream->peak_capacity,
+            .frame_count = source.stream->frame_count,
+            .original_sample_rate = source.stream->original_sample_rate,
+            .channel_type = source.stream->channel_type,
+            .streaming = true
+        };
+        return true;
+    }
+
+    return false;
+}
+
 static void uph_audio_engine_render_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
     static bool was_playing = false;
@@ -1789,6 +2216,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     uph_midi_preview_begin_buffer(frame_count, engine_sample_rate, bpm, is_playing);
     uph_render_audio(playhead_start_beat, engine_sample_rate, rendered, frame_count, is_playing, input_f);
     uph_midi_preview_end_buffer();
+    uph_audio_engine_preview_mix(rendered, frame_count);
 
     if (output_channels != 2)
     {
@@ -1840,8 +2268,17 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     if (is_playing && bpm > 0.0f)
     {
         double new_beat = buffer_end_beat;
-        if (uph_state.project.loop_enabled && new_beat >= uph_audio_engine_get_song_length() && !uph_has_active_take(uph_state.project.tracks))
-            new_beat = 0.0;
+        if (uph_state.project.loop_enabled && !uph_has_active_take(uph_state.project.tracks))
+        {
+            const Uph_LoopRegion region = uph_state.project.loop_region;
+            if (!uph_loop_region_valid(&region))
+            {
+                if (new_beat >= uph_audio_engine_get_song_length())
+                    new_beat = 0.0;
+            }
+            else if (playhead_start_beat < region.end && new_beat >= region.end)
+                new_beat = region.start;
+        }
 
         uph_state.shared.song_timeline_playhead_position = new_beat;
     }
@@ -1985,6 +2422,7 @@ void uph_audio_engine_init(void)
 void uph_audio_engine_shutdown(void)
 {
     uph_audio_engine_uninit_device();
+    uph_audio_engine_preview_play((Uph_PreviewSource){ 0 });
 
     if (uph_audio_engine_data.context_ready)
     {
@@ -2125,35 +2563,22 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
     return sample_data;
 }
 
-static double uph_tracks_end_beat(const Uph_Project *project, Naui_List(Uph_Track) tracks)
+static double uph_tracks_end_beat(Naui_List(Uph_Track) tracks)
 {
     double max_end_beat = 0.0;
-    uint64_t track_count = naui_list_len(tracks);
-
-    for (uint64_t t = 0; t < track_count; t++)
+    for (uint64_t t = 0; t < naui_list_len(tracks); t++)
     {
-        Uph_Track *track = &tracks[t];
-        if (track->type == UPH_RESOURCE_AUTOMATION || !uph_track_is_audible(project, track))
-            continue;
-
-        uint64_t block_count = naui_list_len(track->blocks);
-
-        for (uint64_t b = 0; b < block_count; b++)
+        const Uph_Track *track = &tracks[t];
+        for (uint64_t b = 0; b < naui_list_len(track->blocks); b++)
         {
-            Uph_TimelineBlock *block = &track->blocks[b];
-            double block_end = block->start_beat + block->length_beats;
-
+            const double block_end = track->blocks[b].start_beat + track->blocks[b].length_beats;
             if (block_end > max_end_beat)
                 max_end_beat = block_end;
         }
 
-        // Groups hold other tracks; on any other track the subtracks are automation lanes, which don't extend the song.
-        if (track->type == UPH_RESOURCE_GROUP)
-        {
-            double children_end = uph_tracks_end_beat(project, track->subtracks);
-            if (children_end > max_end_beat)
-                max_end_beat = children_end;
-        }
+        const double children_end = uph_tracks_end_beat(track->subtracks);
+        if (children_end > max_end_beat)
+            max_end_beat = children_end;
     }
 
     return max_end_beat;
@@ -2161,8 +2586,7 @@ static double uph_tracks_end_beat(const Uph_Project *project, Naui_List(Uph_Trac
 
 double uph_audio_engine_get_song_length_beats(void)
 {
-    Uph_Project *project = &uph_state.project;
-    return uph_tracks_end_beat(project, project->tracks);
+    return uph_tracks_end_beat(uph_state.project.tracks);
 }
 
 double uph_audio_engine_get_song_length_seconds(void)

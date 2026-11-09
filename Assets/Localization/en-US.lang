@@ -144,6 +144,18 @@
 	"resource_list.samples.title": "Samples",
 	"resource_list.title": "Resources",
 
+	"sample_browser.title": "Browser",
+	"sample_browser.search": "Search samples",
+	"sample_browser.add_folder": "Add Folder",
+	"sample_browser.remove_folder": "Remove Folder",
+	"sample_browser.rescan": "Rescan",
+	"sample_browser.add_to_project": "Add to Project",
+	"sample_browser.preview": "Preview",
+	"sample_browser.indexing": "Indexing...",
+	"sample_browser.empty": "Add a folder to browse your samples.",
+	"sample_browser.no_matches": "No matching samples",
+	"sample_browser.no_samples": "No samples found",
+
 	"sample.default.name": "Untitled Sample",
 	"sample.recording.default.name": "Untitled Recording",
 

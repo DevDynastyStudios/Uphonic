@@ -144,6 +144,7 @@ typedef struct
 	Uph_SnapResolution snap_resolution;
 	Naui_Vec2 pan_last_mouse;
 	Uph_ResourceIndex playing_pattern;
+	Uph_LoopRegionDrag loop_drag;
 	double playhead_drag_beat;
 	int16_t audition_key;
 	bool panning;

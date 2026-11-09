@@ -140,6 +140,18 @@
 "resource_list.samples.title": "Échantillons",
 "resource_list.title": "Ressources",
 
+"sample_browser.title": "Navigateur",
+"sample_browser.search": "Rechercher des samples",
+"sample_browser.add_folder": "Ajouter un dossier",
+"sample_browser.remove_folder": "Retirer le dossier",
+"sample_browser.rescan": "Réanalyser",
+"sample_browser.add_to_project": "Ajouter au projet",
+"sample_browser.preview": "Écouter",
+"sample_browser.indexing": "Indexation...",
+"sample_browser.empty": "Ajoutez un dossier pour parcourir vos samples.",
+"sample_browser.no_matches": "Aucun sample correspondant",
+"sample_browser.no_samples": "Aucun sample trouvé",
+
 "sample.default.name": "Échantillon sans nom",
 
 "settings.audio.apply": "Appliquer",

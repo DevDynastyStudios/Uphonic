@@ -143,8 +143,7 @@ static int _uph_midi_thru_filter(const uint8_t* bytes, uint8_t length, void* use
 {
 	(void)userdata;
 	const bool is_note_on = (bytes[0] & 0xF0) == CMIDI_CODE_NOTE_ON && length >= 3 && bytes[2] > 0;
-	const bool consumed = atomic_load_explicit(&s_midi_instrument_monitoring, memory_order_relaxed) || uph_midi_preview_live_target();
-	return !(is_note_on && consumed);
+	return !(is_note_on && atomic_load_explicit(&s_midi_instrument_monitoring, memory_order_relaxed));
 }
  
 static void _uph_route_monitored_note_event(Uph_Track* track, const cmidi_event_t* event, bool note_on)
@@ -168,18 +167,9 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 	{
 		uph_midi_recorder_input(note_on, event->note, event->velocity);
  
-		Uph_Track* live_target = uph_midi_preview_live_target();
-		if (live_target)
+		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 		{
-			if (uph_midi_preview_is_voice_candidate(live_target))
-				uph_plugin_queue_note_event(&live_target->instrument, note_on, event->note, 0, event->velocity, 0);
-		}
-		else
-		{
-			for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-			{
-				_uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
-			}
+			_uph_route_monitored_note_event(&uph_state.project.tracks[i], event, note_on);
 		}
 	}
  
@@ -208,11 +198,13 @@ void naui_app_start(void)
 	naui_panel_close(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
 	naui_panel_close(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 	naui_panel_close(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
+	uph_state.panels.sample_browser = NAUI_ATTACH_PANEL(uph_sample_browser);
  
 	naui_panel_enable_flags(uph_state.panels.song_timeline, NAUI_PANEL_FLAG_SERIALIZABLE);
 	naui_panel_enable_flags(uph_state.panels.resource_list, NAUI_PANEL_FLAG_SERIALIZABLE);
 	naui_panel_enable_flags(uph_state.panels.mixer, NAUI_PANEL_FLAG_SERIALIZABLE);
 	naui_panel_enable_flags(uph_state.panels.resource_editor, NAUI_PANEL_FLAG_SERIALIZABLE);
+	naui_panel_enable_flags(uph_state.panels.sample_browser, NAUI_PANEL_FLAG_SERIALIZABLE);
  
 	uph_file_dialog_register();
  
@@ -244,6 +236,7 @@ void naui_app_end(void)
 	uph_recovery_release_lock();
 	uph_plugin_prefetch_abort();
 	uph_plugin_scan_shutdown();
+	uph_sample_browser_shutdown();
 	naui_jobs_shutdown();
 
 	naui_log(NAUI_LOG_INFO, "Saving Settings...");
@@ -255,6 +248,7 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Destoying Actions...");
 	uph_action_shutdown();
+	uph_particles_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
 	uph_resources_clear_tracks();
@@ -309,16 +303,17 @@ void naui_app_update(void)
 	}
  
 	naui_render_panels_and_viewport();
+	uph_sample_browser_end_frame();
+	uph_particles_render();
 	uph_dialog_render();
 	uph_ui_widgets_flush();
+	uph_drag_flush();
  
 	uph_update_master_track_plugins();
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_all_track_plugins(&uph_state.project.tracks[i]);
  
-	const bool any_track_monitored = _uph_any_track_monitors_instrument(uph_state.project.tracks);
-	atomic_store_explicit(&s_midi_instrument_monitoring, any_track_monitored, memory_order_relaxed);
-	uph_midi_preview_update_live_target(any_track_monitored);
+	atomic_store_explicit(&s_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
 	uph_autosave_update();
 }
  

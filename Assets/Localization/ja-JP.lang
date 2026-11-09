@@ -145,6 +145,18 @@
 	"resource_list.samples.title": "サンプル",
 	"resource_list.title": "リソース",
 
+	"sample_browser.title": "ブラウザ",
+	"sample_browser.search": "サンプルを検索",
+	"sample_browser.add_folder": "フォルダを追加",
+	"sample_browser.remove_folder": "フォルダを削除",
+	"sample_browser.rescan": "再スキャン",
+	"sample_browser.add_to_project": "プロジェクトに追加",
+	"sample_browser.preview": "試聴",
+	"sample_browser.indexing": "インデックス作成中...",
+	"sample_browser.empty": "フォルダを追加してサンプルを閲覧します。",
+	"sample_browser.no_matches": "一致するサンプルはありません",
+	"sample_browser.no_samples": "サンプルが見つかりません",
+
 	"sample.default.name": "無題のサンプル",
 	"sample.recording.default.name": "無題の録音",
 

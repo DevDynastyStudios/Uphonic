@@ -75,6 +75,38 @@ double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_st
 
 void uph_audio_engine_stop_all_notes(void);
 
+typedef struct Uph_PreviewStream Uph_PreviewStream;
+
+typedef struct
+{
+	Uph_SampleData *data;
+	Uph_PreviewStream *stream;
+}
+Uph_PreviewSource;
+
+typedef struct
+{
+	const Naui_Path *path;
+	const Uph_WaveformPeak *peaks;
+	uint64_t peak_count;
+	uint64_t peak_total;
+	uint64_t frame_count;
+	uint32_t original_sample_rate;
+	Uph_SampleChannelType channel_type;
+	bool streaming;
+}
+Uph_PreviewInfo;
+
+Uph_PreviewSource uph_audio_engine_preview_open(const Naui_Path path);
+bool uph_audio_engine_preview_source_valid(const Uph_PreviewSource *source);
+void uph_audio_engine_preview_close(Uph_PreviewSource *source);
+void uph_audio_engine_preview_play(Uph_PreviewSource source);
+void uph_audio_engine_preview_restart(void);
+void uph_audio_engine_preview_stop(void);
+bool uph_audio_engine_preview_playing(void);
+double uph_audio_engine_preview_progress(void);
+bool uph_audio_engine_preview_info(Uph_PreviewInfo *out);
+
 void uph_audio_engine_midi_input(bool note_on, uint8_t key, uint8_t velocity);
 
 double uph_audio_engine_get_song_length_beats(void);

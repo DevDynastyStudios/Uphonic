@@ -120,3 +120,103 @@ void uph_ui_waveform_zoomable(
         naui_fill_polygon(quad, 4, color);
     }
 }
+
+void uph_ui_waveform_peaks(
+    Naui_Vec2 position,
+    Naui_Vec2 size,
+    Naui_Color color,
+    const Uph_WaveformPeak *peaks,
+    uint64_t peak_count,
+    uint64_t peak_total,
+    float gain
+) {
+    if (!peaks || peak_count == 0 || peak_total == 0 || size.x < 2.0f || size.y <= 0.0f)
+        return;
+
+    if (peak_count > peak_total)
+        peak_count = peak_total;
+
+    const int32_t columns = (int32_t)ceilf(size.x) + 1;
+    const float mid_y = position.y + size.y * 0.5f;
+    const float half_height = size.y * 0.5f;
+    const double bins_per_pixel = (double)peak_total / (double)size.x;
+
+    float *max_y = (float*)alloca(sizeof(float) * (size_t)columns);
+    float *min_y = (float*)alloca(sizeof(float) * (size_t)columns);
+
+    int32_t column_count = 0;
+    for (int32_t x = 0; x < columns; x++)
+    {
+        float max_v;
+        float min_v;
+
+        if (bins_per_pixel > 1.0)
+        {
+            const uint64_t begin = (uint64_t)((double)x * bins_per_pixel);
+            uint64_t end = (uint64_t)((double)(x + 1) * bins_per_pixel);
+            if (begin >= peak_count)
+                break;
+            if (end <= begin)
+                end = begin + 1;
+            if (end > peak_count)
+                end = peak_count;
+
+            max_v = -1.0f;
+            min_v = 1.0f;
+            for (uint64_t b = begin; b < end; b++)
+            {
+                max_v = fmaxf(max_v, uph_waveform_decode_uint16(peaks[b].max));
+                min_v = fminf(min_v, uph_waveform_decode_uint16(peaks[b].min));
+            }
+        }
+        else
+        {
+            double bin_pos = (double)x * bins_per_pixel;
+            if (bin_pos >= (double)peak_count)
+                break;
+
+            const uint64_t index = (uint64_t)bin_pos;
+            const uint64_t next = index + 1 < peak_count ? index + 1 : index;
+            const float frac = (float)(bin_pos - (double)index);
+
+            const float p0_max = uph_waveform_decode_uint16(peaks[index].max);
+            const float p0_min = uph_waveform_decode_uint16(peaks[index].min);
+            const float p1_max = uph_waveform_decode_uint16(peaks[next].max);
+            const float p1_min = uph_waveform_decode_uint16(peaks[next].min);
+
+            max_v = p0_max + (p1_max - p0_max) * frac;
+            min_v = p0_min + (p1_min - p0_min) * frac;
+        }
+
+        max_v = NAUI_CLAMP(max_v * gain, -1.0f, 1.0f);
+        min_v = NAUI_CLAMP(min_v * gain, -1.0f, 1.0f);
+
+        float top = mid_y - max_v * half_height;
+        float bottom = mid_y - min_v * half_height;
+        if (bottom - top < 1.0f)
+        {
+            const float center = (top + bottom) * 0.5f;
+            top = center - 0.5f;
+            bottom = center + 0.5f;
+        }
+
+        max_y[column_count] = top;
+        min_y[column_count] = bottom;
+        column_count++;
+    }
+
+    for (int32_t i = 0; i + 1 < column_count; i++)
+    {
+        const float x0 = position.x + (float)i;
+        const float x1 = fminf(position.x + (float)(i + 1), position.x + size.x);
+
+        Naui_Vec2 quad[4] = {
+            (Naui_Vec2) { x0, max_y[i] },
+            (Naui_Vec2) { x1, max_y[i + 1] },
+            (Naui_Vec2) { x1, min_y[i + 1] },
+            (Naui_Vec2) { x0, min_y[i] },
+        };
+
+        naui_fill_polygon(quad, 4, color);
+    }
+}

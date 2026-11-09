@@ -3,7 +3,6 @@ typedef struct
 	Uph_Track *voice;
 	Uph_ActionTrackRef voice_ref;
 	bool none_chosen;
-	_Atomic(Uph_Track *) live_target;
 
 	bool playing;
 	bool loop;
@@ -85,22 +84,6 @@ void uph_midi_preview_refresh_voice(void)
 		p->voice_ref = uph_action_track_ref(refreshed);
 
 	p->voice = refreshed;
-}
-
-// Live MIDI input (controller) falls back to the editor's voice when no track monitors an instrument.
-// Choosing "None" as the voice disables the fallback.
-void uph_midi_preview_update_live_target(bool any_track_monitored)
-{
-	Uph_MidiPreviewData *p = &uph_midi_preview_data;
-	uph_midi_preview_refresh_voice();
-
-	Uph_Track *target = (!any_track_monitored && uph_midi_preview_is_voice_candidate(p->voice)) ? p->voice : NULL;
-	atomic_store_explicit(&p->live_target, target, memory_order_relaxed);
-}
-
-Uph_Track *uph_midi_preview_live_target(void)
-{
-	return atomic_load_explicit(&uph_midi_preview_data.live_target, memory_order_relaxed);
 }
 
 #pragma endregion
@@ -192,21 +175,38 @@ void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, f
 		return;
 	}
 
-	const double length = uph_midi_preview_loop_length(&uph_state.project.midi_patterns[pattern_index]);
+	const Uph_MidiPattern *pattern = &uph_state.project.midi_patterns[pattern_index];
+	const double length = uph_midi_preview_loop_length(pattern);
 	if (length <= 0.0)
 		return;
 
+	const bool region = p->loop && uph_loop_region_valid(&pattern->loop_region);
+	const double loop_start = region ? pattern->loop_region.start : 0.0;
+	const double loop_end = region ? pattern->loop_region.end : length;
+
 	p->buffer_position = p->position;
-	double start = p->buffer_position;
-	if (start >= length || start < 0.0)
-		start = fmod(fmax(start, 0.0), length);
+	double start = fmax(p->buffer_position, 0.0);
+	if (region)
+	{
+		if (start >= loop_end && start >= length)
+			start = loop_start;
+	}
+	else if (start >= length)
+		start = fmod(start, length);
+
+	double end = start + uph_seconds_to_beats((double)frame_count / (double)sample_rate, bpm);
+	if (region && start < loop_end)
+		end = fmin(end, loop_end);
 
 	p->buffer_range = (Uph_MidiPreviewRange){
 		.pattern_index = pattern_index,
 		.start_beat = start,
-		.end_beat = start + uph_seconds_to_beats((double)frame_count / (double)sample_rate, bpm),
+		.end_beat = end,
 		.length = length,
-		.loop = p->loop
+		.loop_start = loop_start,
+		.loop_end = start < loop_end ? loop_end : length,
+		.loop = p->loop,
+		.repeat = p->loop && !region
 	};
 	p->buffer_playing = true;
 }
@@ -248,10 +248,12 @@ void uph_midi_preview_end_buffer(void)
 
 	const Uph_MidiPreviewRange *range = &p->buffer_range;
 	double next = range->end_beat;
-	if (next >= range->length)
+	if (next >= range->loop_end)
 	{
-		if (range->loop)
+		if (range->repeat)
 			next = fmod(next, range->length);
+		else if (range->loop)
+			next = range->loop_start;
 		else
 		{
 			next = 0.0;

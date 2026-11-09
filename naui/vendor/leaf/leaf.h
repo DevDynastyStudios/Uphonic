@@ -102,7 +102,7 @@ extern "C" {
     
     typedef struct
     {
-        float x, y, width, height;
+        int32_t x, y, width, height;
     }
     Leaf_BoundingBox;
     
@@ -229,7 +229,7 @@ extern "C" {
     Leaf_Rounding;
 #define LEAF_ROUNDING_FIXED(v, c) (Leaf_Rounding) {.value = (v), .corners = (c), .type = LEAF_ROUNDING_TYPE_FIXED}
 #define LEAF_ROUNDING_PERCENT(v, c) (Leaf_Rounding) {.value = (v), .corners = (c), .type = LEAF_ROUNDING_TYPE_PERCENT}
-#define LEAF_ROUNDING_FULL(c) (Leaf_Rounding) {.value = 1.0f, .corners = (c), .type = LEAF_ROUNDING_TYPE_PERCENT}
+#define LEAF_ROUNDING_FULL(c) (Leaf_Rounding) {.value = 100, .corners = (c), .type = LEAF_ROUNDING_TYPE_PERCENT}
     
     typedef void (*Leaf_CustomDrawFn)(Leaf_BoundingBox box, void *user_data);
     
@@ -244,7 +244,7 @@ extern "C" {
 #ifdef LEAF_FEATURE_SHADOWS
     typedef struct
     {
-        float blur_radius;
+        int32_t blur_radius;
         Leaf_Vec2 offset;
         Leaf_Color color;
     }
@@ -360,8 +360,8 @@ extern "C" {
         {
             struct
             {
-                float line_width;
-                float rounding;
+                int32_t line_width;
+                int32_t rounding;
                 Leaf_Corners rounding_corners;
                 Leaf_Sides sides;
             }
@@ -370,7 +370,7 @@ extern "C" {
             struct
             {
                 const char *text;
-                float font_size;
+                int32_t font_size;
                 uint32_t font_id;
             }
             text;
@@ -378,7 +378,7 @@ extern "C" {
             struct
             {
                 void *handle;
-                float rounding;
+                int32_t rounding;
                 Leaf_Corners rounding_corners;
             }
             image;
@@ -387,8 +387,8 @@ extern "C" {
             struct
             {
                 Leaf_Vec2 offset;
-                float blur_radius;
-                float rounding;
+                int32_t blur_radius;
+                int32_t rounding;
                 Leaf_Corners rounding_corners;
             }
             shadow;
@@ -424,7 +424,7 @@ extern "C" {
     }
     Leaf_RenderCmdList;
     
-    typedef Leaf_Dimensions (*Leaf_MeasureTextFn)(const char *text, uint32_t length, float resolved_font_size, const Leaf_TextConfig *config);
+    typedef Leaf_Dimensions (*Leaf_MeasureTextFn)(const char *text, uint32_t length, int32_t resolved_font_size, const Leaf_TextConfig *config);
     
     // All the avaliable space in the parent (IMPORTANT: Does NOT apply to floating elements. Consider using LEAF_SIZE_FULL)
 #define LEAF_SIZE_GROW                  (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_GROW }
@@ -479,6 +479,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
     
     typedef uint8_t Leaf_NodeType;
     enum
@@ -487,6 +488,21 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         LEAF_NODE_TYPE_TEXT
     };
     
+    typedef struct
+    {
+        float x, y, width, height;
+    }
+    Leaf_LayoutBox;
+
+    static inline Leaf_BoundingBox leaf_snap_box(Leaf_LayoutBox box)
+    {
+        const int32_t x0 = (int32_t)floorf(box.x + 0.5f);
+        const int32_t y0 = (int32_t)floorf(box.y + 0.5f);
+        const int32_t x1 = (int32_t)floorf(box.x + box.width + 0.5f);
+        const int32_t y1 = (int32_t)floorf(box.y + box.height + 0.5f);
+        return (Leaf_BoundingBox){ x0, y0, x1 > x0 ? x1 - x0 : 0, y1 > y0 ? y1 - y0 : 0 };
+    }
+
     typedef struct Leaf_Node Leaf_Node;
     struct Leaf_Node
     {
@@ -506,13 +522,13 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
                 Leaf_TextConfig config;
                 const char *text;
                 uint32_t size;
-                float resolved_font_size;
+                int32_t resolved_font_size;
             }
             text;
         };
         
         Leaf_NodeType type;
-        Leaf_BoundingBox bounding_box;
+        Leaf_LayoutBox bounding_box;
         
         Leaf_Node *parent;
         Leaf_Node *first_child;
@@ -742,14 +758,14 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         return leaf_point_in_box(leaf_ctx->pointer_pos.x, leaf_ctx->pointer_pos.y, bounding_box);
     }
 
-    static inline Leaf_BoundingBox leaf_intersect_boxes(Leaf_BoundingBox a, Leaf_BoundingBox b)
+    static inline Leaf_LayoutBox leaf_intersect_boxes(Leaf_LayoutBox a, Leaf_LayoutBox b)
     {
         float x0 = a.x > b.x ? a.x : b.x;
         float y0 = a.y > b.y ? a.y : b.y;
         float x1 = (a.x + a.width)  < (b.x + b.width)  ? (a.x + a.width)  : (b.x + b.width);
         float y1 = (a.y + a.height) < (b.y + b.height) ? (a.y + a.height) : (b.y + b.height);
         
-        return (Leaf_BoundingBox){
+        return (Leaf_LayoutBox){
             x0, y0,
             x1 > x0 ? x1 - x0 : 0.0f,
             y1 > y0 ? y1 - y0 : 0.0f
@@ -851,7 +867,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         }
     }
     
-    static float leaf_resolve_font_size(const Leaf_SizeAxis *axis, Leaf_Node *parent, const char *text, uint32_t text_len, const Leaf_TextConfig *cfg)
+    static int32_t leaf_resolve_font_size(const Leaf_SizeAxis *axis, Leaf_Node *parent, const char *text, uint32_t text_len, const Leaf_TextConfig *cfg)
     {
         switch (axis->type)
         {
@@ -881,17 +897,17 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
                     ? parent_smaller * axis->size.percent
                     : parent_smaller;
                 
-                float ref_size = 16.0f;
+                int32_t ref_size = 16;
                 Leaf_Dimensions ref_dim = leaf_ctx->measure_text(text, text_len, ref_size, cfg);
                 float text_larger = ref_dim.width > ref_dim.height ? ref_dim.width : ref_dim.height;
                 
-                float resolved = (text_larger > 0.0f)
-                    ? ref_size * (target / text_larger)
-                    : target;
+                int32_t resolved = (int32_t)floorf(((text_larger > 0.0f)
+                    ? (float)ref_size * (target / text_larger)
+                    : target) + 0.5f);
                 
-                if (axis->size.min_max.min > 0.0f && resolved < axis->size.min_max.min)
+                if (axis->size.min_max.min > 0 && resolved < axis->size.min_max.min)
                     resolved = axis->size.min_max.min;
-                if (axis->size.min_max.max > 0.0f && resolved > axis->size.min_max.max)
+                if (axis->size.min_max.max > 0 && resolved > axis->size.min_max.max)
                     resolved = axis->size.min_max.max;
                 return resolved;
             }
@@ -985,16 +1001,16 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         return fill.color1.a == 0 && fill.color2.a == 0;
     }
     
-    static inline bool leaf_box_offscreen(Leaf_BoundingBox box)
+    static inline bool leaf_box_offscreen(Leaf_LayoutBox box)
     {
-        Leaf_BoundingBox screen = leaf_ctx->stack[0]->bounding_box;
+        Leaf_LayoutBox screen = leaf_ctx->stack[0]->bounding_box;
         return box.x + box.width  <= screen.x ||
             box.y + box.height <= screen.y ||
             box.x >= screen.x + screen.width ||
             box.y >= screen.y + screen.height;
     }
     
-    static inline float leaf_resolve_rounding(const Leaf_Node *node, const Leaf_ElementConfig *config)
+    static inline int32_t leaf_resolve_rounding(const Leaf_Node *node, const Leaf_ElementConfig *config)
     {
         float smallest_side = node->bounding_box.width < node->bounding_box.height
             ? node->bounding_box.width
@@ -1002,10 +1018,10 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         float max_radius = smallest_side * 0.5f;
         
         float radius = (config->rounding.type == LEAF_ROUNDING_TYPE_FIXED)
-            ? config->rounding.value
-            : max_radius * config->rounding.value;
+            ? (float)config->rounding.value
+            : max_radius * (float)config->rounding.value * 0.01f;
         
-        return LEAF_CLAMP(radius, 0.0f, max_radius);
+        return (int32_t)floorf(LEAF_CLAMP(radius, 0.0f, max_radius) + 0.5f);
     }
     
     static void leaf_render_node(Leaf_Node *node)
@@ -1026,12 +1042,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
 #ifdef LEAF_FEATURE_SHADOWS
                 if (config->shadow.color.a)
                 {
-                    Leaf_BoundingBox shadow_box = {
-                        .x = node->bounding_box.x,
-                        .y = node->bounding_box.y,
-                        .width  = node->bounding_box.width,
-                        .height = node->bounding_box.height
-                    };
+                    Leaf_BoundingBox shadow_box = leaf_snap_box(node->bounding_box);
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_SHADOW,
                                              .color = (Leaf_ColorFill){
@@ -1054,7 +1065,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                         leaf_push_render_cmd((Leaf_RenderCmd){
                                                  .type = LEAF_RENDER_CMD_IMAGE,
                                                  .color = config->color,
-                                                 .bounding_box = node->bounding_box,
+                                                 .bounding_box = leaf_snap_box(node->bounding_box),
                                                  .image.handle = config->image,
                                                  .image.rounding = leaf_resolve_rounding(node, config),
                                                  .image.rounding_corners = config->rounding.corners
@@ -1065,7 +1076,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                         leaf_push_render_cmd((Leaf_RenderCmd){
                                                  .type = LEAF_RENDER_CMD_RECT,
                                                  .color = config->color,
-                                                 .bounding_box = node->bounding_box,
+                                                 .bounding_box = leaf_snap_box(node->bounding_box),
                                                  .rect.rounding = leaf_resolve_rounding(node, config),
                                                  .rect.rounding_corners = config->rounding.corners
                                              });
@@ -1076,7 +1087,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                 {
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_CUSTOM,
-                                             .bounding_box = node->bounding_box,
+                                             .bounding_box = leaf_snap_box(node->bounding_box),
                                              .custom.draw = config->custom_draw,
                                              .custom.user_data = node->element.custom_data
                                          });
@@ -1086,7 +1097,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_RECT_LINES,
                                              .color = config->border.color,
-                                             .bounding_box = node->bounding_box,
+                                             .bounding_box = leaf_snap_box(node->bounding_box),
                                              .rect.rounding = leaf_resolve_rounding(node, config),
                                              .rect.rounding_corners = config->rounding.corners,
                                              .rect.line_width = config->border.width,
@@ -1101,7 +1112,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_TEXT,
                                              .color = config->color,
-                                             .bounding_box = node->bounding_box,
+                                             .bounding_box = leaf_snap_box(node->bounding_box),
                                              .text.text = node->text.text,
                                              .text.font_size = node->text.resolved_font_size,
                                              .text.font_id = config->font_id
@@ -1127,7 +1138,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         const Leaf_TextConfig *cfg  = &node->text.config;
         const char *text = node->text.text;
         uint32_t len = node->text.size;
-        float resolved_font_size = node->text.resolved_font_size;
+        int32_t resolved_font_size = node->text.resolved_font_size;
         bool word_mode = cfg->wrap_mode == LEAF_TEXT_WRAP_MODE_WORD;
         
         Leaf_Node *last_inserted = node;
@@ -1492,8 +1503,8 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         {
             if (child->type == LEAF_NODE_TYPE_TEXT)
             {
-                float old_resolved = child->text.resolved_font_size;
-                float new_resolved = leaf_resolve_font_size(&child->text.config.font_size, parent, child->text.text, child->text.size, &child->text.config);
+                int32_t old_resolved = child->text.resolved_font_size;
+                int32_t new_resolved = leaf_resolve_font_size(&child->text.config.font_size, parent, child->text.text, child->text.size, &child->text.config);
                 if (new_resolved != old_resolved)
                 {
                     child->text.resolved_font_size = new_resolved;
@@ -1644,14 +1655,14 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         }
     }
     
-    static void leaf_position_render(Leaf_Node *parent, Leaf_BoundingBox outer_clip)
+    static void leaf_position_render(Leaf_Node *parent, Leaf_LayoutBox outer_clip)
     {
         if (parent->type != LEAF_NODE_TYPE_ELEMENT)
             return;
         
         const Leaf_ElementConfig *parent_config = &parent->element.config;
         
-        Leaf_BoundingBox child_clip = parent_config->clip_children
+        Leaf_LayoutBox child_clip = parent_config->clip_children
             ? leaf_intersect_boxes(outer_clip, parent->bounding_box)
             : outer_clip;
 
@@ -1702,7 +1713,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                 
                 if (child_config->positioning != LEAF_POSITIONING_RELATIVE)
                 {
-                    Leaf_BoundingBox anchor;
+                    Leaf_LayoutBox anchor;
                     if (child_config->positioning == LEAF_POSITIONING_FLOATING_TO_PARENT)
                         anchor = parent->bounding_box;
                     else
@@ -1735,7 +1746,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                     
                     leaf_render_node(child);
                     if (child_config->clip_children)
-                        leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = child->bounding_box });
+                        leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = leaf_snap_box(child->bounding_box) });
                     leaf_position_render(child, child_clip);
                     if (child_config->clip_children)
                         leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_POP });
@@ -1814,7 +1825,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
             {
                 const Leaf_ElementConfig *child_config = &child->element.config;
                 if (child_config->clip_children)
-                    leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = child->bounding_box });
+                    leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_PUSH, .bounding_box = leaf_snap_box(child->bounding_box) });
                 leaf_position_render(child, child_clip);
                 if (child_config->clip_children)
                     leaf_push_render_cmd((Leaf_RenderCmd){ .type = LEAF_RENDER_CMD_SCISSOR_POP });
@@ -1824,8 +1835,8 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         Leaf_ID id = parent_config->id;
         if (id.value)
             leaf_set_layout_entry(id, (Leaf_LayoutFrameEntry){
-                .bounding_box = parent->bounding_box,
-                .clip_box = outer_clip
+                .bounding_box = leaf_snap_box(parent->bounding_box),
+                .clip_box = leaf_snap_box(outer_clip)
             });
     }
     

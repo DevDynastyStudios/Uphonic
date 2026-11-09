@@ -9,16 +9,27 @@
         {
             "kind": "split",
             "axis": "horizontal",
-            "ratio": 0.800000011920929,
+            "ratio": 0.11,
             "child0": 
             {
                 "kind": "panel",
-                "type": "uph_song_timeline"
+                "type": "uph_sample_browser"
             },
             "child1": 
             {
-                "kind": "panel",
-                "type": "uph_resource_list"
+                "kind": "split",
+                "axis": "horizontal",
+                "ratio": 0.775,
+                "child0": 
+                {
+                    "kind": "panel",
+                    "type": "uph_song_timeline"
+                },
+                "child1": 
+                {
+                    "kind": "panel",
+                    "type": "uph_resource_list"
+                }
             }
         },
         "child1": 

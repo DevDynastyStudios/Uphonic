@@ -17,8 +17,19 @@
             },
             "child1": 
             {
-                "kind": "panel",
-                "type": "uph_resource_list"
+                "kind": "split",
+                "axis": "vertical",
+                "ratio": 0.55,
+                "child0": 
+                {
+                    "kind": "panel",
+                    "type": "uph_resource_list"
+                },
+                "child1": 
+                {
+                    "kind": "panel",
+                    "type": "uph_sample_browser"
+                }
             }
         },
         "child1": 

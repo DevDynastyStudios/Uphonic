@@ -60,6 +60,7 @@ bool uph_project_create(Naui_String project_name)
 	uph_state.project.title = project_name;
 	uph_state.project.folder = naui_path_normalize(project_dest);
 	uph_state.project.time_signature = (Uph_TimeSignature){ .numerator = 4, .denominator = 4 };
+	uph_state.project.loop_region = (Uph_LoopRegion){ 0 };
 	naui_list_clear(uph_state.project.midi_patterns);
 	naui_list_clear(uph_state.project.samples);
 

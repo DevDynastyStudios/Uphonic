@@ -65,6 +65,7 @@
 #include "ui/waveform.h"
 #include "ui/automation_curve.h"
 #include "ui/widgets.h"
+#include "ui/drag.h"
 #include "ui/dialog.h"
 #include "ui/particles.h"
 #include "ui/containers.h"
@@ -74,6 +75,7 @@
 #include "ui/waveform.c"
 #include "ui/automation_curve.c"
 #include "ui/widgets.c"
+#include "ui/drag.c"
 #include "ui/dialog.c"
 #include "ui/particles.c"
 #include "ui/containers.c"
@@ -94,6 +96,7 @@
 #include "core/midi_recorder.c"
 
 #include "panels/file_dialog.c"
+#include "panels/sample_browser.h"
 
 #include "panels/song_timeline/song_timeline.h"
 #include "panels/song_timeline/song_timeline_automation.c"
@@ -137,5 +140,6 @@
 
 #include "panels/resource_editor.c"
 #include "panels/settings.c"
+#include "panels/sample_browser.c"
 
 #include "main.c"

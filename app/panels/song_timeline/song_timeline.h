@@ -114,6 +114,7 @@ typedef struct
 	Uph_HoveredBlockState hovered_block;
 	Uph_AutomationEditState automation_edit;
 	Uph_MarqueeState marquee;
+	Uph_LoopRegionDrag loop_drag;
 	Uph_TrackDragState track_drag;
 	Uph_TrackPendingMove pending_move;
 	Naui_List(Uph_TrackPtr) selected_tracks;

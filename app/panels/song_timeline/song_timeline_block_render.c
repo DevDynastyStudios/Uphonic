@@ -236,14 +236,13 @@ void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_Ti
 	const Uph_SongTimelineData *data = &uph_song_timeline_data;
 	const Leaf_BoundingBox section = data->panel_bounding_box;
 	const float timeline_x = section.x + NAUI_DPI(uph_song_timeline_header_column_width());
-	const Leaf_BoundingBox clip = { timeline_x, section.y, section.x + section.width - timeline_x, section.height };
 
 	uph_particle_emit_shockwave(
 		(Naui_Vec2){ timeline_x + data->zoom.x * (float)block->start_beat - data->scroll.x, section.y - data->scroll.y + track->visual.y },
 		(Naui_Vec2){ data->zoom.x * (float)block->length_beats, NAUI_DPI(data->zoom.y) },
 		uph_color_mix(uph_resources_track_color(track->color_index), leaf_rgba(255, 255, 255, 255), 0.35f),
 		NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING),
-		clip
+		naui_panel_bounding_box(uph_state.panels.song_timeline)
 	);
 }
 

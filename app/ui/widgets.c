@@ -1211,8 +1211,8 @@ bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_
 static Leaf_BoundingBox uph_ui__textfield_line_box(Leaf_BoundingBox box, float font_size)
 {
     const float line_height = NAUI_MIN(naui_measure_text("Ag", 2, font_size, 0).y, box.height);
-    box.y += (box.height - line_height) * 0.5f;
-    box.height = line_height;
+    box.y += (int32_t)roundf(((float)box.height - line_height) * 0.5f);
+    box.height = (int32_t)roundf(line_height);
     return box;
 }
 

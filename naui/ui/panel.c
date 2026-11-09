@@ -13,6 +13,7 @@
 #define NAUI_CLOSE_BUTTON_ID "__naui_close_button"
 
 #define NAUI_SPLIT_HANDLE_ID "__naui_split_handle"
+#define NAUI_PANEL_BODY_ID "__naui_panel_body"
 
 #define NAUI_DOCK_GUIDE_LEFT_ID "__naui_dock_guide_left"
 #define NAUI_DOCK_GUIDE_RIGHT_ID "__naui_dock_guide_right"
@@ -39,6 +40,7 @@ struct Naui_PanelNode
     Naui_List(Naui_PanelNode*) tabs;
     void           *user_data;
     Naui_Vec2       position, size, min_size;
+    Leaf_BoundingBox body_bounds;
     Naui_PanelFlags flags;
     uint32_t        root_index;
     int32_t         active_tab;
@@ -245,6 +247,11 @@ void naui_panel_close(Naui_PanelID panel_id)
 bool naui_panel_closed(Naui_PanelID panel_id)
 {
     return ((Naui_PanelNode*)panel_id)->closed;
+}
+
+Leaf_BoundingBox naui_panel_bounding_box(Naui_PanelID panel_id)
+{
+    return ((Naui_PanelNode*)panel_id)->body_bounds;
 }
 
 void naui_panel_occlude_all(void)
@@ -948,14 +955,23 @@ static inline void naui_render_panel_titlebar(Naui_PanelNode *node)
 
 static inline void naui_render_panel_body(Naui_PanelNode *node)
 {
+    Naui_PanelNode *tab = node->tabs ? node->tabs[node->active_tab] : node;
+    const Leaf_BoundingBox body = leaf_get_bounding_box(leaf_id_indexed(NAUI_PANEL_BODY_ID, (Naui_PanelID)tab));
+    const Leaf_BoundingBox container = leaf_get_bounding_box(leaf_id_indexed(NAUI_CHILD_PANEL_ID, (Naui_PanelID)node));
+    const float x0 = fmaxf(body.x, container.x);
+    const float y0 = fmaxf(body.y, container.y);
+    const float x1 = fminf(body.x + body.width, container.x + container.width);
+    const float y1 = fminf(body.y + body.height, container.y + container.height);
+    tab->body_bounds = (Leaf_BoundingBox){ x0, y0, fmaxf(x1 - x0, 0.0f), fmaxf(y1 - y0, 0.0f) };
+
     leaf({
+        .id = leaf_id_indexed(NAUI_PANEL_BODY_ID, (Naui_PanelID)tab),
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
         .color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG),
         .rounding = { naui_floating_panel_rounding(node), LEAF_CORNER_BL | LEAF_CORNER_BR },
         .clip_children = true
     })
     {
-        Naui_PanelNode *tab = node->tabs ? node->tabs[node->active_tab] : node;
         naui_panel_manager.current_panel = tab;
         if (tab->type.on_update)
             tab->type.on_update();

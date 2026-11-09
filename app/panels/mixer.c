@@ -763,9 +763,9 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 
 	Leaf_BoundingBox hit_box = {
 		.x = bounding_box.x,
-		.y = y - arrow_height * 0.5f - hit_padding,
+		.y = (int32_t)roundf(y - arrow_height * 0.5f - hit_padding),
 		.width = bounding_box.width,
-		.height = arrow_height + hit_padding * 2.0f
+		.height = (int32_t)roundf(arrow_height + hit_padding * 2.0f)
 	};
 
 	Naui_Vec2 mouse = {naui_mouse_x(), naui_mouse_y()};

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="512"
+   height="512"
+   viewBox="0 0 135.46666 135.46667"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <g
+     id="layer1">
+    <path
+       id="arc"
+       style="fill:none;stroke:#000000;stroke-width:15.5;stroke-linecap:round;stroke-linejoin:round"
+       d="M 100.4994,50.8976 A 40.0,40.0 0 1 1 66.3374,33.8650" />
+    <path
+       id="arrow"
+       style="fill:#000000;stroke:#000000;stroke-width:5;stroke-linejoin:round"
+       d="M 85.3258,33.2019 L 65.7092,15.8760 L 66.9655,51.8541 Z" />
+  </g>
+</svg>

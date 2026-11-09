@@ -241,3 +241,147 @@ float uph_automation_to_pan(float value)
     const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
     return clamped * 2.0f - 1.0f;
 }
+
+#define UPH_LOOP_REGION_HANDLE_WIDTH 5.0f
+#define UPH_LOOP_REGION_STRIP 0.4f
+
+static float _uph_loop_region_x(float origin_x, float zoom_x, float scroll_x, double beat)
+{
+    return origin_x + (float)(beat * zoom_x) - scroll_x;
+}
+
+bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division, bool hovered)
+{
+    const float mouse_x = (float)naui_mouse_x();
+    const float mouse_y = (float)naui_mouse_y();
+    const bool over = hovered
+        && mouse_x >= bbox.x && mouse_x < bbox.x + bbox.width
+        && mouse_y >= bbox.y && mouse_y < bbox.y + bbox.height;
+    const double beat = ((double)mouse_x - bbox.x + scroll_x) / zoom_x;
+    const double snapped = fmax(0.0, round(beat / division) * division);
+
+    if (drag->mode == UPH_LOOP_DRAG_NONE)
+    {
+        if (!over)
+            return false;
+
+        Uph_LoopRegionDragMode hover = UPH_LOOP_DRAG_NONE;
+        if (uph_loop_region_valid(region))
+        {
+            const float start_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
+            const float end_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
+            const float handle = NAUI_DPI(UPH_LOOP_REGION_HANDLE_WIDTH);
+            const bool in_strip = mouse_y < bbox.y + bbox.height * UPH_LOOP_REGION_STRIP;
+
+            if (in_strip && fabsf(mouse_x - end_x) <= handle)
+                hover = UPH_LOOP_DRAG_END;
+            else if (in_strip && fabsf(mouse_x - start_x) <= handle)
+                hover = UPH_LOOP_DRAG_START;
+            else if (in_strip && mouse_x > start_x && mouse_x < end_x)
+                hover = UPH_LOOP_DRAG_MOVE;
+        }
+
+        if (hover != UPH_LOOP_DRAG_NONE)
+            naui_set_cursor(hover == UPH_LOOP_DRAG_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
+
+        if (hover != UPH_LOOP_DRAG_NONE && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+        {
+            drag->mode = hover;
+            drag->anchor = beat - region->start;
+        }
+        else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
+        {
+            drag->mode = UPH_LOOP_DRAG_CREATE;
+            drag->anchor = snapped;
+            drag->moved = false;
+        }
+
+        if (drag->mode == UPH_LOOP_DRAG_NONE)
+            return hover != UPH_LOOP_DRAG_NONE;
+    }
+
+    switch (drag->mode)
+    {
+        case UPH_LOOP_DRAG_CREATE:
+        {
+            if (snapped != drag->anchor)
+                drag->moved = true;
+
+            if (drag->moved)
+            {
+                region->start = fmin(drag->anchor, snapped);
+                region->end = fmax(drag->anchor, snapped);
+            }
+
+            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            if (!naui_mouse_down(NAUI_MOUSE_RIGHT))
+            {
+                if (!drag->moved || !uph_loop_region_valid(region))
+                    *region = (Uph_LoopRegion){ 0 };
+                else
+                    drag->created = true;
+                drag->mode = UPH_LOOP_DRAG_NONE;
+            }
+            return true;
+        }
+        case UPH_LOOP_DRAG_START:
+            region->start = fmax(0.0, fmin(snapped, region->end - division));
+            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            break;
+        case UPH_LOOP_DRAG_END:
+            region->end = fmax(snapped, region->start + division);
+            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            break;
+        case UPH_LOOP_DRAG_MOVE:
+        {
+            const double length = region->end - region->start;
+            const double start = fmax(0.0, round((beat - drag->anchor) / division) * division);
+            region->start = start;
+            region->end = start + length;
+            naui_set_cursor(NAUI_CURSOR_HAND);
+            break;
+        }
+    }
+
+    if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+        drag->mode = UPH_LOOP_DRAG_NONE;
+
+    return true;
+}
+
+static Leaf_Color _uph_loop_region_color(bool enabled, uint8_t alpha)
+{
+    Leaf_Color color = naui_theme_color("uph_selection_outline_color");
+    color.a = enabled ? alpha : (uint8_t)(alpha / 3);
+    return color;
+}
+
+void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, bool enabled)
+{
+    if (!uph_loop_region_valid(region))
+        return;
+
+    const float start_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
+    const float end_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
+    const float strip_height = bbox.height * UPH_LOOP_REGION_STRIP;
+
+    naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, _uph_loop_region_color(enabled, 30), 0.0f, NAUI_CORNER_NONE);
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, _uph_loop_region_color(enabled, 170), 0.0f, NAUI_CORNER_NONE);
+    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1.0f));
+    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1.0f));
+    naui_pop_clip_rect();
+}
+
+void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x, float top, float bottom, float zoom_x, float scroll_x, bool enabled)
+{
+    if (!uph_loop_region_valid(region))
+        return;
+
+    const float start_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->start);
+    const float end_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->end);
+    const Leaf_Color color = _uph_loop_region_color(enabled, 110);
+
+    naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1.0f));
+    naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1.0f));
+}

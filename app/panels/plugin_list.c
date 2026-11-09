@@ -31,6 +31,8 @@ Uph_PluginListData;
 
 static Uph_PluginListData uph_plugin_list_data = { 0 };
 
+static bool uph_plugin_list_ensure_selection(void);
+
 static void uph_plugin_list_prefetch_job(void *data, char *err_buf, size_t err_size)
 {
     (void)err_buf;
@@ -112,7 +114,7 @@ static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
 static void uph_plugin_list_load(void)
 {
     Uph_PluginListLoad *load = &uph_plugin_list_data.load;
-    if (load->active || uph_plugin_list_data.current_plugin_index >= (int32_t)naui_list_len(uph_plugin_list_data.plugin_infos))
+    if (load->active || !uph_plugin_list_ensure_selection())
         return;
 
     const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
@@ -321,8 +323,35 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
     }
 }
 
+static bool uph_plugin_list_matches_target(const Uph_PluginInfo *info)
+{
+    const bool want_instrument = uph_state.shared.plugin_list_target == UPH_PLUGIN_LIST_TRACK_INSTRUMENT;
+    return (info->type == UPH_PLUGIN_INSTRUMENT) == want_instrument;
+}
+
+static bool uph_plugin_list_ensure_selection(void)
+{
+    Uph_PluginListData *data = &uph_plugin_list_data;
+    const int32_t count = (int32_t)naui_list_len(data->plugin_infos);
+    if (data->current_plugin_index >= 0 && data->current_plugin_index < count && uph_plugin_list_matches_target(&data->plugin_infos[data->current_plugin_index]))
+        return true;
+
+    for (int32_t i = 0; i < count; i++)
+    {
+        if (uph_plugin_list_matches_target(&data->plugin_infos[i]))
+        {
+            data->current_plugin_index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
 {
+    if (!uph_plugin_list_matches_target(info))
+        return false;
+
     if (uph_plugin_list_data.filter.length == 0)
         return true;
 
@@ -560,6 +589,7 @@ void uph_plugin_list_on_update(void)
             uph_plugin_list_main_menu();
         }
 		
-        uph_plugin_list_current_menu();
+        if (uph_plugin_list_ensure_selection())
+            uph_plugin_list_current_menu();
     }
 }

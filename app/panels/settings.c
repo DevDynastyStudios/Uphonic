@@ -165,6 +165,9 @@ void uph_settings_set_defaults(void)
 	settings->midi.record_over_dub = false;
 
 	settings->plugin.sandbox_plugins = false;
+
+	settings->browser.preview_volume = 0.8f;
+	settings->browser.auto_preview = true;
 }
 
 static uint32_t uph_settings_nearest(const uint32_t value, const uint32_t *values, const uint32_t count)
@@ -188,6 +191,8 @@ static uint32_t uph_settings_nearest(const uint32_t value, const uint32_t *value
 void uph_settings_sanitize(void)
 {
 	Uph_Settings *settings = &uph_state.settings;
+
+	settings->browser.preview_volume = NAUI_CLAMP(settings->browser.preview_volume, 0.0f, 1.0f);
 
 	if (settings->general.theme.length == 0)
 		settings->general.theme = naui_string_from_cstr("Fish");

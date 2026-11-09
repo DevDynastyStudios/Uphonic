@@ -83,3 +83,31 @@ float uph_linear_to_db(float linear);
 float uph_db_to_linear(float db);
 float uph_automation_to_volume(float value);
 float uph_automation_to_pan(float value);
+
+typedef uint8_t Uph_LoopRegionDragMode;
+enum
+{
+	UPH_LOOP_DRAG_NONE,
+	UPH_LOOP_DRAG_CREATE,
+	UPH_LOOP_DRAG_START,
+	UPH_LOOP_DRAG_END,
+	UPH_LOOP_DRAG_MOVE
+};
+
+typedef struct
+{
+	double anchor;
+	Uph_LoopRegionDragMode mode;
+	bool moved;
+	bool created;
+}
+Uph_LoopRegionDrag;
+
+static inline bool uph_loop_region_valid(const Uph_LoopRegion *region)
+{
+	return region->end > region->start;
+}
+
+bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division, bool hovered);
+void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, bool enabled);
+void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x, float top, float bottom, float zoom_x, float scroll_x, bool enabled);
