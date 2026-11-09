@@ -4,39 +4,33 @@
     {
         "kind": "split",
         "axis": "vertical",
-        "ratio": 0.550000011920929,
+        "ratio": 0.504378199577332,
         "child0": 
         {
             "kind": "split",
             "axis": "horizontal",
-            "ratio": 0.11,
+            "ratio": 0.789843738079071,
             "child0": 
             {
                 "kind": "panel",
-                "type": "uph_sample_browser"
+                "type": "uph_song_timeline"
             },
             "child1": 
             {
-                "kind": "split",
-                "axis": "horizontal",
-                "ratio": 0.775,
-                "child0": 
-                {
-                    "kind": "panel",
-                    "type": "uph_song_timeline"
-                },
-                "child1": 
-                {
-                    "kind": "panel",
-                    "type": "uph_resource_list"
-                }
+                "kind": "tabs",
+                "active_tab": 0,
+                "tabs": 
+                [
+                    "uph_resource_list",
+                    "uph_sample_browser"
+                ]
             }
         },
         "child1": 
         {
             "kind": "split",
             "axis": "horizontal",
-            "ratio": 0.649999976158142,
+            "ratio": 0.740625023841858,
             "child0": 
             {
                 "kind": "panel",
