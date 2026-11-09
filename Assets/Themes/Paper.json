@@ -25,6 +25,7 @@
     "uph_ui_text_disabled_color": "#B3A796",
     "uph_ui_selection_color": "#E08A48",
     "uph_selection_outline_color": "#E08A48",
+    "uph_timeline_block_text_color": "#FFFFFF",
     "uph_ui_slider_fill_color": "#D9752F",
     "uph_ui_frame_bg_color": "#FFFDF8",
     "uph_ui_frame_secondary_bg_color": "#E8E0D2",

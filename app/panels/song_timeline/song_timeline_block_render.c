@@ -157,6 +157,7 @@ static const char *_uph_song_timeline_block_name(const Uph_TimelineBlock *block)
 
 typedef struct
 {
+	Naui_Color text_color;
 	float opacity;
 	bool hovered;
 }
@@ -164,21 +165,25 @@ Uph_BlockMenuButtonDrawData;
 
 static void _uph_song_timeline_render_block_menu_button(Leaf_BoundingBox box, Uph_BlockMenuButtonDrawData *data)
 {
-	const uint8_t bg_alpha = (uint8_t)((data->hovered ? 110.0f : 55.0f) * data->opacity);
-	naui_fill_rect(
-		(Naui_Vec2){ box.x, box.y },
-		(Naui_Vec2){ box.width, box.height },
-		leaf_rgba(0, 0, 0, bg_alpha),
-		NAUI_DPI(UPH_UI_FRAME_ROUNDING),
-		NAUI_CORNER_ALL
-	);
+	const Naui_Color c = data->text_color;
+	const float icon_alpha = (float)c.a;
+	if (data->hovered)
+	{
+		naui_fill_rect(
+			(Naui_Vec2){ box.x, box.y },
+			(Naui_Vec2){ box.width, box.height },
+			leaf_rgba(c.r, c.g, c.b, (uint8_t)(icon_alpha * 0.3f * data->opacity)),
+			NAUI_DPI(UPH_UI_FRAME_ROUNDING),
+			NAUI_CORNER_ALL
+		);
+	}
 
 	const float padding = NAUI_DPI(3.0f);
 	naui_draw_image(
 		naui_asset_image("uph_icon_dots"),
 		(Naui_Vec2){ box.x + padding, box.y + padding },
 		(Naui_Vec2){ box.width - padding * 2.0f, box.height - padding * 2.0f },
-		leaf_rgba(255, 255, 255, (uint8_t)(255 * data->opacity)),
+		leaf_rgba(c.r, c.g, c.b, (uint8_t)(icon_alpha * data->opacity)),
 		0.0f,
 		NAUI_CORNER_NONE
 	);
@@ -196,6 +201,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 	const float font_size = NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE);
 	const float title_height = uph_song_timeline_block_title_height();
 	const int32_t rounding = (int32_t)NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING);
+	const Naui_Color text_color = naui_theme_color("uph_timeline_block_text_color");
 
 	const float visible_left = offset.x + (size.x - anim_size.x) * 0.5f;
 	const float title_shift = fminf(fmaxf(-visible_left, 0.0f), fmaxf(anim_size.x - title_padding * 2.0f, 0.0f));
@@ -234,7 +240,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		{
 			leaf_text(_uph_song_timeline_block_name(block), {
 				.font_size = { font_size },
-				.color = { leaf_rgba(255, 255, 255, (uint8_t)(255 * opacity)) }
+				.color = { leaf_rgba(text_color.r, text_color.g, text_color.b, (uint8_t)(text_color.a * opacity)) }
 			});
 		}
 
@@ -251,7 +257,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		if (show_menu_button && uph_song_timeline_block_menu_button_rect(offset.x, size.x, 0.0f, view_width, &menu_button))
 		{
 			menu_button.x -= visible_left;
-			Uph_BlockMenuButtonDrawData button_data = { .opacity = opacity, .hovered = menu_button_hovered };
+			Uph_BlockMenuButtonDrawData button_data = { .text_color = text_color, .opacity = opacity, .hovered = menu_button_hovered };
 			leaf({
 				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 				.floating.offset = { menu_button.x, menu_button.y },

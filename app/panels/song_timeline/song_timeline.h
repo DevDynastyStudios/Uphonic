@@ -257,7 +257,7 @@ static inline float uph_song_timeline_block_title_bar_height(void)
 static inline bool uph_song_timeline_block_menu_button_rect(float block_left, float block_width, float view_left, float view_right, Naui_Vec4 *out)
 {
 	const float bar_height = uph_song_timeline_block_title_bar_height();
-	const float size = fmaxf(bar_height - NAUI_DPI(4.0f), 1.0f);
+	const float size = fmaxf(bar_height - NAUI_DPI(2.0f), 1.0f);
 	const float inset = (bar_height - size) * 0.5f;
 	const float visible_left = fmaxf(block_left, view_left);
 	const float visible_right = fminf(block_left + block_width, view_right);
