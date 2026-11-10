@@ -77,6 +77,7 @@ typedef struct
     Naui_Vec2 current_context_menu_position;
     bool is_current_menu_context;
     bool menu_opened_last_frame;
+    bool menu_dropdown_hovered;
     struct
     {
         float menu_lifetime;
@@ -764,6 +765,14 @@ static bool uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
     return false;
 }
 
+static bool uph_ui_menu_dropdown_children_hovered(Uph_UIMenuNode *menu)
+{
+    for (Uph_UIMenuNode *child = menu->first_child; child; child = child->next_sibling)
+        if (uph_ui_menu_dropdown_hovered(child))
+            return true;
+    return false;
+}
+
 static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset, float reveal)
 {
     position_offset.y += (1.0f - reveal) * NAUI_DPI(-4.0f);
@@ -827,6 +836,7 @@ static bool uph_ui__menu_is_open(const Uph_GlobalWidgetData *data, const Uph_UIM
 
 static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 {
+    data->menu_dropdown_hovered = false;
     if (data->current_open_menu)
     {
         data->visual.menu_lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(data->visual.menu_lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
@@ -873,6 +883,8 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
         }
 
         naui_panel_occlude_all();
+
+        data->menu_dropdown_hovered = uph_ui_menu_dropdown_children_hovered(data->current_open_menu);
 
         if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !uph_ui_menu_dropdown_hovered(data->current_open_menu))
         {
@@ -924,8 +936,9 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, element_id);
 
-    bool hovered = uph_ui_widget_hovered(element_id);
-    if (!hovered && data->open_menu_key != 0 && !data->is_current_menu_context && !uph_dialog_blocks_input())
+    const bool blocked_by_dropdown = data->open_menu_key != 0 && data->menu_dropdown_hovered;
+    bool hovered = !blocked_by_dropdown && uph_ui_widget_hovered(element_id);
+    if (!hovered && !blocked_by_dropdown && data->open_menu_key != 0 && !data->is_current_menu_context && !uph_dialog_blocks_input())
         hovered = leaf_hovered_clipped(element_id);
     if (hovered)
     {
