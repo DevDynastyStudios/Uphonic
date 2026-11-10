@@ -1,0 +1,5 @@
+{
+    "name": "Melodic Minor",
+    "order": 4,
+    "intervals": [0, 2, 3, 5, 7, 9, 11]
+}

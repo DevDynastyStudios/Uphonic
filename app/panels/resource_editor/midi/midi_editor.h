@@ -147,6 +147,8 @@ typedef struct
 	Uph_LoopRegionDrag loop_drag;
 	double playhead_drag_beat;
 	int16_t audition_key;
+	uint32_t scale_index;
+	uint8_t scale_root;
 	bool panning;
 	bool playhead_dragging;
 	bool lanes_hovered;
@@ -161,3 +163,6 @@ void uph_midi_editor_update(void);
 void uph_midi_editor_reset_interaction(void);
 void uph_midi_editor_toggle_playback(void);
 void uph_midi_editor_stop_playback(void);
+void uph_midi_editor_set_scale(Uph_MidiEditorData *editor, uint32_t scale_index, uint8_t root);
+uint32_t uph_midi_editor_find_scale(const char *name);
+void uph_midi_editor_quantize(Uph_MidiEditorData *editor);

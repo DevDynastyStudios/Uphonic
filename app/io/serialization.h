@@ -65,4 +65,4 @@ static void uph_io_load_editor_settings_ui(Uph_UISettings* ui, const Naui_JsonVa
 static void uph_io_load_editor_settings_plugin(Uph_PluginSettings* plugin, const Naui_JsonValue* object);
 static void uph_io_load_editor_settings_browser(Uph_BrowserSettings* browser, const Naui_JsonValue* object);
 
-static bool uph_io_load_scales(Uph_State* state, const Naui_Path scales_dir);	// Load all scales in directory
+static bool uph_io_load_scales(Uph_State* state, const Naui_Path scales_dir);

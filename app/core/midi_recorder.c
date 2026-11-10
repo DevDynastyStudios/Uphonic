@@ -101,8 +101,17 @@ static void uph_midi_record_close_note(uint32_t open_index, double end_beat)
 	if (open.note_index >= naui_list_len(pattern->notes))
 		return;
 
+	Uph_MidiNote *note = &pattern->notes[open.note_index];
+	if (uph_state.settings.midi.record_quantize)
+	{
+		const Uph_SnapResolution grid = (Uph_SnapResolution)uph_state.settings.midi.record_quantize_grid;
+		const double division = uph_snap_division(grid);
+		note->length_beats = fmax(division, uph_snap_beat_round(end_beat - note->start_beat, grid));
+		return;
+	}
+
 	const double length = end_beat - open.raw_start_beat;
-	pattern->notes[open.note_index].length_beats = length > UPH_MIDI_RECORD_MIN_NOTE_BEATS ? length : UPH_MIDI_RECORD_MIN_NOTE_BEATS;
+	note->length_beats = length > UPH_MIDI_RECORD_MIN_NOTE_BEATS ? length : UPH_MIDI_RECORD_MIN_NOTE_BEATS;
 }
 
 static void uph_midi_record_close_pattern_notes(uint32_t pattern_index, double end_beat)

@@ -37,6 +37,7 @@ bool uph_ui_any_widget_hovered(void);
 Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id);
 Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
+bool            uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, bool checked);
 
 Uph_UIMenuID    uph_ui_context_menu (const Leaf_ID id);
 Uph_UIMenuID    uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id));

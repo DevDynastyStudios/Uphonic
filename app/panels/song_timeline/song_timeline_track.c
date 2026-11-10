@@ -419,6 +419,13 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 
 	naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
 	uph_song_timeline_render_ruler(bbox, uph_song_timeline_data.zoom.x, uph_song_timeline_data.scroll.x);
+	naui_fill_rect(
+		(Naui_Vec2){ bbox.x, bbox.y + bbox.height - 1.0f },
+		(Naui_Vec2){ bbox.width, 1.0f },
+		naui_theme_color("uph_timeline_row_border_color"),
+		0.0f,
+		NAUI_CORNER_NONE
+	);
 
 	if (mouse_over_track)
 	{

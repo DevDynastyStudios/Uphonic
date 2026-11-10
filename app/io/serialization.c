@@ -1504,10 +1504,62 @@ static void uph_io_load_editor_settings_browser(Uph_BrowserSettings* browser, co
 #pragma endregion
 
 #pragma region Misc Loads
+static bool uph_io_load_scale(const Naui_Path path, Uph_Scale* scale)
+{
+	Naui_Json json = naui_json_parse_file(path);
+	const Naui_JsonValue* root = json.root;
+	const Naui_JsonValue* intervals = naui_json_object_get(root, "intervals");
+	if (!root || !intervals || intervals->type != NAUI_JSON_ARRAY)
+	{
+		naui_json_free(&json);
+		return false;
+	}
+
+	*scale = (Uph_Scale){ .mask = 1, .order = INT32_MAX };
+	NAUI_JSON_FOREACH(intervals, key, value)
+	{
+		const int interval = naui_json_get_int(value, -1);
+		if (interval >= 0)
+			scale->mask |= (uint16_t)(1u << (interval % 12));
+	}
+
+	scale->name = naui_view_to_string(naui_file_stem(&path));
+	uph_io_read_string(root, "name", &scale->name);
+
+	uph_io_read_int32(root, "order", &scale->order);
+	naui_json_free(&json);
+	return true;
+}
+
+static int uph_io_scale_compare(const void* a, const void* b)
+{
+	const Uph_Scale* left = a;
+	const Uph_Scale* right = b;
+	if (left->order != right->order)
+		return left->order < right->order ? -1 : 1;
+
+	return strcmp(left->name.data, right->name.data);
+}
+
 static bool uph_io_load_scales(Uph_State* state, const Naui_Path scales_dir)
 {
-	// Pass the scales directory, it will contain every json file for all types of scales
-	return false;
+	naui_list_clear(state->scales);
+
+	Naui_List(Naui_DirEntry) entries = naui_directory_filter(scales_dir, NULL, NAUI_EXTENSIONS(".json"));
+	for (size_t i = 0; i < (size_t)naui_list_len(entries); i++)
+	{
+		Uph_Scale scale;
+		if (!entries[i].is_directory && uph_io_load_scale(entries[i].path, &scale))
+			naui_list_push(state->scales, scale);
+	}
+	naui_directory_filter_free(entries);
+
+	const bool loaded = naui_list_len(state->scales) > 0;
+	if (!loaded)
+		naui_list_push(state->scales, ((Uph_Scale){ .name = naui_string_from_cstr("Chromatic"), .mask = UPH_SCALE_CHROMATIC_MASK }));
+
+	qsort(state->scales, naui_list_len(state->scales), sizeof(Uph_Scale), uph_io_scale_compare);
+	return loaded;
 }
 
 #pragma endregion

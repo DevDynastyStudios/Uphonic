@@ -1,0 +1,5 @@
+{
+    "name": "Minor Pentatonic",
+    "order": 11,
+    "intervals": [0, 3, 5, 7, 10]
+}

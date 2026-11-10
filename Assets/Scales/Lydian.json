@@ -1,0 +1,5 @@
+{
+    "name": "Lydian",
+    "order": 7,
+    "intervals": [0, 2, 4, 6, 7, 9, 11]
+}

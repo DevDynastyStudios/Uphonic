@@ -37,6 +37,14 @@ typedef struct
 }
 Uph_KnobData;
 
+typedef uint8_t Uph_UIMenuCheck;
+enum
+{
+    UPH_UI_MENU_CHECK_NONE,
+    UPH_UI_MENU_CHECK_OFF,
+    UPH_UI_MENU_CHECK_ON
+};
+
 typedef struct Uph_UIMenuNode Uph_UIMenuNode;
 struct Uph_UIMenuNode
 {
@@ -46,6 +54,7 @@ struct Uph_UIMenuNode
     Uph_UIMenuNode *first_child;
     Uph_UIMenuNode *last_child;
     void (*deferred_render)(Uph_UIMenuID menu_id);
+    Uph_UIMenuCheck check;
 };
 
 typedef struct
@@ -695,7 +704,33 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
         .child_gap = NAUI_DPI(8.0f),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
-    {    
+    {
+        if (node->check != UPH_UI_MENU_CHECK_NONE)
+        {
+            const float box_size = font_size * 0.85f;
+            leaf({
+                .size = {LEAF_SIZE_FIXED(box_size), LEAF_SIZE_FIXED(box_size)},
+                .color = {naui_theme_color("uph_ui_frame_bg_color")},
+                .border = uph_ui__frame_border(),
+                .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.75f, NAUI_CORNER_ALL)
+            })
+            {
+                if (node->check == UPH_UI_MENU_CHECK_ON)
+                {
+                    leaf({
+                        .size = {LEAF_SIZE_PERCENT(0.6f), LEAF_SIZE_PERCENT(0.6f)},
+                        .color = {naui_theme_color("uph_ui_slider_fill_color")},
+                        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.4f, NAUI_CORNER_ALL),
+                        .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+                        .floating = {
+                            .parent_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+                            .self_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+                        }
+                    });
+                }
+            }
+        }
+
         leaf_text(node->text, {
             .color = {text_color},
             .font_size = font_size
@@ -889,7 +924,9 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, element_id);
 
-    const bool hovered = uph_ui_widget_hovered(element_id);
+    bool hovered = uph_ui_widget_hovered(element_id);
+    if (!hovered && data->open_menu_key != 0 && !data->is_current_menu_context && !uph_dialog_blocks_input())
+        hovered = leaf_hovered_clipped(element_id);
     if (hovered)
     {
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -1019,6 +1056,16 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     else result = false;
 
     return result;
+}
+
+bool uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, bool checked)
+{
+    const bool result = uph_ui_menu_item(menu_id, name, element_id);
+    Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
+    parent->last_child->check = checked ? UPH_UI_MENU_CHECK_ON : UPH_UI_MENU_CHECK_OFF;
+
+    const bool right_clicked = leaf_hovered(element_id) && naui_mouse_pressed(NAUI_MOUSE_RIGHT);
+    return result || right_clicked;
 }
 
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)

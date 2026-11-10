@@ -130,6 +130,8 @@
 #include "panels/resource_editor/midi/midi_velocity.c"
 #include "panels/resource_editor/midi/midi_toolbar.h"
 #include "panels/resource_editor/midi/midi_toolbar.c"
+#include "panels/resource_editor/midi/midi_menu_bar.h"
+#include "panels/resource_editor/midi/midi_menu_bar.c"
 #include "panels/resource_editor/midi/midi_editor.c"
 
 #include "panels/resource_editor/sample/sample_editor.h"

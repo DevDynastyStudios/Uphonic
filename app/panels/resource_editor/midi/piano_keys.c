@@ -5,7 +5,6 @@
 #define UPH_PIANO_LABEL_FONT_SIZE 16.0f
 #define UPH_PIANO_LABEL_ALIGNMENT LEAF_TEXT_ALIGN_RIGHT
 #define UPH_PIANO_LABEL_EDGE_PADDING 8.0f
-#define UPH_PIANO_HIGHLIGHT_BAR_WIDTH 3.0f
 
 static const float _uph_piano_accidental_offsets[UPH_NOTES_PER_OCTAVE] =
 {
@@ -176,17 +175,6 @@ Uph_PianoEvents uph_piano_release_mouse(Uph_Piano *piano)
 
 #pragma region Rendering
 
-static void _uph_piano_render_highlight_bar(Uph_NoteHighlight highlight, float right, float top, float bottom)
-{
-	if (highlight == UPH_NOTE_HIGHLIGHT_NONE)
-		return;
-
-	Leaf_Color color = naui_theme_color("naui_widget_accent_color");
-	color.a = highlight == UPH_NOTE_HIGHLIGHT_ROOT ? 255 : 140;
-	const float bar_width = NAUI_DPI(UPH_PIANO_HIGHLIGHT_BAR_WIDTH);
-	naui_fill_rect((Naui_Vec2) { right - bar_width, top + 1.0f }, (Naui_Vec2) { bar_width, fmaxf(bottom - top - 2.0f, 0.0f) }, color, 0.0f, NAUI_CORNER_NONE);
-}
-
 static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Uph_PianoStyle *style = &piano->style;
@@ -224,7 +212,6 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 			NAUI_DPI(is_octave_start ? style->octave_border_thick : style->white_key_border_thick)
 		);
 
-		_uph_piano_render_highlight_bar(map->notes[key].highlight, box.x + rect.width, top, bottom);
 	}
 }
 
@@ -275,7 +262,6 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 			);
 		}
 
-		_uph_piano_render_highlight_bar(map->notes[key].highlight, box.x + rect.width, top, bottom);
 	}
 }
 

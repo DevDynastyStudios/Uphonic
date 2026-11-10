@@ -478,6 +478,16 @@ typedef struct
 }
 Uph_SharedState;
 
+#define UPH_SCALE_CHROMATIC_MASK 0xFFF
+
+typedef struct
+{
+	Naui_String name;
+	uint16_t mask;
+	int32_t order;
+}
+Uph_Scale;
+
 typedef struct
 {
 	Naui_PanelID song_timeline;
@@ -497,6 +507,7 @@ typedef struct
 	Uph_Settings settings;
 	Uph_SharedState shared;
 	Uph_Panels panels;
+	Naui_List(Uph_Scale) scales;
 
 	uint64_t _last_autosave_time;
 	uint64_t _last_modified_time;

@@ -33,6 +33,7 @@ typedef struct
 	Uph_NoteDef notes[UPH_NOTE_MAP_KEY_COUNT];
 	uint8_t lowest;
 	uint8_t highest;
+	bool scale_active;
 }
 Uph_NoteMap;
 
@@ -85,3 +86,11 @@ static inline Uph_NoteKind uph_note_map_kind_at(const Uph_NoteMap *map, int32_t 
 
 	return map->notes[key].kind;
 }
+
+#pragma region Scales
+
+const char *uph_note_pitch_class_name(uint8_t pitch_class);
+bool uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key);
+void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root);
+
+#pragma endregion

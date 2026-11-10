@@ -1,0 +1,5 @@
+{
+    "name": "Major Pentatonic",
+    "order": 10,
+    "intervals": [0, 2, 4, 7, 9]
+}

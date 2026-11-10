@@ -11,6 +11,7 @@ void uph_midi_editor_init(void)
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
 	memset(editor, 0, sizeof(*editor));
 	uph_note_map_init_default(&editor->note_map);
+	uph_midi_editor_set_scale(editor, uph_midi_editor_find_scale("Major"), 0);
 	uph_piano_init(&editor->piano);
 	uph_midi_velocity_init(&editor->velocity_lane);
 	editor->audition_key = -1;
@@ -415,6 +416,7 @@ void uph_midi_editor_update(void)
 	_uph_midi_editor_update_playback(editor);
 	_uph_midi_editor_update_view_input(editor, editor->lanes_bounding_box);
 	uph_midi_note_input_update_shortcuts(editor);
+	uph_midi_menu_bar_render(editor);
 	uph_midi_toolbar_render(editor);
 
 	leaf({

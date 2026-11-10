@@ -69,6 +69,10 @@
 
     "uph_timeline_row_bg1_color": "#FFF8FB",
     "uph_timeline_row_bg2_color": "#FFF3F8",
+    "uph_timeline_row_border_color": "#FBEFF4",
+    "uph_midi_editor_scale_lane_color": "#FFF8FB",
+    "uph_midi_editor_off_scale_lane_color": "#FCF0F5",
+    "uph_midi_editor_lane_border_color": "#F5E9EE",
 
     "uph_timeline_grid_beat_color": "#B7DFFF88",
     "uph_timeline_grid_subbeat_color": "#B7DFFF44",

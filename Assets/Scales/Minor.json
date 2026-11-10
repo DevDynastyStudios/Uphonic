@@ -1,0 +1,5 @@
+{
+    "name": "Minor",
+    "order": 2,
+    "intervals": [0, 2, 3, 5, 7, 8, 10]
+}

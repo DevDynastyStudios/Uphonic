@@ -657,6 +657,9 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorData *editor)
 	else if (ctrl && naui_key_pressed(NAUI_KEY_D))
 		uph_note_duplicate_selected(uph_state.shared.selected_resource.index);
 
+	else if (ctrl && naui_key_pressed(NAUI_KEY_Q))
+		uph_midi_editor_quantize(editor);
+
 	else if (naui_key_pressed(NAUI_KEY_ESCAPE))
 		uph_note_select_all(pattern, false);
 }

@@ -1,10 +1,10 @@
 void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_Piano *piano)
 {
 	const float lane_height = uph_midi_view_lane_height(view);
-	const Leaf_Color accidental_color = naui_theme_color("uph_timeline_row_bg1_color");
-	const Leaf_Color natural_color = naui_theme_color("uph_timeline_row_bg2_color");
+	const Leaf_Color accidental_color = naui_theme_color("uph_midi_editor_off_scale_lane_color");
+	const Leaf_Color natural_color = naui_theme_color("uph_midi_editor_scale_lane_color");
 	const Leaf_Color pressed_color = naui_theme_color("uph_piano_sharp_pressed_color");
-	const Leaf_Color accent_color = naui_theme_color("naui_widget_accent_color");
+	const Leaf_Color border_color = naui_theme_color("uph_midi_editor_lane_border_color");
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -13,11 +13,8 @@ void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, 
 			continue;
 
 		const Uph_NoteDef *def = &map->notes[key];
-		Leaf_Color color = def->kind == UPH_NOTE_KIND_ACCIDENTAL ? accidental_color : natural_color;
-		if (def->highlight == UPH_NOTE_HIGHLIGHT_SCALE)
-			color = uph_color_mix(color, accent_color, UPH_MIDI_GRID_SCALE_TINT);
-		else if (def->highlight == UPH_NOTE_HIGHLIGHT_ROOT)
-			color = uph_color_mix(color, accent_color, UPH_MIDI_GRID_ROOT_TINT);
+		const bool shaded = map->scale_active ? def->highlight == UPH_NOTE_HIGHLIGHT_NONE : def->kind == UPH_NOTE_KIND_ACCIDENTAL;
+		Leaf_Color color = shaded ? accidental_color : natural_color;
 
 		if (uph_piano_key_pressed(piano, (uint8_t)key))
 			color = pressed_color;
@@ -26,6 +23,14 @@ void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, 
 			(Naui_Vec2) { box.x, y_position },
 			(Naui_Vec2) { box.width, lane_height },
 			color,
+			0.0f,
+			NAUI_CORNER_NONE
+		);
+
+		naui_fill_rect(
+			(Naui_Vec2) { box.x, y_position + lane_height - 1.0f },
+			(Naui_Vec2) { box.width, 1.0f },
+			border_color,
 			0.0f,
 			NAUI_CORNER_NONE
 		);

@@ -598,6 +598,54 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 	naui_list_free(selected);
 }
 
+static bool uph_note_quantize(Uph_ResourceIndex pattern_index, Uph_SnapResolution resolution)
+{
+	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern)
+		return false;
+
+	const bool only_selected = uph_note_selected_count(pattern) > 0;
+	const double division = uph_snap_division(resolution);
+
+	Naui_List(Uph_ActionBlockSnapshot) tail = NULL;
+	uph_pattern_collect_tail_blocks(pattern_index, &tail);
+
+	bool changed = false;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
+	{
+		const Uph_MidiNote *note = &pattern->notes[i];
+		if (only_selected && !note->selected)
+			continue;
+
+		const double new_start = fmax(0.0, uph_snap_beat_round(note->start_beat, resolution));
+		const double new_length = fmax(division, uph_snap_beat_round(note->start_beat + note->length_beats, resolution) - new_start);
+
+		if (new_start == note->start_beat && new_length == note->length_beats)
+			continue;
+
+		if (!changed)
+			naui_action_group_start(UPH_ACTION_MIDI_NOTES_QUANTIZE_GROUP);
+
+		Uph_ActionNoteTransform data = {
+			.pattern_index = pattern_index, .note_index = i,
+			.old_start = note->start_beat, .old_length = note->length_beats, .old_key = note->key_number,
+			.new_start = new_start, .new_length = new_length, .new_key = note->key_number
+		};
+		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_MOVE, data);
+		changed = true;
+	}
+
+	if (changed)
+	{
+		uph_pattern_stretch_tail_blocks(pattern_index, tail);
+		uph_pattern_commit_tail_blocks(tail);
+		naui_action_group_end();
+	}
+
+	naui_list_free(tail);
+	return changed;
+}
+
 static bool uph_note_cut(Uph_ResourceIndex pattern_index, uint32_t note_index, double cut_beat, double min_length)
 {
 	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
