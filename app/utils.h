@@ -4,9 +4,14 @@ typedef enum
 	UPH_SNAP_HALF,
 	UPH_SNAP_QUARTER,
 	UPH_SNAP_EIGHTH,
-	UPH_SNAP_SIXTEENTH
+	UPH_SNAP_SIXTEENTH,
+	UPH_SNAP_LINE
 }
 Uph_SnapResolution;
+
+#define UPH_GRID_MIN_SUB_SPACING 8.0f
+#define UPH_GRID_MIN_BEAT_SPACING 5.0f
+#define UPH_SNAP_LINE_MIN_DIVISION (1.0 / 64.0)
 
 static inline double uph_time_signature_beat_length(void)
 {
@@ -31,7 +36,23 @@ static inline Leaf_Color uph_color_mix(Leaf_Color a, Leaf_Color b, float t)
 	};
 }
 
-static inline double uph_snap_division(Uph_SnapResolution res)
+static inline double uph_snap_line_division(float zoom_x)
+{
+	const double beat_length = uph_time_signature_beat_length();
+	if (zoom_x <= 0.0f)
+		return beat_length;
+
+	if (beat_length * zoom_x < NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING))
+		return uph_time_signature_bar_length();
+
+	double division = beat_length;
+	while (division * 0.5 >= UPH_SNAP_LINE_MIN_DIVISION && division * 0.5 * zoom_x >= NAUI_DPI(UPH_GRID_MIN_SUB_SPACING))
+		division *= 0.5;
+
+	return division;
+}
+
+static inline double uph_snap_division(Uph_SnapResolution res, float zoom_x)
 {
 	switch (res)
 	{
@@ -40,20 +61,21 @@ static inline double uph_snap_division(Uph_SnapResolution res)
 		case UPH_SNAP_QUARTER:   return 0.25;
 		case UPH_SNAP_EIGHTH:    return 0.125;
 		case UPH_SNAP_SIXTEENTH: return 0.0625;
+		case UPH_SNAP_LINE:      return uph_snap_line_division(zoom_x);
 	}
 
 	return 1.0;
 }
 
-static inline double uph_snap_beat_round(double beat, Uph_SnapResolution resolution)
+static inline double uph_snap_beat_round(double beat, Uph_SnapResolution resolution, float zoom_x)
 {
-	const double division = uph_snap_division(resolution);
+	const double division = uph_snap_division(resolution, zoom_x);
 	return round(beat / division) * division;
 }
 
-static inline double uph_snap_beat_floor(double beat, Uph_SnapResolution resolution)
+static inline double uph_snap_beat_floor(double beat, Uph_SnapResolution resolution, float zoom_x)
 {
-	const double division = uph_snap_division(resolution);
+	const double division = uph_snap_division(resolution, zoom_x);
 	return floor(beat / division) * division;
 }
 

@@ -39,10 +39,10 @@ void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, 
 
 void uph_midi_grid_render_beats(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
-	uph_grid_render_beats(box, view->zoom.x, view->scroll.x, uph_snap_division(snap));
+	uph_grid_render_beats(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x));
 }
 
 void uph_midi_grid_render_ruler(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
-	uph_grid_render_ruler(box, view->zoom.x, view->scroll.x, uph_snap_division(snap));
+	uph_grid_render_ruler(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x));
 }

@@ -59,13 +59,13 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 
 			if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
 			{
-				blocks[i].start_beat = fmax(0.0, uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution));
+				blocks[i].start_beat = fmax(0.0, uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x));
 				naui_set_cursor(NAUI_CURSOR_HAND);
 			}
 			else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
 			{
-				const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
-				double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
+				const double division = uph_snap_division(uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
+				double new_start = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 				double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 
 				const double earliest_start_beat = drag->initial_start_beat - drag->initial_start_offset_beats;
@@ -85,9 +85,9 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 			}
 			else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
 			{
-				const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+				const double division = uph_snap_division(uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 				double raw_length = mouse_beat - blocks[i].start_beat;
-				double snapped_end = uph_snap_beat_round(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution);
+				double snapped_end = uph_snap_beat_round(blocks[i].start_beat + raw_length, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 				double new_length = snapped_end - blocks[i].start_beat;
 				new_length = fmax(division, new_length);
 				blocks[i].length_beats = new_length;
@@ -263,7 +263,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 				uph_song_timeline_data.drag.track = track;
 				uph_song_timeline_data.drag.mode = UPH_BLOCK_INTERACTION_MOVE;
 				uph_song_timeline_data.drag.initial_drag_beat_offset = 0.0;
-				naui_list_push(track->blocks, uph_song_timeline_block_create(uph_snap_beat_floor(beat, uph_song_timeline_data.snap_resolution), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+				naui_list_push(track->blocks, uph_song_timeline_block_create(uph_snap_beat_floor(beat, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
 
 				if (track->type == UPH_RESOURCE_NONE)
 					track->type = uph_state.shared.selected_resource.type;
@@ -276,8 +276,8 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 		{
 			const uint32_t block_index = uph_song_timeline_data.hovered_block.block_index;
 			const double mouse_beat = ((double)naui_mouse_x() - bbox.x + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-			const double cut_beat = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution);
-			uph_block_cut(uph_action_track_ref(track), block_index, cut_beat, uph_snap_division(uph_song_timeline_data.snap_resolution));
+			const double cut_beat = uph_snap_beat_round(mouse_beat, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
+			uph_block_cut(uph_action_track_ref(track), block_index, cut_beat, uph_snap_division(uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x));
 		}
 	}
 }
@@ -350,7 +350,7 @@ static double _uph_song_timeline_resource_length(const Uph_DragResource *resourc
 static double _uph_song_timeline_drop_beat(Leaf_BoundingBox bbox)
 {
 	const double beat = ((double)naui_mouse_x() - bbox.x + uph_song_timeline_data.scroll.x) / uph_song_timeline_data.zoom.x;
-	return uph_snap_beat_floor(fmax(beat, 0.0), uph_song_timeline_data.snap_resolution);
+	return uph_snap_beat_floor(fmax(beat, 0.0), uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 }
 
 static void _uph_song_timeline_place_dropped_block(Leaf_BoundingBox bbox, Uph_Track *track, Uph_ResourceType type, Uph_ResourceIndex index)

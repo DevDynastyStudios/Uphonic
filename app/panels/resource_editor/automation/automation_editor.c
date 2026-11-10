@@ -174,7 +174,7 @@ static double _uph_automation_editor_snap(const Uph_AutomationEditorData *editor
 	if (_uph_automation_editor_snap_disabled())
 		return beat;
 
-	return uph_snap_beat_round(beat, editor->snap_resolution);
+	return uph_snap_beat_round(beat, editor->snap_resolution, editor->view.zoom.x);
 }
 
 static bool _uph_automation_editor_fields_text_active(void)
@@ -564,7 +564,7 @@ static void _uph_automation_editor_update_keys(Uph_AutomationEditorData *editor,
 	const Uph_AutomationPoint old_point = *point;
 	const bool fine = _uph_automation_editor_fine();
 	const float nudge = fine ? UPH_AUTOMATION_EDITOR_FINE_NUDGE : UPH_AUTOMATION_EDITOR_NUDGE;
-	const double step = uph_snap_division(editor->snap_resolution) * (fine ? 0.25 : 1.0);
+	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x) * (fine ? 0.25 : 1.0);
 
 	if (naui_key_pressed_repeat(NAUI_KEY_UP))
 		point->value = NAUI_CLAMP01(point->value + nudge);
@@ -859,19 +859,11 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorData *edit
 			.child_gap = NAUI_DPI(6)
 		})
 		{
-			static const char *snap_options[] = {
-				"Beat",
-				"1/2",
-				"1/4",
-				"1/8",
-				"1/16"
-			};
-
 			_uph_automation_editor_render_label("Snap", false);
 			leaf({
 				.size = {LEAF_SIZE_FIXED(NAUI_DPI(60)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_dropdown(snap_options, 5, (uint32_t*)&editor->snap_resolution, leaf_id("uph_automation_editor_snap"));
+			}) uph_ui_snap_dropdown(&editor->snap_resolution, leaf_id("uph_automation_editor_snap"));
 
 			if (uph_ui_text_button("Fit", leaf_id("uph_automation_editor_fit")))
 				editor->fit = true;
@@ -1046,7 +1038,7 @@ void uph_automation_editor_init(void)
 	Uph_AutomationEditorData *editor = &uph_automation_editor_data;
 	memset(editor, 0, sizeof(*editor));
 	editor->view.zoom = (Naui_Vec2) { NAUI_DPI(100.0f), NAUI_DPI(30.0f) };
-	editor->snap_resolution = UPH_SNAP_QUARTER;
+	editor->snap_resolution = UPH_SNAP_LINE;
 	editor->selected_point = -1;
 	editor->hovered_point = -1;
 	editor->hovered_handle = -1;

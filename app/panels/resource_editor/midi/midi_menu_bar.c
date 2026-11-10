@@ -24,7 +24,7 @@ void uph_midi_editor_quantize(Uph_MidiEditorData *editor)
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
 		return;
 
-	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution);
+	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
 static void _uph_midi_menu_bar_edit(Uph_MidiEditorData *editor, Uph_MidiPattern *pattern)

@@ -525,7 +525,7 @@ void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, 
 void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed)
 {
 	const Uph_DraggingBlockState *drag = &uph_song_timeline_data.drag;
-	const double division = uph_snap_division(uph_song_timeline_data.snap_resolution);
+	const double division = uph_snap_division(uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 	double delta_start = grabbed->start_beat - drag->initial_start_beat;
 	double delta_length = grabbed->length_beats - drag->initial_length_beats;
 
@@ -713,7 +713,7 @@ void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu
 			_uph_song_timeline_block_slice(ref, index, uph_time_signature_beat_length());
 
 		if (uph_ui_menu_item(slice_menu, "Every Grid Step", leaf_id("uph_song_timeline_block_slice_grid")))
-			_uph_song_timeline_block_slice(ref, index, uph_snap_division(uph_song_timeline_data.snap_resolution));
+			_uph_song_timeline_block_slice(ref, index, uph_snap_division(uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x));
 	}
 
 	const char *fit_label = snapshot.type == UPH_RESOURCE_SAMPLE ? "Reset to Full Sample" : "Fit to Content";

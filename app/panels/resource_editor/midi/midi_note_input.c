@@ -136,7 +136,7 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorData *editor, Uph_MidiPatte
 static void _uph_note_input_apply_group_drag(Uph_MidiEditorData *editor, Uph_MidiPattern *pattern, const Uph_MidiNote *grabbed)
 {
 	const Uph_DraggingNoteState *drag = &editor->note_input.drag;
-	const double division = uph_snap_division(editor->snap_resolution);
+	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
 
 	double delta_start = grabbed->start_beat - drag->initial_start_beat;
 	double delta_length = grabbed->length_beats - drag->initial_length_beats;
@@ -293,7 +293,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorData *editor, Leaf_Boundin
 
 			if (drag->mode == UPH_NOTE_INTERACTION_MOVE)
 			{
-				const double snapped = uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, editor->snap_resolution);
+				const double snapped = uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, editor->snap_resolution, editor->view.zoom.x);
 				note->start_beat = fmax(0.0, snapped);
 
 				const int32_t mouse_row_now = uph_midi_view_y_to_row(&editor->view, box, (float)naui_mouse_y());
@@ -304,9 +304,9 @@ static void _uph_note_input_update_drag(Uph_MidiEditorData *editor, Leaf_Boundin
 			}
 			else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_LEFT)
 			{
-				const double division = uph_snap_division(editor->snap_resolution);
+				const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
 
-				double new_start = fmax(0.0, uph_snap_beat_round(mouse_beat, editor->snap_resolution));
+				double new_start = fmax(0.0, uph_snap_beat_round(mouse_beat, editor->snap_resolution, editor->view.zoom.x));
 				double end_beat = drag->initial_start_beat + drag->initial_length_beats;
 				new_start = fmin(new_start, end_beat - division);
 
@@ -319,8 +319,8 @@ static void _uph_note_input_update_drag(Uph_MidiEditorData *editor, Leaf_Boundin
 			}
 			else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_RIGHT)
 			{
-				const double division = uph_snap_division(editor->snap_resolution);
-				const double snapped_end = uph_snap_beat_round(note->start_beat + (mouse_beat - note->start_beat), editor->snap_resolution);
+				const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
+				const double snapped_end = uph_snap_beat_round(note->start_beat + (mouse_beat - note->start_beat), editor->snap_resolution, editor->view.zoom.x);
 				double new_length = snapped_end - note->start_beat;
 				new_length = fmax(division, new_length);
 
@@ -391,7 +391,7 @@ static void _uph_note_input_update_draw(Uph_MidiEditorData *editor, Leaf_Boundin
 	const uint8_t key_number = (uint8_t)uph_note_map_clamp_key(&editor->note_map, uph_note_map_key_at_row(&editor->note_map, row));
 
 	Uph_MidiNote note = {
-		.start_beat = fmax(0.0, uph_snap_beat_floor(beat, editor->snap_resolution)),
+		.start_beat = fmax(0.0, uph_snap_beat_floor(beat, editor->snap_resolution, editor->view.zoom.x)),
 		.length_beats = input->last_note_length,
 		.key_number = key_number,
 		.velocity = input->last_note_velocity
@@ -475,9 +475,9 @@ static void _uph_note_input_update_cut(Uph_MidiEditorData *editor, Leaf_Bounding
 		return;
 
 	const double mouse_beat = uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
-	const double cut_beat = uph_snap_beat_round(mouse_beat, editor->snap_resolution);
+	const double cut_beat = uph_snap_beat_round(mouse_beat, editor->snap_resolution, editor->view.zoom.x);
 
-	uph_note_cut(uph_state.shared.selected_resource.index, input->hovered_note.note_index, cut_beat, uph_snap_division(editor->snap_resolution));
+	uph_note_cut(uph_state.shared.selected_resource.index, input->hovered_note.note_index, cut_beat, uph_snap_division(editor->snap_resolution, editor->view.zoom.x));
 }
 
 #pragma region Note Erase

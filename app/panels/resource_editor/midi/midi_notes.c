@@ -100,7 +100,7 @@ void uph_midi_notes_render_marquee(const Uph_MidiView *view, Leaf_BoundingBox bo
 void uph_midi_notes_render_cut_line(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
 	const double mouse_beat = uph_midi_view_x_to_beat(view, box, (float)naui_mouse_x());
-	const double cut_beat = uph_snap_beat_round(mouse_beat, snap);
+	const double cut_beat = uph_snap_beat_round(mouse_beat, snap, view->zoom.x);
 	const float x = uph_midi_view_beat_to_x(view, box, cut_beat);
 
 	naui_draw_line(

@@ -1884,6 +1884,26 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
     return result;
 }
 
+bool uph_ui_snap_dropdown(Uph_SnapResolution *snap, const Leaf_ID id)
+{
+    static const char *const labels[] = { "Line", "Beat", "1/2", "1/4", "1/8", "1/16" };
+    static const Uph_SnapResolution values[] = { UPH_SNAP_LINE, UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_QUARTER, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
+    const uint32_t count = sizeof(values) / sizeof(values[0]);
+
+    uint32_t index = 0;
+    for (uint32_t i = 0; i < count; i++)
+    {
+        if (values[i] == *snap)
+            index = i;
+    }
+
+    if (!uph_ui_dropdown(labels, count, &index, id))
+        return false;
+
+    *snap = values[index];
+    return true;
+}
+
 bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, Naui_Color color, Uph_UIKnobStartType start_type)
 {
     Uph_KnobData *kdata = &uph_global_widget_data.knob_data;

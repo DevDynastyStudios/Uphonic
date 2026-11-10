@@ -3,7 +3,7 @@
 static double _uph_song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
 {
 	const double raw = ((double)naui_mouse_x() - position.x) / uph_song_timeline_data.zoom.x + start_offset;
-	return uph_snap_beat_round(raw, uph_song_timeline_data.snap_resolution);
+	return uph_snap_beat_round(raw, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 }
 
 static void _uph_song_timeline_finish_point_edit(const Uph_Automation *automation)

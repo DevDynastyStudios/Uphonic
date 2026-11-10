@@ -119,18 +119,10 @@ void uph_song_timeline_render_toolbox(void)
 				.font_size = NAUI_DPI(UPH_TOOLBOX_FONT_SIZE),
 				.color = naui_theme_color("uph_ui_text_color")
 			});
-			static const char *snap_options[] = {
-				"Beat",
-				"1/2",
-				"1/4",
-				"1/8",
-				"1/16"
-			};
-
 			leaf({
 				.size = {LEAF_SIZE_FIXED(NAUI_DPI(64)), LEAF_SIZE_FULL},
 				.child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_dropdown(snap_options, 5, (uint32_t*)&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
+			}) uph_ui_snap_dropdown(&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
 		}
 
 		leaf({

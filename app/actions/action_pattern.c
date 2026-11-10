@@ -598,14 +598,14 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 	naui_list_free(selected);
 }
 
-static bool uph_note_quantize(Uph_ResourceIndex pattern_index, Uph_SnapResolution resolution)
+static bool uph_note_quantize(Uph_ResourceIndex pattern_index, Uph_SnapResolution resolution, float zoom_x)
 {
 	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
 	if (!pattern)
 		return false;
 
 	const bool only_selected = uph_note_selected_count(pattern) > 0;
-	const double division = uph_snap_division(resolution);
+	const double division = uph_snap_division(resolution, zoom_x);
 
 	Naui_List(Uph_ActionBlockSnapshot) tail = NULL;
 	uph_pattern_collect_tail_blocks(pattern_index, &tail);
@@ -617,8 +617,8 @@ static bool uph_note_quantize(Uph_ResourceIndex pattern_index, Uph_SnapResolutio
 		if (only_selected && !note->selected)
 			continue;
 
-		const double new_start = fmax(0.0, uph_snap_beat_round(note->start_beat, resolution));
-		const double new_length = fmax(division, uph_snap_beat_round(note->start_beat + note->length_beats, resolution) - new_start);
+		const double new_start = fmax(0.0, uph_snap_beat_round(note->start_beat, resolution, zoom_x));
+		const double new_length = fmax(division, uph_snap_beat_round(note->start_beat + note->length_beats, resolution, zoom_x) - new_start);
 
 		if (new_start == note->start_beat && new_length == note->length_beats)
 			continue;

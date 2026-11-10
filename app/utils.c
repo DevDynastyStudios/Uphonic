@@ -2,8 +2,8 @@ void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, d
 {
     const double beat_length = uph_time_signature_beat_length();
     const int64_t beats_per_bar = (int64_t)llround(uph_time_signature_bar_length() / beat_length);
-    const float min_sub_spacing = NAUI_DPI(8.0f);
-    const float min_beat_spacing = NAUI_DPI(5.0f);
+    const float min_sub_spacing = NAUI_DPI(UPH_GRID_MIN_SUB_SPACING);
+    const float min_beat_spacing = NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING);
 
     const float division_px = (float)(division * zoom_x);
     if (division < beat_length && division_px >= min_sub_spacing)

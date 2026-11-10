@@ -18,7 +18,7 @@ void uph_midi_editor_init(void)
 
 	editor->view.zoom = (Naui_Vec2) { NAUI_DPI(100.0f), NAUI_DPI(30.0f) };
 	editor->current_action_mode = UPH_ACTION_DRAW;
-	editor->snap_resolution = UPH_SNAP_QUARTER;
+	editor->snap_resolution = UPH_SNAP_LINE;
 	editor->note_input.last_note_length = UPH_MIDI_EDITOR_DEFAULT_NOTE_LENGTH;
 	editor->note_input.last_note_velocity = UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY;
 	uph_midi_editor_reset_scroll();
@@ -159,7 +159,7 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Le
 	{
 		loop_busy = uph_loop_region_update(
 			&pattern->loop_region, &editor->loop_drag, box,
-			editor->view.zoom.x, editor->view.scroll.x, uph_snap_division(editor->snap_resolution),
+			editor->view.zoom.x, editor->view.scroll.x, uph_snap_division(editor->snap_resolution, editor->view.zoom.x),
 			!editor->playhead_dragging && editor->panel_hovered
 		);
 		if (editor->loop_drag.created)
@@ -180,14 +180,14 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Le
 	if (!editor->playhead_dragging)
 		return;
 
-	double beat = fmax(0.0, uph_snap_beat_floor(uph_midi_view_x_to_beat(&editor->view, box, mouse.x), editor->snap_resolution));
+	double beat = fmax(0.0, uph_snap_beat_floor(uph_midi_view_x_to_beat(&editor->view, box, mouse.x), editor->snap_resolution, editor->view.zoom.x));
 	if (pattern)
 	{
 		double length = uph_midi_preview_loop_length(pattern);
 		if (uph_midi_preview_looping() && uph_loop_region_valid(&pattern->loop_region))
 			length = fmax(length, pattern->loop_region.end);
 		if (beat >= length)
-			beat = fmax(0.0, length - uph_snap_division(editor->snap_resolution));
+			beat = fmax(0.0, length - uph_snap_division(editor->snap_resolution, editor->view.zoom.x));
 	}
 
 	if (beat != editor->playhead_drag_beat)

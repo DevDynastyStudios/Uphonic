@@ -105,8 +105,8 @@ static void uph_midi_record_close_note(uint32_t open_index, double end_beat)
 	if (uph_state.settings.midi.record_quantize)
 	{
 		const Uph_SnapResolution grid = (Uph_SnapResolution)uph_state.settings.midi.record_quantize_grid;
-		const double division = uph_snap_division(grid);
-		note->length_beats = fmax(division, uph_snap_beat_round(end_beat - note->start_beat, grid));
+		const double division = uph_snap_division(grid, 0.0f);
+		note->length_beats = fmax(division, uph_snap_beat_round(end_beat - note->start_beat, grid, 0.0f));
 		return;
 	}
 
@@ -156,7 +156,7 @@ static void uph_midi_record_note_on(
 
 	double start_beat = beat;
 	if (uph_state.settings.midi.record_quantize)
-		start_beat = uph_snap_beat_round(beat, (Uph_SnapResolution)uph_state.settings.midi.record_quantize_grid);
+		start_beat = uph_snap_beat_round(beat, (Uph_SnapResolution)uph_state.settings.midi.record_quantize_grid, 0.0f);
 
 	start_beat -= block->start_beat;
 	if (start_beat < 0.0)
