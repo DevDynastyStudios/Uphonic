@@ -11,7 +11,7 @@ Uph_SnapResolution;
 
 #define UPH_GRID_MIN_SUB_SPACING 8.0f
 #define UPH_GRID_MIN_BEAT_SPACING 5.0f
-#define UPH_SNAP_LINE_MIN_DIVISION (1.0 / 64.0)
+#define UPH_SNAP_LINE_MIN_DIVISION 0.25
 
 static inline double uph_time_signature_beat_length(void)
 {

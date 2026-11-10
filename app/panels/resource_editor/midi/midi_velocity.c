@@ -43,10 +43,10 @@ void uph_midi_velocity_cancel_drag(Uph_VelocityLane *lane)
 
 #pragma region Splitter
 
-void uph_midi_velocity_update_splitter(Uph_MidiEditorData *editor, Leaf_ID splitter_id)
+void uph_midi_velocity_update_splitter(Uph_MidiEditorData *editor, bool handle_hovered)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
-	lane->splitter_hovered = leaf_hovered(splitter_id) && editor->panel_hovered;
+	lane->splitter_hovered = handle_hovered && editor->panel_hovered;
 
 	const bool busy = editor->note_input.drag.active || editor->note_input.marquee.active || lane->drag.mode != UPH_VELOCITY_DRAG_NONE;
 	if (lane->splitter_hovered && !busy && naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -286,26 +286,20 @@ void uph_midi_velocity_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, 
 
 void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 {
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const float small_font_size = NAUI_DPI(10.0f);
 	const float padding = NAUI_DPI(6.0f);
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const Leaf_Color dim_color = naui_theme_color("uph_ui_text_disabled_color");
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
-	naui_draw_text((Naui_Vec2) { box.x + padding, box.y + padding }, "Velocity", font_size, 0, text_color);
-
 	static const int32_t marks[] = { 127, 64, 1 };
 	for (uint32_t i = 0; i < (uint32_t)(sizeof(marks) / sizeof(marks[0])); i++)
 	{
 		char label[8];
 		snprintf(label, sizeof(label), "%d", (int)marks[i]);
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), small_font_size, 0);
-		const float y = _uph_velocity_to_y(box, (float)marks[i]) - size.y * 0.5f;
-		if (y < box.y + padding + font_size)
-			continue;
+		const float y = NAUI_CLAMP(_uph_velocity_to_y(box, (float)marks[i]) - size.y * 0.5f, box.y, box.y + box.height - size.y);
 
 		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y }, label, small_font_size, 0, dim_color);
 	}

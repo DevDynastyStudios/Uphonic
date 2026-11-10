@@ -363,6 +363,88 @@ static void _uph_midi_editor_velocity_draw(Leaf_BoundingBox box, void *user_data
 
 #pragma endregion
 
+static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool active)
+{
+	const bool hovered = uph_ui_widget_hovered(id);
+	if (hovered)
+		naui_set_cursor(NAUI_CURSOR_HAND);
+
+	Leaf_Color bg_color = { 0 };
+	if (active)
+		bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
+	else if (hovered)
+		bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
+
+	const Leaf_Color text_color = naui_theme_color(active || hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color");
+
+	leaf({
+		.id = id,
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_MIDI_EDITOR_TAB_PADDING_X), 0),
+		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
+		.child_gap = NAUI_DPI(6),
+		.color = {bg_color},
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_TL | NAUI_CORNER_TR)
+	})
+	{
+		const float icon_size = NAUI_DPI(UPH_MIDI_EDITOR_TAB_ICON_SIZE);
+		leaf({
+			.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
+			.color = {text_color},
+			.image = (void*)naui_asset_image(active ? "uph_icon_arrow_down" : "uph_icon_arrow_right")
+		});
+		leaf_text(label, {
+			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
+			.color = {text_color}
+		});
+	}
+
+	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
+}
+
+static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorData *editor, Leaf_ID bar_id)
+{
+	Uph_VelocityLane *lane = &editor->velocity_lane;
+	const Leaf_ID tab_id = leaf_id("uph_midi_editor_velocity_tab");
+
+	if (lane->visible)
+	{
+		const Leaf_BoundingBox bar = leaf_get_bounding_box(bar_id);
+		const float grab = NAUI_DPI(UPH_MIDI_EDITOR_RESIZE_GRAB_HEIGHT);
+		const float mouse_x = (float)naui_mouse_x();
+		const float mouse_y = (float)naui_mouse_y();
+		const bool over_border = mouse_x >= bar.x && mouse_x < bar.x + bar.width && mouse_y >= bar.y && mouse_y <= bar.y + grab;
+		uph_midi_velocity_update_splitter(editor, over_border);
+	}
+	else
+	{
+		lane->splitter_hovered = false;
+		lane->resizing = false;
+	}
+
+	const bool handle_active = lane->splitter_hovered || lane->resizing;
+	const Leaf_Color border_color = naui_theme_color(handle_active ? "uph_ui_frame_hovered_bg_color" : "uph_toolbox_border_color");
+
+	leaf({
+		.id = bar_id,
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_TAB_BAR_HEIGHT))},
+		.padding = { .left = NAUI_DPI(6), .top = NAUI_DPI(4) },
+		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.border = {
+			.width = handle_active ? 2 : 1,
+			.sides = lane->visible ? (LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM) : LEAF_SIDE_TOP,
+			.color = border_color
+		}
+	})
+	{
+		if (_uph_midi_editor_tab("Velocity", tab_id, lane->visible))
+			lane->visible = !lane->visible;
+	}
+}
+
 static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorData *editor)
 {
 	const int32_t height = NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT);
@@ -395,7 +477,7 @@ void uph_midi_editor_update(void)
 	const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
 	const Leaf_ID piano_id = leaf_id("uph_midi_editor_piano");
 	const Leaf_ID velocity_id = leaf_id("uph_midi_editor_velocity");
-	const Leaf_ID splitter_id = leaf_id("uph_midi_editor_velocity_splitter");
+	const Leaf_ID splitter_id = leaf_id("uph_midi_editor_velocity_tab_bar");
 
 	editor->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	editor->panel_focused = naui_panel_focused() == naui_panel_current();
@@ -444,15 +526,13 @@ void uph_midi_editor_update(void)
 			});
 		}
 
+		_uph_midi_editor_render_tab_bar(editor, splitter_id);
+
+		if (editor->velocity_lane.splitter_hovered || editor->velocity_lane.resizing)
+			editor->lanes_hovered = false;
+
 		if (editor->velocity_lane.visible)
 		{
-			uph_midi_velocity_update_splitter(editor, splitter_id);
-			leaf({
-				.id = splitter_id,
-				.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_SPLITTER_HEIGHT))},
-				.color = naui_theme_color(editor->velocity_lane.splitter_hovered || editor->velocity_lane.resizing ? "uph_ui_frame_hovered_bg_color" : "uph_toolbox_border_color")
-			});
-
 			leaf({
 				.direction = LEAF_DIRECTION_HORIZONTAL,
 				.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(editor->velocity_lane.height))},

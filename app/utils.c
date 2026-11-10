@@ -5,8 +5,13 @@ void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, d
     const float min_sub_spacing = NAUI_DPI(UPH_GRID_MIN_SUB_SPACING);
     const float min_beat_spacing = NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING);
 
+    // Fine snaps (1/8, 1/16) would be too dense when zoomed out, so draw the
+    // finest multiple of the division that still fits instead of hiding them all.
+    while (division > 0.0 && division < beat_length && division * zoom_x < min_sub_spacing)
+        division *= 2.0;
+
     const float division_px = (float)(division * zoom_x);
-    if (division < beat_length && division_px >= min_sub_spacing)
+    if (division > 0.0 && division < beat_length && division_px >= min_sub_spacing)
     {
         const int64_t first = (int64_t)floor((double)scroll_x / division_px) - 1;
         const int64_t last = (int64_t)ceil((double)(scroll_x + width) / division_px);

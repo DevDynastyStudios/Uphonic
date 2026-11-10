@@ -179,8 +179,5 @@ void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
 			}) uph_ui_snap_dropdown(snap_resolution, leaf_id("uph_midi_editor_snap"));
 		}
 		_uph_midi_toolbar_render_voice();
-
-		if (uph_ui_text_toggle_button("Velocity", leaf_id("uph_midi_editor_velocity_toggle"), editor->velocity_lane.visible))
-			editor->velocity_lane.visible = !editor->velocity_lane.visible;
 	}
 }
