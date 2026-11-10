@@ -5,6 +5,7 @@ NAUI_PANEL(uph_sample_browser)
 #define UPH_SAMPLE_BROWSER_MAX_DEPTH 32
 #define UPH_SAMPLE_BROWSER_ROW_HEIGHT 22.0f
 #define UPH_SAMPLE_BROWSER_INDENT 14.0f
+#define UPH_SAMPLE_BROWSER_CLICK_THRESHOLD 4.0f
 #define UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT 56.0f
 #define UPH_SAMPLE_BROWSER_NONE UINT32_MAX
 
@@ -84,10 +85,13 @@ static struct
 	bool load_next_pending;
 	bool load_cancelled;
 	Naui_Path previewing;
+	uint32_t pressed_node;
+	Naui_Vec2 press_mouse;
 }
 s_sample_browser = {
 	.selected = UPH_SAMPLE_BROWSER_NONE,
-	.context_node = UPH_SAMPLE_BROWSER_NONE
+	.context_node = UPH_SAMPLE_BROWSER_NONE,
+	.pressed_node = UPH_SAMPLE_BROWSER_NONE
 };
 
 #pragma region Index
@@ -813,10 +817,21 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			}
 			else
 			{
-				_uph_sample_browser_select(node, true);
+				_uph_sample_browser_select(node, false);
+				s_sample_browser.pressed_node = node;
+				s_sample_browser.press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
 				const Naui_Path path = naui_path_from_cstr(_uph_sample_browser_node_path(index, node));
 				uph_drag_begin(UPH_DRAG_TYPE_SAMPLE_FILE, &path, sizeof(path), _uph_sample_browser_render_drag);
 			}
+		}
+		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && s_sample_browser.pressed_node == node)
+		{
+			const float dx = (float)naui_mouse_x() - s_sample_browser.press_mouse.x;
+			const float dy = (float)naui_mouse_y() - s_sample_browser.press_mouse.y;
+			const float threshold = NAUI_DPI(UPH_SAMPLE_BROWSER_CLICK_THRESHOLD);
+			if (dx * dx + dy * dy < threshold * threshold)
+				_uph_sample_browser_select(node, true);
+			s_sample_browser.pressed_node = UPH_SAMPLE_BROWSER_NONE;
 		}
 		else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 		{

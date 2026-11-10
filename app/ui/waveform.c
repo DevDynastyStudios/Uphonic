@@ -48,6 +48,7 @@ void uph_ui_waveform_zoomable(
     float *min_y = (float*)alloca(sizeof(float) * (size_t)(x_end - x_start));
 
     const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
+    const int32_t visible_end = x_end;
 
     for (int32_t x = x_start; x < x_end; x++)
     {
@@ -101,8 +102,17 @@ void uph_ui_waveform_zoomable(
         float max_v = NAUI_CLAMP((p0_max + (p1_max - p0_max) * (float)frac) * gain, -1.0f, 1.0f);
         float min_v = NAUI_CLAMP((p0_min + (p1_min - p0_min) * (float)frac) * gain, -1.0f, 1.0f);
 
-        max_y[x - x_start] = mid_y - max_v * half_height;
-        min_y[x - x_start] = mid_y - min_v * half_height;
+        float top = mid_y - max_v * half_height;
+        float bottom = mid_y - min_v * half_height;
+        if (bottom - top < 1.0f)
+        {
+            const float center = (top + bottom) * 0.5f;
+            top = center - 0.5f;
+            bottom = center + 0.5f;
+        }
+
+        max_y[x - x_start] = top;
+        min_y[x - x_start] = bottom;
     }
 
     for (int32_t x = x_start; x < x_end - 1; x++)
@@ -118,6 +128,16 @@ void uph_ui_waveform_zoomable(
         };
 
         naui_fill_polygon(quad, 4, color);
+    }
+
+    const int32_t line_start = NAUI_MAX(x_end - 1, x_start);
+    if (line_start < visible_end)
+    {
+        naui_fill_rect(
+            (Naui_Vec2) { position.x + (float)line_start, mid_y - 0.5f },
+            (Naui_Vec2) { (float)(visible_end - line_start), 1.0f },
+            color, 0.0f, NAUI_CORNER_NONE
+        );
     }
 }
 
