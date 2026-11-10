@@ -269,7 +269,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 
 		leaf({
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-			.floating.offset = { 1.0f, 1.0f },
+			.floating.offset = { 1, 1 },
 			.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - 2) },
 			.border = {
 				.width = 1,
@@ -285,7 +285,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			const Leaf_Color outline_color = naui_theme_color("uph_selection_outline_color");
 			leaf({
 				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-				.floating.offset = { (float)line_width, (float)line_width },
+				.floating.offset = { line_width, line_width },
 				.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - line_width * 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - line_width * 2) },
 				.border = {
 					.width = line_width,

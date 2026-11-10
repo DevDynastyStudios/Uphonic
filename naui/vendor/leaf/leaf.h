@@ -25,7 +25,7 @@ extern "C" {
     
     typedef struct
     {
-        float x, y;
+        int32_t x, y;
     }
     Leaf_Vec2;
     
@@ -456,7 +456,7 @@ leaf__i_ = (leaf_end_element(), 0))
     LEAF_API void leaf_shutdown(void);
     
     LEAF_API void leaf_set_measure_text(Leaf_MeasureTextFn fn);
-    LEAF_API void leaf_set_pointer_pos(float x, float y);
+    LEAF_API void leaf_set_pointer_pos(int32_t x, int32_t y);
     
     LEAF_API void leaf_begin_element(Leaf_ElementConfig config);
     LEAF_API void leaf_end_element(void);
@@ -709,7 +709,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         leaf_ctx->measure_text = fn;
     }
     
-    void leaf_set_pointer_pos(float x, float y)
+    void leaf_set_pointer_pos(int32_t x, int32_t y)
     {
         leaf_ctx->pointer_pos.x = x;
         leaf_ctx->pointer_pos.y = y;

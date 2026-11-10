@@ -123,7 +123,7 @@ static void __naui_app_render(void)
     if (!naui_renderer_begin())
         return;
     leaf_begin_frame(mgapp_width(), mgapp_height());
-    leaf_set_pointer_pos((float)mgapp_mouse_x(), (float)mgapp_mouse_y());
+    leaf_set_pointer_pos(mgapp_mouse_x(), mgapp_mouse_y());
     _naui_app_state.events.update();
     Leaf_RenderCmdList cmd_list = leaf_end_frame();
     render_leaf_cmd_list(&cmd_list);
