@@ -267,6 +267,18 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			});
 		}
 
+		leaf({
+			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+			.floating.offset = { 1.0f, 1.0f },
+			.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - 2) },
+			.border = {
+				.width = 1,
+				.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(45 * opacity)) },
+				.sides = LEAF_SIDE_ALL
+			},
+			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
+		});
+
 		if (block->selected)
 		{
 			const int32_t line_width = (int32_t)NAUI_DPI(2);
