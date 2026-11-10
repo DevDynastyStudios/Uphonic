@@ -54,6 +54,7 @@
     "uph_midi_editor_scale_lane_color": "#F7F6FA",
     "uph_midi_editor_off_scale_lane_color": "#F0EEF5",
     "uph_midi_editor_lane_border_color": "#E8E6ED",
+    "uph_midi_editor_loop_end_overlay_color": "#4E46701E",
     "uph_timeline_grid_beat_color": "#8A85A040",
     "uph_timeline_grid_subbeat_color": "#8A85A018",
     "uph_timeline_grid_bar_color": "#6E6888A0",
@@ -103,6 +104,11 @@
     "uph_piano_natural_pressed_gradient": "#8E7FDA",
     "uph_piano_sharp_color": "#4A4460",
     "uph_piano_sharp_gradient": "#1E1B2A",
+
+    "uph_piano_natural_border_color": "#B5ADD0",
+    "uph_piano_sharp_border_color": "#1A1726",
+    "uph_piano_sharp_shine_color": "#625C7A",
+    "uph_piano_label_color": "#5E5680D7",
     "uph_piano_sharp_pressed_color": "#6E5FC0",
     "uph_piano_sharp_pressed_gradient": "#3C3278"
 }

@@ -1,7 +1,3 @@
-#define UPH_PIANO_ACCIDENTAL_SHINE_MIX 0.10f
-#define UPH_PIANO_BORDER_DARKEN_MIX 0.50f
-#define UPH_PIANO_LABEL_DARKEN_MIX 0.60f
-#define UPH_PIANO_LABEL_ALPHA 215
 #define UPH_PIANO_LABEL_FONT_SIZE 16.0f
 #define UPH_PIANO_LABEL_ALIGNMENT LEAF_TEXT_ALIGN_RIGHT
 #define UPH_PIANO_LABEL_EDGE_PADDING 8.0f
@@ -175,13 +171,18 @@ Uph_PianoEvents uph_piano_release_mouse(Uph_Piano *piano)
 
 #pragma region Rendering
 
+static uint8_t _uph_piano_scale_alpha(uint8_t theme_alpha, float style_alpha)
+{
+	return (uint8_t)((float)theme_alpha * style_alpha / 255.0f + 0.5f);
+}
+
 static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
 	const Leaf_Color natural_color = naui_theme_color("uph_piano_natural_color");
 	const Leaf_Color natural_pressed_color = naui_theme_color("uph_piano_natural_pressed_color");
-	const Leaf_Color border_color = uph_color_mix(natural_color, LEAF_COLOR_BLACK, UPH_PIANO_BORDER_DARKEN_MIX);
+	const Leaf_Color border_color = naui_theme_color("uph_piano_natural_border_color");
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -204,7 +205,7 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 
 		const bool is_octave_start = key % UPH_NOTES_PER_OCTAVE == 0;
 		Leaf_Color line_color = border_color;
-		line_color.a = (uint8_t)(is_octave_start ? style->octave_border_alpha : style->white_key_border_alpha);
+		line_color.a = _uph_piano_scale_alpha(border_color.a, is_octave_start ? style->octave_border_alpha : style->white_key_border_alpha);
 		naui_draw_line(
 			(Naui_Vec2) { box.x, bottom },
 			(Naui_Vec2) { box.x + rect.width, bottom },
@@ -220,6 +221,8 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
 	const float rounding = NAUI_DPI(2.0f);
+	const Leaf_Color border_color = naui_theme_color("uph_piano_sharp_border_color");
+	const Leaf_Color shine_color = naui_theme_color("uph_piano_sharp_shine_color");
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -247,8 +250,8 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 			NAUI_CORNER_TR | NAUI_CORNER_BR
 		);
 
-		Leaf_Color outline = uph_color_mix(sharp_color, LEAF_COLOR_BLACK, UPH_PIANO_LABEL_DARKEN_MIX);
-		outline.a = (uint8_t)style->black_key_border_alpha;
+		Leaf_Color outline = border_color;
+		outline.a = _uph_piano_scale_alpha(border_color.a, style->black_key_border_alpha);
 		naui_draw_rect(position, size, outline, NAUI_DPI(style->black_key_border_thick), rounding, NAUI_CORNER_TR | NAUI_CORNER_BR, NAUI_SIDE_ALL);
 
 		if (!pressed && size.y > NAUI_DPI(7.0f))
@@ -256,7 +259,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 			naui_fill_rect(
 				(Naui_Vec2) { box.x + NAUI_DPI(1.5f), top + NAUI_DPI(1.5f) },
 				(Naui_Vec2) { NAUI_DPI(2.0f), size.y - NAUI_DPI(3.0f) },
-				uph_color_mix(sharp_color, LEAF_COLOR_WHITE, UPH_PIANO_ACCIDENTAL_SHINE_MIX),
+				shine_color,
 				NAUI_DPI(1.0f),
 				NAUI_CORNER_TR | NAUI_CORNER_BR
 			);
@@ -282,8 +285,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 	const float font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
 	const float label_anchor_x = box.x + box.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
 
-	Leaf_Color label_color = uph_color_mix(naui_theme_color("uph_piano_natural_color"), LEAF_COLOR_BLACK, UPH_PIANO_LABEL_DARKEN_MIX);
-	label_color.a = UPH_PIANO_LABEL_ALPHA;
+	const Leaf_Color label_color = naui_theme_color("uph_piano_label_color");
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{

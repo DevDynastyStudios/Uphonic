@@ -231,7 +231,7 @@ static void _uph_midi_editor_render_loop_end(const Uph_MidiEditorData *editor, L
 		return;
 
 	const float start = fmaxf(x, box.x);
-	naui_fill_rect((Naui_Vec2) { start, box.y }, (Naui_Vec2) { box.x + box.width - start, box.height }, leaf_rgba(0, 0, 0, 40), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { start, box.y }, (Naui_Vec2) { box.x + box.width - start, box.height }, naui_theme_color("uph_midi_editor_loop_end_overlay_color"), 0.0f, NAUI_CORNER_NONE);
 }
 
 #pragma endregion
