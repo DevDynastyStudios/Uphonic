@@ -223,6 +223,14 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		.clip_children = true
 	})
 	{
+		const float view_width = uph_song_timeline_data.block_menu.view_width > 0.0f ? uph_song_timeline_data.block_menu.view_width : FLT_MAX;
+		Naui_Vec4 menu_button;
+		const bool has_menu_button = show_menu_button && uph_song_timeline_block_menu_button_rect(offset.x, size.x, 0.0f, view_width, &menu_button);
+		if (has_menu_button)
+			menu_button.x -= visible_left;
+
+		const float title_right_padding = has_menu_button ? fmaxf(anim_size.x - menu_button.x, title_padding) : title_padding;
+
 		Leaf_ID title_id = { 0 };
 		if (show_menu_button && !uph_song_timeline_data.block_menu.title_probe_used)
 		{
@@ -233,9 +241,13 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		leaf({
 			.id = title_id,
 			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED((int32_t)title_height) },
-			.padding = { (int32_t)(title_padding + title_shift), (int32_t)title_padding, (int32_t)title_padding, (int32_t)title_padding },
+			.padding = { (int32_t)(title_padding + title_shift), (int32_t)title_right_padding, (int32_t)title_padding, (int32_t)title_padding },
 			.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)) },
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_TL | LEAF_CORNER_TR)
+		})
+		leaf({
+			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
+			.clip_children = true
 		})
 		{
 			leaf_text(_uph_song_timeline_block_name(block), {
@@ -252,11 +264,8 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			.custom_draw_data = LEAF_DATA_SLICE(content_data)
 		});
 
-		const float view_width = uph_song_timeline_data.block_menu.view_width > 0.0f ? uph_song_timeline_data.block_menu.view_width : FLT_MAX;
-		Naui_Vec4 menu_button;
-		if (show_menu_button && uph_song_timeline_block_menu_button_rect(offset.x, size.x, 0.0f, view_width, &menu_button))
+		if (has_menu_button)
 		{
-			menu_button.x -= visible_left;
 			Uph_BlockMenuButtonDrawData button_data = { .text_color = text_color, .opacity = opacity, .hovered = menu_button_hovered };
 			leaf({
 				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,

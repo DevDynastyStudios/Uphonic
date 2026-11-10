@@ -124,8 +124,12 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 			};
 
 			const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
+			const bool in_hover_box = uph_song_timeline_vec4_contains_vec2(hover_box, mouse);
+			const Uph_BlockInteractionMode hover_mode = uph_song_timeline_classify_hover(hover_box, mouse.x);
+			const bool resize_hovered = in_hover_box && hover_mode != UPH_BLOCK_INTERACTION_MOVE;
+
 			Naui_Vec4 menu_button;
-			if (uph_song_timeline_block_menu_button_rect(block_left, zoom_x * (float)blocks[i].length_beats, bbox.x, bbox.x + bbox.width, &menu_button))
+			if (!resize_hovered && uph_song_timeline_block_menu_button_rect(block_left, zoom_x * (float)blocks[i].length_beats, bbox.x, bbox.x + bbox.width, &menu_button))
 			{
 				menu_button.y += bbox.y;
 				if (uph_song_timeline_vec4_contains_vec2(menu_button, mouse))
@@ -142,12 +146,11 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 				}
 			}
 
-			if (uph_song_timeline_vec4_contains_vec2(hover_box, mouse))
+			if (in_hover_box)
 			{
-				if (!uph_song_timeline_data.block_menu.next_hover.button_hovered)
+				if (!resize_hovered && !uph_song_timeline_data.block_menu.next_hover.button_hovered)
 					uph_song_timeline_data.block_menu.next_hover = (Uph_BlockMenuHover){ .track = track, .block_index = i, .active = true };
 
-				Uph_BlockInteractionMode hover_mode = uph_song_timeline_classify_hover(hover_box, (float)naui_mouse_x());
 				if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && (uph_song_timeline_data.current_action_mode == UPH_ACTION_SELECT || uph_song_timeline_data.current_action_mode == UPH_ACTION_DRAW))
 				{
 					const double grab_beat = ((double)naui_mouse_x() - bbox.x + scroll_x) / zoom_x;
