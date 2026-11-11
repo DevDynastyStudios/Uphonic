@@ -38,6 +38,8 @@ Uph_UIMenuID    uph_ui_menu         (const char *name, const Leaf_ID element_id)
 Uph_UIMenuID    uph_ui_submenu      (Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_item    (Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id);
 bool            uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, bool checked);
+bool            uph_ui_menu_shortcut_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, Naui_Keybind chord);
+bool            uph_ui_menu_keybind_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, Naui_Keybind chord);
 
 Uph_UIMenuID    uph_ui_context_menu (const Leaf_ID id);
 Uph_UIMenuID    uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id));
@@ -60,6 +62,7 @@ bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Na
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder);
 bool uph_ui_textfield_active(const Leaf_ID id);
+bool uph_ui_any_textfield_active(void);
 
 bool uph_ui_drag_float(float *value, const Leaf_ID id, float speed, float min, float max, const char *format, Uph_UIDragFlags flags);
 bool uph_ui_drag_int(int32_t *value, const Leaf_ID id, float speed, int32_t min, int32_t max, const char *format, Uph_UIDragFlags flags);

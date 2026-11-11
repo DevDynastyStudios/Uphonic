@@ -289,19 +289,13 @@ void naui_app_update(void)
 	uph_mixer_apply_pending_move();
 	uph_song_timeline_apply_pending_move();
 	uph_tempo_map_update();
+
+	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active());
  
 	uph_render_main_titlebar();
  
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
 	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
- 
-	if (!uph_dialog_blocks_input() && naui_key_down(NAUI_KEY_LCONTROL))
-	{
-		if (naui_key_pressed(NAUI_KEY_Z))
-			naui_action_undo();
-		else if (naui_key_pressed(NAUI_KEY_Y))
-			naui_action_redo();
-	}
  
 	naui_render_panels_and_viewport();
 	uph_sample_browser_end_frame();

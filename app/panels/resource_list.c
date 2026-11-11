@@ -778,7 +778,7 @@ static void uph_resource_list_on_update(void)
     const bool menu_was_open = uph_ui_any_menu_open();
     _Uph_ResourceListItemHovered = false;
 
-    if (naui_panel_is_hovered(naui_panel_current()) && naui_key_pressed(NAUI_KEY_DELETE) &&
+    if (naui_panel_focused() == uph_state.panels.resource_list && naui_keybind_pressed(uph_state.settings.keybinds.delete_selected) &&
         !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
         uph_resource_list_remove_selected();
 

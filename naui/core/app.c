@@ -175,7 +175,7 @@ static void __naui_app_update(void)
 {
     naui_process_deferred();
     naui_input_update();
-	naui_shortcut_update();
+	naui_keybind_update();
     __naui_app_render();
 }
 

@@ -136,7 +136,7 @@ static void _uph_midi_editor_update_playback(Uph_MidiEditorData *editor)
 {
 	uph_midi_preview_refresh_voice();
 
-	if (editor->panel_focused && naui_key_pressed(NAUI_KEY_SPACE) && !uph_ui_any_menu_open())
+	if (naui_panel_focused() == uph_state.panels.resource_editor && naui_keybind_pressed(uph_state.settings.keybinds.play_pause) && !uph_ui_any_menu_open())
 		uph_midi_editor_toggle_playback();
 
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN || editor->playing_pattern == uph_state.shared.selected_resource.index)

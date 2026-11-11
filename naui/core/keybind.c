@@ -1,234 +1,272 @@
-#define NAUI_SHORTCUT_FATAL_IF(cond, msg) do { if(cond) { fprintf(stderr, "[naui shortcut] %s\n", msg); abort(); } } while(0)
-
 typedef struct
 {
-	Naui_StringView name;
-	Naui_List(Naui_Key) keys;
-	Naui_List(Naui_ShortcutCtx) contexts;
-
-	float sequence_timeout;
-	Naui_ShortcutFn callback;
-	void *user_data;
-
-	bool armed;
-	size_t step;
-	float last_step_time;
+	bool disabled;
+	bool frame_blocked;
+	bool capture_pending;
+	bool capturing;
 }
-Naui_RegisteredShortcut;
+Naui_KeybindState;
+static Naui_KeybindState _naui_keybind_state;
 
-typedef struct
+static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_names[] =
 {
-	Naui_List(Naui_RegisteredShortcut) shortcuts;
-	bool initialized;
-	Naui_ShortcutKind kind;
-	Naui_List(Naui_ShortcutCtx) active_contexts;
+	{ NAUI_MOD_CTRL,	"Ctrl" },
+	{ NAUI_MOD_SUPER,	NAUI_KEY_SUPER_NAME },
+	{ NAUI_MOD_ALT,		NAUI_KEY_ALT_NAME },
+	{ NAUI_MOD_SHIFT,	"Shift" }
+};
+
+static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_aliases[] =
+{
+	{ NAUI_MOD_CTRL,	"Control" },
+	{ NAUI_MOD_SUPER,	"Super" },
+	{ NAUI_MOD_SUPER,	"Cmd" },
+	{ NAUI_MOD_SUPER,	"Command" },
+	{ NAUI_MOD_SUPER,	"Win" },
+	{ NAUI_MOD_SUPER,	"Meta" },
+	{ NAUI_MOD_ALT,		"Alt" },
+	{ NAUI_MOD_ALT,		"Option" },
+	{ NAUI_MOD_PRIMARY,	"Primary" }
+};
+
+static Naui_KeyMods _naui_key_mods(void)
+{
+	Naui_KeyMods mods = NAUI_MOD_NONE;
+
+	if (naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL))
+		mods |= NAUI_MOD_CTRL;
+	if (naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT))
+		mods |= NAUI_MOD_SHIFT;
+	if (naui_key_down(NAUI_KEY_ALT) || naui_key_down(NAUI_KEY_LALT) || naui_key_down(NAUI_KEY_RALT))
+		mods |= NAUI_MOD_ALT;
+	if (naui_key_down(NAUI_KEY_LSUPER) || naui_key_down(NAUI_KEY_RSUPER))
+		mods |= NAUI_MOD_SUPER;
+
+	return mods;
 }
-Naui_ShortcutData;
-static Naui_ShortcutData _naui_shortcut_data;
 
-bool naui_shortcut_context_active(Naui_ShortcutCtx context)
+static Naui_KeyMods _naui_key_own_mod(Naui_Key key)
 {
-	if(context == NAUI_SHORTCUT_CONTEXT_GLOBAL)
-		return true;
-
-	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.active_contexts); i++)
+	switch (key)
 	{
-		if(_naui_shortcut_data.active_contexts[i] == context)
-			return true;
+		case NAUI_KEY_CONTROL: case NAUI_KEY_LCONTROL: case NAUI_KEY_RCONTROL: return NAUI_MOD_CTRL;
+		case NAUI_KEY_SHIFT: case NAUI_KEY_LSHIFT: case NAUI_KEY_RSHIFT: return NAUI_MOD_SHIFT;
+		case NAUI_KEY_ALT: case NAUI_KEY_LALT: case NAUI_KEY_RALT: return NAUI_MOD_ALT;
+		case NAUI_KEY_LSUPER: case NAUI_KEY_RSUPER: return NAUI_MOD_SUPER;
+		default: return NAUI_MOD_NONE;
+	}
+}
+
+static bool _naui_key_is_modifier(Naui_Key key)
+{
+	return _naui_key_own_mod(key) != NAUI_MOD_NONE;
+}
+
+static bool _naui_keybind_active(Naui_Keybind keybind)
+{
+	if (!naui_keybind_valid(keybind))
+		return false;
+
+	const Naui_KeybindState *state = &_naui_keybind_state;
+	if (state->disabled || state->frame_blocked || state->capturing || state->capture_pending)
+		return false;
+
+	const Naui_KeyMods own = _naui_key_own_mod(keybind.key);
+	return (_naui_key_mods() & ~own) == (keybind.mods & ~own);
+}
+
+bool naui_keybind_down(Naui_Keybind keybind)
+{
+	return _naui_keybind_active(keybind) && naui_key_down(keybind.key);
+}
+
+bool naui_keybind_pressed(Naui_Keybind keybind)
+{
+	return _naui_keybind_active(keybind) && naui_key_pressed(keybind.key);
+}
+
+bool naui_keybind_pressed_repeat(Naui_Keybind keybind)
+{
+	return _naui_keybind_active(keybind) && naui_key_pressed_repeat(keybind.key);
+}
+
+bool naui_keybind_released(Naui_Keybind keybind)
+{
+	return _naui_keybind_active(keybind) && naui_key_released(keybind.key);
+}
+
+void naui_keybind_set_enabled(bool enabled)
+{
+	_naui_keybind_state.disabled = !enabled;
+}
+
+void naui_keybind_capture_begin(void)
+{
+	_naui_keybind_state.capture_pending = true;
+	_naui_keybind_state.capturing = false;
+}
+
+void naui_keybind_capture_cancel(void)
+{
+	if (_naui_keybind_state.capture_pending || _naui_keybind_state.capturing)
+		_naui_keybind_state.frame_blocked = true;
+
+	_naui_keybind_state.capture_pending = false;
+	_naui_keybind_state.capturing = false;
+}
+
+bool naui_keybind_capturing(void)
+{
+	return _naui_keybind_state.capture_pending || _naui_keybind_state.capturing;
+}
+
+bool naui_keybind_capture(Naui_Keybind *out)
+{
+	if (!_naui_keybind_state.capturing)
+		return false;
+
+	for (uint32_t key = 1; key < NAUI_KEY_MAX; key++)
+	{
+		if (_naui_key_is_modifier((Naui_Key)key) || !naui_key_pressed((Naui_Key)key) || !naui_key_name((Naui_Key)key))
+			continue;
+
+		if (out)
+			*out = NAUI_KEYBIND(_naui_key_mods(), key);
+
+		_naui_keybind_state.capturing = false;
+		_naui_keybind_state.frame_blocked = true;
+		return true;
 	}
 
 	return false;
 }
 
-void naui_shortcut_context_enable(Naui_ShortcutCtx context)
+static bool _naui_keybind_name_equal(const char *a, size_t a_length, const char *b)
 {
-	if(naui_shortcut_context_active(context))
-		return;
+	const size_t b_length = strlen(b);
+	if (a_length != b_length)
+		return false;
 
-	naui_list_push(_naui_shortcut_data.active_contexts, context);
+	for (size_t i = 0; i < a_length; i++)
+	{
+		if (tolower((unsigned char)a[i]) != tolower((unsigned char)b[i]))
+			return false;
+	}
+
+	return true;
 }
 
-void naui_shortcut_context_disable(Naui_ShortcutCtx context)
+static Naui_Key _naui_key_from_name(const char *name, size_t length)
 {
-	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.active_contexts); i++)
+	if (!name || length == 0)
+		return 0;
+
+	for (uint32_t key = 1; key < NAUI_KEY_MAX; key++)
 	{
-		if(_naui_shortcut_data.active_contexts[i] == context)
+		const char *key_name = naui_key_name((Naui_Key)key);
+		if (key_name && _naui_keybind_name_equal(name, length, key_name))
+			return (Naui_Key)key;
+	}
+
+	if (_naui_keybind_name_equal(name, length, "Alt") || _naui_keybind_name_equal(name, length, "Option"))
+		return NAUI_KEY_ALT;
+	if (_naui_keybind_name_equal(name, length, "Esc"))
+		return NAUI_KEY_ESCAPE;
+	if (_naui_keybind_name_equal(name, length, "Del"))
+		return NAUI_KEY_DELETE;
+	if (_naui_keybind_name_equal(name, length, "Return"))
+		return NAUI_KEY_ENTER;
+	if (_naui_keybind_name_equal(name, length, "Plus"))
+		return NAUI_KEY_EQUAL;
+
+	return 0;
+}
+
+Naui_String naui_keybind_to_string(Naui_Keybind keybind)
+{
+	Naui_String result = { 0 };
+	const char *key_name = naui_key_name(keybind.key);
+	if (!naui_keybind_valid(keybind) || !key_name)
+		return result;
+
+	const Naui_KeyMods own = _naui_key_own_mod(keybind.key);
+	for (size_t i = 0; i < sizeof(_naui_mod_names) / sizeof(_naui_mod_names[0]); i++)
+	{
+		if ((keybind.mods & _naui_mod_names[i].mod) && !(own & _naui_mod_names[i].mod))
 		{
-			naui_list_uremove(_naui_shortcut_data.active_contexts, i);
-			return;
+			naui_string_append_cstr(&result, _naui_mod_names[i].name);
+			naui_string_append_char(&result, '+');
 		}
 	}
+
+	naui_string_append_cstr(&result, key_name);
+	return result;
 }
 
-static bool shortcut_context_eligible(Naui_RegisteredShortcut *s)
+bool naui_keybind_from_string(const char *text, Naui_Keybind *out)
 {
-	if(naui_list_len(s->contexts) == 0)
+	if (!text || !out)
+		return false;
+
+	while (*text == ' ')
+		text++;
+
+	if (*text == '\0')
+	{
+		*out = NAUI_KEYBIND_NONE;
 		return true;
-
-	for(size_t i = 0; i < naui_list_len(s->contexts); i++)
-	{
-		if(naui_shortcut_context_active(s->contexts[i]))
-			return true;
 	}
 
-	return false;
-}
-
-static void free_registered_shortcut(Naui_RegisteredShortcut *s)
-{
-	naui_list_free(s->keys);
-	naui_list_free(s->contexts);
-}
-
-void naui_shortcut_init(Naui_ShortcutKind kind)
-{
-	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
+	Naui_Keybind keybind = NAUI_KEYBIND_NONE;
+	const char *cursor = text;
+	while (*cursor)
 	{
-		free_registered_shortcut(&_naui_shortcut_data.shortcuts[i]);
-	}
-
-	naui_list_clear(_naui_shortcut_data.shortcuts);
-	_naui_shortcut_data.kind = kind;
-	_naui_shortcut_data.initialized = true;
-}
-
-void __naui_register_shortcut(Naui_StringView name, Naui_Shortcut shortcut)
-{
-	NAUI_SHORTCUT_FATAL_IF(!_naui_shortcut_data.initialized, "naui_register_shortcut called before naui_shortcut_init -- the system doesn't know which mode to validate against.");
-	NAUI_SHORTCUT_FATAL_IF(shortcut.keys.count == 0, "No keys were registered. A shortcut needs at least one key.");
-
-	if(_naui_shortcut_data.kind == NAUI_SHORTCUT_CHORD)
-	{
-		NAUI_SHORTCUT_FATAL_IF(shortcut.sequence_timeout != 0.0f && shortcut.sequence_timeout != -1.0f,
-			"sequence_timeout was set on a shortcut registered while the system is in CHORD mode -- "
-			"this field only applies to SEQUENCE mode and setting it here almost certainly means the "
-			"wrong mode is active, or this registration belongs in a different part of the codebase.");
-	}
-
-	Naui_RegisteredShortcut entry = {
-		.name = name,
-		.keys = NULL,
-		.contexts = NULL,
-		.sequence_timeout = shortcut.sequence_timeout,
-		.callback = shortcut.callback,
-		.user_data = shortcut.user_data,
-		.armed = true,
-		.step = 0,
-		.last_step_time = 0.0f
-	};
-
-	naui_list_reserve(entry.keys, shortcut.keys.count);
-	for(size_t i = 0; i < shortcut.keys.count; i++)
-	{
-		naui_list_push(entry.keys, shortcut.keys.items[i]);
-	}
-
-	naui_list_reserve(entry.contexts, shortcut.contexts.count);
-	for(size_t i = 0; i < shortcut.contexts.count; i++)
-	{
-		naui_list_push(entry.contexts, shortcut.contexts.items[i]);
-	}
-
-	naui_list_push(_naui_shortcut_data.shortcuts, entry);
-}
-
-void naui_unregister_shortcut(Naui_StringView name)
-{
-	for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
-	{
-		if(naui_string_views_equal(_naui_shortcut_data.shortcuts[i].name, name, true))
+		const Naui_Key key = _naui_key_from_name(cursor, strlen(cursor));
+		if (key)
 		{
-			free_registered_shortcut(&_naui_shortcut_data.shortcuts[i]);
-			naui_list_uremove(_naui_shortcut_data.shortcuts, i);
-			return;
-		}
-	}
-}
-
-static void update_chord(Naui_RegisteredShortcut *s)
-{
-	bool all_down = true;
-	bool any_fresh_press = false;
-	for(size_t i = 0; i < naui_list_len(s->keys); i++)
-	{
-		Naui_Key key = s->keys[i];
-		if(!naui_key_down(key))
-			all_down = false;
-
-		if(naui_key_pressed(key))
-			any_fresh_press = true;
-	}
-
-	if(!all_down)
-	{
-		s->armed = true;
-		return;
-	}
-
-	if(s->armed && any_fresh_press && shortcut_context_eligible(s))
-	{
-		s->armed = false;
-		s->callback(s->user_data);
-	}
-}
-
-static void reset_sequence(Naui_RegisteredShortcut *s)
-{
-	s->step = 0;
-}
-
-static void update_sequence(Naui_RegisteredShortcut *s)
-{
-	if(s->sequence_timeout >= 0.0f && s->step > 0)
-	{
-		if(naui_frame_time() - s->last_step_time > s->sequence_timeout)
-			reset_sequence(s);
-	}
-
-	if(s->step == 0 && !shortcut_context_eligible(s))
-		return;
-
-	Naui_Key expected = s->keys[s->step];
-	if(naui_key_pressed(expected))
-	{
-		s->step++;
-		s->last_step_time = naui_frame_time();
-		if(s->step == naui_list_len(s->keys))
-		{
-			reset_sequence(s);
-			s->callback(s->user_data);
-		}
-
-		return;
-	}
-
-	for(size_t i = 0; i < naui_list_len(s->keys); i++)
-	{
-		if(i != s->step && naui_key_pressed(s->keys[i]))
-		{
-			reset_sequence(s);
+			keybind.key = key;
 			break;
 		}
+
+		const char *plus = strchr(cursor + 1, '+');
+		if (!plus)
+			return false;
+
+		const size_t length = (size_t)(plus - cursor);
+		Naui_KeyMods mod = NAUI_MOD_NONE;
+		for (size_t i = 0; i < sizeof(_naui_mod_names) / sizeof(_naui_mod_names[0]) && !mod; i++)
+		{
+			if (_naui_keybind_name_equal(cursor, length, _naui_mod_names[i].name))
+				mod = _naui_mod_names[i].mod;
+		}
+		for (size_t i = 0; i < sizeof(_naui_mod_aliases) / sizeof(_naui_mod_aliases[0]) && !mod; i++)
+		{
+			if (_naui_keybind_name_equal(cursor, length, _naui_mod_aliases[i].name))
+				mod = _naui_mod_aliases[i].mod;
+		}
+
+		if (!mod)
+			return false;
+
+		keybind.mods |= mod;
+		cursor = plus + 1;
 	}
+
+	if (!keybind.key)
+		return false;
+
+	*out = keybind;
+	return true;
 }
 
-void naui_shortcut_update(void)
+void naui_keybind_update(void)
 {
-	if(!_naui_shortcut_data.initialized)
-		return;
+	Naui_KeybindState *state = &_naui_keybind_state;
+	state->frame_blocked = false;
 
-	if(_naui_shortcut_data.kind == NAUI_SHORTCUT_CHORD)
+	if (state->capture_pending)
 	{
-		for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
-		{
-			update_chord(&_naui_shortcut_data.shortcuts[i]);
-		}
-	}
-	else
-	{
-		for(size_t i = 0; i < naui_list_len(_naui_shortcut_data.shortcuts); i++)
-		{
-			update_sequence(&_naui_shortcut_data.shortcuts[i]);
-		}
+		state->capture_pending = false;
+		state->capturing = true;
 	}
 }

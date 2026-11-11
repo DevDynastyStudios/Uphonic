@@ -42,6 +42,7 @@ static void uph_io_save_editor_settings_midi(Naui_Json* json, Naui_JsonValue* ob
 static void uph_io_save_editor_settings_ui(Naui_Json* json, Naui_JsonValue* object, const Uph_UISettings* ui);
 static void uph_io_save_editor_settings_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_PluginSettings* plugin);
 static void uph_io_save_editor_settings_browser(Naui_Json* json, Naui_JsonValue* object, const Uph_BrowserSettings* browser);
+static void uph_io_save_editor_settings_keybinds(Naui_Json* json, Naui_JsonValue* object);
 
 static bool uph_io_load_project(Uph_Project* project, const Naui_Path load_path);
 static bool uph_io_load_settings(Uph_Project* project, const Naui_Path load_path);
@@ -64,5 +65,6 @@ static void uph_io_load_editor_settings_midi(Uph_MIDISettings* midi, const Naui_
 static void uph_io_load_editor_settings_ui(Uph_UISettings* ui, const Naui_JsonValue* object);
 static void uph_io_load_editor_settings_plugin(Uph_PluginSettings* plugin, const Naui_JsonValue* object);
 static void uph_io_load_editor_settings_browser(Uph_BrowserSettings* browser, const Naui_JsonValue* object);
+static void uph_io_load_editor_settings_keybinds(const Naui_JsonValue* object);
 
 static bool uph_io_load_scales(Uph_State* state, const Naui_Path scales_dir);

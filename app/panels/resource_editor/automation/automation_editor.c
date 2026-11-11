@@ -541,20 +541,20 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorData *editor
 
 static void _uph_automation_editor_update_keys(Uph_AutomationEditorData *editor, Uph_Automation *automation)
 {
-	if (!editor->panel_hovered || editor->drag_mode != UPH_AUTOMATION_DRAG_NONE || editor->entry_active || _uph_automation_editor_fields_text_active())
+	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->drag_mode != UPH_AUTOMATION_DRAG_NONE || editor->entry_active || _uph_automation_editor_fields_text_active())
 		return;
 
 	const int32_t index = editor->selected_point;
 	if (index < 0 || (uint32_t)index >= (uint32_t)naui_list_len(automation->points))
 		return;
 
-	if (naui_key_pressed(NAUI_KEY_DELETE))
+	if (naui_keybind_pressed(uph_state.settings.keybinds.delete_selected))
 	{
 		_uph_automation_editor_delete_point(editor, (uint32_t)index);
 		return;
 	}
 
-	if (naui_key_pressed(NAUI_KEY_ESCAPE))
+	if (naui_keybind_pressed(uph_state.settings.keybinds.deselect))
 	{
 		editor->selected_point = -1;
 		return;
@@ -562,18 +562,26 @@ static void _uph_automation_editor_update_keys(Uph_AutomationEditorData *editor,
 
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint old_point = *point;
-	const bool fine = _uph_automation_editor_fine();
-	const float nudge = fine ? UPH_AUTOMATION_EDITOR_FINE_NUDGE : UPH_AUTOMATION_EDITOR_NUDGE;
-	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x) * (fine ? 0.25 : 1.0);
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
 
-	if (naui_key_pressed_repeat(NAUI_KEY_UP))
-		point->value = NAUI_CLAMP01(point->value + nudge);
-	if (naui_key_pressed_repeat(NAUI_KEY_DOWN))
-		point->value = NAUI_CLAMP01(point->value - nudge);
-	if (naui_key_pressed_repeat(NAUI_KEY_RIGHT))
+	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_up))
+		point->value = NAUI_CLAMP01(point->value + UPH_AUTOMATION_EDITOR_NUDGE);
+	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_down))
+		point->value = NAUI_CLAMP01(point->value - UPH_AUTOMATION_EDITOR_NUDGE);
+	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_right))
 		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step);
-	if (naui_key_pressed_repeat(NAUI_KEY_LEFT))
+	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_left))
 		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step);
+
+	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_up))
+		point->value = NAUI_CLAMP01(point->value + UPH_AUTOMATION_EDITOR_FINE_NUDGE);
+	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_down))
+		point->value = NAUI_CLAMP01(point->value - UPH_AUTOMATION_EDITOR_FINE_NUDGE);
+	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_right))
+		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step * 0.25);
+	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_left))
+		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step * 0.25);
 
 	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)index, old_point, *point);
 }

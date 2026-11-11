@@ -1090,7 +1090,7 @@ static void _uph_sample_browser_status(void)
 
 static void _uph_sample_browser_keyboard(void)
 {
-	if (naui_panel_focused() != naui_panel_current() || uph_ui_textfield_active(leaf_id("uph_sample_browser_search")) || uph_ui_any_menu_open() || uph_dialog_blocks_input())
+	if (naui_panel_focused() != uph_state.panels.sample_browser || uph_ui_any_menu_open())
 		return;
 
 	const int32_t row_count = (int32_t)naui_list_len(s_sample_browser.rows);
@@ -1101,18 +1101,20 @@ static void _uph_sample_browser_keyboard(void)
 	const uint32_t node = s_sample_browser.selected;
 	const bool searching = _uph_sample_browser_searching();
 
-	if (naui_key_pressed(NAUI_KEY_DOWN) || naui_key_pressed(NAUI_KEY_UP))
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	const bool down = naui_keybind_pressed(keybinds->browser_down);
+	if (down || naui_keybind_pressed(keybinds->browser_up))
 	{
-		int32_t next = current < 0 ? 0 : current + (naui_key_pressed(NAUI_KEY_DOWN) ? 1 : -1);
+		int32_t next = current < 0 ? 0 : current + (down ? 1 : -1);
 		next = NAUI_CLAMP(next, 0, row_count - 1);
 		_uph_sample_browser_select(s_sample_browser.rows[next], true);
 		s_sample_browser.scroll_to_selected = true;
 	}
 	else if (current < 0)
 		return;
-	else if (naui_key_pressed(NAUI_KEY_RIGHT) && !searching && _uph_sample_browser_is_dir(node))
+	else if (naui_keybind_pressed(keybinds->browser_expand) && !searching && _uph_sample_browser_is_dir(node))
 		_uph_sample_browser_set_expanded(node, true);
-	else if (naui_key_pressed(NAUI_KEY_LEFT) && !searching)
+	else if (naui_keybind_pressed(keybinds->browser_collapse) && !searching)
 	{
 		const Uph_SampleBrowserNode *info = &s_sample_browser.index.nodes[node];
 		if (_uph_sample_browser_is_dir(node) && (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
@@ -1123,9 +1125,9 @@ static void _uph_sample_browser_keyboard(void)
 			s_sample_browser.scroll_to_selected = true;
 		}
 	}
-	else if (naui_key_pressed(NAUI_KEY_ENTER))
+	else if (naui_keybind_pressed(keybinds->browser_activate))
 		_uph_sample_browser_activate(node);
-	else if (naui_key_pressed(NAUI_KEY_SPACE) && !_uph_sample_browser_is_dir(node))
+	else if (naui_keybind_pressed(keybinds->browser_preview) && !_uph_sample_browser_is_dir(node))
 	{
 		if (uph_audio_engine_preview_playing())
 			uph_audio_engine_preview_stop();

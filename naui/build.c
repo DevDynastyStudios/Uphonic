@@ -63,7 +63,7 @@
 #include "core/app.h"
 #include "core/input.h"
 #include "core/log.h"
-#include "core/shortcut.h"
+#include "core/keybind.h"
 
 #include "ui/panel.h"
 
@@ -92,7 +92,7 @@
 #include "utils/uuid_win32.c"
 #include "utils/string.c"
 
-#include "core/shortcut.c"
+#include "core/keybind.c"
 #include "core/time.c"
 #include "core/app.c"
 #include "core/action.c"

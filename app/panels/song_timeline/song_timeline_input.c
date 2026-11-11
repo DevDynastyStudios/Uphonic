@@ -59,20 +59,20 @@ void uph_song_timeline_update_selection_keys(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 
-	if (!data->panel_focused || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
+	if (naui_panel_focused() != uph_state.panels.song_timeline || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
 		return;
 
-	const bool ctrl = uph_ui_ctrl_down();
-	if (naui_key_pressed(NAUI_KEY_DELETE))
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	if (naui_keybind_pressed(keybinds->delete_selected))
 		uph_block_delete_selected();
 
-	else if (ctrl && naui_key_pressed(NAUI_KEY_A))
+	else if (naui_keybind_pressed(keybinds->select_all))
 		uph_block_select_all(true);
 
-	else if (ctrl && naui_key_pressed(NAUI_KEY_D))
+	else if (naui_keybind_pressed(keybinds->duplicate))
 		uph_block_duplicate_selected();
 
-	else if (naui_key_pressed(NAUI_KEY_ESCAPE))
+	else if (naui_keybind_pressed(keybinds->deselect))
 		uph_block_select_all(false);
 }
 
@@ -98,7 +98,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 {
 	Uph_SongTimelineData *data = &uph_song_timeline_data;
 
-	if (uph_song_timeline_tool() != UPH_ACTION_SELECT || !data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
+	if (!data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
 		return;
 
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
@@ -112,6 +112,12 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	const bool on_group_lane = mouse_x >= origin_x && _uph_song_timeline_group_row_hovered(uph_state.project.tracks, mouse_x, mouse_y);
 	if (!below_rows && !on_group_lane)
 		return;
+
+	if (uph_song_timeline_tool() != UPH_ACTION_SELECT)
+	{
+		uph_block_select_all(false);
+		return;
+	}
 
 	data->marquee.active = true;
 	data->marquee.start_beat = ((double)naui_mouse_x() - origin_x + data->scroll.x) / data->zoom.x;

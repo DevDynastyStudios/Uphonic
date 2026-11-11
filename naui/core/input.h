@@ -15,6 +15,7 @@ enum
     NAUI_KEY_TAB = 0x09,
     NAUI_KEY_SHIFT = 0x10,
     NAUI_KEY_CONTROL = 0x11,
+    NAUI_KEY_ALT = 0x12,
 
     NAUI_KEY_PAUSE = 0x13,
     NAUI_KEY_CAPITAL = 0x14,
@@ -162,6 +163,17 @@ enum
     NAUI_KEY_MAX = 0xFF
 };
 
+#if defined(NAUI_MACOS)
+#   define NAUI_KEY_SUPER_NAME "Cmd"
+#   define NAUI_KEY_ALT_NAME "Option"
+#elif defined(NAUI_WINDOWS)
+#   define NAUI_KEY_SUPER_NAME "Win"
+#   define NAUI_KEY_ALT_NAME "Alt"
+#else
+#   define NAUI_KEY_SUPER_NAME "Super"
+#   define NAUI_KEY_ALT_NAME "Alt"
+#endif
+
 typedef uint8_t Naui_Cursor;
 enum
 {
@@ -182,6 +194,8 @@ enum
 NAUI_API bool naui_key_down(Naui_Key key);
 NAUI_API bool naui_key_pressed(Naui_Key key);
 NAUI_API bool naui_key_pressed_repeat(Naui_Key key);
+NAUI_API bool naui_key_released(Naui_Key key);
+NAUI_API const char *naui_key_name(Naui_Key key);
 NAUI_API uint32_t naui_app_codepoint(void);
 
 NAUI_API bool naui_mouse_down(Naui_MouseButton button);

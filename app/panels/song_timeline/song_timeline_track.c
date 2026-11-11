@@ -224,6 +224,9 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 	);
 
 	const Uph_ActionMode tool = uph_song_timeline_tool();
+	if (tool != UPH_ACTION_SELECT && naui_mouse_pressed(NAUI_MOUSE_LEFT) && mouse_over_track && !uph_song_timeline_data.hovered_block.active && !uph_song_timeline_data.drag.active)
+		uph_block_select_all(false);
+
 	if (tool == UPH_ACTION_SELECT)
 	{
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && mouse_over_track && !uph_song_timeline_data.hovered_block.active && !uph_song_timeline_data.drag.active)

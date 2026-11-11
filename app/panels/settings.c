@@ -13,6 +13,7 @@ NAUI_PANEL(uph_settings)
 #define UPH_SETTINGS_LABEL_WIDTH		200.0f
 #define UPH_SETTINGS_CONTROL_WIDTH		320.0f
 #define UPH_SETTINGS_ROW_HEIGHT			28.0f
+#define UPH_SETTINGS_CHORD_WIDTH		150.0f
 
 #define UPH_SETTINGS_UI_SCALE_MIN		0.5f
 #define UPH_SETTINGS_UI_SCALE_MAX		2.0f
@@ -38,6 +39,7 @@ NAUI_PANEL(uph_settings)
 typedef enum
 {
 	UPH_SETTINGS_PAGE_GENERAL,
+	UPH_SETTINGS_PAGE_SHORTCUTS,
 	UPH_SETTINGS_PAGE_THEMES,
 	UPH_SETTINGS_PAGE_AUDIO,
 	// UPH_SETTINGS_PAGE_INTERFACE,
@@ -105,6 +107,9 @@ typedef struct
 
 	Naui_String language_unlisted;
 	Naui_String midi_unlisted[2];
+
+	const Uph_KeybindInfo *capturing_keybind;
+	float shortcuts_scroll;
 }
 Uph_SettingsData;
 
@@ -125,6 +130,8 @@ static const char *const uph_settings_snap_labels[] = { "Beat", "1/2", "1/4", "1
 void uph_settings_set_defaults(void)
 {
 	Uph_Settings *settings = &uph_state.settings;
+
+	uph_keybinds_set_defaults();
 
 	settings->general.theme = naui_string_from_cstr("Fish");
 	settings->general.language_code = naui_string_from_cstr("en");
@@ -1391,11 +1398,185 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 	// uph_settings_checkbox_row(NAUI_TR("settings.plugins.sandbox"), &plugin->sandbox_plugins, leaf_id("uph_settings_sandbox"));
 }
 
+static void uph_settings_cancel_keybind_capture(Uph_SettingsData *data)
+{
+	if (!data->capturing_keybind)
+		return;
+
+	data->capturing_keybind = NULL;
+	naui_keybind_capture_cancel();
+}
+
+static bool uph_settings_row_button(const char *text, const Leaf_ID id, const bool enabled)
+{
+	if (enabled)
+		return uph_ui_text_button(text, id);
+
+	const float frame_height = uph_ui__frame_height();
+	leaf({
+		.id = id,
+		.size = { LEAF_SIZE_FIT_MIN(frame_height), UPH_UI_SIZE_EXACT(frame_height) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x), 0),
+		.child_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER },
+		.color = { naui_theme_color("uph_ui_frame_bg_color") },
+		.border = uph_ui__frame_border(),
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
+		.transparency = 0.6f
+	})
+	{
+		leaf_text(text,
+		{
+			.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
+			.color = { naui_theme_color("uph_ui_text_color") }
+		});
+	}
+
+	return false;
+}
+
+static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool capturing, const Leaf_ID id)
+{
+	const Naui_String text = naui_keybind_to_string(*info->chord);
+	const char *label = text.data;
+	if (capturing)
+		label = NAUI_TR("settings.shortcuts.press_keys");
+	else if (text.length == 0)
+		label = NAUI_TR("settings.shortcuts.unbound");
+
+	const bool hovered = uph_ui_widget_hovered(id);
+	if (hovered)
+		naui_set_cursor(NAUI_CURSOR_HAND);
+
+	Leaf_Color color = naui_theme_color("uph_ui_frame_bg_color");
+	if (capturing)
+		color = naui_theme_color("uph_ui_frame_toggled_bg_color");
+	else if (hovered)
+		color = naui_theme_color("uph_ui_frame_hovered_bg_color");
+
+	const float frame_height = uph_ui__frame_height();
+	leaf({
+		.id = id,
+		.size = { LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_CHORD_WIDTH)), UPH_UI_SIZE_EXACT(frame_height) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x), 0),
+		.child_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER },
+		.color = { color },
+		.border = uph_ui__frame_border(),
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
+		.clip_children = true
+	})
+	{
+		const bool dim = !capturing && !naui_keybind_valid(*info->chord);
+		leaf_text(label,
+		{
+			.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
+			.color = { naui_theme_color(dim ? "naui_panel_text_color" : "uph_ui_text_color") }
+		});
+	}
+
+	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
+}
+
+static void uph_settings_page_shortcuts(Uph_SettingsData *data)
+{
+	if (data->capturing_keybind)
+	{
+		Naui_Keybind chord;
+		if (naui_keybind_capture(&chord))
+		{
+			*data->capturing_keybind->chord = chord;
+			data->capturing_keybind = NULL;
+		}
+		else if (!naui_keybind_capturing())
+			data->capturing_keybind = NULL;
+	}
+
+	uint32_t count = 0;
+	const Uph_KeybindInfo *infos = uph_keybind_infos(&count);
+	bool capture_button_clicked = false;
+
+	Uph_UIScrollContainer container = uph_ui_begin_scroll_container(
+		UPH_UI_SCROLL_DIRECTION_VERTICAL,
+		&data->shortcuts_scroll,
+		leaf_id("uph_settings_shortcuts_scrollbar")
+	);
+
+	leaf({
+		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIT },
+		.direction = LEAF_DIRECTION_VERTICAL,
+		.padding = { 0, (int32_t)NAUI_DPI(8.0f), NAUI_MAX(1, (int32_t)NAUI_DPI(1.0f)), 0 },
+		.child_gap = NAUI_DPI(4.0f)
+	})
+	{
+		const char *group = NULL;
+		for (uint32_t i = 0; i < count; i++)
+		{
+			const Uph_KeybindInfo *info = &infos[i];
+			if (!group || strcmp(group, info->group_key) != 0)
+			{
+				const bool first = group == NULL;
+				group = info->group_key;
+				if (uph_settings_section(NAUI_TR(group), first, first ? NAUI_TR("settings.shortcuts.reset_all") : NULL, leaf_id("uph_settings_shortcuts_reset_all")))
+				{
+					uph_settings_cancel_keybind_capture(data);
+					uph_keybinds_set_defaults();
+				}
+			}
+
+			const bool capturing = data->capturing_keybind == info;
+			UPH_SETTINGS_ROW(NAUI_TR(info->label_key), UPH_SETTINGS_NO_ID)
+			{
+				if (uph_settings_chord_button(info, capturing, leaf_id_indexed("uph_settings_keybind", i)))
+				{
+					capture_button_clicked = true;
+					if (capturing)
+						uph_settings_cancel_keybind_capture(data);
+					else
+					{
+						data->capturing_keybind = info;
+						naui_keybind_capture_begin();
+					}
+				}
+
+				const bool modified = !naui_keybind_equal(*info->chord, info->default_chord);
+				const bool enabled = modified || naui_keybind_valid(*info->chord);
+				const char *action = NAUI_TR(modified ? "settings.shortcuts.reset" : "settings.shortcuts.clear");
+
+				if (uph_settings_row_button(action, leaf_id_indexed("uph_settings_keybind_action", i), enabled))
+				{
+					uph_settings_cancel_keybind_capture(data);
+					if (modified)
+						uph_keybind_reset(info);
+					else
+						*info->chord = NAUI_KEYBIND_NONE;
+				}
+
+				const Uph_KeybindInfo *conflict = uph_keybind_conflict(info);
+				if (conflict && !capturing)
+				{
+					char hint[128];
+					snprintf(hint, sizeof(hint), NAUI_TR("settings.shortcuts.conflict"), NAUI_TR(conflict->label_key));
+					leaf_text(hint,
+					{
+						.font_size = { uph_settings_font_size() },
+						.color = { naui_theme_color("uph_ui_slider_fill_color") }
+					});
+				}
+			}
+		}
+	}
+
+	uph_ui_end_scroll_container(&container);
+
+	if (data->capturing_keybind && !capture_button_clicked && naui_any_mouse_pressed())
+		uph_settings_cancel_keybind_capture(data);
+}
+
 static void uph_settings_sidebar(Uph_SettingsData *data)
 {
 	static const char *const keys[UPH_SETTINGS_PAGE_COUNT] =
 	{
 		"settings.page.general",
+		"settings.page.shortcuts",
 		"settings.page.themes",
 		"settings.page.audio",
 		// "settings.page.interface",
@@ -1495,6 +1676,8 @@ static void uph_settings_on_open(void)
 
 static void uph_settings_on_close(void)
 {
+	uph_settings_cancel_keybind_capture(&uph_settings_data);
+
 	if (uph_settings_data.was_opened)
 		uph_settings_save();
 }
@@ -1505,6 +1688,9 @@ static void uph_settings_on_update(void)
 	Uph_SettingsData *data = &uph_settings_data;
 	if (!data->lists_ready)
 		uph_settings_refresh_all(data);
+
+	if (data->page != UPH_SETTINGS_PAGE_SHORTCUTS)
+		uph_settings_cancel_keybind_capture(data);
 
 	leaf({
 		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
@@ -1546,6 +1732,10 @@ static void uph_settings_on_update(void)
 
 				case UPH_SETTINGS_PAGE_PLUGINS:
 					uph_settings_page_plugins(data);
+					break;
+
+				case UPH_SETTINGS_PAGE_SHORTCUTS:
+					uph_settings_page_shortcuts(data);
 					break;
 
 				default: break;

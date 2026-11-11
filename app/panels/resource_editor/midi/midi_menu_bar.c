@@ -31,17 +31,18 @@ static void _uph_midi_menu_bar_edit(Uph_MidiEditorData *editor, Uph_MidiPattern 
 {
 	Uph_UIMenuID menu = uph_ui_menu("Edit", leaf_id("uph_midi_menu_edit"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 
-	if (uph_ui_menu_item(menu, "Select All  (Ctrl+A)", leaf_id("uph_midi_menu_select_all")) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, "Select All", leaf_id("uph_midi_menu_select_all"), keybinds->select_all) && pattern)
 		uph_note_select_all(pattern, true);
 
-	if (uph_ui_menu_item(menu, "Deselect  (Esc)", leaf_id("uph_midi_menu_deselect")) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, "Deselect", leaf_id("uph_midi_menu_deselect"), keybinds->deselect) && pattern)
 		uph_note_select_all(pattern, false);
 
-	if (uph_ui_menu_item(menu, "Duplicate  (Ctrl+D)", leaf_id("uph_midi_menu_duplicate")) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, "Duplicate", leaf_id("uph_midi_menu_duplicate"), keybinds->duplicate) && pattern)
 		uph_note_duplicate_selected(pattern_index);
 
-	if (uph_ui_menu_item(menu, "Delete  (Del)", leaf_id("uph_midi_menu_delete")) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, "Delete", leaf_id("uph_midi_menu_delete"), keybinds->delete_selected) && pattern)
 		uph_note_delete_selected(pattern_index);
 }
 
@@ -49,7 +50,7 @@ static void _uph_midi_menu_bar_tools(Uph_MidiEditorData *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu("Tools", leaf_id("uph_midi_menu_tools"));
 
-	if (uph_ui_menu_item(menu, "Quantize  (Ctrl+Q)", leaf_id("uph_midi_menu_quantize")))
+	if (uph_ui_menu_shortcut_item(menu, "Quantize", leaf_id("uph_midi_menu_quantize"), uph_state.settings.keybinds.quantize))
 		uph_midi_editor_quantize(editor);
 }
 

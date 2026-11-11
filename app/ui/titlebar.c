@@ -159,25 +159,27 @@ void uph_render_main_titlebar(void)
 				.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
 			})
 			{
+				const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+
 				Uph_UIMenuID file_menu = uph_ui_menu(NAUI_TR("menu.file"), leaf_id("uph_file_menu"));
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project")))
+				if (uph_ui_menu_keybind_item(file_menu, NAUI_TR("menu.file.new"), leaf_id("uph_file_menu_new_project"), keybinds->new_project))
 				{
 					// Check if project has initial save
 					// If not, delete the project folder
 					uph_project_create(uph_project_untitled_name());
 				}
 
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open")))
+				if (uph_ui_menu_keybind_item(file_menu, NAUI_TR("menu.file.open"), leaf_id("uph_file_menu_open"), keybinds->open_project))
 				{
 					naui_dialog_default_path_set(UPHONIC_WORKSPACE_FOLDER);
 					naui_dialog_open_file_or_folder("uph_open_project", NAUI_EXTENSIONS(".uph"), _uph_open_project_picked, NULL);
 					naui_dialog_title_set("uph_open_project", NAUI_TR("menu.file.open"));
 				}
 
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save")))
+				if (uph_ui_menu_keybind_item(file_menu, NAUI_TR("menu.file.save"), leaf_id("uph_file_menu_save"), keybinds->save_project))
 					_uph_save_project();
 
-				if (uph_ui_menu_item(file_menu, NAUI_TR("menu.file.save_as"), leaf_id("uph_file_menu_save_as")))
+				if (uph_ui_menu_keybind_item(file_menu, NAUI_TR("menu.file.save_as"), leaf_id("uph_file_menu_save_as"), keybinds->save_project_as))
 					_uph_open_save_dialog(NAUI_TR("menu.file.save_as"));
 
 				Uph_UIMenuID import_menu = uph_ui_submenu(file_menu, NAUI_TR("menu.file.import"), leaf_id("uph_file_import_menu"));
@@ -220,17 +222,13 @@ void uph_render_main_titlebar(void)
 
 
 				Uph_UIMenuID edit_menu = uph_ui_menu(NAUI_TR("menu.edit"), leaf_id("uph_edit_menu"));
-				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.undo"), leaf_id("uph_edit_menu_undo")))
-				{
+				if (uph_ui_menu_keybind_item(edit_menu, NAUI_TR("menu.edit.undo"), leaf_id("uph_edit_menu_undo"), keybinds->undo))
+					naui_action_undo();
 
-				}
+				if (uph_ui_menu_keybind_item(edit_menu, NAUI_TR("menu.edit.redo"), leaf_id("uph_edit_menu_redo"), keybinds->redo))
+					naui_action_redo();
 
-				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.redo"), leaf_id("uph_edit_menu_redo")))
-				{
-
-				}
-
-				if (uph_ui_menu_item(edit_menu, NAUI_TR("menu.edit.settings"), leaf_id("uph_edit_menu_settings")))
+				if (uph_ui_menu_keybind_item(edit_menu, NAUI_TR("menu.edit.settings"), leaf_id("uph_edit_menu_settings"), keybinds->open_settings))
 					naui_panel_open(uph_state.panels.settings);
 
 				Uph_UIMenuID windows_menu = uph_ui_menu(NAUI_TR("menu.windows"), leaf_id("uph_windows_menu"));

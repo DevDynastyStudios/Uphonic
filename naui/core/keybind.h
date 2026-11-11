@@ -1,51 +1,48 @@
-typedef uint32_t Naui_ShortcutCtx;
-typedef void (*Naui_ShortcutFn)(void *user_data);
-
-typedef uint8_t Naui_ShortcutKind;
+typedef uint8_t Naui_KeyMods;
 enum
 {
-	NAUI_SHORTCUT_CHORD,
-	NAUI_SHORTCUT_SEQUENCE
+	NAUI_MOD_NONE	= 0,
+	NAUI_MOD_CTRL	= 1 << 0,
+	NAUI_MOD_SHIFT	= 1 << 1,
+	NAUI_MOD_ALT	= 1 << 2,
+	NAUI_MOD_SUPER	= 1 << 3,
+	NAUI_MOD_ALL	= NAUI_MOD_CTRL | NAUI_MOD_SHIFT | NAUI_MOD_ALT | NAUI_MOD_SUPER,
+
+#if defined(NAUI_MACOS)
+	NAUI_MOD_PRIMARY = NAUI_MOD_SUPER
+#else
+	NAUI_MOD_PRIMARY = NAUI_MOD_CTRL
+#endif
 };
 
 typedef struct
 {
-	const Naui_Key* items;
-	size_t count;
-} Naui_KeyList;
+	Naui_Key key;
+	Naui_KeyMods mods;
+}
+Naui_Keybind;
 
-typedef struct
-{
-	const Naui_ShortcutCtx* items;
-	size_t count;
-} Naui_ShortcutCtxList;
+#define NAUI_KEYBIND(mods_, key_)	((Naui_Keybind){ .key = (Naui_Key)(key_), .mods = (Naui_KeyMods)(mods_) })
+#define NAUI_KEYBIND_KEY(key_)	NAUI_KEYBIND(NAUI_MOD_NONE, (key_))
+#define NAUI_KEYBIND_NONE			((Naui_Keybind){ 0 })
+#define NAUI_KEYBIND_INIT(mods_, key_)	{ .key = (Naui_Key)(key_), .mods = (Naui_KeyMods)(mods_) }
 
-typedef struct
-{
-	Naui_KeyList keys;
-	Naui_ShortcutCtxList contexts;
-	Naui_ShortcutFn callback;
-	void *user_data;
-	float sequence_timeout; // -1 disables timeout. Ignored in NAUI_SHORTCUT_CHORD mode.
-} Naui_Shortcut;
+static inline bool naui_keybind_valid(Naui_Keybind keybind) { return keybind.key != 0; }
+static inline bool naui_keybind_equal(Naui_Keybind a, Naui_Keybind b) { return a.key == b.key && a.mods == b.mods; }
 
-#define NAUI_SHORTCUT_CONTEXT_GLOBAL 0
-#define NAUI_KEYS(...) ((Naui_KeyList){ (Naui_Key[]){ __VA_ARGS__ }, sizeof((Naui_Key[]){ __VA_ARGS__ }) / sizeof(Naui_Key) })
-#define NAUI_CONTEXTS(...) ((Naui_ShortcutCtxList){ (Naui_ShortcutCtx[]){ __VA_ARGS__ }, sizeof((Naui_ShortcutCtx[]){ __VA_ARGS__ }) / sizeof(Naui_ShortcutCtx) })
+NAUI_API bool naui_keybind_down(Naui_Keybind keybind);
+NAUI_API bool naui_keybind_pressed(Naui_Keybind keybind);
+NAUI_API bool naui_keybind_pressed_repeat(Naui_Keybind keybind);
+NAUI_API bool naui_keybind_released(Naui_Keybind keybind);
 
-typedef struct { Naui_Shortcut wrapped; } Naui_ShortcutWrapper;
-#define naui_register_shortcut(name, ...) __naui_register_shortcut((name), (Naui_ShortcutWrapper){ __VA_ARGS__ }.wrapped)
+NAUI_API void naui_keybind_set_enabled(bool enabled);
 
-void __naui_register_shortcut(Naui_StringView name, Naui_Shortcut shortcut);
-void naui_unregister_shortcut(Naui_StringView name);
+NAUI_API void naui_keybind_capture_begin(void);
+NAUI_API void naui_keybind_capture_cancel(void);
+NAUI_API bool naui_keybind_capturing(void);
+NAUI_API bool naui_keybind_capture(Naui_Keybind *out);
 
-void naui_shortcut_init(Naui_ShortcutKind kind);
+NAUI_API Naui_String naui_keybind_to_string(Naui_Keybind keybind);
+NAUI_API bool naui_keybind_from_string(const char *text, Naui_Keybind *out);
 
-// Polls every registered shortcut against current key state
-void naui_shortcut_update(void);
-
-void naui_shortcut_context_enable(Naui_ShortcutCtx context);
-void naui_shortcut_context_disable(Naui_ShortcutCtx context);
-bool naui_shortcut_context_active(Naui_ShortcutCtx context);
-
-// TODO: Add repeat key support, mgapp doesn't support it :(
+void naui_keybind_update(void);

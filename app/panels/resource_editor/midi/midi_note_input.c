@@ -461,18 +461,21 @@ static void _uph_note_input_update_marquee(Uph_MidiEditorData *editor, Leaf_Boun
 	}
 }
 
-static void _uph_note_input_update_cut(Uph_MidiEditorData *editor, Leaf_BoundingBox box)
+static void _uph_note_input_update_cut(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	const Uph_MidiNoteInput *input = &editor->note_input;
 
 	if (!editor->lanes_hovered)
 		return;
 
-	if (!input->hovered_note.active)
-		return;
-
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		return;
+
+	if (!input->hovered_note.active)
+	{
+		uph_note_select_all(pattern, false);
+		return;
+	}
 
 	const double mouse_beat = uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
 	const double cut_beat = uph_snap_beat_round(mouse_beat, editor->snap_resolution, editor->view.zoom.x);
@@ -629,7 +632,7 @@ void uph_midi_note_input_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box
 		_uph_note_input_update_draw(editor, box, pattern);
 
 	else if (tool == UPH_ACTION_CUT)
-		_uph_note_input_update_cut(editor, box);
+		_uph_note_input_update_cut(editor, box, pattern);
 
 	_uph_note_input_update_erase(editor, box, pattern);
 	_uph_note_input_update_marquee(editor, box, pattern);
@@ -637,7 +640,7 @@ void uph_midi_note_input_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box
 
 void uph_midi_note_input_update_shortcuts(Uph_MidiEditorData *editor)
 {
-	if (!editor->panel_hovered || editor->note_input.drag.active || editor->note_input.marquee.active || editor->note_input.erase.active)
+	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->note_input.drag.active || editor->note_input.marquee.active || editor->note_input.erase.active)
 		return;
 
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
@@ -647,19 +650,19 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorData *editor)
 	if (!pattern)
 		return;
 
-	const bool ctrl = uph_ui_ctrl_down();
-	if (naui_key_pressed(NAUI_KEY_DELETE))
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	if (naui_keybind_pressed(keybinds->delete_selected))
 		uph_note_delete_selected(uph_state.shared.selected_resource.index);
 
-	else if (ctrl && naui_key_pressed(NAUI_KEY_A))
+	else if (naui_keybind_pressed(keybinds->select_all))
 		uph_note_select_all(pattern, true);
 
-	else if (ctrl && naui_key_pressed(NAUI_KEY_D))
+	else if (naui_keybind_pressed(keybinds->duplicate))
 		uph_note_duplicate_selected(uph_state.shared.selected_resource.index);
 
-	else if (ctrl && naui_key_pressed(NAUI_KEY_Q))
+	else if (naui_keybind_pressed(keybinds->quantize))
 		uph_midi_editor_quantize(editor);
 
-	else if (naui_key_pressed(NAUI_KEY_ESCAPE))
+	else if (naui_keybind_pressed(keybinds->deselect))
 		uph_note_select_all(pattern, false);
 }

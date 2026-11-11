@@ -566,6 +566,7 @@ static bool uph_io_save_editor_settings(const Uph_State* state, const Naui_Path 
 	uph_io_save_editor_settings_midi(&json, naui_json_set_object(&json, root, "midi"), &settings->midi);
 	uph_io_save_editor_settings_plugin(&json, naui_json_set_object(&json, root, "plugin"), &settings->plugin);
 	uph_io_save_editor_settings_browser(&json, naui_json_set_object(&json, root, "browser"), &settings->browser);
+	uph_io_save_editor_settings_keybinds(&json, naui_json_set_object(&json, root, "keybinds"));
 
 	char temp_name[NAUI_PATH_MAX];
 	snprintf(temp_name, sizeof(temp_name), "%s.tmp", save_path.data);
@@ -659,6 +660,17 @@ static void uph_io_save_editor_settings_browser(Naui_Json* json, Naui_JsonValue*
 
 	naui_json_set_number(json, object, "preview_volume", browser->preview_volume);
 	naui_json_set_bool(json, object, "auto_preview", browser->auto_preview);
+}
+
+static void uph_io_save_editor_settings_keybinds(Naui_Json* json, Naui_JsonValue* object)
+{
+	uint32_t count = 0;
+	const Uph_KeybindInfo* infos = uph_keybind_infos(&count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const Naui_String text = naui_keybind_to_string(*infos[i].chord);
+		naui_json_set_string(json, object, infos[i].id, text.data);
+	}
 }
 
 #pragma endregion
@@ -1409,6 +1421,9 @@ static bool uph_io_load_editor_settings(Uph_State* state, const Naui_Path load_p
 	if ((section = naui_json_object_get(root, "browser")))
 		uph_io_load_editor_settings_browser(&settings->browser, section);
 
+	if ((section = naui_json_object_get(root, "keybinds")))
+		uph_io_load_editor_settings_keybinds(section);
+
 	naui_json_free(&json);
 	return true;
 }
@@ -1498,6 +1513,24 @@ static void uph_io_load_editor_settings_browser(Uph_BrowserSettings* browser, co
 		const char* text = naui_json_get_string(value, NULL);
 		if (text && text[0])
 			naui_list_push(browser->folders, naui_path_from_cstr(text));
+	}
+}
+
+static void uph_io_load_editor_settings_keybinds(const Naui_JsonValue* object)
+{
+	uint32_t count = 0;
+	const Uph_KeybindInfo* infos = uph_keybind_infos(&count);
+	for (uint32_t i = 0; i < count; i++)
+	{
+		const char* text = naui_json_get_string(naui_json_object_get(object, infos[i].id), NULL);
+		if (!text)
+			continue;
+
+		Naui_Keybind chord;
+		if (naui_keybind_from_string(text, &chord))
+			*infos[i].chord = chord;
+		else
+			naui_log(NAUI_LOG_WARNING, "Unknown keybind \"%s\" for \"%s\", using the default", text, infos[i].id);
 	}
 }
 

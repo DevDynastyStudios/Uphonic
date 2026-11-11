@@ -682,6 +682,20 @@ static inline void mgapp_input_process_key(mg_key key, bool pressed)
     }
 }
 
+static inline void mgapp_input_release_all_keys(void)
+{
+    for (int32_t key = 0; key < MG_KEY_MAX; ++key)
+    {
+        if (!mgapp_state.input.keyboard.keys[key])
+            continue;
+
+        mgapp_state.input.keyboard.keys[key] = false;
+        mgapp_state.input.clear.keyboard.keys_released[key] = true;
+        mgapp_event event = { .key = (mg_key)key, .type = MGAPP_EVENT_KEY_UP };
+        mgapp_call_event(&event);
+    }
+}
+
 static inline void mgapp_input_process_char(uint32_t codepoint)
 {
     mgapp_input_state *input_state = &mgapp_state.input;
@@ -1285,6 +1299,11 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
                 .type = MGAPP_EVENT_RESIZE
             };
             mgapp_call_event(&event);
+            break;
+        }
+        case WM_KILLFOCUS:
+        {
+            mgapp_input_release_all_keys();
             break;
         }
         case WM_KEYDOWN:
@@ -2281,7 +2300,7 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
     swa.bit_gravity = NorthWestGravity;
     swa.event_mask =
         StructureNotifyMask | ExposureMask |
-        KeyPressMask | KeyReleaseMask |
+        KeyPressMask | KeyReleaseMask | FocusChangeMask |
         ButtonPressMask | ButtonReleaseMask |
         PointerMotionMask;
 
@@ -2437,6 +2456,11 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                     free(xlib_state->clipboard_owned);
                     xlib_state->clipboard_owned = NULL;
                     xlib_state->clipboard_owned_len = 0;
+                    break;
+                }
+                case FocusOut:
+                {
+                    mgapp_input_release_all_keys();
                     break;
                 }
                 case KeyPress:

@@ -11,6 +11,8 @@
 #include <vendor/cmidi/cmidi.h>
 
 #include "core/types.h"
+#include "core/keybinds.h"
+#include "core/keybinds.c"
 #include "ui/metrics.h"
 #include "actions/action_manager.h"
 

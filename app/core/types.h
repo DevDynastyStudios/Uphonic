@@ -84,6 +84,42 @@ typedef struct Uph_BrowserSettings
 }
 Uph_BrowserSettings;
 
+typedef struct Uph_KeybindSettings
+{
+	Naui_Keybind new_project;
+	Naui_Keybind open_project;
+	Naui_Keybind save_project;
+	Naui_Keybind save_project_as;
+	Naui_Keybind undo;
+	Naui_Keybind redo;
+	Naui_Keybind open_settings;
+
+	Naui_Keybind play_pause;
+
+	Naui_Keybind delete_selected;
+	Naui_Keybind select_all;
+	Naui_Keybind deselect;
+	Naui_Keybind duplicate;
+	Naui_Keybind quantize;
+
+	Naui_Keybind automation_nudge_up;
+	Naui_Keybind automation_nudge_down;
+	Naui_Keybind automation_nudge_left;
+	Naui_Keybind automation_nudge_right;
+	Naui_Keybind automation_fine_nudge_up;
+	Naui_Keybind automation_fine_nudge_down;
+	Naui_Keybind automation_fine_nudge_left;
+	Naui_Keybind automation_fine_nudge_right;
+
+	Naui_Keybind browser_up;
+	Naui_Keybind browser_down;
+	Naui_Keybind browser_expand;
+	Naui_Keybind browser_collapse;
+	Naui_Keybind browser_activate;
+	Naui_Keybind browser_preview;
+}
+Uph_KeybindSettings;
+
 typedef uint8_t Uph_SaveType;
 enum
 {
@@ -428,6 +464,7 @@ typedef struct
 	Uph_MIDISettings midi;
 	Uph_PluginSettings plugin;
 	Uph_BrowserSettings browser;
+	Uph_KeybindSettings keybinds;
 }
 Uph_Settings;
 

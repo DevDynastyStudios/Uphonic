@@ -49,6 +49,7 @@ typedef struct Uph_UIMenuNode Uph_UIMenuNode;
 struct Uph_UIMenuNode
 {
     char *text;
+    char *shortcut;
     Leaf_ID element_id;
     Uph_UIMenuNode *next_sibling;
     Uph_UIMenuNode *first_child;
@@ -736,6 +737,14 @@ static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
             .color = {text_color},
             .font_size = font_size
         });
+        if (node->shortcut)
+        {
+            leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} });
+            leaf_text(node->shortcut, {
+                .color = {naui_theme_color("naui_panel_text_color")},
+                .font_size = font_size
+            });
+        }
         if (node->first_child)
         {
             leaf({
@@ -1071,6 +1080,28 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     return result;
 }
 
+bool uph_ui_menu_shortcut_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, Naui_Keybind chord)
+{
+    const bool clicked = uph_ui_menu_item(menu_id, name, element_id);
+
+    const Naui_String text = naui_keybind_to_string(chord);
+    if (text.length > 0)
+    {
+        Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
+        char *shortcut = naui_arena_alloc(&uph_global_widget_data.menu_arena, text.length + 1);
+        memcpy(shortcut, text.data, text.length + 1);
+        parent->last_child->shortcut = shortcut;
+    }
+
+    return clicked;
+}
+
+bool uph_ui_menu_keybind_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, Naui_Keybind chord)
+{
+    const bool clicked = uph_ui_menu_shortcut_item(menu_id, name, element_id, chord);
+    return clicked || (!uph_dialog_blocks_input() && naui_keybind_pressed(chord));
+}
+
 bool uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, bool checked)
 {
     const bool result = uph_ui_menu_item(menu_id, name, element_id);
@@ -1361,6 +1392,11 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
         NAUI_CORNER_NONE
     );
     naui_pop_clip_rect();
+}
+
+bool uph_ui_any_textfield_active(void)
+{
+    return uph_global_widget_data.textfield_data.mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
 bool uph_ui_textfield_active(const Leaf_ID id)
