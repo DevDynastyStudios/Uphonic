@@ -21,7 +21,8 @@ static void uph_resource_editor_on_open(void)
 
 static void uph_resource_editor_on_close(void)
 {
-
+	uph_midi_editor_reset_interaction();
+	uph_sample_editor_reset_interaction();
 }
 
 static void uph_midi_editor_render_empty(const char *message)
@@ -49,6 +50,7 @@ static void uph_resource_editor_on_update(void)
 			uph_midi_editor_update();
 			break;
 		case UPH_RESOURCE_SAMPLE:
+			uph_midi_editor_reset_interaction();
 			uph_automation_editor_reset_interaction();
 			uph_sample_editor_update();
 			break;

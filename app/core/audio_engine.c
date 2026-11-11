@@ -1524,6 +1524,7 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
     const uint64_t bin_count = (sample_data->frame_count + max_frame_count - 1) / max_frame_count;
 
     float abs_peak = (old_frame_count == 0) ? 0.0f : sample_data->peak;
+    double sum_squares = (old_frame_count == 0) ? 0.0 : sample_data->sum_squares;
 
     for (uint64_t bin = first_bin; bin < bin_count; bin++)
     {
@@ -1534,6 +1535,7 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
 
         float min_v = 1.0f;
         float max_v = -1.0f;
+        Uph_ChannelPeak channel_peaks[2] = { { FLT_MAX, -FLT_MAX }, { FLT_MAX, -FLT_MAX } };
 
         for (uint64_t f = frame_start; f < frame_end; f++)
         {
@@ -1543,12 +1545,24 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
                 const float s = samples[f * channel_count + c];
                 const float a = fabsf(s);
                 if (a > abs_peak) abs_peak = a;
+                if (f >= old_frame_count) sum_squares += (double)s * (double)s;
+                if (s < channel_peaks[c].min) channel_peaks[c].min = s;
+                if (s > channel_peaks[c].max) channel_peaks[c].max = s;
                 value += s;
             }
             value /= (float)channel_count;
 
             if (value < min_v) min_v = value;
             if (value > max_v) max_v = value;
+        }
+
+        for (int c = 0; c < channel_count; c++)
+        {
+            const uint64_t index = bin * (uint64_t)channel_count + (uint64_t)c;
+            if (index < naui_list_len(sample_data->channel_peaks))
+                sample_data->channel_peaks[index] = channel_peaks[c];
+            else
+                naui_list_push(sample_data->channel_peaks, channel_peaks[c]);
         }
 
         Uph_WaveformPeak peak = {
@@ -1563,13 +1577,15 @@ static void uph_update_waveform_peaks(Uph_SampleData *sample_data, uint64_t old_
     }
 
     sample_data->peak = abs_peak;
+    sample_data->sum_squares = sum_squares;
 }
 
 float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data)
 {
+    const float gain = sample->gain;
     if (!sample->normalized || data->peak <= 1e-6f)
-        return 1.0f;
-    return 1.0f / data->peak;
+        return gain;
+    return gain / data->peak;
 }
 
 bool uph_sample_follows_tempo(const Uph_Sample *sample)
@@ -1611,6 +1627,7 @@ static void uph_build_waveform_peaks(Uph_SampleData *sample_data)
     const uint32_t max_frame_count = UPH_WAVEFORM_BIN_FRAMES;
     const uint64_t bin_count = (sample_data->frame_count + max_frame_count - 1) / max_frame_count;
     naui_list_reserve(sample_data->waveform_peaks, bin_count);
+    naui_list_reserve(sample_data->channel_peaks, bin_count * (sample_data->channel_type == UPH_SAMPLE_STEREO ? 2 : 1));
 
     uph_update_waveform_peaks(sample_data, 0);
 }
@@ -2373,6 +2390,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     uph_midi_preview_begin_buffer(frame_count, engine_sample_rate, bpm, is_playing);
     uph_render_audio(playhead_start_beat, engine_sample_rate, rendered, frame_count, is_playing, input_f);
     uph_midi_preview_end_buffer();
+    uph_sample_preview_mix(rendered, frame_count, engine_sample_rate, bpm, is_playing);
     uph_audio_engine_preview_mix(rendered, frame_count);
 
     if (output_channels != 2)
@@ -2845,6 +2863,7 @@ void uph_audio_engine_unload_sample_data(Uph_SampleData *sample_data)
         return;
     free(sample_data->frames);
     naui_list_free(sample_data->waveform_peaks);
+    naui_list_free(sample_data->channel_peaks);
 }
 
 bool uph_audio_engine_sample_data_valid(const Uph_SampleData *sample_data)

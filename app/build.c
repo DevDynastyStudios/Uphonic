@@ -34,6 +34,7 @@
 #include "core/midi_manager.c"
 #include "core/midi_recorder.h"
 #include "core/midi_preview.h"
+#include "core/sample_preview.h"
 #include "io/file_signature.h"
 #include "io/file_signature.c"
 #include "io/serialization.h"
@@ -95,6 +96,7 @@
 
 #include "core/midi_preview.c"
 #include "core/audio_engine.c"
+#include "core/sample_preview.c"
 #include "core/midi_recorder.c"
 
 #include "panels/file_dialog.c"

@@ -108,7 +108,7 @@ void uph_midi_editor_reset_interaction(void)
 	_uph_midi_editor_set_audition(editor, -1, 0);
 	editor->playhead_dragging = false;
 	editor->loop_drag.mode = UPH_LOOP_DRAG_NONE;
-	uph_midi_preview_pause();
+	uph_midi_preview_stop();
 }
 
 #pragma endregion
@@ -127,6 +127,7 @@ void uph_midi_editor_toggle_playback(void)
 		return;
 
 	uph_state.shared.song_timeline_playing = false;
+	uph_sample_preview_pause();
 	uph_midi_editor_data.playing_pattern = uph_state.shared.selected_resource.index;
 	uph_midi_preview_play(uph_midi_editor_data.playing_pattern);
 }
@@ -147,9 +148,7 @@ static void _uph_midi_editor_update_playback(Uph_MidiEditorData *editor)
 		return;
 
 	editor->playing_pattern = uph_state.shared.selected_resource.index;
-	uph_midi_preview_seek(0.0);
-	if (uph_midi_preview_playing())
-		uph_midi_preview_play(editor->playing_pattern);
+	uph_midi_preview_stop();
 }
 
 static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Leaf_BoundingBox box)

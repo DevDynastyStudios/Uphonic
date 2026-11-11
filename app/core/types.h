@@ -183,8 +183,17 @@ Uph_WaveformPeak;
 
 typedef struct
 {
+	float min;
+	float max;
+}
+Uph_ChannelPeak;
+
+typedef struct
+{
 	Naui_Path file_path;
 	Naui_List(Uph_WaveformPeak) waveform_peaks;
+	Naui_List(Uph_ChannelPeak) channel_peaks;
+	double sum_squares;
 	float *frames;
 	uint64_t frame_count;
 	uint64_t frame_capacity; // used when recording
@@ -194,6 +203,13 @@ typedef struct
 	Uph_SampleChannelType channel_type;
 }
 Uph_SampleData;
+
+typedef struct
+{
+	double start;
+	double end;
+}
+Uph_LoopRegion;
 
 typedef uint8_t Uph_SampleMode;
 enum
@@ -207,6 +223,8 @@ typedef struct
 	Naui_String name;
 	float time_scale;
 	float tempo_bpm;
+	float gain;
+	Uph_LoopRegion loop_region;
 	struct
 	{
 		float lifetime;
@@ -248,13 +266,6 @@ typedef struct
 	bool selected;
 }
 Uph_MidiPedalEvent;
-
-typedef struct
-{
-	double start;
-	double end;
-}
-Uph_LoopRegion;
 
 typedef struct
 {
