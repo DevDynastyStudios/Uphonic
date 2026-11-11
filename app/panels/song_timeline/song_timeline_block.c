@@ -90,7 +90,7 @@ static bool _uph_song_timeline_group_offset_valid(const Uph_DraggingBlockState *
 
 		if (block_type == UPH_RESOURCE_AUTOMATION)
 		{
-			if (target_type != UPH_RESOURCE_AUTOMATION)
+			if (offset != 0)
 				return false;
 
 			continue;
@@ -277,22 +277,6 @@ static void _uph_song_timeline_drag_restore_source(Uph_DraggingBlockState *drag)
 	Uph_Track *source = uph_action_track_resolve(drag->source_track);
 	if (source)
 		uph_block_list_insert(source, drag->source_index, block);
-}
-
-static bool _uph_song_timeline_finish_automation_relocation(Uph_DraggingBlockState *drag)
-{
-	Uph_Track *hovered = uph_song_timeline_data.hovered_track;
-	Uph_TimelineBlock block;
-	if (uph_song_timeline_data.bottom_hovered || !_uph_song_timeline_track_accepts_automation_lane(hovered) || !_uph_song_timeline_drag_single_automation(drag, &block))
-		return false;
-
-	const bool creating = drag->creating;
-	const Uph_ActionTrackRef source = drag->source_track;
-	const uint32_t source_index = drag->source_index;
-
-	_uph_song_timeline_drag_restore_source(drag);
-	_uph_song_timeline_request_automation_drop(hovered, block, creating ? NULL : &source, source_index);
-	return true;
 }
 
 static bool _uph_song_timeline_finish_drag_to_new_tracks(Uph_DraggingBlockState *drag)
@@ -621,7 +605,7 @@ void uph_song_timeline_update_drag_track_switch(void)
 	if (new_track->type != UPH_RESOURCE_NONE && new_track->type != old_track->type)
 		return;
 	
-	if (old_track->type == UPH_RESOURCE_AUTOMATION && new_track->type != UPH_RESOURCE_AUTOMATION)
+	if (old_track->type == UPH_RESOURCE_AUTOMATION)
 		return;
 
 	Uph_TimelineBlock moved = old_track->blocks[drag->block_index];
@@ -755,7 +739,7 @@ void uph_song_timeline_finish_block_drag(void)
 {
 	Uph_DraggingBlockState *drag = &uph_song_timeline_data.drag;
 	const char *transform_action = drag->mode == UPH_BLOCK_INTERACTION_MOVE ? UPH_ACTION_BLOCK_MOVE : UPH_ACTION_BLOCK_RESIZE;
-	if (_uph_song_timeline_finish_automation_relocation(drag) || _uph_song_timeline_finish_drag_to_new_tracks(drag))
+	if (_uph_song_timeline_finish_drag_to_new_tracks(drag))
 	{
 		_uph_song_timeline_reset_block_drag(drag);
 		return;

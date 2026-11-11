@@ -134,10 +134,7 @@ Uph_TrackPendingMove;
 typedef struct
 {
 	Uph_ActionTrackRef parent;
-	Uph_ActionTrackRef source_track;
-	uint32_t source_index;
 	Uph_TimelineBlock block;
-	bool move;
 	bool active;
 }
 Uph_PendingAutomationDrop;
