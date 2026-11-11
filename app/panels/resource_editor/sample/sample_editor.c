@@ -71,6 +71,7 @@ typedef struct
 	bool fit;
 	bool panning;
 	bool wave_hovered;
+	bool sidebar_hidden;
 }
 Uph_SampleEditorData;
 
@@ -1135,8 +1136,41 @@ static void _uph_sample_editor_render_properties(const Uph_SampleEditorData *edi
 	}
 }
 
+static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorData *editor)
+{
+	const float icon_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	if (uph_ui_image_button_ex(
+		naui_asset_image(editor->sidebar_hidden ? "uph_icon_arrow_right" : "uph_icon_arrow_down"),
+		leaf_id("uph_sample_editor_sidebar_toggle"),
+		(Naui_Vec2){icon_size, icon_size},
+		naui_theme_color("uph_ui_text_color"),
+		LEAF_COLOR_TRANSPARENT,
+		NAUI_CORNER_ALL
+	)) editor->sidebar_hidden = !editor->sidebar_hidden;
+}
+
 static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
+	if (editor->sidebar_hidden)
+	{
+		leaf({
+			.direction = LEAF_DIRECTION_VERTICAL,
+			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
+			.padding = LEAF_PADDING_AXES(NAUI_DPI(6.0f), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
+			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
+			.color = {naui_theme_color("uph_toolbox_bg_color")},
+			.border = {
+				.width = 1,
+				.sides = LEAF_SIDE_RIGHT,
+				.color = naui_theme_color("uph_toolbox_border_color")
+			}
+		})
+		{
+			_uph_sample_editor_render_sidebar_toggle(editor);
+		}
+		return;
+	}
+
 	leaf({
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH)), LEAF_SIZE_FULL},
@@ -1151,7 +1185,19 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		}
 	})
 	{
-		_uph_sample_editor_render_heading(sample->name.data);
+		leaf({
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+			.child_gap = NAUI_DPI(8)
+		})
+		{
+			leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT} })
+			{
+				_uph_sample_editor_render_heading(sample->name.data);
+			}
+			_uph_sample_editor_render_sidebar_toggle(editor);
+		}
 		_uph_sample_editor_render_separator();
 
 		leaf_text("Playback", {
