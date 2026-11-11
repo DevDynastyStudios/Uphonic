@@ -48,7 +48,10 @@ const void *uph_drag_hover(const char *type)
 
 const void *uph_drag_drop(const char *type)
 {
-	return _uph_drag_payload_in(UPH_DRAG_DROPPED, type);
+	const void *payload = _uph_drag_payload_in(UPH_DRAG_DROPPED, type);
+	if (payload)
+		s_uph_drag.state = UPH_DRAG_NONE;
+	return payload;
 }
 
 void uph_drag_label(const Naui_Image *icon, const char *text, Naui_Color accent)
