@@ -556,6 +556,7 @@ void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_cont
 	if (track->type != UPH_RESOURCE_AUTOMATION &&
 		uph_ui_menu_item(track_options_context_menu, "Automate", leaf_id("uph_song_timeline_options_automate")))
 	{
+		uph_song_timeline_cancel_automation_drop();
 		uph_state.shared.current_automation_list_track = track;
 		naui_panel_open(uph_state.panels.automation_list);
 	}

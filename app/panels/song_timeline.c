@@ -21,6 +21,10 @@ void uph_song_timeline_invalidate_tracks(void)
 	data->current_options_track = NULL;
 	data->current_color_options_track = NULL;
 	data->current_hovered_track = NULL;
+	data->frame_hovered_track = NULL;
+	data->hovered_track = NULL;
+	data->bottom_hovered = false;
+	data->pending_automation.active = false;
 	data->marquee.active = false;
 	data->track_drag = (Uph_TrackDragState){ 0 };
 	naui_list_clear(data->selected_tracks);
@@ -79,6 +83,17 @@ static void uph_song_timeline_on_update(void)
 	data->panel_focused = naui_panel_focused() == naui_panel_current();
 	data->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	data->tracks_hovered = leaf_hovered(track_section_id) && data->panel_hovered;
+	data->hovered_track = data->frame_hovered_track;
+	data->frame_hovered_track = NULL;
+	data->bottom_drop_y = data->panel_bounding_box.y - data->scroll.y + data->content_height;
+	{
+		const float mouse_x = (float)naui_mouse_x();
+		const float mouse_y = (float)naui_mouse_y();
+		const Leaf_BoundingBox section = data->panel_bounding_box;
+		data->bottom_hovered = data->panel_hovered &&
+			mouse_y >= fmaxf(data->bottom_drop_y, section.y) && mouse_y < section.y + section.height &&
+			mouse_x >= section.x && mouse_x < section.x + section.width;
+	}
 	if (data->automation_edit.dragging_point_index < 0)
 	{
 		data->automation_edit.block_index = -1;
@@ -119,6 +134,7 @@ static void uph_song_timeline_on_update(void)
 	uph_song_timeline_update_input();
 	uph_song_timeline_update_selection_keys();
 	uph_song_timeline_update_drag_track_switch();
+	uph_song_timeline_update_bottom_drop();
 	uph_song_timeline_render_toolbox();
 
 	Uph_UIMenuID track_options_context_menu = uph_ui_context_menu(leaf_id("uph_song_timeline_track_options_menu"));
@@ -155,6 +171,11 @@ static void uph_song_timeline_on_update(void)
 			}
 			uph_song_timeline_render_track_plus();
 		}
+		leaf({
+			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+			.custom_draw = uph_song_timeline_render_bottom_drop_overlay
+		});
 		leaf({
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},

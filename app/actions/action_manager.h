@@ -44,6 +44,8 @@
 #define UPH_ACTION_BLOCKS_RESIZE_GROUP "Blocks Resize"
 #define UPH_ACTION_BLOCKS_DELETE_GROUP "Blocks Delete"
 #define UPH_ACTION_BLOCKS_DUPLICATE_GROUP "Blocks Duplicate"
+#define UPH_ACTION_BLOCKS_NEW_TRACK_GROUP "Blocks To New Track"
+#define UPH_ACTION_AUTOMATION_DROP_GROUP "Automation Drop"
 
 #define UPH_ACTION_MIDI_NOTE_CREATE "MIDI Note Create"
 #define UPH_ACTION_MIDI_NOTE_DELETE "MIDI Note Delete"

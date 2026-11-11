@@ -29,6 +29,7 @@ void uph_automation_list_on_open(void)
 
 void uph_automation_list_on_close(void)
 {
+    uph_song_timeline_cancel_automation_drop();
     uph_automation_list_data.filter = (Naui_String){0};
 }
 
@@ -171,7 +172,7 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
                     .effect_index = effect_index,
                     .param_id = param->id
                 };
-                naui_action_execute_stack(UPH_ACTION_TRACK_AUTOMATION_CREATE, lane);
+                uph_song_timeline_create_automation_lane(lane);
                 naui_panel_close(naui_panel_current());
             }
         }
@@ -231,7 +232,7 @@ static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *
                     .name = naui_string_from_cstr(targets[i].name),
                     .target = targets[i].target
                 };
-                naui_action_execute_stack(UPH_ACTION_TRACK_AUTOMATION_CREATE, lane);
+                uph_song_timeline_create_automation_lane(lane);
                 naui_panel_close(naui_panel_current());
             }
         }

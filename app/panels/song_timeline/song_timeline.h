@@ -133,6 +133,17 @@ Uph_TrackPendingMove;
 
 typedef struct
 {
+	Uph_ActionTrackRef parent;
+	Uph_ActionTrackRef source_track;
+	uint32_t source_index;
+	Uph_TimelineBlock block;
+	bool move;
+	bool active;
+}
+Uph_PendingAutomationDrop;
+
+typedef struct
+{
 	Naui_Vec2 scroll;
 	Naui_Vec2 zoom;
 	Uph_DraggingBlockState drag;
@@ -143,12 +154,15 @@ typedef struct
 	Uph_LoopRegionDrag loop_drag;
 	Uph_TrackDragState track_drag;
 	Uph_TrackPendingMove pending_move;
+	Uph_PendingAutomationDrop pending_automation;
 	Naui_List(Uph_TrackPtr) selected_tracks;
 	Uph_Track *selection_anchor;
 	Leaf_BoundingBox panel_bounding_box;
 	Uph_Track *current_options_track;
 	Uph_Track *current_color_options_track;
 	Uph_Track *current_hovered_track;
+	Uph_Track *frame_hovered_track;
+	Uph_Track *hovered_track;
 	Uph_Track *rename_track;
 	Naui_String rename_old_name;
 	struct
@@ -162,12 +176,14 @@ typedef struct
 	visual;
 	uint32_t max_track_depth;
 	float content_height;
+	float bottom_drop_y;
 	Uph_SnapResolution snap_resolution;
 	Uph_ActionMode current_action_mode;
 	bool panel_focused;
 	bool panel_hovered;
 	bool tracks_hovered;
 	bool track_header_hovered;
+	bool bottom_hovered;
 	bool disable_space_to_play;
 	bool time_display_seconds;
 }
@@ -299,6 +315,10 @@ void uph_song_timeline_update_track_drag(void);
 void uph_song_timeline_apply_pending_move(void);
 
 void uph_song_timeline_render_track_timeline(Uph_Track *track);
+void uph_song_timeline_create_automation_lane(Uph_ActionTrackAutomationCreate lane);
+void uph_song_timeline_cancel_automation_drop(void);
+void uph_song_timeline_update_bottom_drop(void);
+void uph_song_timeline_render_bottom_drop_overlay(Leaf_BoundingBox bbox, void *data);
 
 Uph_TimelineBlock uph_song_timeline_block_create(double start_beat, uint32_t resource_index, Uph_ResourceType block_type);
 
