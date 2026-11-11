@@ -4,6 +4,7 @@
 
 #define UPH_SAMPLE_EDITOR_MAX_CHANNELS			2
 
+#define UPH_SAMPLE_EDITOR_MIN_BINS_PER_PIXEL	4.0
 #define UPH_SAMPLE_EDITOR_MIN_FRAMES_PER_PIXEL	(1.0 / 32.0)
 #define UPH_SAMPLE_EDITOR_ZOOM_SPEED			0.15
 #define UPH_SAMPLE_EDITOR_SHIFT_SCROLL_SPEED	0.1
@@ -513,8 +514,7 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		return;
 	}
 
-	const bool use_bins = fpp >= (double)UPH_WAVEFORM_BIN_FRAMES && bin_count > 0;
-	const uint64_t scan_stride = (!use_bins && fpp > 256.0) ? (uint64_t)(fpp / 256.0) : 1;
+	const bool use_bins = fpp >= (double)UPH_WAVEFORM_BIN_FRAMES * UPH_SAMPLE_EDITOR_MIN_BINS_PER_PIXEL && bin_count > 0;
 
 	const int32_t width = (int32_t)ceilf(lane.width);
 	float previous_min = 0.0f;
@@ -555,7 +555,7 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 			if (i_end <= i_start) i_end = i_start + 1;
 			if (i_end > total) i_end = total;
 
-			for (uint64_t i = i_start; i < i_end; i += scan_stride)
+			for (uint64_t i = i_start; i < i_end; i++)
 			{
 				const float v = source->frames[i * channels + channel];
 				if (v < min_v) min_v = v;
@@ -894,15 +894,15 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorData *editor)
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
+		.padding = { .top = 1, .bottom = 1 },
+		.color = {naui_theme_color("uph_toolbox_border_color")}
+	})
+	leaf({
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.border = {
-			.width = 1,
-			.sides = LEAF_SIDE_BOTTOM,
-			.color = naui_theme_color("uph_toolbox_border_color")
-		}
+		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
@@ -1146,7 +1146,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		.clip_children = true,
 		.border = {
 			.width = 1,
-			.sides = LEAF_SIDE_LEFT,
+			.sides = LEAF_SIDE_RIGHT,
 			.color = naui_theme_color("uph_toolbox_border_color")
 		}
 	})
@@ -1365,10 +1365,11 @@ void uph_sample_editor_update(void)
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW}
 	})
 	{
+		_uph_sample_editor_render_sidebar(editor, sample, source);
+
 		leaf({
 			.direction = LEAF_DIRECTION_VERTICAL,
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-			.clip_children = true
+			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
 		})
 		{
 			if (!source->valid)
@@ -1384,7 +1385,8 @@ void uph_sample_editor_update(void)
 				})
 				{
 					leaf({
-						.size = {LEAF_SIZE_FIXED(gutter_width), LEAF_SIZE_FULL}
+						.size = {LEAF_SIZE_FIXED(gutter_width), LEAF_SIZE_FULL},
+						.color = naui_theme_color("uph_toolbox_bg_color")
 					});
 					leaf({
 						.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(ruler_height - 2)},
@@ -1418,8 +1420,6 @@ void uph_sample_editor_update(void)
 				_uph_sample_editor_render_properties(editor, data);
 			}
 		}
-
-		_uph_sample_editor_render_sidebar(editor, sample, source);
 	}
 
 	_uph_sample_editor_render_status_bar(editor, data);
