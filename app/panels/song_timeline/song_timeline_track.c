@@ -193,12 +193,6 @@ static void _uph_song_timeline_delete_hovered_block(Uph_Track *track)
 	if (block_index >= (uint32_t)naui_list_len(track->blocks))
 		return;
 
-	if (track->blocks[block_index].selected && uph_block_selected_count() > 1)
-	{
-		uph_block_delete_selected();
-		return;
-	}
-
 	Uph_ActionBlockDelete data = { .track = uph_action_track_ref(track), .block_index = block_index };
 	naui_action_execute_stack(UPH_ACTION_BLOCK_DELETE, data);
 }
