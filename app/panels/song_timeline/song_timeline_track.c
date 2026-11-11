@@ -237,7 +237,8 @@ static void _uph_song_timeline_emit_rejected_block(Leaf_BoundingBox bbox, double
 		.rounding = rounding,
 		.shape = UPH_PARTICLE_RECT
 	});
-	uph_particle_emit_shockwave(position, size, leaf_rgba(error.r, error.g, error.b, 255), rounding, clip);
+	if (naui_app_animations_enabled())
+		uph_particle_emit_shockwave(position, size, leaf_rgba(error.r, error.g, error.b, 255), rounding, clip);
 }
 
 static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, Uph_Track *track)

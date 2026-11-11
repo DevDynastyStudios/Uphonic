@@ -2,7 +2,7 @@ static Naui_List(Uph_Particle) uph_particles;
 
 void uph_particle_emit(const Uph_Particle *particle)
 {
-	if (!naui_app_animations_enabled() || particle->duration <= 0.0f)
+	if (particle->duration <= 0.0f)
 		return;
 
 	naui_list_push(uph_particles, *particle);

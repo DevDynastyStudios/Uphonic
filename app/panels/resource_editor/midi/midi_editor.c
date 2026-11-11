@@ -44,13 +44,14 @@ void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const 
 	const Naui_Vec4 note_box = uph_midi_view_note_box(&editor->view, &editor->note_map, box, note);
 	const Leaf_Color color = uph_midi_view_velocity_color(uph_midi_view_note_color(), note->velocity);
 
-	uph_particle_emit_shockwave(
-		(Naui_Vec2){ note_box.x, note_box.y },
-		(Naui_Vec2){ note_box.z, note_box.w },
-		uph_color_mix(color, leaf_rgba(255, 255, 255, 255), 0.35f),
-		NAUI_DPI(3.0f),
-		naui_panel_bounding_box(uph_state.panels.resource_editor)
-	);
+	if (naui_app_animations_enabled())
+		uph_particle_emit_shockwave(
+			(Naui_Vec2){ note_box.x, note_box.y },
+			(Naui_Vec2){ note_box.z, note_box.w },
+			uph_color_mix(color, leaf_rgba(255, 255, 255, 255), 0.35f),
+			NAUI_DPI(3.0f),
+			naui_panel_bounding_box(uph_state.panels.resource_editor)
+		);
 }
 
 #pragma region Piano preview

@@ -189,7 +189,7 @@ static Leaf_ID uph_resource_list_item_id(Uph_ResourceType type, Uph_ResourceInde
 
 void uph_resource_list_emit_item_shockwave(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    if (naui_panel_closed(uph_state.panels.resource_list))
+    if (!naui_app_animations_enabled() || naui_panel_closed(uph_state.panels.resource_list))
         return;
 
     const Leaf_BoundingBox box = leaf_get_bounding_box(uph_resource_list_item_id(type, index));
@@ -895,4 +895,4 @@ static void uph_resource_list_on_update(void)
         uph_resource_list_clear_selection();
         uph_resource_list_sync_selection();
     }
-}
+}

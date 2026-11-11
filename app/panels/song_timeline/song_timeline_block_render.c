@@ -309,7 +309,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 
 void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_TimelineBlock *block)
 {
-	if (!track || naui_panel_closed(uph_state.panels.song_timeline))
+	if (!naui_app_animations_enabled() || !track || naui_panel_closed(uph_state.panels.song_timeline))
 		return;
 
 	const Uph_SongTimelineData *data = &uph_song_timeline_data;
