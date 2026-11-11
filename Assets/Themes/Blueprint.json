@@ -37,6 +37,7 @@
     "uph_timeline_block_text_color": "#FFFFFF",
 
     "uph_ui_slider_fill_color": "#3F72AF",
+    "uph_ui_progress_bar_color": "#3F72AF",
 
     "uph_ui_frame_bg_color": "#E8F1FF",
     "uph_ui_frame_secondary_bg_color": "#DCE9FF",

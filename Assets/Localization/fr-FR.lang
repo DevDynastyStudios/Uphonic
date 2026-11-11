@@ -32,6 +32,7 @@
 "dialog.restore.message": "Uphonic s’est fermé de manière inattendue. Voulez-vous restaurer les modifications non enregistrées de ce projet ?",
 "dialog.restore.restore": "Restaurer",
 "dialog.restore.title": "Récupérer le projet",
+"dialog.restore.unsaved_message": "Uphonic a trouvé des modifications non enregistrées de votre dernière session. Voulez-vous les restaurer ?",
 
 "effectlist.show": "Afficher",
 "effectlist.hide": "Masquer",
@@ -147,6 +148,8 @@
 "render.channels.stereo": "Stéréo",
 "render.channels.mono": "Mono",
 "render.normalize": "Normaliser",
+"render.progress.message": "Rendu du morceau en cours. Vous pouvez annuler à tout moment.",
+"render.progress.title": "Rendu audio en cours",
 "render.dither": "Dither",
 "render.length": "Durée",
 "render.empty.title": "Rien à rendre",

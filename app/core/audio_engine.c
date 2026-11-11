@@ -2596,6 +2596,7 @@ void uph_audio_engine_init(void)
 
 void uph_audio_engine_shutdown(void)
 {
+    uph_audio_engine_render_cancel();
     uph_audio_engine_uninit_device();
     uph_audio_engine_preview_play((Uph_PreviewSource){ 0 });
 
@@ -2795,132 +2796,273 @@ static ma_format uph_render_bit_depth_format(Uph_RenderBitDepth depth)
     }
 }
 
-bool uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
+#define UPH_RENDER_JOB_RENDER_WEIGHT 0.9
+#define UPH_RENDER_JOB_OUTPUT_CHUNK 4096
+
+typedef uint8_t Uph_RenderJobPhase;
+enum
 {
+    UPH_RENDER_JOB_IDLE,
+    UPH_RENDER_JOB_RENDERING,
+    UPH_RENDER_JOB_WRITING
+};
+
+typedef struct
+{
+    Uph_RenderSettings settings;
+    char filepath[1024];
+    Uph_RenderJobPhase phase;
+
+    uint32_t engine_rate;
+    uint32_t output_rate;
+    uint32_t output_channels;
+    ma_format output_format;
+    double start_seconds;
+
+    float *rendered;
+    uint64_t total_frames;
+    uint64_t buffer_frames;
+    uint64_t rendered_frames;
+
+    ma_data_converter converter;
+    ma_encoder encoder;
+    void *out_buffer;
+    uint64_t target_frames;
+    uint64_t consumed_frames;
+    uint64_t written_frames;
+    bool converter_ready;
+    bool encoder_ready;
+    bool locked;
+}
+Uph_RenderJob;
+static Uph_RenderJob uph_render_job;
+
+static void uph_render_job_release(bool delete_file)
+{
+    Uph_RenderJob *job = &uph_render_job;
+
+    if (job->locked)
+    {
+        uph_audio_engine_stop_all_notes();
+        uph_audio_engine_unlock();
+    }
+
+    if (job->encoder_ready)
+        ma_encoder_uninit(&job->encoder);
+
+    if (job->converter_ready)
+        ma_data_converter_uninit(&job->converter, NULL);
+
+    free(job->out_buffer);
+    free(job->rendered);
+
+    if (delete_file && job->encoder_ready)
+        remove(job->filepath);
+
+    *job = (Uph_RenderJob){0};
+}
+
+bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSettings *settings)
+{
+    Uph_RenderJob *job = &uph_render_job;
+    if (job->phase != UPH_RENDER_JOB_IDLE)
+        return false;
+
     if (settings->end_beat <= settings->start_beat)
     {
-        fprintf(stderr, "uph_audio_engine_render_to_wav: invalid beat range\n");
+        fprintf(stderr, "uph_audio_engine_render_begin: invalid beat range\n");
         return false;
     }
 
     if (uph_state.project.bpm <= 0.0f)
     {
-        fprintf(stderr, "uph_audio_engine_render_to_wav: invalid bpm\n");
+        fprintf(stderr, "uph_audio_engine_render_begin: invalid bpm\n");
         return false;
     }
 
-    const uint32_t engine_rate = uph_audio_engine_data.device.sampleRate;
-    const uint32_t output_rate = settings->sample_rate ? settings->sample_rate : engine_rate;
-    const uint32_t output_channels = settings->channels == 1 ? 1 : 2;
-    const ma_format output_format = uph_render_bit_depth_format(settings->bit_depth);
+    *job = (Uph_RenderJob){0};
+    job->settings = *settings;
+    snprintf(job->filepath, sizeof(job->filepath), "%s", filepath);
 
-    const double start_seconds = uph_tempo_beat_to_seconds(settings->start_beat);
-    const double duration_seconds = uph_tempo_beat_to_seconds(settings->end_beat) - start_seconds + NAUI_MAX(0.0f, settings->tail_seconds);
-    const uint64_t total_frames = (uint64_t)(duration_seconds * (double)engine_rate);
-    if (total_frames == 0)
+    job->engine_rate = uph_audio_engine_data.device.sampleRate;
+    job->output_rate = settings->sample_rate ? settings->sample_rate : job->engine_rate;
+    job->output_channels = settings->channels == 1 ? 1 : 2;
+    job->output_format = uph_render_bit_depth_format(settings->bit_depth);
+
+    job->start_seconds = uph_tempo_beat_to_seconds(settings->start_beat);
+    const double duration_seconds = uph_tempo_beat_to_seconds(settings->end_beat) - job->start_seconds + NAUI_MAX(0.0f, settings->tail_seconds);
+    job->total_frames = (uint64_t)(duration_seconds * (double)job->engine_rate);
+    if (job->total_frames == 0)
         return false;
 
-    ma_data_converter_config converter_config = ma_data_converter_config_init(ma_format_f32, output_format, 2, output_channels, engine_rate, output_rate);
-    converter_config.ditherMode = settings->dither && output_format != ma_format_f32 ? ma_dither_mode_triangle : ma_dither_mode_none;
+    ma_data_converter_config converter_config = ma_data_converter_config_init(ma_format_f32, job->output_format, 2, job->output_channels, job->engine_rate, job->output_rate);
+    converter_config.ditherMode = settings->dither && job->output_format != ma_format_f32 ? ma_dither_mode_triangle : ma_dither_mode_none;
     converter_config.resampling.algorithm = ma_resample_algorithm_linear;
     converter_config.resampling.linear.lpfOrder = MA_MAX_FILTER_ORDER;
 
-    ma_data_converter converter;
-    if (ma_data_converter_init(&converter_config, NULL, &converter) != MA_SUCCESS)
+    if (ma_data_converter_init(&converter_config, NULL, &job->converter) != MA_SUCCESS)
     {
-        fprintf(stderr, "uph_audio_engine_render_to_wav: failed to init converter\n");
+        fprintf(stderr, "uph_audio_engine_render_begin: failed to init converter\n");
+        uph_render_job_release(false);
+        return false;
+    }
+    job->converter_ready = true;
+
+    job->buffer_frames = job->total_frames + ma_data_converter_get_input_latency(&job->converter);
+    job->rendered = (float*)calloc((size_t)job->buffer_frames * 2, sizeof(float));
+    job->out_buffer = malloc((size_t)UPH_RENDER_JOB_OUTPUT_CHUNK * job->output_channels * ma_get_bytes_per_sample(job->output_format));
+    if (!job->rendered || !job->out_buffer)
+    {
+        fprintf(stderr, "uph_audio_engine_render_begin: out of memory\n");
+        uph_render_job_release(false);
         return false;
     }
 
-    const uint64_t latency_frames = ma_data_converter_get_input_latency(&converter);
-    const uint64_t buffer_frames = total_frames + latency_frames;
-    float *rendered = (float*)calloc((size_t)buffer_frames * 2, sizeof(float));
-    if (!rendered)
-    {
-        fprintf(stderr, "uph_audio_engine_render_to_wav: out of memory\n");
-        ma_data_converter_uninit(&converter, NULL);
-        return false;
-    }
-
-    const ma_uint32 chunk_frames = NAUI_MAX(64u, uph_state.settings.audio.buffer_size);
+    job->target_frames = (uint64_t)((double)job->total_frames * (double)job->output_rate / (double)job->engine_rate);
 
     uph_audio_engine_lock();
+    job->locked = true;
     uph_audio_engine_stop_all_notes();
-    for (uint64_t processed = 0; processed < total_frames;)
-    {
-        const ma_uint32 frames = (ma_uint32)NAUI_MIN((uint64_t)chunk_frames, total_frames - processed);
-        const double playhead_beat = uph_tempo_seconds_to_beat(start_seconds + (double)processed / (double)engine_rate);
-        uph_render_audio(playhead_beat, engine_rate, rendered + processed * 2, frames, true, NULL);
-        processed += frames;
-    }
+
+    job->phase = UPH_RENDER_JOB_RENDERING;
+    return true;
+}
+
+static void uph_render_job_normalize(Uph_RenderJob *job)
+{
+    float peak = 0.0f;
+    for (uint64_t i = 0; i < job->total_frames * 2; i++)
+        peak = NAUI_MAX(peak, fabsf(job->rendered[i]));
+
+    if (peak <= 1e-6f)
+        return;
+
+    const float gain = 0.98855309f / peak;
+    for (uint64_t i = 0; i < job->total_frames * 2; i++)
+        job->rendered[i] *= gain;
+}
+
+static bool uph_render_job_start_writing(Uph_RenderJob *job)
+{
     uph_audio_engine_stop_all_notes();
     uph_audio_engine_unlock();
+    job->locked = false;
 
-    if (settings->normalize)
+    if (job->settings.normalize)
+        uph_render_job_normalize(job);
+
+    ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, job->output_format, job->output_channels, job->output_rate);
+    if (ma_encoder_init_file(job->filepath, &encoder_config, &job->encoder) != MA_SUCCESS)
     {
-        float peak = 0.0f;
-        for (uint64_t i = 0; i < total_frames * 2; i++)
-            peak = NAUI_MAX(peak, fabsf(rendered[i]));
-
-        if (peak > 1e-6f)
-        {
-            const float gain = 0.98855309f / peak;
-            for (uint64_t i = 0; i < total_frames * 2; i++)
-                rendered[i] *= gain;
-        }
-    }
-
-    ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, output_format, output_channels, output_rate);
-    ma_encoder encoder;
-    if (ma_encoder_init_file(filepath, &encoder_config, &encoder) != MA_SUCCESS)
-    {
-        fprintf(stderr, "uph_audio_engine_render_to_wav: failed to init WAV encoder for '%s'\n", filepath);
-        free(rendered);
-        ma_data_converter_uninit(&converter, NULL);
+        fprintf(stderr, "uph_audio_engine_render: failed to init WAV encoder for '%s'\n", job->filepath);
         return false;
     }
 
-    const uint64_t target_frames = (uint64_t)((double)total_frames * (double)output_rate / (double)engine_rate);
-    const ma_uint32 out_chunk = 4096;
-    void *out_buffer = malloc((size_t)out_chunk * output_channels * ma_get_bytes_per_sample(output_format));
-    bool ok = out_buffer != NULL;
+    job->encoder_ready = true;
+    job->phase = UPH_RENDER_JOB_WRITING;
+    return true;
+}
 
-    uint64_t consumed = 0;
-    uint64_t written = 0;
-    while (ok && written < target_frames)
+static bool uph_render_job_write_chunk(Uph_RenderJob *job)
+{
+    ma_uint64 frames_in = job->buffer_frames - job->consumed_frames;
+    ma_uint64 frames_out = NAUI_MIN((uint64_t)UPH_RENDER_JOB_OUTPUT_CHUNK, job->target_frames - job->written_frames);
+    if (ma_data_converter_process_pcm_frames(&job->converter, job->rendered + job->consumed_frames * 2, &frames_in, job->out_buffer, &frames_out) != MA_SUCCESS)
+        return false;
+
+    job->consumed_frames += frames_in;
+    if (frames_out == 0)
     {
-        ma_uint64 frames_in = buffer_frames - consumed;
-        ma_uint64 frames_out = NAUI_MIN((uint64_t)out_chunk, target_frames - written);
-        if (ma_data_converter_process_pcm_frames(&converter, rendered + consumed * 2, &frames_in, out_buffer, &frames_out) != MA_SUCCESS)
-        {
-            ok = false;
-            break;
-        }
-
-        consumed += frames_in;
-        if (frames_out == 0)
-            break;
-
-        ma_uint64 frames_written = 0;
-        if (ma_encoder_write_pcm_frames(&encoder, out_buffer, frames_out, &frames_written) != MA_SUCCESS)
-        {
-            fprintf(stderr, "uph_audio_engine_render_to_wav: failed writing frames to '%s'\n", filepath);
-            ok = false;
-            break;
-        }
-
-        written += frames_written;
+        job->written_frames = job->target_frames;
+        return true;
     }
 
-    free(out_buffer);
-    free(rendered);
-    ma_encoder_uninit(&encoder);
-    ma_data_converter_uninit(&converter, NULL);
+    ma_uint64 frames_written = 0;
+    if (ma_encoder_write_pcm_frames(&job->encoder, job->out_buffer, frames_out, &frames_written) != MA_SUCCESS)
+    {
+        fprintf(stderr, "uph_audio_engine_render: failed writing frames to '%s'\n", job->filepath);
+        return false;
+    }
 
-    if (ok)
-        fprintf(stdout, "uph_audio_engine_render_to_wav: rendered %llu frames to '%s'\n", (unsigned long long)written, filepath);
+    job->written_frames += frames_written;
+    return true;
+}
 
-    return ok;
+Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
+{
+    Uph_RenderJob *job = &uph_render_job;
+    if (job->phase == UPH_RENDER_JOB_IDLE)
+        return UPH_RENDER_STATUS_IDLE;
+
+    const ma_uint32 chunk_frames = NAUI_MAX(64u, uph_state.settings.audio.buffer_size);
+    const double deadline = naui_time() + budget_seconds;
+
+    do
+    {
+        if (job->phase == UPH_RENDER_JOB_RENDERING)
+        {
+            const ma_uint32 frames = (ma_uint32)NAUI_MIN((uint64_t)chunk_frames, job->total_frames - job->rendered_frames);
+            const double playhead_beat = uph_tempo_seconds_to_beat(job->start_seconds + (double)job->rendered_frames / (double)job->engine_rate);
+            uph_render_audio(playhead_beat, job->engine_rate, job->rendered + job->rendered_frames * 2, frames, true, NULL);
+            job->rendered_frames += frames;
+
+            if (job->rendered_frames >= job->total_frames && !uph_render_job_start_writing(job))
+            {
+                uph_render_job_release(true);
+                return UPH_RENDER_STATUS_FAILED;
+            }
+        }
+        else
+        {
+            if (!uph_render_job_write_chunk(job))
+            {
+                uph_render_job_release(true);
+                return UPH_RENDER_STATUS_FAILED;
+            }
+
+            if (job->written_frames >= job->target_frames)
+            {
+                fprintf(stdout, "uph_audio_engine_render: rendered %llu frames to '%s'\n", (unsigned long long)job->written_frames, job->filepath);
+                uph_render_job_release(false);
+                return UPH_RENDER_STATUS_DONE;
+            }
+        }
+    }
+    while (budget_seconds <= 0.0 || naui_time() < deadline);
+
+    return UPH_RENDER_STATUS_RUNNING;
+}
+
+float uph_audio_engine_render_progress(void)
+{
+    const Uph_RenderJob *job = &uph_render_job;
+    if (job->phase == UPH_RENDER_JOB_IDLE || job->total_frames == 0)
+        return 0.0f;
+
+    const double rendered = (double)job->rendered_frames / (double)job->total_frames;
+    const double written = job->target_frames ? (double)job->written_frames / (double)job->target_frames : 0.0;
+    return (float)(rendered * UPH_RENDER_JOB_RENDER_WEIGHT + written * (1.0 - UPH_RENDER_JOB_RENDER_WEIGHT));
+}
+
+bool uph_audio_engine_render_active(void)
+{
+    return uph_render_job.phase != UPH_RENDER_JOB_IDLE;
+}
+
+void uph_audio_engine_render_cancel(void)
+{
+    if (uph_render_job.phase != UPH_RENDER_JOB_IDLE)
+        uph_render_job_release(true);
+}
+
+bool uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
+{
+    if (!uph_audio_engine_render_begin(filepath, settings))
+        return false;
+
+    Uph_RenderStatus status;
+    while ((status = uph_audio_engine_render_step(0.0)) == UPH_RENDER_STATUS_RUNNING) {}
+    return status == UPH_RENDER_STATUS_DONE;
 }
 
 bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)

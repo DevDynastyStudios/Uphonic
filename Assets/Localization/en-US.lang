@@ -31,6 +31,7 @@
     "dialog.restore.message": "Uphonic closed unexpectedly. Would you like to restore the unsaved changes of this project?",
     "dialog.restore.restore": "Restore",
     "dialog.restore.title": "Recover Project",
+    "dialog.restore.unsaved_message": "Uphonic found unsaved changes from your last session. Would you like to restore them?",
 	"dialog.save_project.failed.title": "Couldn't Save Project",
 	"dialog.save_project.failed.message": "The project couldn't be saved under that name. Try a different name.",
 
@@ -150,6 +151,8 @@
 	"render.channels.stereo": "Stereo",
 	"render.channels.mono": "Mono",
 	"render.normalize": "Normalize",
+	"render.progress.message": "Rendering your song. You can cancel at any time.",
+	"render.progress.title": "Rendering Audio",
 	"render.dither": "Dither",
 	"render.length": "Length",
 	"render.empty.title": "Nothing to Render",

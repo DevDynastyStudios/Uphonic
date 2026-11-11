@@ -299,6 +299,7 @@ void naui_app_update(void)
 
 	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active());
  
+	uph_render_update();
 	uph_render_main_titlebar();
  
 	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");

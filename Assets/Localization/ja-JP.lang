@@ -34,6 +34,7 @@
 "dialog.restore.message": "Uphonicが予期せず終了しました。このプロジェクトの未保存の変更を復元しますか？",
 "dialog.restore.restore": "復元",
 "dialog.restore.title": "プロジェクトの復元",
+"dialog.restore.unsaved_message": "前回のセッションで保存されていない変更が見つかりました。復元しますか？",
 
 	"effect_list.show": "表示",
 	"effect_list.hide": "非表示",
@@ -151,6 +152,8 @@
 	"render.channels.stereo": "ステレオ",
 	"render.channels.mono": "モノラル",
 	"render.normalize": "ノーマライズ",
+	"render.progress.message": "曲をレンダリングしています。いつでもキャンセルできます。",
+	"render.progress.title": "オーディオをレンダリング中",
 	"render.dither": "ディザ",
 	"render.length": "長さ",
 	"render.empty.title": "レンダリングする内容がありません",

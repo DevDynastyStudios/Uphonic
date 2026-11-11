@@ -17,6 +17,7 @@ typedef struct
 	void *user_data;
 	Naui_String *input;
 	char input_placeholder[UPH_DIALOG_BUTTON_TEXT_MAX];
+	const float *progress;
 	struct
 	{
 		float lifetime;
@@ -47,6 +48,7 @@ bool uph_dialog_open(const Uph_DialogConfig *config)
 	_uph_dialog_copy(s_dialog.message, sizeof(s_dialog.message), config->message);
 	_uph_dialog_copy(s_dialog.input_placeholder, sizeof(s_dialog.input_placeholder), config->input_placeholder);
 	s_dialog.input = config->input;
+	s_dialog.progress = config->progress;
 
 	s_dialog.default_button = (config->default_button >= 0 && config->default_button < s_dialog.button_count) ? config->default_button : -1;
 	s_dialog.cancel_button = (config->cancel_button >= 0 && config->cancel_button < s_dialog.button_count) ? config->cancel_button : -1;
@@ -60,6 +62,11 @@ bool uph_dialog_open(const Uph_DialogConfig *config)
 bool uph_dialog_is_open(void)
 {
 	return s_dialog.open;
+}
+
+void uph_dialog_close(void)
+{
+	s_dialog = (Uph_DialogState){0};
 }
 
 bool uph_dialog_blocks_input(void)
@@ -143,6 +150,41 @@ void uph_dialog_render(void)
 				})
 				{
 					uph_ui_textfield(s_dialog.input, leaf_id("uph_dialog_input"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, s_dialog.input_placeholder[0] ? s_dialog.input_placeholder : NULL);
+				}
+			}
+
+			if (s_dialog.progress)
+			{
+				const float progress = NAUI_CLAMP01(*s_dialog.progress);
+				char percent[16];
+				snprintf(percent, sizeof(percent), "%d%%", (int32_t)(progress * 100.0f));
+
+				leaf({
+					.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+					.direction = LEAF_DIRECTION_HORIZONTAL,
+					.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
+					.child_gap = NAUI_DPI(10.0f)
+				})
+				{
+					leaf({
+						.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(NAUI_DPI(8.0f))},
+						.color = {naui_theme_color("uph_ui_frame_bg_color")},
+						.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
+					})
+					leaf({
+						.size = {LEAF_SIZE_PERCENT(progress), LEAF_SIZE_FULL},
+						.color = {naui_theme_color("uph_ui_progress_bar_color")},
+						.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
+					});
+
+					leaf({
+						.size = {LEAF_SIZE_FIXED(NAUI_DPI(40.0f)), LEAF_SIZE_FIT},
+						.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
+					})
+					leaf_text(percent, {
+						.color = {text_color},
+						.font_size = {font_size}
+					});
 				}
 			}
 

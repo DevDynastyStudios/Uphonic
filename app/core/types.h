@@ -160,6 +160,15 @@ typedef struct
 }
 Uph_RenderSettings;
 
+typedef uint8_t Uph_RenderStatus;
+enum
+{
+	UPH_RENDER_STATUS_IDLE,
+	UPH_RENDER_STATUS_RUNNING,
+	UPH_RENDER_STATUS_DONE,
+	UPH_RENDER_STATUS_FAILED
+};
+
 typedef uint32_t Uph_ResourceIndex;
 #pragma endregion
 #pragma region Project

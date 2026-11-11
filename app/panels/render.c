@@ -6,6 +6,7 @@ NAUI_PANEL(uph_render)
 #define UPH_RENDER_LABEL_WIDTH 130.0f
 #define UPH_RENDER_ROW_HEIGHT 28.0f
 #define UPH_RENDER_TAIL_MAX 30.0f
+#define UPH_RENDER_FRAME_BUDGET (1.0 / 90.0)
 
 typedef uint8_t Uph_RenderRange;
 enum
@@ -27,9 +28,10 @@ typedef struct
 	float tail_seconds;
 	bool normalize;
 	bool dither;
+	float progress;
 }
-Uph_RenderPanelState;
-static Uph_RenderPanelState s_render_panel = {
+Uph_ProjectRenderData;
+static Uph_ProjectRenderData uph_project_render_data = {
 	.range = UPH_RENDER_RANGE_SONG,
 	.bit_depth = UPH_RENDER_BIT_DEPTH_24,
 	.tail_seconds = 2.0f,
@@ -44,7 +46,7 @@ static bool _uph_render_loop_valid(void)
 
 static Uph_RenderSettings _uph_render_settings(void)
 {
-	const Uph_RenderPanelState *state = &s_render_panel;
+	const Uph_ProjectRenderData *state = &uph_project_render_data;
 	Uph_RenderSettings settings = {
 		.tail_seconds = state->tail_seconds,
 		.sample_rate = uph_render_sample_rates[state->sample_rate_index],
@@ -108,7 +110,7 @@ static void _uph_render_row_end(void)
 
 static void _uph_render_options(void)
 {
-	Uph_RenderPanelState *state = &s_render_panel;
+	Uph_ProjectRenderData *state = &uph_project_render_data;
 
 	const bool loop_valid = _uph_render_loop_valid();
 	if (!loop_valid)
@@ -201,14 +203,48 @@ static void _uph_render_failed(void)
 	});
 }
 
+static void _uph_render_progress_closed(int32_t button, void *user_data)
+{
+	uph_audio_engine_render_cancel();
+}
+
 static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
-	(void)user_data;
 	if (is_cancelled || result->count == 0)
 		return;
 
 	const Uph_RenderSettings settings = _uph_render_settings();
-	if (!uph_audio_engine_render_to_wav(result->paths[0].data, &settings))
+	if (!uph_audio_engine_render_begin(result->paths[0].data, &settings))
+	{
+		_uph_render_failed();
+		return;
+	}
+
+	uph_project_render_data.progress = 0.0f;
+	uph_dialog_open(&(Uph_DialogConfig){
+		.title = NAUI_TR("render.progress.title"),
+		.message = NAUI_TR("render.progress.message"),
+		.buttons = { NAUI_TR("dialog.cancel") },
+		.default_button = -1,
+		.cancel_button = 0,
+		.callback = _uph_render_progress_closed,
+		.progress = &uph_project_render_data.progress
+	});
+}
+
+void uph_render_update(void)
+{
+	if (!uph_audio_engine_render_active())
+		return;
+
+	const Uph_RenderStatus status = uph_audio_engine_render_step(UPH_RENDER_FRAME_BUDGET);
+	uph_project_render_data.progress = uph_audio_engine_render_progress();
+
+	if (status == UPH_RENDER_STATUS_RUNNING)
+		return;
+
+	uph_dialog_close();
+	if (status == UPH_RENDER_STATUS_FAILED)
 		_uph_render_failed();
 }
 

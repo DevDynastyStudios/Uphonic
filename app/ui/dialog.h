@@ -12,12 +12,14 @@ typedef struct
 	void* user_data;
 	Naui_String* input;
 	const char* input_placeholder;
+	const float* progress;
 }
 Uph_DialogConfig;
 
 // False if one is already open or the config has no buttons
 bool uph_dialog_open(const Uph_DialogConfig* config);
 bool uph_dialog_is_open(void);
+void uph_dialog_close(void);
 
 // Returns if it's blocking UI inputs
 bool uph_dialog_blocks_input(void);
