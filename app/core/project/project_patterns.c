@@ -63,6 +63,23 @@ static bool _uph_midi_note_keys_equal(const Uph_MidiNoteKey *a, const Uph_MidiNo
 	return true;
 }
 
+static bool _uph_midi_pedals_equal(const Uph_MidiPattern *a, const Uph_MidiPattern *b)
+{
+	const size_t count = naui_list_len(a->pedals);
+	if (naui_list_len(b->pedals) != count)
+		return false;
+
+	for (size_t i = 0; i < count; i++)
+	{
+		const Uph_MidiPedalEvent *left = &a->pedals[i];
+		const Uph_MidiPedalEvent *right = &b->pedals[i];
+		if (llround(left->beat * UPH_MIDI_PPQ) != llround(right->beat * UPH_MIDI_PPQ) || left->type != right->type || left->value != right->value)
+			return false;
+	}
+
+	return true;
+}
+
 static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, const Uph_MidiPattern *incoming)
 {
 	const size_t count = naui_list_len(incoming->notes);
@@ -74,7 +91,7 @@ static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, c
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->midi_patterns) && found < 0; i++)
 	{
-		if (naui_list_len(project->midi_patterns[i].notes) != count)
+		if (naui_list_len(project->midi_patterns[i].notes) != count || !_uph_midi_pedals_equal(&project->midi_patterns[i], incoming))
 			continue;
 
 		if (!incoming_keys && !(incoming_keys = _uph_midi_pattern_keys(incoming)))
@@ -105,10 +122,10 @@ bool uph_project_is_midi_extension(const Naui_StringView extension)
 bool uph_project_add_pattern_file(Uph_Project *project, const Naui_Path file_path)
 {
 	Uph_MidiPattern pattern = uph_midi_convert_to_pattern(file_path);
-	if (naui_list_len(pattern.notes) == 0)
+	if (naui_list_len(pattern.notes) == 0 && naui_list_len(pattern.pedals) == 0)
 	{
 		naui_log(NAUI_LOG_WARNING, "Failed to load MIDI Pattern (%s)", file_path.data);
-		naui_list_free(pattern.notes);
+		uph_midi_pattern_free_events(&pattern);
 		return false;
 	}
 
@@ -116,7 +133,7 @@ bool uph_project_add_pattern_file(Uph_Project *project, const Naui_Path file_pat
 	if (duplicate >= 0)
 	{
 		naui_log(NAUI_LOG_INFO, "Skipping MIDI file, identical pattern already in project: %s", project->midi_patterns[duplicate].name.data);
-		naui_list_free(pattern.notes);
+		uph_midi_pattern_free_events(&pattern);
 		uph_state.shared.selected_resource.index = (uint32_t)duplicate;
 		uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
 		return true;
@@ -147,10 +164,10 @@ void uph_project_adopt_pattern_files(Uph_Project *project, const Naui_Path proje
 			continue;
 
 		Uph_MidiPattern pattern = uph_midi_convert_to_pattern(file);
-		if (naui_list_len(pattern.notes) == 0)
+		if (naui_list_len(pattern.notes) == 0 && naui_list_len(pattern.pedals) == 0)
 		{
 			naui_log(NAUI_LOG_WARNING, "Deleting MIDI file that failed to load: %s", file.data);
-			naui_list_free(pattern.notes);
+			uph_midi_pattern_free_events(&pattern);
 			naui_file_delete(file);
 			continue;
 		}
@@ -158,7 +175,7 @@ void uph_project_adopt_pattern_files(Uph_Project *project, const Naui_Path proje
 		if (_uph_project_find_duplicate_pattern(project, &pattern) >= 0)
 		{
 			naui_log(NAUI_LOG_INFO, "Not adding MIDI file, an identical pattern is already in the project: %s", file.data);
-			naui_list_free(pattern.notes);
+			uph_midi_pattern_free_events(&pattern);
 			continue;
 		}
 

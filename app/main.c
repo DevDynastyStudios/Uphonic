@@ -161,10 +161,16 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 {
 	(void)userdata;
 	bool note_on = event->type == CMIDI_NOTE_ON;
-	uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, note_on);
- 
+
+	if (event->type == CMIDI_CONTROL_CHANGE)
+	{
+		uph_midi_recorder_pedal_input(event->cc_number, event->cc_value);
+		return;
+	}
+
 	if (event->type == CMIDI_NOTE_ON || event->type == CMIDI_NOTE_OFF)
 	{
+		uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, note_on);
 		uph_midi_recorder_input(note_on, event->note, event->velocity);
  
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)

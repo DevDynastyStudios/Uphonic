@@ -36,6 +36,17 @@ Uph_MidiPattern uph_midi_convert_to_pattern(const Naui_Path midi_path)
 		const bool is_off = event->type == CMIDI_SCHED_NOTE_OFF || (event->type == CMIDI_SCHED_NOTE_ON && event->data1 == 0);
 		last_tick = event->tick > last_tick ? event->tick : last_tick;
 
+		Uph_MidiPedalType pedal_type;
+		if (event->type == CMIDI_SCHED_CONTROL_CHANGE && uph_midi_pedal_from_cc(event->data0, &pedal_type))
+		{
+			naui_list_push(pattern.pedals, ((Uph_MidiPedalEvent){
+				.beat = (double)event->tick / ticks_per_beat,
+				.value = event->data1 & 0x7F,
+				.type = pedal_type
+			}));
+			continue;
+		}
+
 		if (is_on)
 		{
 			open[open_count++] = (Uph_MidiOpenNote){
@@ -76,6 +87,7 @@ Uph_MidiPattern uph_midi_convert_to_pattern(const Naui_Path midi_path)
 
 	free(open);
 	cmidi_file_free(file);
+	uph_midi_pedals_sort(pattern.pedals);
 	return pattern;
 } 
 
@@ -91,6 +103,18 @@ cmidi_file_t* uph_midi_convert_to_midi(const Uph_MidiPattern* pattern)
 	const double bpm = uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
 	cmidi_file_set_format(file, 0);
 	cmidi_file_set_tempo(file, (uint32_t)llround(60000000.0 / bpm));
+
+	for (size_t i = 0; i < naui_list_len(pattern->pedals); i++)
+	{
+		const Uph_MidiPedalEvent* pedal = &pattern->pedals[i];
+		cmidi_file_add_event(file, (cmidi_sched_event_t){
+			.tick = uph_midi_beats_to_ticks(pedal->beat),
+			.type = CMIDI_SCHED_CONTROL_CHANGE,
+			.channel = 0,
+			.data0 = uph_midi_pedal_cc(pedal->type),
+			.data1 = pedal->value & 0x7F
+		});
+	}
 
 	const size_t count = naui_list_len(pattern->notes);
 	if (count == 0)

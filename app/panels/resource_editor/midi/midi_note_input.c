@@ -602,7 +602,7 @@ static void _uph_note_input_update_erase(Uph_MidiEditorData *editor, Leaf_Boundi
 	}
 	else
 	{
-		const bool busy = input->drag.active || input->marquee.active || editor->velocity_lane.drag.mode != UPH_VELOCITY_DRAG_NONE;
+		const bool busy = input->drag.active || input->marquee.active || editor->velocity_lane.drag.mode != UPH_VELOCITY_DRAG_NONE || editor->pedal_lane.drag.active;
 		if (!editor->lanes_hovered || busy || !naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 			return;
 

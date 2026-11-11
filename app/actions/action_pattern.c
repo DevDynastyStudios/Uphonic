@@ -55,6 +55,14 @@ typedef struct
 typedef struct
 {
 	Uph_ResourceIndex pattern_index;
+	Naui_List(Uph_MidiPedalEvent) old_pedals;
+	Naui_List(Uph_MidiPedalEvent) new_pedals;
+	bool applied_live;
+} Uph_ActionPedalsEdit;
+
+typedef struct
+{
+	Uph_ResourceIndex pattern_index;
 	Naui_List(Uph_NoteSnapshot) erased;
 	bool applied_live;
 } Uph_ActionNotesErase;
@@ -76,7 +84,7 @@ bool _uph_action_pattern_create_undo(void* userdata)
 	if (!data->resource_exists || data->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
 		return false;
 
-	naui_list_free(uph_state.project.midi_patterns[data->resource_index].notes);
+	uph_midi_pattern_free_events(&uph_state.project.midi_patterns[data->resource_index]);
 	naui_list_remove(uph_state.project.midi_patterns, data->resource_index);
 	uph_action_resource_removed(UPH_RESOURCE_PATTERN, data->resource_index);
 	data->resource_exists = false;
@@ -135,7 +143,7 @@ void _uph_action_pattern_delete_destroy(void* userdata)
 {
 	Uph_ActionPatternDelete* data = userdata;
 	if (data->deleted)
-		naui_list_free(data->pattern.notes);
+		uph_midi_pattern_free_events(&data->pattern);
 
 	naui_list_free(data->blocks);
 	data->blocks = NULL;
@@ -191,7 +199,7 @@ bool _uph_action_pattern_duplicate_undo(void* userdata)
 	if (!data->resource_exists || data->new_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
 		return false;
 
-	naui_list_free(uph_state.project.midi_patterns[data->new_index].notes);
+	uph_midi_pattern_free_events(&uph_state.project.midi_patterns[data->new_index]);
 	naui_list_remove(uph_state.project.midi_patterns, data->new_index);
 	uph_action_resource_removed(UPH_RESOURCE_PATTERN, data->new_index);
 	data->resource_exists = false;
@@ -674,6 +682,56 @@ static bool uph_note_cut(Uph_ResourceIndex pattern_index, uint32_t note_index, d
 
 	naui_action_group_end();
 	return true;
+}
+
+#pragma endregion
+
+#pragma region Pedals Edit
+static bool uph_pedals_apply(Uph_ResourceIndex pattern_index, Naui_List(Uph_MidiPedalEvent) pedals)
+{
+	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern)
+		return false;
+
+	Naui_List(Uph_MidiPedalEvent) previous = pattern->pedals;
+	pattern->pedals = naui_list_clone(pedals);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->pedals); i++)
+		pattern->pedals[i].selected = false;
+
+	naui_list_free(previous);
+	uph_state.shared.current_pattern_updated = true;
+	return true;
+}
+
+bool _uph_action_pedals_edit_execute(void* userdata)
+{
+	Uph_ActionPedalsEdit* data = userdata;
+	if (data->applied_live)
+	{
+		data->applied_live = false;
+		return uph_note_pattern(data->pattern_index) != NULL;
+	}
+
+	return uph_pedals_apply(data->pattern_index, data->new_pedals);
+}
+
+bool _uph_action_pedals_edit_undo(void* userdata)
+{
+	Uph_ActionPedalsEdit* data = userdata;
+	return uph_pedals_apply(data->pattern_index, data->old_pedals);
+}
+
+bool _uph_action_pedals_edit_redo(void* userdata)
+{
+	Uph_ActionPedalsEdit* data = userdata;
+	return uph_pedals_apply(data->pattern_index, data->new_pedals);
+}
+
+void _uph_action_pedals_edit_destroy(void* userdata)
+{
+	Uph_ActionPedalsEdit* data = userdata;
+	naui_list_free(data->old_pedals);
+	naui_list_free(data->new_pedals);
 }
 
 #pragma endregion

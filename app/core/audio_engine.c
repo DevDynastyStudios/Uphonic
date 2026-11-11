@@ -638,6 +638,152 @@ static void uph_queue_pattern_block_notes(
     }
 }
 
+#define UPH_PEDAL_FRAME_MAX_CHANGES 128
+
+typedef struct
+{
+    uint32_t offset;
+    uint8_t value;
+    uint8_t priority;
+    Uph_MidiPedalType type;
+}
+Uph_PedalChange;
+
+typedef struct
+{
+    uint8_t start_value[UPH_MIDI_PEDAL_COUNT];
+    Uph_PedalChange changes[UPH_PEDAL_FRAME_MAX_CHANGES];
+    uint32_t change_count;
+}
+Uph_PedalFrame;
+
+static uint32_t uph_pedal_beat_to_offset(double beat, double buffer_start_beat, uint32_t engine_sample_rate, float bpm)
+{
+    const double seconds = uph_beats_to_seconds(fmax(0.0, beat - buffer_start_beat), bpm);
+    return (uint32_t)(seconds * (double)engine_sample_rate);
+}
+
+static void uph_pedal_frame_push(Uph_PedalFrame *frame, Uph_PedalChange change)
+{
+    if (frame->change_count >= UPH_PEDAL_FRAME_MAX_CHANGES)
+        return;
+
+    uint32_t i = frame->change_count++;
+    while (i > 0)
+    {
+        const Uph_PedalChange *prev = &frame->changes[i - 1];
+        if (prev->offset < change.offset || (prev->offset == change.offset && prev->priority <= change.priority))
+            break;
+
+        frame->changes[i] = *prev;
+        i--;
+    }
+    frame->changes[i] = change;
+}
+
+static void uph_collect_pattern_block_pedals(
+    const Uph_TimelineBlock *block,
+    double buffer_start_beat,
+    double buffer_end_beat,
+    uint32_t engine_sample_rate,
+    float bpm,
+    Uph_PedalFrame *frame
+)
+{
+    Uph_Project *project = &uph_state.project;
+    if (block->resource_index >= naui_list_len(project->midi_patterns))
+        return;
+
+    const Uph_MidiPattern *pattern = &project->midi_patterns[block->resource_index];
+    const uint64_t pedal_count = naui_list_len(pattern->pedals);
+    if (pedal_count == 0)
+        return;
+
+    const double block_end_beat = block->start_beat + block->length_beats;
+    if (block_end_beat < buffer_start_beat || block->start_beat >= buffer_end_beat)
+        return;
+
+    bool used[UPH_MIDI_PEDAL_COUNT] = { false };
+    for (uint64_t i = 0; i < pedal_count; i++)
+    {
+        if (pattern->pedals[i].type < UPH_MIDI_PEDAL_COUNT)
+            used[pattern->pedals[i].type] = true;
+    }
+
+    if (block->start_beat <= buffer_start_beat && buffer_start_beat < block_end_beat)
+    {
+        const double local_beat = buffer_start_beat - block->start_beat + block->start_offset_beats;
+        for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+        {
+            const uint8_t value = uph_midi_pedal_value_before(pattern, type, local_beat, false);
+            if (value > frame->start_value[type])
+                frame->start_value[type] = value;
+        }
+    }
+    else if (block->start_beat > buffer_start_beat)
+    {
+        const uint32_t offset = uph_pedal_beat_to_offset(block->start_beat, buffer_start_beat, engine_sample_rate, bpm);
+        for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+        {
+            const uint8_t value = uph_midi_pedal_value_before(pattern, type, block->start_offset_beats, false);
+            if (value > 0)
+                uph_pedal_frame_push(frame, (Uph_PedalChange){ .offset = offset, .value = value, .priority = 1, .type = type });
+        }
+    }
+
+    for (uint64_t i = 0; i < pedal_count; i++)
+    {
+        const Uph_MidiPedalEvent *pedal = &pattern->pedals[i];
+        const double beat = block->start_beat + (pedal->beat - block->start_offset_beats);
+        if (beat < block->start_beat || beat >= block_end_beat || beat < buffer_start_beat || beat >= buffer_end_beat || pedal->type >= UPH_MIDI_PEDAL_COUNT)
+            continue;
+
+        uph_pedal_frame_push(frame, (Uph_PedalChange){
+            .offset = uph_pedal_beat_to_offset(beat, buffer_start_beat, engine_sample_rate, bpm),
+            .value = pedal->value,
+            .priority = 1,
+            .type = pedal->type
+        });
+    }
+
+    if (block_end_beat >= buffer_start_beat && block_end_beat < buffer_end_beat)
+    {
+        const uint32_t offset = uph_pedal_beat_to_offset(block_end_beat, buffer_start_beat, engine_sample_rate, bpm);
+        for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+        {
+            if (used[type])
+                uph_pedal_frame_push(frame, (Uph_PedalChange){ .offset = offset, .value = 0, .priority = 0, .type = type });
+        }
+    }
+}
+
+static void uph_flush_track_pedals(Uph_Track *track, const Uph_PedalFrame *frame)
+{
+    Uph_Plugin *plugin = &track->instrument;
+    const bool monitors = uph_track_monitors_instrument(track);
+
+    uint8_t live[UPH_MIDI_PEDAL_COUNT] = { 0 };
+    for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+    {
+        if (monitors)
+            live[type] = uph_midi_recorder_pedal_value(type);
+
+        const uint8_t cc = uph_midi_pedal_cc(type);
+        const uint8_t target = NAUI_MAX(frame->start_value[type], live[type]);
+        if (uph_plugin_cc_value(plugin, cc) != target)
+            uph_plugin_queue_midi_cc(plugin, 0, cc, target, 0);
+    }
+
+    for (uint32_t i = 0; i < frame->change_count; i++)
+    {
+        const Uph_PedalChange *change = &frame->changes[i];
+        const uint8_t cc = uph_midi_pedal_cc(change->type);
+        const uint8_t value = NAUI_MAX(change->value, live[change->type]);
+        if (uph_plugin_cc_value(plugin, cc) != value)
+            uph_plugin_queue_midi_cc(plugin, 0, cc, value, change->offset);
+    }
+}
+
 static void uph_render_track_instrument(
     Uph_Track *track,
     ma_uint32 frame_count,
@@ -919,7 +1065,7 @@ typedef struct
 }
 Uph_RenderContext;
 
-static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *track, bool should_be_held[128])
+static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *track, bool should_be_held[128], Uph_PedalFrame *pedal_frame)
 {
     uph_midi_preview_queue_audition(track, should_be_held);
 
@@ -942,6 +1088,7 @@ static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *tra
         );
 
         uph_mark_block_held_notes(track, &block, range.end_beat, should_be_held);
+        uph_collect_pattern_block_pedals(&block, range.start_beat, range.end_beat, ctx->engine_sample_rate, ctx->bpm, pedal_frame);
 
         if (!range.repeat)
             break;
@@ -1125,8 +1272,9 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
         if (track->instrument.loaded)
         {
             bool should_be_held[128] = { false };
+            Uph_PedalFrame pedal_frame = { 0 };
 
-            uph_queue_preview_notes(ctx, track, should_be_held);
+            uph_queue_preview_notes(ctx, track, should_be_held, &pedal_frame);
 
             if (ctx->timeline_playing && audible)
             {
@@ -1147,6 +1295,13 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
                         ctx->buffer_end_beat,
                         should_be_held
                     );
+
+                    uph_collect_pattern_block_pedals(
+                        block,
+                        ctx->buffer_start_beat, ctx->buffer_end_beat,
+                        ctx->engine_sample_rate, ctx->bpm,
+                        &pedal_frame
+                    );
                 }
             }
 
@@ -1155,6 +1310,8 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
                 if (uph_plugin_note_active(&track->instrument, (uint8_t)key) && !should_be_held[key] && !(uph_track_monitors_instrument(track) && uph_midi_recorder_key_held((uint8_t)key)))
                     uph_plugin_queue_note_event(&track->instrument, false, (uint8_t)key, 0, 0, 0);
             }
+
+            uph_flush_track_pedals(track, &pedal_frame);
 
             uph_render_track_instrument(
                 track, frame_count,

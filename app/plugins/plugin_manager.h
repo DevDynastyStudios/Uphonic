@@ -24,6 +24,8 @@ void uph_plugin_queue_param_change(
 );
 
 void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset);
+void uph_plugin_queue_midi_cc(Uph_Plugin *plugin, uint8_t channel, uint8_t cc, uint8_t value, uint32_t sample_offset);
+uint8_t uph_plugin_cc_value(Uph_Plugin *plugin, uint8_t cc);
 bool uph_plugin_note_active(Uph_Plugin *plugin, uint8_t key);
 
 void uph_plugin_process(

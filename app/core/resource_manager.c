@@ -924,6 +924,7 @@ void uph_resources_copy_pattern(Uph_ResourceIndex pattern_index)
 	Uph_MidiPattern pattern = uph_state.project.midi_patterns[pattern_index];
 	pattern.visual.lifetime = 0.0f;
 	pattern.notes = naui_list_clone(pattern.notes);
+	pattern.pedals = naui_list_clone(pattern.pedals);
 	naui_list_push(uph_state.project.midi_patterns, pattern);
 }
 

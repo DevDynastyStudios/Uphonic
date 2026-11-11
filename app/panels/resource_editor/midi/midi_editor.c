@@ -9,11 +9,13 @@ void uph_midi_editor_init(void)
 
 	uph_midi_note_input_cancel_drag(editor);
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
+	uph_midi_pedal_cancel_drag(&editor->pedal_lane);
 	memset(editor, 0, sizeof(*editor));
 	uph_note_map_init_default(&editor->note_map);
 	uph_midi_editor_set_scale(editor, uph_midi_editor_find_scale("Major"), 0);
 	uph_piano_init(&editor->piano);
 	uph_midi_velocity_init(&editor->velocity_lane);
+	uph_midi_pedal_init(&editor->pedal_lane);
 	editor->audition_key = -1;
 
 	editor->view.zoom = (Naui_Vec2) { NAUI_DPI(100.0f), NAUI_DPI(30.0f) };
@@ -99,6 +101,7 @@ void uph_midi_editor_reset_interaction(void)
 	uph_midi_note_input_cancel_drag(editor);
 	uph_midi_note_input_cancel_erase(editor);
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
+	uph_midi_pedal_cancel_drag(&editor->pedal_lane);
 	editor->velocity_lane.resizing = false;
 	editor->note_input.marquee.active = false;
 	_uph_midi_editor_send_preview(uph_piano_release_mouse(&editor->piano));
@@ -212,8 +215,8 @@ static void _uph_midi_editor_playhead_overlay_draw(Leaf_BoundingBox box, void *u
 	const float ruler_bottom = box.y + (float)(NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT) - 2);
 	const Naui_Color color = naui_theme_color("uph_playhead_color");
 
-	naui_push_clip_rect(lanes.x - NAUI_DPI(1), box.y, lanes.width + NAUI_DPI(1), box.height);
-	naui_draw_line((Naui_Vec2) { x, ruler_bottom - half_size }, (Naui_Vec2) { x, box.y + box.height }, color, NAUI_DPI(1.0f));
+	naui_push_clip_rect(lanes.x - NAUI_DPI(1), box.y, lanes.width + NAUI_DPI(1), lanes.y + lanes.height - box.y);
+	naui_draw_line((Naui_Vec2) { x, ruler_bottom - half_size }, (Naui_Vec2) { x, lanes.y + lanes.height }, color, NAUI_DPI(1.0f));
 	naui_draw_image(
 		naui_asset_image("uph_icon_playhead"),
 		(Naui_Vec2) { x - half_size, ruler_bottom - size },
@@ -343,7 +346,10 @@ static void _uph_midi_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 
 static void _uph_midi_editor_velocity_header_draw(Leaf_BoundingBox box, void *user_data)
 {
-	uph_midi_velocity_render_header(box);
+	if (uph_midi_editor_data.lane_tab == UPH_MIDI_LANE_TAB_PEDAL)
+		uph_midi_pedal_render_header(&uph_midi_editor_data, box);
+	else
+		uph_midi_velocity_render_header(box);
 }
 
 static void _uph_midi_editor_velocity_draw(Leaf_BoundingBox box, void *user_data)
@@ -352,10 +358,21 @@ static void _uph_midi_editor_velocity_draw(Leaf_BoundingBox box, void *user_data
 	Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
-	if (pattern)
-		uph_midi_velocity_update(editor, box, pattern);
+	if (editor->lane_tab == UPH_MIDI_LANE_TAB_PEDAL)
+	{
+		if (pattern)
+			uph_midi_pedal_update(editor, box, pattern);
 
-	uph_midi_velocity_render(editor, box, pattern);
+		uph_midi_pedal_render(editor, box, pattern);
+	}
+	else
+	{
+		if (pattern)
+			uph_midi_velocity_update(editor, box, pattern);
+
+		uph_midi_velocity_render(editor, box, pattern);
+	}
+
 	if (pattern)
 		_uph_midi_editor_render_loop_end(editor, box, pattern);
 
@@ -408,6 +425,7 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorData *editor, Leaf_ID 
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	const Leaf_ID tab_id = leaf_id("uph_midi_editor_velocity_tab");
+	const Leaf_ID pedal_tab_id = leaf_id("uph_midi_editor_pedal_tab");
 
 	if (lane->visible)
 	{
@@ -441,8 +459,19 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorData *editor, Leaf_ID 
 		}
 	})
 	{
-		if (_uph_midi_editor_tab("Velocity", tab_id, lane->visible))
-			lane->visible = !lane->visible;
+		static const char *const labels[] = { "Velocity", "Pedal" };
+		const Leaf_ID ids[] = { tab_id, pedal_tab_id };
+		for (Uph_MidiLaneTab tab = UPH_MIDI_LANE_TAB_VELOCITY; tab <= UPH_MIDI_LANE_TAB_PEDAL; tab++)
+		{
+			const bool active = lane->visible && editor->lane_tab == tab;
+			if (!_uph_midi_editor_tab(labels[tab], ids[tab], active))
+				continue;
+
+			uph_midi_velocity_cancel_drag(lane);
+			uph_midi_pedal_cancel_drag(&editor->pedal_lane);
+			lane->visible = !active;
+			editor->lane_tab = tab;
+		}
 	}
 }
 
@@ -484,7 +513,9 @@ void uph_midi_editor_update(void)
 	editor->panel_focused = naui_panel_focused() == naui_panel_current();
 	editor->lanes_hovered = leaf_hovered(lanes_id) && editor->panel_hovered;
 	editor->piano_hovered = leaf_hovered(piano_id) && editor->panel_hovered;
-	editor->velocity_lane.hovered = editor->velocity_lane.visible && leaf_hovered(velocity_id) && editor->panel_hovered;
+	const bool bottom_lane_hovered = editor->velocity_lane.visible && leaf_hovered(velocity_id) && editor->panel_hovered;
+	editor->velocity_lane.hovered = bottom_lane_hovered && editor->lane_tab == UPH_MIDI_LANE_TAB_VELOCITY;
+	editor->pedal_lane.hovered = bottom_lane_hovered && editor->lane_tab == UPH_MIDI_LANE_TAB_PEDAL;
 	editor->lanes_bounding_box = leaf_get_bounding_box(lanes_id);
 
 	if (editor->note_input.marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
@@ -493,6 +524,7 @@ void uph_midi_editor_update(void)
 	if (!editor->velocity_lane.visible)
 	{
 		uph_midi_velocity_cancel_drag(&editor->velocity_lane);
+		uph_midi_pedal_cancel_drag(&editor->pedal_lane);
 		editor->velocity_lane.resizing = false;
 	}
 

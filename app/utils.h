@@ -93,6 +93,11 @@ void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, d
 void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
 void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
 double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);
+uint8_t uph_midi_pedal_cc(Uph_MidiPedalType type);
+bool uph_midi_pedal_from_cc(uint8_t cc, Uph_MidiPedalType *out_type);
+void uph_midi_pedals_sort(Naui_List(Uph_MidiPedalEvent) pedals);
+uint8_t uph_midi_pedal_value_before(const Uph_MidiPattern *pattern, Uph_MidiPedalType type, double beat, bool inclusive);
+void uph_midi_pattern_free_events(Uph_MidiPattern *pattern);
 double uph_calculate_automation_length(const Uph_Automation *automation);
 void uph_automation_segment_controls(const Uph_AutomationPoint *from, float out[4]);
 float uph_automation_segment_value(const Uph_AutomationPoint *from, const Uph_AutomationPoint *to, double beat);

@@ -23,6 +23,9 @@
 #define UPH_MIDI_EDITOR_VELOCITY_MIN 1
 #define UPH_MIDI_EDITOR_VELOCITY_MAX 127
 
+#define UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS 4.0f
+#define UPH_MIDI_EDITOR_PEDAL_DEFAULT_VALUE 127
+
 #define UPH_MIDI_EDITOR_TAB_BAR_HEIGHT 26.0f
 #define UPH_MIDI_EDITOR_TAB_PADDING_X 10.0f
 #define UPH_MIDI_EDITOR_TAB_ICON_SIZE 9.0f
@@ -136,6 +139,39 @@ Uph_VelocityLane;
 
 #pragma endregion
 
+#pragma region Pedal lane state
+
+typedef uint8_t Uph_MidiLaneTab;
+enum
+{
+	UPH_MIDI_LANE_TAB_VELOCITY,
+	UPH_MIDI_LANE_TAB_PEDAL
+};
+
+typedef struct
+{
+	Naui_List(Uph_MidiPedalEvent) originals;
+	Uph_ResourceIndex pattern_index;
+	uint32_t index;
+	double grab_beat_offset;
+	Naui_Vec2 initial_mouse;
+	bool active;
+	bool moved;
+	bool created;
+}
+Uph_PedalDragState;
+
+typedef struct
+{
+	Uph_PedalDragState drag;
+	Uph_MidiPedalType type;
+	int32_t hovered_event;
+	bool hovered;
+}
+Uph_PedalLane;
+
+#pragma endregion
+
 typedef struct
 {
 	Uph_MidiView view;
@@ -143,6 +179,8 @@ typedef struct
 	Uph_Piano piano;
 	Uph_MidiNoteInput note_input;
 	Uph_VelocityLane velocity_lane;
+	Uph_PedalLane pedal_lane;
+	Uph_MidiLaneTab lane_tab;
 	Leaf_BoundingBox lanes_bounding_box;
 	Uph_ActionMode current_action_mode;
 	Uph_SnapResolution snap_resolution;

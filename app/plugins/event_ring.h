@@ -4,9 +4,17 @@
 _Static_assert((UPH_NOTE_RING_CAPACITY  & (UPH_NOTE_RING_CAPACITY  - 1)) == 0, "must be power of two");
 _Static_assert((UPH_PARAM_RING_CAPACITY & (UPH_PARAM_RING_CAPACITY - 1)) == 0, "must be power of two");
 
+typedef union
+{
+    clap_event_header_t header;
+    clap_event_note_t note;
+    clap_event_midi_t midi;
+}
+Uph_NoteRingEvent;
+
 typedef struct
 {
-    clap_event_note_t buffer[UPH_NOTE_RING_CAPACITY];
+    Uph_NoteRingEvent buffer[UPH_NOTE_RING_CAPACITY];
     _Atomic uint32_t head;
     _Atomic uint32_t tail;
 }
@@ -32,7 +40,7 @@ static inline void uph_param_ring_init(Uph_ParamEventRing *ring)
     atomic_store_explicit(&ring->tail, 0, memory_order_relaxed);
 }
 
-static inline bool uph_note_ring_push(Uph_NoteEventRing *ring, const clap_event_note_t *ev)
+static inline bool uph_note_ring_push(Uph_NoteEventRing *ring, const Uph_NoteRingEvent *ev)
 {
     uint32_t tail = atomic_load_explicit(&ring->tail, memory_order_relaxed);
     uint32_t head = atomic_load_explicit(&ring->head, memory_order_acquire);
@@ -72,7 +80,7 @@ static inline uint32_t uph_param_ring_size(const Uph_ParamEventRing *ring)
     return tail - head;
 }
 
-static inline const clap_event_note_t *uph_note_ring_peek(const Uph_NoteEventRing *ring, uint32_t i)
+static inline const Uph_NoteRingEvent *uph_note_ring_peek(const Uph_NoteEventRing *ring, uint32_t i)
 {
     uint32_t head = atomic_load_explicit((_Atomic uint32_t*)&ring->head, memory_order_relaxed);
     return &ring->buffer[(head + i) & (UPH_NOTE_RING_CAPACITY - 1)];

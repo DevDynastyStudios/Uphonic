@@ -127,7 +127,79 @@ double uph_calculate_pattern_length(const Uph_MidiPattern *pattern)
         if (note_end > length)
             length = note_end;
     }
+    for (uint32_t i = 0; i < naui_list_len(pattern->pedals); i++)
+    {
+        if (pattern->pedals[i].beat > length)
+            length = pattern->pedals[i].beat;
+    }
     return length;
+}
+
+uint8_t uph_midi_pedal_cc(Uph_MidiPedalType type)
+{
+    switch (type)
+    {
+        case UPH_MIDI_PEDAL_SOSTENUTO: return 66;
+        case UPH_MIDI_PEDAL_SOFT: return 67;
+        default: return 64;
+    }
+}
+
+bool uph_midi_pedal_from_cc(uint8_t cc, Uph_MidiPedalType *out_type)
+{
+    for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+    {
+        if (uph_midi_pedal_cc(type) == cc)
+        {
+            *out_type = type;
+            return true;
+        }
+    }
+    return false;
+}
+
+static int _uph_midi_pedal_compare(const void *a, const void *b)
+{
+    const Uph_MidiPedalEvent *left = a;
+    const Uph_MidiPedalEvent *right = b;
+    if (left->beat != right->beat)
+        return left->beat < right->beat ? -1 : 1;
+    return (int)left->type - (int)right->type;
+}
+
+void uph_midi_pedals_sort(Naui_List(Uph_MidiPedalEvent) pedals)
+{
+    const size_t count = naui_list_len(pedals);
+    for (size_t i = 1; i < count; i++)
+    {
+        if (_uph_midi_pedal_compare(&pedals[i - 1], &pedals[i]) > 0)
+        {
+            qsort(pedals, count, sizeof(Uph_MidiPedalEvent), _uph_midi_pedal_compare);
+            return;
+        }
+    }
+}
+
+uint8_t uph_midi_pedal_value_before(const Uph_MidiPattern *pattern, Uph_MidiPedalType type, double beat, bool inclusive)
+{
+    uint8_t value = 0;
+    for (uint32_t i = 0; i < naui_list_len(pattern->pedals); i++)
+    {
+        const Uph_MidiPedalEvent *pedal = &pattern->pedals[i];
+        if (pedal->beat > beat || (!inclusive && pedal->beat == beat))
+            break;
+        if (pedal->type == type)
+            value = pedal->value;
+    }
+    return value;
+}
+
+void uph_midi_pattern_free_events(Uph_MidiPattern *pattern)
+{
+    naui_list_free(pattern->notes);
+    naui_list_free(pattern->pedals);
+    pattern->notes = NULL;
+    pattern->pedals = NULL;
 }
 
 double uph_calculate_automation_length(const Uph_Automation *automation)

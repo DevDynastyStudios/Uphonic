@@ -250,6 +250,7 @@ typedef struct Uph_PluginInternalHandle_
 
             bool active_notes[128];
             int16_t active_note_channels[128];
+            uint8_t cc_values[128];
 
             clap_id next_timer_id;
             volatile int ready;
@@ -281,6 +282,8 @@ typedef struct Uph_PluginInternalHandle_
 
             bool active_notes[128];
             int16_t active_note_channels[128];
+            uint8_t cc_values[128];
+            int64_t cc_param_ids[128];
 
             uint32_t width, height;
             bool has_event_input;
@@ -1590,6 +1593,22 @@ static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
     ih->vst3.component->lpVtbl->setActive(ih->vst3.component, 1);
     ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 1);
 
+    for (int cc = 0; cc < 128; cc++)
+        ih->vst3.cc_param_ids[cc] = -1;
+
+    Steinberg_Vst_IMidiMapping *midi_mapping = NULL;
+    if (ih->vst3.controller->lpVtbl->queryInterface(ih->vst3.controller, Steinberg_Vst_IMidiMapping_iid, (void**)&midi_mapping) == Steinberg_kResultOk && midi_mapping)
+    {
+        for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+        {
+            const uint8_t cc = uph_midi_pedal_cc(type);
+            Steinberg_Vst_ParamID param_id = 0;
+            if (midi_mapping->lpVtbl->getMidiControllerAssignment(midi_mapping, 0, 0, (Steinberg_Vst_CtrlNumber)cc, &param_id) == Steinberg_kResultOk)
+                ih->vst3.cc_param_ids[cc] = (int64_t)param_id;
+        }
+        midi_mapping->lpVtbl->release(midi_mapping);
+    }
+
     ih->vst3.sample_position = 0;
     ih->vst3.ready = 1;
 }
@@ -1669,12 +1688,22 @@ static void uph_vst3_process(
 
     for (uint32_t i = 0; i < note_snapshot && in_events->count < UPH_VST3_MAX_EVENTS; i++)
     {
-        const clap_event_note_t *n = uph_note_ring_peek(&ih->vst3.pending_notes, i);
+        const Uph_NoteRingEvent *event = uph_note_ring_peek(&ih->vst3.pending_notes, i);
+        const uint32_t event_offset = event->header.time < frame_count ? event->header.time : (frame_count ? frame_count - 1 : 0);
+        if (event->header.type == CLAP_EVENT_MIDI)
+        {
+            const int64_t param_id = ih->vst3.cc_param_ids[event->midi.data[1] & 0x7F];
+            if (param_id >= 0)
+                uph_vst3_param_changes_add(in_params, (Steinberg_Vst_ParamID)param_id, (int32_t)event_offset, (double)(event->midi.data[2] & 0x7F) / 127.0);
+            continue;
+        }
+
+        const clap_event_note_t *n = &event->note;
         struct Steinberg_Vst_Event *e = &in_events->events[in_events->count++];
         memset(e, 0, sizeof(*e));
 
         e->busIndex = 0;
-        e->sampleOffset = (Steinberg_int32)(n->header.time < frame_count ? n->header.time : (frame_count ? frame_count - 1 : 0));
+        e->sampleOffset = (Steinberg_int32)event_offset;
         e->ppqPosition = 0;
         e->flags = Steinberg_Vst_Event_EventFlags_kIsLive;
 
@@ -1933,18 +1962,18 @@ void uph_plugin_queue_note_event(
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-    clap_event_note_t ev = {0};
+    Uph_NoteRingEvent ev = {0};
     ev.header.size = sizeof(clap_event_note_t);
     ev.header.time = sample_offset;
     ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
     ev.header.type = note_on ? CLAP_EVENT_NOTE_ON : CLAP_EVENT_NOTE_OFF;
     ev.header.flags = 0;
 
-    ev.note_id = -1;
-    ev.port_index = 0;
-    ev.channel = channel;
-    ev.key = key;
-    ev.velocity = velocity / 127.0;
+    ev.note.note_id = -1;
+    ev.note.port_index = 0;
+    ev.note.channel = channel;
+    ev.note.key = key;
+    ev.note.velocity = velocity / 127.0;
 
     Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
         ? &internal_handle->vst3.pending_notes
@@ -2050,18 +2079,18 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
         if (!active_notes[key])
             continue;
 
-        clap_event_note_t ev = {0};
+        Uph_NoteRingEvent ev = {0};
         ev.header.size = sizeof(clap_event_note_t);
         ev.header.time = sample_offset;
         ev.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
         ev.header.type = CLAP_EVENT_NOTE_OFF;
         ev.header.flags = 0;
 
-        ev.note_id = -1;
-        ev.port_index = 0;
-        ev.channel = active_channels[key];
-        ev.key = (int16_t)key;
-        ev.velocity = 0.0;
+        ev.note.note_id = -1;
+        ev.note.port_index = 0;
+        ev.note.channel = active_channels[key];
+        ev.note.key = (int16_t)key;
+        ev.note.velocity = 0.0;
 
         if (!uph_note_ring_push(note_ring, &ev))
         {
@@ -2071,6 +2100,57 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 
         active_notes[key] = false;
     }
+
+    for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
+    {
+        const uint8_t cc = uph_midi_pedal_cc(type);
+        if (uph_plugin_cc_value(plug, cc) != 0)
+            uph_plugin_queue_midi_cc(plug, 0, cc, 0, sample_offset);
+    }
+}
+
+void uph_plugin_queue_midi_cc(Uph_Plugin *plug, uint8_t channel, uint8_t cc, uint8_t value, uint32_t sample_offset)
+{
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!internal_handle || cc > 127)
+        return;
+
+    Uph_NoteRingEvent ev = {0};
+    ev.midi.header.size = sizeof(clap_event_midi_t);
+    ev.midi.header.time = sample_offset;
+    ev.midi.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+    ev.midi.header.type = CLAP_EVENT_MIDI;
+    ev.midi.header.flags = 0;
+    ev.midi.port_index = 0;
+    ev.midi.data[0] = (uint8_t)(0xB0 | (channel & 0x0F));
+    ev.midi.data[1] = cc;
+    ev.midi.data[2] = value & 0x7F;
+
+    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
+        ? &internal_handle->vst3.pending_notes
+        : &internal_handle->clap.pending_notes;
+    uint8_t *cc_values = plug->format == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.cc_values
+        : internal_handle->clap.cc_values;
+
+    if (!uph_note_ring_push(note_ring, &ev))
+    {
+        fprintf(stderr, "uph_plugin_queue_midi_cc: note ring full, dropping event (cc=%u value=%u)\n", cc, value);
+        return;
+    }
+
+    cc_values[cc] = value & 0x7F;
+}
+
+uint8_t uph_plugin_cc_value(Uph_Plugin *plug, uint8_t cc)
+{
+    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!internal_handle || cc > 127)
+        return 0;
+
+    return plug->format == UPH_PLUGIN_VST3
+        ? internal_handle->vst3.cc_values[cc]
+        : internal_handle->clap.cc_values[cc];
 }
 
 bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)

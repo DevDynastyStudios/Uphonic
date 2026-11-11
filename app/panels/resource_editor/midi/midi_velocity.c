@@ -48,7 +48,7 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorData *editor, bool handle_h
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	lane->splitter_hovered = handle_hovered && editor->panel_hovered;
 
-	const bool busy = editor->note_input.drag.active || editor->note_input.marquee.active || lane->drag.mode != UPH_VELOCITY_DRAG_NONE;
+	const bool busy = editor->note_input.drag.active || editor->note_input.marquee.active || lane->drag.mode != UPH_VELOCITY_DRAG_NONE || editor->pedal_lane.drag.active;
 	if (lane->splitter_hovered && !busy && naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{
 		lane->resizing = true;

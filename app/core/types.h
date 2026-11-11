@@ -231,6 +231,24 @@ typedef struct
 }
 Uph_MidiNote;
 
+typedef uint8_t Uph_MidiPedalType;
+enum
+{
+	UPH_MIDI_PEDAL_SUSTAIN,
+	UPH_MIDI_PEDAL_SOSTENUTO,
+	UPH_MIDI_PEDAL_SOFT,
+	UPH_MIDI_PEDAL_COUNT
+};
+
+typedef struct
+{
+	double beat;
+	uint8_t value;
+	Uph_MidiPedalType type;
+	bool selected;
+}
+Uph_MidiPedalEvent;
+
 typedef struct
 {
 	double start;
@@ -242,6 +260,7 @@ typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_MidiNote) notes;
+	Naui_List(Uph_MidiPedalEvent) pedals;
 	Uph_LoopRegion loop_region;
 	struct
 	{
@@ -554,4 +573,4 @@ Uph_State;
 
 extern Uph_State uph_state;
 
-#pragma endregion
+#pragma endregion

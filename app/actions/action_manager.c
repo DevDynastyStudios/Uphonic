@@ -120,6 +120,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_RESIZE, _uph_action_note_transform);
 	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_VELOCITY, _uph_action_note_velocity);
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_MIDI_NOTES_ERASE, _uph_action_notes_erase);
+	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_MIDI_PEDALS_EDIT, _uph_action_pedals_edit);
 }
 
 void uph_action_shutdown()
