@@ -2780,81 +2780,158 @@ double uph_audio_engine_get_song_length(void)
     return length_beats > 0.0 ? ceil(length_beats / bar - 1e-9) * bar : bar;
 }
 
-bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)
+uint32_t uph_audio_engine_sample_rate(void)
 {
-    if (end_beat <= start_beat)
+    return uph_audio_engine_data.device.sampleRate;
+}
+
+static ma_format uph_render_bit_depth_format(Uph_RenderBitDepth depth)
+{
+    switch (depth)
     {
-        fprintf(stderr, "uph_audio_engine_export_to_wav: invalid beat range\n");
+        case UPH_RENDER_BIT_DEPTH_16: return ma_format_s16;
+        case UPH_RENDER_BIT_DEPTH_24: return ma_format_s24;
+        default: return ma_format_f32;
+    }
+}
+
+bool uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
+{
+    if (settings->end_beat <= settings->start_beat)
+    {
+        fprintf(stderr, "uph_audio_engine_render_to_wav: invalid beat range\n");
         return false;
     }
 
-    Uph_Project *project = &uph_state.project;
-    float bpm = project->bpm;
-    if (bpm <= 0.0f)
+    if (uph_state.project.bpm <= 0.0f)
     {
-        fprintf(stderr, "uph_audio_engine_export_to_wav: invalid bpm\n");
+        fprintf(stderr, "uph_audio_engine_render_to_wav: invalid bpm\n");
         return false;
     }
 
-    const double start_seconds = uph_tempo_beat_to_seconds(start_beat);
-    double duration_seconds = uph_tempo_beat_to_seconds(end_beat) - start_seconds;
+    const uint32_t engine_rate = uph_audio_engine_data.device.sampleRate;
+    const uint32_t output_rate = settings->sample_rate ? settings->sample_rate : engine_rate;
+    const uint32_t output_channels = settings->channels == 1 ? 1 : 2;
+    const ma_format output_format = uph_render_bit_depth_format(settings->bit_depth);
 
-    uint32_t sample_rate = uph_audio_engine_data.device.sampleRate;
-    uint64_t total_frames = (uint64_t)(duration_seconds * (double)sample_rate);
+    const double start_seconds = uph_tempo_beat_to_seconds(settings->start_beat);
+    const double duration_seconds = uph_tempo_beat_to_seconds(settings->end_beat) - start_seconds + NAUI_MAX(0.0f, settings->tail_seconds);
+    const uint64_t total_frames = (uint64_t)(duration_seconds * (double)engine_rate);
+    if (total_frames == 0)
+        return false;
 
-    ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 2, sample_rate);
+    ma_data_converter_config converter_config = ma_data_converter_config_init(ma_format_f32, output_format, 2, output_channels, engine_rate, output_rate);
+    converter_config.ditherMode = settings->dither && output_format != ma_format_f32 ? ma_dither_mode_triangle : ma_dither_mode_none;
+    converter_config.resampling.algorithm = ma_resample_algorithm_linear;
+    converter_config.resampling.linear.lpfOrder = MA_MAX_FILTER_ORDER;
+
+    ma_data_converter converter;
+    if (ma_data_converter_init(&converter_config, NULL, &converter) != MA_SUCCESS)
+    {
+        fprintf(stderr, "uph_audio_engine_render_to_wav: failed to init converter\n");
+        return false;
+    }
+
+    const uint64_t latency_frames = ma_data_converter_get_input_latency(&converter);
+    const uint64_t buffer_frames = total_frames + latency_frames;
+    float *rendered = (float*)calloc((size_t)buffer_frames * 2, sizeof(float));
+    if (!rendered)
+    {
+        fprintf(stderr, "uph_audio_engine_render_to_wav: out of memory\n");
+        ma_data_converter_uninit(&converter, NULL);
+        return false;
+    }
+
+    const ma_uint32 chunk_frames = NAUI_MAX(64u, uph_state.settings.audio.buffer_size);
+
+    uph_audio_engine_lock();
+    uph_audio_engine_stop_all_notes();
+    for (uint64_t processed = 0; processed < total_frames;)
+    {
+        const ma_uint32 frames = (ma_uint32)NAUI_MIN((uint64_t)chunk_frames, total_frames - processed);
+        const double playhead_beat = uph_tempo_seconds_to_beat(start_seconds + (double)processed / (double)engine_rate);
+        uph_render_audio(playhead_beat, engine_rate, rendered + processed * 2, frames, true, NULL);
+        processed += frames;
+    }
+    uph_audio_engine_stop_all_notes();
+    uph_audio_engine_unlock();
+
+    if (settings->normalize)
+    {
+        float peak = 0.0f;
+        for (uint64_t i = 0; i < total_frames * 2; i++)
+            peak = NAUI_MAX(peak, fabsf(rendered[i]));
+
+        if (peak > 1e-6f)
+        {
+            const float gain = 0.98855309f / peak;
+            for (uint64_t i = 0; i < total_frames * 2; i++)
+                rendered[i] *= gain;
+        }
+    }
+
+    ma_encoder_config encoder_config = ma_encoder_config_init(ma_encoding_format_wav, output_format, output_channels, output_rate);
     ma_encoder encoder;
     if (ma_encoder_init_file(filepath, &encoder_config, &encoder) != MA_SUCCESS)
     {
-        fprintf(stderr, "uph_audio_engine_export_to_wav: failed to init WAV encoder for '%s'\n", filepath);
+        fprintf(stderr, "uph_audio_engine_render_to_wav: failed to init WAV encoder for '%s'\n", filepath);
+        free(rendered);
+        ma_data_converter_uninit(&converter, NULL);
         return false;
     }
 
-    const ma_uint32 chunk_frames = uph_state.settings.audio.buffer_size;
-    float *buffer = (float*)malloc(sizeof(float) * 2 * chunk_frames);
-    if (!buffer)
+    const uint64_t target_frames = (uint64_t)((double)total_frames * (double)output_rate / (double)engine_rate);
+    const ma_uint32 out_chunk = 4096;
+    void *out_buffer = malloc((size_t)out_chunk * output_channels * ma_get_bytes_per_sample(output_format));
+    bool ok = out_buffer != NULL;
+
+    uint64_t consumed = 0;
+    uint64_t written = 0;
+    while (ok && written < target_frames)
     {
-        fprintf(stderr, "uph_audio_engine_export_to_wav: out of memory\n");
-        ma_encoder_uninit(&encoder);
-        return false;
-    }
-
-    uint64_t frames_processed = 0;
-    bool ok = true;
-
-    uph_audio_engine_lock();
-    while (frames_processed < total_frames)
-    {
-        ma_uint32 frames_to_process = (ma_uint32)((total_frames - frames_processed) < chunk_frames
-            ? (total_frames - frames_processed)
-            : chunk_frames);
-
-        double playhead_beat = uph_tempo_seconds_to_beat(start_seconds + (double)frames_processed / (double)sample_rate);
-
-        uph_render_audio(playhead_beat, sample_rate, buffer, frames_to_process, true, NULL);
-
-        ma_uint64 frames_written = 0;
-        if (ma_encoder_write_pcm_frames(&encoder, buffer, frames_to_process, &frames_written) != MA_SUCCESS)
+        ma_uint64 frames_in = buffer_frames - consumed;
+        ma_uint64 frames_out = NAUI_MIN((uint64_t)out_chunk, target_frames - written);
+        if (ma_data_converter_process_pcm_frames(&converter, rendered + consumed * 2, &frames_in, out_buffer, &frames_out) != MA_SUCCESS)
         {
-            fprintf(stderr, "uph_audio_engine_export_to_wav: failed writing frames to '%s'\n", filepath);
             ok = false;
             break;
         }
 
-        frames_processed += frames_written;
+        consumed += frames_in;
+        if (frames_out == 0)
+            break;
+
+        ma_uint64 frames_written = 0;
+        if (ma_encoder_write_pcm_frames(&encoder, out_buffer, frames_out, &frames_written) != MA_SUCCESS)
+        {
+            fprintf(stderr, "uph_audio_engine_render_to_wav: failed writing frames to '%s'\n", filepath);
+            ok = false;
+            break;
+        }
+
+        written += frames_written;
     }
 
-    free(buffer);
+    free(out_buffer);
+    free(rendered);
     ma_encoder_uninit(&encoder);
-    uph_audio_engine_unlock();
-
-    uph_audio_engine_stop_all_notes();
+    ma_data_converter_uninit(&converter, NULL);
 
     if (ok)
-        fprintf(stdout, "uph_audio_engine_export_to_wav: exported %llu frames to '%s'\n",
-                (unsigned long long)frames_processed, filepath);
+        fprintf(stdout, "uph_audio_engine_render_to_wav: rendered %llu frames to '%s'\n", (unsigned long long)written, filepath);
 
     return ok;
+}
+
+bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat)
+{
+    const Uph_RenderSettings settings = {
+        .start_beat = start_beat,
+        .end_beat = end_beat,
+        .channels = 2,
+        .bit_depth = UPH_RENDER_BIT_DEPTH_32_FLOAT
+    };
+    return uph_audio_engine_render_to_wav(filepath, &settings);
 }
 
 void uph_audio_engine_unload_sample_data(Uph_SampleData *sample_data)

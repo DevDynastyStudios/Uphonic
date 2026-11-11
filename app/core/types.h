@@ -138,6 +138,28 @@ enum
 	UPH_EXPORT_MIDI
 };
 
+typedef uint8_t Uph_RenderBitDepth;
+enum
+{
+	UPH_RENDER_BIT_DEPTH_16,
+	UPH_RENDER_BIT_DEPTH_24,
+	UPH_RENDER_BIT_DEPTH_32_FLOAT,
+	UPH_RENDER_BIT_DEPTH_COUNT
+};
+
+typedef struct
+{
+	double start_beat;
+	double end_beat;
+	float tail_seconds;
+	uint32_t sample_rate;
+	uint32_t channels;
+	Uph_RenderBitDepth bit_depth;
+	bool normalize;
+	bool dither;
+}
+Uph_RenderSettings;
+
 typedef uint32_t Uph_ResourceIndex;
 #pragma endregion
 #pragma region Project
@@ -565,6 +587,7 @@ typedef struct
 	Naui_PanelID plugin_list;
 	Naui_PanelID automation_list;
 	Naui_PanelID sample_browser;
+	Naui_PanelID render;
 }
 Uph_Panels;
 
@@ -584,4 +607,4 @@ Uph_State;
 
 extern Uph_State uph_state;
 
-#pragma endregion
+#pragma endregion

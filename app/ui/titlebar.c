@@ -193,7 +193,7 @@ void uph_render_main_titlebar(void)
 					_uph_open_export_dialog("uph_export_uph", NAUI_TR("menu.file.export.uph"), ".uph", UPH_EXPORT_UPH);
 
 				if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.wav"), leaf_id("uph_file_export_wav")))
-					_uph_open_export_dialog("uph_export_wav", NAUI_TR("menu.file.export.wav"), ".wav", UPH_EXPORT_WAV);
+					naui_panel_open(uph_state.panels.render);
 
 				// if (uph_ui_menu_item(export_menu, NAUI_TR("menu.file.export.ogg"), leaf_id("uph_file_export_ogg")))
 				// {

@@ -205,6 +205,7 @@ void naui_app_start(void)
 	naui_panel_close(uph_state.panels.settings = NAUI_ATTACH_PANEL(uph_settings));
 	naui_panel_close(uph_state.panels.plugin_list = NAUI_ATTACH_PANEL(uph_plugin_list));
 	naui_panel_close(uph_state.panels.automation_list = NAUI_ATTACH_PANEL(uph_automation_list));
+	naui_panel_close(uph_state.panels.render = NAUI_ATTACH_PANEL(uph_render));
 	uph_state.panels.sample_browser = NAUI_ATTACH_PANEL(uph_sample_browser);
  
 	naui_panel_enable_flags(uph_state.panels.song_timeline, NAUI_PANEL_FLAG_SERIALIZABLE);

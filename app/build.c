@@ -148,6 +148,7 @@
 
 #include "panels/resource_editor.c"
 #include "panels/settings.c"
+#include "panels/render.c"
 #include "panels/sample_browser.c"
 
 #include "main.c"
