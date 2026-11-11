@@ -90,7 +90,7 @@ static bool _uph_song_timeline_group_offset_valid(const Uph_DraggingBlockState *
 
 		if (block_type == UPH_RESOURCE_AUTOMATION)
 		{
-			if (offset != 0)
+			if (target_type != UPH_RESOURCE_AUTOMATION)
 				return false;
 
 			continue;
@@ -605,7 +605,7 @@ void uph_song_timeline_update_drag_track_switch(void)
 	if (new_track->type != UPH_RESOURCE_NONE && new_track->type != old_track->type)
 		return;
 	
-	if (old_track->type == UPH_RESOURCE_AUTOMATION)
+	if (old_track->type == UPH_RESOURCE_AUTOMATION && new_track->type != UPH_RESOURCE_AUTOMATION)
 		return;
 
 	Uph_TimelineBlock moved = old_track->blocks[drag->block_index];
