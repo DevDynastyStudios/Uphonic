@@ -159,8 +159,6 @@ void uph_song_timeline_render_toolbox(void)
 
 			if (uph_ui_time_signature(&uph_state.project.time_signature, "uph_song_timeline_time_signature"))
 				uph_action_refresh_block_defaults();
-
-			uph_ui_time_display(uph_state.shared.song_timeline_playhead_position, &data->time_display_seconds, "uph_song_timeline_time_display");
 		}
 	}
 }

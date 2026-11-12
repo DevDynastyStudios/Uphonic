@@ -111,6 +111,7 @@
 #include "panels/song_timeline/song_timeline_toolbox.c"
 #include "panels/song_timeline/song_timeline_ruler.c"
 #include "panels/song_timeline/song_timeline_input.c"
+#include "panels/song_timeline/song_timeline_minimap.c"
 #include "panels/song_timeline.c"
 
 #include "panels/mixer.c"

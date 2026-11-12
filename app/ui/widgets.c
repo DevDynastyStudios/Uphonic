@@ -2214,6 +2214,31 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
     return changed;
 }
 
+const char *uph_ui_format_time(double beat, bool seconds_format, char *out, size_t out_size)
+{
+    if (seconds_format)
+    {
+        const double seconds = NAUI_MAX(uph_tempo_beat_to_seconds(NAUI_MAX(beat, 0.0)), 0.0);
+        const int64_t total_ms = (int64_t)floor(seconds * 1000.0);
+        snprintf(out, out_size, "%02d:%02d.%03d",
+            (int)(total_ms / 60000),
+            (int)((total_ms / 1000) % 60),
+            (int)(total_ms % 1000));
+        return "MIN:SEC";
+    }
+
+    const double beat_length = uph_time_signature_beat_length();
+    const int64_t beats_per_bar = NAUI_MAX((int64_t)llround(uph_time_signature_bar_length() / beat_length), (int64_t)1);
+    const double beat_units = NAUI_MAX(beat, 0.0) / beat_length + 1e-9;
+    const int64_t whole_beats = (int64_t)floor(beat_units);
+    const int ticks = (int)floor((beat_units - (double)whole_beats) * 96.0);
+    snprintf(out, out_size, "%d:%d:%02d",
+        (int)(whole_beats / beats_per_bar),
+        (int)(whole_beats % beats_per_bar) + 1,
+        ticks);
+    return "BAR:BEAT:TICK";
+}
+
 bool uph_ui_time_display(double beat, bool *show_seconds, const char *id)
 {
     const Leaf_ID frame_id = leaf_id(id);
@@ -2233,30 +2258,7 @@ bool uph_ui_time_display(double beat, bool *show_seconds, const char *id)
     }
 
     char value_text[32];
-    const char *label_text;
-    if (*show_seconds)
-    {
-        const double seconds = NAUI_MAX(uph_tempo_beat_to_seconds(NAUI_MAX(beat, 0.0)), 0.0);
-        const int64_t total_ms = (int64_t)floor(seconds * 1000.0);
-        snprintf(value_text, sizeof(value_text), "%02d:%02d.%03d",
-            (int)(total_ms / 60000),
-            (int)((total_ms / 1000) % 60),
-            (int)(total_ms % 1000));
-        label_text = "MIN:SEC";
-    }
-    else
-    {
-        const double beat_length = uph_time_signature_beat_length();
-        const int64_t beats_per_bar = NAUI_MAX((int64_t)llround(uph_time_signature_bar_length() / beat_length), (int64_t)1);
-        const double beat_units = NAUI_MAX(beat, 0.0) / beat_length + 1e-9;
-        const int64_t whole_beats = (int64_t)floor(beat_units);
-        const int ticks = (int)floor((beat_units - (double)whole_beats) * 96.0);
-        snprintf(value_text, sizeof(value_text), "%d:%d:%02d",
-            (int)(whole_beats / beats_per_bar),
-            (int)(whole_beats % beats_per_bar) + 1,
-            ticks);
-        label_text = "BAR:BEAT:TICK";
-    }
+    const char *label_text = uph_ui_format_time(beat, *show_seconds, value_text, sizeof(value_text));
 
     Leaf_Color background = naui_theme_color("uph_ui_frame_bg_color");
     if (hovered)

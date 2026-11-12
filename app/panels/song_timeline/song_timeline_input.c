@@ -23,6 +23,11 @@ void uph_song_timeline_update_input(void)
 			uph_song_timeline_data.scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
 			uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
 		}
+		else if (wheel_y != 0.0f && uph_song_timeline_data.minimap.hovered)
+		{
+			uph_song_timeline_data.scroll.x -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
+			uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
+		}
 		else if (wheel_y != 0.0f)
 		{
 			uph_song_timeline_data.scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;

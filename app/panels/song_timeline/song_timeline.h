@@ -9,6 +9,18 @@
 #define UPH_SONG_TIMELINE_TOP_RULER_HEIGHT 28
 #define UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE 13.0f
 #define UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING 2.0f
+#define UPH_SONG_TIMELINE_MINIMAP_HEIGHT 40.0f
+#define UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE 1.7f
+#define UPH_SONG_TIMELINE_MINIMAP_INSET 2.0f
+
+typedef struct
+{
+	double total_beats;
+	float grab_offset;
+	bool dragging;
+	bool hovered;
+}
+Uph_SongTimelineMinimapState;
 
 typedef uint8_t Uph_BlockInteractionMode;
 enum
@@ -149,6 +161,7 @@ typedef struct
 	Uph_MarqueeState marquee;
 	Uph_BlockMenuState block_menu;
 	Uph_LoopRegionDrag loop_drag;
+	Uph_SongTimelineMinimapState minimap;
 	Uph_TrackDragState track_drag;
 	Uph_TrackPendingMove pending_move;
 	Uph_PendingAutomationDrop pending_automation;
@@ -329,4 +342,8 @@ void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index
 void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu);
 
 void uph_song_timeline_render_toolbox(void);
+
+void uph_song_timeline_update_minimap(void);
+void uph_song_timeline_render_minimap(void);
+void uph_song_timeline_render_time_display(void);
 #pragma endregion
