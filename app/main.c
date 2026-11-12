@@ -294,9 +294,6 @@ void naui_app_update(void)
 	uph_render_update();
 	uph_render_main_titlebar();
  
-	const Leaf_Color bg_color = naui_theme_color("naui_panel_title_bg_color");
-	const Leaf_Color tool_icon_color = naui_theme_color("uph_tool_icon_color");
- 
 	naui_render_panels_and_viewport();
 	uph_sample_browser_end_frame();
 	uph_particles_render();
