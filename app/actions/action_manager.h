@@ -14,7 +14,6 @@
 #define UPH_ACTION_TRACK_DELETE "Track Delete"
 #define UPH_ACTION_TRACKS_DELETE_GROUP "Tracks Delete"
 #define UPH_ACTION_TRACK_AUTOMATION_CREATE "Automation Track Create"
-#define UPH_ACTION_TEMPO_AUTOMATION_CREATE "Tempo Automation Create"
 #define UPH_ACTION_TRACK_RENAME "Track Rename"
 #define UPH_ACTION_TRACK_COLOR "Track Color"
 #define UPH_ACTION_TRACK_MUTE "Track Mute"
@@ -69,7 +68,6 @@ typedef struct
 {
 	uint32_t path[UPH_ACTION_TRACK_MAX_DEPTH];
 	uint8_t depth;
-	bool master;
 } Uph_ActionTrackRef;
 
 static inline Uph_ActionTrackRef uph_action_track_ref_root(void)
@@ -79,17 +77,17 @@ static inline Uph_ActionTrackRef uph_action_track_ref_root(void)
 
 static inline Uph_ActionTrackRef uph_action_track_ref_master(void)
 {
-	return (Uph_ActionTrackRef){ .master = true };
+	return (Uph_ActionTrackRef){ .path = { 0 }, .depth = 1 };
 }
 
 static inline bool uph_action_track_ref_is_master(Uph_ActionTrackRef ref)
 {
-	return ref.master;
+	return ref.depth == 1 && ref.path[0] == 0;
 }
 
 static inline bool uph_action_track_ref_valid(Uph_ActionTrackRef ref)
 {
-	return ref.master || ref.depth > 0;
+	return ref.depth > 0;
 }
 
 static inline uint32_t uph_action_track_ref_index(Uph_ActionTrackRef ref)
@@ -99,7 +97,7 @@ static inline uint32_t uph_action_track_ref_index(Uph_ActionTrackRef ref)
 
 static inline Uph_ActionTrackRef uph_action_track_ref_child(Uph_ActionTrackRef owner, uint32_t index)
 {
-	if (owner.master || owner.depth >= UPH_ACTION_TRACK_MAX_DEPTH)
+	if (owner.depth >= UPH_ACTION_TRACK_MAX_DEPTH)
 		return uph_action_track_ref_root();
 
 	owner.path[owner.depth++] = index;
@@ -120,7 +118,7 @@ static inline Uph_ActionTrackRef uph_action_track_ref_owner(Uph_ActionTrackRef r
 
 static inline bool uph_action_track_ref_has_prefix(Uph_ActionTrackRef ref, Uph_ActionTrackRef prefix)
 {
-	if (ref.master || prefix.master || ref.depth < prefix.depth)
+	if (ref.depth < prefix.depth)
 		return false;
 
 	for (uint8_t i = 0; i < prefix.depth; i++)
@@ -133,9 +131,6 @@ static inline bool uph_action_track_ref_has_prefix(Uph_ActionTrackRef ref, Uph_A
 
 static inline bool uph_action_track_ref_equal(Uph_ActionTrackRef a, Uph_ActionTrackRef b)
 {
-	if (a.master || b.master)
-		return a.master == b.master;
-
 	return a.depth == b.depth && uph_action_track_ref_has_prefix(a, b);
 }
 
@@ -185,7 +180,7 @@ static inline Uph_ActionTrackRef uph_action_track_ref_after_remove(Uph_ActionTra
 
 static inline Uph_ActionTrackRef uph_action_track_ref_after_move(Uph_ActionTrackRef ref, Uph_ActionTrackRef src, Uph_ActionTrackRef dst)
 {
-	if (src.depth == 0 || !uph_action_track_ref_valid(ref) || ref.master)
+	if (src.depth == 0 || !uph_action_track_ref_valid(ref))
 		return ref;
 
 	if (uph_action_track_ref_has_prefix(ref, src))

@@ -130,22 +130,27 @@ void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph
 	naui_list_push(parent->subtracks, track);
 }
 
-void uph_resources_add_tempo_track(Naui_String name)
+Uph_Track *uph_resources_master_track(void)
 {
-	Uph_Track track = {
-		.name = name,
-		.type = UPH_RESOURCE_AUTOMATION,
-		.automation_target = UPH_AUTOMATION_TARGET_TEMPO
-	};
-	naui_list_insert(uph_state.project.tracks, track, 0);
-	uph_resources_link_tracks(uph_state.project.tracks);
+	if (naui_list_len(uph_state.project.tracks) == 0 || uph_state.project.tracks[0].type != UPH_RESOURCE_MASTER)
+		return NULL;
+
+	return &uph_state.project.tracks[0];
 }
 
-void uph_resources_init_master_track(void)
+Uph_Track uph_resources_make_master_track(void)
 {
-	uph_state.project.master_track = (Uph_MasterTrack){
+	return (Uph_Track){
+		.name = naui_string_from_cstr(NAUI_TR("master.track.title")),
+		.type = UPH_RESOURCE_MASTER,
 		.volume = 1.0f
 	};
+}
+
+void uph_resources_insert_master_track(void)
+{
+	naui_list_insert(uph_state.project.tracks, uph_resources_make_master_track(), 0);
+	uph_resources_link_tracks(uph_state.project.tracks);
 }
 
 static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState flag, const char *action)
@@ -154,16 +159,6 @@ static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState fl
 		.track = uph_action_track_ref(track),
 		.old_state = track->state,
 		.new_state = track->state ^ flag
-	};
-	naui_action_execute_stack(action, data);
-}
-
-static void uph_resources_toggle_master_state(Uph_TrackState flag, const char *action)
-{
-	Uph_ActionTrackState data = {
-		.track = uph_action_track_ref_master(),
-		.old_state = uph_state.project.master_track.state,
-		.new_state = uph_state.project.master_track.state ^ flag
 	};
 	naui_action_execute_stack(action, data);
 }
@@ -185,10 +180,11 @@ bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginPar
 		return true;
 	}
 
-	const uint64_t effect_count = naui_list_len(track->effects);
+	Naui_List(Uph_EffectPlugin) effects = track->effects;
+	const uint64_t effect_count = naui_list_len(effects);
 	for (uint64_t e = 0; e < effect_count; e++)
 	{
-		if (uph_plugin_owns_param(&track->effects[e].plugin, param))
+		if (uph_plugin_owns_param(&effects[e].plugin, param))
 		{
 			*out_effect_index = (int32_t)e;
 			return true;
@@ -207,10 +203,11 @@ Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index
 	}
 	else
 	{
-		if ((uint64_t)effect_index >= (uint64_t)naui_list_len(track->effects))
+		Naui_List(Uph_EffectPlugin) effects = track->effects;
+		if ((uint64_t)effect_index >= (uint64_t)naui_list_len(effects))
 			return NULL;
 
-		plugin = &track->effects[effect_index].plugin;
+		plugin = &effects[effect_index].plugin;
 	}
 
 	const uint64_t param_count = naui_list_len(plugin->params);
@@ -250,9 +247,10 @@ void uph_resources_refresh_param_usage(Naui_List(Uph_Track) tracks)
 		Uph_Track *track = &tracks[t];
 
 		uph_resources_clear_plugin_usage(&track->instrument);
-		const uint64_t effect_count = naui_list_len(track->effects);
+		Naui_List(Uph_EffectPlugin) effects = track->effects;
+		const uint64_t effect_count = naui_list_len(effects);
 		for (uint64_t e = 0; e < effect_count; e++)
-			uph_resources_clear_plugin_usage(&track->effects[e].plugin);
+			uph_resources_clear_plugin_usage(&effects[e].plugin);
 
 		const uint64_t lane_count = naui_list_len(track->subtracks);
 		for (uint64_t s = 0; s < lane_count; s++)
@@ -429,6 +427,9 @@ void uph_resources_delete_tracks(Naui_List(Uph_TrackPtr) tracks)
 	uint32_t ref_count = 0;
 	for (uint32_t i = 0; i < count; i++)
 	{
+		if (!tracks[i] || tracks[i]->type == UPH_RESOURCE_MASTER)
+			continue;
+
 		const Uph_ActionTrackRef ref = uph_action_track_ref(tracks[i]);
 		if (uph_action_track_ref_valid(ref))
 			refs[ref_count++] = ref;
@@ -557,7 +558,7 @@ static Uph_ActionTrackRef uph_resources_move_subtree(Uph_ActionTrackRef src, Uph
 
 bool uph_resources_can_group_track(const Uph_Track *track)
 {
-	if (!track || track->type == UPH_RESOURCE_AUTOMATION)
+	if (!track || track->type == UPH_RESOURCE_AUTOMATION || track->type == UPH_RESOURCE_MASTER)
 		return false;
 
 	const Uph_ActionTrackRef ref = uph_action_track_ref(track);
@@ -733,7 +734,7 @@ static Uph_ActionTrackRef *uph_resources_collect_move_refs(Naui_List(Uph_TrackPt
 			continue;
 
 		const Uph_ActionTrackRef ref = uph_action_track_ref(track);
-		if (ref.depth == 0 || uph_action_track_ref_has_prefix(dest_owner, ref))
+		if (ref.depth == 0 || uph_action_track_ref_has_prefix(dest_owner, ref) || track->type == UPH_RESOURCE_MASTER)
 			continue;
 
 		if (track->type == UPH_RESOURCE_AUTOMATION)
@@ -790,6 +791,8 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	const uint32_t dest_len = (uint32_t)naui_list_len(*dest_list);
 	if (dest_index > dest_len)
 		dest_index = dest_len;
+	if (dest_owner.depth == 0 && dest_index == 0)
+		dest_index = 1;
 
 	const uint32_t first_index = uph_action_track_ref_index(moving[0]);
 	bool in_place = dest_index >= first_index && dest_index <= first_index + count;

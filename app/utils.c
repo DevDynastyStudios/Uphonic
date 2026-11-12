@@ -294,8 +294,9 @@ bool uph_automation_value_at_beat(const Uph_Automation *automation, double beat,
 
 float uph_linear_to_db(float linear)
 {
-    if (linear <= 0.0001f) return -80.0f;
-    return 20.0f * log10f(linear);
+    if (linear <= 0.0f) return UPH_MIXER_DB_MIN;
+    const float db = 20.0f * log10f(linear);
+    return db < UPH_MIXER_DB_MIN ? UPH_MIXER_DB_MIN : db;
 }
 
 float uph_db_to_linear(float db)

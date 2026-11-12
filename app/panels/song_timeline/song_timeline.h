@@ -319,7 +319,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 void uph_song_timeline_render_top_bar(void);
 
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu);
-void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu);
+void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu, Uph_UIMenuID track_color_options_context_menu);
 void uph_song_timeline_render_track_plus(void);
 void uph_song_timeline_update_track_drag(void);
 void uph_song_timeline_apply_pending_move(void);
@@ -327,6 +327,7 @@ void uph_song_timeline_apply_pending_move(void);
 void uph_song_timeline_render_track_timeline(Uph_Track *track);
 void uph_song_timeline_create_automation_lane(Uph_ActionTrackAutomationCreate lane);
 void uph_song_timeline_cancel_automation_drop(void);
+void uph_song_timeline_open_automation_list(Uph_Track *track);
 void uph_song_timeline_update_bottom_drop(void);
 void uph_song_timeline_render_bottom_drop_overlay(Leaf_BoundingBox bbox, void *data);
 

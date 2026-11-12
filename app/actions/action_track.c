@@ -71,9 +71,6 @@ typedef struct
 
 static Naui_List(Uph_Track) *uph_action_track_list_ptr(Uph_ActionTrackRef owner)
 {
-	if (owner.master)
-		return NULL;
-
 	if (owner.depth == 0)
 		return &uph_state.project.tracks;
 
@@ -112,7 +109,7 @@ Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
 
 Uph_Track *uph_action_track_resolve_in(Naui_List(Uph_Track) tracks, Uph_ActionTrackRef ref)
 {
-	if (ref.master || ref.depth == 0)
+	if (ref.depth == 0)
 		return NULL;
 
 	Uph_Track *track = NULL;
@@ -135,21 +132,12 @@ Uph_Track *uph_action_track_resolve(Uph_ActionTrackRef ref)
 
 static Uph_TrackState *uph_action_track_state_ptr(Uph_ActionTrackRef ref)
 {
-	if (uph_action_track_ref_is_master(ref))
-		return &uph_state.project.master_track.state;
-
 	Uph_Track *track = uph_action_track_resolve(ref);
 	return track ? &track->state : NULL;
 }
 
 static float *uph_action_track_value_ptr(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind)
 {
-	if (uph_action_track_ref_is_master(ref))
-	{
-		Uph_MasterTrack *master = &uph_state.project.master_track;
-		return kind == UPH_ACTION_TRACK_VALUE_PAN ? &master->pan : &master->volume;
-	}
-
 	Uph_Track *track = uph_action_track_resolve(ref);
 	if (!track)
 		return NULL;
@@ -161,6 +149,7 @@ typedef struct
 {
 	Uph_ActionTrackRef mixer;
 	Uph_ActionTrackRef plugin_list;
+	Uph_ActionTrackRef automation_list;
 	Uph_ActionTrackRef soloed;
 } Uph_ActionTrackPointers;
 
@@ -169,6 +158,7 @@ static Uph_ActionTrackPointers uph_action_track_pointers_capture(void)
 	return (Uph_ActionTrackPointers){
 		.mixer = uph_action_track_ref(uph_state.shared.current_mixer_track),
 		.plugin_list = uph_action_track_ref(uph_state.shared.current_plugin_list_track),
+		.automation_list = uph_action_track_ref(uph_state.shared.current_automation_list_track),
 		.soloed = uph_action_track_ref(uph_state.project.soloed_track)
 	};
 }
@@ -189,6 +179,7 @@ static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_Action
 	if (uph_state.shared.current_mixer_track)
 		naui_list_push(uph_state.shared.selected_mixer_tracks, uph_state.shared.current_mixer_track);
 	uph_state.shared.current_plugin_list_track = uph_action_track_pointer_shift(before.plugin_list, changed, delta);
+	uph_state.shared.current_automation_list_track = uph_action_track_pointer_shift(before.automation_list, changed, delta);
 	uph_state.project.soloed_track = uph_action_track_pointer_shift(before.soloed, changed, delta);
 	uph_song_timeline_invalidate_tracks();
 }
@@ -208,10 +199,8 @@ static void uph_action_track_hide_plugins(Uph_Track *track)
 		uph_action_track_hide_plugins(&track->subtracks[s]);
 }
 
-void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
+static void uph_action_remove_param_lanes(Uph_Track *track, Uph_Plugin *plugin)
 {
-	uph_audio_engine_lock();
-
 	bool removed_lane = false;
 	for (int32_t s = (int32_t)naui_list_len(track->subtracks) - 1; s >= 0; s--)
 	{
@@ -228,16 +217,13 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 
 	if (removed_lane)
 		naui_action_clear_history();
-
-	uph_plugin_unload(plugin);
-
-	uph_audio_engine_unlock();
 }
 
-void uph_action_master_unload_plugin(Uph_Plugin *plugin)
+void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 {
 	uph_audio_engine_lock();
 
+	uph_action_remove_param_lanes(track, plugin);
 	uph_plugin_unload(plugin);
 
 	uph_audio_engine_unlock();
@@ -578,45 +564,3 @@ bool _uph_action_track_automation_create_redo(void* userdata)
 
 #pragma endregion
 
-#pragma region Tempo Automation Create
-bool _uph_action_tempo_automation_create_execute(void* userdata)
-{
-	Uph_ActionResourceCreate* data = userdata;
-	if (uph_tempo_find_lane())
-		return false;
-
-	uph_audio_engine_lock();
-	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_add_tempo_track(naui_string_from_cstr(NAUI_TR("automation.target.tempo")));
-	data->resource_exists = true;
-	uph_action_tracks_changed(before, uph_action_track_ref_top(0), 1);
-	uph_audio_engine_unlock();
-	return true;
-}
-
-bool _uph_action_tempo_automation_create_undo(void* userdata)
-{
-	Uph_ActionResourceCreate* data = userdata;
-	if (!data->resource_exists)
-		return false;
-
-	const Uph_ActionTrackRef ref = uph_action_track_ref_top(0);
-	Uph_Track* track = uph_action_track_resolve(ref);
-	if (!track || track->type != UPH_RESOURCE_AUTOMATION || track->automation_target != UPH_AUTOMATION_TARGET_TEMPO)
-		return false;
-
-	uph_audio_engine_lock();
-	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_remove_track(track);
-	data->resource_exists = false;
-	uph_action_tracks_changed(before, ref, -1);
-	uph_audio_engine_unlock();
-	return true;
-}
-
-bool _uph_action_tempo_automation_create_redo(void* userdata)
-{
-	return _uph_action_tempo_automation_create_execute(userdata);
-}
-
-#pragma endregion

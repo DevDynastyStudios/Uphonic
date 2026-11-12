@@ -21,7 +21,7 @@ static void _uph_song_timeline_collect_rows(Naui_List(Uph_Track) tracks, Naui_Li
 		Uph_Track *track = &tracks[i];
 		naui_list_push(*rows, track);
 
-		if (!(track->type == UPH_RESOURCE_GROUP && (track->state & UPH_TRACK_TIMELINE_COLLAPSED)))
+		if (!(uph_track_is_folder(track) && (track->state & UPH_TRACK_TIMELINE_COLLAPSED)))
 			_uph_song_timeline_collect_rows(track->subtracks, rows);
 	}
 }
@@ -510,7 +510,7 @@ static void _uph_song_timeline_block_delete(Uph_ActionTrackRef ref, uint32_t blo
 static void _uph_song_timeline_block_fit_to_source(Uph_ActionTrackRef ref, uint32_t block_index, const Uph_TimelineBlock *block)
 {
 	const Uph_DragResource resource = { .type = block->type, .index = block->resource_index };
-	const double length = _uph_song_timeline_resource_length(&resource);
+	const double length = _uph_song_timeline_resource_length(&resource, block->start_beat);
 	if (length <= 0.0 || (block->length_beats == length && block->start_offset_beats == 0.0))
 		return;
 

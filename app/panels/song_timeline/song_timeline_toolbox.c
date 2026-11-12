@@ -147,7 +147,14 @@ void uph_song_timeline_render_toolbox(void)
 			if (!tempo_lane)
 			{
 				if (uph_ui_menu_item(bpm_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_bpm_menu_automate")))
-					naui_action_execute_stack(UPH_ACTION_TEMPO_AUTOMATION_CREATE, (Uph_ActionResourceCreate){0});
+				{
+					Uph_ActionTrackAutomationCreate lane = {
+						.parent = uph_action_track_ref_master(),
+						.name = naui_string_from_cstr(NAUI_TR("automation.target.tempo")),
+						.target = UPH_AUTOMATION_TARGET_TEMPO
+					};
+					uph_song_timeline_create_automation_lane(lane);
+				}
 			}
 			else if (uph_ui_menu_item(bpm_menu, NAUI_TR("automation.menu.remove"), leaf_id("uph_bpm_menu_remove_automation")))
 			{

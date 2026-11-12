@@ -33,6 +33,7 @@
     "uph_ui_frame_hovered_bg_color": "#373545",
     "uph_ui_frame_pressed_bg_color": "#46435C",
     "uph_ui_frame_toggled_bg_color": "#3D3760",
+    "uph_record_armed_color": "#C4454D",
     "uph_ui_knob_ring_color": "#7E7C8E",
     "uph_ui_knob_track_color": "#3A3848",
     "uph_ui_tinted_frame_bg_color": "#AAA1D120",

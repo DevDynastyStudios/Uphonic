@@ -58,6 +58,7 @@ bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2
 
 bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enabled);
 bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled);
+bool uph_ui_image_toggle_button_colored(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled, Naui_Color enabled_bg_color);
 bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled);
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder);

@@ -2,6 +2,8 @@ NAUI_PANEL(uph_automation_list)
 
 #define UPH_AUTOMATION_LIST_ROW_GAP 2
 #define UPH_AUTOMATION_LIST_TARGET_DOT 8
+#define UPH_AUTOMATION_LIST_WIDTH 420.0f
+#define UPH_AUTOMATION_LIST_HEIGHT 720.0f
 
 typedef struct
 {
@@ -15,6 +17,7 @@ void uph_automation_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_panel_current();
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
+    naui_panel_set_size(panel_id, (Naui_Vec2){ NAUI_DPI(UPH_AUTOMATION_LIST_WIDTH), UPH_AUTOMATION_LIST_HEIGHT });
 }
 
 void uph_automation_list_on_detach(void)
@@ -62,11 +65,10 @@ static Naui_Color uph_automation_list_muted_color(void)
     return naui_theme_color("naui_panel_text_color");
 }
 
-static void uph_automation_list_target_bar(const Uph_Track *track)
+static void uph_automation_list_target_bar(const char *name, Naui_Color accent)
 {
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const Naui_Color accent = uph_resources_track_color(track->color_index);
 
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
@@ -88,7 +90,7 @@ static void uph_automation_list_target_bar(const Uph_Track *track)
             .color = accent,
             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
         });
-        leaf_text(track->name.data, { .font_size = font_size, .color = naui_theme_color("uph_ui_text_color") });
+        leaf_text(name, { .font_size = font_size, .color = naui_theme_color("uph_ui_text_color") });
     }
 }
 
@@ -125,7 +127,7 @@ static bool uph_automation_list_param_row(const char *name, const Leaf_ID id)
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Track *parent_track, int32_t effect_index, uint32_t *row_index)
+static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_ActionTrackRef parent, int32_t effect_index, uint32_t *row_index)
 {
     if (!uph_automation_list_plugin_has_visible_params(plugin))
         return false;
@@ -167,7 +169,7 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
             if (uph_automation_list_param_row(param->name.data, leaf_id_indexed("uph_automation_list_param", (*row_index)++)))
             {
                 Uph_ActionTrackAutomationCreate lane = {
-                    .parent = uph_action_track_ref(parent_track),
+                    .parent = parent,
                     .name = param->name,
                     .effect_index = effect_index,
                     .param_id = param->id
@@ -180,23 +182,24 @@ static bool uph_automation_list_render_plugin_params(Uph_Plugin *plugin, Uph_Tra
     return true;
 }
 
+typedef struct
+{
+    Uph_AutomationTarget target;
+    const char *name;
+}
+Uph_AutomationListTarget;
+
 static bool uph_automation_list_track_target_visible(const Uph_Track *track, Uph_AutomationTarget target, const char *name)
 {
-    if (uph_resources_track_has_automation_target(track, target))
+    if (track && uph_resources_track_has_automation_target(track, target))
         return false;
 
     return uph_automation_list_data.filter.length == 0
         || naui_string_contains(naui_string_from_cstr(name), uph_automation_list_data.filter, false);
 }
 
-static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *row_index)
+static bool uph_automation_list_render_track_params(const Uph_Track *track, Uph_ActionTrackRef parent, const Uph_AutomationListTarget *targets, uint32_t target_count, const char *section, uint32_t *row_index)
 {
-    const struct { Uph_AutomationTarget target; const char *name; } targets[] = {
-        { UPH_AUTOMATION_TARGET_TRACK_VOLUME, NAUI_TR("automation.target.volume") },
-        { UPH_AUTOMATION_TARGET_TRACK_PAN, NAUI_TR("automation.target.pan") }
-    };
-    const uint32_t target_count = sizeof(targets) / sizeof(targets[0]);
-
     bool any_visible = false;
     for (uint32_t i = 0; i < target_count; i++)
         any_visible |= uph_automation_list_track_target_visible(track, targets[i].target, targets[i].name);
@@ -218,7 +221,7 @@ static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
             .child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
             .clip_children = true
-        }) leaf_text(NAUI_TR("automation.menu.track"), { .font_size = font_size, .color = naui_theme_color("uph_resource_list_section_text_color") });
+        }) leaf_text(section, { .font_size = font_size, .color = naui_theme_color("uph_resource_list_section_text_color") });
 
         for (uint32_t i = 0; i < target_count; i++)
         {
@@ -228,7 +231,7 @@ static bool uph_automation_list_render_track_params(Uph_Track *track, uint32_t *
             if (uph_automation_list_param_row(targets[i].name, leaf_id_indexed("uph_automation_list_param", (*row_index)++)))
             {
                 Uph_ActionTrackAutomationCreate lane = {
-                    .parent = uph_action_track_ref(track),
+                    .parent = parent,
                     .name = naui_string_from_cstr(targets[i].name),
                     .target = targets[i].target
                 };
@@ -247,9 +250,14 @@ void uph_automation_list_on_update(void)
     if (!track)
         return;
 
+    const bool master = track->type == UPH_RESOURCE_MASTER;
+
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
-    uph_automation_list_target_bar(track);
+    if (master)
+        uph_automation_list_target_bar(NAUI_TR("master.track.title"), naui_theme_color("uph_ui_text_disabled_color"));
+    else
+        uph_automation_list_target_bar(track->name.data, uph_resources_track_color(track->color_index));
 
     leaf({
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
@@ -277,10 +285,18 @@ void uph_automation_list_on_update(void)
     })
     {
         uint32_t row_index = 0;
-        bool any_visible = uph_automation_list_render_track_params(track, &row_index);
-        any_visible |= uph_automation_list_render_plugin_params(&track->instrument, track, -1, &row_index);
+        bool any_visible = false;
+        const Uph_AutomationListTarget targets[] = {
+            { UPH_AUTOMATION_TARGET_TRACK_VOLUME, NAUI_TR("automation.target.volume") },
+            { UPH_AUTOMATION_TARGET_TRACK_PAN, NAUI_TR("automation.target.pan") },
+            { UPH_AUTOMATION_TARGET_TEMPO, NAUI_TR("automation.target.tempo") }
+        };
+        const uint32_t target_count = master ? 3 : 2;
+        const Uph_ActionTrackRef parent = uph_action_track_ref(track);
+        any_visible |= uph_automation_list_render_track_params(track, parent, targets, target_count, master ? NAUI_TR("master.track.title") : NAUI_TR("automation.menu.track"), &row_index);
+        any_visible |= uph_automation_list_render_plugin_params(&track->instrument, parent, -1, &row_index);
         for (uint32_t i = 0; i < naui_list_len(track->effects); i++)
-            any_visible |= uph_automation_list_render_plugin_params(&track->effects[i].plugin, track, i, &row_index);
+            any_visible |= uph_automation_list_render_plugin_params(&track->effects[i].plugin, parent, i, &row_index);
 
         if (!any_visible)
         {

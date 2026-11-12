@@ -86,7 +86,7 @@ static bool _uph_song_timeline_group_row_hovered(Naui_List(Uph_Track) tracks, fl
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
-		if (track->type != UPH_RESOURCE_GROUP)
+		if (!uph_track_is_folder(track))
 			continue;
 
 		const Leaf_BoundingBox box = leaf_get_bounding_box(leaf_id_indexed("uph_song_timeline_row", (uint64_t)track));

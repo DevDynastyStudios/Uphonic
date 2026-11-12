@@ -1408,7 +1408,8 @@ void uph_sample_editor_update(void)
 
 	leaf({
 		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW}
+		.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
+		.child_gap = 1
 	})
 	{
 		_uph_sample_editor_render_sidebar(editor, sample, source);

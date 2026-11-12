@@ -35,10 +35,14 @@ float uph_tempo_from_automation(float value)
 
 Uph_Track *uph_tempo_find_lane(void)
 {
-    const uint32_t count = (uint32_t)naui_list_len(uph_state.project.tracks);
+    Uph_Track *master = uph_resources_master_track();
+    if (!master)
+        return NULL;
+
+    const uint32_t count = (uint32_t)naui_list_len(master->subtracks);
     for (uint32_t i = 0; i < count; i++)
     {
-        Uph_Track *track = &uph_state.project.tracks[i];
+        Uph_Track *track = &master->subtracks[i];
         if (track->type == UPH_RESOURCE_AUTOMATION && track->automation_target == UPH_AUTOMATION_TARGET_TEMPO)
             return track;
     }

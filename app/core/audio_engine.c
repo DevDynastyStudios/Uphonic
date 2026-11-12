@@ -443,6 +443,16 @@ static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, 
     st->next_out_pos += 1.0;
 }
 
+static double uph_sample_block_beat_to_seconds(double beat, float fixed_bpm)
+{
+    return fixed_bpm > 0.0f ? beat * 60.0 / (double)fixed_bpm : uph_tempo_beat_to_seconds(beat);
+}
+
+static double uph_sample_block_seconds_to_beat(double seconds, float fixed_bpm)
+{
+    return fixed_bpm > 0.0f ? seconds * (double)fixed_bpm / 60.0 : uph_tempo_seconds_to_beat(seconds);
+}
+
 static void uph_render_sample_block(
     const Uph_TimelineBlock *block,
     const Uph_Sample *sample,
@@ -450,22 +460,21 @@ static void uph_render_sample_block(
     double buffer_start_beat,
     ma_uint32 frame_count,
     uint32_t engine_sample_rate,
-    float bpm,
+    float fixed_bpm,
     float *track_l,
     float *track_r
 )
 {
-    (void)bpm;
     const double sample_rate = (double)engine_sample_rate;
 
     const double time_scale  = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     const double pitch_ratio = pow(2.0, (double)sample->pitch / 1200.0);
     const float gain = uph_sample_gain(sample, data);
 
-    const double block_start_seconds = uph_tempo_beat_to_seconds(block->start_beat);
-    const double start_offset_frames = (block_start_seconds - uph_tempo_beat_to_seconds(block->start_beat - block->start_offset_beats)) * sample_rate;
-    const double block_length_frames = (uph_tempo_beat_to_seconds(block->start_beat + block->length_beats) - block_start_seconds) * sample_rate;
-    const double first_out_pos       = (uph_tempo_beat_to_seconds(buffer_start_beat) - block_start_seconds) * sample_rate;
+    const double block_start_seconds = uph_sample_block_beat_to_seconds(block->start_beat, fixed_bpm);
+    const double start_offset_frames = (block_start_seconds - uph_sample_block_beat_to_seconds(block->start_beat - block->start_offset_beats, fixed_bpm)) * sample_rate;
+    const double block_length_frames = (uph_sample_block_beat_to_seconds(block->start_beat + block->length_beats, fixed_bpm) - block_start_seconds) * sample_rate;
+    const double first_out_pos       = (uph_sample_block_beat_to_seconds(buffer_start_beat, fixed_bpm) - block_start_seconds) * sample_rate;
 
     uint32_t f = 0;
     if (first_out_pos < 0.0)
@@ -483,9 +492,9 @@ static void uph_render_sample_block(
     {
         const double frames_per_beat = 60.0 / (uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
         const double offset_frames = block->start_offset_beats * frames_per_beat;
-        const double buffer_start_seconds = uph_tempo_beat_to_seconds(buffer_start_beat);
-        const double first_beat = (f == 0) ? buffer_start_beat : uph_tempo_seconds_to_beat(buffer_start_seconds + (double)f / sample_rate);
-        const double last_beat = uph_tempo_seconds_to_beat(buffer_start_seconds + (double)frame_count / sample_rate);
+        const double buffer_start_seconds = uph_sample_block_beat_to_seconds(buffer_start_beat, fixed_bpm);
+        const double first_beat = (f == 0) ? buffer_start_beat : uph_sample_block_seconds_to_beat(buffer_start_seconds + (double)f / sample_rate, fixed_bpm);
+        const double last_beat = uph_sample_block_seconds_to_beat(buffer_start_seconds + (double)frame_count / sample_rate, fixed_bpm);
         const double src_start = offset_frames + (first_beat - block->start_beat) * frames_per_beat;
         const double src_rate = (last_beat - first_beat) * frames_per_beat / (double)(frame_count - f);
         const uint32_t f0 = f;
@@ -1009,13 +1018,27 @@ static void uph_queue_track_automation(
 
 #define UPH_MIX_AUTOMATION_STEP 32
 
+static bool uph_automation_lane_has_content(const Uph_Track *lane)
+{
+    const Uph_Project *project = &uph_state.project;
+    uint64_t block_count = naui_list_len(lane->blocks);
+    for (uint64_t b = 0; b < block_count; b++)
+    {
+        const Uph_TimelineBlock *block = &lane->blocks[b];
+        if (block->resource_index < naui_list_len(project->automations) &&
+            naui_list_len(project->automations[block->resource_index].points) > 0)
+            return true;
+    }
+    return false;
+}
+
 static const Uph_Track *uph_track_find_automation_lane(const Uph_Track *track, Uph_AutomationTarget target)
 {
     uint64_t subtrack_count = naui_list_len(track->subtracks);
     for (uint64_t s = 0; s < subtrack_count; s++)
     {
         const Uph_Track *sub = &track->subtracks[s];
-        if (sub->type == UPH_RESOURCE_AUTOMATION && sub->automation_target == target && !(sub->state & UPH_TRACK_MUTED))
+        if (sub->type == UPH_RESOURCE_AUTOMATION && sub->automation_target == target && !(sub->state & UPH_TRACK_MUTED) && uph_automation_lane_has_content(sub))
             return sub;
     }
     return NULL;
@@ -1027,19 +1050,36 @@ static bool uph_automation_lane_value_at_beat(const Uph_Track *lane, double beat
         return false;
 
     const Uph_Project *project = &uph_state.project;
+    const Uph_TimelineBlock *previous = NULL;
+    double previous_end = 0.0;
     uint64_t block_count = naui_list_len(lane->blocks);
     for (uint64_t b = 0; b < block_count; b++)
     {
         const Uph_TimelineBlock *block = &lane->blocks[b];
         if (block->resource_index >= naui_list_len(project->automations))
             continue;
-        if (beat < block->start_beat || beat >= block->start_beat + block->length_beats)
+        if (naui_list_len(project->automations[block->resource_index].points) == 0)
             continue;
 
-        double automation_beat = (beat - block->start_beat) + block->start_offset_beats;
-        return uph_automation_value_at_beat(&project->automations[block->resource_index], automation_beat, out_value);
+        double block_end = block->start_beat + block->length_beats;
+        if (beat >= block->start_beat && beat < block_end)
+        {
+            double automation_beat = (beat - block->start_beat) + block->start_offset_beats;
+            return uph_automation_value_at_beat(&project->automations[block->resource_index], automation_beat, out_value);
+        }
+
+        if (block_end <= beat && (!previous || block_end > previous_end))
+        {
+            previous = block;
+            previous_end = block_end;
+        }
     }
-    return false;
+
+    if (!previous)
+        return false;
+
+    double automation_beat = previous->length_beats + previous->start_offset_beats;
+    return uph_automation_value_at_beat(&project->automations[previous->resource_index], automation_beat, out_value);
 }
 
 static void uph_pan_gains(float volume, float pan, float *out_left, float *out_right)
@@ -1064,6 +1104,78 @@ typedef struct
     bool timeline_playing;
 }
 Uph_RenderContext;
+
+bool uph_track_mix_automation_value(const Uph_Track *lanes_owner, Uph_AutomationTarget target, double beat, float *out_value)
+{
+    if (!lanes_owner)
+        return false;
+
+    float value;
+    if (!uph_automation_lane_value_at_beat(uph_track_find_automation_lane(lanes_owner, target), beat, &value))
+        return false;
+
+    *out_value = target == UPH_AUTOMATION_TARGET_TRACK_PAN ? uph_automation_to_pan(value) : uph_automation_to_volume(value);
+    return true;
+}
+
+static bool uph_track_has_mix_lanes(const Uph_Track *lanes_owner)
+{
+    return lanes_owner && (uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_VOLUME) || uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_PAN));
+}
+
+static bool uph_mix_automation_gains(
+    const Uph_RenderContext *ctx,
+    const Uph_Track *lanes_owner,
+    float volume,
+    float pan,
+    float *gains_left,
+    float *gains_right
+)
+{
+    if (!ctx->timeline_playing || !uph_track_has_mix_lanes(lanes_owner))
+        return false;
+
+    const ma_uint32 frame_count = ctx->frame_count;
+    float prev_left = 0.0f, prev_right = 0.0f;
+    uint32_t prev_offset = 0;
+    for (uint32_t offset = 0;; offset += UPH_MIX_AUTOMATION_STEP)
+    {
+        if (offset > frame_count)
+            offset = frame_count;
+
+        double beat = ctx->buffer_start_beat
+            + uph_seconds_to_beats((double)offset / (double)ctx->engine_sample_rate, ctx->bpm);
+
+        float point_volume, point_pan;
+        if (!uph_track_mix_automation_value(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_VOLUME, beat, &point_volume))
+            point_volume = volume;
+        if (!uph_track_mix_automation_value(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_PAN, beat, &point_pan))
+            point_pan = pan;
+
+        float point_left, point_right;
+        uph_pan_gains(point_volume, point_pan, &point_left, &point_right);
+
+        if (offset > 0)
+        {
+            const float span = (float)(offset - prev_offset);
+            for (uint32_t f = prev_offset; f < offset; f++)
+            {
+                const float t = (float)(f - prev_offset) / span;
+                gains_left[f] = prev_left + (point_left - prev_left) * t;
+                gains_right[f] = prev_right + (point_right - prev_right) * t;
+            }
+        }
+
+        prev_left = point_left;
+        prev_right = point_right;
+        prev_offset = offset;
+
+        if (offset == frame_count)
+            break;
+    }
+
+    return true;
+}
 
 static void uph_queue_preview_notes(const Uph_RenderContext *ctx, Uph_Track *track, bool should_be_held[128], Uph_PedalFrame *pedal_frame)
 {
@@ -1117,16 +1229,6 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     track->peak_left = 0.0f;
     track->peak_right = 0.0f;
 
-    if (track->volume_release_requested)
-    {
-        track->volume_automated = false;
-        track->volume_release_requested = false;
-    }
-    if (track->pan_release_requested)
-    {
-        track->pan_automated = false;
-        track->pan_release_requested = false;
-    }
 
     const bool audible = uph_track_is_audible(project, track);
     if (!audible && track->type != UPH_RESOURCE_PATTERN && track->type != UPH_RESOURCE_GROUP)
@@ -1145,78 +1247,16 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     float volume = (float)fabs(track->volume);
     float pan = NAUI_CLAMP(track->pan, -1.0f, 1.0f);
 
-    const Uph_Track *volume_lane = uph_track_find_automation_lane(track, UPH_AUTOMATION_TARGET_TRACK_VOLUME);
-    const Uph_Track *pan_lane = uph_track_find_automation_lane(track, UPH_AUTOMATION_TARGET_TRACK_PAN);
-
-    float *gains_left = NULL;
-    float *gains_right = NULL;
     float gain_left, gain_right;
     uph_pan_gains(volume, pan, &gain_left, &gain_right);
 
-    if (!volume_lane)
-        track->volume_automated = false;
-    if (!pan_lane)
-        track->pan_automated = false;
-
-    if (volume_lane || pan_lane)
+    const bool has_mix_lanes = ctx->timeline_playing && uph_track_has_mix_lanes(track);
+    float *gains_left = has_mix_lanes ? alloca(max_frame_count * sizeof(float)) : NULL;
+    float *gains_right = has_mix_lanes ? alloca(max_frame_count * sizeof(float)) : NULL;
+    if (!uph_mix_automation_gains(ctx, track, volume, pan, gains_left, gains_right))
     {
-        gains_left = alloca(max_frame_count * sizeof(float));
-        gains_right = alloca(max_frame_count * sizeof(float));
-
-        float held_volume = track->volume_automated ? track->live_volume : volume;
-        float held_pan = track->pan_automated ? track->live_pan : pan;
-        bool volume_held = track->volume_automated;
-        bool pan_held = track->pan_automated;
-
-        float prev_left = 0.0f, prev_right = 0.0f;
-        uint32_t prev_offset = 0;
-        for (uint32_t offset = 0;; offset += UPH_MIX_AUTOMATION_STEP)
-        {
-            if (offset > frame_count)
-                offset = frame_count;
-
-            double beat = ctx->buffer_start_beat
-                + uph_seconds_to_beats((double)offset / (double)ctx->engine_sample_rate, ctx->bpm);
-
-            float value;
-            if (ctx->timeline_playing && uph_automation_lane_value_at_beat(volume_lane, beat, &value))
-            {
-                held_volume = uph_automation_to_volume(value);
-                volume_held = true;
-            }
-            if (ctx->timeline_playing && uph_automation_lane_value_at_beat(pan_lane, beat, &value))
-            {
-                held_pan = uph_automation_to_pan(value);
-                pan_held = true;
-            }
-
-            float point_left, point_right;
-            uph_pan_gains(volume_held ? held_volume : volume, pan_held ? held_pan : pan, &point_left, &point_right);
-
-            if (offset > 0)
-            {
-                const float span = (float)(offset - prev_offset);
-                for (uint32_t f = prev_offset; f < offset; f++)
-                {
-                    const float t = (float)(f - prev_offset) / span;
-                    gains_left[f] = prev_left + (point_left - prev_left) * t;
-                    gains_right[f] = prev_right + (point_right - prev_right) * t;
-                }
-            }
-
-            prev_left = point_left;
-            prev_right = point_right;
-            prev_offset = offset;
-
-            if (offset == frame_count)
-            {
-                track->live_volume = held_volume;
-                track->live_pan = held_pan;
-                track->volume_automated = volume_held;
-                track->pan_automated = pan_held;
-                break;
-            }
-        }
+        gains_left = NULL;
+        gains_right = NULL;
     }
 
     if (ctx->timeline_playing)
@@ -1261,7 +1301,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
                 uph_render_sample_block(
                     block, sample, &project->sample_data[sample->data_index],
-                    ctx->playhead_start_beat, frame_count, ctx->engine_sample_rate, ctx->bpm,
+                    ctx->playhead_start_beat, frame_count, ctx->engine_sample_rate, 0.0f,
                     track_l, track_r
                 );
             }
@@ -1401,12 +1441,17 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
     uint64_t track_count = naui_list_len(project->tracks);
     for (uint64_t t = 0; t < track_count; t++)
     {
-        if (project->tracks[t].type == UPH_RESOURCE_AUTOMATION)
+        if (project->tracks[t].type == UPH_RESOURCE_AUTOMATION || project->tracks[t].type == UPH_RESOURCE_MASTER)
             continue;
         uph_render_track(&ctx, &project->tracks[t], master_l, master_r);
     }
 
-    Uph_MasterTrack *master = &project->master_track;
+    Uph_Track *master = uph_resources_master_track();
+    if (!master)
+        return;
+
+    if (timeline_playing)
+        uph_queue_track_automation(master, buffer_start_beat, buffer_end_beat, engine_sample_rate, bpm);
 
     uph_apply_effect_chain(
         master->effects,
@@ -1424,17 +1469,25 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
     float master_volume = (float)fabs(master->volume);
     float master_pan    = NAUI_CLAMP(master->pan, -1.0f, 1.0f);
-    float master_pan_angle = (master_pan + 1.0f) * 0.25f * (float)NAUI_PI;
-    float master_gain_left  = master_volume * cosf(master_pan_angle) * NAUI_SQRT2;
-    float master_gain_right = master_volume * sinf(master_pan_angle) * NAUI_SQRT2;
+    float master_gain_left, master_gain_right;
+    uph_pan_gains(master_volume, master_pan, &master_gain_left, &master_gain_right);
+
+    const bool master_has_mix_lanes = timeline_playing && uph_track_has_mix_lanes(master);
+    float *master_gains_left = master_has_mix_lanes ? alloca(max_frame_count * sizeof(float)) : NULL;
+    float *master_gains_right = master_has_mix_lanes ? alloca(max_frame_count * sizeof(float)) : NULL;
+    if (!uph_mix_automation_gains(&ctx, master, master_volume, master_pan, master_gains_left, master_gains_right))
+    {
+        master_gains_left = NULL;
+        master_gains_right = NULL;
+    }
 
     float master_peak_left  = 0.0f;
     float master_peak_right = 0.0f;
 
     for (ma_uint32 f = 0; f < frame_count; f++)
     {
-        float out_left  = master_l[f] * master_gain_left;
-        float out_right = master_r[f] * master_gain_right;
+        float out_left  = master_l[f] * (master_gains_left ? master_gains_left[f] : master_gain_left);
+        float out_right = master_r[f] * (master_gains_right ? master_gains_right[f] : master_gain_right);
 
         out[f * 2 + 0] = out_left;
         out[f * 2 + 1] = out_right;
@@ -1606,6 +1659,22 @@ double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
     if (!uph_sample_follows_tempo(sample) || bpm <= 0.0)
         return time_scale;
     return time_scale * uph_sample_tempo_bpm(sample) / bpm;
+}
+
+double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat)
+{
+    uint32_t rate = uph_audio_engine_data.device.sampleRate;
+    if (rate == 0)
+        rate = uph_state.settings.audio.sample_rate;
+    if (rate == 0 || data->frame_count == 0)
+        return 0.0;
+
+    const double source_seconds = (double)data->frame_count / (double)rate;
+    const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
+    if (uph_sample_follows_tempo(sample))
+        return source_seconds * uph_sample_tempo_bpm(sample) * time_scale / 60.0;
+
+    return uph_tempo_seconds_to_beat(uph_tempo_beat_to_seconds(start_beat) + source_seconds * time_scale) - start_beat;
 }
 
 double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat)

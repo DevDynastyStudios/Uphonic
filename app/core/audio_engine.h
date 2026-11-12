@@ -54,6 +54,7 @@ void uph_audio_engine_init(void);
 void uph_audio_engine_shutdown(void);
 bool uph_audio_engine_recreate(void);
 ma_context *uph_audio_engine_get_context(void);
+bool uph_track_mix_automation_value(const Uph_Track *lanes_owner, Uph_AutomationTarget target, double beat, float *out_value);
 
 void uph_audio_engine_stop(void);
 void uph_audio_engine_start(void);
@@ -72,6 +73,7 @@ bool uph_sample_follows_tempo(const Uph_Sample *sample);
 double uph_sample_tempo_bpm(const Uph_Sample *sample);
 double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm);
 double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat);
+double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat);
 
 void uph_audio_engine_stop_all_notes(void);
 

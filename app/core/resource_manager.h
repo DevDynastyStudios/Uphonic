@@ -7,12 +7,11 @@ void uph_resources_add_track(Naui_String name, int32_t color_index);
 void uph_resources_set_track_color(Uph_Track *track, int32_t color_index);
 void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param);
 bool uph_resources_track_has_automation_target(const Uph_Track *track, Uph_AutomationTarget target);
-void uph_resources_add_tempo_track(Naui_String name);
-
-void uph_resources_init_master_track(void);
+Uph_Track *uph_resources_master_track(void);
+Uph_Track uph_resources_make_master_track(void);
+void uph_resources_insert_master_track(void);
 
 static void uph_resources_toggle_track_state(Uph_Track *track, Uph_TrackState flag, const char *action);
-static void uph_resources_toggle_master_state(Uph_TrackState flag, const char *action);
 
 bool uph_plugin_owns_param(const Uph_Plugin *plugin, const Uph_PluginParam *param);
 bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginParam *param, int32_t *out_effect_index);
@@ -63,6 +62,11 @@ static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 {
 	const Naui_List(Naui_Color) list = naui_theme_color_list("uph_track_palette");
 	return list[color_index % naui_list_len(list)];
+}
+
+static inline bool uph_track_is_folder(const Uph_Track *track)
+{
+	return track->type == UPH_RESOURCE_GROUP || track->type == UPH_RESOURCE_MASTER;
 }
 
 static inline bool uph_track_monitors_instrument(const Uph_Track *track)

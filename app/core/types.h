@@ -179,7 +179,8 @@ enum
 	UPH_RESOURCE_SAMPLE,
 	UPH_RESOURCE_PATTERN,
 	UPH_RESOURCE_AUTOMATION,
-	UPH_RESOURCE_GROUP
+	UPH_RESOURCE_GROUP,
+	UPH_RESOURCE_MASTER
 };
 
 typedef struct
@@ -421,12 +422,6 @@ struct Uph_Track
 	}
 	visual;
 
-	float live_volume;
-	float live_pan;
-	bool volume_automated;
-	bool pan_automated;
-	bool volume_release_requested;
-	bool pan_release_requested;
 
 	Uph_PluginParam *automation_param;
 	Uph_AutomationTarget automation_target;
@@ -436,16 +431,6 @@ struct Uph_Track
 };
 
 typedef Uph_Track *Uph_TrackPtr;
-
-typedef struct
-{
-	Naui_List(Uph_EffectPlugin) effects;
-	float volume, pan;
-	float peak_left, peak_right;
-	float smooth_peak_left, smooth_peak_right;
-	Uph_TrackState state;
-}
-Uph_MasterTrack;
 
 typedef struct
 {
@@ -501,7 +486,6 @@ typedef struct
 	Uph_TimeSignature time_signature;
 
 	Naui_List(Uph_Track) tracks;
-	Uph_MasterTrack master_track;
 	Uph_Track *soloed_track;
 	Naui_List(Uph_MidiPattern) midi_patterns;
 	Naui_List(Uph_Sample) samples;
@@ -549,8 +533,7 @@ typedef uint8_t Uph_PluginListTarget;
 enum
 {
 	UPH_PLUGIN_LIST_TRACK_EFFECT,
-	UPH_PLUGIN_LIST_TRACK_INSTRUMENT,
-	UPH_PLUGIN_LIST_MASTER_EFFECT // current_plugin_list_track is ignored for this target
+	UPH_PLUGIN_LIST_TRACK_INSTRUMENT
 };
 
 typedef struct

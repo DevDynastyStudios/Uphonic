@@ -59,6 +59,7 @@ static const char* uph_io_resource_type_name(const Uph_ResourceType type)
 		case UPH_RESOURCE_PATTERN: return "pattern";
 		case UPH_RESOURCE_AUTOMATION: return "automation";
 		case UPH_RESOURCE_GROUP: return "group";
+		case UPH_RESOURCE_MASTER: return "master";
 		default: return "none";
 	}
 }
@@ -73,6 +74,8 @@ static Uph_ResourceType uph_io_resource_type_from_name(const char* name)
 		return UPH_RESOURCE_AUTOMATION;
 	if (strcmp(name, "group") == 0)
 		return UPH_RESOURCE_GROUP;
+	if (strcmp(name, "master") == 0)
+		return UPH_RESOURCE_MASTER;
 
 	return UPH_RESOURCE_NONE;
 }
@@ -1080,6 +1083,53 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	return plugin;
 }
 
+static void uph_io_migrate_master_track(Naui_List(Uph_Track)* tracks, Uph_ActionTrackRef* soloed)
+{
+	bool has_master = false;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(*tracks); i++)
+	{
+		if ((*tracks)[i].type != UPH_RESOURCE_MASTER)
+			continue;
+
+		if (i > 0)
+		{
+			const Uph_Track master = (*tracks)[i];
+			naui_list_remove(*tracks, i);
+			naui_list_insert(*tracks, master, 0);
+			*soloed = uph_action_track_ref_after_move(*soloed, uph_action_track_ref_top(i), uph_action_track_ref_top(0));
+		}
+		has_master = true;
+		break;
+	}
+
+	if (!has_master)
+	{
+		naui_list_insert(*tracks, uph_resources_make_master_track(), 0);
+		*soloed = uph_action_track_ref_after_insert(*soloed, uph_action_track_ref_top(0));
+	}
+
+	for (int32_t i = (int32_t)naui_list_len(*tracks) - 1; i > 0; i--)
+	{
+		const Uph_Track lane = (*tracks)[i];
+		if (lane.type != UPH_RESOURCE_AUTOMATION || lane.automation_target != UPH_AUTOMATION_TARGET_TEMPO)
+			continue;
+
+		naui_list_remove(*tracks, (uint32_t)i);
+		*soloed = uph_action_track_ref_after_remove(*soloed, uph_action_track_ref_top((uint32_t)i));
+
+		Uph_Track *master = &(*tracks)[0];
+		if (uph_resources_track_has_automation_target(master, UPH_AUTOMATION_TARGET_TEMPO))
+		{
+			Naui_List(Uph_Track) duplicate = NULL;
+			naui_list_push(duplicate, lane);
+			uph_resources_clear_tracks_recursive(duplicate);
+			continue;
+		}
+
+		naui_list_insert(master->subtracks, lane, 0);
+	}
+}
+
 static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 {
 	Naui_List(Uph_Track) tracks = NULL;
@@ -1096,10 +1146,11 @@ static bool uph_io_load_tracks(Uph_Project* project, const Naui_Path load_path)
 	else
 		naui_log(NAUI_LOG_INFO, "No tracks saved in %s", load_path.data);
 
+	uph_io_migrate_master_track(&tracks, &soloed);
 	uph_resources_link_tracks(tracks);
-	uph_resources_refresh_param_usage(tracks);
 	Naui_List(Uph_Track) previous = project->tracks;
 	project->tracks = tracks;
+	uph_resources_refresh_param_usage(project->tracks);
 	project->soloed_track = NULL;
 	Uph_Track* solo = uph_action_track_resolve_in(project->tracks, soloed);
 	if (solo && solo->type != UPH_RESOURCE_AUTOMATION)

@@ -1249,10 +1249,11 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
     return false;
 }
 
-static bool uph_ui__image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled, bool tinted)
+static bool uph_ui__image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled, bool tinted, const Naui_Color *enabled_bg_color)
 {
     const Leaf_Color hovered_bg_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_hovered_bg_color" : "uph_ui_frame_hovered_bg_color");
-    const Leaf_Color pressed_bg_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_pressed_bg_color" : "uph_ui_frame_pressed_bg_color");
+    const Leaf_Color theme_pressed_bg_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_pressed_bg_color" : "uph_ui_frame_pressed_bg_color");
+    const Leaf_Color pressed_bg_color = enabled_bg_color ? uph_color_mix(theme_pressed_bg_color, *enabled_bg_color, 0.5f) : theme_pressed_bg_color;
     const Leaf_Color border_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_border" : "uph_ui_frame_border");
 
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
@@ -1264,6 +1265,8 @@ static bool uph_ui__image_toggle_button(const Naui_Image *image, const Leaf_ID i
         naui_set_cursor(NAUI_CURSOR_HAND);
 
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
+    if (enabled_bg_color && hovered)
+        color = enabled ? uph_color_mix(pressed_bg_color, hovered_bg_color, 0.25f) : uph_color_mix(hovered_bg_color, *enabled_bg_color, 0.15f);
     
     const float frame_width = NAUI_MAX(uph_ui__frame_height(), size.x + NAUI_DPI(padding.y));
     const float frame_height = NAUI_MAX(uph_ui__frame_height(), size.y + NAUI_DPI(padding.y));
@@ -1291,12 +1294,17 @@ static bool uph_ui__image_toggle_button(const Naui_Image *image, const Leaf_ID i
 
 bool uph_ui_image_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled)
 {
-    return uph_ui__image_toggle_button(image, id, size, tint, bg_color, corners, enabled, false);
+    return uph_ui__image_toggle_button(image, id, size, tint, bg_color, corners, enabled, false, NULL);
 }
 
 bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled)
 {
-    return uph_ui__image_toggle_button(image, id, size, tint, naui_theme_color("uph_ui_tinted_frame_bg_color"), NAUI_CORNER_ALL, enabled, true);
+    return uph_ui__image_toggle_button(image, id, size, tint, naui_theme_color("uph_ui_tinted_frame_bg_color"), NAUI_CORNER_ALL, enabled, true, NULL);
+}
+
+bool uph_ui_image_toggle_button_colored(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled, Naui_Color enabled_bg_color)
+{
+    return uph_ui__image_toggle_button(image, id, size, tint, naui_theme_color("uph_ui_tinted_frame_bg_color"), NAUI_CORNER_ALL, enabled, true, &enabled_bg_color);
 }
 
 static Leaf_BoundingBox uph_ui__textfield_line_box(Leaf_BoundingBox box, float font_size)

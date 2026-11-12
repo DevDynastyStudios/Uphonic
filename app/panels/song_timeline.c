@@ -195,7 +195,7 @@ static void uph_song_timeline_on_update(void)
 	}
 
 	uph_song_timeline_update_empty_space_marquee();
-	uph_song_timeline_render_track_options_menu(track_options_context_menu);
+	uph_song_timeline_render_track_options_menu(track_options_context_menu, track_color_options_context_menu);
 	uph_song_timeline_render_block_options_menu(block_options_context_menu);
 }
 #pragma endregion

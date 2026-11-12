@@ -131,7 +131,8 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 	memset(left, 0, frame_count * sizeof(float));
 	memset(right, 0, frame_count * sizeof(float));
 
-	uph_render_sample_block(&p->block, sample, data, start, frame_count, sample_rate, bpm, left, right);
+	const float preview_bpm = project->bpm > 0.0f ? project->bpm : 120.0f;
+	uph_render_sample_block(&p->block, sample, data, start, frame_count, sample_rate, preview_bpm, left, right);
 
 	for (uint32_t f = 0; f < frame_count; f++)
 	{
@@ -139,7 +140,7 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 		out[f * 2 + 1] += right[f];
 	}
 
-	double next = uph_tempo_beat_after_seconds(start, (double)frame_count / (double)sample_rate);
+	double next = start + uph_seconds_to_beats((double)frame_count / (double)sample_rate, preview_bpm);
 	if (next >= wrap_end)
 	{
 		if (p->loop)

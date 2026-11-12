@@ -82,30 +82,19 @@ void uph_plugin_list_on_close(void)
 
 static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
 {
-    switch (uph_state.shared.plugin_list_target)
+    Uph_Track *track = uph_state.shared.current_plugin_list_track;
+    if (uph_state.shared.plugin_list_target == UPH_PLUGIN_LIST_TRACK_INSTRUMENT)
     {
-        case UPH_PLUGIN_LIST_TRACK_INSTRUMENT:
-        {
-            Uph_Track *track = uph_state.shared.current_plugin_list_track;
-            if (track->instrument.loaded)
-                uph_action_track_unload_plugin(track, &track->instrument);
+        if (track->instrument.loaded)
+            uph_action_track_unload_plugin(track, &track->instrument);
 
-            track->instrument = uph_plugin_load(plugin_path, true);
-            track->type = UPH_RESOURCE_PATTERN;
-            break;
-        }
-        case UPH_PLUGIN_LIST_TRACK_EFFECT:
-        {
-            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
-            naui_list_push(uph_state.shared.current_plugin_list_track->effects, effect);
-            break;
-        }
-        case UPH_PLUGIN_LIST_MASTER_EFFECT:
-        {
-            Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
-            naui_list_push(uph_state.project.master_track.effects, effect);
-            break;
-        }
+        track->instrument = uph_plugin_load(plugin_path, true);
+        track->type = UPH_RESOURCE_PATTERN;
+    }
+    else
+    {
+        Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
+        naui_list_push(track->effects, effect);
     }
     naui_panel_close(naui_panel_current());
 }
@@ -180,7 +169,7 @@ static void uph_plugin_list_target_bar(void)
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 
     const Uph_PluginListTarget target = uph_state.shared.plugin_list_target;
-    const Uph_Track *track = target == UPH_PLUGIN_LIST_MASTER_EFFECT ? NULL : uph_state.shared.current_plugin_list_track;
+    const Uph_Track *track = uph_state.shared.current_plugin_list_track;
     const Naui_Color accent = uph_resources_track_color(track ? track->color_index : 0);
 
     leaf({
@@ -206,7 +195,7 @@ static void uph_plugin_list_target_bar(void)
             .color = accent,
             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
         });
-        leaf_text(track ? track->name.data : NAUI_TR("master.track.title"), {
+        leaf_text(!track || track->type == UPH_RESOURCE_MASTER ? NAUI_TR("master.track.title") : track->name.data, {
             .font_size = font_size,
             .color = naui_theme_color("uph_ui_text_color")
         });

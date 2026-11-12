@@ -36,7 +36,7 @@ void uph_action_refresh_block_defaults(void)
 		if (sample->data_index < (uint32_t)naui_list_len(uph_state.project.sample_data))
 		{
 			const Uph_SampleData* data = &uph_state.project.sample_data[sample->data_index];
-			uph_state.shared.song_timeline_current_block_length = ceil(uph_frames_to_beats(data->frame_count, uph_state.settings.audio.sample_rate, uph_state.project.bpm));
+			uph_state.shared.song_timeline_current_block_length = uph_sample_block_length_beats(sample, data, 0.0);
 		}
 	}
 }
@@ -91,7 +91,6 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_CREATE, _uph_action_track_create);
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_TRACK_DELETE, _uph_action_track_delete);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_AUTOMATION_CREATE, _uph_action_track_automation_create);
-	UPH_REGISTER_ACTION(UPH_ACTION_TEMPO_AUTOMATION_CREATE, _uph_action_tempo_automation_create);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_RENAME, _uph_action_track_rename);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_COLOR, _uph_action_track_color);
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_MUTE, _uph_action_track_state);
