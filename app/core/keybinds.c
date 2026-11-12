@@ -18,7 +18,7 @@ static const Uph_KeybindInfo uph_keybind_info_table[] =
 	{ "save_project_as", "settings.shortcuts.save_project_as", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.save_project_as, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY | NAUI_MOD_SHIFT, NAUI_KEY_S) },
 	{ "undo", "settings.shortcuts.undo", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.undo, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_Z) },
 	{ "redo", "settings.shortcuts.redo", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.redo, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_Y) },
-	{ "open_settings", "settings.shortcuts.open_settings", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.open_settings, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_COMMA) },
+	{ "open_settings", "settings.shortcuts.open_settings", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.open_settings, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_F10) },
 
 	{ "play_pause", "settings.shortcuts.play_pause", UPH_KEYBIND_GROUP_TRANSPORT, UPH_KB_TL | UPH_KB_MIDI, &uph_state.settings.keybinds.play_pause, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_SPACE) },
 
