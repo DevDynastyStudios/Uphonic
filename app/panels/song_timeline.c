@@ -153,7 +153,6 @@ static void uph_song_timeline_on_update(void)
 	})
 	{
 		uph_song_timeline_render_minimap();
-		uph_song_timeline_render_time_display();
 		leaf({
 			.direction = LEAF_DIRECTION_VERTICAL,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW}
@@ -192,6 +191,7 @@ static void uph_song_timeline_on_update(void)
 			});
 			uph_song_timeline_update_track_drag();
 		}
+		uph_song_timeline_render_time_display();
 	}
 
 	uph_song_timeline_update_empty_space_marquee();
