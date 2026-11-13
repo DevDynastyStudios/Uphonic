@@ -9,7 +9,7 @@ return {
     },
 
     links = {
-        windows = { "shell32", "user32", "dxgi", "d3d11", "d3dcompiler", "dxguid" },
+        windows = { "shell32", "user32", "dxgi", "d3d11", "d3dcompiler", "dxguid", "ole32", "advapi32" },
         linux = { "X11", "EGL", "m", "asound" },
         macos = { "m" }
     },

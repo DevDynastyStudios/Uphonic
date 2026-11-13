@@ -97,6 +97,7 @@ typedef struct
 	float themes_scroll;
 	Uph_SettingsNameList audio_outputs;
 	Uph_SettingsNameList audio_inputs;
+	Uph_SettingsNameList asio_drivers;
 	Uph_SettingsMidiList midi_inputs;
 	Uph_SettingsMidiList midi_outputs;
 
@@ -147,6 +148,8 @@ void uph_settings_set_defaults(void)
 
 	settings->audio.output_device = (Uph_AudioIODevice){ 0 };
 	settings->audio.input_device = (Uph_AudioIODevice){ 0 };
+	settings->audio.driver = UPH_AUDIO_DRIVER_SYSTEM;
+	settings->audio.asio_device = (Naui_String){ 0 };
 	settings->audio.sample_rate = 48000;
 	settings->audio.buffer_size = 512;
 	settings->audio.channels = 2;
@@ -373,8 +376,15 @@ static void uph_settings_refresh_audio_devices(Uph_SettingsData *data)
 {
 	data->audio_outputs.count = 0;
 	data->audio_inputs.count = 0;
+	data->asio_drivers.count = uph_asio_list_drivers(data->asio_drivers.name);
 
+	ma_context temporary;
 	ma_context *context = uph_audio_engine_get_context();
+	const bool use_temporary = uph_audio_engine_active_driver() != UPH_AUDIO_DRIVER_SYSTEM;
+
+	if (use_temporary)
+		context = ma_context_init(NULL, 0, NULL, &temporary) == MA_SUCCESS ? &temporary : NULL;
+
 	if (!context)
 		return;
 
@@ -383,14 +393,17 @@ static void uph_settings_refresh_audio_devices(Uph_SettingsData *data)
 	ma_uint32 playback_count = 0;
 	ma_uint32 capture_count = 0;
 
-	if (ma_context_get_devices(context, &playback, &playback_count, &capture, &capture_count) != MA_SUCCESS)
-		return;
+	if (ma_context_get_devices(context, &playback, &playback_count, &capture, &capture_count) == MA_SUCCESS)
+	{
+		for (ma_uint32 i = 0; i < playback_count && data->audio_outputs.count < UPH_SETTINGS_MAX_OPTIONS; i++)
+			data->audio_outputs.name[data->audio_outputs.count++] = naui_string_from_cstr(playback[i].name);
 
-	for (ma_uint32 i = 0; i < playback_count && data->audio_outputs.count < UPH_SETTINGS_MAX_OPTIONS; i++)
-		data->audio_outputs.name[data->audio_outputs.count++] = naui_string_from_cstr(playback[i].name);
+		for (ma_uint32 i = 0; i < capture_count && data->audio_inputs.count < UPH_SETTINGS_MAX_OPTIONS; i++)
+			data->audio_inputs.name[data->audio_inputs.count++] = naui_string_from_cstr(capture[i].name);
+	}
 
-	for (ma_uint32 i = 0; i < capture_count && data->audio_inputs.count < UPH_SETTINGS_MAX_OPTIONS; i++)
-		data->audio_inputs.name[data->audio_inputs.count++] = naui_string_from_cstr(capture[i].name);
+	if (use_temporary)
+		ma_context_uninit(&temporary);
 }
 
 static void uph_settings_refresh_midi_devices(Uph_SettingsData *data)
@@ -425,7 +438,9 @@ static bool uph_settings_audio_pending_changed(const Uph_AudioSettings *pending)
 {
 	const Uph_AudioSettings *audio = &uph_state.settings.audio;
 
-	return strcmp(pending->output_device.name.data, audio->output_device.name.data) != 0
+	return pending->driver != audio->driver
+		|| strcmp(pending->asio_device.data, audio->asio_device.data) != 0
+		|| strcmp(pending->output_device.name.data, audio->output_device.name.data) != 0
 		|| strcmp(pending->input_device.name.data, audio->input_device.name.data) != 0
 		|| pending->exclusive_mode != audio->exclusive_mode
 		|| pending->sample_rate != audio->sample_rate
@@ -437,6 +452,8 @@ static void uph_settings_audio_copy_device_fields(Uph_AudioSettings *dst, const 
 {
 	dst->output_device = src->output_device;
 	dst->input_device = src->input_device;
+	dst->driver = src->driver;
+	dst->asio_device = src->asio_device;
 	dst->exclusive_mode = src->exclusive_mode;
 	dst->sample_rate = src->sample_rate;
 	dst->buffer_size = src->buffer_size;
@@ -458,6 +475,7 @@ static void uph_settings_apply_audio(Uph_SettingsData *data)
 	}
 
 	uph_settings_audio_copy_device_fields(&data->audio_pending, audio);
+	uph_settings_refresh_audio_devices(data);
 	uph_settings_save();
 }
 
@@ -1137,17 +1155,52 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 	if (uph_settings_section(NAUI_TR("settings.audio.devices"), true, NAUI_TR("settings.refresh"), leaf_id("uph_settings_audio_refresh")))
 		uph_settings_refresh_audio_devices(data);
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.output_device"), UPH_SETTINGS_NO_ID)
+	if (uph_asio_supported())
 	{
-		uph_settings_name_dropdown(&pending->output_device.name, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
+		UPH_SETTINGS_ROW(NAUI_TR("settings.audio.driver"), UPH_SETTINGS_NO_ID)
+		{
+			const uint32_t values[] = { UPH_AUDIO_DRIVER_SYSTEM, UPH_AUDIO_DRIVER_ASIO };
+			const char *const labels[] = { NAUI_TR("settings.audio.driver.system"), NAUI_TR("settings.audio.driver.asio") };
+			uint32_t driver = (uint32_t)pending->driver;
+
+			if (uph_settings_value_dropdown(&driver, values, labels, UPH_SETTINGS_COUNT(values), leaf_id("uph_settings_audio_driver")))
+				pending->driver = (Uph_AudioDriver)driver;
+		}
 	}
 
-	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.input_device"), UPH_SETTINGS_NO_ID)
+	if (pending->driver == UPH_AUDIO_DRIVER_ASIO)
 	{
-		uph_settings_name_dropdown(&pending->input_device.name, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
-	}
+		UPH_SETTINGS_ROW(NAUI_TR("settings.audio.asio_device"), UPH_SETTINGS_NO_ID)
+		{
+			if (data->asio_drivers.count == 0)
+				uph_settings_hint(NAUI_TR("settings.audio.asio_none"));
+			else
+				uph_settings_name_dropdown(&pending->asio_device, &data->asio_drivers, NULL, leaf_id("uph_settings_asio_device"));
+		}
 
-	uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &pending->exclusive_mode, leaf_id("uph_settings_exclusive"));
+		if (audio->driver == UPH_AUDIO_DRIVER_ASIO && uph_audio_engine_active_driver() == UPH_AUDIO_DRIVER_ASIO)
+		{
+			UPH_SETTINGS_ROW("", UPH_SETTINGS_NO_ID)
+			{
+				if (uph_ui_text_button(NAUI_TR("settings.audio.asio_control_panel"), leaf_id("uph_settings_asio_panel")))
+					uph_asio_show_control_panel();
+			}
+		}
+	}
+	else
+	{
+		UPH_SETTINGS_ROW(NAUI_TR("settings.audio.output_device"), UPH_SETTINGS_NO_ID)
+		{
+			uph_settings_name_dropdown(&pending->output_device.name, &data->audio_outputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_output"));
+		}
+
+		UPH_SETTINGS_ROW(NAUI_TR("settings.audio.input_device"), UPH_SETTINGS_NO_ID)
+		{
+			uph_settings_name_dropdown(&pending->input_device.name, &data->audio_inputs, NAUI_TR("settings.audio.default_device"), leaf_id("uph_settings_audio_input"));
+		}
+
+		uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &pending->exclusive_mode, leaf_id("uph_settings_exclusive"));
+	}
 	// uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
 
 	uph_settings_section(NAUI_TR("settings.audio.performance"), false, NULL, UPH_SETTINGS_NO_ID);

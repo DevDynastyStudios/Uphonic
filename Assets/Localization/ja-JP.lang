@@ -187,6 +187,12 @@
 	"sample.recording.default.name": "無題の録音",
 
 	"settings.audio.apply": "適用",
+	"settings.audio.asio_control_panel": "ASIO コントロールパネル",
+	"settings.audio.asio_device": "ASIO デバイス",
+	"settings.audio.asio_none": "ASIO ドライバーが見つかりません",
+	"settings.audio.driver": "ドライバー",
+	"settings.audio.driver.asio": "ASIO",
+	"settings.audio.driver.system": "システム (WASAPI)",
 	"settings.audio.auto_restart": "デバイス変更時に再起動",
 	"settings.audio.buffer_size": "バッファサイズ",
 	"settings.audio.buffer_size.1024": "1024サンプル",

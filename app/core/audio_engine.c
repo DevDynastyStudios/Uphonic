@@ -54,6 +54,8 @@ typedef struct
 {
     ma_context context;
     bool context_ready;
+    Uph_AudioDriver context_driver;
+    bool duplex;
     ma_device device;
     ma_device capture_device;
     ma_pcm_rb input_rb;
@@ -2450,13 +2452,28 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
 
     const int input_channel = 0; // make it so the user can choose between channel 1 and 2 in settings
     const float *input_f = NULL;
-    const ma_uint32 input_channels = uph_audio_engine_data.capture_ready ? uph_audio_engine_data.capture_device.capture.channels : 0;
+    const float *captured = NULL;
+    ma_uint32 input_channels = 0;
     const ma_uint32 output_channels = device->playback.channels;
+
+    if (uph_audio_engine_data.duplex)
+    {
+        if (input)
+        {
+            captured = (const float*)input;
+            input_channels = device->capture.channels;
+        }
+    }
+    else if (uph_audio_engine_data.capture_ready)
+    {
+        input_channels = uph_audio_engine_data.capture_device.capture.channels;
+        float *buffer = alloca(frame_count * input_channels * sizeof(float));
+        uph_audio_engine_read_input(buffer, frame_count, input_channels);
+        captured = buffer;
+    }
 
     if (input_channels > 0)
     {
-        float *captured = alloca(frame_count * input_channels * sizeof(float));
-        uph_audio_engine_read_input(captured, frame_count, input_channels);
 
         const ma_uint32 channel = (ma_uint32)input_channel < input_channels ? (ma_uint32)input_channel : 0;
         float *routed = alloca(frame_count * 2 * sizeof(float));
@@ -2617,9 +2634,41 @@ static void uph_audio_engine_init_capture_device(ma_context *context, const Uph_
     uph_audio_engine_data.capture_ready = true;
 }
 
+static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
+{
+    ma_device_id device_id;
+    const bool has_device_id = uph_audio_engine_find_device(ma_device_type_playback, settings->asio_device.data, &device_id);
+
+    ma_device_config config = ma_device_config_init(ma_device_type_duplex);
+    config.playback.format    = ma_format_f32;
+    config.playback.channels  = settings->channels;
+    config.playback.pDeviceID = has_device_id ? &device_id : NULL;
+    config.capture.format     = ma_format_f32;
+    config.capture.channels   = 2;
+    config.capture.pDeviceID  = has_device_id ? &device_id : NULL;
+    config.sampleRate         = settings->sample_rate;
+    config.dataCallback       = uph_audio_engine_data_callback;
+    config.performanceProfile = ma_performance_profile_low_latency;
+    config.periodSizeInFrames = settings->buffer_size;
+
+    ma_result result = ma_device_init(uph_audio_engine_get_context(), &config, &uph_audio_engine_data.device);
+    if (result != MA_SUCCESS)
+    {
+        fprintf(stderr, "uph_audio_engine_init: failed to init ASIO device (%s)\n", ma_result_description(result));
+        return false;
+    }
+
+    uph_audio_engine_data.duplex = true;
+    ma_device_start(&uph_audio_engine_data.device);
+    return true;
+}
+
 static bool uph_audio_engine_init_device(void)
 {
     Uph_AudioSettings settings = uph_state.settings.audio;
+
+    if (uph_audio_engine_data.context_driver == UPH_AUDIO_DRIVER_ASIO)
+        return uph_audio_engine_init_asio_device(&settings);
 
     ma_device_id playback_id;
     ma_device_id capture_id;
@@ -2658,6 +2707,7 @@ static bool uph_audio_engine_init_device(void)
 static void uph_audio_engine_uninit_device(void)
 {
     ma_device_uninit(&uph_audio_engine_data.device);
+    uph_audio_engine_data.duplex = false;
 
     if (uph_audio_engine_data.capture_ready)
     {
@@ -2667,16 +2717,56 @@ static void uph_audio_engine_uninit_device(void)
     }
 }
 
+static bool uph_audio_engine_init_asio_context(void)
+{
+    ma_context_config config = ma_context_config_init();
+    uph_asio_get_backend_callbacks(&config.custom);
+
+    const ma_backend backends[] = { ma_backend_custom };
+    return ma_context_init(backends, 1, &config, &uph_audio_engine_data.context) == MA_SUCCESS;
+}
+
+static void uph_audio_engine_init_context(Uph_AudioDriver driver)
+{
+    if (driver == UPH_AUDIO_DRIVER_ASIO)
+    {
+        if (uph_asio_supported() && uph_audio_engine_init_asio_context())
+        {
+            uph_audio_engine_data.context_ready = true;
+            uph_audio_engine_data.context_driver = UPH_AUDIO_DRIVER_ASIO;
+            return;
+        }
+
+        fprintf(stderr, "uph_audio_engine_init: ASIO unavailable, falling back to the system driver\n");
+    }
+
+    uph_audio_engine_data.context_driver = UPH_AUDIO_DRIVER_SYSTEM;
+    uph_audio_engine_data.context_ready = ma_context_init(NULL, 0, NULL, &uph_audio_engine_data.context) == MA_SUCCESS;
+
+    if (!uph_audio_engine_data.context_ready)
+        fprintf(stderr, "uph_audio_engine_init: failed to init context, using a temporary one per device\n");
+}
+
+static void uph_audio_engine_uninit_context(void)
+{
+    if (!uph_audio_engine_data.context_ready)
+        return;
+
+    ma_context_uninit(&uph_audio_engine_data.context);
+    uph_audio_engine_data.context_ready = false;
+}
+
 void uph_audio_engine_init(void)
 {
     uph_stretch_init_window();
+    uph_audio_engine_init_context(uph_state.settings.audio.driver);
 
-    if (ma_context_init(NULL, 0, NULL, &uph_audio_engine_data.context) == MA_SUCCESS)
-        uph_audio_engine_data.context_ready = true;
-    else
-        fprintf(stderr, "uph_audio_engine_init: failed to init context, using a temporary one per device\n");
-
-    uph_audio_engine_init_device();
+    if (!uph_audio_engine_init_device() && uph_audio_engine_data.context_driver == UPH_AUDIO_DRIVER_ASIO)
+    {
+        uph_audio_engine_uninit_context();
+        uph_audio_engine_init_context(UPH_AUDIO_DRIVER_SYSTEM);
+        uph_audio_engine_init_device();
+    }
 }
 
 void uph_audio_engine_shutdown(void)
@@ -2684,12 +2774,7 @@ void uph_audio_engine_shutdown(void)
     uph_audio_engine_render_cancel();
     uph_audio_engine_uninit_device();
     uph_audio_engine_preview_play((Uph_PreviewSource){ 0 });
-
-    if (uph_audio_engine_data.context_ready)
-    {
-        ma_context_uninit(&uph_audio_engine_data.context);
-        uph_audio_engine_data.context_ready = false;
-    }
+    uph_audio_engine_uninit_context();
 }
 
 ma_context *uph_audio_engine_get_context(void)
@@ -2700,7 +2785,29 @@ ma_context *uph_audio_engine_get_context(void)
 bool uph_audio_engine_recreate(void)
 {
     uph_audio_engine_uninit_device();
-    return uph_audio_engine_init_device();
+
+    const Uph_AudioDriver driver = uph_state.settings.audio.driver;
+    if (driver != uph_audio_engine_data.context_driver)
+    {
+        uph_audio_engine_uninit_context();
+        uph_audio_engine_init_context(driver);
+    }
+
+    return uph_audio_engine_data.context_driver == driver && uph_audio_engine_init_device();
+}
+
+Uph_AudioDriver uph_audio_engine_active_driver(void)
+{
+    return uph_audio_engine_data.context_driver;
+}
+
+void uph_audio_engine_update(void)
+{
+    if (!uph_asio_consume_reset_request() || uph_audio_engine_data.context_driver != UPH_AUDIO_DRIVER_ASIO)
+        return;
+
+    uph_audio_engine_stop();
+    uph_audio_engine_recreate();
 }
 
 bool uph_audio_engine_device_running(void)

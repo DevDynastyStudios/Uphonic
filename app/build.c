@@ -10,6 +10,7 @@
 #define CMIDI_IMPLEMENTATION
 #include <vendor/cmidi/cmidi.h>
 
+#include "core/asio.h"
 #include "core/types.h"
 #include "core/keybinds.h"
 #include "core/keybinds.c"
@@ -95,6 +96,7 @@
 #include "core/tempo_map.c"
 
 #include "core/midi_preview.c"
+#include "core/asio.c"
 #include "core/audio_engine.c"
 #include "core/sample_preview.c"
 #include "core/midi_recorder.c"

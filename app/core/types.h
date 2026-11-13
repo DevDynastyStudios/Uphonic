@@ -30,6 +30,8 @@ typedef struct Uph_AudioSettings
 {
 	Uph_AudioIODevice output_device;
 	Uph_AudioIODevice input_device;
+	Uph_AudioDriver driver;
+	Naui_String asio_device;
 	uint32_t sample_rate;
 	uint32_t buffer_size;
 	uint32_t channels;

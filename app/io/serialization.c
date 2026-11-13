@@ -620,6 +620,8 @@ static void uph_io_save_editor_settings_audio(Naui_Json* json, Naui_JsonValue* o
 {
 	naui_json_set_string(json, object, "output_device", audio->output_device.name.data);
 	naui_json_set_string(json, object, "input_device", audio->input_device.name.data);
+	naui_json_set_string(json, object, "driver", audio->driver == UPH_AUDIO_DRIVER_ASIO ? "asio" : "system");
+	naui_json_set_string(json, object, "asio_device", audio->asio_device.data);
 	naui_json_set_int(json, object, "sample_rate", (int)audio->sample_rate);
 	naui_json_set_int(json, object, "buffer_size", (int)audio->buffer_size);
 	naui_json_set_int(json, object, "channels", (int)audio->channels);
@@ -1519,6 +1521,11 @@ static void uph_io_load_editor_settings_audio(Uph_AudioSettings* audio, const Na
 {
 	uph_io_read_string(object, "output_device", &audio->output_device.name);
 	uph_io_read_string(object, "input_device", &audio->input_device.name);
+	uph_io_read_string(object, "asio_device", &audio->asio_device);
+
+	Naui_String driver = { 0 };
+	uph_io_read_string(object, "driver", &driver);
+	audio->driver = strcmp(driver.data, "asio") == 0 && uph_asio_supported() ? UPH_AUDIO_DRIVER_ASIO : UPH_AUDIO_DRIVER_SYSTEM;
 	uph_io_read_uint32(object, "sample_rate", &audio->sample_rate);
 	uph_io_read_uint32(object, "buffer_size", &audio->buffer_size);
 	uph_io_read_uint32(object, "channels", &audio->channels);

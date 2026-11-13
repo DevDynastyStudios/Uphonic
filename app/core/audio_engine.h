@@ -53,6 +53,8 @@ static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, dou
 void uph_audio_engine_init(void);
 void uph_audio_engine_shutdown(void);
 bool uph_audio_engine_recreate(void);
+Uph_AudioDriver uph_audio_engine_active_driver(void);
+void uph_audio_engine_update(void);
 ma_context *uph_audio_engine_get_context(void);
 bool uph_track_mix_automation_value(const Uph_Track *lanes_owner, Uph_AutomationTarget target, double beat, float *out_value);
 

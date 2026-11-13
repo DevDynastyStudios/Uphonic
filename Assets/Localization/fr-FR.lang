@@ -181,6 +181,12 @@
 "sample.default.name": "Échantillon sans nom",
 
 "settings.audio.apply": "Appliquer",
+"settings.audio.asio_control_panel": "Panneau de configuration ASIO",
+"settings.audio.asio_device": "Périphérique ASIO",
+"settings.audio.asio_none": "Aucun pilote ASIO trouvé",
+"settings.audio.driver": "Pilote",
+"settings.audio.driver.asio": "ASIO",
+"settings.audio.driver.system": "Système (WASAPI)",
 "settings.audio.auto_restart": "Redémarrer lors du changement de périphérique",
 "settings.audio.buffersize": "Taille du tampon",
 "settings.audio.buffersize.1024": "1024 échantillons",

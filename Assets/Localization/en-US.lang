@@ -186,6 +186,12 @@
 	"sample.recording.default.name": "Untitled Recording",
 
 	"settings.audio.apply": "Apply",
+	"settings.audio.asio_control_panel": "ASIO Control Panel",
+	"settings.audio.asio_device": "ASIO Device",
+	"settings.audio.asio_none": "No ASIO drivers found",
+	"settings.audio.driver": "Driver",
+	"settings.audio.driver.asio": "ASIO",
+	"settings.audio.driver.system": "System (WASAPI)",
 	"settings.audio.auto_restart": "Restart On Device Change",
 	"settings.audio.buffer_size": "Buffer Size",
 	"settings.audio.buffer_size.1024": "1024 samples",
