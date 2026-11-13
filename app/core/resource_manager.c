@@ -116,12 +116,12 @@ void uph_resources_add_track(Naui_String name, int32_t color_index)
 	naui_list_push(uph_state.project.tracks, track);
 }
 
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param)
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param, int32_t color_index)
 {
 	Uph_Track track = {
 		.name = name,
 		.type = UPH_RESOURCE_AUTOMATION,
-		.color_index = 0,
+		.color_index = color_index,
 		.index = naui_list_len(parent->subtracks),
 		.parent = parent,
 		.automation_target = target,

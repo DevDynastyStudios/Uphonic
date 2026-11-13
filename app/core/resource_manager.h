@@ -5,7 +5,7 @@ void uph_resources_clear_tracks_recursive(Naui_List(Uph_Track) list);
 
 void uph_resources_add_track(Naui_String name, int32_t color_index);
 void uph_resources_set_track_color(Uph_Track *track, int32_t color_index);
-void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param);
+void uph_resources_add_automation_track(Uph_Track *parent, Naui_String name, Uph_AutomationTarget target, Uph_PluginParam *param, int32_t color_index);
 bool uph_resources_track_has_automation_target(const Uph_Track *track, Uph_AutomationTarget target);
 Uph_Track *uph_resources_master_track(void);
 Uph_Track uph_resources_make_master_track(void);

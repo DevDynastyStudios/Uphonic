@@ -532,7 +532,7 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	}
 
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_add_automation_track(parent, data->name, data->target, param);
+	uph_resources_add_automation_track(parent, data->name, data->target, param, rand() % naui_list_len(naui_theme_color_list("uph_track_palette")));
 	data->index = (uint32_t)naui_list_len(parent->subtracks) - 1;
 	data->resource_exists = true;
 	uph_action_tracks_changed(before, uph_action_track_ref_child(data->parent, data->index), 1);
