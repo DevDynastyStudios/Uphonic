@@ -1,4 +1,5 @@
 #define UPH_PIANO_LABEL_FONT_SIZE 16.0f
+#define UPH_PIANO_LABEL_MIN_FONT_SIZE 9.0f
 #define UPH_PIANO_LABEL_ALIGNMENT LEAF_TEXT_ALIGN_RIGHT
 #define UPH_PIANO_LABEL_EDGE_PADDING 8.0f
 
@@ -283,9 +284,8 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 {
 	const Leaf_BoundingBox box = canvas->box;
 	const float font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
-	const float label_anchor_x = box.x + box.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
-
 	const Leaf_Color label_color = naui_theme_color("uph_piano_label_color");
+	const Leaf_Color sharp_label_color = naui_theme_color("uph_piano_sharp_label_color");
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -299,16 +299,18 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 
 		const float top = box.y + rect.top - canvas->scroll_y;
 		const float bottom = box.y + rect.bottom - canvas->scroll_y;
-		if (bottom - top < font_size + NAUI_DPI(3.0f))
+		const float label_font_size = fminf(font_size, bottom - top - NAUI_DPI(3.0f));
+		if (label_font_size < NAUI_DPI(UPH_PIANO_LABEL_MIN_FONT_SIZE))
 			continue;
 
-		const float label_y = top + (bottom - top - font_size) * 0.5f;
-		if (label_y < box.y || label_y + font_size > box.y + box.height)
+		const float label_y = (top + bottom - label_font_size) * 0.5f;
+		if (label_y < box.y || label_y + label_font_size > box.y + box.height)
 			continue;
 
-		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), font_size, 0).x;
+		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), label_font_size, 0).x;
+		const float label_anchor_x = box.x + rect.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
 		const float label_x = _uph_piano_text_x(label_anchor_x, label_width, UPH_PIANO_LABEL_ALIGNMENT);
-		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, font_size, 0, label_color);
+		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, label_font_size, 0, rect.accidental ? sharp_label_color : label_color);
 	}
 }
 

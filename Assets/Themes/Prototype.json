@@ -111,6 +111,7 @@
 	"uph_piano_sharp_border_color": "#0E080E",
 	"uph_piano_sharp_shine_color": "#4A3A4A",
 	"uph_piano_label_color": "#6A3D94D7",
+	"uph_piano_sharp_label_color": "#FFFFFFC8",
 	"uph_piano_sharp_pressed_color": "#9D4EDDFF",
 	"uph_piano_sharp_pressed_gradient": "#6A1B9AFF"
 }

@@ -92,10 +92,12 @@ void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root)
 
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)
 	{
+		const bool is_root = key % UPH_NOTES_PER_OCTAVE == root % UPH_NOTES_PER_OCTAVE;
+		map->notes[key].show_label = is_root;
+
 		if (!uph_scale_contains(mask, root, (uint8_t)key))
 			continue;
 
-		const bool is_root = key % UPH_NOTES_PER_OCTAVE == root % UPH_NOTES_PER_OCTAVE;
 		map->notes[key].highlight = is_root ? UPH_NOTE_HIGHLIGHT_ROOT : UPH_NOTE_HIGHLIGHT_SCALE;
 	}
 }
