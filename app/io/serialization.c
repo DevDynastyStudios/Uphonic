@@ -269,14 +269,21 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 	Naui_Json json = naui_json_result_create();
 	Naui_JsonValue* root = naui_json_array(&json);
 
-	size_t sample_count = naui_list_len(project->sample_data);
+	const size_t sample_count = naui_list_len(project->samples);
+	const size_t data_count = naui_list_len(project->sample_data);
 	for(size_t i = 0; i < sample_count; i++)
 	{
-		Uph_Sample* sample = &project->samples[i];
-		Uph_SampleData sample_data = project->sample_data[i];
+		const Uph_Sample* sample = &project->samples[i];
+		if (sample->data_index >= data_count)
+		{
+			naui_log(NAUI_LOG_ERROR, "Sample '%s' has no audio data, skipping it",sample->name.data);
+			continue;
+		}
+
+		const Uph_SampleData* sample_data = &project->sample_data[sample->data_index];
 		Naui_JsonValue* sample_obj = naui_json_push_object(&json, root);
 		naui_json_set_string(&json, sample_obj, "name", sample->name.data);
-		naui_json_set_string(&json, sample_obj, "path", sample_data.file_path.data);
+		naui_json_set_string(&json, sample_obj, "path", sample_data->file_path.data);
 		naui_json_set_number(&json, sample_obj, "time_scale", sample->time_scale);
 		naui_json_set_number(&json, sample_obj, "pitch", sample->pitch);
 		naui_json_set_number(&json, sample_obj, "mode", sample->mode);

@@ -266,7 +266,7 @@ static float uph_song_timeline_header_column_width(void)
 
 static float uph_song_timeline_max_scroll_y(void)
 {
-	return uph_song_timeline_data.content_height - uph_song_timeline_data.zoom.y;
+	return fmaxf(0.0f, uph_song_timeline_data.content_height - uph_song_timeline_data.zoom.y);
 }
 
 static inline float uph_song_timeline_block_title_height(void)
