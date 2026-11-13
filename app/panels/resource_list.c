@@ -135,6 +135,29 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     );
 }
 
+#define UPH_RESOURCE_LIST_SPINNER_SEGMENTS 24
+static void uph_loading_sample_custom_draw(Leaf_BoundingBox box, void **user_data)
+{
+    (void)user_data;
+    const float radius = fminf(box.width, box.height) * 0.3f;
+    if (radius <= 0.0f)
+        return;
+
+    const float sweep = NAUI_PI * 1.5f;
+    const float start = naui_time() * NAUI_PI * 2.0f;
+    const Naui_Vec2 center = { box.x + box.width * 0.5f, box.y + box.height * 0.5f };
+
+    Naui_Vec2 points[UPH_RESOURCE_LIST_SPINNER_SEGMENTS + 1];
+    for (int32_t i = 0; i <= UPH_RESOURCE_LIST_SPINNER_SEGMENTS; i++)
+    {
+        const float angle = start + sweep * (float)i / (float)UPH_RESOURCE_LIST_SPINNER_SEGMENTS;
+        points[i] = (Naui_Vec2){ center.x + cosf(angle) * radius, center.y + sinf(angle) * radius };
+    }
+
+    naui_draw_polyline(points, UPH_RESOURCE_LIST_SPINNER_SEGMENTS + 1, naui_theme_color("uph_resource_list_item_fg_color"), NAUI_DPI(2.0f));
+}
+#undef UPH_RESOURCE_LIST_SPINNER_SEGMENTS
+
 static void uph_automation_list_custom_draw(Leaf_BoundingBox box, void **user_data)
 {
     const Uph_Automation *automation = (const Uph_Automation*)*user_data;
@@ -486,6 +509,27 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
+static void uph_resource_list_render_pending_sample(Uph_PendingSample *pending, uint32_t index)
+{
+    const Leaf_ID id = leaf_id_indexed("uph_sample_list_pending_item", index);
+    pending->lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(pending->lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
+
+    if (uph_ui_widget_hovered(id))
+        _Uph_ResourceListItemHovered = true;
+
+    uph_resource_list_box(
+        &pending->name,
+        (Leaf_CustomDrawFn)uph_loading_sample_custom_draw,
+        LEAF_DATA_SLICE(pending),
+        id,
+        pending->lifetime,
+        false,
+        false,
+        false,
+        NAUI_TR("sample.default.name")
+    );
+}
+
 static void uph_resource_list_render_drag(const void *payload)
 {
     const Uph_DragResource *resource = payload;
@@ -593,21 +637,10 @@ static void uph_resource_list_sample_picked(const Naui_DialogResult *result, voi
     if (is_cancelled || result->count == 0)
         return;
 
-    const uint32_t sample_count_before = (uint32_t)naui_list_len(uph_state.project.samples);
-
     for (uint32_t i = 0; i < result->count; i++)
     {
         if (!uph_project_add_file(&uph_state.project, result->paths[i]))
             naui_log(NAUI_LOG_WARNING, "Couldn't add sample (%s)", result->paths[i].data);
-    }
-
-    const uint32_t sample_count_after = (uint32_t)naui_list_len(uph_state.project.samples);
-    if (sample_count_after > sample_count_before)
-    {
-        uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
-        uph_state.shared.selected_resource.index = sample_count_after - 1;
-        uph_state.shared.selected_resource.renaming = false;
-        uph_action_refresh_block_defaults();
     }
 }
 
@@ -772,7 +805,7 @@ static void uph_resource_list_on_update(void)
     {
         const Naui_Path *dropped_file = uph_drag_drop(UPH_DRAG_TYPE_SAMPLE_FILE);
         if (dropped_file)
-            uph_sample_browser_add_to_project(*dropped_file, NULL);
+            uph_sample_browser_add_to_project(*dropped_file, NULL, NULL);
     }
 
     const bool menu_was_open = uph_ui_any_menu_open();
@@ -851,6 +884,9 @@ static void uph_resource_list_on_update(void)
         {
             for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.samples); i++)
                 uph_resource_list_render_resource(i, UPH_RESOURCE_SAMPLE, context_menu, uph_resource_list_item_id(UPH_RESOURCE_SAMPLE, i));
+            Naui_List(Uph_PendingSample *) pending_samples = uph_project_pending_samples();
+            for (uint32_t i = 0; i < (uint32_t)naui_list_len(pending_samples); i++)
+                uph_resource_list_render_pending_sample(pending_samples[i], i);
             uph_resource_list_plus_box(UPH_RESOURCE_SAMPLE, leaf_id("uph_sample_list_plus"));
         }
 
@@ -895,4 +931,4 @@ static void uph_resource_list_on_update(void)
         uph_resource_list_clear_selection();
         uph_resource_list_sync_selection();
     }
-}
+}

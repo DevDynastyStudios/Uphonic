@@ -1,4 +1,5 @@
 static Naui_List(Naui_String) s_adopted_sample_files;
+static Naui_List(Uph_PendingSample *) s_pending_samples;
 
 static bool _uph_path_is_inside(const Naui_Path path, const Naui_Path folder)
 {
@@ -57,6 +58,19 @@ static int32_t _uph_project_find_duplicate_sample(const Uph_Project *project, co
 	return -1;
 }
 
+static Uph_PendingSample *_uph_pending_sample_find(const Naui_Path path)
+{
+	const Naui_Path wanted = naui_path_normalize(path);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); i++)
+	{
+		Uph_PendingSample *pending = s_pending_samples[i];
+		if (strcmp(naui_path_normalize(pending->source_path).data, wanted.data) == 0 || strcmp(naui_path_normalize(pending->load_path).data, wanted.data) == 0)
+			return pending;
+	}
+
+	return NULL;
+}
+
 static Naui_Path _uph_project_unique_sample_destination(const Uph_Project *project, const Naui_Path file_path)
 {
 	const Naui_Path project_folder = uph_project_get_path(project);
@@ -71,14 +85,14 @@ static Naui_Path _uph_project_unique_sample_destination(const Uph_Project *proje
 	{
 		const Naui_Path in_temp = naui_path_join(temp_dir, naui_path_from_cstr(name.data));
 		const Naui_Path in_saved = naui_path_join(saved_dir, naui_path_from_cstr(name.data));
-		if (!naui_path_exists(in_temp) && !naui_path_exists(in_saved))
+		if (!naui_path_exists(in_temp) && !naui_path_exists(in_saved) && !_uph_pending_sample_find(in_temp))
 			return in_temp;
 
 		name = naui_string_format("%s (%d)%s", stem.data, counter, extension.data);
 	}
 }
 
-static void _uph_project_select_sample_by_data(const Uph_Project *project, uint32_t data_index)
+static bool _uph_project_select_sample_by_data(const Uph_Project *project, uint32_t data_index, Uph_ResourceIndex *out_index)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->samples); i++)
 	{
@@ -88,8 +102,11 @@ static void _uph_project_select_sample_by_data(const Uph_Project *project, uint3
 		uph_state.shared.selected_resource.index = i;
 		uph_state.shared.selected_resource.type = UPH_RESOURCE_SAMPLE;
 		uph_state.shared.selected_resource.renaming = false;
-		return;
+		*out_index = i;
+		return true;
 	}
+
+	return false;
 }
 
 static bool _uph_project_has_sample_file(const Uph_Project *project, const Naui_Path file_path)
@@ -154,33 +171,180 @@ static void _uph_pending_delete_write(const Naui_Path project_folder, Naui_List(
 	free(text);
 }
 
-bool uph_project_add_sample_file(Uph_Project *project, const Naui_Path file_path)
+static void _uph_pending_sample_job(void *userdata, char *err_buf, size_t err_size)
 {
-	naui_log(NAUI_LOG_INFO, "(%s) Adding sample link: %s", project->title.data, file_path.data);
-	if (!uph_state.settings.general.copy_resources)
-		return uph_resources_add_sample_from_file(file_path);
-
-	const int32_t duplicate = _uph_project_find_duplicate_sample(project, file_path);
-	if (duplicate >= 0)
+	Uph_PendingSample *pending = userdata;
+	if (pending->copy && !naui_file_copy(pending->source_path, pending->load_path, NAUI_FILE_COPY_OVERRIDE))
 	{
-		naui_log(NAUI_LOG_INFO, "Skipping copy, identical file already in project: %s", project->sample_data[duplicate].file_path.data);
-		_uph_project_select_sample_by_data(project, (uint32_t)duplicate);
+		snprintf(err_buf, err_size, "failed to copy sample");
+		return;
+	}
+
+	pending->data = uph_audio_engine_load_sample_data(pending->load_path);
+	if (!uph_audio_engine_sample_data_valid(&pending->data))
+		snprintf(err_buf, err_size, "failed to load sample");
+}
+
+static void _uph_pending_sample_run_inline(Uph_PendingSample *pending)
+{
+	char err[128] = {0};
+	_uph_pending_sample_job(pending, err, sizeof(err));
+	pending->job = NAUI_JOB_INVALID;
+	pending->submitted = true;
+}
+
+static void _uph_pending_sample_submit(Uph_PendingSample *pending)
+{
+	const Naui_JobSubmitResult result = naui_job_submit(&pending->job, _uph_pending_sample_job, pending);
+	if (result == NAUI_JOB_SUBMIT_OK)
+		pending->submitted = true;
+	else if (result == NAUI_JOB_SUBMIT_INVALID)
+		_uph_pending_sample_run_inline(pending);
+}
+
+static bool _uph_pending_sample_finished(Uph_PendingSample *pending)
+{
+	if (!pending->submitted)
+		return false;
+
+	if (!naui_job_is_valid(pending->job))
+		return true;
+
+	if (!naui_job_is_done(pending->job))
+		return false;
+
+	naui_job_release(pending->job);
+	pending->job = NAUI_JOB_INVALID;
+	return true;
+}
+
+static void _uph_pending_sample_free(Uph_PendingSample *pending, bool loaded, Uph_ResourceIndex index)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pending->callbacks); i++)
+		pending->callbacks[i].fn(loaded, index, pending->callbacks[i].userdata);
+
+	naui_list_free(pending->callbacks);
+	free(pending);
+}
+
+static void _uph_pending_sample_finish(Uph_PendingSample *pending, bool keep)
+{
+	const bool valid = uph_audio_engine_sample_data_valid(&pending->data);
+	if (keep && valid)
+	{
+		uph_audio_engine_lock();
+		const Uph_ResourceIndex index = uph_resources_add_sample_data(pending->data, pending->name);
+		uph_audio_engine_unlock();
+
+		uph_state.shared.selected_resource = (Uph_SelectedResourceState){ .type = UPH_RESOURCE_SAMPLE, .index = index };
+		uph_action_refresh_block_defaults();
+		_uph_pending_sample_free(pending, true, index);
+		return;
+	}
+
+	if (keep)
+		naui_log(NAUI_LOG_WARNING, "Couldn't add sample (%s)", pending->source_path.data);
+
+	if (valid)
+		uph_audio_engine_unload_sample_data(&pending->data);
+
+	if (pending->copy && pending->submitted && naui_path_exists(pending->load_path))
+		naui_file_delete(pending->load_path);
+
+	_uph_pending_sample_free(pending, false, 0);
+}
+
+bool uph_project_add_sample_file(Uph_Project *project, const Naui_Path file_path, Uph_SampleLoadedFn on_loaded, void *userdata)
+{
+	const Uph_SampleLoadedCallback callback = { .fn = on_loaded, .userdata = userdata };
+	Uph_PendingSample *loading = _uph_pending_sample_find(file_path);
+	if (loading)
+	{
+		naui_log(NAUI_LOG_INFO, "Sample is already loading: %s", file_path.data);
+		if (on_loaded)
+			naui_list_push(loading->callbacks, callback);
 		return true;
 	}
 
-	naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
-	Naui_Path copy_path = naui_path_join(uph_project_get_path(project), NAUI_PATH(UPH_PATH_TEMP, UPH_IO_FOLDER_SAMPLES));
-	naui_directories_create(copy_path);
-
-	Naui_Path file_dest = _uph_project_unique_sample_destination(project, file_path);
-	naui_file_copy(file_path, file_dest, NAUI_FILE_COPY_OVERRIDE);
-	if (!uph_resources_add_sample_from_file(file_dest))
+	naui_log(NAUI_LOG_INFO, "(%s) Adding sample link: %s", project->title.data, file_path.data);
+	Uph_PendingSample *pending = calloc(1, sizeof(Uph_PendingSample));
+	if (!pending)
 	{
-		naui_file_delete(file_dest);
+		if (on_loaded)
+			on_loaded(false, 0, userdata);
 		return false;
 	}
 
+	pending->source_path = file_path;
+	pending->load_path = file_path;
+	pending->job = NAUI_JOB_INVALID;
+
+	if (uph_state.settings.general.copy_resources)
+	{
+		const int32_t duplicate = _uph_project_find_duplicate_sample(project, file_path);
+		if (duplicate >= 0)
+		{
+			naui_log(NAUI_LOG_INFO, "Skipping copy, identical file already in project: %s", project->sample_data[duplicate].file_path.data);
+			Uph_ResourceIndex index = 0;
+			const bool found = _uph_project_select_sample_by_data(project, (uint32_t)duplicate, &index);
+			if (on_loaded)
+				on_loaded(found, index, userdata);
+			free(pending);
+			return true;
+		}
+
+		naui_log(NAUI_LOG_INFO, "Copying to temp: %s", file_path.data);
+		naui_directories_create(naui_path_join(uph_project_get_path(project), NAUI_PATH(UPH_PATH_TEMP, UPH_IO_FOLDER_SAMPLES)));
+		pending->load_path = _uph_project_unique_sample_destination(project, file_path);
+		pending->copy = true;
+	}
+
+	pending->name = naui_view_to_string(naui_file_stem(&pending->load_path));
+	if (on_loaded)
+		naui_list_push(pending->callbacks, callback);
+	naui_list_push(s_pending_samples, pending);
+	_uph_pending_sample_submit(pending);
 	return true;
+}
+
+Naui_List(Uph_PendingSample *) uph_project_pending_samples(void)
+{
+	return s_pending_samples;
+}
+
+void uph_project_update_pending_samples(void)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); )
+	{
+		Uph_PendingSample *pending = s_pending_samples[i];
+		if (!pending->submitted)
+			_uph_pending_sample_submit(pending);
+
+		if (!_uph_pending_sample_finished(pending))
+		{
+			i++;
+			continue;
+		}
+
+		naui_list_remove(s_pending_samples, i);
+		_uph_pending_sample_finish(pending, true);
+	}
+}
+
+void uph_project_flush_pending_samples(bool keep)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); i++)
+	{
+		Uph_PendingSample *pending = s_pending_samples[i];
+		if (!pending->submitted && keep)
+			_uph_pending_sample_run_inline(pending);
+		else if (naui_job_is_valid(pending->job))
+			naui_job_wait(pending->job);
+
+		_uph_pending_sample_finish(pending, keep);
+	}
+
+	naui_list_clear(s_pending_samples);
 }
 
 void uph_project_clear_adopted_samples(void)

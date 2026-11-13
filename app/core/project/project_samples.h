@@ -1,6 +1,32 @@
 #define UPH_PENDING_DELETE_FILE ".pending_delete"
 
-bool uph_project_add_sample_file(Uph_Project *project, const Naui_Path file_path);
+typedef void (*Uph_SampleLoadedFn)(bool loaded, Uph_ResourceIndex index, void *userdata);
+
+typedef struct
+{
+	Uph_SampleLoadedFn fn;
+	void *userdata;
+}
+Uph_SampleLoadedCallback;
+
+typedef struct
+{
+	Naui_Path source_path;
+	Naui_Path load_path;
+	Naui_String name;
+	Uph_SampleData data;
+	Naui_JobHandle job;
+	Naui_List(Uph_SampleLoadedCallback) callbacks;
+	float lifetime;
+	bool copy;
+	bool submitted;
+}
+Uph_PendingSample;
+
+bool uph_project_add_sample_file(Uph_Project *project, const Naui_Path file_path, Uph_SampleLoadedFn on_loaded, void *userdata);
+Naui_List(Uph_PendingSample *) uph_project_pending_samples(void);
+void uph_project_update_pending_samples(void);
+void uph_project_flush_pending_samples(bool keep);
 void uph_project_adopt_sample_files(Uph_Project *project, const Naui_Path project_folder);
 void uph_project_clear_adopted_samples(void);
 void uph_project_rebase_sample_paths(Uph_Project *project, const Naui_Path from_folder, const Naui_Path to_folder);

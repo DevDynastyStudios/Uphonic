@@ -385,13 +385,20 @@ static double _uph_song_timeline_drop_beat(Leaf_BoundingBox bbox)
 	return uph_snap_beat_floor(fmax(beat, 0.0), uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
 }
 
-static Uph_TimelineBlock _uph_song_timeline_dropped_block(Leaf_BoundingBox bbox, Uph_ResourceType type, Uph_ResourceIndex index)
+typedef struct
+{
+	Uph_ActionTrackRef track;
+	double start_beat;
+	bool new_track;
+}
+Uph_SongTimelineSampleDrop;
+
+static Uph_TimelineBlock _uph_song_timeline_dropped_block_at(double start_beat, Uph_ResourceType type, Uph_ResourceIndex index)
 {
 	uph_state.shared.selected_resource = (Uph_SelectedResourceState){ .type = type, .index = index };
 	uph_action_refresh_block_defaults();
 	uph_block_select_all(false);
 
-	const double start_beat = _uph_song_timeline_drop_beat(bbox);
 	Uph_TimelineBlock block = uph_song_timeline_block_create(start_beat, index, type);
 	if (type == UPH_RESOURCE_SAMPLE)
 	{
@@ -402,14 +409,64 @@ static Uph_TimelineBlock _uph_song_timeline_dropped_block(Leaf_BoundingBox bbox,
 	return block;
 }
 
-static void _uph_song_timeline_place_dropped_block(Leaf_BoundingBox bbox, Uph_Track *track, Uph_ResourceType type, Uph_ResourceIndex index)
+static Uph_TimelineBlock _uph_song_timeline_dropped_block(Leaf_BoundingBox bbox, Uph_ResourceType type, Uph_ResourceIndex index)
+{
+	return _uph_song_timeline_dropped_block_at(_uph_song_timeline_drop_beat(bbox), type, index);
+}
+
+static void _uph_song_timeline_place_block_at(double start_beat, Uph_Track *track, Uph_ResourceType type, Uph_ResourceIndex index)
 {
 	Uph_ActionBlockCreate data = {
 		.track = uph_action_track_ref(track),
 		.block_index = (uint32_t)naui_list_len(track->blocks),
-		.block = _uph_song_timeline_dropped_block(bbox, type, index)
+		.block = _uph_song_timeline_dropped_block_at(start_beat, type, index)
 	};
 	naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
+}
+
+static void _uph_song_timeline_place_dropped_block(Leaf_BoundingBox bbox, Uph_Track *track, Uph_ResourceType type, Uph_ResourceIndex index)
+{
+	_uph_song_timeline_place_block_at(_uph_song_timeline_drop_beat(bbox), track, type, index);
+}
+
+static void _uph_song_timeline_place_in_new_track_at(double start_beat, Uph_ResourceType type, Uph_ResourceIndex index)
+{
+	const Uph_TimelineBlock block = _uph_song_timeline_dropped_block_at(start_beat, type, index);
+	const Uph_ActionTrackRef track_ref = uph_action_track_ref_top((uint32_t)naui_list_len(uph_state.project.tracks));
+
+	naui_action_group_start(UPH_ACTION_BLOCKS_NEW_TRACK_GROUP);
+	naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
+	if (uph_action_track_resolve(track_ref))
+	{
+		Uph_ActionBlockCreate data = { .track = track_ref, .block_index = 0, .block = block };
+		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
+	}
+	naui_action_group_end();
+}
+
+static void _uph_song_timeline_sample_loaded(bool loaded, Uph_ResourceIndex index, void *userdata)
+{
+	Uph_SongTimelineSampleDrop *drop = userdata;
+	if (loaded && drop->new_track)
+		_uph_song_timeline_place_in_new_track_at(drop->start_beat, UPH_RESOURCE_SAMPLE, index);
+	else if (loaded)
+	{
+		Uph_Track *track = uph_action_track_resolve(drop->track);
+		if (track && _uph_song_timeline_drop_compatible(track, UPH_RESOURCE_SAMPLE))
+			_uph_song_timeline_place_block_at(drop->start_beat, track, UPH_RESOURCE_SAMPLE, index);
+	}
+
+	free(drop);
+}
+
+static void _uph_song_timeline_queue_sample_drop(const Naui_Path path, Uph_ActionTrackRef track, double start_beat, bool new_track)
+{
+	Uph_SongTimelineSampleDrop *drop = malloc(sizeof(Uph_SongTimelineSampleDrop));
+	if (!drop)
+		return;
+
+	*drop = (Uph_SongTimelineSampleDrop){ .track = track, .start_beat = start_beat, .new_track = new_track };
+	uph_sample_browser_add_to_project(path, _uph_song_timeline_sample_loaded, drop);
 }
 
 static void _uph_song_timeline_request_automation_drop(Uph_Track *parent, Uph_TimelineBlock block)
@@ -484,9 +541,8 @@ static void _uph_song_timeline_update_drop_target(Leaf_BoundingBox bbox, Uph_Tra
 			_uph_song_timeline_render_drop_preview(bbox, 0.0);
 
 		const Naui_Path *file = uph_drag_drop(UPH_DRAG_TYPE_SAMPLE_FILE);
-		Uph_ResourceIndex sample_index;
-		if (file && uph_sample_browser_add_to_project(*file, &sample_index))
-			_uph_song_timeline_place_dropped_block(bbox, track, UPH_RESOURCE_SAMPLE, sample_index);
+		if (file)
+			_uph_song_timeline_queue_sample_drop(*file, uph_action_track_ref(track), _uph_song_timeline_drop_beat(bbox), false);
 	}
 
 	const Uph_DragResource *hovering = uph_drag_hover(UPH_DRAG_TYPE_RESOURCE);
@@ -525,17 +581,7 @@ static Leaf_BoundingBox _uph_song_timeline_bottom_drop_bbox(void)
 
 static void _uph_song_timeline_place_in_new_track(Leaf_BoundingBox bbox, Uph_ResourceType type, Uph_ResourceIndex index)
 {
-	const Uph_TimelineBlock block = _uph_song_timeline_dropped_block(bbox, type, index);
-	const Uph_ActionTrackRef track_ref = uph_action_track_ref_top((uint32_t)naui_list_len(uph_state.project.tracks));
-
-	naui_action_group_start(UPH_ACTION_BLOCKS_NEW_TRACK_GROUP);
-	naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
-	if (uph_action_track_resolve(track_ref))
-	{
-		Uph_ActionBlockCreate data = { .track = track_ref, .block_index = 0, .block = block };
-		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
-	}
-	naui_action_group_end();
+	_uph_song_timeline_place_in_new_track_at(_uph_song_timeline_drop_beat(bbox), type, index);
 }
 
 void uph_song_timeline_update_bottom_drop(void)
@@ -546,9 +592,8 @@ void uph_song_timeline_update_bottom_drop(void)
 	const Leaf_BoundingBox bbox = _uph_song_timeline_bottom_drop_bbox();
 
 	const Naui_Path *file = uph_drag_drop(UPH_DRAG_TYPE_SAMPLE_FILE);
-	Uph_ResourceIndex sample_index;
-	if (file && uph_sample_browser_add_to_project(*file, &sample_index))
-		_uph_song_timeline_place_in_new_track(bbox, UPH_RESOURCE_SAMPLE, sample_index);
+	if (file)
+		_uph_song_timeline_queue_sample_drop(*file, uph_action_track_ref_root(), _uph_song_timeline_drop_beat(bbox), true);
 
 	const Uph_DragResource *dropped = uph_drag_drop(UPH_DRAG_TYPE_RESOURCE);
 	if (dropped && dropped->type != UPH_RESOURCE_AUTOMATION && _uph_song_timeline_resource_valid(dropped))

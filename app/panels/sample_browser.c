@@ -579,31 +579,13 @@ static void _uph_sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_Pr
 
 #pragma region Project
 
-bool uph_sample_browser_add_to_project(const Naui_Path path, Uph_ResourceIndex *out_index)
+bool uph_sample_browser_add_to_project(const Naui_Path path, Uph_SampleLoadedFn on_loaded, void *userdata)
 {
-	const uint32_t before = (uint32_t)naui_list_len(uph_state.project.samples);
-	if (!uph_project_add_file(&uph_state.project, path))
-	{
-		naui_log(NAUI_LOG_WARNING, "Couldn't add sample (%s)", path.data);
-		return false;
-	}
+	if (naui_path_exists(path) && !naui_path_is_directory(path) && uph_project_add_sample_file(&uph_state.project, path, on_loaded, userdata))
+		return true;
 
-	const uint32_t after = (uint32_t)naui_list_len(uph_state.project.samples);
-	Uph_ResourceIndex index;
-	if (after > before)
-		index = after - 1;
-	else if (uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE && uph_state.shared.selected_resource.index < after)
-		index = uph_state.shared.selected_resource.index;
-	else
-		return false;
-
-	uph_state.shared.selected_resource = (Uph_SelectedResourceState){ .type = UPH_RESOURCE_SAMPLE, .index = index };
-	uph_action_refresh_block_defaults();
-
-	if (out_index)
-		*out_index = index;
-
-	return true;
+	naui_log(NAUI_LOG_WARNING, "Couldn't add sample (%s)", path.data);
+	return false;
 }
 
 #pragma endregion
@@ -772,7 +754,7 @@ static void _uph_sample_browser_activate(uint32_t node)
 		return;
 	}
 
-	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&s_sample_browser.index, node)), NULL);
+	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&s_sample_browser.index, node)), NULL, NULL);
 }
 
 static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t out_size)
@@ -1148,7 +1130,7 @@ static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 	if (!(info.flags & UPH_SAMPLE_BROWSER_NODE_DIR))
 	{
 		if (uph_ui_menu_item(context_menu, NAUI_TR("sample_browser.add_to_project"), leaf_id("uph_sample_browser_menu_add")))
-			uph_sample_browser_add_to_project(naui_path_from_cstr(path), NULL);
+			uph_sample_browser_add_to_project(naui_path_from_cstr(path), NULL, NULL);
 
 		if (uph_ui_menu_item(context_menu, NAUI_TR("sample_browser.preview"), leaf_id("uph_sample_browser_menu_preview")))
 			_uph_sample_browser_preview(path);

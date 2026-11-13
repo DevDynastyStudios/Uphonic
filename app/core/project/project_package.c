@@ -250,6 +250,8 @@ bool uph_project_extract_uph(const Naui_Path uph_path, Naui_Path *out_folder, bo
 
 bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_ExportFormat format)
 {
+	uph_project_flush_pending_samples(true);
+
 	if (format == UPH_EXPORT_UPH)
 		return _uph_project_export_uph(project, output_path);
 	else if (format == UPH_EXPORT_WAV)

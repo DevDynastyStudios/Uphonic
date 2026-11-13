@@ -245,6 +245,7 @@ void naui_app_end(void)
 	uph_plugin_prefetch_abort();
 	uph_plugin_scan_shutdown();
 	uph_sample_browser_shutdown();
+	uph_project_flush_pending_samples(false);
 	naui_jobs_shutdown();
 
 	naui_log(NAUI_LOG_INFO, "Saving Settings...");
@@ -288,6 +289,7 @@ void naui_app_update(void)
 	uph_mixer_apply_pending_move();
 	uph_song_timeline_apply_pending_move();
 	uph_tempo_map_update();
+	uph_project_update_pending_samples();
 
 	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active());
  

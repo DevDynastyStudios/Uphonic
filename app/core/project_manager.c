@@ -14,6 +14,8 @@ static void _uph_project_adopt_folder_files(Uph_Project *project, const Naui_Pat
 
 void uph_project_close(Uph_Project *project)
 {
+	uph_project_flush_pending_samples(false);
+
 	if (naui_string_is_empty(project->title))
 		return;
 
@@ -86,6 +88,9 @@ bool uph_project_create(Naui_String project_name)
 
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type)
 {
+	if (save_type == UPH_SAVE_TYPE_CANONICAL)
+		uph_project_flush_pending_samples(true);
+
 	uph_audio_engine_lock();
 	const Naui_Path project_folder = uph_project_get_path(project);
 	const Naui_Path temp_folder = naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP)); // May not exist. CHECK!
@@ -222,6 +227,8 @@ static bool _uph_project_copy_to_folder(Uph_Project *project, const Naui_Path ol
 
 bool uph_project_save_as(Uph_Project* project, const Naui_Path destination)
 {
+	uph_project_flush_pending_samples(true);
+
 	const Naui_String clean_name = _uph_project_clean_name(naui_view_to_string(naui_file_filename(&destination)).data);
 	if (clean_name.length == 0)
 		return false;
@@ -357,7 +364,7 @@ bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path)
 	if (uph_project_is_midi_extension(naui_file_extension(&file_path)))
 		return uph_project_add_pattern_file(project, file_path);
 
-	return uph_project_add_sample_file(project, file_path);
+	return uph_project_add_sample_file(project, file_path, NULL, NULL);
 }
 
 Naui_Path uph_project_get_path(const Uph_Project* project)
