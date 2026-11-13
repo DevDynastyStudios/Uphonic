@@ -16,7 +16,7 @@ static Naui_JobHandle s_scan_job;
 
 static inline Naui_Path _uph_plugin_get_cache_file(void)
 {
-	return naui_path_join(naui_directory_get(NAUI_DIR_WORKING), NAUI_PATH("plugin_cache.json"));
+	return naui_path_join(UPHONIC_FOLDER, NAUI_PATH("plugin_cache.json"));
 }
 
 #define UPH_PLUGIN_SCAN_MAX_DEPTH 16
@@ -132,6 +132,7 @@ static void _uph_plugin_cache_write(const Naui_List(Uph_PluginInfo) info_list)
 		naui_json_set_string(&json, object, "format", info->format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP");
 	}
 
+	naui_directories_create(UPHONIC_FOLDER);
 	naui_json_write_file(root, _uph_plugin_get_cache_file(), true);
 	naui_json_free(&json);
 }
