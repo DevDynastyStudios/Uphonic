@@ -30,6 +30,7 @@ typedef struct
 	Uph_UIMenuID color_menu;
 
 	uint32_t effect_context_index;
+	const Uph_Track *revealed_strip;
 
     bool strip_hovered;
     struct
@@ -1433,6 +1434,29 @@ static float uph_mixer_min_meter_height(const Uph_Track *track, float current)
 	return current;
 }
 
+static void uph_mixer_reveal_selected_strip(Leaf_ID scroll_id)
+{
+	const Uph_Track *strip = uph_mixer_selected_strip();
+	if (strip == uph_mixer_data.revealed_strip)
+		return;
+
+	uph_mixer_data.revealed_strip = strip;
+	if (!strip)
+		return;
+
+	const char *name = strip->type == UPH_RESOURCE_GROUP ? "uph_mixer_group" : "uph_mixer_track";
+	const Leaf_BoundingBox strip_box = leaf_get_bounding_box(leaf_id_indexed(name, (uint64_t)strip));
+	const Leaf_BoundingBox viewport_box = leaf_get_bounding_box((Leaf_ID){ .value = scroll_id.value + 2 });
+	if (strip_box.width <= 0.0f || viewport_box.width <= 0.0f)
+		return;
+
+	const float overflow_right = (strip_box.x + strip_box.width) - (viewport_box.x + viewport_box.width);
+	if (overflow_right > 0.0f)
+		uph_mixer_data.scroll.x += overflow_right;
+	else if (strip_box.x < viewport_box.x)
+		uph_mixer_data.scroll.x -= viewport_box.x - strip_box.x;
+}
+
 static void uph_mixer_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("mixer.title"));
@@ -1452,6 +1476,7 @@ static void uph_mixer_on_update(void)
         if (min_meter < FLT_MAX && last_content.height > 0.0f)
             required_height = floorf(last_content.height - min_meter + NAUI_DPI(UPH_MIXER_METER_SCROLL_HEIGHT) + 0.5f);
 
+        uph_mixer_reveal_selected_strip(leaf_id("uph_mixer_scrollbar"));
         Uph_UIScrollArea scroll_area = uph_ui_begin_scroll_area(
             &uph_mixer_data.scroll.x,
             &uph_mixer_data.scroll.y,
@@ -1474,7 +1499,22 @@ static void uph_mixer_on_update(void)
         uph_ui_end_scroll_area(&scroll_area);
 
 		if (naui_any_mouse_pressed() && !uph_mixer_data.strip_hovered && !uph_ui_any_menu_open())
-			uph_resources_collapse_mixer_selection();
+		{
+			const bool empty_space_clicked = naui_mouse_pressed(NAUI_MOUSE_LEFT)
+				&& naui_panel_is_hovered(naui_panel_current())
+				&& !leaf_hovered(leaf_id("uph_mixer_effect_panel"))
+				&& !leaf_hovered(scroll_area.handle_x_id)
+				&& !leaf_hovered(scroll_area.handle_y_id);
+
+			if (empty_space_clicked)
+				uph_resources_clear_mixer_selection();
+			else
+				uph_resources_collapse_mixer_selection();
+		}
+
+		if (naui_panel_focused() == naui_panel_current() && !uph_ui_any_textfield_active() && !uph_ui_any_menu_open()
+			&& naui_keybind_pressed(uph_state.settings.keybinds.deselect))
+			uph_resources_clear_mixer_selection();
 
 		if (uph_state.shared.selected_mixer_master &&
 			uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_master")))
@@ -1524,13 +1564,17 @@ static void uph_mixer_on_update(void)
 			}
 		}
 
-		Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-		leaf({
-			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-			.size = {LEAF_SIZE_FIXED(NAUI_DPI(200)), LEAF_SIZE_FULL}
-		})
+		if (uph_mixer_selected_strip())
 		{
-			uph_mixer_render_effect_list();
+			Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+			leaf({
+				.id = leaf_id("uph_mixer_effect_panel"),
+				.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
+				.size = {LEAF_SIZE_FIXED(NAUI_DPI(200)), LEAF_SIZE_FULL}
+			})
+			{
+				uph_mixer_render_effect_list();
+			}
 		}
 	}
 }
