@@ -230,7 +230,7 @@ void uph_song_timeline_render_time_display(void)
 		},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.color = naui_theme_color(hovered ? "uph_song_timeline_header_selected_color" : "uph_song_timeline_header_color"),
+		.color = naui_theme_color("uph_song_timeline_header_color"),
 		.border = {
 			.width = 1,
 			.color = {naui_theme_color("uph_timeline_top_ruler_border_color")},
