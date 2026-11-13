@@ -41,30 +41,6 @@ extern "C" {
     }
     Leaf_Color;
     
-    typedef uint8_t Leaf_ColorFillType;
-    enum
-    {
-        LEAF_SOLID_COLOR_FILL = 0,
-        LEAF_GRADIENT_LINEAR_COLOR_FILL = 1
-    };
-    
-    typedef struct
-    {
-        Leaf_Color color1;
-        Leaf_Color color2;
-        float percent1;
-        float percent2;
-        float angle;
-        Leaf_ColorFillType type;
-    }
-    Leaf_ColorFill;
-    
-#define LEAF_GRADIENT(c1, c2, angle) (Leaf_ColorFill){ (c1), (c2), 0.0f, 1.0f, angle, LEAF_GRADIENT_LINEAR_COLOR_FILL }
-#define LEAF_GRADIENT_PERCENT(c1, p1, c2, p2, angle) (Leaf_ColorFill){ (c1), (c2), (p1), (p2), angle, LEAF_GRADIENT_LINEAR_COLOR_FILL }
-    
-#define LEAF_DEG(v) ((v) * 0.0174532925f)
-#define LEAF_RAD(v) (v)
-    
     static inline Leaf_Color leaf_rgb(uint8_t r, uint8_t g, uint8_t b)
     {
         return (Leaf_Color){ r, g, b, 255 };
@@ -196,7 +172,7 @@ extern "C" {
     {
         int32_t width;
         Leaf_Sides sides;
-        Leaf_ColorFill color;
+        Leaf_Color color;
     }
     Leaf_Border;
     
@@ -279,7 +255,7 @@ extern "C" {
         Leaf_Size size;
         Leaf_Padding padding;
         Leaf_Border border;
-        Leaf_ColorFill color;
+        Leaf_Color color;
         Leaf_Vec2 child_offset;
         Leaf_Alignment child_alignment;
         
@@ -331,7 +307,7 @@ extern "C" {
     
     typedef struct
     {
-        Leaf_ColorFill color;
+        Leaf_Color color;
         Leaf_SizeAxis font_size;
         uint32_t font_id;
         Leaf_TextAlignment alignment;
@@ -404,7 +380,7 @@ extern "C" {
         
         Leaf_RenderCmdType type;
         Leaf_BoundingBox bounding_box;
-        Leaf_ColorFill color;
+        Leaf_Color color;
         float opacity;
     }
     Leaf_RenderCmd;
@@ -996,11 +972,6 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
             node->bounding_box.height = mx;
     }
     
-    static inline bool leaf_is_color_fill_empty(Leaf_ColorFill fill)
-    {
-        return fill.color1.a == 0 && fill.color2.a == 0;
-    }
-    
     static inline bool leaf_box_offscreen(Leaf_LayoutBox box)
     {
         Leaf_LayoutBox screen = leaf_ctx->stack[0]->bounding_box;
@@ -1045,10 +1016,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                     Leaf_BoundingBox shadow_box = leaf_snap_box(node->bounding_box);
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_SHADOW,
-                                             .color = (Leaf_ColorFill){
-                                                 .color1 = config->shadow.color,
-                                                 .type = LEAF_SOLID_COLOR_FILL
-                                             },
+                                             .color = config->shadow.color,
                                              .bounding_box = shadow_box,
                                              .shadow.offset = config->shadow.offset,
                                              .shadow.blur_radius = config->shadow.blur_radius,
@@ -1058,7 +1026,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                 }
 #endif
                 
-                if (!leaf_is_color_fill_empty(config->color))
+                if (config->color.a)
                 {
                     if (config->image)
                     {
@@ -1093,7 +1061,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
                                          });
                 }
                 
-                if (!leaf_is_color_fill_empty(config->border.color))
+                if (config->border.color.a)
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_RECT_LINES,
                                              .color = config->border.color,
@@ -1108,7 +1076,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
             case LEAF_NODE_TYPE_TEXT:
             {
                 const Leaf_TextConfig *config = &node->text.config;
-                if (!leaf_is_color_fill_empty(config->color))
+                if (config->color.a)
                     leaf_push_render_cmd((Leaf_RenderCmd){
                                              .type = LEAF_RENDER_CMD_TEXT,
                                              .color = config->color,

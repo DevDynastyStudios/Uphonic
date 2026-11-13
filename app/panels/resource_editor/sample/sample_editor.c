@@ -798,7 +798,7 @@ static void _uph_sample_editor_render_message(const char *message)
 	})
 	{
 		leaf_text(message, {
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
 		});
 	}
@@ -807,7 +807,7 @@ static void _uph_sample_editor_render_message(const char *message)
 static void _uph_sample_editor_render_label(const char *label)
 {
 	leaf_text(label, {
-		.color = {naui_theme_color("uph_ui_text_color")},
+		.color = naui_theme_color("uph_ui_text_color"),
 		.font_size = {NAUI_DPI(UPH_TOOLBOX_FONT_SIZE)}
 	});
 }
@@ -939,13 +939,13 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorData *editor)
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
 		.padding = { .top = 1, .bottom = 1 },
-		.color = {naui_theme_color("uph_toolbox_border_color")}
+		.color = naui_theme_color("uph_toolbox_border_color")
 	})
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
@@ -1062,11 +1062,11 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorData *editor)
 			})
 			{
 				leaf_text(current, {
-					.color = {naui_theme_color("uph_ui_text_color")},
+					.color = naui_theme_color("uph_ui_text_color"),
 					.font_size = {NAUI_DPI(20.0f)}
 				});
 				leaf_text(length, {
-					.color = {naui_theme_color("uph_ui_text_disabled_color")},
+					.color = naui_theme_color("uph_ui_text_disabled_color"),
 					.font_size = {NAUI_DPI(UPH_TOOLBOX_FONT_SIZE)}
 				});
 			}
@@ -1077,7 +1077,7 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorData *editor)
 static void _uph_sample_editor_render_heading(const char *title)
 {
 	leaf_text(title, {
-		.color = {naui_theme_color("uph_ui_text_color")},
+		.color = naui_theme_color("uph_ui_text_color"),
 		.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE + 2.0f)},
 		.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
 	});
@@ -1087,7 +1087,7 @@ static void _uph_sample_editor_render_separator(void)
 {
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(1)},
-		.color = {naui_theme_color("uph_toolbox_separator_color")}
+		.color = naui_theme_color("uph_toolbox_separator_color")
 	});
 }
 
@@ -1102,14 +1102,14 @@ static void _uph_sample_editor_render_property(const char *label, const char *va
 		leaf({ .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_PROPERTY_LABEL_WIDTH)), LEAF_SIZE_FIT} })
 		{
 			leaf_text(label, {
-				.color = {naui_theme_color("uph_ui_text_disabled_color")},
+				.color = naui_theme_color("uph_ui_text_disabled_color"),
 				.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 1.0f)}
 			});
 		}
 		leaf({ .size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_PROPERTY_VALUE_WIDTH)), LEAF_SIZE_FIT}, .clip_children = true })
 		{
 			leaf_text(value, {
-				.color = {naui_theme_color("uph_ui_text_color")},
+				.color = naui_theme_color("uph_ui_text_color"),
 				.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 1.0f)}
 			});
 		}
@@ -1151,7 +1151,7 @@ static void _uph_sample_editor_render_properties(const Uph_SampleEditorData *edi
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), NAUI_DPI(10.0f)),
 		.child_gap = NAUI_DPI(6),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.clip_children = true,
 		.border = {
 			.width = 1,
@@ -1201,7 +1201,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(6.0f), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
 			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_TOP},
-			.color = {naui_theme_color("uph_toolbox_bg_color")},
+			.color = naui_theme_color("uph_toolbox_bg_color"),
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_RIGHT,
@@ -1219,7 +1219,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		.size = {LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH)), LEAF_SIZE_FULL},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
 		.child_gap = NAUI_DPI(8),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.clip_children = true,
 		.border = {
 			.width = 1,
@@ -1244,7 +1244,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		_uph_sample_editor_render_separator();
 
 		leaf_text("Playback", {
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 1.0f)}
 		});
 
@@ -1277,7 +1277,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		_uph_sample_editor_render_separator();
 
 		leaf_text("Level", {
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 1.0f)}
 		});
 
@@ -1302,12 +1302,12 @@ static void _uph_sample_editor_render_status_item(const char *text, bool separat
 	{
 		leaf({
 			.size = {LEAF_SIZE_FIXED(1), LEAF_SIZE_FIXED(NAUI_DPI(12))},
-			.color = {naui_theme_color("uph_toolbox_separator_color")}
+			.color = naui_theme_color("uph_toolbox_separator_color")
 		});
 	}
 
 	leaf_text(text, {
-		.color = {dim_color},
+		.color = dim_color,
 		.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 2.0f)}
 	});
 }
@@ -1341,7 +1341,7 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorData *edi
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(10),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.clip_children = true,
 		.border = {
 			.width = 1,
@@ -1351,7 +1351,7 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorData *edi
 	})
 	{
 		leaf_text(file_name[0] ? file_name : "Recorded", {
-			.color = {naui_theme_color("uph_ui_text_color")},
+			.color = naui_theme_color("uph_ui_text_color"),
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE - 2.0f)}
 		});
 

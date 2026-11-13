@@ -555,7 +555,7 @@ void uph_plugin_list_on_update(void)
             .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
         }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)),
-            .color = {uph_plugin_list_muted_color()},
+            .color = uph_plugin_list_muted_color(),
             .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
         });
         return;

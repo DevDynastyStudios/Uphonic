@@ -798,7 +798,7 @@ static void _uph_automation_editor_render_message(const char *message)
 	})
 	{
 		leaf_text(message, {
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
 		});
 	}
@@ -807,7 +807,7 @@ static void _uph_automation_editor_render_message(const char *message)
 static void _uph_automation_editor_render_label(const char *label, bool disabled)
 {
 	leaf_text(label, {
-		.color = {naui_theme_color(disabled ? "uph_ui_text_disabled_color" : "uph_ui_text_color")},
+		.color = naui_theme_color(disabled ? "uph_ui_text_disabled_color" : "uph_ui_text_color"),
 		.font_size = {NAUI_DPI(UPH_TOOLBOX_FONT_SIZE)}
 	});
 }
@@ -829,16 +829,16 @@ static void _uph_automation_editor_render_info(const Uph_Automation *automation)
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x * 2.0f), NAUI_DPI(6.0f)),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.child_gap = NAUI_DPI(2.0f)
 	})
 	{
 		leaf_text(automation->name.data, {
-			.color = {naui_theme_color("uph_ui_text_color")},
+			.color = naui_theme_color("uph_ui_text_color"),
 			.font_size = {NAUI_DPI(font_size + 2.0f)}
 		});
 		leaf_text(info, {
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.font_size = {NAUI_DPI(font_size)}
 		});
 	}
@@ -849,7 +849,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorData *edit
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(UPH_AUTOMATION_EDITOR_TOOLBAR_FIELD_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL,
@@ -1020,7 +1020,7 @@ static void _uph_automation_editor_render_entry(Uph_AutomationEditorData *editor
 		.id = leaf_id("uph_automation_editor_entry"),
 		.size = {LEAF_SIZE_FIXED(width), LEAF_SIZE_FIXED(height)},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(4.0f), NAUI_DPI(3.0f)),
-		.color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,

@@ -169,7 +169,7 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.color = {background},
+		.color = background,
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
 	})
 	{
@@ -178,14 +178,14 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 			.clip_children = true
 		})
 		{
-			leaf_text(name, { .color = {text_color}, .font_size = {font_size} });
+			leaf_text(name, { .color = text_color, .font_size = {font_size} });
 		}
 
 		if (!entry->is_directory)
 		{
 			char size_text[32];
 			_uph_file_dialog_format_size(entry->size, size_text, sizeof(size_text));
-			leaf_text(size_text, { .color = {text_color}, .font_size = {font_size} });
+			leaf_text(size_text, { .color = text_color, .font_size = {font_size} });
 		}
 	}
 }
@@ -196,7 +196,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 
 	leaf({
 		.size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
-		.color = {naui_theme_color("uph_ui_well_bg_color")},
+		.color = naui_theme_color("uph_ui_well_bg_color"),
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.clip_children = true
 	})
@@ -214,7 +214,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 		if (count == 0)
 		{
 			leaf_text(NAUI_TR("file_dialog.empty"), {
-				.color = {naui_theme_color("uph_ui_text_color")},
+				.color = naui_theme_color("uph_ui_text_color"),
 				.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
 			});
 		}
@@ -262,7 +262,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	if (data->error_key)
-		leaf_text(NAUI_TR(data->error_key), { .color = {text_color}, .font_size = {font_size} });
+		leaf_text(NAUI_TR(data->error_key), { .color = text_color, .font_size = {font_size} });
 
 	leaf({
 		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
@@ -281,7 +281,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 		char filters[NAUI_DIALOG_MAX_FILTERS * (NAUI_DIALOG_FILTER_MAX + 2)];
 		_uph_file_dialog_filter_text(dialog, filters, sizeof(filters));
 		if (filters[0])
-			leaf_text(filters, { .color = {text_color}, .font_size = {font_size} });
+			leaf_text(filters, { .color = text_color, .font_size = {font_size} });
 
 		if (uph_ui_text_button(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance)))
 			actions->confirm = true;

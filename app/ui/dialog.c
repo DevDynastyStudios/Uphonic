@@ -103,7 +103,7 @@ void uph_dialog_render(void)
 	leaf({
 		.transparency = 1.0f - reveal,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.color = {leaf_rgba(0, 0, 0, 150)},
+		.color = leaf_rgba(0, 0, 0, 150),
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 		.child_offset = {0.0f, (1.0f - reveal) * NAUI_DPI(-8.0f)},
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
@@ -114,7 +114,7 @@ void uph_dialog_render(void)
 			.direction = LEAF_DIRECTION_VERTICAL,
 			.padding = LEAF_PADDING_ALL(NAUI_DPI(18.0f)),
 			.child_gap = NAUI_DPI(14.0f),
-			.color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+			.color = naui_theme_color("uph_ui_dropdown_bg_color"),
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 			.shadow = {
 				.blur_radius = NAUI_DPI(24.0f),
@@ -123,7 +123,7 @@ void uph_dialog_render(void)
 		})
 		{
 			leaf_text(s_dialog.title, {
-				.color = {text_color},
+				.color = text_color,
 				.font_size = {font_size * 1.15f}
 			});
 
@@ -135,7 +135,7 @@ void uph_dialog_render(void)
 				})
 				{
 					leaf_text(s_dialog.message, {
-						.color = {text_color},
+						.color = text_color,
 						.font_size = {font_size},
 						.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
 					});
@@ -168,12 +168,12 @@ void uph_dialog_render(void)
 				{
 					leaf({
 						.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIXED(NAUI_DPI(8.0f))},
-						.color = {naui_theme_color("uph_ui_frame_bg_color")},
+						.color = naui_theme_color("uph_ui_frame_bg_color"),
 						.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
 					})
 					leaf({
 						.size = {LEAF_SIZE_PERCENT(progress), LEAF_SIZE_FULL},
-						.color = {naui_theme_color("uph_ui_progress_bar_color")},
+						.color = naui_theme_color("uph_ui_progress_bar_color"),
 						.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
 					});
 
@@ -182,7 +182,7 @@ void uph_dialog_render(void)
 						.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
 					})
 					leaf_text(percent, {
-						.color = {text_color},
+						.color = text_color,
 						.font_size = {font_size}
 					});
 				}

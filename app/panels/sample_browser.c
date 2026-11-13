@@ -861,7 +861,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(4.0f),
-		.color = {background},
+		.color = background,
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.clip_children = true
 	})
@@ -883,7 +883,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 
 		leaf_text(_uph_sample_browser_node_name(index, node), {
 			.font_size = {font_size},
-			.color = {text_color}
+			.color = text_color
 		});
 
 		if (searching)
@@ -892,7 +892,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			_uph_sample_browser_relative_folder(node, folder, sizeof(folder));
 			leaf_text(folder, {
 				.font_size = {font_size},
-				.color = {muted_color}
+				.color = muted_color
 			});
 		}
 	}
@@ -1024,14 +1024,14 @@ static void _uph_sample_browser_preview_strip(void)
 		})
 		{
 			leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT}, .clip_children = true })
-				leaf_text(title, { .font_size = {font_size}, .color = {naui_theme_color("uph_ui_text_color")} });
-			leaf_text(details, { .font_size = {font_size}, .color = {naui_theme_color("uph_ui_text_disabled_color")} });
+				leaf_text(title, { .font_size = {font_size}, .color = naui_theme_color("uph_ui_text_color") });
+			leaf_text(details, { .font_size = {font_size}, .color = naui_theme_color("uph_ui_text_disabled_color") });
 		}
 
 		leaf({
 			.id = waveform_id,
 			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT))},
-			.color = {naui_theme_color("uph_resource_list_item_bg_color")},
+			.color = naui_theme_color("uph_resource_list_item_bg_color"),
 			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 			.custom_draw = (Leaf_CustomDrawFn)_uph_sample_browser_waveform_draw,
 			.custom_draw_data = LEAF_DATA_SLICE(info)
@@ -1051,7 +1051,7 @@ static void _uph_sample_browser_empty_state(void)
 	{
 		leaf_text(NAUI_TR("sample_browser.empty"), {
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
-			.color = {naui_theme_color("uph_ui_text_disabled_color")},
+			.color = naui_theme_color("uph_ui_text_disabled_color"),
 			.alignment = LEAF_TEXT_ALIGN_CENTER,
 			.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
 		});
@@ -1077,14 +1077,14 @@ static void _uph_sample_browser_status(void)
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
 		.border = {
 			.width = 1,
-			.color = {naui_theme_color("uph_ui_frame_border")},
+			.color = naui_theme_color("uph_ui_frame_border"),
 			.sides = LEAF_SIDE_TOP
 		},
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
 	})
 	{
-		leaf_text(status, { .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}, .color = {naui_theme_color("uph_ui_text_disabled_color")} });
+		leaf_text(status, { .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}, .color = naui_theme_color("uph_ui_text_disabled_color") });
 	}
 }
 
@@ -1249,7 +1249,7 @@ static void uph_sample_browser_on_update(void)
 			{
 				leaf_text(NAUI_TR(searching ? "sample_browser.no_matches" : "sample_browser.no_samples"), {
 					.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
-					.color = {naui_theme_color("uph_ui_text_disabled_color")}
+					.color = naui_theme_color("uph_ui_text_disabled_color")
 				});
 			}
 		}

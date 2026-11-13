@@ -86,7 +86,7 @@ static void _uph_render_row_begin(const char *label)
 	})
 	leaf_text(label, {
 		.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
-		.color = { naui_theme_color("uph_ui_text_color") }
+		.color = naui_theme_color("uph_ui_text_color")
 	});
 
 	leaf_begin_element((Leaf_ElementConfig){
@@ -188,7 +188,7 @@ static void _uph_render_options(void)
 	})
 	leaf_text(info, {
 		.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
-		.color = { naui_theme_color("naui_panel_text_color") }
+		.color = naui_theme_color("naui_panel_text_color")
 	});
 }
 
@@ -312,7 +312,7 @@ static void uph_render_on_update(void)
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(18.0f), NAUI_DPI(14.0f)),
 		.child_gap = NAUI_DPI(4.0f),
-		.color = { naui_theme_color("naui_panel_title_bg_color") },
+		.color = naui_theme_color("naui_panel_title_bg_color"),
 		.clip_children = true
 	})
 	{

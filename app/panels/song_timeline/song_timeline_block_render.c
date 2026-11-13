@@ -242,7 +242,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			.id = title_id,
 			.size = { LEAF_SIZE_FULL, LEAF_SIZE_FIXED((int32_t)title_height) },
 			.padding = { (int32_t)(title_padding + title_shift), (int32_t)title_right_padding, (int32_t)title_padding, (int32_t)title_padding },
-			.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)) },
+			.color = leaf_rgba(color.r, color.g, color.b, (uint8_t)(200 * opacity)),
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_TL | LEAF_CORNER_TR)
 		})
 		leaf({
@@ -252,13 +252,13 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		{
 			leaf_text(_uph_song_timeline_block_name(block), {
 				.font_size = { font_size },
-				.color = { leaf_rgba(text_color.r, text_color.g, text_color.b, (uint8_t)(text_color.a * opacity)) }
+				.color = leaf_rgba(text_color.r, text_color.g, text_color.b, (uint8_t)(text_color.a * opacity))
 			});
 		}
 
 		leaf({
 			.size = { LEAF_SIZE_FULL, LEAF_SIZE_GROW },
-			.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(60 * opacity)) },
+			.color = leaf_rgba(color.r, color.g, color.b, (uint8_t)(60 * opacity)),
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_BL | LEAF_CORNER_BR),
 			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_block_content,
 			.custom_draw_data = LEAF_DATA_SLICE(content_data)
@@ -282,7 +282,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - 2) },
 			.border = {
 				.width = 1,
-				.color = { leaf_rgba(color.r, color.g, color.b, (uint8_t)(45 * opacity)) },
+				.color = leaf_rgba(color.r, color.g, color.b, (uint8_t)(45 * opacity)),
 				.sides = LEAF_SIDE_ALL
 			},
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
@@ -298,7 +298,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 				.size = { LEAF_SIZE_FIXED((int32_t)anim_size.x - line_width * 2), LEAF_SIZE_FIXED((int32_t)anim_size.y - line_width * 2) },
 				.border = {
 					.width = line_width,
-					.color = { leaf_rgba(outline_color.r, outline_color.g, outline_color.b, (uint8_t)(outline_color.a * opacity)) },
+					.color = leaf_rgba(outline_color.r, outline_color.g, outline_color.b, (uint8_t)(outline_color.a * opacity)),
 					.sides = LEAF_SIDE_ALL
 				},
 				.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)

@@ -435,16 +435,16 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
         .border = (Leaf_Border){
             .width = NAUI_DPI(2),
             .sides = LEAF_SIDE_ALL,
-            .color = {border_color}
+            .color = border_color
         },
-        .color = {bg_color},
+        .color = bg_color,
         .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
         .clip_children = true
     }) {
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
             .padding = LEAF_PADDING_ALL((int32_t)title_padding),
-            .color = {leaf_rgba(fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * (200.0f / 255.0f)))},
+            .color = leaf_rgba(fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * (200.0f / 255.0f))),
             .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_TL | LEAF_CORNER_TR)
         }) {
             if (renaming)
@@ -465,7 +465,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             else
             {
                 leaf_text(name->data, {
-                    .color = {naui_theme_color("uph_resource_list_item_text_color")},
+                    .color = naui_theme_color("uph_resource_list_item_text_color"),
                     .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
                 });
             }
@@ -473,7 +473,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
         leaf({
             .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
             .padding = LEAF_PADDING_ALL((int32_t)title_padding),
-            .color = {leaf_rgba(fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * (60.0f / 255.0f)))},
+            .color = leaf_rgba(fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * (60.0f / 255.0f))),
             .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_BL | LEAF_CORNER_BR)
         }) {
             leaf({
@@ -632,9 +632,9 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
         .border = {
             .width = NAUI_DPI(1),
             .sides = LEAF_SIDE_ALL,
-            .color = {naui_theme_color("uph_ui_frame_border")}
+            .color = naui_theme_color("uph_ui_frame_border")
         },
-        .color = {naui_theme_color("uph_song_timeline_header_color")},
+        .color = naui_theme_color("uph_song_timeline_header_color"),
         .child_alignment = {
             LEAF_ALIGN_X_CENTER,
             LEAF_ALIGN_Y_CENTER

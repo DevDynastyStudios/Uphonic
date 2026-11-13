@@ -65,11 +65,11 @@ void uph_drag_label(const Naui_Image *icon, const char *text, Naui_Color accent)
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(6.0f),
-		.color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
 		.border = {
 			.width = NAUI_DPI(1),
 			.sides = LEAF_SIDE_ALL,
-			.color = {accent}
+			.color = accent
 		},
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.shadow = {
@@ -82,14 +82,14 @@ void uph_drag_label(const Naui_Image *icon, const char *text, Naui_Color accent)
 		{
 			leaf({
 				.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
-				.color = {accent},
+				.color = accent,
 				.image = (void*)icon
 			});
 		}
 
 		leaf_text(text, {
 			.font_size = {font_size},
-			.color = {naui_theme_color("uph_ui_text_color")}
+			.color = naui_theme_color("uph_ui_text_color")
 		});
 	}
 }

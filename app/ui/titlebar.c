@@ -133,7 +133,7 @@ void uph_render_main_titlebar(void)
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(titlebar_height)},
-		.color = {naui_theme_color(NAUI_PANEL_TITLEBAR_BG_COLOR_TAG)},
+		.color = naui_theme_color(NAUI_PANEL_TITLEBAR_BG_COLOR_TAG),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
 	})
 	{
@@ -149,7 +149,7 @@ void uph_render_main_titlebar(void)
 			leaf({
 				.size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.5f)},
 				.image = naui_asset_image("uph_logo_small"),
-				.color = {naui_theme_color("uph_logo_color")},
+				.color = naui_theme_color("uph_logo_color"),
 				.aspect_ratio = 1.0f
 			});
 			leaf({
@@ -258,7 +258,7 @@ void uph_render_main_titlebar(void)
 		})
 		leaf_text(NAUI_TR("uphonic.title"), {
 			.font_size = {NAUI_DPI(NAUI_PANEL_FONT_SIZE)},
-			.color = {text_color},
+			.color = text_color,
 			.alignment = LEAF_TEXT_ALIGN_CENTER
 		});
 		leaf({

@@ -240,7 +240,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 			.child_gap = header_child_gap,
 			.border = {
 				.width = 1,
-				.color = {border_color},
+				.color = border_color,
 				.sides = LEAF_SIDE_ALL
 			}
 		})
@@ -314,7 +314,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 							leaf({
 								.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
 								.image = icon,
-								.color = {text_color}
+								.color = text_color
 							});
 						}
 
@@ -329,7 +329,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 							{
 								leaf_text(NAUI_TR("master.track.title"), {
 									.font_size = {NAUI_DPI(14)},
-									.color = {text_color}
+									.color = text_color
 								});
 							}
 						}
@@ -351,7 +351,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 							{
 								leaf_text(track->name.data, {
 									.font_size = {NAUI_DPI(14)},
-									.color = {text_color}
+									.color = text_color
 								});
 							}
 						}
@@ -404,7 +404,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 							if (target_name)
 								leaf_text(target_name, {
 									.font_size = {NAUI_DPI(14)},
-									.color = {naui_theme_color("uph_ui_text_disabled_color")}
+									.color = naui_theme_color("uph_ui_text_disabled_color")
 								});
 						}
 
@@ -908,7 +908,7 @@ void uph_song_timeline_update_track_drag(void)
 		const float line_y = target.after ? target.row.y + target.row.height : target.row.y;
 		leaf({
 			.size = {LEAF_SIZE_FIXED(target.row.width - indent), LEAF_SIZE_FIXED(line_height)},
-			.color = {naui_theme_color("uph_ui_slider_fill_color")},
+			.color = naui_theme_color("uph_ui_slider_fill_color"),
 			.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
 			.floating = { .offset = { target.row.x + indent, line_y - line_height * 0.5f } }
 		});
@@ -916,7 +916,7 @@ void uph_song_timeline_update_track_drag(void)
 
 	leaf({
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), NAUI_DPI(4)),
-		.color = {naui_theme_color("uph_ui_dropdown_bg_color")},
+		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
 		.floating = { .offset = { mouse.x + NAUI_DPI(12), mouse.y + NAUI_DPI(12) } }
@@ -924,7 +924,7 @@ void uph_song_timeline_update_track_drag(void)
 	{
 		leaf_text(label, {
 			.font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
-			.color = {naui_theme_color("uph_ui_text_color")}
+			.color = naui_theme_color("uph_ui_text_color")
 		});
 	}
 }

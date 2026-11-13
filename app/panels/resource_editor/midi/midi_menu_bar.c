@@ -110,7 +110,7 @@ void uph_midi_menu_bar_render(Uph_MidiEditorData *editor)
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_MENU_BAR_HEIGHT))},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X) * 0.5f, 0.0f),
 		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.color = {naui_theme_color("uph_toolbox_bg_color")},
+		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{

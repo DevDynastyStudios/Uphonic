@@ -733,7 +733,7 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 		.custom_draw = row_visible ? (Leaf_CustomDrawFn)_uph_song_timeline_render_track_timeline_overlay : NULL,
 		.border = {
 			.width = 1,
-			.color = {border_color},
+			.color = border_color,
 			.sides = LEAF_SIDE_LEFT | LEAF_SIDE_RIGHT |
 				(_uph_song_timeline_row_has_timeline(_uph_song_timeline_previous_row(track)) ? 0 : LEAF_SIDE_TOP) |
 				(_uph_song_timeline_row_has_timeline(_uph_song_timeline_next_row(track)) ? 0 : LEAF_SIDE_BOTTOM)

@@ -401,19 +401,19 @@ static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool activ
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_MIDI_EDITOR_TAB_PADDING_X), 0),
 		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
 		.child_gap = NAUI_DPI(6),
-		.color = {bg_color},
+		.color = bg_color,
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_TL | NAUI_CORNER_TR)
 	})
 	{
 		const float icon_size = NAUI_DPI(UPH_MIDI_EDITOR_TAB_ICON_SIZE);
 		leaf({
 			.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
-			.color = {text_color},
+			.color = text_color,
 			.image = (void*)naui_asset_image(active ? "uph_icon_arrow_down" : "uph_icon_arrow_right")
 		});
 		leaf_text(label, {
 			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
-			.color = {text_color}
+			.color = text_color
 		});
 	}
 

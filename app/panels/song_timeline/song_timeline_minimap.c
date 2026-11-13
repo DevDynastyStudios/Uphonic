@@ -233,7 +233,7 @@ void uph_song_timeline_render_time_display(void)
 		.color = naui_theme_color("uph_song_timeline_header_color"),
 		.border = {
 			.width = 1,
-			.color = {naui_theme_color("uph_timeline_top_ruler_border_color")},
+			.color = naui_theme_color("uph_timeline_top_ruler_border_color"),
 			.sides = LEAF_SIDE_ALL
 		}
 	})
