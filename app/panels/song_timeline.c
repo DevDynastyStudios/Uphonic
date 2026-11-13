@@ -171,7 +171,14 @@ static void uph_song_timeline_on_update(void)
 					.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT}
 				})
 				{
-					for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+					Uph_Track *master = &uph_state.project.tracks[0];
+					if (naui_list_len(master->subtracks) > 0)
+					{
+						uph_song_timeline_render_track(master, 0, track_options_context_menu, track_color_options_context_menu);
+						data->visual.row_counter++;
+					}
+
+					for (uint32_t i = 1; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 					{
 						uph_song_timeline_render_track(&uph_state.project.tracks[i], 0, track_options_context_menu, track_color_options_context_menu);
 						data->visual.row_counter++;
