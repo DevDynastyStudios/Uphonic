@@ -66,6 +66,10 @@ typedef struct
 	bool panel_hovered;
 	Uph_LoopRegionDrag loop_drag;
 
+	Uph_ActionSampleSettings edit_before;
+	Uph_ResourceIndex edit_index;
+	bool edit_active;
+
 	Uph_ResourceIndex last_sample;
 	bool has_last_sample;
 	bool fit;
@@ -76,6 +80,43 @@ typedef struct
 Uph_SampleEditorData;
 
 static Uph_SampleEditorData uph_sample_editor_data;
+
+#pragma region Edit
+
+static void _uph_sample_editor_track_edit(Uph_SampleEditorData *editor, Uph_ResourceIndex index, const Uph_ActionSampleSettings *before, const Uph_Sample *sample)
+{
+	if (editor->edit_active)
+		return;
+
+	const Uph_ActionSampleSettings after = uph_action_sample_settings_capture(sample);
+	if (uph_action_sample_settings_equal(before, &after))
+		return;
+
+	editor->edit_active = true;
+	editor->edit_index = index;
+	editor->edit_before = *before;
+}
+
+static void _uph_sample_editor_commit_edit(Uph_SampleEditorData *editor)
+{
+	if (!editor->edit_active)
+		return;
+
+	editor->edit_active = false;
+	if (editor->edit_index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.samples))
+		return;
+
+	Uph_ActionSampleEdit data = {
+		.resource_index = editor->edit_index,
+		.old_settings = editor->edit_before,
+		.new_settings = uph_action_sample_settings_capture(&uph_state.project.samples[editor->edit_index])
+	};
+
+	if (!uph_action_sample_settings_equal(&data.old_settings, &data.new_settings))
+		naui_action_execute_stack(UPH_ACTION_SAMPLE_EDIT, data);
+}
+
+#pragma endregion
 
 #pragma region View
 
@@ -354,6 +395,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	bool loop_busy = false;
 	if (sample)
 	{
+		const Uph_ActionSampleSettings before = uph_action_sample_settings_capture(sample);
 		loop_busy = uph_loop_region_update(
 			&sample->loop_region, &editor->loop_drag, box,
 			zoom, scroll, _uph_sample_editor_minor_step(editor),
@@ -364,6 +406,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 			editor->loop_drag.created = false;
 			uph_sample_preview_set_loop(true);
 		}
+		_uph_sample_editor_track_edit(editor, uph_state.shared.selected_resource.index, &before, sample);
 		uph_loop_region_render_ruler(&sample->loop_region, box, zoom, scroll, uph_sample_preview_looping());
 	}
 	else
@@ -1335,6 +1378,7 @@ void uph_sample_editor_init(void)
 void uph_sample_editor_reset_interaction(void)
 {
 	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	_uph_sample_editor_commit_edit(editor);
 	editor->panning = false;
 	editor->wave_hovered = false;
 	editor->has_last_sample = false;
@@ -1353,6 +1397,9 @@ void uph_sample_editor_update(void)
 	Uph_SampleEditorData *editor = &uph_sample_editor_data;
 	Uph_Project *project = &uph_state.project;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
+
+	if (editor->edit_active && (editor->edit_index != index || (!naui_mouse_down(NAUI_MOUSE_LEFT) && !uph_ui_any_textfield_active())))
+		_uph_sample_editor_commit_edit(editor);
 
 	if (index >= (Uph_ResourceIndex)naui_list_len(project->samples))
 	{
@@ -1412,7 +1459,9 @@ void uph_sample_editor_update(void)
 		.child_gap = 1
 	})
 	{
+		const Uph_ActionSampleSettings before = uph_action_sample_settings_capture(sample);
 		_uph_sample_editor_render_sidebar(editor, sample, source);
+		_uph_sample_editor_track_edit(editor, index, &before, sample);
 
 		leaf({
 			.direction = LEAF_DIRECTION_VERTICAL,

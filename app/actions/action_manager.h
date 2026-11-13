@@ -6,6 +6,7 @@
 #define UPH_ACTION_SAMPLE_DELETE "Sample Delete"
 #define UPH_ACTION_SAMPLE_RENAME "Sample Rename"
 #define UPH_ACTION_SAMPLE_DUPLICATE "Sample Duplicate"
+#define UPH_ACTION_SAMPLE_EDIT "Sample Edit"
 
 #define UPH_ACTION_RESOURCES_DELETE_GROUP "Resources Delete"
 #define UPH_ACTION_RESOURCES_DUPLICATE_GROUP "Resources Duplicate"
@@ -206,6 +207,64 @@ typedef struct
 	Naui_String old_name;
 	Naui_String new_name;
 } Uph_ActionResourceRename;
+
+typedef struct
+{
+	float time_scale;
+	float tempo_bpm;
+	float gain;
+	Uph_LoopRegion loop_region;
+	int32_t pitch;
+	Uph_SampleMode mode;
+	bool follow_tempo;
+	bool normalized;
+} Uph_ActionSampleSettings;
+
+typedef struct
+{
+	Uph_ResourceIndex resource_index;
+	Uph_ActionSampleSettings old_settings;
+	Uph_ActionSampleSettings new_settings;
+} Uph_ActionSampleEdit;
+
+static inline Uph_ActionSampleSettings uph_action_sample_settings_capture(const Uph_Sample *sample)
+{
+	return (Uph_ActionSampleSettings){
+		.time_scale = sample->time_scale,
+		.tempo_bpm = sample->tempo_bpm,
+		.gain = sample->gain,
+		.loop_region = sample->loop_region,
+		.pitch = sample->pitch,
+		.mode = sample->mode,
+		.follow_tempo = sample->follow_tempo,
+		.normalized = sample->normalized
+	};
+}
+
+static inline void uph_action_sample_settings_apply(Uph_Sample *sample, const Uph_ActionSampleSettings *settings)
+{
+	sample->time_scale = settings->time_scale;
+	sample->tempo_bpm = settings->tempo_bpm;
+	sample->gain = settings->gain;
+	sample->loop_region = settings->loop_region;
+	sample->pitch = settings->pitch;
+	sample->mode = settings->mode;
+	sample->follow_tempo = settings->follow_tempo;
+	sample->normalized = settings->normalized;
+}
+
+static inline bool uph_action_sample_settings_equal(const Uph_ActionSampleSettings *a, const Uph_ActionSampleSettings *b)
+{
+	return a->time_scale == b->time_scale
+		&& a->tempo_bpm == b->tempo_bpm
+		&& a->gain == b->gain
+		&& a->loop_region.start == b->loop_region.start
+		&& a->loop_region.end == b->loop_region.end
+		&& a->pitch == b->pitch
+		&& a->mode == b->mode
+		&& a->follow_tempo == b->follow_tempo
+		&& a->normalized == b->normalized;
+}
 
 void uph_action_initialize(void);
 void uph_action_shutdown(void);

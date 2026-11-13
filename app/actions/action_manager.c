@@ -87,6 +87,7 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_SAMPLE_DELETE, _uph_action_sample_delete);
 	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_RENAME, _uph_action_sample_rename);
 	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_DUPLICATE, _uph_action_sample_duplicate);
+	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_EDIT, _uph_action_sample_edit);
 
 	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_CREATE, _uph_action_track_create);
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_TRACK_DELETE, _uph_action_track_delete);

@@ -172,3 +172,36 @@ bool _uph_action_sample_duplicate_redo(void* userdata)
 }
 
 #pragma endregion
+
+
+#pragma region Sample Edit
+static bool _uph_action_sample_edit_apply(const Uph_ActionSampleEdit* data, const Uph_ActionSampleSettings* settings)
+{
+	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.samples))
+		return false;
+
+	uph_action_sample_settings_apply(&uph_state.project.samples[data->resource_index], settings);
+
+	if (uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE && uph_state.shared.selected_resource.index == data->resource_index)
+		uph_action_refresh_block_defaults();
+	return true;
+}
+
+bool _uph_action_sample_edit_execute(void* userdata)
+{
+	Uph_ActionSampleEdit* data = userdata;
+	return _uph_action_sample_edit_apply(data, &data->new_settings);
+}
+
+bool _uph_action_sample_edit_undo(void* userdata)
+{
+	Uph_ActionSampleEdit* data = userdata;
+	return _uph_action_sample_edit_apply(data, &data->old_settings);
+}
+
+bool _uph_action_sample_edit_redo(void* userdata)
+{
+	return _uph_action_sample_edit_execute(userdata);
+}
+
+#pragma endregion
