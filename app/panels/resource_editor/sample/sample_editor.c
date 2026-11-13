@@ -44,6 +44,7 @@ typedef struct
 	uint64_t frame_count;
 	uint32_t channels;
 	uint32_t sample_rate;
+	bool reversed;
 	bool valid;
 }
 Uph_SampleEditorSource;
@@ -149,6 +150,11 @@ static void _uph_sample_editor_view_resolve(Uph_SampleEditorData *editor, double
 
 	const double max_start = fmax(0.0, total - width * editor->frames_per_pixel);
 	editor->start_frame = NAUI_CLAMP(editor->start_frame, 0.0, max_start);
+}
+
+static inline uint64_t _uph_sample_editor_source_frame(const Uph_SampleEditorSource *source, uint64_t frame)
+{
+	return source->reversed ? source->frame_count - 1 - frame : frame;
 }
 
 static inline float _uph_sample_editor_frame_to_x(const Uph_SampleEditorData *editor, Leaf_BoundingBox box, double frame)
@@ -537,7 +543,7 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		Naui_Vec2 previous = { 0.0f, 0.0f };
 		for (int64_t i = first; i <= last; i++)
 		{
-			const float v = _uph_sample_editor_clamp_amplitude(source->frames[(uint64_t)i * channels + channel] * editor->gain);
+			const float v = _uph_sample_editor_clamp_amplitude(source->frames[_uph_sample_editor_source_frame(source, (uint64_t)i) * channels + channel] * editor->gain);
 			const Naui_Vec2 point = { _uph_sample_editor_frame_to_x(editor, lane, (double)i), mid_y - v * half };
 
 			if (draw_stems)
@@ -575,13 +581,16 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		if (frame_end > (double)total)
 			frame_end = (double)total;
 
+		const double src_start = source->reversed ? (double)total - frame_end : frame_start;
+		const double src_end = source->reversed ? (double)total - frame_start : frame_end;
+
 		float min_v = FLT_MAX;
 		float max_v = -FLT_MAX;
 
 		if (use_bins)
 		{
-			uint64_t bin_start = (uint64_t)(frame_start / UPH_WAVEFORM_BIN_FRAMES);
-			uint64_t bin_end = (uint64_t)ceil(frame_end / UPH_WAVEFORM_BIN_FRAMES);
+			uint64_t bin_start = (uint64_t)(src_start / UPH_WAVEFORM_BIN_FRAMES);
+			uint64_t bin_end = (uint64_t)ceil(src_end / UPH_WAVEFORM_BIN_FRAMES);
 			if (bin_end <= bin_start) bin_end = bin_start + 1;
 			if (bin_end > bin_count) bin_end = bin_count;
 
@@ -594,8 +603,8 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, 
 		}
 		else
 		{
-			uint64_t i_start = (uint64_t)frame_start;
-			uint64_t i_end = (uint64_t)ceil(frame_end);
+			uint64_t i_start = (uint64_t)src_start;
+			uint64_t i_end = (uint64_t)ceil(src_end);
 			if (i_end <= i_start) i_end = i_start + 1;
 			if (i_end > total) i_end = total;
 
@@ -1274,6 +1283,11 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 				_uph_sample_editor_set_tempo_follow(sample, sample->mode, follow_tempo);
 		}
 
+		_uph_sample_editor_sidebar_row("Reverse")
+		{
+			uph_ui_checkbox(&sample->reversed, leaf_id("uph_sample_editor_reversed"));
+		}
+
 		_uph_sample_editor_render_separator();
 
 		leaf_text("Level", {
@@ -1284,7 +1298,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_
 		_uph_sample_editor_sidebar_row("Gain")
 		{
 			float gain_db = NAUI_CLAMP(uph_linear_to_db(sample->gain), UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX);
-			if (uph_ui_drag_float(&gain_db, leaf_id("uph_sample_editor_gain"), 0.1f, UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX, "%.1f dB", UPH_UI_DRAG_FLAG_CLAMPED))
+			if (uph_ui_drag_float(&gain_db, leaf_id("uph_sample_editor_gain"), 0.1f, UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX, "%.2f dB", UPH_UI_DRAG_FLAG_CLAMPED))
 				sample->gain = uph_db_to_linear(gain_db);
 		}
 
@@ -1324,10 +1338,11 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorData *edi
 		char time[32];
 		_uph_sample_editor_format_time(time, sizeof(time), (double)frame / (double)source->sample_rate, 3);
 		int32_t length = snprintf(readout, sizeof(readout), "%s   Frame %llu", time, (unsigned long long)frame);
+		const uint64_t src_frame = _uph_sample_editor_source_frame(source, frame);
 		if (source->channels == 1)
-			snprintf(readout + length, sizeof(readout) - (size_t)length, "   %+.4f", source->frames[frame]);
+			snprintf(readout + length, sizeof(readout) - (size_t)length, "   %+.4f", source->frames[src_frame]);
 		else
-			snprintf(readout + length, sizeof(readout) - (size_t)length, "   L %+.4f   R %+.4f", source->frames[frame * 2], source->frames[frame * 2 + 1]);
+			snprintf(readout + length, sizeof(readout) - (size_t)length, "   L %+.4f   R %+.4f", source->frames[src_frame * 2], source->frames[src_frame * 2 + 1]);
 	}
 
 	char sample_rate[32], zoom[32];
@@ -1437,6 +1452,7 @@ void uph_sample_editor_update(void)
 	source->frame_count = data->frame_count;
 	source->channels = data->channel_type == UPH_SAMPLE_STEREO ? 2 : 1;
 	source->sample_rate = uph_state.settings.audio.sample_rate;
+	source->reversed = sample->reversed;
 	source->valid = source->frames && source->frame_count > 0 && source->sample_rate > 0;
 	editor->gain = uph_sample_gain(sample, data);
 	editor->playback_length = uph_sample_preview_length(sample, data);

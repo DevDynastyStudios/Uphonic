@@ -267,6 +267,7 @@ typedef struct
 	Uph_SampleMode mode;
 	bool follow_tempo;
 	bool normalized;
+	bool reversed;
 	bool selected;
 }
 Uph_Sample;

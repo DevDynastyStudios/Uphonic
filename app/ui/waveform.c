@@ -71,6 +71,9 @@ void uph_ui_waveform_zoomable(
             break;
         }
 
+        if (sample->reversed)
+            source_frame_pos = (double)sample_data->frame_count - source_frame_pos;
+
         double bin_pos = source_frame_pos / (double)max_frame_count;
 
         int64_t peak_index = (int64_t)bin_pos;

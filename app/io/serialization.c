@@ -283,6 +283,7 @@ static bool uph_io_save_samples(const Uph_Project* project, const Naui_Path save
 		naui_json_set_bool(&json, sample_obj, "follow_tempo", sample->follow_tempo);
 		naui_json_set_number(&json, sample_obj, "tempo_bpm", sample->tempo_bpm);
 		naui_json_set_bool(&json, sample_obj, "normalized", sample->normalized);
+		naui_json_set_bool(&json, sample_obj, "reversed", sample->reversed);
 		naui_json_set_number(&json, sample_obj, "gain", sample->gain);
 		if (uph_loop_region_valid(&sample->loop_region))
 		{
@@ -949,6 +950,7 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		const double tempo_bpm = naui_json_get_number(naui_json_object_get(value, "tempo_bpm"), project->bpm);
 		sample->tempo_bpm = tempo_bpm > 0.0 ? (float)tempo_bpm : project->bpm;
 		sample->normalized = naui_json_get_bool(naui_json_object_get(value, "normalized"), false);
+		sample->reversed = naui_json_get_bool(naui_json_object_get(value, "reversed"), false);
 		sample->gain = fmaxf(0.0f, (float)naui_json_get_number(naui_json_object_get(value, "gain"), 1.0));
 		sample->loop_region.start = naui_json_get_number(naui_json_object_get(value, "loop_start"), 0.0);
 		sample->loop_region.end = naui_json_get_number(naui_json_object_get(value, "loop_end"), 0.0);

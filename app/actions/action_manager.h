@@ -218,6 +218,7 @@ typedef struct
 	Uph_SampleMode mode;
 	bool follow_tempo;
 	bool normalized;
+	bool reversed;
 } Uph_ActionSampleSettings;
 
 typedef struct
@@ -237,7 +238,8 @@ static inline Uph_ActionSampleSettings uph_action_sample_settings_capture(const 
 		.pitch = sample->pitch,
 		.mode = sample->mode,
 		.follow_tempo = sample->follow_tempo,
-		.normalized = sample->normalized
+		.normalized = sample->normalized,
+		.reversed = sample->reversed
 	};
 }
 
@@ -251,6 +253,7 @@ static inline void uph_action_sample_settings_apply(Uph_Sample *sample, const Up
 	sample->mode = settings->mode;
 	sample->follow_tempo = settings->follow_tempo;
 	sample->normalized = settings->normalized;
+	sample->reversed = settings->reversed;
 }
 
 static inline bool uph_action_sample_settings_equal(const Uph_ActionSampleSettings *a, const Uph_ActionSampleSettings *b)
@@ -263,7 +266,8 @@ static inline bool uph_action_sample_settings_equal(const Uph_ActionSampleSettin
 		&& a->pitch == b->pitch
 		&& a->mode == b->mode
 		&& a->follow_tempo == b->follow_tempo
-		&& a->normalized == b->normalized;
+		&& a->normalized == b->normalized
+		&& a->reversed == b->reversed;
 }
 
 void uph_action_initialize(void);

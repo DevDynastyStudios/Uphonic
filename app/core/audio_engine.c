@@ -31,6 +31,7 @@ typedef struct
     double      start_offset_frames;
     double      beta;
     double      read_rate;
+    bool        reversed;
 
     double      next_out_pos;
     double      q;
@@ -76,7 +77,7 @@ static Uph_AudioEngineData uph_audio_engine_data = {
     .render_gain = 1.0f
 };
 
-static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, float *out_left, float *out_right)
+static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, bool reversed, float *out_left, float *out_right)
 {
     if (pos < 0.0 || pos >= (double)sample->frame_count || !sample->frames)
     {
@@ -84,6 +85,9 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, floa
         *out_right = 0.0f;
         return;
     }
+
+    if (reversed)
+        pos = NAUI_MAX((double)(sample->frame_count - 1) - pos, 0.0);
 
     const float *src = (const float*)sample->frames;
     const int src_channels = (sample->channel_type == UPH_SAMPLE_STEREO) ? 2 : 1;
@@ -120,10 +124,13 @@ static void uph_stretch_init_window(void)
     }
 }
 
-static inline float uph_sample_mono_at(const Uph_SampleData *s, int64_t i)
+static inline float uph_sample_mono_at(const Uph_SampleData *s, int64_t i, bool reversed)
 {
     if (i < 0 || (uint64_t)i >= s->frame_count || !s->frames)
         return 0.0f;
+
+    if (reversed)
+        i = (int64_t)s->frame_count - 1 - i;
 
     const float *src = (const float*)s->frames;
     if (s->channel_type == UPH_SAMPLE_STEREO)
@@ -131,7 +138,7 @@ static inline float uph_sample_mono_at(const Uph_SampleData *s, int64_t i)
     return src[i];
 }
 
-static inline void uph_sample_stereo_at(const Uph_SampleData *s, int64_t i, float *l, float *r)
+static inline void uph_sample_stereo_at(const Uph_SampleData *s, int64_t i, bool reversed, float *l, float *r)
 {
     if (i < 0 || (uint64_t)i >= s->frame_count || !s->frames)
     {
@@ -139,6 +146,9 @@ static inline void uph_sample_stereo_at(const Uph_SampleData *s, int64_t i, floa
         *r = 0.0f;
         return;
     }
+
+    if (reversed)
+        i = (int64_t)s->frame_count - 1 - i;
 
     const float *src = (const float*)s->frames;
     if (s->channel_type == UPH_SAMPLE_STEREO)
@@ -160,7 +170,7 @@ static inline float uph_hermite4(float ym1, float y0, float y1, float y2, float 
     return ((c3 * t + c2) * t + c1) * t + y0;
 }
 
-static int64_t uph_wsola_find_start(const Uph_SampleData *s, int64_t ref_start, int64_t nominal, int64_t min_start)
+static int64_t uph_wsola_find_start(const Uph_SampleData *s, bool reversed, int64_t ref_start, int64_t nominal, int64_t min_start)
 {
     enum
     {
@@ -180,14 +190,14 @@ static int64_t uph_wsola_find_start(const Uph_SampleData *s, int64_t ref_start, 
     {
         float acc = 0.0f;
         for (int u = 0; u < STEP; u++)
-            acc += uph_sample_mono_at(s, ref_start + (int64_t)m * STEP + u);
+            acc += uph_sample_mono_at(s, ref_start + (int64_t)m * STEP + u, reversed);
         dref[m] = acc;
     }
     for (int m = 0; m < CANDS + REF_N - 1; m++)
     {
         float acc = 0.0f;
         for (int u = 0; u < STEP; u++)
-            acc += uph_sample_mono_at(s, base + (int64_t)m * STEP + u);
+            acc += uph_sample_mono_at(s, base + (int64_t)m * STEP + u, reversed);
         d[m] = acc;
     }
 
@@ -225,7 +235,7 @@ static int64_t uph_wsola_find_start(const Uph_SampleData *s, int64_t ref_start, 
 
     float ref[HOP];
     for (int i = 0; i < HOP; i++)
-        ref[i] = uph_sample_mono_at(s, ref_start + i);
+        ref[i] = uph_sample_mono_at(s, ref_start + i, reversed);
 
     int64_t best = coarse_best;
     best_score = -1e30f;
@@ -239,7 +249,7 @@ static int64_t uph_wsola_find_start(const Uph_SampleData *s, int64_t ref_start, 
         float en  = 0.0f;
         for (int i = 0; i < HOP; i += 2)
         {
-            float c = uph_sample_mono_at(s, a + i);
+            float c = uph_sample_mono_at(s, a + i, reversed);
             dot += ref[i] * c;
             en  += c * c;
         }
@@ -270,7 +280,7 @@ static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample,
 
     int64_t a = nominal;
     if (st->has_prev)
-        a = uph_wsola_find_start(sample, st->prev_start + hop, nominal, start);
+        a = uph_wsola_find_start(sample, st->reversed, st->prev_start + hop, nominal, start);
 
     const int64_t y0 = k * hop;
 
@@ -286,7 +296,7 @@ static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample,
         const float w = (k == 0 && i < hop) ? 1.0f : uph_audio_engine_data.stretch_window[i];
 
         float l, r;
-        uph_sample_stereo_at(sample, a + i, &l, &r);
+        uph_sample_stereo_at(sample, a + i, st->reversed, &l, &r);
 
         const int64_t idx = (y0 + i) & UPH_WSOLA_RING_MASK;
         st->ring_l[idx] += l * w;
@@ -344,6 +354,7 @@ static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 static void uph_stretcher_prepare(
     Uph_Stretcher *st,
     const Uph_SampleData *data,
+    bool reversed,
     double start_offset_frames,
     double beta,
     double read_rate,
@@ -352,6 +363,7 @@ static void uph_stretcher_prepare(
 {
     const bool same = st->valid
         && st->frames == data->frames
+        && st->reversed == reversed
         && st->frame_count == data->frame_count
         && st->start_offset_frames == start_offset_frames
         && st->beta == beta
@@ -365,6 +377,7 @@ static void uph_stretcher_prepare(
     st->valid               = true;
     st->frames              = data->frames;
     st->frame_count         = data->frame_count;
+    st->reversed            = reversed;
     st->start_offset_frames = start_offset_frames;
     st->beta                = beta;
     st->read_rate           = read_rate;
@@ -376,6 +389,7 @@ static void uph_stretcher_prepare(
 static void uph_stretcher_prepare_follow(
     Uph_Stretcher *st,
     const Uph_SampleData *data,
+    bool reversed,
     double start_offset_frames,
     double beta,
     double read_rate,
@@ -387,6 +401,7 @@ static void uph_stretcher_prepare_follow(
     const bool continuing = st->valid
         && st->follow
         && st->frames == data->frames
+        && st->reversed == reversed
         && st->frame_count == data->frame_count
         && st->start_offset_frames == start_offset_frames
         && st->last_callback + 1 == uph_audio_engine_data.stretcher_callback
@@ -403,6 +418,7 @@ static void uph_stretcher_prepare_follow(
         st->follow              = true;
         st->frames              = data->frames;
         st->frame_count         = data->frame_count;
+        st->reversed            = reversed;
         st->start_offset_frames = start_offset_frames;
 
         uph_stretcher_reset(st, out_pos);
@@ -506,7 +522,7 @@ static void uph_render_sample_block(
         {
             follow_stretcher = uph_stretcher_acquire(block);
             uph_stretcher_prepare_follow(
-                follow_stretcher, data,
+                follow_stretcher, data, sample->reversed,
                 offset_frames, src_rate / follow_read_rate, follow_read_rate,
                 first_out_pos + (double)f, src_start
             );
@@ -521,7 +537,7 @@ static void uph_render_sample_block(
             if (follow_stretcher)
                 uph_stretcher_read(follow_stretcher, data, &left, &right);
             else
-                uph_read_sample_frame(data, src_start + (double)(f - f0) * src_rate, &left, &right);
+                uph_read_sample_frame(data, src_start + (double)(f - f0) * src_rate, sample->reversed, &left, &right);
 
             track_l[f] += left * gain;
             track_r[f] += right * gain;
@@ -541,7 +557,7 @@ static void uph_render_sample_block(
     {
         stretcher = uph_stretcher_acquire(block);
         uph_stretcher_prepare(
-            stretcher, data,
+            stretcher, data, sample->reversed,
             start_offset_frames, speed / read_rate, read_rate,
             first_out_pos + (double)f
         );
@@ -557,7 +573,7 @@ static void uph_render_sample_block(
         if (stretcher)
             uph_stretcher_read(stretcher, data, &left, &right);
         else
-            uph_read_sample_frame(data, start_offset_frames + out_pos * speed, &left, &right);
+            uph_read_sample_frame(data, start_offset_frames + out_pos * speed, sample->reversed, &left, &right);
 
         track_l[f] += left * gain;
         track_r[f] += right * gain;
