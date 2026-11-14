@@ -11,7 +11,6 @@ typedef struct Uph_PluginInternalHandle_ Uph_PluginInternalHandle;
 
 const char         *uph_plugin_gui_title        (Uph_PluginInternalHandle *handle);
 void                uph_plugin_gui_size         (Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height);
-bool                uph_plugin_gui_take_resize  (Uph_PluginInternalHandle *handle);
 Naui_Texture        uph_plugin_gui_texture      (Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height);
 void                uph_plugin_gui_set_origin   (Uph_PluginInternalHandle *handle, int32_t x, int32_t y);
 #if NAUI_LINUX

@@ -329,7 +329,6 @@ struct Uph_PluginInternalHandle_
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
-    bool resize_pending;
     bool visible;
     bool is_clap;
     Naui_String display_name;
@@ -341,7 +340,6 @@ static void _uph_plugin_gui_resize_window(Uph_PluginInternalHandle *ih, uint32_t
 {
     ih->gui_width = width;
     ih->gui_height = height;
-    ih->resize_pending = true;
 
 #if NAUI_LINUX
     XResizeWindow(ih->display, ih->window, width, height);
@@ -3013,13 +3011,6 @@ void uph_plugin_gui_size(Uph_PluginInternalHandle *handle, uint32_t *width, uint
 {
     *width = handle->gui_width;
     *height = handle->gui_height;
-}
-
-bool uph_plugin_gui_take_resize(Uph_PluginInternalHandle *handle)
-{
-    const bool pending = handle->resize_pending;
-    handle->resize_pending = false;
-    return pending;
 }
 
 Naui_Texture uph_plugin_gui_texture(Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height)
