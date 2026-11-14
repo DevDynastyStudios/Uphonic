@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="content/UphonicLarge.svg" alt="Uphonic" width="60%">
+  <img src="content/UphonicLarge.svg" alt="Uphonic" width="85%">
 
   <p><b>A digital audio workstation written entirely in C.</b><br>Built to be simple, fast, and customizable.</p>
 
