@@ -157,6 +157,7 @@ void uph_settings_set_defaults(void)
 	settings->audio.buffer_size = 512;
 	settings->audio.channels = 2;
 	settings->audio.input_channel = 0;
+	settings->audio.monitor_volume_db = 0.0f;
 	settings->audio.exclusive_mode = false;
 	settings->audio.auto_restart_on_device_change = true;
 	settings->audio.underrun_protection = true;
@@ -225,6 +226,7 @@ void uph_settings_sanitize(void)
 	settings->audio.buffer_size = uph_settings_nearest(settings->audio.buffer_size, uph_settings_buffer_sizes, UPH_SETTINGS_COUNT(uph_settings_buffer_sizes));
 	settings->audio.channels = uph_settings_nearest(settings->audio.channels, uph_settings_channel_counts, UPH_SETTINGS_COUNT(uph_settings_channel_counts));
 	settings->audio.input_channel = NAUI_MIN(settings->audio.input_channel, 1u);
+	settings->audio.monitor_volume_db = NAUI_CLAMP(settings->audio.monitor_volume_db, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX);
 
 	settings->ui.scroll_sensitivity.x = NAUI_CLAMP(settings->ui.scroll_sensitivity.x, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
 	settings->ui.scroll_sensitivity.y = NAUI_CLAMP(settings->ui.scroll_sensitivity.y, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
@@ -1218,6 +1220,14 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 		}
 	}
 	// uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
+
+	uph_settings_section(NAUI_TR("settings.audio.monitoring"), false, NULL, UPH_SETTINGS_NO_ID);
+
+	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.monitor_volume"), UPH_SETTINGS_NO_ID)
+	{
+		uph_ui_drag_float(&audio->monitor_volume_db, leaf_id("uph_settings_monitor_volume"), 0.1f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f", UPH_UI_DRAG_FLAG_CLAMPED);
+		uph_settings_hint("dB");
+	}
 
 	uph_settings_section(NAUI_TR("settings.audio.performance"), false, NULL, UPH_SETTINGS_NO_ID);
 

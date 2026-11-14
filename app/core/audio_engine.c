@@ -2515,8 +2515,10 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
         }
     }
 
+    const float monitor_db = uph_state.settings.audio.monitor_volume_db;
+    const float monitor_gain = monitor_db <= UPH_MIXER_DB_MIN ? 0.0f : uph_db_to_linear(monitor_db);
     const float gain_from = uph_audio_engine_data.render_gain;
-    const float gain_to = render_state == UPH_RENDER_REQUESTED ? 0.0f : 1.0f;
+    const float gain_to = render_state == UPH_RENDER_REQUESTED ? 0.0f : monitor_gain;
     if (gain_from != 1.0f || gain_to != 1.0f)
     {
         const float gain_step = (gain_to - gain_from) / (float)frame_count;

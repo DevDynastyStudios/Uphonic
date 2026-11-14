@@ -208,6 +208,8 @@
 	"settings.audio.exclusive_mode": "Exclusive Mode",
 	"settings.audio.input_device": "Input Device",
 	"settings.audio.input_channel": "Input Channel",
+	"settings.audio.monitor_volume": "Monitor Volume",
+	"settings.audio.monitoring": "Monitoring",
 	"settings.audio.output_device": "Output Device",
 	"settings.audio.performance": "Performance",
 	"settings.audio.sample_rate": "Sample Rate",

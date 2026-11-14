@@ -36,6 +36,7 @@ typedef struct Uph_AudioSettings
 	uint32_t buffer_size;
 	uint32_t channels;
 	uint32_t input_channel;
+	float monitor_volume_db;
 	bool exclusive_mode;
 	bool auto_restart_on_device_change;
 	bool underrun_protection;
