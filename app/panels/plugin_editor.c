@@ -65,6 +65,12 @@ static void _uph_plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_Pa
     const bool inside = x >= 0 && y >= 0 && x < (int32_t)body.width && y < (int32_t)body.height;
     const bool hovered = inside && naui_panel_is_hovered(panel);
 
+#if NAUI_WINDOWS
+    bool any_down = false;
+    for (Naui_MouseButton button = 0; button < NAUI_MOUSE_MAX; button++)
+        any_down |= naui_mouse_down(button);
+    uph_plugin_gui_native_input(data->handle, hovered && !any_down);
+#else
     if (!hovered && !data->buttons_down)
         return;
 
@@ -92,6 +98,7 @@ static void _uph_plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_Pa
 
     if (hovered)
         uph_plugin_gui_mouse_scroll(data->handle, naui_mouse_scroll_delta(), x, y);
+#endif
 }
 
 static void uph_plugin_editor_on_update(void)

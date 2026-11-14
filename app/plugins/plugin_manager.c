@@ -314,9 +314,11 @@ struct Uph_PluginInternalHandle_
     Window container;
     Window input_target;
     Display *display;
+    uint8_t buttons_down;
 #elif NAUI_WINDOWS
     HWND window;
-    HWND input_target;
+    POINT cursor;
+    bool native_input;
     HDC capture_dc;
     HBITMAP capture_bitmap;
     void *capture_bits;
@@ -327,7 +329,6 @@ struct Uph_PluginInternalHandle_
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
-    uint8_t buttons_down;
     bool resize_pending;
     bool visible;
     bool is_clap;
@@ -3175,58 +3176,12 @@ static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, uns
     XSendEvent(ih->display, target, False, mask, &event);
     XFlush(ih->display);
 }
-#elif NAUI_WINDOWS
-static HWND _uph_plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x, int32_t y, POINT *out)
-{
-    POINT point = { x, y };
-
-    if (ih->buttons_down && ih->input_target)
-    {
-        MapWindowPoints(ih->window, ih->input_target, &point, 1);
-        *out = point;
-        return ih->input_target;
-    }
-
-    HWND target = ih->window;
-    for (;;)
-    {
-        HWND child = ChildWindowFromPointEx(target, point, CWP_SKIPINVISIBLE | CWP_SKIPDISABLED | CWP_SKIPTRANSPARENT);
-        if (!child || child == target)
-            break;
-        MapWindowPoints(target, child, &point, 1);
-        target = child;
-    }
-
-    *out = point;
-    return target;
-}
-
-static WPARAM _uph_plugin_gui_win32_state(uint8_t buttons_down)
-{
-    WPARAM state = 0;
-    if (buttons_down & (1 << NAUI_MOUSE_LEFT)) state |= MK_LBUTTON;
-    if (buttons_down & (1 << NAUI_MOUSE_MIDDLE)) state |= MK_MBUTTON;
-    if (buttons_down & (1 << NAUI_MOUSE_RIGHT)) state |= MK_RBUTTON;
-    return state;
-}
-
-static void _uph_plugin_gui_win32_send(Uph_PluginInternalHandle *ih, UINT msg, int32_t x, int32_t y)
-{
-    POINT point;
-    HWND target = _uph_plugin_gui_target_at(ih, x, y, &point);
-    if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN)
-        ih->input_target = target;
-    PostMessageA(target, msg, _uph_plugin_gui_win32_state(ih->buttons_down), MAKELPARAM(point.x, point.y));
-}
 #endif
 
+#if NAUI_LINUX
 void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
-#if NAUI_LINUX
     _uph_plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
-#elif NAUI_WINDOWS
-    _uph_plugin_gui_win32_send(handle, WM_MOUSEMOVE, x, y);
-#endif
 }
 
 void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
@@ -3234,14 +3189,8 @@ void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseBut
     if (down)
         handle->buttons_down |= (uint8_t)(1 << button);
 
-#if NAUI_LINUX
     static const unsigned int x11_buttons[NAUI_MOUSE_MAX] = { Button1, Button3, Button2 };
     _uph_plugin_gui_x11_send(handle, down ? ButtonPress : ButtonRelease, x11_buttons[button], x, y);
-#elif NAUI_WINDOWS
-    static const UINT down_messages[NAUI_MOUSE_MAX] = { WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN };
-    static const UINT up_messages[NAUI_MOUSE_MAX] = { WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP };
-    _uph_plugin_gui_win32_send(handle, down ? down_messages[button] : up_messages[button], x, y);
-#endif
 
     if (!down)
         handle->buttons_down &= (uint8_t)~(1 << button);
@@ -3254,7 +3203,6 @@ void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta
     if (!delta)
         return;
 
-#if NAUI_LINUX
     const unsigned int button = delta > 0 ? Button4 : Button5;
     for (int32_t i = 0; i < abs(delta); i++)
     {
@@ -3263,14 +3211,35 @@ void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta
     }
     if (!handle->buttons_down)
         handle->input_target = 0;
-#elif NAUI_WINDOWS
-    POINT point;
-    HWND target = _uph_plugin_gui_target_at(handle, x, y, &point);
-    ClientToScreen(target, &point);
-    const WPARAM wparam = MAKEWPARAM(_uph_plugin_gui_win32_state(handle->buttons_down), (short)(delta * WHEEL_DELTA));
-    PostMessageA(target, WM_MOUSEWHEEL, wparam, MAKELPARAM(point.x, point.y));
-#endif
 }
+#elif NAUI_WINDOWS
+static void _uph_plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, bool passthrough)
+{
+    if (ih->native_input == !passthrough)
+        return;
+
+    ih->native_input = !passthrough;
+    const LONG_PTR style = GetWindowLongPtrA(ih->window, GWL_EXSTYLE);
+    SetWindowLongPtrA(ih->window, GWL_EXSTYLE, passthrough ? (style | WS_EX_TRANSPARENT) : (style & ~(LONG_PTR)WS_EX_TRANSPARENT));
+}
+
+void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
+{
+    _uph_plugin_gui_win32_set_passthrough(handle, !enabled);
+    if (!enabled)
+        return;
+
+    HWND main_window = (HWND)mgapp_primary_handle();
+    POINT cursor;
+    if (!GetCursorPos(&cursor) || !ScreenToClient(main_window, &cursor))
+        return;
+    if (cursor.x == handle->cursor.x && cursor.y == handle->cursor.y)
+        return;
+
+    handle->cursor = cursor;
+    PostMessageA(main_window, WM_MOUSEMOVE, 0, MAKELPARAM(cursor.x, cursor.y));
+}
+#endif
 
 static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
 {
@@ -3278,8 +3247,12 @@ static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
         return;
 
     ih->visible = visible;
+#if NAUI_LINUX
     ih->buttons_down = 0;
     ih->input_target = 0;
+#elif NAUI_WINDOWS
+    _uph_plugin_gui_win32_set_passthrough(ih, true);
+#endif
 
     if (!visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->hide(ih->clap.plugin);

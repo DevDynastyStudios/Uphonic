@@ -14,9 +14,13 @@ void                uph_plugin_gui_size         (Uph_PluginInternalHandle *handl
 bool                uph_plugin_gui_take_resize  (Uph_PluginInternalHandle *handle);
 Naui_Texture        uph_plugin_gui_texture      (Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height);
 void                uph_plugin_gui_set_origin   (Uph_PluginInternalHandle *handle, int32_t x, int32_t y);
+#if NAUI_LINUX
 void                uph_plugin_gui_mouse_move   (Uph_PluginInternalHandle *handle, int32_t x, int32_t y);
 void                uph_plugin_gui_mouse_button (Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y);
 void                uph_plugin_gui_mouse_scroll (Uph_PluginInternalHandle *handle, int32_t delta, int32_t x, int32_t y);
+#elif NAUI_WINDOWS
+void                uph_plugin_gui_native_input (Uph_PluginInternalHandle *handle, bool enabled);
+#endif
 void                uph_plugin_gui_closed       (Uph_PluginInternalHandle *handle);
 
 void uph_plugin_queue_note_event(
