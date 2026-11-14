@@ -135,29 +135,6 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     );
 }
 
-#define UPH_RESOURCE_LIST_SPINNER_SEGMENTS 24
-static void uph_loading_sample_custom_draw(Leaf_BoundingBox box, void **user_data)
-{
-    (void)user_data;
-    const float radius = fminf(box.width, box.height) * 0.3f;
-    if (radius <= 0.0f)
-        return;
-
-    const float sweep = NAUI_PI * 1.5f;
-    const float start = naui_time() * NAUI_PI * 2.0f;
-    const Naui_Vec2 center = { box.x + box.width * 0.5f, box.y + box.height * 0.5f };
-
-    Naui_Vec2 points[UPH_RESOURCE_LIST_SPINNER_SEGMENTS + 1];
-    for (int32_t i = 0; i <= UPH_RESOURCE_LIST_SPINNER_SEGMENTS; i++)
-    {
-        const float angle = start + sweep * (float)i / (float)UPH_RESOURCE_LIST_SPINNER_SEGMENTS;
-        points[i] = (Naui_Vec2){ center.x + cosf(angle) * radius, center.y + sinf(angle) * radius };
-    }
-
-    naui_draw_polyline(points, UPH_RESOURCE_LIST_SPINNER_SEGMENTS + 1, naui_theme_color("uph_resource_list_item_fg_color"), NAUI_DPI(2.0f));
-}
-#undef UPH_RESOURCE_LIST_SPINNER_SEGMENTS
-
 static void uph_automation_list_custom_draw(Leaf_BoundingBox box, void **user_data)
 {
     const Uph_Automation *automation = (const Uph_Automation*)*user_data;
@@ -517,10 +494,11 @@ static void uph_resource_list_render_pending_sample(Uph_PendingSample *pending, 
     if (uph_ui_widget_hovered(id))
         _Uph_ResourceListItemHovered = true;
 
+    Naui_Color spinner_color = naui_theme_color("uph_resource_list_item_fg_color");
     uph_resource_list_box(
         &pending->name,
-        (Leaf_CustomDrawFn)uph_loading_sample_custom_draw,
-        LEAF_DATA_SLICE(pending),
+        uph_ui_spinner_custom_draw,
+        LEAF_DATA_SLICE(spinner_color),
         id,
         pending->lifetime,
         false,

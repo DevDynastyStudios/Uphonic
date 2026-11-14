@@ -34,7 +34,6 @@ Uph_ProjectRenderData;
 static Uph_ProjectRenderData uph_project_render_data = {
 	.range = UPH_RENDER_RANGE_SONG,
 	.bit_depth = UPH_RENDER_BIT_DEPTH_24,
-	.tail_seconds = 2.0f,
 	.dither = true
 };
 

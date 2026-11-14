@@ -79,6 +79,8 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id);
 const char *uph_ui_format_time(double beat, bool seconds_format, char *out, size_t out_size);
 bool uph_ui_time_display(double beat, bool *show_seconds, const char *id);
 
+void uph_ui_spinner_custom_draw(Leaf_BoundingBox box, void *user_data);
+
 typedef uint8_t Uph_UIKnobStartType;
 enum
 {
