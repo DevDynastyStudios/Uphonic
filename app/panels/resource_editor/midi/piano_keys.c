@@ -34,7 +34,7 @@ void uph_piano_set_external_key(Uph_Piano *piano, uint8_t key, bool pressed)
 
 #pragma region Geometry
 
-bool uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t key, const Uph_PianoCanvas *canvas, Uph_PianoKeyRect *out)
+static bool _uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t key, const Uph_PianoCanvas *canvas, Uph_PianoKeyRect *out)
 {
 	if (!uph_note_map_in_range(map, key))
 		return false;
@@ -103,7 +103,7 @@ bool uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t 
 	return true;
 }
 
-int32_t uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, float mouse_x, float mouse_y)
+static int32_t _uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, float mouse_x, float mouse_y)
 {
 	const Leaf_BoundingBox box = canvas->box;
 	if (mouse_x < box.x || mouse_x >= box.x + box.width || mouse_y < box.y || mouse_y >= box.y + box.height)
@@ -118,7 +118,7 @@ int32_t uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const
 		for (int32_t key = map->lowest; key <= map->highest; key++)
 		{
 			Uph_PianoKeyRect rect;
-			if (!uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
+			if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
 				continue;
 
 			if (rect.accidental != want_accidental)
@@ -148,7 +148,7 @@ Uph_PianoEvents uph_piano_update(Uph_Piano *piano, const Uph_NoteMap *map, const
 
 	int32_t key = -1;
 	if (piano->mouse_active)
-		key = uph_piano_hit_test(piano, map, canvas, (float)naui_mouse_x(), (float)naui_mouse_y());
+		key = _uph_piano_hit_test(piano, map, canvas, (float)naui_mouse_x(), (float)naui_mouse_y());
 
 	if (piano->mouse_key != -1 && piano->mouse_key != key)
 		events.released = piano->mouse_key;
@@ -188,7 +188,7 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
 		Uph_PianoKeyRect rect;
-		if (!uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || rect.accidental)
+		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || rect.accidental)
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;
@@ -228,7 +228,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
 		Uph_PianoKeyRect rect;
-		if (!uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || !rect.accidental)
+		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || !rect.accidental)
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;
@@ -294,7 +294,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 			continue;
 
 		Uph_PianoKeyRect rect;
-		if (!uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
+		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;

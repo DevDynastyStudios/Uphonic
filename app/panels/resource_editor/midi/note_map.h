@@ -43,7 +43,6 @@ void uph_note_map_set_kind(Uph_NoteMap *map, uint8_t key, Uph_NoteKind kind);
 void uph_note_map_set_name(Uph_NoteMap *map, uint8_t key, const char *name);
 void uph_note_map_set_show_label(Uph_NoteMap *map, uint8_t key, bool show_label);
 void uph_note_map_set_highlight(Uph_NoteMap *map, uint8_t key, Uph_NoteHighlight highlight);
-void uph_note_map_clear_highlights(Uph_NoteMap *map);
 
 static inline bool uph_note_map_in_range(const Uph_NoteMap *map, int32_t key)
 {
@@ -90,7 +89,6 @@ static inline Uph_NoteKind uph_note_map_kind_at(const Uph_NoteMap *map, int32_t 
 #pragma region Scales
 
 const char *uph_note_pitch_class_name(uint8_t pitch_class);
-bool uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key);
 void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root);
 
 #pragma endregion

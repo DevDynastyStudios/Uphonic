@@ -12,7 +12,7 @@ static void _uph_project_adopt_folder_files(Uph_Project *project, const Naui_Pat
 	uph_project_adopt_pattern_files(project, project_folder);
 }
 
-void uph_project_close(Uph_Project *project)
+static void _uph_project_close(Uph_Project *project)
 {
 	uph_project_flush_pending_samples(false);
 
@@ -34,7 +34,7 @@ bool uph_project_create(Naui_String project_name)
 	const Naui_Path old_folder = uph_project_get_path(&uph_state.project);
 	const bool discard_old = !naui_string_is_empty(uph_state.project.title) && !uph_project_has_been_saved(&uph_state.project);
 
-	uph_project_close(&uph_state.project);
+	_uph_project_close(&uph_state.project);
 	if (discard_old && naui_path_exists(old_folder))
 	{
 		uph_recovery_release_lock();
@@ -295,7 +295,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		return true;
 	}
 
-	uph_project_close(project);
+	_uph_project_close(project);
 	uph_project_clear_adopted_samples();
 
 	uph_audio_engine_stop_all_notes();

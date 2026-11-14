@@ -66,7 +66,7 @@ void uph_note_map_set_highlight(Uph_NoteMap *map, uint8_t key, Uph_NoteHighlight
 		map->notes[key].highlight = highlight;
 }
 
-void uph_note_map_clear_highlights(Uph_NoteMap *map)
+static void _uph_note_map_clear_highlights(Uph_NoteMap *map)
 {
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)
 		map->notes[key].highlight = UPH_NOTE_HIGHLIGHT_NONE;
@@ -79,7 +79,7 @@ const char *uph_note_pitch_class_name(uint8_t pitch_class)
 	return _uph_note_pitch_class_names[pitch_class % UPH_NOTES_PER_OCTAVE];
 }
 
-bool uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key)
+static bool _uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key)
 {
 	const uint32_t degree = ((uint32_t)key + UPH_NOTES_PER_OCTAVE - root % UPH_NOTES_PER_OCTAVE) % UPH_NOTES_PER_OCTAVE;
 	return (mask >> degree) & 1u;
@@ -87,7 +87,7 @@ bool uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key)
 
 void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root)
 {
-	uph_note_map_clear_highlights(map);
+	_uph_note_map_clear_highlights(map);
 	map->scale_active = true;
 
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)
@@ -95,7 +95,7 @@ void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root)
 		const bool is_root = key % UPH_NOTES_PER_OCTAVE == root % UPH_NOTES_PER_OCTAVE;
 		map->notes[key].show_label = is_root;
 
-		if (!uph_scale_contains(mask, root, (uint8_t)key))
+		if (!_uph_scale_contains(mask, root, (uint8_t)key))
 			continue;
 
 		map->notes[key].highlight = is_root ? UPH_NOTE_HIGHLIGHT_ROOT : UPH_NOTE_HIGHLIGHT_SCALE;

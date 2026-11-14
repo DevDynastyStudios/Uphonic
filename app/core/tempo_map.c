@@ -27,7 +27,7 @@ Uph_TempoMapData;
 
 static Uph_TempoMapData uph_tempo_map_data = { 0 };
 
-float uph_tempo_from_automation(float value)
+static float _uph_tempo_from_automation(float value)
 {
     const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
     return UPH_TEMPO_MIN_BPM + clamped * (UPH_TEMPO_MAX_BPM - UPH_TEMPO_MIN_BPM);
@@ -69,7 +69,7 @@ static bool uph_tempo_block_value(const Uph_TimelineBlock *block, double beat, f
     if (!uph_automation_value_at_beat(&uph_state.project.automations[block->resource_index], (beat - block->start_beat) + block->start_offset_beats, &value))
         return false;
 
-    *out_bpm = uph_tempo_from_automation(value);
+    *out_bpm = _uph_tempo_from_automation(value);
     return true;
 }
 

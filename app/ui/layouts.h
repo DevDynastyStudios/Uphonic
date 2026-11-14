@@ -6,7 +6,5 @@
 #define UPH_LAYOUT_BUILTIN_PREFIX ":"
 #define UPH_LAYOUT_BUILTIN_DEFAULT "layout.default"
 
-void uph_layouts_apply_default(void);
 void uph_layouts_apply_saved(void);
-bool uph_layouts_load(const char *name);
 void uph_layouts_render_menu(void);

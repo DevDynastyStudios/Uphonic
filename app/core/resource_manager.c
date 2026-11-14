@@ -556,7 +556,7 @@ static Uph_ActionTrackRef uph_resources_move_subtree(Uph_ActionTrackRef src, Uph
 	return dst;
 }
 
-bool uph_resources_can_group_track(const Uph_Track *track)
+static bool _uph_resources_can_group_track(const Uph_Track *track)
 {
 	if (!track || track->type == UPH_RESOURCE_AUTOMATION || track->type == UPH_RESOURCE_MASTER)
 		return false;
@@ -595,7 +595,7 @@ static Uph_ActionTrackRef *uph_resources_collect_group_refs(Naui_List(Uph_TrackP
 	uint32_t count = 0;
 	for (uint32_t i = 0; i < selected_count; i++)
 	{
-		if (uph_resources_can_group_track(tracks[i]))
+		if (_uph_resources_can_group_track(tracks[i]))
 			refs[count++] = uph_action_track_ref(tracks[i]);
 	}
 

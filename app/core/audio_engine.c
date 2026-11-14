@@ -461,6 +461,18 @@ static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, 
     st->next_out_pos += 1.0;
 }
 
+static bool _uph_sample_follows_tempo(const Uph_Sample *sample)
+{
+    return sample->follow_tempo;
+}
+
+static double _uph_sample_tempo_bpm(const Uph_Sample *sample)
+{
+    if (sample->tempo_bpm > 0.0f)
+        return (double)sample->tempo_bpm;
+    return uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
+}
+
 static double uph_sample_block_beat_to_seconds(double beat, float fixed_bpm)
 {
     return fixed_bpm > 0.0f ? beat * 60.0 / (double)fixed_bpm : uph_tempo_beat_to_seconds(beat);
@@ -506,9 +518,9 @@ static void uph_render_sample_block(
     if (first_out_pos + (double)f >= block_length_frames)
         return;
 
-    if (uph_sample_follows_tempo(sample))
+    if (_uph_sample_follows_tempo(sample))
     {
-        const double frames_per_beat = 60.0 / (uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
+        const double frames_per_beat = 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
         const double offset_frames = block->start_offset_beats * frames_per_beat;
         const double buffer_start_seconds = uph_sample_block_beat_to_seconds(buffer_start_beat, fixed_bpm);
         const double first_beat = (f == 0) ? buffer_start_beat : uph_sample_block_seconds_to_beat(buffer_start_seconds + (double)f / sample_rate, fixed_bpm);
@@ -1659,24 +1671,12 @@ float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data)
     return gain / data->peak;
 }
 
-bool uph_sample_follows_tempo(const Uph_Sample *sample)
-{
-    return sample->follow_tempo;
-}
-
-double uph_sample_tempo_bpm(const Uph_Sample *sample)
-{
-    if (sample->tempo_bpm > 0.0f)
-        return (double)sample->tempo_bpm;
-    return uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
-}
-
 double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
 {
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (!uph_sample_follows_tempo(sample) || bpm <= 0.0)
+    if (!_uph_sample_follows_tempo(sample) || bpm <= 0.0)
         return time_scale;
-    return time_scale * uph_sample_tempo_bpm(sample) / bpm;
+    return time_scale * _uph_sample_tempo_bpm(sample) / bpm;
 }
 
 double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat)
@@ -1689,8 +1689,8 @@ double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleD
 
     const double source_seconds = (double)data->frame_count / (double)rate;
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (uph_sample_follows_tempo(sample))
-        return source_seconds * uph_sample_tempo_bpm(sample) * time_scale / 60.0;
+    if (_uph_sample_follows_tempo(sample))
+        return source_seconds * _uph_sample_tempo_bpm(sample) * time_scale / 60.0;
 
     return uph_tempo_seconds_to_beat(uph_tempo_beat_to_seconds(start_beat) + source_seconds * time_scale) - start_beat;
 }
@@ -1698,8 +1698,8 @@ double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleD
 double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat)
 {
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (uph_sample_follows_tempo(sample))
-        return (beat - block_start_beat + start_offset_beats) * 60.0 / (uph_sample_tempo_bpm(sample) * time_scale);
+    if (_uph_sample_follows_tempo(sample))
+        return (beat - block_start_beat + start_offset_beats) * 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale);
 
     const double block_start_seconds = uph_tempo_beat_to_seconds(block_start_beat);
     const double offset_seconds = block_start_seconds - uph_tempo_beat_to_seconds(block_start_beat - start_offset_beats);
@@ -3260,7 +3260,7 @@ void uph_audio_engine_render_cancel(void)
         uph_render_job_release(true);
 }
 
-bool uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
+static bool _uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
 {
     if (!uph_audio_engine_render_begin(filepath, settings))
         return false;
@@ -3278,7 +3278,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
         .channels = 2,
         .bit_depth = UPH_RENDER_BIT_DEPTH_32_FLOAT
     };
-    return uph_audio_engine_render_to_wav(filepath, &settings);
+    return _uph_audio_engine_render_to_wav(filepath, &settings);
 }
 
 void uph_audio_engine_unload_sample_data(Uph_SampleData *sample_data)

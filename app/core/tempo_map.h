@@ -3,8 +3,6 @@
 #define UPH_TEMPO_MIN_BPM 20.0f
 #define UPH_TEMPO_MAX_BPM 500.0f
 
-float uph_tempo_from_automation(float value);
-
 Uph_Track *uph_tempo_find_lane(void);
 bool uph_tempo_lane_active(void);
 

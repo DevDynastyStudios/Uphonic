@@ -45,7 +45,6 @@ Uph_UIMenuID    uph_ui_context_menu (const Leaf_ID id);
 Uph_UIMenuID    uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id));
 
 void            uph_ui_open_context_menu    (Uph_UIMenuID menu);
-void            uph_ui_close_menu           (void);
 bool            uph_ui_any_menu_open        (void);
 
 int32_t         uph_ui_track_color_palette  (const Uph_Track *track);

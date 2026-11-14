@@ -31,8 +31,6 @@ void uph_resources_select_mixer_master(void);
 
 void uph_resources_delete_tracks(Naui_List(Uph_TrackPtr) tracks);
 
-bool uph_resources_can_group_track(const Uph_Track *track);
-
 uint32_t uph_resources_count_groupable_tracks(Naui_List(Uph_TrackPtr) tracks);
 Uph_Track *uph_resources_group_tracks(Naui_List(Uph_TrackPtr) tracks, const char *name, int32_t color_index); // NULL if nothing could be grouped
 bool uph_resources_ungroup_track(Uph_Track *group, Naui_List(Uph_TrackPtr) *out_children); // children go back to the group's parent where the group was

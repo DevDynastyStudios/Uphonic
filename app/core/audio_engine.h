@@ -72,8 +72,6 @@ void uph_audio_engine_unload_sample_data(Uph_SampleData *data);
 
 bool uph_audio_engine_sample_data_valid(const Uph_SampleData *data);
 float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data);
-bool uph_sample_follows_tempo(const Uph_Sample *sample);
-double uph_sample_tempo_bpm(const Uph_Sample *sample);
 double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm);
 double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat);
 double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat);
@@ -112,13 +110,10 @@ bool uph_audio_engine_preview_playing(void);
 double uph_audio_engine_preview_progress(void);
 bool uph_audio_engine_preview_info(Uph_PreviewInfo *out);
 
-void uph_audio_engine_midi_input(bool note_on, uint8_t key, uint8_t velocity);
-
 double uph_audio_engine_get_song_length_beats(void);
 double uph_audio_engine_get_song_length_seconds(void);
 double uph_audio_engine_get_song_length(void);
 bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, double end_beat);
-bool uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings);
 bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSettings *settings);
 Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds);
 float uph_audio_engine_render_progress(void);

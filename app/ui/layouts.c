@@ -96,12 +96,12 @@ static bool uph_layouts_load_builtin(const char *name)
 	return true;
 }
 
-void uph_layouts_apply_default(void)
+static void _uph_layouts_apply_default(void)
 {
 	uph_layouts_load_builtin(UPH_LAYOUT_BUILTIN_DEFAULT);
 }
 
-bool uph_layouts_load(const char *name)
+static bool _uph_layouts_load(const char *name)
 {
 	const Naui_Path path = uph_layouts_path(name);
 	if (naui_panel_layout_load(path.data))
@@ -123,10 +123,10 @@ void uph_layouts_apply_saved(void)
 		if (naui_path_exists(uph_layouts_builtin_path(builtin)) && uph_layouts_load_builtin(builtin))
 			return;
 	}
-	else if (name[0] && naui_path_exists(uph_layouts_path(name)) && uph_layouts_load(name))
+	else if (name[0] && naui_path_exists(uph_layouts_path(name)) && _uph_layouts_load(name))
 		return;
 
-	uph_layouts_apply_default();
+	_uph_layouts_apply_default();
 }
 
 static Naui_String uph_layouts_save_name;
@@ -300,7 +300,7 @@ void uph_layouts_render_menu(void)
 	for (uint32_t i = 0; i < state->count; i++)
 	{
 		if (uph_ui_menu_item(layout_menu, state->names[i], leaf_id_indexed("uph_layout_menu_item", i)))
-			uph_layouts_load(state->names[i]);
+			_uph_layouts_load(state->names[i]);
 	}
 
 	if (uph_ui_menu_item(layout_menu, NAUI_TR("menu.layout.save"), leaf_id("uph_layout_menu_save")))

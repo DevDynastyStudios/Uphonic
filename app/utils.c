@@ -1,4 +1,4 @@
-void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data)
+static void _uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data)
 {
     const double beat_length = uph_time_signature_beat_length();
     const int64_t beats_per_bar = (int64_t)llround(uph_time_signature_bar_length() / beat_length);
@@ -100,7 +100,7 @@ void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, 
         .bar_color = naui_theme_color("uph_timeline_grid_bar_color")
     };
 
-    uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_beat_line, &style);
+    _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_beat_line, &style);
 }
 
 void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division)
@@ -114,7 +114,7 @@ void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, 
     };
 
     naui_push_clip_rect(bbox.x - 0.5f, bbox.y, bbox.width, bbox.height);
-    uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_ruler_line, &style);
+    _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_ruler_line, &style);
     naui_pop_clip_rect();
 }
 

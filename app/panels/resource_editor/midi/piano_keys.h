@@ -108,10 +108,8 @@ void uph_piano_init(Uph_Piano *piano);
 
 bool uph_piano_key_pressed(const Uph_Piano *piano, uint8_t key);
 void uph_piano_set_external_key(Uph_Piano *piano, uint8_t key, bool pressed);
-bool uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t key, const Uph_PianoCanvas *canvas, Uph_PianoKeyRect *out);
 
 // Key under a screen position, or -1. Accidental keys win over the natural keys behind them.
-int32_t uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, float mouse_x, float mouse_y);
 Uph_PianoEvents uph_piano_update(Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, bool hovered);
 Uph_PianoEvents uph_piano_release_mouse(Uph_Piano *piano);
 void uph_piano_render(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas);

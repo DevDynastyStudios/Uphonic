@@ -89,7 +89,6 @@ Uph_GridLineKind;
 
 typedef void (*Uph_GridLineFn)(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data);
 
-void uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data);
 void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
 void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division);
 double uph_calculate_pattern_length(const Uph_MidiPattern *pattern);

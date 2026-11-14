@@ -4,7 +4,6 @@
 #define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
 
 bool uph_project_create(Naui_String project_name);
-void uph_project_close(Uph_Project* project);
 bool uph_project_save(Uph_Project* project, Uph_SaveType save_type);
 
 bool uph_project_has_been_saved(const Uph_Project* project);

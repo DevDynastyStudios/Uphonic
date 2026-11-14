@@ -1008,7 +1008,7 @@ void uph_ui_open_context_menu(Uph_UIMenuID menu)
     data->current_context_menu_position = (Naui_Vec2){naui_mouse_x(), naui_mouse_y()};
 }
 
-void uph_ui_close_menu(void)
+static void _uph_ui_close_menu(void)
 {
     uph_ui__close_menu(&uph_global_widget_data);
 }
@@ -2484,7 +2484,7 @@ int32_t uph_ui_track_color_palette(const Uph_Track *track)
                             if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
                             {
                                 picked = (int32_t)index;
-                                uph_ui_close_menu();
+                                _uph_ui_close_menu();
                             }
                         }
 
