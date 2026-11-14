@@ -1225,7 +1225,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 
 	UPH_SETTINGS_ROW(NAUI_TR("settings.audio.monitor_volume"), UPH_SETTINGS_NO_ID)
 	{
-		uph_ui_drag_float(&audio->monitor_volume_db, leaf_id("uph_settings_monitor_volume"), 0.1f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f", UPH_UI_DRAG_FLAG_CLAMPED);
+		uph_ui_drag_float(&audio->monitor_volume_db, leaf_id("uph_settings_monitor_volume"), 0.1f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 		uph_settings_hint("dB");
 	}
 
