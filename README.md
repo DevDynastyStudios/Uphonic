@@ -1,12 +1,26 @@
 <div align="center">
-  <img src="content/Uphonic.svg" alt="Logo", width="50%">
+  <img src="content/UphonicLarge.svg" alt="Uphonic" width="60%">
+
+  <p><b>A digital audio workstation written entirely in C.</b><br>Built to be simple, fast, and customizable.</p>
+
+  <a href="https://github.com/DevDynastyStudios/Uphonic"><img src="https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white" alt="C"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-9D4EDD?style=for-the-badge" alt="License: GPL-3.0"></a>
+  <a href="LICENSE-CC-BY"><img src="https://img.shields.io/badge/Assets-CC_BY_4.0-9D4EDD?style=for-the-badge" alt="Assets: CC BY 4.0"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows_|_Linux-555?style=for-the-badge" alt="Platform: Windows | Linux">
 </div>
 
-**Uphonic** is a digital audio workstation written entirely within C.\
-Built to be simple, fast, and customizable.
+<br>
 
-> [!WARNING]  
+> [!WARNING]
 > Uphonic is in an early development stage. Many features are incomplete, experimental, or subject to change.
+
+## Table of Contents
+
+- [Dependencies](#dependencies)
+  - [Windows](#windows)
+  - [Linux](#linux)
+- [Building](#building)
+- [License](#license)
 
 ---
 
@@ -64,11 +78,26 @@ sudo zypper install clang lua54 libX11-devel Mesa-libEGL-devel xwayland
 lua build.lua <mode> <configuration>
 ```
 
-Modes:
- - run = Only runs an already built binary.
- - build = Builds the project.
- - build_run = Builds and runs the project.
+| Mode | Description |
+| --- | --- |
+| `run` | Runs an already built binary. |
+| `build` | Builds the project. |
+| `build_run` | Builds and runs the project. |
 
-Configurations:
- - debug
- - release
+| Configuration | Description |
+| --- | --- |
+| `debug` | Debug build with symbols. |
+| `release` | Optimized build. |
+
+Example:
+
+```bash
+lua build.lua build_run release
+```
+
+---
+
+## License
+
+Uphonic's source code is licensed under the [GNU General Public License v3.0](LICENSE).\
+Assets are licensed under [Creative Commons Attribution 4.0](LICENSE-CC-BY).
