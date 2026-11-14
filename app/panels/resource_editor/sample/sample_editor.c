@@ -848,7 +848,7 @@ static double _uph_sample_editor_time_from_scale(uint32_t unit, double scale, do
 	{
 		case UPH_SAMPLE_EDITOR_TIME_UNIT_BEATS: return seconds * scale * bpm / 60.0;
 		case UPH_SAMPLE_EDITOR_TIME_UNIT_SECONDS: return seconds * scale;
-		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return bpm / scale;
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return bpm * scale;
 		default: return scale;
 	}
 }
@@ -859,7 +859,7 @@ static double _uph_sample_editor_time_to_scale(uint32_t unit, double value, doub
 	{
 		case UPH_SAMPLE_EDITOR_TIME_UNIT_BEATS: return value * 60.0 / (bpm * seconds);
 		case UPH_SAMPLE_EDITOR_TIME_UNIT_SECONDS: return value / seconds;
-		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return bpm / value;
+		case UPH_SAMPLE_EDITOR_TIME_UNIT_BPM: return value / bpm;
 		default: return value;
 	}
 }
