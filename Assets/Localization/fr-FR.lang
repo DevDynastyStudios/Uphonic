@@ -202,6 +202,7 @@
 "settings.audio.devices": "Périphériques",
 "settings.audio.exclusive_mode": "Mode exclusif",
 "settings.audio.input_device": "Périphérique d’entrée",
+"settings.audio.input_channel": "Canal d’entrée",
 "settings.audio.output_device": "Périphérique de sortie",
 "settings.audio.performance": "Performances",
 "settings.audio.samplerate": "Fréquence d’échantillonnage",

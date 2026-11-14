@@ -125,6 +125,9 @@ static const char *const uph_settings_buffer_size_labels[] = { "64 samples", "12
 static const uint32_t uph_settings_channel_counts[] = { 1, 2 };
 static const char *const uph_settings_channel_labels[] = { "1 (Mono)", "2 (Stereo)" };
 
+static const uint32_t uph_settings_input_channels[] = { 0, 1 };
+static const char *const uph_settings_input_channel_labels[] = { "1", "2" };
+
 static const uint32_t uph_settings_snap_values[] = { UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_QUARTER, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
 static const char *const uph_settings_snap_labels[] = { "Beat", "1/2", "1/4", "1/8", "1/16" };
 
@@ -153,6 +156,7 @@ void uph_settings_set_defaults(void)
 	settings->audio.sample_rate = 48000;
 	settings->audio.buffer_size = 512;
 	settings->audio.channels = 2;
+	settings->audio.input_channel = 0;
 	settings->audio.exclusive_mode = false;
 	settings->audio.auto_restart_on_device_change = true;
 	settings->audio.underrun_protection = true;
@@ -220,6 +224,7 @@ void uph_settings_sanitize(void)
 	settings->audio.sample_rate = uph_settings_nearest(settings->audio.sample_rate, uph_settings_sample_rates, UPH_SETTINGS_COUNT(uph_settings_sample_rates));
 	settings->audio.buffer_size = uph_settings_nearest(settings->audio.buffer_size, uph_settings_buffer_sizes, UPH_SETTINGS_COUNT(uph_settings_buffer_sizes));
 	settings->audio.channels = uph_settings_nearest(settings->audio.channels, uph_settings_channel_counts, UPH_SETTINGS_COUNT(uph_settings_channel_counts));
+	settings->audio.input_channel = NAUI_MIN(settings->audio.input_channel, 1u);
 
 	settings->ui.scroll_sensitivity.x = NAUI_CLAMP(settings->ui.scroll_sensitivity.x, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
 	settings->ui.scroll_sensitivity.y = NAUI_CLAMP(settings->ui.scroll_sensitivity.y, UPH_SETTINGS_SENSITIVITY_MIN, UPH_SETTINGS_SENSITIVITY_MAX);
@@ -445,7 +450,8 @@ static bool uph_settings_audio_pending_changed(const Uph_AudioSettings *pending)
 		|| pending->exclusive_mode != audio->exclusive_mode
 		|| pending->sample_rate != audio->sample_rate
 		|| pending->buffer_size != audio->buffer_size
-		|| pending->channels != audio->channels;
+		|| pending->channels != audio->channels
+		|| pending->input_channel != audio->input_channel;
 }
 
 static void uph_settings_audio_copy_device_fields(Uph_AudioSettings *dst, const Uph_AudioSettings *src)
@@ -458,6 +464,7 @@ static void uph_settings_audio_copy_device_fields(Uph_AudioSettings *dst, const 
 	dst->sample_rate = src->sample_rate;
 	dst->buffer_size = src->buffer_size;
 	dst->channels = src->channels;
+	dst->input_channel = src->input_channel;
 }
 
 static void uph_settings_apply_audio(Uph_SettingsData *data)
@@ -1200,6 +1207,15 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 		}
 
 		uph_settings_checkbox_row(NAUI_TR("settings.audio.exclusive_mode"), &pending->exclusive_mode, leaf_id("uph_settings_exclusive"));
+	}
+
+	if (uph_audio_engine_input_channel_count() > 1)
+	{
+		UPH_SETTINGS_ROW(NAUI_TR("settings.audio.input_channel"), UPH_SETTINGS_NO_ID)
+		{
+			uph_settings_value_dropdown(&pending->input_channel, uph_settings_input_channels, uph_settings_input_channel_labels,
+				UPH_SETTINGS_COUNT(uph_settings_input_channels), leaf_id("uph_settings_input_channel"));
+		}
 	}
 	// uph_settings_checkbox_row(NAUI_TR("settings.audio.auto_restart"), &audio->auto_restart_on_device_change, leaf_id("uph_settings_auto_restart"));
 

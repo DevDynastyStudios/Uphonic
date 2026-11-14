@@ -738,6 +738,11 @@ bool uph_asio_consume_reset_request(void)
 	return atomic_exchange(&uph_asio.reset_requested, false);
 }
 
+uint32_t uph_asio_input_count(void)
+{
+	return uph_asio.device ? (uint32_t)uph_asio.input_count : 0;
+}
+
 #else
 
 bool uph_asio_supported(void)
@@ -764,6 +769,11 @@ bool uph_asio_show_control_panel(void)
 bool uph_asio_consume_reset_request(void)
 {
 	return false;
+}
+
+uint32_t uph_asio_input_count(void)
+{
+	return 0;
 }
 
 #endif

@@ -2450,7 +2450,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
         ? (float)((buffer_end_beat - playhead_start_beat) * 60.0 / buffer_seconds)
         : 0.0f;
 
-    const int input_channel = 0; // make it so the user can choose between channel 1 and 2 in settings
+    const uint32_t input_channel = uph_state.settings.audio.input_channel;
     const float *input_f = NULL;
     const float *captured = NULL;
     ma_uint32 input_channels = 0;
@@ -2475,7 +2475,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     if (input_channels > 0)
     {
 
-        const ma_uint32 channel = (ma_uint32)input_channel < input_channels ? (ma_uint32)input_channel : 0;
+        const ma_uint32 channel = input_channel < input_channels ? input_channel : 0;
         float *routed = alloca(frame_count * 2 * sizeof(float));
         for (ma_uint32 f = 0; f < frame_count; f++)
         {
@@ -2607,7 +2607,7 @@ static void uph_audio_engine_init_capture_device(ma_context *context, const Uph_
 
     ma_device_config config = ma_device_config_init(ma_device_type_capture);
     config.capture.format     = ma_format_f32;
-    config.capture.channels   = settings->channels;
+    config.capture.channels   = 2;
     config.capture.pDeviceID  = (ma_device_id*)capture_id;
     config.capture.shareMode  = settings->exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
     config.sampleRate         = uph_audio_engine_data.device.sampleRate;
@@ -2644,7 +2644,7 @@ static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
     config.playback.channels  = settings->channels;
     config.playback.pDeviceID = has_device_id ? &device_id : NULL;
     config.capture.format     = ma_format_f32;
-    config.capture.channels   = 2;
+    config.capture.channels   = 0; // native channel count so inputs map 1:1 without downmixing
     config.capture.pDeviceID  = has_device_id ? &device_id : NULL;
     config.sampleRate         = settings->sample_rate;
     config.dataCallback       = uph_audio_engine_data_callback;
@@ -2799,6 +2799,17 @@ bool uph_audio_engine_recreate(void)
 Uph_AudioDriver uph_audio_engine_active_driver(void)
 {
     return uph_audio_engine_data.context_driver;
+}
+
+uint32_t uph_audio_engine_input_channel_count(void)
+{
+    if (uph_audio_engine_data.duplex)
+        return uph_asio_input_count();
+
+    if (uph_audio_engine_data.capture_ready)
+        return uph_audio_engine_data.capture_device.capture.internalChannels;
+
+    return 0;
 }
 
 void uph_audio_engine_update(void)

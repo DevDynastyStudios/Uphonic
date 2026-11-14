@@ -208,6 +208,7 @@
 	"settings.audio.devices": "デバイス",
 	"settings.audio.exclusive_mode": "排他モード",
 	"settings.audio.input_device": "入力デバイス",
+	"settings.audio.input_channel": "入力チャンネル",
 	"settings.audio.output_device": "出力デバイス",
 	"settings.audio.performance": "パフォーマンス",
 	"settings.audio.sample_rate": "サンプルレート",

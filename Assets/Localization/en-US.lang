@@ -207,6 +207,7 @@
 	"settings.audio.devices": "Devices",
 	"settings.audio.exclusive_mode": "Exclusive Mode",
 	"settings.audio.input_device": "Input Device",
+	"settings.audio.input_channel": "Input Channel",
 	"settings.audio.output_device": "Output Device",
 	"settings.audio.performance": "Performance",
 	"settings.audio.sample_rate": "Sample Rate",
