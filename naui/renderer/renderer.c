@@ -1788,6 +1788,42 @@ void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scal
     if (bl) naui_push_textured_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, uv, img_tl, img_size, c);
 }
 
+Naui_Texture naui_texture_create(uint32_t width, uint32_t height, Naui_TextureFormat format, Naui_MemoryType memory)
+{
+    return mgfx_create_image(&(mgfx_image_create_info){
+        .type = MGFX_IMAGE_TYPE_2D,
+        .format = format == NAUI_TEXTURE_FORMAT_BGRA8 ? MGFX_FORMAT_BGRA8_UNORM : MGFX_FORMAT_RGBA8_UNORM,
+        .usage = MGFX_IMAGE_USAGE_SAMPLED,
+        .memory = memory == NAUI_MEMORY_DEVICE ? MGFX_MEMORY_DEVICE : MGFX_MEMORY_SHARED,
+        .width = width,
+        .height = height,
+        .depth = 1,
+        .mip_count = 1
+    });
+}
+
+void naui_texture_update(Naui_Texture texture, const void *pixels)
+{
+    mgfx_update_image(texture, &(mgfx_image_update_info){ .subimages = { (void*)pixels } });
+}
+
+void naui_texture_destroy(Naui_Texture texture)
+{
+    if (texture)
+        mgfx_destroy_image(texture);
+}
+
+void naui_draw_texture(Naui_Texture texture, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint)
+{
+    naui_renderer_flush();
+    mgfx_bind_sampled_image(texture, naui_renderer_data->nearest_sampler, 0);
+
+    naui_push_textured_rect(position, (Naui_Vec2){ position.x + scale.x, position.y + scale.y }, (Naui_Vec4){ 0.0f, 0.0f, 1.0f, 1.0f }, naui_pack_color(tint), 0);
+
+    naui_renderer_flush();
+    mgfx_bind_sampled_image(naui_renderer_data->image_atlas, naui_renderer_data->linear_sampler, 0);
+}
+
 typedef struct
 {
     Naui_Vec2 pos;

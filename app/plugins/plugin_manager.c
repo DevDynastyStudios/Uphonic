@@ -1,3 +1,8 @@
+#if NAUI_LINUX
+#include <X11/extensions/Xcomposite.h>
+#include <X11/extensions/shape.h>
+#endif
+
 typedef struct
 {
     clap_input_events_t iface;
@@ -230,7 +235,7 @@ typedef struct
 }
 Uph_ClapTimer;
 
-typedef struct Uph_PluginInternalHandle_
+struct Uph_PluginInternalHandle_
 {
     union
     {
@@ -306,20 +311,44 @@ typedef struct Uph_PluginInternalHandle_
 
 #if NAUI_LINUX
     Window window;
+    Window container;
+    Window input_target;
     Display *display;
-    Atom wm_delete_window;
-    Atom wm_protocols;
 #elif NAUI_WINDOWS
     HWND window;
-    bool dragging;
-    POINT drag_start_cursor;
-    POINT drag_start_origin;
+    HWND input_target;
+    HDC capture_dc;
+    HBITMAP capture_bitmap;
+    void *capture_bits;
 #endif
+    Naui_PanelID panel;
+    Naui_Texture texture;
+    uint8_t *pixels;
+    uint32_t gui_width, gui_height;
+    uint32_t texture_width, texture_height;
+    int32_t screen_x, screen_y;
+    uint8_t buttons_down;
+    bool resize_pending;
     bool visible;
     bool is_clap;
     Naui_String display_name;
+};
+
+static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih);
+
+static void _uph_plugin_gui_resize_window(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+{
+    ih->gui_width = width;
+    ih->gui_height = height;
+    ih->resize_pending = true;
+
+#if NAUI_LINUX
+    XResizeWindow(ih->display, ih->window, width, height);
+    XFlush(ih->display);
+#elif NAUI_WINDOWS
+    SetWindowPos(ih->window, NULL, 0, 0, (int)width, (int)height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+#endif
 }
-Uph_PluginInternalHandle;
 
 static Uph_Vst3Message uph_vst3_message_pool[UPH_VST3_MAX_MESSAGES];
 static Uph_Vst3AttrList uph_vst3_attr_list_pool[UPH_VST3_MAX_MESSAGES];
@@ -861,25 +890,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_resize_view(void 
     uint32_t w = (uint32_t)(new_size->right - new_size->left);
     uint32_t h = (uint32_t)(new_size->bottom - new_size->top);
 
-#if NAUI_LINUX
-    XResizeWindow(f->owner->display, f->owner->window, w, h);
-
-    XSizeHints *hints = XAllocSizeHints();
-    hints->flags = PMinSize | PMaxSize;
-    hints->min_width = hints->max_width = (int)w;
-    hints->min_height = hints->max_height = (int)h;
-    XSetWMNormalHints(f->owner->display, f->owner->window, hints);
-    XFree(hints);
-    XFlush(f->owner->display);
-#elif NAUI_WINDOWS
-    RECT rect = { 0, 0, (LONG)w, (LONG)h };
-    DWORD style = (DWORD)GetWindowLongA(f->owner->window, GWL_STYLE);
-    DWORD ex_style = (DWORD)GetWindowLongA(f->owner->window, GWL_EXSTYLE);
-    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
-    SetWindowPos(f->owner->window, NULL, 0, 0,
-        rect.right - rect.left, rect.bottom - rect.top,
-        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-#endif
+    _uph_plugin_gui_resize_window(f->owner, w, h);
 
     f->owner->vst3.width = w;
     f->owner->vst3.height = h;
@@ -1645,7 +1656,7 @@ static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 #if NAUI_LINUX
     if (ih->display)
     {
-        XDestroyWindow(ih->display, ih->window);
+        XDestroyWindow(ih->display, ih->container);
         XSync(ih->display, False);
         XCloseDisplay(ih->display);
         ih->display = NULL;
@@ -2200,35 +2211,7 @@ static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width,
     if (!internal_handle)
         return false;
 
-#if NAUI_LINUX
-    XResizeWindow(internal_handle->display, internal_handle->window, width, height);
-
-    XSizeHints *size_hints = XAllocSizeHints();
-    size_hints->flags = PMinSize | PMaxSize;
-    size_hints->min_width = width;
-    size_hints->max_width = width;
-    size_hints->min_height = height;
-    size_hints->max_height = height;
-    XSetWMNormalHints(internal_handle->display, internal_handle->window, size_hints);
-    XFree(size_hints);
-
-    XFlush(internal_handle->display);
-#elif NAUI_WINDOWS
-    RECT rect = { 0, 0, (LONG)width, (LONG)height };
-    DWORD style = (DWORD)GetWindowLongA(internal_handle->window, GWL_STYLE);
-    DWORD ex_style = (DWORD)GetWindowLongA(internal_handle->window, GWL_EXSTYLE);
-    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
-
-    SetWindowPos(
-        internal_handle->window,
-        NULL,
-        0, 0,
-        rect.right - rect.left,
-        rect.bottom - rect.top,
-        SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE
-    );
-#endif
-
+    _uph_plugin_gui_resize_window(internal_handle, width, height);
     return true;
 }
 
@@ -2326,105 +2309,12 @@ static Naui_List(Uph_PluginParam) uph_clap_get_param_list(Uph_Plugin *plug)
 }
 
 #if NAUI_WINDOWS
-static void uph_plugin_hide_window_internal(Uph_PluginInternalHandle *internal_handle)
-{
-    if (!internal_handle->visible)
-        return;
-
-    internal_handle->visible = false;
-
-    if (internal_handle->clap.gui)
-        internal_handle->clap.gui->hide(internal_handle->clap.plugin);
-
-    ShowWindow(internal_handle->window, SW_HIDE);
-}
-
 static LRESULT CALLBACK uph_plugin_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
-    Uph_PluginInternalHandle *ih =
-        (Uph_PluginInternalHandle*)(uintptr_t)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
-
-    switch (msg)
-    {
-        case WM_NCLBUTTONDOWN:
-            if (ih && wparam == HTCAPTION)
-            {
-                GetCursorPos(&ih->drag_start_cursor);
-
-                RECT r;
-                GetWindowRect(hwnd, &r);
-                ih->drag_start_origin.x = r.left;
-                ih->drag_start_origin.y = r.top;
-
-                ih->dragging = true;
-                SetCapture(hwnd);
-
-                SetForegroundWindow(hwnd);
-                return 0;
-            }
-            break;
-
-        case WM_MOUSEMOVE:
-            if (ih && ih->dragging)
-            {
-                POINT p;
-                GetCursorPos(&p);
-
-                SetWindowPos(
-                    hwnd, NULL,
-                    ih->drag_start_origin.x + (p.x - ih->drag_start_cursor.x),
-                    ih->drag_start_origin.y + (p.y - ih->drag_start_cursor.y),
-                    0, 0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-                );
-                return 0;
-            }
-            break;
-
-        case WM_LBUTTONUP:
-            if (ih && ih->dragging)
-            {
-                ih->dragging = false;
-                ReleaseCapture();
-                return 0;
-            }
-            break;
-
-        case WM_CAPTURECHANGED:
-            if (ih)
-                ih->dragging = false;
-            break;
-
-        case WM_KEYDOWN:
-            if (ih && ih->dragging && wparam == VK_ESCAPE)
-            {
-                SetWindowPos(
-                    hwnd, NULL,
-                    ih->drag_start_origin.x, ih->drag_start_origin.y,
-                    0, 0,
-                    SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE
-                );
-                ih->dragging = false;
-                ReleaseCapture();
-                return 0;
-            }
-            break;
-
-        case WM_CLOSE:
-            if (ih)
-            {
-                ih->dragging = false;
-                if (ih->visible)
-                {
-                    ih->visible = false;
-                    if (ih->clap.gui && ih->clap.plugin && ih->is_clap)
-                        ih->clap.gui->hide(ih->clap.plugin);
-                    ShowWindow(hwnd, SW_HIDE);
-                }
-            }
-            return 0;
-    }
-
+    if (msg == WM_CLOSE)
+        return 0;
+    if (msg == WM_MOUSEACTIVATE)
+        return MA_NOACTIVATE;
     return DefWindowProcA(hwnd, msg, wparam, lparam);
 }
 
@@ -2784,7 +2674,7 @@ void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
 
 #pragma endregion
 
-static Uph_Plugin _uph_plugin_load_impl(Naui_Path path, bool show_window)
+static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 {
     Uph_Plugin effect = { 0 };
 
@@ -2811,106 +2701,46 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path, bool show_window)
     internal_handle->is_clap = (effect.format == UPH_PLUGIN_CLAP);
     effect.name = internal_handle->display_name;
 
+    internal_handle->gui_width = width;
+    internal_handle->gui_height = height;
+
 #if NAUI_LINUX
-    Window parent = (Window)mgapp_primary_handle();
     Display *dpy = (Display*)XOpenDisplay(NULL);
-
     int screen = DefaultScreen(dpy);
-    Window root = RootWindow(dpy, screen);
 
-    int x = 100, y = 100;
-    unsigned int border_width = 0;
-    unsigned long border_color = BlackPixel(dpy, screen);
-    unsigned long bg_color = WhitePixel(dpy, screen);
+    XSetWindowAttributes attributes = { .override_redirect = True };
+    Window container = XCreateWindow(
+        dpy, RootWindow(dpy, screen),
+        0, 0, 1, 1, 0,
+        CopyFromParent, InputOutput, CopyFromParent,
+        CWOverrideRedirect, &attributes
+    );
+    XShapeCombineRectangles(dpy, container, ShapeBounding, 0, 0, NULL, 0, ShapeSet, Unsorted);
+    XShapeCombineRectangles(dpy, container, ShapeInput, 0, 0, NULL, 0, ShapeSet, Unsorted);
 
     Window child = XCreateSimpleWindow(
-        dpy, root,
-        x, y, width, height,
-        border_width, border_color, bg_color
+        dpy, container,
+        0, 0, width, height,
+        0, BlackPixel(dpy, screen), BlackPixel(dpy, screen)
     );
-
-    XSizeHints *size_hints = XAllocSizeHints();
-    size_hints->flags = PMinSize | PMaxSize;
-    size_hints->min_width = width;
-    size_hints->max_width = width;
-    size_hints->min_height = height;
-    size_hints->max_height = height;
-
-    XSetWMNormalHints(dpy, child, size_hints);
-    XFree(size_hints);
-
-    XSetTransientForHint(dpy, child, parent);
-    XStoreName(dpy, child, internal_handle->display_name.data);
-
-    if (show_window)
-        XMapWindow(dpy, child);
+    XCompositeRedirectWindow(dpy, child, CompositeRedirectManual);
+    XMapWindow(dpy, container);
     XFlush(dpy);
 
-    Atom wm_window_type = XInternAtom(
-        dpy,
-        "_NET_WM_WINDOW_TYPE",
-        False
-    );
-
-    Atom wm_window_type_dialog = XInternAtom(
-        dpy,
-        "_NET_WM_WINDOW_TYPE_DIALOG",
-        False
-    );
-
-    XChangeProperty(
-        dpy,
-        child,
-        wm_window_type,
-        XA_ATOM,
-        32,
-        PropModeReplace,
-        (unsigned char *)&wm_window_type_dialog,
-        1
-    );
-
-    internal_handle->wm_protocols = XInternAtom(
-        dpy,
-        "WM_PROTOCOLS",
-        False
-    );
-
-    internal_handle->wm_delete_window = XInternAtom(
-        dpy,
-        "WM_DELETE_WINDOW",
-        False
-    );
-
-    XSetWMProtocols(
-        dpy,
-        child,
-        &internal_handle->wm_delete_window,
-        1
-    );
-
+    internal_handle->container = container;
     internal_handle->window = child;
     internal_handle->display = dpy;
-    internal_handle->visible = show_window;
 #elif NAUI_WINDOWS
-    HWND parent = (HWND)mgapp_primary_handle();
-
     uph_register_plugin_wnd_class();
 
-    DWORD style = WS_POPUP | WS_CAPTION | WS_SYSMENU;
-    DWORD ex_style = WS_EX_DLGMODALFRAME;
-
-    RECT rect = { 0, 0, (LONG)width, (LONG)height };
-    AdjustWindowRectEx(&rect, style, FALSE, ex_style);
-
     HWND child = CreateWindowExA(
-        ex_style,
+        WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         "UphPluginChildWindow",
         internal_handle->display_name.data,
-        style,
-        100, 100,
-        rect.right - rect.left,
-        rect.bottom - rect.top,
-        parent,
+        WS_POPUP | WS_CLIPCHILDREN,
+        0, 0,
+        (int)width, (int)height,
+        (HWND)mgapp_primary_handle(),
         NULL,
         GetModuleHandleA(NULL),
         NULL
@@ -2922,16 +2752,9 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path, bool show_window)
         return effect;
     }
 
+    SetLayeredWindowAttributes(child, 0, 1, LWA_ALPHA);
     SetWindowLongPtrA(child, GWLP_USERDATA, (LONG_PTR)internal_handle);
-
-    if (show_window)
-    {
-        ShowWindow(child, SW_SHOW);
-        UpdateWindow(child);
-    }
-
     internal_handle->window = child;
-    internal_handle->visible = show_window;
 #endif
 
     if (effect.format == UPH_PLUGIN_CLAP)
@@ -2948,9 +2771,11 @@ Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
     _uph_module_acquire(path);
 
-    Uph_Plugin plugin = _uph_plugin_load_impl(path, show_window);
+    Uph_Plugin plugin = _uph_plugin_load_impl(path);
     if (!plugin.loaded)
         _uph_module_release(path);
+    else if (show_window)
+        uph_plugin_show_window(&plugin);
 
     return plugin;
 }
@@ -2982,7 +2807,7 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 #if NAUI_LINUX
     if (internal_handle->display)
     {
-        XDestroyWindow(internal_handle->display, internal_handle->window);
+        XDestroyWindow(internal_handle->display, internal_handle->container);
         XFlush(internal_handle->display);
         XCloseDisplay(internal_handle->display);
         internal_handle->display = NULL;
@@ -3024,10 +2849,18 @@ void uph_plugin_unload(Uph_Plugin *plug)
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (internal_handle)
     {
+        if (internal_handle->panel)
+        {
+            uph_plugin_editor_destroy(internal_handle->panel);
+            internal_handle->panel = 0;
+        }
+
         if (plug->format == UPH_PLUGIN_CLAP)
             uph_unload_clap_plugin(internal_handle);
         else if (plug->format == UPH_PLUGIN_VST3)
             uph_unload_vst3_plugin(internal_handle);
+
+        _uph_plugin_gui_release_capture(internal_handle);
 
         free(plug->internal_handle);
         plug->internal_handle = NULL;
@@ -3045,34 +2878,442 @@ static inline long uph_ms_since(float then)
     return (long)((naui_time() - then) * 1000.0f);
 }
 
+static void _uph_plugin_texture_destroy_deferred(Naui_Texture *texture)
+{
+    naui_texture_destroy(*texture);
+}
+
+static void _uph_plugin_gui_release_texture(Uph_PluginInternalHandle *ih)
+{
+    if (ih->texture)
+        naui_defer((Naui_DeferredEvent)_uph_plugin_texture_destroy_deferred, &ih->texture, sizeof(Naui_Texture));
+    ih->texture = NULL;
+    ih->texture_width = ih->texture_height = 0;
+}
+
+static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
+{
+    _uph_plugin_gui_release_texture(ih);
+    free(ih->pixels);
+    ih->pixels = NULL;
+
+#if NAUI_WINDOWS
+    if (ih->capture_dc)
+        DeleteDC(ih->capture_dc);
+    if (ih->capture_bitmap)
+        DeleteObject(ih->capture_bitmap);
+    ih->capture_dc = NULL;
+    ih->capture_bitmap = NULL;
+    ih->capture_bits = NULL;
+#endif
+}
+
+#if NAUI_LINUX
+static int _uph_plugin_x11_error_handler(Display *display, XErrorEvent *event)
+{
+    (void)display;
+    (void)event;
+    return 0;
+}
+
+static bool _uph_plugin_gui_read_pixels(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+{
+    XSync(ih->display, False);
+    int (*previous_handler)(Display*, XErrorEvent*) = XSetErrorHandler(_uph_plugin_x11_error_handler);
+
+    bool ok = false;
+    Pixmap pixmap = XCompositeNameWindowPixmap(ih->display, ih->window);
+    XImage *image = pixmap ? XGetImage(ih->display, pixmap, 0, 0, width, height, AllPlanes, ZPixmap) : NULL;
+
+    if (image && image->bits_per_pixel == 32)
+    {
+        for (uint32_t y = 0; y < height; y++)
+            memcpy(ih->pixels + (size_t)y * width * 4, image->data + (size_t)y * image->bytes_per_line, (size_t)width * 4);
+        ok = true;
+    }
+
+    if (image)
+        XDestroyImage(image);
+    if (pixmap)
+        XFreePixmap(ih->display, pixmap);
+
+    XSync(ih->display, False);
+    XSetErrorHandler(previous_handler);
+    return ok;
+}
+#elif NAUI_WINDOWS
+#ifndef PW_RENDERFULLCONTENT
+    #define PW_RENDERFULLCONTENT 0x00000002
+#endif
+
+static bool _uph_plugin_gui_read_pixels(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+{
+    if (!ih->capture_dc)
+    {
+        HDC screen_dc = GetDC(NULL);
+        BITMAPINFO info = { 0 };
+        info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+        info.bmiHeader.biWidth = (LONG)width;
+        info.bmiHeader.biHeight = -(LONG)height;
+        info.bmiHeader.biPlanes = 1;
+        info.bmiHeader.biBitCount = 32;
+        info.bmiHeader.biCompression = BI_RGB;
+
+        ih->capture_dc = CreateCompatibleDC(screen_dc);
+        ih->capture_bitmap = CreateDIBSection(screen_dc, &info, DIB_RGB_COLORS, &ih->capture_bits, NULL, 0);
+        ReleaseDC(NULL, screen_dc);
+
+        if (!ih->capture_dc || !ih->capture_bitmap)
+            return false;
+        SelectObject(ih->capture_dc, ih->capture_bitmap);
+    }
+
+    if (!PrintWindow(ih->window, ih->capture_dc, PW_RENDERFULLCONTENT))
+        return false;
+    GdiFlush();
+
+    memcpy(ih->pixels, ih->capture_bits, (size_t)width * height * 4);
+    return true;
+}
+#endif
+
+static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
+{
+    const uint32_t width = ih->gui_width;
+    const uint32_t height = ih->gui_height;
+    if (!width || !height)
+        return;
+
+    if (ih->texture_width != width || ih->texture_height != height)
+    {
+        _uph_plugin_gui_release_capture(ih);
+        ih->pixels = (uint8_t*)malloc((size_t)width * height * 4);
+        ih->texture = naui_texture_create(width, height, NAUI_TEXTURE_FORMAT_BGRA8, NAUI_MEMORY_SHARED);
+        ih->texture_width = width;
+        ih->texture_height = height;
+    }
+
+    if (!_uph_plugin_gui_read_pixels(ih, width, height))
+        return;
+
+    const size_t pixel_count = (size_t)width * height;
+    for (size_t i = 0; i < pixel_count; i++)
+        ih->pixels[i * 4 + 3] = 0xFF;
+
+    naui_texture_update(ih->texture, ih->pixels);
+}
+
+const char *uph_plugin_gui_title(Uph_PluginInternalHandle *handle)
+{
+    return handle->display_name.data;
+}
+
+void uph_plugin_gui_size(Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height)
+{
+    *width = handle->gui_width;
+    *height = handle->gui_height;
+}
+
+bool uph_plugin_gui_take_resize(Uph_PluginInternalHandle *handle)
+{
+    const bool pending = handle->resize_pending;
+    handle->resize_pending = false;
+    return pending;
+}
+
+Naui_Texture uph_plugin_gui_texture(Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height)
+{
+    *width = handle->texture_width;
+    *height = handle->texture_height;
+    return handle->texture;
+}
+
+void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
+{
+#if NAUI_LINUX
+    Window root = DefaultRootWindow(handle->display);
+    Window child;
+    int root_x = 0, root_y = 0;
+    XTranslateCoordinates(handle->display, (Window)mgapp_primary_handle(), root, x, y, &root_x, &root_y, &child);
+#elif NAUI_WINDOWS
+    POINT point = { x, y };
+    ClientToScreen((HWND)mgapp_primary_handle(), &point);
+    const int32_t root_x = point.x, root_y = point.y;
+#endif
+
+    if (root_x == handle->screen_x && root_y == handle->screen_y)
+        return;
+
+    handle->screen_x = root_x;
+    handle->screen_y = root_y;
+
+#if NAUI_LINUX
+    XMoveWindow(handle->display, handle->container, root_x, root_y);
+    XFlush(handle->display);
+#elif NAUI_WINDOWS
+    SetWindowPos(handle->window, NULL, root_x, root_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+#endif
+}
+
+#if NAUI_LINUX
+static Window _uph_plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x, int32_t y, int *out_x, int *out_y)
+{
+    Window target = ih->window;
+    int tx = x, ty = y;
+
+    if (ih->buttons_down && ih->input_target)
+    {
+        Window child;
+        XTranslateCoordinates(ih->display, ih->window, ih->input_target, x, y, out_x, out_y, &child);
+        return ih->input_target;
+    }
+
+    for (;;)
+    {
+        Window child = None, unused;
+        int cx, cy;
+        if (!XTranslateCoordinates(ih->display, target, target, tx, ty, &cx, &cy, &child) || child == None)
+            break;
+        XTranslateCoordinates(ih->display, target, child, tx, ty, &cx, &cy, &unused);
+        target = child;
+        tx = cx;
+        ty = cy;
+    }
+
+    *out_x = tx;
+    *out_y = ty;
+    return target;
+}
+
+static Window _uph_plugin_gui_x11_listener(Uph_PluginInternalHandle *ih, Window target, long mask, int *x, int *y)
+{
+    for (;;)
+    {
+        XWindowAttributes attributes;
+        if (!XGetWindowAttributes(ih->display, target, &attributes))
+            return None;
+        if ((attributes.all_event_masks & mask) || target == ih->window || (attributes.do_not_propagate_mask & mask))
+            return target;
+
+        Window root, parent, *children = NULL;
+        unsigned int count = 0;
+        if (!XQueryTree(ih->display, target, &root, &parent, &children, &count))
+            return None;
+        if (children)
+            XFree(children);
+        if (parent == None)
+            return target;
+
+        *x += attributes.x + attributes.border_width;
+        *y += attributes.y + attributes.border_width;
+        target = parent;
+    }
+}
+
+static unsigned int _uph_plugin_gui_x11_state(uint8_t buttons_down)
+{
+    unsigned int state = 0;
+    if (buttons_down & (1 << NAUI_MOUSE_LEFT)) state |= Button1Mask;
+    if (buttons_down & (1 << NAUI_MOUSE_MIDDLE)) state |= Button2Mask;
+    if (buttons_down & (1 << NAUI_MOUSE_RIGHT)) state |= Button3Mask;
+    return state;
+}
+
+static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, unsigned int button, int32_t x, int32_t y)
+{
+    long mask;
+    if (type == MotionNotify)
+        mask = ih->buttons_down ? (PointerMotionMask | ButtonMotionMask) : PointerMotionMask;
+    else
+        mask = type == ButtonPress ? ButtonPressMask : ButtonReleaseMask;
+
+    const bool grabbed = ih->buttons_down && ih->input_target;
+    int tx, ty;
+    Window target = _uph_plugin_gui_target_at(ih, x, y, &tx, &ty);
+    if (target != None && !grabbed)
+        target = _uph_plugin_gui_x11_listener(ih, target, mask, &tx, &ty);
+    if (target == None)
+        return;
+
+    XEvent event = { 0 };
+
+    if (type == MotionNotify)
+    {
+        XMotionEvent *e = &event.xmotion;
+        e->type = MotionNotify;
+        e->display = ih->display;
+        e->window = target;
+        e->root = DefaultRootWindow(ih->display);
+        e->time = CurrentTime;
+        e->x = tx;
+        e->y = ty;
+        e->x_root = ih->screen_x + x;
+        e->y_root = ih->screen_y + y;
+        e->state = _uph_plugin_gui_x11_state(ih->buttons_down);
+        e->same_screen = True;
+    }
+    else
+    {
+        XButtonEvent *e = &event.xbutton;
+        e->type = type;
+        e->display = ih->display;
+        e->window = target;
+        e->root = DefaultRootWindow(ih->display);
+        e->time = CurrentTime;
+        e->x = tx;
+        e->y = ty;
+        e->x_root = ih->screen_x + x;
+        e->y_root = ih->screen_y + y;
+        e->state = _uph_plugin_gui_x11_state(ih->buttons_down);
+        e->button = button;
+        e->same_screen = True;
+    }
+
+    if (type == ButtonPress)
+        ih->input_target = target;
+
+    XSendEvent(ih->display, target, False, mask, &event);
+    XFlush(ih->display);
+}
+#elif NAUI_WINDOWS
+static HWND _uph_plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x, int32_t y, POINT *out)
+{
+    POINT point = { x, y };
+
+    if (ih->buttons_down && ih->input_target)
+    {
+        MapWindowPoints(ih->window, ih->input_target, &point, 1);
+        *out = point;
+        return ih->input_target;
+    }
+
+    HWND target = ih->window;
+    for (;;)
+    {
+        HWND child = ChildWindowFromPointEx(target, point, CWP_SKIPINVISIBLE | CWP_SKIPDISABLED | CWP_SKIPTRANSPARENT);
+        if (!child || child == target)
+            break;
+        MapWindowPoints(target, child, &point, 1);
+        target = child;
+    }
+
+    *out = point;
+    return target;
+}
+
+static WPARAM _uph_plugin_gui_win32_state(uint8_t buttons_down)
+{
+    WPARAM state = 0;
+    if (buttons_down & (1 << NAUI_MOUSE_LEFT)) state |= MK_LBUTTON;
+    if (buttons_down & (1 << NAUI_MOUSE_MIDDLE)) state |= MK_MBUTTON;
+    if (buttons_down & (1 << NAUI_MOUSE_RIGHT)) state |= MK_RBUTTON;
+    return state;
+}
+
+static void _uph_plugin_gui_win32_send(Uph_PluginInternalHandle *ih, UINT msg, int32_t x, int32_t y)
+{
+    POINT point;
+    HWND target = _uph_plugin_gui_target_at(ih, x, y, &point);
+    if (msg == WM_LBUTTONDOWN || msg == WM_RBUTTONDOWN || msg == WM_MBUTTONDOWN)
+        ih->input_target = target;
+    PostMessageA(target, msg, _uph_plugin_gui_win32_state(ih->buttons_down), MAKELPARAM(point.x, point.y));
+}
+#endif
+
+void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
+{
+#if NAUI_LINUX
+    _uph_plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
+#elif NAUI_WINDOWS
+    _uph_plugin_gui_win32_send(handle, WM_MOUSEMOVE, x, y);
+#endif
+}
+
+void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
+{
+    if (down)
+        handle->buttons_down |= (uint8_t)(1 << button);
+
+#if NAUI_LINUX
+    static const unsigned int x11_buttons[NAUI_MOUSE_MAX] = { Button1, Button3, Button2 };
+    _uph_plugin_gui_x11_send(handle, down ? ButtonPress : ButtonRelease, x11_buttons[button], x, y);
+#elif NAUI_WINDOWS
+    static const UINT down_messages[NAUI_MOUSE_MAX] = { WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN };
+    static const UINT up_messages[NAUI_MOUSE_MAX] = { WM_LBUTTONUP, WM_RBUTTONUP, WM_MBUTTONUP };
+    _uph_plugin_gui_win32_send(handle, down ? down_messages[button] : up_messages[button], x, y);
+#endif
+
+    if (!down)
+        handle->buttons_down &= (uint8_t)~(1 << button);
+    if (!handle->buttons_down)
+        handle->input_target = 0;
+}
+
+void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta, int32_t x, int32_t y)
+{
+    if (!delta)
+        return;
+
+#if NAUI_LINUX
+    const unsigned int button = delta > 0 ? Button4 : Button5;
+    for (int32_t i = 0; i < abs(delta); i++)
+    {
+        _uph_plugin_gui_x11_send(handle, ButtonPress, button, x, y);
+        _uph_plugin_gui_x11_send(handle, ButtonRelease, button, x, y);
+    }
+    if (!handle->buttons_down)
+        handle->input_target = 0;
+#elif NAUI_WINDOWS
+    POINT point;
+    HWND target = _uph_plugin_gui_target_at(handle, x, y, &point);
+    ClientToScreen(target, &point);
+    const WPARAM wparam = MAKEWPARAM(_uph_plugin_gui_win32_state(handle->buttons_down), (short)(delta * WHEEL_DELTA));
+    PostMessageA(target, WM_MOUSEWHEEL, wparam, MAKELPARAM(point.x, point.y));
+#endif
+}
+
+static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
+{
+    if (ih->visible == visible)
+        return;
+
+    ih->visible = visible;
+    ih->buttons_down = 0;
+    ih->input_target = 0;
+
+    if (!visible && ih->is_clap && ih->clap.gui)
+        ih->clap.gui->hide(ih->clap.plugin);
+
+#if NAUI_LINUX
+    if (visible)
+        XMapWindow(ih->display, ih->window);
+    else
+        XUnmapWindow(ih->display, ih->window);
+    XFlush(ih->display);
+#elif NAUI_WINDOWS
+    ShowWindow(ih->window, visible ? SW_SHOWNOACTIVATE : SW_HIDE);
+#endif
+
+    if (visible && ih->is_clap && ih->clap.gui)
+        ih->clap.gui->show(ih->clap.plugin);
+
+    if (!visible)
+        _uph_plugin_gui_release_capture(ih);
+}
+
+void uph_plugin_gui_closed(Uph_PluginInternalHandle *handle)
+{
+    _uph_plugin_gui_set_visible(handle, false);
+}
+
 void uph_plugin_hide_window(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-#if NAUI_LINUX
-    if (!internal_handle->visible)
-        return;
-
-    internal_handle->visible = false;
-
-    if (plug->format == UPH_PLUGIN_CLAP && internal_handle->clap.gui)
-        internal_handle->clap.gui->hide(internal_handle->clap.plugin);
-
-    XUnmapWindow(internal_handle->display, internal_handle->window);
-    XSync(internal_handle->display, False);
-#elif NAUI_WINDOWS
-    if (plug->format == UPH_PLUGIN_VST3)
-    {
-        if (internal_handle->visible)
-        {
-            internal_handle->visible = false;
-            ShowWindow(internal_handle->window, SW_HIDE);
-        }
-    }
-    else
-        uph_plugin_hide_window_internal(internal_handle);
-#endif
+    if (internal_handle->panel)
+        naui_panel_close(internal_handle->panel);
+    _uph_plugin_gui_set_visible(internal_handle, false);
 }
 
 void uph_plugin_show_window(Uph_Plugin *plug)
@@ -3083,21 +3324,10 @@ void uph_plugin_show_window(Uph_Plugin *plug)
     if (internal_handle->visible)
         return;
 
-#if NAUI_LINUX
-    XMapWindow(internal_handle->display, internal_handle->window);
-    XFlush(internal_handle->display);
-#elif NAUI_WINDOWS
-    ShowWindow(internal_handle->window, SW_SHOW);
-    UpdateWindow(internal_handle->window);
-#endif
-
-    if (plug->format == UPH_PLUGIN_CLAP)
-    {
-        if (internal_handle->clap.gui)
-            internal_handle->clap.gui->show(internal_handle->clap.plugin);
-    }
-
-    internal_handle->visible = true;
+    if (!internal_handle->panel)
+        internal_handle->panel = uph_plugin_editor_create(internal_handle);
+    naui_panel_open(internal_handle->panel);
+    _uph_plugin_gui_set_visible(internal_handle, true);
 }
 
 bool uph_plugin_window_visible(Uph_Plugin *plug)
@@ -3109,28 +3339,17 @@ bool uph_plugin_window_visible(Uph_Plugin *plug)
 
 static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
 {
+#if NAUI_LINUX
     Uph_PluginInternalHandle *internal_handle =
         (Uph_PluginInternalHandle*)plug->internal_handle;
 
-#if NAUI_LINUX
-    Display *dpy = internal_handle->display;
-    Window win = internal_handle->window;
-
-    while (XPending(dpy) > 0)
+    while (XPending(internal_handle->display) > 0)
     {
         XEvent event;
-        XNextEvent(dpy, &event);
-        if (event.xany.window != win) continue;
-
-        if (event.type == ClientMessage &&
-            event.xclient.message_type == internal_handle->wm_protocols &&
-            (Atom)event.xclient.data.l[0] == internal_handle->wm_delete_window)
-        {
-            uph_plugin_hide_window(plug);
-        }
+        XNextEvent(internal_handle->display, &event);
     }
-#elif NAUI_WINDOWS
-    (void)internal_handle;
+#else
+    (void)plug;
 #endif
 }
 
@@ -3148,6 +3367,8 @@ void uph_plugin_update(Uph_Plugin *plug)
 
     if (!internal_handle->visible)
         return;
+
+    _uph_plugin_gui_capture(internal_handle);
 
     if (plug->format == UPH_PLUGIN_VST3)
     {

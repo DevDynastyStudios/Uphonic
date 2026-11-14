@@ -259,6 +259,16 @@ void naui_panel_occlude_all(void)
     naui_panel_manager.occlude_all = true;
 }
 
+void *naui_panel_data(Naui_PanelID panel_id)
+{
+    return ((Naui_PanelNode*)panel_id)->user_data;
+}
+
+Naui_Vec2 naui_panel_size(Naui_PanelID panel_id)
+{
+    return ((Naui_PanelNode*)panel_id)->size;
+}
+
 static inline void naui_reset_root_indexes(uint32_t from)
 {
     for (uint32_t i = from; i < naui_list_len(naui_panel_manager.root_nodes); i++)
@@ -571,7 +581,8 @@ static void naui_panel_detach_immediate(Naui_PanelNodeWrapper *wrapper)
         free(node->user_data);
 
     naui_list_remove(naui_panel_manager.root_nodes, node->root_index);
-    
+    naui_reset_root_indexes(node->root_index);
+
     if (naui_panel_manager.focused_panel == node)
         naui_panel_manager.focused_panel = NULL;
     naui_free_panel_node(node);

@@ -25,6 +25,7 @@
 
 #include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"
+#include "panels/plugin_editor.h"
 
 #include "core/language.h"
 #include "core/language.c"
@@ -119,6 +120,7 @@
 #include "panels/mixer.c"
 #include "panels/resource_list.c"
 #include "panels/plugin_list.c"
+#include "panels/plugin_editor.c"
 #include "panels/automation_list.c"
 
 #include "panels/resource_editor/midi/note_map.h"

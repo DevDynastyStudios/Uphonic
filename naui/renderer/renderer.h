@@ -37,6 +37,22 @@ enum
     NAUI_SIDE_ALL = NAUI_SIDE_TOP | NAUI_SIDE_RIGHT | NAUI_SIDE_BOTTOM | NAUI_SIDE_LEFT
 };
 
+typedef void *Naui_Texture;
+
+typedef uint8_t Naui_TextureFormat;
+enum
+{
+    NAUI_TEXTURE_FORMAT_RGBA8,
+    NAUI_TEXTURE_FORMAT_BGRA8
+};
+
+typedef uint8_t Naui_MemoryType;
+enum
+{
+    NAUI_MEMORY_DEVICE,
+    NAUI_MEMORY_SHARED
+};
+
 #define NAUI_IMAGE_ASPECT_RATIO(image) ((float)image->width / (float)image->height)
 
 NAUI_API void naui_fill_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float rounding, Naui_CornerFlags flags);
@@ -53,6 +69,11 @@ NAUI_API void naui_draw_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Ve
 NAUI_API void naui_fill_bezier_area(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float baseline_y, Naui_Color color);
 
 NAUI_API void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint, float rounding, Naui_CornerFlags flags);
+NAUI_API Naui_Texture naui_texture_create(uint32_t width, uint32_t height, Naui_TextureFormat format, Naui_MemoryType memory);
+NAUI_API void naui_texture_update(Naui_Texture texture, const void *pixels);
+NAUI_API void naui_texture_destroy(Naui_Texture texture);
+NAUI_API void naui_draw_texture(Naui_Texture texture, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint);
+
 NAUI_API void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient tint, float rounding, Naui_CornerFlags flags);
 
 NAUI_API bool naui_load_font(uint8_t index, const char *file_name);

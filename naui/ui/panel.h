@@ -143,6 +143,9 @@ NAUI_API void               naui_panel_disable_flags        (Naui_PanelID panel_
 
 NAUI_API void               naui_panel_occlude_all          (void);
 
+NAUI_API void              *naui_panel_data                 (Naui_PanelID panel_id);
+NAUI_API Naui_Vec2          naui_panel_size                 (Naui_PanelID panel_id);
+
 NAUI_API Naui_PanelID       naui_panel_dock                 (Naui_PanelID target_id, Naui_PanelID guest_id, Naui_DockDirection direction, float split_ratio);
 NAUI_API void               naui_panel_undock               (Naui_PanelID id);
 
