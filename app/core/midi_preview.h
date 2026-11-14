@@ -1,5 +1,3 @@
-#pragma once
-
 typedef struct
 {
 	Uph_ResourceIndex pattern_index;

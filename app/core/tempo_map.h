@@ -1,5 +1,3 @@
-#pragma once
-
 #define UPH_TEMPO_MIN_BPM 20.0f
 #define UPH_TEMPO_MAX_BPM 500.0f
 

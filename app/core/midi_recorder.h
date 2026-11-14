@@ -1,5 +1,3 @@
-#pragma once
-
 void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity);
 bool uph_midi_recorder_key_held(uint8_t key);
 void uph_midi_recorder_pedal_input(uint8_t cc, uint8_t value);

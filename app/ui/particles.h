@@ -1,5 +1,3 @@
-#pragma once
-
 typedef uint8_t Uph_ParticleShape;
 enum
 {

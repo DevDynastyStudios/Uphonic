@@ -1,5 +1,3 @@
-#pragma once
-
 #define UPH_UI_FONT_SIZE                    14.0f
 #define UPH_UI_FRAME_ROUNDING               4.0f
 #define UPH_UI_FRAME_PADDING                ((Naui_Vec2){ 6.0f, 6.0f })

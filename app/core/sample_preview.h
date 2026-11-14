@@ -1,5 +1,3 @@
-#pragma once
-
 void uph_sample_preview_play(Uph_ResourceIndex sample_index);
 void uph_sample_preview_pause(void);
 void uph_sample_preview_stop(void);
