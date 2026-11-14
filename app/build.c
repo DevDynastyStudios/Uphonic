@@ -22,6 +22,7 @@
 
 #include <vendor/vst3_c_api.h>
 #include <vendor/clap/clap.h>
+#include <vendor/vestige/vestige.h>
 
 #include "plugins/event_ring.h"
 #include "plugins/plugin_manager.h"

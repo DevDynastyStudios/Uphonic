@@ -340,7 +340,9 @@ typedef uint8_t Uph_PluginFormat;
 enum
 {
 	UPH_PLUGIN_CLAP,
-	UPH_PLUGIN_VST3
+	UPH_PLUGIN_VST3,
+	UPH_PLUGIN_VST2,
+	UPH_PLUGIN_FORMAT_COUNT
 };
 
 typedef struct

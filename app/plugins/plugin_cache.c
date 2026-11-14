@@ -21,18 +21,15 @@ static inline Naui_Path _uph_plugin_get_cache_file(void)
 
 #define UPH_PLUGIN_SCAN_MAX_DEPTH 16
 
+static const char *const s_uph_plugin_cache_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
+	[UPH_PLUGIN_CLAP] = "CLAP",
+	[UPH_PLUGIN_VST3] = "VST3",
+	[UPH_PLUGIN_VST2] = "VST2"
+};
+
 static bool _uph_plugin_cache_is_plugin(const Naui_Path path)
 {
-	static const char *const plugin_extensions[] = { ".clap", ".vst3" };
-
-	const Naui_StringView extension = naui_file_extension(&path);
-	for (size_t i = 0; i < sizeof(plugin_extensions) / sizeof(plugin_extensions[0]); i++)
-	{
-		if (naui_string_view_equals_cstr(extension, plugin_extensions[i], false))
-			return true;
-	}
-
-	return false;
+	return uph_plugin_format_from_path(path, NULL);
 }
 
 static bool _uph_plugin_cache_files_contain(const Naui_List(Naui_Path) files, const Naui_Path path)
@@ -129,7 +126,7 @@ static void _uph_plugin_cache_write(const Naui_List(Uph_PluginInfo) info_list)
 		naui_json_set_string(&json, object, "name", info->name.data);
 		naui_json_set_string(&json, object, "vendor", info->vendor.data);
 		naui_json_set_string(&json, object, "type", info->type == UPH_PLUGIN_EFFECT ? "FX" : "INST");
-		naui_json_set_string(&json, object, "format", info->format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP");
+		naui_json_set_string(&json, object, "format", s_uph_plugin_cache_format_names[info->format]);
 	}
 
 	naui_directories_create(UPHONIC_FOLDER);
@@ -213,7 +210,12 @@ bool uph_plugin_cache_read(Naui_List(Uph_PluginInfo) *info_list)
 		const char* format = naui_json_get_string(naui_json_object_get(val, "format"), "");
 
 		info.type = strcmp(type, "FX") == 0 ? UPH_PLUGIN_EFFECT : UPH_PLUGIN_INSTRUMENT;
-		info.format = strcmp(format, "VST3") == 0 ? UPH_PLUGIN_VST3   : UPH_PLUGIN_CLAP;
+		info.format = UPH_PLUGIN_CLAP;
+		for (Uph_PluginFormat f = 0; f < UPH_PLUGIN_FORMAT_COUNT; f++)
+		{
+			if (strcmp(format, s_uph_plugin_cache_format_names[f]) == 0)
+				info.format = f;
+		}
 
 		naui_list_push(*info_list, info);
 	}

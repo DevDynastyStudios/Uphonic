@@ -78,6 +78,7 @@
 	],
 	"uph_plugin_list_clap_color": "#C77DFFFF",
 	"uph_plugin_list_vst3_color": "#9D4EDDFF",
+	"uph_plugin_list_vst2_color": "#9D4EDDFF",
 	"uph_plugin_list_text_color": "#FFFFFFFF",
 	"uph_mixer_track_bg_color": "#1A1A1AFF",
 	"uph_mixer_track_selected_bg_color": "#222222FF",

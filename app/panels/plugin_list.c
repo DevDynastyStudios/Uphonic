@@ -249,16 +249,25 @@ static void uph_plugin_list_text_cell(const char *text, const Leaf_SizeAxis widt
 
 static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
 {
+    static const char *const labels[UPH_PLUGIN_FORMAT_COUNT] = {
+        [UPH_PLUGIN_CLAP] = "CLAP",
+        [UPH_PLUGIN_VST3] = "VST3",
+        [UPH_PLUGIN_VST2] = "VST2"
+    };
+    static const char *const colors[UPH_PLUGIN_FORMAT_COUNT] = {
+        [UPH_PLUGIN_CLAP] = "uph_plugin_list_clap_color",
+        [UPH_PLUGIN_VST3] = "uph_plugin_list_vst3_color",
+        [UPH_PLUGIN_VST2] = "uph_plugin_list_vst2_color"
+    };
+
     leaf({
         .size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
         .padding = LEAF_PADDING_AXES(NAUI_DPI(6), NAUI_DPI(2)),
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
-        .color = format == UPH_PLUGIN_VST3 ?
-            naui_theme_color("uph_plugin_list_vst3_color") :
-            naui_theme_color("uph_plugin_list_clap_color")
+        .color = naui_theme_color(colors[format])
     })
     {
-        leaf_text(format == UPH_PLUGIN_VST3 ? "VST3" : "CLAP", {
+        leaf_text(labels[format], {
             .font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
             .color = naui_theme_color("uph_plugin_list_text_color")
         });

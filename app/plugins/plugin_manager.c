@@ -235,6 +235,34 @@ typedef struct
 }
 Uph_ClapTimer;
 
+#define UPH_VST2_MAX_EVENTS     (UPH_NOTE_RING_CAPACITY)
+#define UPH_VST2_MAX_BLOCK      4096
+#define UPH_VST2_MAX_CHANNELS   32
+#define UPH_VST2_HOST_VERSION   2400
+
+#define UPH_VST2_EFF_GET_CHUNK          23
+#define UPH_VST2_EFF_SET_CHUNK          24
+#define UPH_VST2_FLAG_PROGRAM_CHUNKS    (1 << 5)
+
+typedef struct
+{
+    int16_t top;
+    int16_t left;
+    int16_t bottom;
+    int16_t right;
+}
+Uph_Vst2Rect;
+
+typedef struct
+{
+    int num_events;
+    void *reserved;
+    VstEvent *events[UPH_VST2_MAX_EVENTS];
+}
+Uph_Vst2Events;
+
+typedef AEffect *(__cdecl *Uph_Vst2MainFn)(audioMasterCallback);
+
 struct Uph_PluginInternalHandle_
 {
     union
@@ -307,6 +335,35 @@ struct Uph_PluginInternalHandle_
             Uph_Vst3ParamChanges out_params;
         }
         vst3;
+
+        struct
+        {
+            AEffect *effect;
+            void *library_handle;
+
+            Uph_NoteEventRing pending_notes;
+            Uph_ParamEventRing pending_params;
+
+            bool active_notes[128];
+            int16_t active_note_channels[128];
+            uint8_t cc_values[128];
+
+            Uph_Vst2Events events;
+            VstMidiEvent midi_events[UPH_VST2_MAX_EVENTS];
+            VstTimeInfo time_info;
+
+            float *buffers;
+            float *in_ptrs[UPH_VST2_MAX_CHANNELS];
+            float *out_ptrs[UPH_VST2_MAX_CHANNELS];
+            int32_t in_channels;
+            int32_t out_channels;
+
+            int64_t sample_position;
+            bool was_playing;
+            bool editor_open;
+            volatile int ready;
+        }
+        vst2;
     };
 
 #if NAUI_LINUX
@@ -1623,6 +1680,25 @@ static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
     ih->vst3.ready = 1;
 }
 
+static void _uph_plugin_gui_destroy_window(Uph_PluginInternalHandle *ih)
+{
+#if NAUI_LINUX
+    if (ih->display)
+    {
+        XDestroyWindow(ih->display, ih->container);
+        XSync(ih->display, False);
+        XCloseDisplay(ih->display);
+        ih->display = NULL;
+    }
+#elif NAUI_WINDOWS
+    if (ih->window)
+    {
+        DestroyWindow(ih->window);
+        ih->window = NULL;
+    }
+#endif
+}
+
 static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 {
     ih->vst3.ready = 0;
@@ -1651,22 +1727,7 @@ static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 #endif
 
     uph_vst3_free_partial(ih);
-
-#if NAUI_LINUX
-    if (ih->display)
-    {
-        XDestroyWindow(ih->display, ih->container);
-        XSync(ih->display, False);
-        XCloseDisplay(ih->display);
-        ih->display = NULL;
-    }
-#elif NAUI_WINDOWS
-    if (ih->window)
-    {
-        DestroyWindow(ih->window);
-        ih->window = NULL;
-    }
-#endif
+    _uph_plugin_gui_destroy_window(ih);
 }
 
 static void uph_vst3_process(
@@ -1936,6 +1997,603 @@ static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const Naui_Path pa
     free(data);
     return ok;
 }
+
+#define UPH_VST2_STATE_CHUNK  ((uint32_t)CCONST('U', 'V', '2', 'C'))
+#define UPH_VST2_STATE_PARAMS ((uint32_t)CCONST('U', 'V', '2', 'P'))
+
+static _Thread_local Uph_PluginInternalHandle *_uph_vst2_pending_owner;
+
+static intptr_t _uph_vst2_copy_string(void *dest, const char *src)
+{
+    if (!dest)
+        return 0;
+
+    snprintf((char*)dest, VestigeMaxNameLen, "%s", src);
+    return 1;
+}
+
+static bool _uph_vst2_host_can_do(const char *feature)
+{
+    static const char *const features[] = { "sendVstEvents", "sendVstMidiEvent", "sendVstTimeInfo", "sizeWindow", "supplyIdle" };
+
+    for (size_t i = 0; i < sizeof(features) / sizeof(features[0]); i++)
+    {
+        if (strcmp(feature, features[i]) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
+{
+    (void)opt;
+
+    Uph_PluginInternalHandle *ih = effect && effect->ptr2
+        ? (Uph_PluginInternalHandle*)effect->ptr2
+        : _uph_vst2_pending_owner;
+
+    switch (opcode)
+    {
+        case audioMasterVersion:
+            return UPH_VST2_HOST_VERSION;
+
+        case audioMasterWantMidi:
+        case audioMasterBeginEdit:
+        case audioMasterEndEdit:
+            return 1;
+
+        case audioMasterGetTime:
+            return ih ? (intptr_t)&ih->vst2.time_info : 0;
+
+        case audioMasterSizeWindow:
+            if (!ih || !ih->window || index <= 0 || value <= 0)
+                return 0;
+            _uph_plugin_gui_resize_window(ih, (uint32_t)index, (uint32_t)value);
+            return 1;
+
+        case audioMasterGetSampleRate:
+            return (intptr_t)uph_state.settings.audio.sample_rate;
+
+        case audioMasterGetBlockSize:
+            return UPH_VST2_MAX_BLOCK;
+
+        case audioMasterGetVendorString:
+            return _uph_vst2_copy_string(ptr, "Dev Dynasty Studios");
+
+        case audioMasterGetProductString:
+            return _uph_vst2_copy_string(ptr, "Uphonic");
+
+        case audioMasterGetVendorVersion:
+            return 1;
+
+        case audioMasterCanDo:
+            return ptr && _uph_vst2_host_can_do((const char*)ptr);
+
+        case audioMasterGetLanguage:
+            return kVstLangEnglish;
+
+        default:
+            return 0;
+    }
+}
+
+static intptr_t _uph_vst2_dispatch(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
+{
+    return effect->dispatcher(effect, opcode, index, value, ptr, opt);
+}
+
+static void _uph_vst2_library_close(void *lib)
+{
+#if NAUI_LINUX
+    dlclose(lib);
+#elif NAUI_WINDOWS
+    FreeLibrary((HMODULE)lib);
+#endif
+}
+
+static void *_uph_vst2_library_open(const char *path, bool resident, Uph_Vst2MainFn *main_fn)
+{
+#if NAUI_LINUX
+    void *lib = dlopen(path, RTLD_LOCAL | RTLD_LAZY | (resident ? RTLD_NODELETE : 0));
+    if (!lib)
+        return NULL;
+
+    *main_fn = (Uph_Vst2MainFn)dlsym(lib, "VSTPluginMain");
+    if (!*main_fn)
+        *main_fn = (Uph_Vst2MainFn)dlsym(lib, "main");
+#elif NAUI_WINDOWS
+    (void)resident;
+
+    HMODULE lib = LoadLibraryA(path);
+    if (!lib)
+        return NULL;
+
+    *main_fn = (Uph_Vst2MainFn)(void*)GetProcAddress(lib, "VSTPluginMain");
+    if (!*main_fn)
+        *main_fn = (Uph_Vst2MainFn)(void*)GetProcAddress(lib, "main");
+#endif
+
+    if (!*main_fn)
+    {
+        _uph_vst2_library_close((void*)lib);
+        return NULL;
+    }
+
+    return (void*)lib;
+}
+
+static AEffect *_uph_vst2_effect_create(Uph_Vst2MainFn main_fn, Uph_PluginInternalHandle *owner)
+{
+    _uph_vst2_pending_owner = owner;
+
+    AEffect *effect = main_fn(_uph_vst2_host_callback);
+    if (effect && effect->magic == kEffectMagic)
+    {
+        effect->ptr2 = owner;
+        _uph_vst2_dispatch(effect, effOpen, 0, 0, NULL, 0.0f);
+    }
+    else
+        effect = NULL;
+
+    _uph_vst2_pending_owner = NULL;
+    return effect;
+}
+
+static const char *_uph_vst2_unsupported_reason(AEffect *effect)
+{
+    if (_uph_vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f) == kPlugCategShell)
+        return "shell plug-ins are not supported";
+    if (!(effect->flags & effFlagsCanReplacing))
+        return "plug-in does not support processReplacing";
+    if (!(effect->flags & effFlagsHasEditor))
+        return "plug-in has no editor";
+    if (effect->numInputs < 0 || effect->numInputs > UPH_VST2_MAX_CHANNELS
+        || effect->numOutputs < 0 || effect->numOutputs > UPH_VST2_MAX_CHANNELS)
+        return "unsupported channel count";
+    return NULL;
+}
+
+static Naui_String _uph_vst2_string(AEffect *effect, int32_t opcode, int32_t index)
+{
+    char buffer[NAUI_STRING_MAX_SIZE] = { 0 };
+    _uph_vst2_dispatch(effect, opcode, index, 0, buffer, 0.0f);
+    buffer[sizeof(buffer) - 1] = '\0';
+    return naui_string_from_cstr(buffer);
+}
+
+static Naui_String _uph_vst2_name(AEffect *effect, const Naui_Path *path)
+{
+    Naui_String name = _uph_vst2_string(effect, effGetEffectName, 0);
+    if (!name.length)
+        name = _uph_vst2_string(effect, effGetProductString, 0);
+    if (!name.length)
+        name = naui_view_to_string(naui_file_stem(path));
+    return name;
+}
+
+static bool _uph_vst2_editor_rect(AEffect *effect, uint32_t *width, uint32_t *height)
+{
+    Uph_Vst2Rect *rect = NULL;
+    _uph_vst2_dispatch(effect, effEditGetRect, 0, 0, &rect, 0.0f);
+    if (!rect || rect->right <= rect->left || rect->bottom <= rect->top)
+        return false;
+
+    *width = (uint32_t)(rect->right - rect->left);
+    *height = (uint32_t)(rect->bottom - rect->top);
+    return true;
+}
+
+static Naui_List(Uph_PluginParam) _uph_vst2_get_param_list(Uph_Plugin *plug)
+{
+    Naui_List(Uph_PluginParam) list = NULL;
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!ih || !ih->vst2.effect || ih->vst2.effect->numParams <= 0)
+        return list;
+
+    AEffect *effect = ih->vst2.effect;
+    naui_list_reserve(list, (size_t)effect->numParams);
+
+    for (int32_t i = 0; i < effect->numParams; i++)
+    {
+        const double value = (double)effect->getParameter(effect, i);
+
+        Uph_PluginParam p = {
+            .id = (uint64_t)i,
+            .name = _uph_vst2_string(effect, effGetParamName, i),
+            .min_value = 0.0,
+            .max_value = 1.0,
+            .default_value = value,
+            .current_value = value
+        };
+
+        naui_list_push(list, p);
+    }
+
+    return list;
+}
+
+static void _uph_vst2_free(Uph_PluginInternalHandle *ih)
+{
+    const bool active = ih->vst2.ready;
+    ih->vst2.ready = 0;
+
+    AEffect *effect = ih->vst2.effect;
+    if (effect)
+    {
+        if (active)
+        {
+            _uph_vst2_dispatch(effect, effStopProcess, 0, 0, NULL, 0.0f);
+            _uph_vst2_dispatch(effect, effMainsChanged, 0, 0, NULL, 0.0f);
+        }
+
+        if (ih->vst2.editor_open)
+            _uph_vst2_dispatch(effect, effEditClose, 0, 0, NULL, 0.0f);
+
+        _uph_vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
+        ih->vst2.effect = NULL;
+    }
+
+    ih->vst2.editor_open = false;
+
+    free(ih->vst2.buffers);
+    ih->vst2.buffers = NULL;
+
+    if (ih->vst2.library_handle)
+    {
+        _uph_vst2_library_close(ih->vst2.library_handle);
+        ih->vst2.library_handle = NULL;
+    }
+}
+
+static inline void _uph_vst2_load_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
+{
+    uph_com_init_sta_once();
+
+    Uph_Vst2MainFn main_fn = NULL;
+    void *lib = _uph_vst2_library_open(plug->file_path.data, true, &main_fn);
+    if (!lib)
+    {
+        fprintf(stderr, "uph vst2: %s is not a loadable VST2 plug-in\n", plug->file_path.data);
+        return;
+    }
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)calloc(1, sizeof(Uph_PluginInternalHandle));
+    ih->vst2.library_handle = lib;
+    uph_note_ring_init(&ih->vst2.pending_notes);
+    uph_param_ring_init(&ih->vst2.pending_params);
+
+    ih->vst2.effect = _uph_vst2_effect_create(main_fn, ih);
+    if (!ih->vst2.effect)
+    {
+        fprintf(stderr, "uph vst2: plug-in entry returned no valid effect\n");
+        _uph_vst2_free(ih);
+        free(ih);
+        return;
+    }
+
+    AEffect *effect = ih->vst2.effect;
+
+    const char *reason = _uph_vst2_unsupported_reason(effect);
+    if (reason)
+    {
+        fprintf(stderr, "uph vst2: %s (%s)\n", reason, plug->file_path.data);
+        _uph_vst2_free(ih);
+        free(ih);
+        return;
+    }
+
+    ih->display_name = _uph_vst2_name(effect, &plug->file_path);
+    fprintf(stderr, "loading vst2 plugin: %s\n", ih->display_name.data);
+
+    ih->vst2.in_channels = effect->numInputs;
+    ih->vst2.out_channels = effect->numOutputs;
+
+    const size_t channel_count = (size_t)(ih->vst2.in_channels + ih->vst2.out_channels);
+    ih->vst2.buffers = (float*)calloc(channel_count ? channel_count * UPH_VST2_MAX_BLOCK : 1, sizeof(float));
+
+    for (int32_t c = 0; c < ih->vst2.in_channels; c++)
+        ih->vst2.in_ptrs[c] = ih->vst2.buffers + (size_t)c * UPH_VST2_MAX_BLOCK;
+    for (int32_t c = 0; c < ih->vst2.out_channels; c++)
+        ih->vst2.out_ptrs[c] = ih->vst2.buffers + (size_t)(ih->vst2.in_channels + c) * UPH_VST2_MAX_BLOCK;
+
+    for (uint32_t i = 0; i < UPH_VST2_MAX_EVENTS; i++)
+        ih->vst2.events.events[i] = (VstEvent*)&ih->vst2.midi_events[i];
+
+    _uph_vst2_dispatch(effect, effSetSampleRate, 0, 0, NULL, (float)uph_state.settings.audio.sample_rate);
+    _uph_vst2_dispatch(effect, effSetBlockSize, 0, UPH_VST2_MAX_BLOCK, NULL, 0.0f);
+
+    if (!_uph_vst2_editor_rect(effect, width, height))
+    {
+        *width = 640;
+        *height = 480;
+    }
+
+    plug->internal_handle = ih;
+    plug->params = _uph_vst2_get_param_list(plug);
+}
+
+static inline void _uph_vst2_assign_gui_internal(Uph_Plugin *plug)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    AEffect *effect = ih->vst2.effect;
+
+#if NAUI_LINUX
+    void *parent = (void*)(uintptr_t)ih->window;
+#elif NAUI_WINDOWS
+    void *parent = (void*)ih->window;
+#endif
+
+    _uph_vst2_dispatch(effect, effEditOpen, 0, 0, parent, 0.0f);
+    ih->vst2.editor_open = true;
+
+    uint32_t width = 0, height = 0;
+    if (_uph_vst2_editor_rect(effect, &width, &height) && (width != ih->gui_width || height != ih->gui_height))
+        _uph_plugin_gui_resize_window(ih, width, height);
+
+    _uph_vst2_dispatch(effect, effMainsChanged, 0, 1, NULL, 0.0f);
+    _uph_vst2_dispatch(effect, effStartProcess, 0, 0, NULL, 0.0f);
+
+    ih->vst2.sample_position = 0;
+    ih->vst2.ready = 1;
+}
+
+static void _uph_vst2_update_time_info(Uph_PluginInternalHandle *ih, double playhead_beat, bool is_playing)
+{
+    VstTimeInfo *t = &ih->vst2.time_info;
+    memset(t, 0, sizeof(*t));
+
+    t->samplePos = (double)ih->vst2.sample_position;
+    t->sampleRate = (double)uph_state.settings.audio.sample_rate;
+    t->ppqPos = playhead_beat;
+    t->tempo = uph_tempo_current_bpm();
+    t->barStartPos = floor(playhead_beat / 4.0) * 4.0;
+    t->timeSigNumerator = 4;
+    t->timeSigDenominator = 4;
+    t->flags = kVstPpqPosValid | kVstTempoValid | kVstBarsValid | kVstTimeSigValid
+        | (is_playing ? kVstTransportPlaying : 0)
+        | (is_playing != ih->vst2.was_playing ? kVstTransportChanged : 0);
+
+    ih->vst2.was_playing = is_playing;
+}
+
+static void _uph_vst2_queue_midi(Uph_PluginInternalHandle *ih, uint32_t note_snapshot, uint32_t frame_count)
+{
+    AEffect *effect = ih->vst2.effect;
+    const uint32_t first_block = frame_count < UPH_VST2_MAX_BLOCK ? frame_count : UPH_VST2_MAX_BLOCK;
+
+    int count = 0;
+    for (uint32_t i = 0; i < note_snapshot && count < UPH_VST2_MAX_EVENTS; i++)
+    {
+        const Uph_NoteRingEvent *event = uph_note_ring_peek(&ih->vst2.pending_notes, i);
+
+        VstMidiEvent *midi = &ih->vst2.midi_events[count++];
+        memset(midi, 0, sizeof(*midi));
+        midi->type = kVstMidiType;
+        midi->byteSize = (int)sizeof(VstMidiEvent);
+        midi->deltaFrames = (int)(event->header.time < first_block ? event->header.time : (first_block ? first_block - 1 : 0));
+
+        if (event->header.type == CLAP_EVENT_MIDI)
+        {
+            memcpy(midi->midiData, event->midi.data, 3);
+            continue;
+        }
+
+        const bool note_on = event->header.type == CLAP_EVENT_NOTE_ON;
+        const int16_t channel = event->note.channel < 0 ? 0 : event->note.channel;
+
+        int velocity = (int)(event->note.velocity * 127.0 + 0.5);
+        velocity = velocity < 0 ? 0 : (velocity > 127 ? 127 : velocity);
+        if (note_on && velocity == 0)
+            velocity = 1;
+
+        midi->midiData[0] = (char)((note_on ? 0x90 : 0x80) | (channel & 0x0F));
+        midi->midiData[1] = (char)(event->note.key & 0x7F);
+        midi->midiData[2] = (char)velocity;
+    }
+
+    ih->vst2.events.num_events = count;
+    if (count > 0)
+        _uph_vst2_dispatch(effect, effProcessEvents, 0, 0, &ih->vst2.events, 0.0f);
+}
+
+static void _uph_vst2_process(
+    Uph_PluginInternalHandle *ih,
+    float **inputs,
+    float **outputs,
+    uint32_t frame_count,
+    double playhead_beat,
+    bool is_playing
+)
+{
+    if (!ih->vst2.ready || !outputs)
+        return;
+
+    AEffect *effect = ih->vst2.effect;
+
+    const uint32_t note_snapshot  = uph_note_ring_size(&ih->vst2.pending_notes);
+    const uint32_t param_snapshot = uph_param_ring_size(&ih->vst2.pending_params);
+
+    _uph_vst2_queue_midi(ih, note_snapshot, frame_count);
+
+    for (uint32_t i = 0; i < param_snapshot; i++)
+    {
+        const clap_event_param_value_t *p = uph_param_ring_peek(&ih->vst2.pending_params, i);
+        if (p->param_id < (clap_id)effect->numParams)
+            effect->setParameter(effect, (int)p->param_id, (float)p->value);
+    }
+
+    _uph_vst2_update_time_info(ih, playhead_beat, is_playing);
+
+    const int32_t in_channels = ih->vst2.in_channels;
+    const int32_t out_channels = ih->vst2.out_channels;
+
+    float *out_ptrs[UPH_VST2_MAX_CHANNELS];
+
+    for (uint32_t offset = 0; offset < frame_count; offset += UPH_VST2_MAX_BLOCK)
+    {
+        const uint32_t block = frame_count - offset < UPH_VST2_MAX_BLOCK ? frame_count - offset : UPH_VST2_MAX_BLOCK;
+        const size_t bytes = (size_t)block * sizeof(float);
+
+        for (int32_t c = 0; c < in_channels; c++)
+        {
+            if (inputs && c < 2)
+                memcpy(ih->vst2.in_ptrs[c], inputs[c] + offset, bytes);
+            else
+                memset(ih->vst2.in_ptrs[c], 0, bytes);
+        }
+
+        for (int32_t c = 0; c < out_channels; c++)
+            out_ptrs[c] = c < 2 ? outputs[c] + offset : ih->vst2.out_ptrs[c];
+
+        effect->processReplacing(effect, ih->vst2.in_ptrs, out_ptrs, (int)block);
+
+        if (out_channels == 1)
+            memcpy(outputs[1] + offset, outputs[0] + offset, bytes);
+    }
+
+    ih->vst2.sample_position += (int64_t)frame_count;
+
+    uph_note_ring_advance(&ih->vst2.pending_notes, note_snapshot);
+    uph_param_ring_advance(&ih->vst2.pending_params, param_snapshot);
+}
+
+static bool _uph_vst2_write_state(const Naui_Path path, uint32_t kind, const void *data, size_t size)
+{
+    const uint32_t header[2] = { kind, (uint32_t)size };
+
+    uint8_t *buffer = (uint8_t*)malloc(sizeof(header) + size);
+    if (!buffer)
+        return false;
+
+    memcpy(buffer, header, sizeof(header));
+    if (size)
+        memcpy(buffer + sizeof(header), data, size);
+
+    const bool ok = naui_file_write_all(path, buffer, sizeof(header) + size);
+    free(buffer);
+    return ok;
+}
+
+static bool _uph_vst2_save_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+{
+    AEffect *effect = ih->vst2.effect;
+
+    if (effect->flags & UPH_VST2_FLAG_PROGRAM_CHUNKS)
+    {
+        void *chunk = NULL;
+        const intptr_t size = _uph_vst2_dispatch(effect, UPH_VST2_EFF_GET_CHUNK, 0, 0, &chunk, 0.0f);
+        if (size > 0 && chunk)
+            return _uph_vst2_write_state(path, UPH_VST2_STATE_CHUNK, chunk, (size_t)size);
+    }
+
+    const size_t count = effect->numParams > 0 ? (size_t)effect->numParams : 0;
+    float *values = (float*)malloc(count ? count * sizeof(float) : 1);
+    if (!values)
+        return false;
+
+    for (size_t i = 0; i < count; i++)
+        values[i] = effect->getParameter(effect, (int)i);
+
+    const bool ok = _uph_vst2_write_state(path, UPH_VST2_STATE_PARAMS, values, count * sizeof(float));
+    free(values);
+    return ok;
+}
+
+static bool _uph_vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+{
+    size_t size = 0;
+    uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
+    if (!data)
+    {
+        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
+        return false;
+    }
+
+    bool ok = false;
+    uint32_t header[2] = { 0 };
+
+    if (size >= sizeof(header))
+    {
+        memcpy(header, data, sizeof(header));
+
+        AEffect *effect = ih->vst2.effect;
+        const uint8_t *payload = data + sizeof(header);
+
+        if (header[1] > size - sizeof(header))
+            fprintf(stderr, "uph_plugin_load_state: truncated VST2 state in %s\n", path.data);
+        else if (header[0] == UPH_VST2_STATE_CHUNK && (effect->flags & UPH_VST2_FLAG_PROGRAM_CHUNKS))
+        {
+            _uph_vst2_dispatch(effect, UPH_VST2_EFF_SET_CHUNK, 0, (intptr_t)header[1], (void*)payload, 0.0f);
+            ok = true;
+        }
+        else if (header[0] == UPH_VST2_STATE_PARAMS)
+        {
+            const size_t stored = header[1] / sizeof(float);
+            const size_t count = effect->numParams > 0 && (size_t)effect->numParams < stored ? (size_t)effect->numParams : stored;
+
+            for (size_t i = 0; i < count; i++)
+            {
+                float value;
+                memcpy(&value, payload + i * sizeof(float), sizeof(float));
+                effect->setParameter(effect, (int)i, value);
+            }
+            ok = true;
+        }
+    }
+
+    free(data);
+    return ok;
+}
+
+static bool _uph_get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+{
+    Uph_Vst2MainFn main_fn = NULL;
+    void *lib = _uph_vst2_library_open(path.data, false, &main_fn);
+    if (!lib)
+        return false;
+
+    bool ok = false;
+    AEffect *effect = _uph_vst2_effect_create(main_fn, NULL);
+
+    if (effect)
+    {
+        const char *reason = _uph_vst2_unsupported_reason(effect);
+        if (reason)
+            fprintf(stderr, "uph info: skipping %s: %s\n", path.data, reason);
+        else
+        {
+            const intptr_t category = _uph_vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f);
+
+            out->name = _uph_vst2_name(effect, &path);
+            out->vendor = _uph_vst2_string(effect, effGetVendorString, 0);
+            out->format = UPH_PLUGIN_VST2;
+            out->type = (effect->flags & effFlagsIsSynth) || category == kPlugCategSynth
+                ? UPH_PLUGIN_INSTRUMENT
+                : UPH_PLUGIN_EFFECT;
+            ok = true;
+        }
+
+        _uph_vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
+    }
+    else
+        fprintf(stderr, "uph info: no valid VST2 effect in %s\n", path.data);
+
+    _uph_vst2_library_close(lib);
+
+    out->path = path;
+
+    return ok;
+}
+
+static void _uph_vst2_unload(Uph_PluginInternalHandle *ih)
+{
+    ih->visible = false;
+    _uph_vst2_free(ih);
+    _uph_plugin_gui_destroy_window(ih);
+}
+
 static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms, clap_id *timer_id)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)host->host_data;
@@ -1960,6 +2618,29 @@ static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms,
     return false;
 }
 
+typedef struct
+{
+    Uph_NoteEventRing *notes;
+    Uph_ParamEventRing *params;
+    bool *active_notes;
+    int16_t *active_channels;
+    uint8_t *cc_values;
+}
+Uph_PluginEventState;
+
+#define _UPH_PLUGIN_EVENT_STATE(s) (Uph_PluginEventState){ &(s).pending_notes, &(s).pending_params, (s).active_notes, (s).active_note_channels, (s).cc_values }
+
+static Uph_PluginEventState _uph_plugin_event_state(const Uph_Plugin *plug)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    switch (plug->format)
+    {
+        case UPH_PLUGIN_VST3: return _UPH_PLUGIN_EVENT_STATE(ih->vst3);
+        case UPH_PLUGIN_VST2: return _UPH_PLUGIN_EVENT_STATE(ih->vst2);
+        default:              return _UPH_PLUGIN_EVENT_STATE(ih->clap);
+    }
+}
+
 void uph_plugin_queue_note_event(
     Uph_Plugin *plug,
     bool note_on,
@@ -1969,9 +2650,6 @@ void uph_plugin_queue_note_event(
     uint32_t sample_offset
 )
 {
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
-
     Uph_NoteRingEvent ev = {0};
     ev.header.size = sizeof(clap_event_note_t);
     ev.header.time = sample_offset;
@@ -1985,26 +2663,18 @@ void uph_plugin_queue_note_event(
     ev.note.key = key;
     ev.note.velocity = velocity / 127.0;
 
-    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
-        ? &internal_handle->vst3.pending_notes
-        : &internal_handle->clap.pending_notes;
-    bool *active_notes = plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.active_notes
-        : internal_handle->clap.active_notes;
-    int16_t *active_channels = plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.active_note_channels
-        : internal_handle->clap.active_note_channels;
+    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
 
-    if (!uph_note_ring_push(note_ring, &ev))
+    if (!uph_note_ring_push(state.notes, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_note_event: note ring full, dropping event (key=%u on=%d)\n",
                 key, (int)note_on);
         return;
     }
 
-    active_notes[key] = note_on;
+    state.active_notes[key] = note_on;
     if (note_on)
-        active_channels[key] = channel;
+        state.active_channels[key] = channel;
 }
 
 void uph_plugin_queue_param_change(
@@ -2058,11 +2728,7 @@ void uph_plugin_queue_param_change(
     ev.key = -1;
     ev.value = event_value;
  
-    Uph_ParamEventRing *param_ring = plug->format == UPH_PLUGIN_VST3
-        ? &ih->vst3.pending_params
-        : &ih->clap.pending_params;
- 
-    if (!uph_param_ring_push(param_ring, &ev))
+    if (!uph_param_ring_push(_uph_plugin_event_state(plug).params, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_param_change: param ring full, dropping event (param_id=%u)\n",
                 (unsigned)param_id);
@@ -2071,22 +2737,11 @@ void uph_plugin_queue_param_change(
 
 void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 {
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
-
-    bool *active_notes = plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.active_notes
-        : internal_handle->clap.active_notes;
-    int16_t *active_channels = plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.active_note_channels
-        : internal_handle->clap.active_note_channels;
-    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
-        ? &internal_handle->vst3.pending_notes
-        : &internal_handle->clap.pending_notes;
+    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
 
     for (int key = 0; key < 128; key++)
     {
-        if (!active_notes[key])
+        if (!state.active_notes[key])
             continue;
 
         Uph_NoteRingEvent ev = {0};
@@ -2098,17 +2753,17 @@ void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 
         ev.note.note_id = -1;
         ev.note.port_index = 0;
-        ev.note.channel = active_channels[key];
+        ev.note.channel = state.active_channels[key];
         ev.note.key = (int16_t)key;
         ev.note.velocity = 0.0;
 
-        if (!uph_note_ring_push(note_ring, &ev))
+        if (!uph_note_ring_push(state.notes, &ev))
         {
             fprintf(stderr, "uph_plugin_queue_stop_all: note ring full, dropping off for key %d\n", key);
             continue;
         }
 
-        active_notes[key] = false;
+        state.active_notes[key] = false;
     }
 
     for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
@@ -2136,40 +2791,28 @@ void uph_plugin_queue_midi_cc(Uph_Plugin *plug, uint8_t channel, uint8_t cc, uin
     ev.midi.data[1] = cc;
     ev.midi.data[2] = value & 0x7F;
 
-    Uph_NoteEventRing *note_ring = plug->format == UPH_PLUGIN_VST3
-        ? &internal_handle->vst3.pending_notes
-        : &internal_handle->clap.pending_notes;
-    uint8_t *cc_values = plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.cc_values
-        : internal_handle->clap.cc_values;
+    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
 
-    if (!uph_note_ring_push(note_ring, &ev))
+    if (!uph_note_ring_push(state.notes, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_midi_cc: note ring full, dropping event (cc=%u value=%u)\n", cc, value);
         return;
     }
 
-    cc_values[cc] = value & 0x7F;
+    state.cc_values[cc] = value & 0x7F;
 }
 
 uint8_t uph_plugin_cc_value(Uph_Plugin *plug, uint8_t cc)
 {
-    Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (!internal_handle || cc > 127)
+    if (!plug->internal_handle || cc > 127)
         return 0;
 
-    return plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.cc_values[cc]
-        : internal_handle->clap.cc_values[cc];
+    return _uph_plugin_event_state(plug).cc_values[cc];
 }
 
 bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)
 {
-    Uph_PluginInternalHandle *internal_handle =
-        (Uph_PluginInternalHandle*)plug->internal_handle;
-    return plug->format == UPH_PLUGIN_VST3
-        ? internal_handle->vst3.active_notes[key]
-        : internal_handle->clap.active_notes[key];
+    return _uph_plugin_event_state(plug).active_notes[key];
 }
 
 static bool uph_clap_timer_unregister(const clap_host_t *host, clap_id timer_id)
@@ -2679,19 +3322,21 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 
     uph_com_init_sta_once();
 
-    const Naui_StringView extension = naui_file_extension(&path);
-    if (naui_string_view_equals_cstr(extension, ".clap", false))
-        effect.format = UPH_PLUGIN_CLAP;
-    else if (naui_string_view_equals_cstr(extension, ".vst3", false))
-        effect.format = UPH_PLUGIN_VST3;
-
     effect.file_path = path;
 
+    if (!uph_plugin_format_from_path(path, &effect.format))
+    {
+        fprintf(stderr, "uph: unrecognized plugin extension for %s\n", path.data);
+        return effect;
+    }
+
     uint32_t width = 0, height = 0;
-    if (effect.format == UPH_PLUGIN_CLAP)
-        uph_load_clap_plugin_internal(&effect, &width, &height);
-    else if (effect.format == UPH_PLUGIN_VST3)
-        uph_load_vst3_plugin_internal(&effect, &width, &height);
+    switch (effect.format)
+    {
+        case UPH_PLUGIN_CLAP: uph_load_clap_plugin_internal(&effect, &width, &height); break;
+        case UPH_PLUGIN_VST3: uph_load_vst3_plugin_internal(&effect, &width, &height); break;
+        case UPH_PLUGIN_VST2: _uph_vst2_load_internal(&effect, &width, &height); break;
+    }
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
     if (!internal_handle)
@@ -2756,10 +3401,12 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
     internal_handle->window = child;
 #endif
 
-    if (effect.format == UPH_PLUGIN_CLAP)
-        uph_assign_clap_plugin_gui_internal(&effect);
-    else if (effect.format == UPH_PLUGIN_VST3)
-        uph_assign_vst3_plugin_gui_internal(&effect);
+    switch (effect.format)
+    {
+        case UPH_PLUGIN_CLAP: uph_assign_clap_plugin_gui_internal(&effect); break;
+        case UPH_PLUGIN_VST3: uph_assign_vst3_plugin_gui_internal(&effect); break;
+        case UPH_PLUGIN_VST2: _uph_vst2_assign_gui_internal(&effect); break;
+    }
 
     effect.loaded = true;
 
@@ -2854,10 +3501,12 @@ void uph_plugin_unload(Uph_Plugin *plug)
             internal_handle->panel = 0;
         }
 
-        if (plug->format == UPH_PLUGIN_CLAP)
-            uph_unload_clap_plugin(internal_handle);
-        else if (plug->format == UPH_PLUGIN_VST3)
-            uph_unload_vst3_plugin(internal_handle);
+        switch (plug->format)
+        {
+            case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
+            case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
+            case UPH_PLUGIN_VST2: _uph_vst2_unload(internal_handle); break;
+        }
 
         _uph_plugin_gui_release_capture(internal_handle);
 
@@ -3340,6 +3989,13 @@ void uph_plugin_update(Uph_Plugin *plug)
         return;
     }
 
+    if (plug->format == UPH_PLUGIN_VST2)
+    {
+        if (internal_handle->vst2.editor_open)
+            _uph_vst2_dispatch(internal_handle->vst2.effect, effEditIdle, 0, 0, NULL, 0.0f);
+        return;
+    }
+
     if (!internal_handle->clap.timer_support)
         return;
 
@@ -3382,6 +4038,12 @@ void uph_plugin_process(
     if (plug->format == UPH_PLUGIN_VST3)
     {
         uph_vst3_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
+        return;
+    }
+
+    if (plug->format == UPH_PLUGIN_VST2)
+    {
+        _uph_vst2_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
         return;
     }
 
@@ -3529,10 +4191,14 @@ static int64_t uph_clap_stream_read(const clap_istream_t *stream, void *buffer, 
 bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (internal_handle && plug->format == UPH_PLUGIN_VST3)
+    if (!internal_handle)
+        return false;
+    if (plug->format == UPH_PLUGIN_VST3)
         return uph_vst3_save_state(internal_handle, path);
+    if (plug->format == UPH_PLUGIN_VST2)
+        return _uph_vst2_save_state(internal_handle, path);
 
-    if (!internal_handle || !internal_handle->clap.plugin)
+    if (!internal_handle->clap.plugin)
         return false;
 
     const clap_plugin_state_t *state =
@@ -3563,7 +4229,10 @@ bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (internal_handle && plug->format == UPH_PLUGIN_VST3)
+    if (!internal_handle)
+        return false;
+
+    if (plug->format == UPH_PLUGIN_VST3)
     {
         bool ok = uph_vst3_load_state(internal_handle, path);
         if (ok)
@@ -3571,7 +4240,20 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
         return ok;
     }
 
-    if (!internal_handle || !internal_handle->clap.plugin)
+    if (plug->format == UPH_PLUGIN_VST2)
+    {
+        bool ok = _uph_vst2_load_state(internal_handle, path);
+        if (ok)
+        {
+            AEffect *effect = internal_handle->vst2.effect;
+            const uint64_t param_count = (uint64_t)naui_list_len(plug->params);
+            for (uint64_t i = 0; i < param_count; i++)
+                plug->params[i].current_value = (double)effect->getParameter(effect, (int)plug->params[i].id);
+        }
+        return ok;
+    }
+
+    if (!internal_handle->clap.plugin)
         return false;
 
     const clap_plugin_state_t *state =
@@ -3795,6 +4477,8 @@ static bool uph_get_vst3_plugin_info_guarded(Naui_Path path, Uph_PluginInfo *out
     return ok;
 }
 
+typedef bool (*Uph_PluginInfoFn)(Naui_Path path, Uph_PluginInfo *out);
+
 #if NAUI_WINDOWS && defined(_MSC_VER)
 static int uph_seh_filter(unsigned int code)
 {
@@ -3802,12 +4486,12 @@ static int uph_seh_filter(unsigned int code)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
-static bool uph_get_vst3_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+static bool _uph_plugin_info_guarded(Uph_PluginInfoFn info_fn, Naui_Path path, Uph_PluginInfo *out)
 {
     bool ok = false;
     __try
     {
-        ok = uph_get_vst3_plugin_info_guarded(path, out);
+        ok = info_fn(path, out);
     }
     __except (uph_seh_filter(GetExceptionCode()))
     {
@@ -3817,12 +4501,33 @@ static bool uph_get_vst3_plugin_info(Naui_Path path, Uph_PluginInfo *out)
     return ok;
 }
 #else
-static bool uph_get_vst3_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+static bool _uph_plugin_info_guarded(Uph_PluginInfoFn info_fn, Naui_Path path, Uph_PluginInfo *out)
 {
-    uph_com_init_sta_once();
-    return uph_get_vst3_plugin_info_guarded(path, out);
+    return info_fn(path, out);
 }
 #endif
+
+bool uph_plugin_format_from_path(Naui_Path path, Uph_PluginFormat *format)
+{
+    static const char *const extensions[UPH_PLUGIN_FORMAT_COUNT] = {
+        [UPH_PLUGIN_CLAP] = ".clap",
+        [UPH_PLUGIN_VST3] = ".vst3",
+        [UPH_PLUGIN_VST2] = UPH_VST2_EXTENSION
+    };
+
+    const Naui_StringView extension = naui_file_extension(&path);
+    for (Uph_PluginFormat f = 0; f < UPH_PLUGIN_FORMAT_COUNT; f++)
+    {
+        if (naui_string_view_equals_cstr(extension, extensions[f], false))
+        {
+            if (format)
+                *format = f;
+            return true;
+        }
+    }
+
+    return false;
+}
 
 bool uph_get_plugin_info(Naui_Path path, Uph_PluginInfo *out)
 {
@@ -3830,12 +4535,18 @@ bool uph_get_plugin_info(Naui_Path path, Uph_PluginInfo *out)
 
     uph_com_init_sta_once();
 
-    const Naui_StringView extension = naui_file_extension(&path);
-    if (naui_string_view_equals_cstr(extension, ".clap", false))
-        return uph_get_clap_plugin_info(path, out);
-    if (naui_string_view_equals_cstr(extension, ".vst3", false))
-        return uph_get_vst3_plugin_info(path, out);
+    Uph_PluginFormat format;
+    if (!uph_plugin_format_from_path(path, &format))
+    {
+        fprintf(stderr, "uph info: unrecognized plugin extension for %s\n", path.data);
+        return false;
+    }
 
-    fprintf(stderr, "uph info: unrecognized plugin extension for %s\n", path.data);
-    return false;
+    switch (format)
+    {
+        case UPH_PLUGIN_CLAP: return uph_get_clap_plugin_info(path, out);
+        case UPH_PLUGIN_VST3: return _uph_plugin_info_guarded(uph_get_vst3_plugin_info_guarded, path, out);
+        case UPH_PLUGIN_VST2: return _uph_plugin_info_guarded(_uph_get_vst2_plugin_info, path, out);
+        default:              return false;
+    }
 }

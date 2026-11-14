@@ -545,11 +545,17 @@ static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path tr
 	return saved;
 }
 
+static const char *const s_uph_io_plugin_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
+	[UPH_PLUGIN_CLAP] = "clap",
+	[UPH_PLUGIN_VST3] = "vst3",
+	[UPH_PLUGIN_VST2] = "vst2"
+};
+
 static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Uph_Plugin* plugin, const Naui_Path state_dir, const char* state_name)
 {
 	naui_json_set_string(json, object, "path", naui_path_normalize(plugin->file_path).data);
 	naui_json_set_string(json, object, "name", plugin->name.data);
-	naui_json_set_string(json, object, "format", plugin->format == UPH_PLUGIN_VST3 ? "vst3" : "clap");	// Please don't let there be more than 2 plugins, I don't want to touch this again.
+	naui_json_set_string(json, object, "format", s_uph_io_plugin_format_names[plugin->format]);
 
 	const Naui_Path state_file = naui_path_join(state_dir, naui_path_from_cstr(state_name));
 	if (plugin->loaded && uph_plugin_save_state(plugin, state_file))
@@ -1036,7 +1042,7 @@ static Naui_Path uph_io_resolve_plugin_path(const Naui_Path saved_path)
 	const Uph_PluginSettings* plugin_settings = &uph_state.settings.plugin;
 	for (size_t i = 0; !found.data[0] && i < (size_t)naui_list_len(plugin_settings->plugin_paths); i++)
 	{
-		Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(plugin_settings->plugin_paths[i], "*", NAUI_EXTENSIONS(".clap", ".vst3")); // Again, this kinda sucks. Maybe an array next time.
+		Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(plugin_settings->plugin_paths[i], "*", NAUI_EXTENSIONS(".clap", ".vst3", UPH_VST2_EXTENSION));
 		for (size_t j = 0; j < (size_t)naui_list_len(entries); j++)
 		{
 			if (strcmp(naui_file_filename(&entries[j].path).data, wanted.data) == 0)
@@ -1063,7 +1069,14 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 		return plugin;
 
 	const char* name = naui_json_get_string(naui_json_object_get(object, "name"), "");
-	const bool is_vst3 = strcmp(naui_json_get_string(naui_json_object_get(object, "format"), "clap"), "vst3") == 0; // You know the drill
+	const char* format_name = naui_json_get_string(naui_json_object_get(object, "format"), "clap");
+	Uph_PluginFormat format = UPH_PLUGIN_CLAP;
+	for (Uph_PluginFormat f = 0; f < UPH_PLUGIN_FORMAT_COUNT; f++)
+	{
+		if (strcmp(format_name, s_uph_io_plugin_format_names[f]) == 0)
+			format = f;
+	}
+
 	const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
 	if (path.data[0])
 		plugin = uph_plugin_load(path, false);
@@ -1091,7 +1104,7 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	plugin = (Uph_Plugin){
 		.file_path = saved_path,
 		.name = naui_string_from_cstr(name),
-		.format = is_vst3 ? UPH_PLUGIN_VST3 : UPH_PLUGIN_CLAP
+		.format = format
 	};
 	return plugin;
 }

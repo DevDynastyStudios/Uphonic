@@ -1,3 +1,11 @@
+#if NAUI_WINDOWS
+    #define UPH_VST2_EXTENSION ".dll"
+#else
+    #define UPH_VST2_EXTENSION ".so"
+#endif
+
+bool                uph_plugin_format_from_path (Naui_Path path, Uph_PluginFormat *format);
+
 Uph_Plugin          uph_plugin_load             (Naui_Path path, bool show_window);
 void                uph_plugin_unload           (Uph_Plugin *plugin);
 void                uph_plugin_update           (Uph_Plugin *plugin);
