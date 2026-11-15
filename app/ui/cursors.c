@@ -23,6 +23,6 @@ void uph_ui_cursors_init(void)
 	_uph_cursor_image(NAUI_CURSOR_RESIZE_NWSE, "uph_cursor_resize_nwse", 16.0f, 16.0f);
 	_uph_cursor_image(NAUI_CURSOR_RESIZE_ALL, "uph_cursor_resize_all", 16.0f, 16.0f);
 	_uph_cursor_image(NAUI_CURSOR_NOT_ALLOWED, "uph_cursor_not_allowed", 16.0f, 16.0f);
-	_uph_cursor_image(UPH_CURSOR_DRAW, "uph_cursor_draw", 6.1f, 25.9f);
-	_uph_cursor_image(UPH_CURSOR_CUT, "uph_cursor_cut", 16.0f, 10.4f);
+	_uph_cursor_image(UPH_CURSOR_DRAW, "uph_cursor_draw", 3.3f, 28.7f);
+	_uph_cursor_image(UPH_CURSOR_CUT, "uph_cursor_cut", 16.0f, 14.8f);
 }
