@@ -16,6 +16,8 @@ void uph_song_timeline_emit_block_shockwave(
 
 void uph_song_timeline_reset_scroll(void);
 
+void uph_song_timeline_update_record_track(void);
+
 void uph_song_timeline_render_ruler(
 	Leaf_BoundingBox bbox,
 	float zoom_x,
