@@ -1527,6 +1527,12 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             DragFinish(hdrop);
             break;
         }
+        case WM_SYSCOMMAND:
+        {
+            if ((w_param & 0xFFF0) == SC_KEYMENU && l_param == 0)
+                return 0;
+            break;
+        }
         case WM_ENTERSIZEMOVE:
         {
             SetTimer(hwnd, 1, USER_TIMER_MINIMUM, NULL);
