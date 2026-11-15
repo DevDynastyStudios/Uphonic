@@ -19,6 +19,9 @@ Uph_PluginInfo;
 #include <X11/Xlibint.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/shape.h>
+#include <X11/extensions/XShm.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 #endif
 
 typedef struct
@@ -301,6 +304,9 @@ typedef struct
 #if NAUI_LINUX
     Window window;
     Display *display;
+    XImage *shm_image;
+    XShmSegmentInfo shm_info;
+    bool shm_supported;
 #elif NAUI_WINDOWS
     HWND window;
     HDC dc;
@@ -3670,13 +3676,82 @@ static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
     XExtCodes *codes = XAddExtension(capture->display);
     if (codes)
         XESetError(capture->display, codes->extension, _uph_plugin_x11_swallow_error);
+
+    capture->shm_supported = XShmQueryExtension(capture->display);
+}
+
+static void _uph_plugin_gui_shm_release(Uph_PluginGuiCapture *capture)
+{
+    if (!capture->shm_image)
+        return;
+
+    XShmDetach(capture->display, &capture->shm_info);
+    XSync(capture->display, False);
+    XDestroyImage(capture->shm_image);
+    shmdt(capture->shm_info.shmaddr);
+    capture->shm_image = NULL;
+}
+
+static XImage *_uph_plugin_gui_shm_reserve(Uph_PluginGuiCapture *capture, uint32_t width, uint32_t height)
+{
+    XImage *image = capture->shm_image;
+    if (image && image->width == (int)width && image->height == (int)height)
+        return image;
+
+    _uph_plugin_gui_shm_release(capture);
+
+    Display *display = capture->display;
+    XWindowAttributes attributes;
+    if (!XGetWindowAttributes(display, capture->window, &attributes))
+        return NULL;
+
+    XShmSegmentInfo *info = &capture->shm_info;
+    image = XShmCreateImage(display, attributes.visual, (unsigned int)attributes.depth, ZPixmap, NULL, info, width, height);
+    if (!image)
+        return NULL;
+
+    info->shmid = shmget(IPC_PRIVATE, (size_t)image->bytes_per_line * image->height, IPC_CREAT | 0600);
+    info->shmaddr = info->shmid >= 0 ? (char*)shmat(info->shmid, NULL, 0) : (char*)-1;
+    info->readOnly = False;
+
+    const bool mapped = info->shmaddr != (char*)-1;
+    const bool attached = mapped && XShmAttach(display, info);
+    if (attached)
+        XSync(display, False);
+    if (info->shmid >= 0)
+        shmctl(info->shmid, IPC_RMID, NULL);
+
+    if (!attached)
+    {
+        if (mapped)
+            shmdt(info->shmaddr);
+        XDestroyImage(image);
+        return NULL;
+    }
+
+    image->data = info->shmaddr;
+    capture->shm_image = image;
+    return image;
 }
 
 static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
 {
     if (capture->display)
+    {
+        _uph_plugin_gui_shm_release(capture);
         XCloseDisplay(capture->display);
+    }
     capture->display = NULL;
+}
+
+static bool _uph_plugin_gui_copy_image(Uph_PluginGuiFrame *frame, const XImage *image)
+{
+    if (!image || image->bits_per_pixel != 32)
+        return false;
+
+    for (uint32_t y = 0; y < frame->height; y++)
+        _uph_plugin_gui_copy_opaque_row(frame->pixels + (size_t)y * frame->width * 4, (const uint8_t*)image->data + (size_t)y * image->bytes_per_line, frame->width);
+    return true;
 }
 
 static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
@@ -3685,22 +3760,34 @@ static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_Plugi
     if (!display)
         return false;
 
-    bool ok = false;
     Pixmap pixmap = XCompositeNameWindowPixmap(display, capture->window);
-    XImage *image = pixmap ? XGetImage(display, pixmap, 0, 0, frame->width, frame->height, AllPlanes, ZPixmap) : NULL;
+    if (!pixmap)
+        return false;
 
-    if (image && image->bits_per_pixel == 32)
+    bool ok = false;
+    bool shm_failed = false;
+    if (capture->shm_supported)
     {
-        for (uint32_t y = 0; y < frame->height; y++)
-            _uph_plugin_gui_copy_opaque_row(frame->pixels + (size_t)y * frame->width * 4, (const uint8_t*)image->data + (size_t)y * image->bytes_per_line, frame->width);
-        ok = true;
+        XImage *image = _uph_plugin_gui_shm_reserve(capture, frame->width, frame->height);
+        ok = image && XShmGetImage(display, pixmap, image, 0, 0, AllPlanes) && _uph_plugin_gui_copy_image(frame, image);
+        shm_failed = !ok;
     }
 
-    if (image)
-        XDestroyImage(image);
-    if (pixmap)
-        XFreePixmap(display, pixmap);
+    if (!ok)
+    {
+        XImage *image = XGetImage(display, pixmap, 0, 0, frame->width, frame->height, AllPlanes, ZPixmap);
+        ok = _uph_plugin_gui_copy_image(frame, image);
+        if (image)
+            XDestroyImage(image);
 
+        if (ok && shm_failed)
+        {
+            _uph_plugin_gui_shm_release(capture);
+            capture->shm_supported = false;
+        }
+    }
+
+    XFreePixmap(display, pixmap);
     XSync(display, False);
     return ok;
 }

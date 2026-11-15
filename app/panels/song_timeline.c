@@ -50,7 +50,7 @@ static void uph_song_timeline_on_attach(void)
 	Naui_PanelID panel = naui_panel_current();
 
 	state->scroll = (Naui_Vec2) { 0.0f, 0.0f };
-	state->zoom = (Naui_Vec2) { NAUI_DPI(64), 104.0f };
+	state->zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 104.0f };
 	state->snap_resolution = UPH_SNAP_LINE;
 	state->current_action_mode = UPH_ACTION_DRAW;
 	state->automation_edit.dragging_point_index = -1;
