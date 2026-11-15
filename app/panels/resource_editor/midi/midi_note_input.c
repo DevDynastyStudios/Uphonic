@@ -390,10 +390,11 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 
 		uph_pattern_commit_tail_blocks(drag->tail_blocks);
 		naui_action_group_end();
-		if (!changed && !drag->moved && !drag->additive && drag->select_tool && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+		if (!changed && !drag->moved && !drag->additive)
 		{
 			uph_note_select_all(pattern, false);
-			pattern->notes[drag->note_index].selected = true;
+			if (drag->select_tool && drag->note_index < (uint32_t)naui_list_len(pattern->notes))
+				pattern->notes[drag->note_index].selected = true;
 		}
 	}
 	else if (drag->note_index < (uint32_t)naui_list_len(pattern->notes))

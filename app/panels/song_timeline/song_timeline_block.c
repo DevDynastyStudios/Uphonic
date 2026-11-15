@@ -792,14 +792,12 @@ void uph_song_timeline_finish_block_drag(void)
 		}
 
 		naui_action_group_end();
-		if (!changed && !drag->moved && !drag->additive && drag->select_tool)
+		if (!changed && !drag->moved && !drag->additive)
 		{
+			uph_block_select_all(false);
 			Uph_Track *source = uph_action_track_resolve(drag->source_track);
-			if (source && drag->source_index < (uint32_t)naui_list_len(source->blocks))
-			{
-				uph_block_select_all(false);
+			if (drag->select_tool && source && drag->source_index < (uint32_t)naui_list_len(source->blocks))
 				source->blocks[drag->source_index].selected = true;
-			}
 		}
 	}
 	else if (drag->block_index < (uint32_t)naui_list_len(drag->track->blocks))
