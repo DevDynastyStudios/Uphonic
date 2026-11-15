@@ -186,9 +186,13 @@ static void _uph_song_timeline_open_instrument_list(Uph_Track *track)
 static void _uph_song_timeline_press_header(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const bool was_record_track = uph_state.shared.record_track == track;
 	const bool keep_selection = _uph_song_timeline_press_keeps_selection(track);
 	if (!keep_selection)
 		_uph_song_timeline_click_select(track, true);
+
+	if (was_record_track)
+		uph_state.shared.record_track = NULL;
 
 	if (track->type == UPH_RESOURCE_MASTER)
 		return;
