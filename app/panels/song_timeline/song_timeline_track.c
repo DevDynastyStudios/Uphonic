@@ -71,7 +71,7 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 			if (drag->mode == UPH_BLOCK_INTERACTION_MOVE)
 			{
 				blocks[i].start_beat = fmax(0.0, uph_snap_beat_floor(mouse_beat + drag->initial_drag_beat_offset, state->snap_resolution, state->zoom.x));
-				uph_ui_set_cursor(UPH_CURSOR_HAND);
+				naui_set_cursor(NAUI_CURSOR_HAND);
 			}
 			else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_LEFT)
 			{
@@ -92,7 +92,7 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 				uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
 				uph_state.shared.current_pattern_updated = false;
 
-				uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
+				naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
 			}
 			else if (drag->mode == UPH_BLOCK_INTERACTION_RESIZE_RIGHT)
 			{
@@ -107,7 +107,7 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 				uph_state.shared.song_timeline_current_block_start_offset = blocks[i].start_offset_beats;
 				uph_state.shared.current_pattern_updated = false;
 
-				uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
+				naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
 			}
 
 			if (drag->group)
@@ -149,7 +149,7 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 					state->hovered_block.block_index = i;
 					state->hovered_block.track = track;
 					state->hovered_block.active = true;
-					uph_ui_set_cursor(UPH_CURSOR_HAND);
+					naui_set_cursor(NAUI_CURSOR_HAND);
 
 					if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 						uph_song_timeline_request_block_menu(track, i);
@@ -170,7 +170,7 @@ static void _uph_song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 						uph_song_timeline_begin_block_drag(track, i, hover_mode, grab_beat);
 					}
 
-					uph_ui_set_cursor(hover_mode == UPH_BLOCK_INTERACTION_MOVE ? UPH_CURSOR_HAND : UPH_CURSOR_RESIZE_EW);
+					naui_set_cursor(hover_mode == UPH_BLOCK_INTERACTION_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
 				}
 				state->hovered_block.block_index = i;
 				state->hovered_block.track = track;

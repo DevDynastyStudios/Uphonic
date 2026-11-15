@@ -431,14 +431,14 @@ static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor
 		point->value = NAUI_CLAMP01(editor->drag_initial.value - editor->drag_offset.y / value_height);
 		const double beat = _uph_automation_editor_snap(editor, editor->drag_initial.beat + (double)editor->drag_offset.x / editor->view.zoom.x);
 		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, beat);
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 	}
 	else
 	{
 		const Uph_AutomationPoint *next = &automation->points[index + 1];
 		const float direction = (point->curve == UPH_AUTOMATION_CURVE_SINGLE && next->value < point->value) ? -1.0f : 1.0f;
 		point->tension = NAUI_CLAMP(editor->drag_initial.tension - editor->drag_offset.y / (value_height * 0.5f) * direction, -1.0f, 1.0f);
-		uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
+		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
 	}
 
 	if (naui_mouse_down(NAUI_MOUSE_LEFT))
@@ -475,9 +475,9 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 	const float mouse_y = (float)naui_mouse_y();
 
 	if (editor->hovered_point >= 0)
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 	else if (editor->hovered_handle >= 0)
-		uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
+		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
 
 	if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 	{

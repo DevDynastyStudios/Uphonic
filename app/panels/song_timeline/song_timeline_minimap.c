@@ -161,7 +161,7 @@ void uph_song_timeline_update_minimap(void)
 		{
 			_uph_song_timeline_minimap_apply(bbox);
 			uph_global_widget_state.any_widget_hovered = true;
-			uph_ui_set_cursor(UPH_CURSOR_HAND);
+			naui_set_cursor(NAUI_CURSOR_HAND);
 			return;
 		}
 	}
@@ -174,7 +174,7 @@ void uph_song_timeline_update_minimap(void)
 
 	state->minimap.hovered = true;
 	uph_global_widget_state.any_widget_hovered = true;
-	uph_ui_set_cursor(UPH_CURSOR_HAND);
+	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		_uph_song_timeline_minimap_press(bbox);
 }
@@ -209,7 +209,7 @@ void uph_song_timeline_render_time_display(void)
 	const bool hovered = uph_ui_widget_hovered(id);
 	if (hovered)
 	{
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			state->time_display_seconds = !state->time_display_seconds;
 	}

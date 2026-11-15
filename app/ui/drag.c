@@ -134,7 +134,7 @@ void uph_drag_flush(void)
 		state->phase = UPH_DRAG_DRAGGING;
 	}
 
-	uph_ui_set_cursor(UPH_CURSOR_HAND);
+	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (!state->render)
 		return;
 

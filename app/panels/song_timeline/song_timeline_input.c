@@ -68,7 +68,7 @@ void uph_song_timeline_update_input(void)
 		const float mouse_y = (float)naui_mouse_y();
 		const float delta_y = mouse_y - state->zoom_drag.last_mouse_y;
 		state->zoom_drag.last_mouse_y = mouse_y;
-		uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
+		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
 
 		state->zoom_drag.unsnapped_zoom_y = NAUI_CLAMP(state->zoom_drag.unsnapped_zoom_y * expf(-delta_y * UPH_SONG_TIMELINE_ZOOM_Y_DRAG_SPEED), UPH_SONG_TIMELINE_ZOOM_Y_MIN, UPH_SONG_TIMELINE_ZOOM_Y_MAX);
 

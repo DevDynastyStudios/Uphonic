@@ -287,7 +287,7 @@ static void _uph_sample_editor_update_playhead_drag(Uph_SampleEditorState *edito
 		uph_sample_preview_seek(beat);
 	}
 
-	uph_ui_set_cursor(UPH_CURSOR_HAND);
+	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 		editor->playhead_dragging = false;
 }

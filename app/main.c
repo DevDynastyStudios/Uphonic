@@ -206,6 +206,7 @@ void naui_app_start(void)
 	cmidi_set_thru_filter(_uph_midi_thru_filter, NULL);
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
+	uph_ui_cursors_init();
 	uph_plugin_modules_init();
 	naui_jobs_init(UPH_JOB_THREAD_COUNT, UPH_JOB_CAPACITY);
  
@@ -316,7 +317,6 @@ void naui_app_update(void)
 	uph_dialog_render();
 	uph_ui_widgets_flush();
 	uph_drag_flush();
-	uph_ui_cursor_render();
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);

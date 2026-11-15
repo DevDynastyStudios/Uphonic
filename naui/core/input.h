@@ -174,7 +174,7 @@ enum
 #   define NAUI_KEY_ALT_NAME "Alt"
 #endif
 
-typedef uint8_t Naui_Cursor;
+typedef uint32_t Naui_Cursor;
 enum
 {
     NAUI_CURSOR_ARROW,
@@ -190,6 +190,8 @@ enum
     NAUI_CURSOR_HIDDEN,
     NAUI_CURSOR_MAX
 };
+
+#define NAUI_CURSOR_CAPACITY 32
 
 NAUI_API bool naui_key_down(Naui_Key key);
 NAUI_API bool naui_key_pressed(Naui_Key key);
@@ -207,9 +209,9 @@ NAUI_API bool naui_mouse_double_clicked(Naui_MouseButton button);
 NAUI_API int8_t naui_mouse_scroll_delta(void);
 NAUI_API int32_t naui_mouse_x(void);
 NAUI_API int32_t naui_mouse_y(void);
-NAUI_API bool naui_mouse_inside(void);
 NAUI_API bool naui_mouse_dragging(Naui_MouseButton button);
 NAUI_API void naui_set_cursor(Naui_Cursor cursor);
+NAUI_API void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot, float size);
 
 static inline bool naui_any_mouse_pressed(void)
 {

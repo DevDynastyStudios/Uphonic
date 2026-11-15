@@ -155,24 +155,57 @@ int32_t naui_mouse_y(void)
     return mgapp_mouse_y();
 }
 
-bool naui_mouse_inside(void)
-{
-    return mgapp_mouse_inside();
-}
-
 typedef struct
 {
     bool dragging[MG_MOUSE_BUTTON_MAX];
     int32_t drag_start_x[MG_MOUSE_BUTTON_MAX];
     int32_t drag_start_y[MG_MOUSE_BUTTON_MAX];
     Naui_Cursor current_cursor;
+    struct
+    {
+        const char *image;
+        Naui_Vec2 hotspot;
+        float size;
+    }
+    cursor_images[NAUI_CURSOR_CAPACITY];
 }
 Naui_GlobalInputState;
 static Naui_GlobalInputState _naui_input_state;
 
 void naui_set_cursor(Naui_Cursor cursor)
 {
-    _naui_input_state.current_cursor = cursor;
+    if (cursor < NAUI_CURSOR_CAPACITY)
+        _naui_input_state.current_cursor = cursor;
+}
+
+void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot, float size)
+{
+    if (cursor >= NAUI_CURSOR_CAPACITY)
+        return;
+
+    _naui_input_state.cursor_images[cursor].image = image;
+    _naui_input_state.cursor_images[cursor].hotspot = hotspot;
+    _naui_input_state.cursor_images[cursor].size = size;
+}
+
+void naui_cursor_render(void)
+{
+    Naui_GlobalInputState *state = &_naui_input_state;
+    const char *name = state->cursor_images[state->current_cursor].image;
+    if (!name || !mgapp_mouse_inside())
+        return;
+
+    const Naui_Image *image = naui_asset_image(name);
+    if (!image)
+        return;
+
+    const Naui_Vec2 hotspot = state->cursor_images[state->current_cursor].hotspot;
+    const float size = (float)NAUI_DPI(state->cursor_images[state->current_cursor].size);
+    const Naui_Vec2 position = {
+        floorf((float)mgapp_mouse_x() - hotspot.x * size),
+        floorf((float)mgapp_mouse_y() - hotspot.y * size)
+    };
+    naui_draw_image(image, position, (Naui_Vec2){ size, size }, (Naui_Color){ 255, 255, 255, 255 }, 0.0f, NAUI_CORNER_NONE);
 }
 
 void naui_input_update(void)
@@ -200,7 +233,13 @@ void naui_input_update(void)
         }
     }
 
-    mgapp_set_cursor((mg_cursor)_naui_input_state.current_cursor);
+    Naui_Cursor cursor = _naui_input_state.current_cursor;
+    if (_naui_input_state.cursor_images[cursor].image)
+        cursor = mgapp_mouse_inside() ? NAUI_CURSOR_HIDDEN : NAUI_CURSOR_ARROW;
+    else if (cursor >= NAUI_CURSOR_MAX)
+        cursor = NAUI_CURSOR_ARROW;
+
+    mgapp_set_cursor((mg_cursor)cursor);
     _naui_input_state.current_cursor = NAUI_CURSOR_ARROW;
 }
 

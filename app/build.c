@@ -29,7 +29,6 @@
 #include "plugins/plugin_manager.h"
 
 #include "ui/widgets.h"
-#include "ui/cursors.h"
 #include "ui/dialog.h"
 
 #include "panels/song_timeline/song_timeline.h"

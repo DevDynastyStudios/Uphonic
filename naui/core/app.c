@@ -38,6 +38,7 @@ extern void naui_renderer_end(void);
 
 extern void naui_input_update(void);
 extern void naui_input_post_update(void);
+extern void naui_cursor_render(void);
 
 void naui_themes_initialize(void);
 void naui_themes_shutdown(void);
@@ -134,6 +135,7 @@ static void __naui_app_render(void)
     if (!naui_renderer_begin())
         return;
     render_leaf_cmd_list(&cmd_list);
+    naui_cursor_render();
     naui_renderer_end();
 }
 

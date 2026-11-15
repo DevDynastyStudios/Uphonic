@@ -86,7 +86,7 @@ static void uph_song_timeline_on_update(void)
 	state->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	state->tracks_hovered = leaf_hovered(track_section_id) && state->panel_hovered;
 	if (state->tracks_hovered && naui_mouse_x() >= state->panel_bounding_box.x + NAUI_DPI(uph_song_timeline_header_column_width()))
-		uph_ui_set_cursor(uph_action_mode_cursor(uph_song_timeline_tool()));
+		naui_set_cursor(uph_action_mode_cursor(uph_song_timeline_tool()));
 	state->hovered_track = state->frame_hovered_track;
 	state->frame_hovered_track = NULL;
 	state->bottom_drop_y = state->panel_bounding_box.y - state->scroll.y + state->content_height;

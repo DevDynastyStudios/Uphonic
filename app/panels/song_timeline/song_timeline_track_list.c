@@ -4,6 +4,7 @@
 #define UPH_TRACK_HEADER_CHILD_GAP				10
 #define UPH_TRACK_HEADER_ROW_GAP				6
 #define UPH_TRACK_HEADER_PADDING_Y				10
+#define UPH_TRACK_HEADER_CONTENT_TOP_PADDING	3
 #define UPH_TRACK_HEADER_KNOB_SIZE				24
 #define UPH_TRACK_HEADER_METER_WIDTH			12
 #define UPH_TRACK_HEADER_METER_PADDING			5
@@ -277,7 +278,7 @@ static void _uph_song_timeline_render_color_strip(Uph_Track *track, Uph_UIMenuID
 	const bool hovered = uph_ui_widget_hovered(strip_id);
 	if (hovered)
 	{
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		{
 			state->current_color_options_track = track;
@@ -541,6 +542,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 
 				leaf({
 					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+					.padding = { .top = NAUI_DPI(UPH_TRACK_HEADER_CONTENT_TOP_PADDING) },
 					.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = uph_track_is_folder(track) ? LEAF_ALIGN_Y_CENTER : LEAF_ALIGN_Y_TOP },
 					.child_gap = NAUI_DPI(UPH_TRACK_HEADER_ROW_GAP)
 				})
@@ -629,7 +631,7 @@ void uph_song_timeline_render_track_plus(void)
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
 
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 	}
 
 	leaf({
@@ -1056,7 +1058,7 @@ void uph_song_timeline_update_track_drag(void)
 	const uint32_t carried = automation ? (uint32_t)naui_list_len(dragged) : uph_resources_count_movable_tracks(dragged);
 	naui_list_free(dragged);
 
-	uph_ui_set_cursor(UPH_CURSOR_HAND);
+	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (target.valid)
 		_uph_song_timeline_render_drop_line(target);
 

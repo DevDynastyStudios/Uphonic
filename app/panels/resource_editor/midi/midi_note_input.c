@@ -453,7 +453,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 				const int32_t new_row = mouse_row_now + drag->initial_drag_key_offset;
 				const int32_t new_key = uph_note_map_key_at_row(&editor->note_map, new_row);
 				note->key_number = (uint8_t)uph_note_map_clamp_key(&editor->note_map, new_key);
-				uph_ui_set_cursor(UPH_CURSOR_HAND);
+				naui_set_cursor(NAUI_CURSOR_HAND);
 			}
 			else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_LEFT)
 			{
@@ -468,7 +468,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 				input->last_note_length = note->length_beats;
 				input->last_note_velocity = note->velocity;
 				uph_state.shared.current_pattern_updated = true;
-				uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
+				naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
 			}
 			else if (drag->mode == UPH_NOTE_INTERACTION_RESIZE_RIGHT)
 			{
@@ -481,7 +481,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 				input->last_note_length = note->length_beats;
 				input->last_note_velocity = note->velocity;
 				uph_state.shared.current_pattern_updated = true;
-				uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
+				naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
 			}
 
 			if (drag->group)
@@ -516,7 +516,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 					if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 						_uph_note_input_begin_drag(editor, pattern, i, hover_mode, box);
 
-					uph_ui_set_cursor(hover_mode == UPH_NOTE_INTERACTION_MOVE ? UPH_CURSOR_HAND : UPH_CURSOR_RESIZE_EW);
+					naui_set_cursor(hover_mode == UPH_NOTE_INTERACTION_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
 				}
 
 				input->hovered_note.note_index = i;

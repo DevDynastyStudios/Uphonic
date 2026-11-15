@@ -219,7 +219,7 @@ static inline Uph_ActionMode uph_song_timeline_tool(void)
 	return state->current_action_mode;
 }
 
-static inline Uph_Cursor uph_action_mode_cursor(Uph_ActionMode mode)
+static inline Naui_Cursor uph_action_mode_cursor(Uph_ActionMode mode)
 {
 	if (mode == UPH_ACTION_DRAW)
 		return UPH_CURSOR_DRAW;
@@ -227,7 +227,7 @@ static inline Uph_Cursor uph_action_mode_cursor(Uph_ActionMode mode)
 	if (mode == UPH_ACTION_CUT)
 		return UPH_CURSOR_CUT;
 
-	return UPH_CURSOR_ARROW;
+	return NAUI_CURSOR_ARROW;
 }
 
 static inline bool uph_song_timeline_vec4_contains_vec2(const Naui_Vec4 rect, const Naui_Vec2 point)

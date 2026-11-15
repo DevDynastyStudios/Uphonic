@@ -914,7 +914,7 @@ static bool uph_settings_checkbox_row(const char *label, bool *value, const Leaf
 
 	if (uph_ui_widget_hovered(label_id))
 	{
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			*value = !*value;
 	}
@@ -1087,7 +1087,7 @@ static void uph_settings_theme_card(Uph_SettingsState *data, const uint32_t inde
 
 	if (hovered)
 	{
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !selected)
 		{
 			general->theme = *name;
@@ -1527,7 +1527,7 @@ static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool ca
 
 	const bool hovered = uph_ui_widget_hovered(id);
 	if (hovered)
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 
 	Leaf_Color color = naui_theme_color("uph_ui_frame_bg_color");
 	if (capturing)
@@ -1684,7 +1684,7 @@ static void uph_settings_sidebar(Uph_SettingsState *data)
 
 			if (hovered)
 			{
-				uph_ui_set_cursor(UPH_CURSOR_HAND);
+				naui_set_cursor(NAUI_CURSOR_HAND);
 				if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 					data->page = (Uph_SettingsPage)i;
 			}

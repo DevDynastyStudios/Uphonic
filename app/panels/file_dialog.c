@@ -152,7 +152,7 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 
 	if (hovered)
 	{
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			actions->clicked_row = index;
 

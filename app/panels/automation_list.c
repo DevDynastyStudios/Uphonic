@@ -104,7 +104,7 @@ static bool uph_automation_list_param_row(const char *name, const Leaf_ID id)
     Naui_Color color = { 0 };
     if (hovered)
     {
-        uph_ui_set_cursor(UPH_CURSOR_HAND);
+        naui_set_cursor(NAUI_CURSOR_HAND);
         color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
             naui_theme_color("uph_ui_frame_pressed_bg_color") :
             naui_theme_color("uph_ui_frame_secondary_bg_color");

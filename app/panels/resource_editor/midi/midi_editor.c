@@ -218,7 +218,7 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorState *editor, L
 		uph_midi_preview_seek(beat);
 	}
 
-	uph_ui_set_cursor(UPH_CURSOR_HAND);
+	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 		editor->playhead_dragging = false;
 }
@@ -404,7 +404,7 @@ static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool activ
 {
 	const bool hovered = uph_ui_widget_hovered(id);
 	if (hovered)
-		uph_ui_set_cursor(UPH_CURSOR_HAND);
+		naui_set_cursor(NAUI_CURSOR_HAND);
 
 	Leaf_Color bg_color = { 0 };
 	if (active)
@@ -532,7 +532,7 @@ void uph_midi_editor_update(void)
 	state->panel_focused = naui_panel_focused() == naui_panel_current();
 	state->lanes_hovered = leaf_hovered(lanes_id) && state->panel_hovered;
 	if (state->lanes_hovered)
-		uph_ui_set_cursor(uph_action_mode_cursor(_uph_note_input_tool(state)));
+		naui_set_cursor(uph_action_mode_cursor(_uph_note_input_tool(state)));
 	state->piano_hovered = leaf_hovered(piano_id) && state->panel_hovered;
 	const bool bottom_lane_hovered = state->velocity_lane.visible && leaf_hovered(velocity_id) && state->panel_hovered;
 	state->velocity_lane.hovered = bottom_lane_hovered && state->lane_tab == UPH_MIDI_LANE_TAB_VELOCITY;

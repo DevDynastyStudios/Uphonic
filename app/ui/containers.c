@@ -93,7 +93,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
             {
                 drag_active = false;
             }
-            uph_ui_set_cursor(UPH_CURSOR_HAND);
+            naui_set_cursor(NAUI_CURSOR_HAND);
         }
         else if (naui_panel_is_hovered(naui_panel_current()))
         {
@@ -103,7 +103,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
             if (leaf_hovered(scroll_id))
             {
                 uph_global_widget_state.any_widget_hovered = true;
-                uph_ui_set_cursor(UPH_CURSOR_HAND);
+                naui_set_cursor(NAUI_CURSOR_HAND);
                 if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
                 {
                     drag_active = true;
@@ -259,14 +259,14 @@ static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handl
         }
         else
             state->drag.active = false;
-        uph_ui_set_cursor(UPH_CURSOR_HAND);
+        naui_set_cursor(NAUI_CURSOR_HAND);
         return true;
     }
 
     if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(handle_id))
     {
         uph_global_widget_state.any_widget_hovered = true;
-        uph_ui_set_cursor(UPH_CURSOR_HAND);
+        naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             state->drag.active = true;
@@ -341,7 +341,7 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
             *scroll_y -= (float)(naui_mouse_y() - state->pan.last_mouse_y);
             state->pan.last_mouse_x = naui_mouse_x();
             state->pan.last_mouse_y = naui_mouse_y();
-            uph_ui_set_cursor(UPH_CURSOR_RESIZE_ALL);
+            naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
         }
         else
             state->pan.active = false;
@@ -353,7 +353,7 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
         state->pan.id = scroll_id;
         state->pan.last_mouse_x = naui_mouse_x();
         state->pan.last_mouse_y = naui_mouse_y();
-        uph_ui_set_cursor(UPH_CURSOR_RESIZE_ALL);
+        naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
     }
 
     const int8_t wheel = naui_mouse_scroll_delta();
