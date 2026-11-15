@@ -22,6 +22,7 @@ typedef struct
     float ui_scale;
     bool animations_enabled;
     bool relaunch;
+    bool frame_stale;
     bool skipped_stale_frame;
 }
 Naui_AppState;
@@ -117,12 +118,13 @@ static void __naui_app_render(void)
 {
     Naui_AppState *state = &_naui_app_state;
 
+    state->frame_stale = false;
     leaf_begin_frame(mgapp_width(), mgapp_height());
     leaf_set_pointer_pos(mgapp_mouse_x(), mgapp_mouse_y());
     state->events.update();
     Leaf_RenderCmdList cmd_list = leaf_end_frame();
 
-    if (leaf_layout_stale() && !state->skipped_stale_frame)
+    if (state->frame_stale && !state->skipped_stale_frame)
     {
         state->skipped_stale_frame = true;
         return;
@@ -318,6 +320,11 @@ bool naui_app_animations_enabled(void)
 void naui_app_set_animations_enabled(bool enabled)
 {
     _naui_app_state.animations_enabled = enabled;
+}
+
+void naui_app_stale_frame(void)
+{
+    _naui_app_state.frame_stale = true;
 }
 
 void naui_app_set_clipboard(const char *text)

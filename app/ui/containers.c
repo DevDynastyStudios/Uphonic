@@ -63,6 +63,9 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     container.container_max_size = direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
         max_area_box.height : max_area_box.width;
 
+    if (max_area_box.width <= 0.0f && max_area_box.height <= 0.0f)
+        naui_app_stale_frame();
+
     const bool vertical = direction == UPH_UI_SCROLL_DIRECTION_VERTICAL;
     const float max_size = (float)container.container_max_size;
     const float content_size = (float)container.container_current_size;
