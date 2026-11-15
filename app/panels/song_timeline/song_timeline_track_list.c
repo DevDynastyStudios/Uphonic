@@ -460,8 +460,15 @@ static void _uph_song_timeline_render_automation_row(Uph_Track *track)
 static void _uph_song_timeline_render_instrument_row(Uph_Track *track)
 {
 	const char *label = track->instrument.loaded ? track->instrument.name.data : NAUI_TR("plugin.menu.instrument");
-	if (uph_ui_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
+	if (!uph_ui_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
+		return;
+
+	if (!track->instrument.loaded)
 		_uph_song_timeline_open_instrument_list(track);
+	else if (uph_plugin_window_visible(&track->instrument))
+		uph_plugin_hide_window(&track->instrument);
+	else
+		uph_plugin_show_window(&track->instrument);
 }
 
 static void _uph_song_timeline_render_meter(const Uph_Track *track)
