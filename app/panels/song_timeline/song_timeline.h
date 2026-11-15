@@ -30,6 +30,14 @@ void uph_song_timeline_open_automation_list(
 	Uph_Track *track
 );
 
+bool uph_song_timeline_can_automate_last_touched(
+	Uph_Track *track
+);
+
+void uph_song_timeline_automate_last_touched(
+	Uph_Track *track
+);
+
 Uph_TimelineBlock uph_song_timeline_block_create(
 	double start_beat,
 	uint32_t resource_index,

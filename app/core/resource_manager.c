@@ -239,6 +239,41 @@ bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginPar
 	return false;
 }
 
+static bool _uph_resources_plugin_index_by_handle(const Uph_Track *track, const void *handle, int32_t *out_effect_index)
+{
+	if (track->instrument.internal_handle == handle)
+	{
+		*out_effect_index = -1;
+		return true;
+	}
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
+	{
+		if (track->effects[i].plugin.internal_handle == handle)
+		{
+			*out_effect_index = (int32_t)i;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+Uph_PluginParam *uph_resources_last_touched_param(Uph_Track *track, int32_t *out_effect_index)
+{
+	const void *handle = track->last_touched.plugin_handle;
+	int32_t effect_index;
+	if (!handle || !_uph_resources_plugin_index_by_handle(track, handle, &effect_index))
+		return NULL;
+
+	Uph_PluginParam *param = uph_resources_find_param(track, effect_index, track->last_touched.param_id);
+	if (!param || param->used)
+		return NULL;
+
+	*out_effect_index = effect_index;
+	return param;
+}
+
 Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index, uint64_t param_id)
 {
 	Uph_Plugin *plugin;

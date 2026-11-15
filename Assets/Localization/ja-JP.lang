@@ -16,6 +16,7 @@
 	"automation.target.pan": "パン",
 	"automation.target.tempo": "テンポ",
 	"automation.menu.automate": "オートメーション",
+	"automation.menu.automate_last": "最後に使用したパラメーターをオートメーション",
 	"automation.menu.remove": "オートメーションを削除",
 
 "dialog.cancel": "キャンセル",

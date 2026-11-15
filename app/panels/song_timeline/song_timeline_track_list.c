@@ -684,8 +684,15 @@ static void _uph_song_timeline_render_track_items(Uph_UIMenuID menu, Uph_UIMenuI
 	if (track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN)
 		_uph_song_timeline_render_instrument_items(menu, track);
 
-	if (track->type != UPH_RESOURCE_AUTOMATION && uph_ui_menu_item(menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_song_timeline_options_automate")))
-		uph_song_timeline_open_automation_list(track);
+	if (track->type != UPH_RESOURCE_AUTOMATION)
+	{
+		if (uph_ui_menu_item(menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_song_timeline_options_automate")))
+			uph_song_timeline_open_automation_list(track);
+
+		if (uph_song_timeline_can_automate_last_touched(track) &&
+			uph_ui_menu_item(menu, NAUI_TR("automation.menu.automate_last"), leaf_id("uph_song_timeline_options_automate_last")))
+			uph_song_timeline_automate_last_touched(track);
+	}
 
 	if (track->type != UPH_RESOURCE_MASTER && uph_ui_menu_item(menu, "Remove", leaf_id("uph_song_timeline_options_remove")))
 		uph_resources_delete_tracks(targets);

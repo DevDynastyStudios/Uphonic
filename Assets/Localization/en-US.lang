@@ -14,6 +14,7 @@
 	"automation.target.pan": "Pan",
 	"automation.target.tempo": "Tempo",
 	"automation.menu.automate": "Automate",
+	"automation.menu.automate_last": "Automate Last Used",
 	"automation.menu.remove": "Remove Automation",
 
     "dialog.cancel": "Cancel",

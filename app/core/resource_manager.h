@@ -45,6 +45,11 @@ Uph_PluginParam *uph_resources_find_param(
 	uint64_t param_id
 );
 
+Uph_PluginParam *uph_resources_last_touched_param(
+	Uph_Track *track,
+	int32_t *out_effect_index
+);
+
 void uph_resources_refresh_param_usage(
 	Naui_List(Uph_Track) tracks
 );

@@ -375,6 +375,13 @@ struct Uph_Track
 	Uph_PluginParam *automation_param;
 	Uph_AutomationTarget automation_target;
 
+	struct
+	{
+		const void *plugin_handle;
+		uint64_t param_id;
+	}
+	last_touched;
+
 	Uph_ResourceType type;
 	Uph_TrackState state;
 };

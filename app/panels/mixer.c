@@ -1537,9 +1537,16 @@ static void uph_mixer_on_update(void)
 			&& naui_keybind_pressed(uph_state.settings.keybinds.deselect))
 			uph_resources_clear_mixer_selection();
 
-		if (uph_state.shared.selected_mixer_master &&
-			uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_master")))
-			uph_song_timeline_open_automation_list(uph_resources_master_track());
+		if (uph_state.shared.selected_mixer_master)
+		{
+			Uph_Track *master = uph_resources_master_track();
+			if (uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_master")))
+				uph_song_timeline_open_automation_list(master);
+
+			if (uph_song_timeline_can_automate_last_touched(master) &&
+				uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate_last"), leaf_id("uph_mixer_automate_last_master")))
+				uph_song_timeline_automate_last_touched(master);
+		}
 
 		if (!uph_state.shared.selected_mixer_master && uph_state.shared.current_mixer_track)
 		{
@@ -1576,6 +1583,10 @@ static void uph_mixer_on_update(void)
 
 				if (uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_track")))
 					uph_song_timeline_open_automation_list(current);
+
+				if (uph_song_timeline_can_automate_last_touched(current) &&
+					uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate_last"), leaf_id("uph_mixer_automate_last_track")))
+					uph_song_timeline_automate_last_touched(current);
 
 				if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_mixer_remove_track")))
 				{

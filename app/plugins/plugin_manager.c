@@ -438,7 +438,28 @@ struct Uph_PluginInternalHandle_
     bool visible;
     bool is_clap;
     Naui_String display_name;
+    atomic_uint_least64_t touched_param;
 };
+
+static void _uph_plugin_mark_touched(Uph_PluginInternalHandle *ih, uint64_t param_id)
+{
+    if (ih)
+        atomic_store_explicit(&ih->touched_param, param_id + 1, memory_order_relaxed);
+}
+
+bool uph_plugin_take_touched_param(Uph_Plugin *plug, uint64_t *out_param_id)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!ih)
+        return false;
+
+    const uint64_t touched = atomic_exchange_explicit(&ih->touched_param, 0, memory_order_relaxed);
+    if (touched == 0)
+        return false;
+
+    *out_param_id = touched - 1;
+    return true;
+}
 
 static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih);
 
@@ -846,7 +867,8 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_query_interface
 
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_begin_edit(void *self, Steinberg_Vst_ParamID id)
 {
-    (void)self; (void)id;
+    Uph_Vst3Handler *h = (Uph_Vst3Handler*)self;
+    _uph_plugin_mark_touched(h->owner, id);
     return Steinberg_kResultOk;
 }
 
@@ -855,6 +877,8 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_perform_edit(vo
     Uph_Vst3Handler *h = (Uph_Vst3Handler*)self;
     if (!h->owner)
         return Steinberg_kResultOk;
+
+    _uph_plugin_mark_touched(h->owner, id);
 
     clap_event_param_value_t ev = {0};
     ev.header.size = sizeof(ev);
@@ -2087,8 +2111,13 @@ static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode,
         case audioMasterVersion:
             return UPH_VST2_HOST_VERSION;
 
-        case audioMasterWantMidi:
+        case audioMasterAutomate:
         case audioMasterBeginEdit:
+            if (index >= 0)
+                _uph_plugin_mark_touched(ih, (uint64_t)index);
+            return 1;
+
+        case audioMasterWantMidi:
         case audioMasterEndEdit:
             return 1;
 
@@ -4282,7 +4311,15 @@ void uph_plugin_update(Uph_Plugin *plug)
 
 static bool uph_clap_out_events_try_push(const clap_output_events_t *list, const clap_event_header_t *event)
 {
-    (void)list; (void)event;
+    if (event->space_id != CLAP_CORE_EVENT_SPACE_ID)
+        return true;
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)list->ctx;
+    if (event->type == CLAP_EVENT_PARAM_GESTURE_BEGIN)
+        _uph_plugin_mark_touched(ih, ((const clap_event_param_gesture_t*)event)->param_id);
+    else if (event->type == CLAP_EVENT_PARAM_VALUE)
+        _uph_plugin_mark_touched(ih, ((const clap_event_param_value_t*)event)->param_id);
+
     return true;
 }
 
@@ -4331,6 +4368,7 @@ void uph_plugin_process(
     };
 
     clap_output_events_t out_iface = {
+        .ctx = internal_handle,
         .try_push = uph_clap_out_events_try_push
     };
 

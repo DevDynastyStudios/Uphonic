@@ -687,6 +687,28 @@ void uph_song_timeline_create_automation_lane(Uph_ActionTrackAutomationCreate la
 		naui_action_group_end();
 }
 
+bool uph_song_timeline_can_automate_last_touched(Uph_Track *track)
+{
+	int32_t effect_index;
+	return track && uph_resources_last_touched_param(track, &effect_index);
+}
+
+void uph_song_timeline_automate_last_touched(Uph_Track *track)
+{
+	int32_t effect_index;
+	Uph_PluginParam *param = uph_resources_last_touched_param(track, &effect_index);
+	if (!param)
+		return;
+
+	Uph_ActionTrackAutomationCreate lane = {
+		.parent = uph_action_track_ref(track),
+		.name = param->name,
+		.effect_index = effect_index,
+		.param_id = param->id
+	};
+	uph_song_timeline_create_automation_lane(lane);
+}
+
 static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bbox, Uph_ActionTrackRef *track_ref)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
