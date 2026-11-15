@@ -303,7 +303,6 @@ static void uph_render_on_close(void)
 static void uph_render_on_update(void)
 {
 	const Naui_PanelID this = naui_panel_current();
-	naui_panel_set_title(this, NAUI_TR("render.title"));
 
 	bool start = false;
 	bool cancel = false;

@@ -1443,7 +1443,6 @@ static void uph_mixer_reveal_selected_strip(Leaf_ID scroll_id)
 static void uph_mixer_on_update(void)
 {
 	Uph_MixerState *state = &_uph_mixer_state;
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("mixer.title"));
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.direction = LEAF_DIRECTION_HORIZONTAL

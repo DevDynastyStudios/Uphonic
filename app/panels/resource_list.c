@@ -782,8 +782,6 @@ static void uph_resource_list_duplicate_selected(void)
 
 static void uph_resource_list_on_update(void)
 {
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("resource_list.title"));
-
 	const int32_t icon_size = NAUI_DPI(16);
     uph_resource_list_update_rename();
     uph_resource_list_sync_selection();

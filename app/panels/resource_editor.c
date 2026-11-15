@@ -41,7 +41,6 @@ static void uph_midi_editor_render_empty(const char *message)
 
 static void uph_resource_editor_on_update(void)
 {
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("resource_editor.title"));
 	switch (uph_state.shared.selected_resource.type)
 	{
 		case UPH_RESOURCE_PATTERN:

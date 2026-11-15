@@ -1805,7 +1805,6 @@ static void uph_settings_on_close(void)
 
 static void uph_settings_on_update(void)
 {
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("settings.title"));
 	Uph_SettingsState *state = &_uph_settings_state;
 	if (!state->lists_ready)
 		uph_settings_refresh_all(state);

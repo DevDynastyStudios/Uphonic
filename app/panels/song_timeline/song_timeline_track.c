@@ -558,7 +558,7 @@ static void _uph_song_timeline_render_draw_ghost(Leaf_BoundingBox bbox, const Up
 	if (uph_song_timeline_tool() != UPH_ACTION_DRAW || !state->tracks_hovered)
 		return;
 
-	if (state->automation_edit.active || state->hovered_block.active || state->drag.active || state->marquee.active)
+	if (state->automation_edit.active || state->hovered_block.active || state->drag.active || state->marquee.active || state->playhead_drag.active)
 		return;
 
 	const Uph_BlockMenuHover *menu_hover = &state->block_menu.next_hover;

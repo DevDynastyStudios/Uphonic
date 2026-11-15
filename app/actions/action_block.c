@@ -49,12 +49,39 @@ static void uph_block_refresh_track_type(Uph_Track *track)
 		track->type = UPH_RESOURCE_NONE;
 }
 
+static bool _uph_block_is_recording(const Uph_Track *track, uint32_t index)
+{
+	return track->armed_block != UPH_INVALID_TIMELINE_BLOCK && track->armed_block == &track->blocks[index];
+}
+
+static int64_t _uph_block_armed_index(const Uph_Track *track)
+{
+	const int64_t count = (int64_t)naui_list_len(track->blocks);
+	if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK || count == 0)
+		return -1;
+
+	const int64_t index = track->armed_block - track->blocks;
+	return index >= 0 && index < count ? index : -1;
+}
+
+static void _uph_block_set_armed_index(Uph_Track *track, int64_t index)
+{
+	if (index >= 0)
+		track->armed_block = &track->blocks[index];
+}
+
 static void uph_block_list_insert(Uph_Track *track, uint32_t index, Uph_TimelineBlock block)
 {
 	if (index > (uint32_t)naui_list_len(track->blocks))
 		index = (uint32_t)naui_list_len(track->blocks);
 
+	int64_t armed = _uph_block_armed_index(track);
 	naui_list_insert(track->blocks, block, index);
+	if (armed >= (int64_t)index)
+		armed++;
+
+	_uph_block_set_armed_index(track, armed);
+
 	if (track->type == UPH_RESOURCE_NONE)
 		track->type = block.type;
 }
@@ -64,8 +91,18 @@ static bool uph_block_list_take(Uph_Track *track, uint32_t index, Uph_TimelineBl
 	if (!track || index >= (uint32_t)naui_list_len(track->blocks))
 		return false;
 
+	int64_t armed = _uph_block_armed_index(track);
 	*out = track->blocks[index];
 	naui_list_remove(track->blocks, index);
+
+	if (armed == (int64_t)index)
+		track->armed_block = UPH_INVALID_TIMELINE_BLOCK;
+	else if (armed > (int64_t)index)
+		armed--;
+
+	if (armed != (int64_t)index)
+		_uph_block_set_armed_index(track, armed);
+
 	uph_block_refresh_track_type(track);
 	return true;
 }
@@ -244,6 +281,9 @@ bool _uph_action_block_delete_execute(void* userdata)
 {
 	Uph_ActionBlockDelete* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
+	if (!track || data->block_index >= (uint32_t)naui_list_len(track->blocks) || _uph_block_is_recording(track, data->block_index))
+		return false;
+
 	if (!uph_block_list_take(track, data->block_index, &data->block))
 		return false;
 
@@ -332,8 +372,18 @@ static void uph_block_delete_selected(void)
 {
 	Naui_List(Uph_ActionBlockSnapshot) selected = NULL;
 	uph_block_collect_all(UPH_RESOURCE_NONE, true, false, 0, &selected);
+	for (uint32_t i = (uint32_t)naui_list_len(selected); i > 0; i--)
+	{
+		const Uph_Track* track = uph_action_track_resolve(selected[i - 1].track);
+		if (track && _uph_block_is_recording(track, selected[i - 1].index))
+			naui_list_remove(selected, i - 1);
+	}
+
 	if (naui_list_len(selected) == 0)
+	{
+		naui_list_free(selected);
 		return;
+	}
 
 	naui_action_group_start(UPH_ACTION_BLOCKS_DELETE_GROUP);
 	for (uint32_t i = (uint32_t)naui_list_len(selected); i > 0; i--)

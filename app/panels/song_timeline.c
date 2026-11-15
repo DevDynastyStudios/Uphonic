@@ -99,7 +99,6 @@ static void _uph_song_timeline_follow_playhead(void)
 static void uph_song_timeline_on_update(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("song_timeline.title"));
 	const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
 	const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");
 

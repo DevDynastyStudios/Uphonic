@@ -183,25 +183,28 @@ static void _uph_song_timeline_open_instrument_list(Uph_Track *track)
 	naui_panel_open(uph_state.panels.plugin_list);
 }
 
+static Leaf_ID _uph_song_timeline_track_name_text_id(const Uph_Track *track)
+{
+	return leaf_id_indexed("uph_song_timeline_name_text", (uint64_t)track);
+}
+
 static void _uph_song_timeline_press_header(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const bool was_record_track = uph_state.shared.record_track == track;
+	const bool title_hovered = leaf_hovered_clipped(_uph_song_timeline_track_name_text_id(track));
 	const bool keep_selection = _uph_song_timeline_press_keeps_selection(track);
 	if (!keep_selection)
 		_uph_song_timeline_click_select(track, true);
 
-	if (was_record_track)
-		uph_state.shared.record_track = NULL;
-
-	if (track->type == UPH_RESOURCE_MASTER)
-		return;
-
+	const bool master = track->type == UPH_RESOURCE_MASTER;
 	state->track_drag = (Uph_TrackDragState){
 		.source = uph_action_track_ref(track),
 		.press_position = { (float)naui_mouse_x(), (float)naui_mouse_y() },
 		.pending = true,
-		.select_on_release = keep_selection
+		.locked = master,
+		.select_on_release = keep_selection && !master,
+		.deselect_record_on_release = was_record_track && !title_hovered
 	};
 }
 
@@ -331,6 +334,7 @@ static void _uph_song_timeline_render_track_name(Uph_Track *track)
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const Leaf_ID name_id = leaf_id_indexed("uph_song_timeline_name", (uint64_t)track);
+	const Leaf_ID text_id = _uph_song_timeline_track_name_text_id(track);
 
 	if (track->type == UPH_RESOURCE_MASTER)
 	{
@@ -338,6 +342,7 @@ static void _uph_song_timeline_render_track_name(Uph_Track *track)
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 			.clip_children = true
 		})
+		leaf({ .id = text_id, .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT } })
 		leaf_text(NAUI_TR("master.track.title"), {
 			.color = text_color,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(14))
@@ -360,6 +365,7 @@ static void _uph_song_timeline_render_track_name(Uph_Track *track)
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 		.clip_children = true
 	})
+	leaf({ .id = text_id, .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT } })
 	leaf_text(track->name.data, {
 		.color = text_color,
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(14))
@@ -1106,11 +1112,18 @@ void uph_song_timeline_update_track_drag(void)
 			if (drag->select_on_release)
 				_uph_song_timeline_select_track(source);
 
+			if (drag->deselect_record_on_release && uph_state.shared.record_track == source)
+				uph_state.shared.record_track = NULL;
+
 			*drag = (Uph_TrackDragState){ 0 };
 			return;
 		}
 
 		if (!_uph_song_timeline_drag_passed_threshold(drag->press_position, mouse))
+			return;
+
+		drag->deselect_record_on_release = false;
+		if (drag->locked)
 			return;
 
 		drag->pending = false;

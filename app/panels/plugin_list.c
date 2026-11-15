@@ -540,7 +540,6 @@ static void uph_plugin_list_current_menu(void)
 void uph_plugin_list_on_update(void)
 {
 	Uph_PluginListState *state = &_uph_plugin_list_state;
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("plugin.menu.title"));
     uph_plugin_list_poll_scan();
 
     if (uph_plugin_list_update_load())

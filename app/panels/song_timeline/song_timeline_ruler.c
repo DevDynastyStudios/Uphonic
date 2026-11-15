@@ -12,9 +12,8 @@ void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float s
 
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 {
-	static bool dragging_playhead;
-	static double drag_beat;
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_PlayheadDragState *drag = &state->playhead_drag;
 
 	const bool mouse_over_ruler = uph_song_timeline_vec4_contains_vec2(
 		(Naui_Vec4){ bbox.x, bbox.y, bbox.width, bbox.height },
@@ -24,7 +23,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 	const bool loop_busy = uph_loop_region_update(
 		&uph_state.project.loop_region, &state->loop_drag, bbox,
 		state->zoom.x, state->scroll.x, uph_snap_division(state->snap_resolution, state->zoom.x),
-		!dragging_playhead && naui_panel_is_hovered(uph_state.panels.song_timeline)
+		!drag->active && naui_panel_is_hovered(uph_state.panels.song_timeline)
 	);
 	if (state->loop_drag.created)
 	{
@@ -32,13 +31,13 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 		uph_state.project.loop_enabled = true;
 	}
 
-	if (!dragging_playhead && !loop_busy && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
+	if (!drag->active && !loop_busy && mouse_over_ruler && naui_mouse_pressed(NAUI_MOUSE_LEFT) && naui_panel_is_hovered(uph_state.panels.song_timeline))
 	{
-		dragging_playhead = true;
-		drag_beat = -1.0;
+		drag->active = true;
+		drag->beat = -1.0;
 	}
 
-	if (!dragging_playhead)
+	if (!drag->active)
 		return;
 
 	state->follow.anchored = false;
@@ -51,15 +50,15 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 			beat = fmax(0.0, length - uph_snap_division(state->snap_resolution, state->zoom.x));
 	}
 
-	if (beat != drag_beat)
+	if (beat != drag->beat)
 	{
-		drag_beat = beat;
+		drag->beat = beat;
 		uph_state.shared.song_timeline_playhead_position = beat;
 	}
 
 	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-		dragging_playhead = false;
+		drag->active = false;
 }
 
 static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)

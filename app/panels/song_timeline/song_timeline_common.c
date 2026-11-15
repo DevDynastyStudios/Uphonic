@@ -123,9 +123,18 @@ typedef struct
 	Naui_Vec2 press_position;
 	bool pending;
 	bool active;
+	bool locked;
 	bool select_on_release;
+	bool deselect_record_on_release;
 }
 Uph_TrackDragState;
+
+typedef struct
+{
+	bool active;
+	double beat;
+}
+Uph_PlayheadDragState;
 
 typedef struct
 {
@@ -153,6 +162,7 @@ typedef struct
 	Uph_MarqueeState marquee;
 	Uph_BlockMenuState block_menu;
 	Uph_LoopRegionDrag loop_drag;
+	Uph_PlayheadDragState playhead_drag;
 	Uph_SongTimelineMinimapState minimap;
 	Uph_TrackDragState track_drag;
 	Uph_TrackPendingMove pending_move;

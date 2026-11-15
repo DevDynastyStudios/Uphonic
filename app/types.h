@@ -8,6 +8,7 @@ Uph_AudioDriver;
 #pragma endregion
 
 #define UPH_VERSION (Uph_Version) { .major = 0, .minor = 0, .patch = 1 };
+#define UPH_INVALID_TIMELINE_BLOCK NULL
 
 #pragma region Settings
 typedef struct Uph_GeneralSettings

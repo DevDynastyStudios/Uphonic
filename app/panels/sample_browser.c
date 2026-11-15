@@ -1174,7 +1174,6 @@ static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 static void uph_sample_browser_on_update(void)
 {
 	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("sample_browser.title"));
 
 	if (!naui_strings_equal(state->filter, state->applied_filter, true))
 	{

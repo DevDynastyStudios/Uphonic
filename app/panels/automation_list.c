@@ -249,7 +249,6 @@ static bool uph_automation_list_render_track_params(const Uph_Track *track, Uph_
 void uph_automation_list_on_update(void)
 {
 	Uph_AutomationListState *state = &_uph_automation_list_state;
-	naui_panel_set_title(naui_panel_current(), NAUI_TR("automation.menu.title"));
     Uph_Track *track = uph_state.shared.current_automation_list_track;
     if (!track)
         return;

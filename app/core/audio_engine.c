@@ -98,10 +98,6 @@ static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, dou
 	return uph_seconds_to_frames(seconds, sample_rate);
 }
 
-#ifndef UPH_INVALID_TIMELINE_BLOCK
-#define UPH_INVALID_TIMELINE_BLOCK NULL
-#endif
-
 enum
 {
     UPH_RENDER_RUNNING,

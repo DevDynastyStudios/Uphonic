@@ -304,6 +304,20 @@ static void uph_update_track(Uph_Track *track)
 		uph_update_track(&track->subtracks[i]);
 }
  
+static void _uph_update_panel_titles(void)
+{
+	const Uph_Panels *panels = &uph_state.panels;
+	naui_panel_set_title(panels->song_timeline, NAUI_TR("song_timeline.title"));
+	naui_panel_set_title(panels->resource_editor, NAUI_TR("resource_editor.title"));
+	naui_panel_set_title(panels->resource_list, NAUI_TR("resource_list.title"));
+	naui_panel_set_title(panels->mixer, NAUI_TR("mixer.title"));
+	naui_panel_set_title(panels->settings, NAUI_TR("settings.title"));
+	naui_panel_set_title(panels->plugin_list, NAUI_TR("plugin.menu.title"));
+	naui_panel_set_title(panels->automation_list, NAUI_TR("automation.menu.title"));
+	naui_panel_set_title(panels->sample_browser, NAUI_TR("sample_browser.title"));
+	naui_panel_set_title(panels->render, NAUI_TR("render.title"));
+}
+
 void naui_app_update(void)
 {
 	uph_mixer_apply_pending_move();
@@ -312,6 +326,7 @@ void naui_app_update(void)
 	uph_audio_engine_update();
 	uph_project_update_pending_samples();
 
+	_uph_update_panel_titles();
 	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active());
  
 	uph_render_update();
