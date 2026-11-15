@@ -51,7 +51,7 @@ static void _uph_song_timeline_minimap_draw_tracks(Naui_List(Uph_Track) tracks, 
 	{
 		const Uph_Track *track = &tracks[i];
 		const bool group = uph_track_is_folder(track);
-		const float height = group ? NAUI_DPI(56) : NAUI_DPI(zoom_y);
+		const float height = group ? NAUI_DPI(UPH_SONG_TIMELINE_FOLDER_ROW_HEIGHT) : NAUI_DPI(zoom_y);
 		const float row_y = map->rect.y + *y * map->scale_y;
 		const float row_h = fmaxf(1.0f, height * map->scale_y);
 		const float gap = row_h > 4.0f ? 1.0f : 0.0f;
@@ -86,7 +86,7 @@ static float _uph_song_timeline_minimap_rows_height(Naui_List(Uph_Track) tracks)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
-		height += uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(state->zoom.y);
+		height += uph_track_is_folder(track) ? NAUI_DPI(UPH_SONG_TIMELINE_FOLDER_ROW_HEIGHT) : NAUI_DPI(state->zoom.y);
 		height += _uph_song_timeline_minimap_rows_height(track->subtracks);
 	}
 	return height;

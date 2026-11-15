@@ -3,9 +3,60 @@
 #define UPH_SONG_TIMELINE_PAN_SPEED 1.0f
 #define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
 #define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
-#define UPH_SONG_TIMELINE_ZOOM_Y_MIN 124.0f
+#define UPH_SONG_TIMELINE_ZOOM_Y_MIN 56.0f
 #define UPH_SONG_TIMELINE_ZOOM_Y_MAX 320.0f
 #define UPH_SONG_TIMELINE_ZOOM_Y_DRAG_SPEED 0.008f
+
+typedef struct
+{
+	float target_y;
+	float old_row;
+	float new_row;
+	float old_y;
+	float new_y;
+	float result_y;
+	bool found;
+}
+Uph_SongTimelineRowRescale;
+
+static void _uph_song_timeline_rescale_track_rows(const Uph_Track *track, Uph_SongTimelineRowRescale *rescale)
+{
+	const bool folder = uph_track_is_folder(track);
+	const float folder_height = NAUI_DPI(UPH_SONG_TIMELINE_FOLDER_ROW_HEIGHT);
+	const float old_height = folder ? folder_height : rescale->old_row;
+	const float new_height = folder ? folder_height : rescale->new_row;
+
+	if (!rescale->found && rescale->target_y < rescale->old_y + old_height)
+	{
+		rescale->result_y = rescale->new_y + (rescale->target_y - rescale->old_y) * (new_height / old_height);
+		rescale->found = true;
+	}
+
+	rescale->old_y += old_height;
+	rescale->new_y += new_height;
+
+	if (folder && (track->state & UPH_TRACK_TIMELINE_COLLAPSED))
+		return;
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
+		_uph_song_timeline_rescale_track_rows(&track->subtracks[i], rescale);
+}
+
+static Uph_SongTimelineRowRescale _uph_song_timeline_rescale_rows(float target_y, float old_row, float new_row)
+{
+	Uph_SongTimelineRowRescale rescale = { .target_y = target_y, .old_row = old_row, .new_row = new_row };
+	const Uph_Track *master = &uph_state.project.tracks[0];
+	if (naui_list_len(master->subtracks) > 0)
+		_uph_song_timeline_rescale_track_rows(master, &rescale);
+
+	for (uint32_t i = 1; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
+		_uph_song_timeline_rescale_track_rows(&uph_state.project.tracks[i], &rescale);
+
+	if (!rescale.found)
+		rescale.result_y = rescale.new_y + (target_y - rescale.old_y);
+
+	return rescale;
+}
 
 static float _uph_song_timeline_content_origin_x(void)
 {
@@ -77,11 +128,12 @@ void uph_song_timeline_update_input(void)
 		const int32_t new_row_px = NAUI_DPI(state->zoom_drag.unsnapped_zoom_y);
 		if (new_row_px != old_row_px && old_row_px > 0)
 		{
-			const float ratio = (float)new_row_px / (float)old_row_px;
 			const float anchor_content_y = state->zoom_drag.anchor_local_y + state->scroll.y;
-			const float scaled_max_scroll_y = fmaxf(0.0f, state->content_height * ratio - (float)new_row_px / dpi_scale);
+			const Uph_SongTimelineRowRescale rescale = _uph_song_timeline_rescale_rows(anchor_content_y, (float)old_row_px, (float)new_row_px);
+			const float scaled_content_height = state->content_height - rescale.old_y + rescale.new_y;
+			const float scaled_max_scroll_y = fmaxf(0.0f, scaled_content_height - (float)new_row_px / dpi_scale);
 			state->zoom.y = (float)new_row_px / dpi_scale;
-			state->scroll.y = NAUI_CLAMP(roundf(anchor_content_y * ratio - state->zoom_drag.anchor_local_y), 0.0f, scaled_max_scroll_y);
+			state->scroll.y = NAUI_CLAMP(roundf(rescale.result_y - state->zoom_drag.anchor_local_y), 0.0f, scaled_max_scroll_y);
 		}
 
 		if (naui_mouse_released(NAUI_MOUSE_MIDDLE) || !naui_mouse_down(NAUI_MOUSE_MIDDLE))
