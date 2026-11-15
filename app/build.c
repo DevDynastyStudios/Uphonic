@@ -79,6 +79,7 @@
 #include "ui/dialog.c"
 #include "ui/particles.c"
 #include "ui/containers.c"
+#include "ui/level_meter.c"
 
 #include "actions/action_track.c"
 #include "actions/action_block.c"

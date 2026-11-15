@@ -46,6 +46,11 @@ static inline Uph_ActionTrackRef uph_action_track_ref_owner(
 	Uph_ActionTrackRef ref
 );
 
+static inline bool uph_action_track_ref_equal(
+	Uph_ActionTrackRef a,
+	Uph_ActionTrackRef b
+);
+
 static inline Uph_ActionTrackRef uph_action_track_ref_after_insert(
 	Uph_ActionTrackRef ref,
 	Uph_ActionTrackRef inserted

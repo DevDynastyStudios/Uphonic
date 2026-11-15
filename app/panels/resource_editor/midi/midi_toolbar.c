@@ -40,10 +40,11 @@ static void _uph_midi_toolbar_render_voice(void)
 	leaf({
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 		.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(UPH_TOOLBOX_LABEL_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		leaf_text("Voice: ", {
+		leaf_text("Voice:", {
 			.color = naui_theme_color("uph_ui_text_color"),
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 		});
@@ -74,102 +75,82 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
 		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(22),
+		.child_gap = NAUI_DPI(UPH_TOOLBOX_GROUP_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const int32_t button_size = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
 		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
 
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			const bool playing = uph_midi_preview_playing();
 
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_midi_editor_play"),
-				(Naui_Vec2){button_size, button_size},
-				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
-				bg_color,
-				NAUI_CORNER_TL | NAUI_CORNER_BL
+				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color")
 			)) uph_midi_editor_toggle_playback();
 
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_midi_editor_stop"),
-				(Naui_Vec2){button_size, button_size},
-				naui_theme_color("uph_stop_icon_color"),
-				bg_color,
-				NAUI_CORNER_NONE
+				naui_theme_color("uph_stop_icon_color")
 			)) uph_midi_editor_stop_playback();
 
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image("uph_icon_reset"),
 				leaf_id("uph_midi_editor_reset"),
-				(Naui_Vec2){button_size, button_size},
-				icon_color,
-				bg_color,
-				NAUI_CORNER_NONE
+				icon_color
 			)) uph_midi_preview_seek(0.0);
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_midi_editor_loop"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				uph_midi_preview_looping()
 			)) uph_midi_preview_set_loop(!uph_midi_preview_looping());
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_select"),
 				leaf_id("uph_midi_editor_select"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TL | NAUI_CORNER_BL,
 				*action_mode == UPH_ACTION_SELECT
 			)) *action_mode = UPH_ACTION_SELECT;
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_draw"),
 				leaf_id("uph_midi_editor_draw"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_NONE,
 				*action_mode == UPH_ACTION_DRAW
 			)) *action_mode = UPH_ACTION_DRAW;
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_cut"),
 				leaf_id("uph_midi_editor_cut"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				*action_mode == UPH_ACTION_CUT
 			)) *action_mode = UPH_ACTION_CUT;
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_LABEL_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			leaf_text("Snap: ", {
+			leaf_text("Snap:", {
 				.color = naui_theme_color("uph_ui_text_color"),
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});

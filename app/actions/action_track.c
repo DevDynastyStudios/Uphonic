@@ -67,6 +67,16 @@ typedef struct
 	float new_value;
 } Uph_ActionTrackValue;
 
+typedef struct
+{
+	Uph_ActionTrackRef track;
+	Uph_ActionTrackValueKind kind;
+	float old_value;
+	bool active;
+} Uph_ActionTrackValueEdit;
+
+static Uph_ActionTrackValueEdit _uph_action_track_value_edit;
+
 #pragma region Track References
 
 static Naui_List(Uph_Track) *uph_action_track_list_ptr(Uph_ActionTrackRef owner)
@@ -507,6 +517,43 @@ bool _uph_action_track_value_undo(void* userdata)
 bool _uph_action_track_value_redo(void* userdata)
 {
 	return _uph_action_track_value_execute(userdata);
+}
+
+void uph_action_track_value_commit(void)
+{
+	Uph_ActionTrackValueEdit *edit = &_uph_action_track_value_edit;
+	if (!edit->active)
+		return;
+
+	edit->active = false;
+	Uph_Track *track = uph_action_track_resolve(edit->track);
+	if (!track)
+		return;
+
+	Uph_ActionTrackValue data = {
+		.track = edit->track,
+		.kind = edit->kind,
+		.old_value = edit->old_value,
+		.new_value = edit->kind == UPH_ACTION_TRACK_VALUE_PAN ? track->pan : track->volume
+	};
+
+	if (data.old_value != data.new_value)
+		naui_action_execute_stack(edit->kind == UPH_ACTION_TRACK_VALUE_PAN ? UPH_ACTION_TRACK_PAN : UPH_ACTION_TRACK_VOLUME, data);
+}
+
+void uph_action_track_value_begin(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind, float before)
+{
+	Uph_ActionTrackValueEdit *edit = &_uph_action_track_value_edit;
+	if (edit->active && (edit->kind != kind || !uph_action_track_ref_equal(edit->track, ref)))
+		uph_action_track_value_commit();
+
+	if (!edit->active)
+	{
+		edit->track = ref;
+		edit->kind = kind;
+		edit->old_value = before;
+		edit->active = true;
+	}
 }
 
 #pragma endregion

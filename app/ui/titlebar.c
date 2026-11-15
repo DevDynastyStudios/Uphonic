@@ -154,6 +154,7 @@ void uph_render_main_titlebar(void)
 				.id = left_area_id,
 				.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 				.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+				.child_gap = NAUI_DPI(UPH_UI_MENU_BAR_ITEM_GAP),
 				.direction = LEAF_DIRECTION_HORIZONTAL
 			})
 			{

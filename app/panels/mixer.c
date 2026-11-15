@@ -57,17 +57,6 @@ typedef struct Uph_MixerEffectArrowData
 }
 Uph_MixerEffectArrowData;
 
-typedef struct
-{
-	Uph_ActionTrackRef track;
-	Uph_ActionTrackValueKind kind;
-	float old_value;
-	bool active;
-}
-Uph_MixerEditState;
-
-static Uph_MixerEditState _uph_mixer_edit_state;
-
 typedef struct Uph_MixerVolumeArrowData
 {
 	Uph_ActionTrackRef track;
@@ -95,15 +84,10 @@ static Uph_MixerState _uph_mixer_state = { 0 };
 #define UPH_MIXER_EFFECT_LED_HIT	18
 #define UPH_MIXER_EFFECT_LED_DOT	8
 
-
 static const float uph_mixer_db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 #define UPH_MIXER_DB_TICK_COUNT ((int)(sizeof(uph_mixer_db_ticks) / sizeof(uph_mixer_db_ticks[0])))
 
 #define UPH_MIXER_DRAG_THRESHOLD 6
-
-#define UPH_MIXER_METER_LOW_DB		UPH_MIXER_DB_MIN
-#define UPH_MIXER_METER_MEDIUM_DB	-12.0f
-#define UPH_MIXER_METER_HIGH_DB		0.0f
 
 static void uph_mixer_render_color_menu(Uph_UIMenuID menu)
 {
@@ -516,12 +500,6 @@ static void uph_mixer_render_effect_list(void)
 	}
 }
 
-static inline float uph_mixer_db_to_fraction(float db)
-{
-	float normalized = (db - UPH_MIXER_DB_MIN) / (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
-	return NAUI_CLAMP(normalized, 0.0f, 1.0f);
-}
-
 static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 {
 	static const float db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
@@ -534,7 +512,7 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 
 	for (int i = 0; i < UPH_MIXER_DB_TICK_COUNT; i++)
 	{
-		float y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(uph_mixer_db_ticks[i])) * bounding_box.height;
+		float y = bounding_box.y + (1.0f - uph_level_meter_fraction(uph_mixer_db_ticks[i])) * bounding_box.height;
 
 		char label[8];
 		snprintf(label, sizeof(label), "%.0f", uph_mixer_db_ticks[i]);
@@ -549,120 +527,6 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 	}
 }
 
-static void uph_mixer_draw_meter_half(Leaf_BoundingBox bounding_box, float x, float width, float clip_x, float clip_width, float fraction, Naui_Color low_color, Naui_Color medium_color, Naui_Color high_color)
-{
-	if (fraction <= 0.0f)
-		return;
-
-	const float top = bounding_box.y;
-	const float bottom = bounding_box.y + bounding_box.height;
-	const float y_low = bottom - uph_mixer_db_to_fraction(UPH_MIXER_METER_LOW_DB) * bounding_box.height;
-	const float y_medium = bottom - uph_mixer_db_to_fraction(UPH_MIXER_METER_MEDIUM_DB) * bounding_box.height;
-	const float y_high = bottom - uph_mixer_db_to_fraction(UPH_MIXER_METER_HIGH_DB) * bounding_box.height;
-	naui_push_clip_rect(clip_x, bottom - fraction * bounding_box.height, clip_width, bounding_box.height * fraction);
-
-	const float lower_height = bottom - y_medium;
-	naui_fill_gradient_rect(
-		(Naui_Vec2){x, y_medium},
-		(Naui_Vec2){width, lower_height},
-		(Naui_Gradient){
-			.angle = 90 * NAUI_DEG2RAD,
-			.color1 = medium_color, .color2 = low_color,
-			.percent1 = 0.0f, .percent2 = (y_low - y_medium) / lower_height
-		},
-		0.0f, NAUI_CORNER_NONE
-	);
-
-	const float upper_height = y_medium - top;
-	naui_fill_gradient_rect(
-		(Naui_Vec2){x, top},
-		(Naui_Vec2){width, upper_height},
-		(Naui_Gradient){
-			.angle = 90 * NAUI_DEG2RAD,
-			.color1 = high_color, .color2 = medium_color,
-			.percent1 = (y_high - top) / upper_height, .percent2 = 1.0f
-		},
-		0.0f, NAUI_CORNER_NONE
-	);
-
-	naui_pop_clip_rect();
-}
-
-static void uph_mixer_draw_peak_bars(Leaf_BoundingBox bounding_box, Uph_ActionTrackRef *data)
-{
-	Uph_Track *strip = uph_action_track_resolve(*data);
-	if (!strip)
-		return;
-
-	const int32_t gap = NAUI_DPI(1);
-	const float smooth_speed = naui_delta_time() * 30.0f;
-	strip->smooth_peak_left = NAUI_LERP(strip->smooth_peak_left, strip->peak_left, smooth_speed);
-	strip->smooth_peak_right = NAUI_LERP(strip->smooth_peak_right, strip->peak_right, smooth_speed);
-
-	const float left_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(strip->smooth_peak_left));
-	const float right_fraction = uph_mixer_db_to_fraction(uph_linear_to_db(strip->smooth_peak_right));
-
-	const Naui_Color low_color = naui_theme_color("uph_mixer_bar_low_color");
-	const Naui_Color medium_color = naui_theme_color("uph_mixer_bar_medium_color");
-	const Naui_Color high_color = naui_theme_color("uph_mixer_bar_high_color");
-
-	const float half_width = bounding_box.width * 0.5f;
-	uph_mixer_draw_meter_half(
-		bounding_box, bounding_box.x, half_width,
-		bounding_box.x, half_width - gap,
-		left_fraction, low_color, medium_color, high_color
-	);
-
-	uph_mixer_draw_meter_half(
-		bounding_box, bounding_box.x + half_width, half_width,
-		bounding_box.x + half_width + gap, half_width - gap,
-		right_fraction, low_color, medium_color, high_color
-	);
-}
-
-static bool uph_mixer_automated_value(const Uph_Track *strip, Uph_AutomationTarget target, float *out_value)
-{
-	return uph_state.shared.song_timeline_playing &&
-		uph_track_mix_automation_value(strip, target, uph_state.shared.song_timeline_playhead_position, out_value);
-}
-
-static void uph_mixer_commit_edit(void)
-{
-	Uph_MixerEditState *state = &_uph_mixer_edit_state;
-	if (!state->active)
-		return;
-
-	state->active = false;
-	Uph_Track *strip = uph_action_track_resolve(state->track);
-	if (!strip)
-		return;
-
-	Uph_ActionTrackValue data = {
-		.track = state->track,
-		.kind = state->kind,
-		.old_value = state->old_value,
-		.new_value = state->kind == UPH_ACTION_TRACK_VALUE_PAN ? strip->pan : strip->volume
-	};
-
-	if (data.old_value != data.new_value)
-		naui_action_execute_stack(state->kind == UPH_ACTION_TRACK_VALUE_PAN ? UPH_ACTION_TRACK_PAN : UPH_ACTION_TRACK_VOLUME, data);
-}
-
-static void uph_mixer_edit_value(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind, float before)
-{
-	Uph_MixerEditState *state = &_uph_mixer_edit_state;
-	if (state->active && (state->kind != kind || !uph_action_track_ref_equal(state->track, ref)))
-		uph_mixer_commit_edit();
-
-	if (!state->active)
-	{
-		state->track = ref;
-		state->kind = kind;
-		state->old_value = before;
-		state->active = true;
-	}
-}
-
 static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_MixerVolumeArrowData *data)
 {
 	Uph_Track *strip = uph_action_track_resolve(data->track);
@@ -674,9 +538,9 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 	const int32_t hit_padding = NAUI_DPI(4);
 
 	float shown_volume = strip->volume;
-	const bool automated = uph_mixer_automated_value(strip, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
+	const bool automated = uph_track_playing_automation_value(strip, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
 	float db = uph_linear_to_db(shown_volume);
-	float fraction = uph_mixer_db_to_fraction(db);
+	float fraction = uph_level_meter_fraction(db);
 	float y = bounding_box.y + (1.0f - fraction) * bounding_box.height;
 
 	Leaf_BoundingBox hit_box = {
@@ -698,9 +562,9 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 		active_id = 0;
 		if (strip->volume != 1.0f)
 		{
-			uph_mixer_edit_value(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
+			uph_action_track_value_begin(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
 			strip->volume = 1.0f;
-			y = bounding_box.y + (1.0f - uph_mixer_db_to_fraction(0.0f)) * bounding_box.height;
+			y = bounding_box.y + (1.0f - uph_level_meter_fraction(0.0f)) * bounding_box.height;
 		}
 	}
 	else if (hovered && !automated && naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -716,7 +580,7 @@ static void uph_mixer_draw_volume_arrow(Leaf_BoundingBox bounding_box, Uph_Mixer
 		{
 			float t = 1.0f - NAUI_CLAMP((mouse.y - bounding_box.y) / bounding_box.height, 0.0f, 1.0f);
 			float new_db = UPH_MIXER_DB_MIN + t * (UPH_MIXER_DB_MAX - UPH_MIXER_DB_MIN);
-			uph_mixer_edit_value(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
+			uph_action_track_value_begin(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
 			strip->volume = uph_db_to_linear(new_db);
 
 			y = bounding_box.y + (1.0f - t) * bounding_box.height;
@@ -919,7 +783,7 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 
 			const float old_pan = strip->pan;
 			float shown_pan = old_pan;
-			const bool pan_automated = uph_mixer_automated_value(strip, UPH_AUTOMATION_TARGET_TRACK_PAN, &shown_pan);
+			const bool pan_automated = uph_track_playing_automation_value(strip, UPH_AUTOMATION_TARGET_TRACK_PAN, &shown_pan);
 			bool pan_changed = false;
 			leaf({ .size = { .width = LEAF_SIZE_PERCENT(0.5f), .height = LEAF_SIZE_DERIVED }, .aspect_ratio = 1.0f })
 			pan_changed |= uph_ui_knob_float(&shown_pan, leaf_id_indexed("uph_mixer_pan_knob", track_id), -1.0f, 1.0f, 0.0f, accent_color, UPH_UI_KNOB_START_TYPE_CENTER);
@@ -929,12 +793,12 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 				pan_changed |= uph_ui_drag_float(&shown_pan, leaf_id_indexed("uph_mixer_pan", track_id), 0.01f, -1.0f, 1.0f, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_TINTED);
 				if (pan_changed && !pan_automated)
 				{
-					uph_mixer_edit_value(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+					uph_action_track_value_begin(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_PAN, old_pan);
 					strip->pan = shown_pan;
 				}
 
 				if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-					uph_mixer_commit_edit();
+					uph_action_track_value_commit();
 			}
 
             const int32_t button_size = NAUI_DPI(UPH_UI_FONT_SIZE);
@@ -966,7 +830,7 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 				});
 				Uph_ActionTrackRef track_ref = uph_action_track_ref(strip);
 				leaf({
-					.custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_peak_bars,
+					.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
 					.custom_draw_data = LEAF_DATA_SLICE(track_ref),
 					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
 					.color = naui_theme_color("uph_ui_well_bg_color")
@@ -983,19 +847,19 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 			}
 
 			float shown_volume = strip->volume;
-			const bool volume_automated = uph_mixer_automated_value(strip, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
+			const bool volume_automated = uph_track_playing_automation_value(strip, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
 			float volume_db = uph_linear_to_db(shown_volume);
 
 			leaf({ .size = { .width = LEAF_SIZE_PERCENT(0.5f), .height = LEAF_SIZE_FIT } })
 			{
 				if (uph_ui_drag_float(&volume_db, leaf_id_indexed("uph_mixer_volume", track_id), 0.01f, UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED | UPH_UI_DRAG_FLAG_TINTED) && !volume_automated)
 				{
-					uph_mixer_edit_value(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
+					uph_action_track_value_begin(uph_action_track_ref(strip), UPH_ACTION_TRACK_VALUE_VOLUME, strip->volume);
 					strip->volume = uph_db_to_linear(volume_db);
 				}
 
 				if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-					uph_mixer_commit_edit();
+					uph_action_track_value_commit();
 			}
 
             if (!is_master && strip->type != UPH_RESOURCE_GROUP)

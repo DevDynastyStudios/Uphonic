@@ -12,110 +12,90 @@ void uph_song_timeline_render_toolbox(void)
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
 		.color = naui_theme_color("uph_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(22),
+		.child_gap = NAUI_DPI(UPH_TOOLBOX_GROUP_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const int32_t button_size = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
 		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
 
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_song_timeline_play"),
-				(Naui_Vec2){button_size, button_size},
-				naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
-				bg_color,
-				NAUI_CORNER_TL | NAUI_CORNER_BL
+				naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_pause_icon_color" : "uph_play_icon_color")
 			))
 			{
 				uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
 			}
 
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_song_timeline_stop"),
-				(Naui_Vec2){button_size, button_size},
-				naui_theme_color("uph_stop_icon_color"),
-				bg_color,
-				NAUI_CORNER_NONE
+				naui_theme_color("uph_stop_icon_color")
 			))
 			{
 				uph_state.shared.song_timeline_playing = false;
 				uph_state.shared.song_timeline_playhead_position = 0.0;
 			}
 
-			if (uph_ui_image_button_ex(
+			if (uph_ui_toolbox_button(
 				naui_asset_image("uph_icon_reset"),
 				leaf_id("uph_song_timeline_reset"),
-				(Naui_Vec2){button_size, button_size},
-				icon_color,
-				bg_color,
-				NAUI_CORNER_NONE
+				icon_color
 			))
 			{
 				uph_state.shared.song_timeline_playhead_position = 0.0;
 			}
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_song_timeline_loop"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				uph_state.project.loop_enabled
 			)) uph_state.project.loop_enabled = !uph_state.project.loop_enabled;
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_select"),
 				leaf_id("uph_song_timeline_select"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TL | NAUI_CORNER_BL,
 				state->current_action_mode == UPH_ACTION_SELECT
 			)) state->current_action_mode = UPH_ACTION_SELECT;
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_draw"),
 				leaf_id("uph_song_timeline_draw"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_NONE,
 				state->current_action_mode == UPH_ACTION_DRAW
 			)) state->current_action_mode = UPH_ACTION_DRAW;
 
-			if (uph_ui_image_toggle_button_ex(
+			if (uph_ui_toolbox_toggle_button(
 				naui_asset_image("uph_icon_cut"),
 				leaf_id("uph_song_timeline_cut"),
-				(Naui_Vec2){button_size, button_size},
 				icon_color,
-				bg_color,
-				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				state->current_action_mode == UPH_ACTION_CUT
 			)) state->current_action_mode = UPH_ACTION_CUT;
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(UPH_TOOLBOX_LABEL_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			leaf_text("Snap: ", {
+			leaf_text("Snap:", {
 				.color = naui_theme_color("uph_ui_text_color"),
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});

@@ -2,6 +2,11 @@
 #define UPH_TRACK_STRIP_HOVER_WIDTH				6
 #define UPH_TRACK_STRIP_HIT_WIDTH				10
 #define UPH_TRACK_HEADER_CHILD_GAP				10
+#define UPH_TRACK_HEADER_ROW_GAP				6
+#define UPH_TRACK_HEADER_PADDING_Y				10
+#define UPH_TRACK_HEADER_KNOB_SIZE				24
+#define UPH_TRACK_HEADER_METER_WIDTH			12
+#define UPH_TRACK_HEADER_METER_PADDING			5
 #define UPH_SONG_TIMELINE_ICON_SIZE				16
 #define UPH_SONG_TIMELINE_TRACK_DRAG_THRESHOLD	6
 
@@ -346,30 +351,16 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		leaf({
-			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
-			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(8),
-			.direction = LEAF_DIRECTION_HORIZONTAL
-		})
+		if (icon)
 		{
-			if (icon)
-			{
-				leaf({
-					.image = naui_asset_image(icon),
-					.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
-					.color = naui_theme_color("uph_ui_text_color")
-				});
-			}
-
-			_uph_song_timeline_render_track_name(track);
+			leaf({
+				.image = naui_asset_image(icon),
+				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
+				.color = naui_theme_color("uph_ui_text_color")
+			});
 		}
 
-		if (track->type == UPH_RESOURCE_MASTER)
-			_uph_song_timeline_mute_toggle(track);
-
-		if (_uph_song_timeline_icon_button("uph_icon_gear", "uph_song_timeline_options", track))
-			_uph_song_timeline_open_options(track, options_menu);
+		_uph_song_timeline_render_track_name(track);
 
 		if (uph_track_is_folder(track))
 		{
@@ -377,13 +368,69 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 			if (_uph_song_timeline_icon_button(arrow, "uph_song_timeline_collapse", track))
 				track->state ^= UPH_TRACK_TIMELINE_COLLAPSED;
 		}
+
+		if (_uph_song_timeline_icon_button("uph_icon_dots", "uph_song_timeline_options", track))
+			_uph_song_timeline_open_options(track, options_menu);
 	}
 }
 
-static void _uph_song_timeline_render_controls_row(Uph_Track *track)
+static void _uph_song_timeline_render_pan_knob(Uph_Track *track)
 {
-	const bool automation = track->type == UPH_RESOURCE_AUTOMATION;
-	const char *target_name = automation ? _uph_song_timeline_automation_target_name(track) : NULL;
+	const float old_pan = track->pan;
+	float shown_pan = old_pan;
+	const bool automated = uph_track_playing_automation_value(track, UPH_AUTOMATION_TARGET_TRACK_PAN, &shown_pan);
+
+	leaf({ .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TRACK_HEADER_KNOB_SIZE)), .height = LEAF_SIZE_FIT } })
+	{
+		const Naui_Color color = uph_resources_track_color(track->color_index);
+		if (uph_ui_knob_float(&shown_pan, leaf_id_indexed("uph_song_timeline_pan", (uint64_t)track), -1.0f, 1.0f, 0.0f, color, UPH_UI_KNOB_START_TYPE_CENTER) && !automated)
+		{
+			uph_action_track_value_begin(uph_action_track_ref(track), UPH_ACTION_TRACK_VALUE_PAN, old_pan);
+			track->pan = shown_pan;
+		}
+	}
+}
+
+static void _uph_song_timeline_render_volume_slider(Uph_Track *track)
+{
+	float shown_volume = track->volume;
+	const bool automated = uph_track_playing_automation_value(track, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
+	float volume_db = uph_linear_to_db(shown_volume);
+
+	if (uph_ui_slider_float(&volume_db, leaf_id_indexed("uph_song_timeline_volume", (uint64_t)track), UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f dB", UPH_UI_SLIDER_FLAG_NONE) && !automated)
+	{
+		uph_action_track_value_begin(uph_action_track_ref(track), UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
+		track->volume = uph_db_to_linear(volume_db);
+	}
+}
+
+static void _uph_song_timeline_render_mix_row(Uph_Track *track)
+{
+	leaf({
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(6),
+		.direction = LEAF_DIRECTION_HORIZONTAL
+	})
+	{
+		_uph_song_timeline_render_pan_knob(track);
+		_uph_song_timeline_render_volume_slider(track);
+		_uph_song_timeline_mute_toggle(track);
+
+		if (track->type != UPH_RESOURCE_MASTER && _uph_song_timeline_toggle("uph_icon_solo", "uph_song_timeline_solo_toggle", track, uph_state.project.soloed_track == track))
+		{
+			Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
+			naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
+		}
+	}
+
+	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+		uph_action_track_value_commit();
+}
+
+static void _uph_song_timeline_render_automation_row(Uph_Track *track)
+{
+	const char *target_name = _uph_song_timeline_automation_target_name(track);
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
@@ -394,35 +441,60 @@ static void _uph_song_timeline_render_controls_row(Uph_Track *track)
 	{
 		_uph_song_timeline_mute_toggle(track);
 
-		if (!automation && _uph_song_timeline_toggle("uph_icon_solo", "uph_song_timeline_solo_toggle", track, uph_state.project.soloed_track == track))
+		if (target_name)
 		{
-			Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
-			naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
+			leaf({
+				.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+				.padding = { .left = NAUI_DPI(4) },
+				.clip_children = true
+			})
+			leaf_text(target_name, {
+				.color = naui_theme_color("uph_ui_text_disabled_color"),
+				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(14))
+			});
 		}
-
-		if (!automation && uph_ui_image_toggle_button_colored(naui_asset_image("uph_icon_mic"), leaf_id_indexed("uph_song_timeline_arm_toggle", (uint64_t)track),
-			_uph_song_timeline_toggle_size(), naui_theme_color("uph_ui_text_color"), track->state & UPH_TRACK_ARMED, naui_theme_color("uph_record_armed_color")))
-			uph_resources_toggle_track_state(track, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
-
-		leaf({
-			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
-			.padding = { .left = NAUI_DPI(4) },
-			.clip_children = true
-		})
-		{
-			if (target_name)
-			{
-				leaf_text(target_name, {
-					.color = naui_theme_color("uph_ui_text_disabled_color"),
-					.font_size = LEAF_SIZE_FIXED(NAUI_DPI(14))
-				});
-			}
-		}
-
-		const bool takes_instrument = track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN;
-		if (takes_instrument && _uph_song_timeline_icon_button("uph_icon_add_instrument", "uph_song_timeline_add_instrument", track))
-			_uph_song_timeline_open_instrument_list(track);
 	}
+}
+
+static void _uph_song_timeline_render_instrument_row(Uph_Track *track)
+{
+	const char *label = track->instrument.loaded ? track->instrument.name.data : NAUI_TR("plugin.menu.instrument");
+	if (uph_ui_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
+		_uph_song_timeline_open_instrument_list(track);
+}
+
+static void _uph_song_timeline_render_meter(const Uph_Track *track)
+{
+	Uph_ActionTrackRef ref = uph_action_track_ref(track);
+	leaf({
+		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_TRACK_HEADER_METER_PADDING))
+	})
+	leaf({
+		.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
+		.custom_draw_data = LEAF_DATA_SLICE(ref),
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TRACK_HEADER_METER_WIDTH)), .height = LEAF_SIZE_FULL },
+		.color = naui_theme_color("uph_ui_well_bg_color")
+	});
+}
+
+static void _uph_song_timeline_render_header_rows(Uph_Track *track, Uph_UIMenuID options_menu)
+{
+	_uph_song_timeline_render_title_row(track, options_menu);
+
+	if (uph_track_is_folder(track))
+		return;
+
+	if (track->type == UPH_RESOURCE_AUTOMATION)
+	{
+		_uph_song_timeline_render_automation_row(track);
+		return;
+	}
+
+	_uph_song_timeline_render_mix_row(track);
+
+	if (track->type == UPH_RESOURCE_NONE || track->type == UPH_RESOURCE_PATTERN)
+		_uph_song_timeline_render_instrument_row(track);
 }
 
 static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
@@ -447,31 +519,36 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 		leaf({
 			.id = header_id,
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_ALL,
 				.color = naui_theme_color("uph_song_timeline_header_border_color")
 			},
 			.color = _uph_song_timeline_header_color(track),
-			.child_gap = (int32_t)NAUI_DPI(UPH_TRACK_HEADER_CHILD_GAP) - strip_overhang,
-			.direction = LEAF_DIRECTION_HORIZONTAL
+			.direction = LEAF_DIRECTION_HORIZONTAL,
+			.clip_children = true
 		})
 		{
-			if (track->type != UPH_RESOURCE_MASTER)
-				_uph_song_timeline_render_color_strip(track, color_menu);
-
 			leaf({
 				.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-				.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-				.child_gap = NAUI_DPI(10)
+				.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(UPH_TRACK_HEADER_PADDING_Y)),
+				.child_gap = (int32_t)NAUI_DPI(UPH_TRACK_HEADER_CHILD_GAP) - strip_overhang,
+				.direction = LEAF_DIRECTION_HORIZONTAL
 			})
 			{
-				_uph_song_timeline_render_title_row(track, options_menu);
+				if (track->type != UPH_RESOURCE_MASTER)
+					_uph_song_timeline_render_color_strip(track, color_menu);
 
-				if (!uph_track_is_folder(track))
-					_uph_song_timeline_render_controls_row(track);
+				leaf({
+					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+					.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = uph_track_is_folder(track) ? LEAF_ALIGN_Y_CENTER : LEAF_ALIGN_Y_TOP },
+					.child_gap = NAUI_DPI(UPH_TRACK_HEADER_ROW_GAP)
+				})
+				_uph_song_timeline_render_header_rows(track, options_menu);
 			}
+
+			if (track->type != UPH_RESOURCE_AUTOMATION)
+				_uph_song_timeline_render_meter(track);
 
 			_uph_song_timeline_update_header_input(track, header_id, options_menu);
 		}

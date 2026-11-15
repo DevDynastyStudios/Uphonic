@@ -452,7 +452,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     }) {
         leaf({
             .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
-            .padding = LEAF_PADDING_ALL((int32_t)title_padding),
+            .padding = LEAF_PADDING_AXES(NAUI_DPI(6), NAUI_DPI(3)),
             .color = leaf_rgba(fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * (200.0f / 255.0f))),
             .rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_TL | LEAF_CORNER_TR)
         }) {
@@ -819,8 +819,8 @@ static void uph_resource_list_on_update(void)
             .width = LEAF_SIZE_FULL,
             .height = LEAF_SIZE_FIT
         },
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .child_gap = NAUI_DPI(8)
+        .padding = LEAF_PADDING_ALL(NAUI_DPI(10)),
+        .child_gap = NAUI_DPI(10)
     }) {
 
         leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT }, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER }, .child_gap = NAUI_DPI(4), .direction = LEAF_DIRECTION_HORIZONTAL }, )

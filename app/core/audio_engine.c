@@ -1253,6 +1253,12 @@ bool uph_track_mix_automation_value(const Uph_Track *lanes_owner, Uph_Automation
     return true;
 }
 
+bool uph_track_playing_automation_value(const Uph_Track *track, Uph_AutomationTarget target, float *out_value)
+{
+    return uph_state.shared.song_timeline_playing &&
+        uph_track_mix_automation_value(track, target, uph_state.shared.song_timeline_playhead_position, out_value);
+}
+
 static bool uph_track_has_mix_lanes(const Uph_Track *lanes_owner)
 {
     return lanes_owner && (uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_VOLUME) || uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_PAN));

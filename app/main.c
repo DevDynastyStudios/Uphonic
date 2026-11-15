@@ -280,8 +280,10 @@ void naui_app_end(void)
 	naui_log(NAUI_LOG_INFO, "Thanks For Using Uphonic.");
 }
  
-static void uph_update_all_track_plugins(Uph_Track *track)
+static void uph_update_track(Uph_Track *track)
 {
+	uph_level_meter_smooth(track);
+
 	if (track->instrument.loaded)
 		uph_plugin_update(&track->instrument);
  
@@ -292,7 +294,7 @@ static void uph_update_all_track_plugins(Uph_Track *track)
 	}
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
-		uph_update_all_track_plugins(&track->subtracks[i]);
+		uph_update_track(&track->subtracks[i]);
 }
  
 void naui_app_update(void)
@@ -316,7 +318,7 @@ void naui_app_update(void)
 	uph_drag_flush();
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
-        uph_update_all_track_plugins(&uph_state.project.tracks[i]);
+        uph_update_track(&uph_state.project.tracks[i]);
  
 	atomic_store_explicit(&_uph_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
 	uph_autosave_update();
