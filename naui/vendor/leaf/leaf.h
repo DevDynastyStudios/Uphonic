@@ -286,6 +286,7 @@ extern "C" {
         Leaf_BoundingBox clip_box;
         uint64_t id;
         uint32_t frame;
+        uint32_t missed_frame;
     }
     Leaf_LayoutFrameEntry;
     
@@ -444,6 +445,7 @@ leaf__i_ = (leaf_end_element(), 0))
     
     LEAF_API void leaf_begin_frame(int32_t width, int32_t height);
     LEAF_API Leaf_RenderCmdList leaf_end_frame(void);
+    LEAF_API bool leaf_layout_stale(void);
     
     typedef struct { Leaf_TextConfig wrapped; } Leaf_TextConfigWrapper;
 #define leaf_text(text, ...) \
@@ -635,6 +637,7 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         
         uint32_t frame;
         float render_opacity;
+        bool layout_stale;
     }
     Leaf_Context;
     
@@ -698,16 +701,22 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
         uint32_t i = id.value % LEAF_CONFIG_MAX_HASH_ENTRIES;
         while (leaf_ctx->layout_entires[i].id != 0 && leaf_ctx->layout_entires[i].id != id.value)
             i = (i + 1) % LEAF_CONFIG_MAX_HASH_ENTRIES;
+        if (leaf_ctx->layout_entires[i].missed_frame == leaf_ctx->frame)
+            leaf_ctx->layout_stale = true;
         leaf_ctx->layout_entires[i] = entry;
     }
     
-    static Leaf_LayoutFrameEntry leaf_get_layout_entry(Leaf_ID id)
+    static Leaf_LayoutFrameEntry *leaf_find_layout_slot(Leaf_ID id)
     {
         uint32_t i = id.value % LEAF_CONFIG_MAX_HASH_ENTRIES;
         while (leaf_ctx->layout_entires[i].id != 0 && leaf_ctx->layout_entires[i].id != id.value)
             i = (i + 1) % LEAF_CONFIG_MAX_HASH_ENTRIES;
-        
-        Leaf_LayoutFrameEntry *entry = &leaf_ctx->layout_entires[i];
+        return &leaf_ctx->layout_entires[i];
+    }
+
+    static Leaf_LayoutFrameEntry leaf_get_layout_entry(Leaf_ID id)
+    {
+        Leaf_LayoutFrameEntry *entry = leaf_find_layout_slot(id);
         if (entry->frame != leaf_ctx->frame - 1)
             return (Leaf_LayoutFrameEntry){0};
         return *entry;
@@ -759,7 +768,16 @@ __leaf_text(text, (Leaf_TextConfigWrapper){ __VA_ARGS__ }.wrapped)
     
     Leaf_BoundingBox leaf_get_bounding_box(Leaf_ID id)
     {
-        return leaf_get_layout_entry(id).bounding_box;
+        Leaf_LayoutFrameEntry *entry = leaf_find_layout_slot(id);
+        if (entry->frame == leaf_ctx->frame - 1)
+            return entry->bounding_box;
+
+        if (id.value)
+        {
+            entry->id = id.value;
+            entry->missed_frame = leaf_ctx->frame;
+        }
+        return (Leaf_BoundingBox){0};
     }
     
     static inline Leaf_Node *leaf_alloc_node(void)
@@ -1818,6 +1836,7 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_ctx->stack_top = 0;
         leaf_ctx->frame++;
         leaf_ctx->render_opacity = 1.0f;
+        leaf_ctx->layout_stale = false;
         
         Leaf_Node *root = leaf_alloc_node();
         root->element.config.size.width.type = LEAF_SIZE_TYPE_FIXED;
@@ -1838,6 +1857,11 @@ for (Leaf_Node *x = _parent->first_child; x != NULL; x = x->next_sibling)
         leaf_position_render(root, root->bounding_box);
         
         return leaf_ctx->render_cmds;
+    }
+
+    bool leaf_layout_stale(void)
+    {
+        return leaf_ctx->layout_stale;
     }
     
 #endif // LEAF_IMPLEMENTATION

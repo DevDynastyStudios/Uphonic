@@ -1,5 +1,5 @@
 #define UPH_SONG_TIMELINE_MINIMAP_HEIGHT 30
-#define UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE 1.4f
+#define UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE 1.3f
 #define UPH_SONG_TIMELINE_MINIMAP_INSET 2
 
 typedef struct
@@ -255,7 +255,7 @@ void uph_song_timeline_render_time_display(void)
 			});
 			leaf_text(primary_label, {
 				.color = dim_color,
-				.font_size = LEAF_SIZE_FIXED(font_size * 0.72f)
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.69f)
 			});
 		}
 		leaf({
@@ -266,11 +266,11 @@ void uph_song_timeline_render_time_display(void)
 		{
 			leaf_text(secondary_text, {
 				.color = dim_color,
-				.font_size = LEAF_SIZE_FIXED(font_size * 0.9f)
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.85f)
 			});
 			leaf_text(secondary_label, {
 				.color = faint_color,
-				.font_size = LEAF_SIZE_FIXED(font_size * 0.72f)
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.69f)
 			});
 		}
 	}

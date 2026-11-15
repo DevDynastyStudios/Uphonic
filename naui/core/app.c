@@ -22,6 +22,7 @@ typedef struct
     float ui_scale;
     bool animations_enabled;
     bool relaunch;
+    bool skipped_stale_frame;
 }
 Naui_AppState;
 static Naui_AppState _naui_app_state = {
@@ -114,12 +115,22 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
 
 static void __naui_app_render(void)
 {
-    if (!naui_renderer_begin())
-        return;
+    Naui_AppState *state = &_naui_app_state;
+
     leaf_begin_frame(mgapp_width(), mgapp_height());
     leaf_set_pointer_pos(mgapp_mouse_x(), mgapp_mouse_y());
-    _naui_app_state.events.update();
+    state->events.update();
     Leaf_RenderCmdList cmd_list = leaf_end_frame();
+
+    if (leaf_layout_stale() && !state->skipped_stale_frame)
+    {
+        state->skipped_stale_frame = true;
+        return;
+    }
+    state->skipped_stale_frame = false;
+
+    if (!naui_renderer_begin())
+        return;
     render_leaf_cmd_list(&cmd_list);
     naui_renderer_end();
 }
