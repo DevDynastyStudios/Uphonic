@@ -17,6 +17,9 @@ NAUI_PANEL(uph_settings)
 #define UPH_SETTINGS_CONTROL_WIDTH		320
 #define UPH_SETTINGS_ROW_HEIGHT			28
 #define UPH_SETTINGS_CHORD_WIDTH		150
+#define UPH_SETTINGS_KEYCAP_INSET		3
+#define UPH_SETTINGS_KEYCAP_PADDING		6
+#define UPH_SETTINGS_KEYCAP_FONT_SIZE	12
 
 #define UPH_SETTINGS_UI_SCALE_MIN		0.5f
 #define UPH_SETTINGS_UI_SCALE_MAX		2.0f
@@ -1516,13 +1519,37 @@ static bool uph_settings_row_button(const char *text, const Leaf_ID id, const bo
 	return false;
 }
 
+static void uph_settings_keycap(const char *name)
+{
+	const float inset = NAUI_DPI(UPH_SETTINGS_KEYCAP_INSET);
+	leaf({
+		.size = { .width = LEAF_SIZE_FIT, .height = UPH_UI_SIZE_EXACT(_uph_ui_frame_height() - inset * 2.0f) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SETTINGS_KEYCAP_PADDING), 0),
+		.border = _uph_ui_frame_border(),
+		.color = naui_theme_color("uph_ui_well_bg_color"),
+		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.75f, NAUI_CORNER_ALL)
+	})
+	{
+		leaf_text(name,
+		{
+			.color = naui_theme_color("uph_ui_text_color"),
+			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_KEYCAP_FONT_SIZE))
+		});
+	}
+}
+
 static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool capturing, const Leaf_ID id)
 {
-	const Naui_String text = naui_keybind_to_string(*info->chord);
-	const char *label = text.data;
-	if (capturing)
+	const Naui_Keybind progress = naui_keybind_capture_progress();
+	const bool recording = capturing && naui_keybind_valid(progress);
+	const char *names[NAUI_KEYBIND_MAX_NAMES];
+	const uint32_t name_count = naui_keybind_names(recording ? progress : *info->chord, names);
+
+	const char *label = NULL;
+	if (capturing && !recording)
 		label = NAUI_TR("settings.shortcuts.press_keys");
-	else if (text.length == 0)
+	else if (name_count == 0)
 		label = NAUI_TR("settings.shortcuts.unbound");
 
 	const bool hovered = uph_ui_widget_hovered(id);
@@ -1538,21 +1565,31 @@ static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool ca
 	const float frame_height = _uph_ui_frame_height();
 	leaf({
 		.id = id,
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SETTINGS_CHORD_WIDTH)), .height = UPH_UI_SIZE_EXACT(frame_height) },
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x), 0),
+		.size = { .width = LEAF_SIZE_FIT_MIN(NAUI_DPI(UPH_SETTINGS_CHORD_WIDTH)), .height = UPH_UI_SIZE_EXACT(frame_height) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(label ? UPH_UI_FRAME_PADDING.x : UPH_SETTINGS_KEYCAP_INSET), 0),
 		.border = _uph_ui_frame_border(),
 		.color = color,
+		.child_gap = NAUI_DPI(UPH_SETTINGS_KEYCAP_INSET),
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
 		.clip_children = true
 	})
 	{
-		const bool dim = !capturing && !naui_keybind_valid(*info->chord);
-		leaf_text(label,
+		if (label)
 		{
-			.color = naui_theme_color(dim ? "naui_panel_text_color" : "uph_ui_text_color"),
-			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
-		});
+			const bool dim = !capturing;
+			leaf_text(label,
+			{
+				.color = naui_theme_color(dim ? "naui_panel_text_color" : "uph_ui_text_color"),
+				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
+			});
+		}
+		else
+		{
+			for (uint32_t i = 0; i < name_count; i++)
+				uph_settings_keycap(names[i]);
+		}
 	}
 
 	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
