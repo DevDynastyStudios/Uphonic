@@ -53,15 +53,24 @@ void uph_song_timeline_render_toolbox(void)
 			))
 			{
 				uph_state.shared.song_timeline_playhead_position = 0.0;
+				state->follow.anchored = false;
 			}
 
 			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_song_timeline_loop"),
 				icon_color,
-				NAUI_CORNER_TR | NAUI_CORNER_BR,
+				NAUI_CORNER_NONE,
 				uph_state.project.loop_enabled
 			)) uph_state.project.loop_enabled = !uph_state.project.loop_enabled;
+
+			if (uph_ui_toolbox_toggle_button_ex(
+				naui_asset_image("uph_icon_playhead"),
+				leaf_id("uph_song_timeline_follow_playhead"),
+				icon_color,
+				NAUI_CORNER_TR | NAUI_CORNER_BR,
+				state->follow_playhead
+			)) state->follow_playhead = !state->follow_playhead;
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },

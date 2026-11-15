@@ -37,6 +37,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 	if (!dragging_playhead)
 		return;
 
+	state->follow.anchored = false;
 	const double mouse_beat_raw = ((double)naui_mouse_x() - bbox.x + state->scroll.x) / state->zoom.x;
 	double beat = fmax(0.0, uph_snap_beat_floor(mouse_beat_raw, state->snap_resolution, state->zoom.x));
 	if (uph_state.project.loop_enabled && !uph_loop_region_valid(&uph_state.project.loop_region))

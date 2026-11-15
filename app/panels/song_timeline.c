@@ -73,6 +73,29 @@ static void uph_song_timeline_on_close(void)
 
 
 
+static void _uph_song_timeline_follow_playhead(void)
+{
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	if (!state->follow_playhead || !uph_state.shared.song_timeline_playing)
+	{
+		state->follow.anchored = false;
+		return;
+	}
+
+	const float view_width = state->panel_bounding_box.width - NAUI_DPI(uph_song_timeline_header_column_width());
+	if (view_width <= 0.0f || state->minimap.dragging)
+		return;
+
+	const float playhead_x = (float)(uph_state.shared.song_timeline_playhead_position * state->zoom.x);
+	if (!state->follow.anchored)
+	{
+		state->follow.anchor_x = NAUI_CLAMP(playhead_x - state->scroll.x, 0.0f, view_width);
+		state->follow.anchored = true;
+	}
+
+	state->scroll.x = fmaxf(0.0f, playhead_x - state->follow.anchor_x);
+}
+
 static void uph_song_timeline_on_update(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
@@ -135,6 +158,7 @@ static void uph_song_timeline_on_update(void)
 	
 	uph_song_timeline_update_minimap();
 	uph_song_timeline_update_input();
+	_uph_song_timeline_follow_playhead();
 	state->visual.snap_track_motion = state->visual.zoom_y != state->zoom.y;
 	state->visual.zoom_y = state->zoom.y;
 	uph_song_timeline_update_selection_keys();

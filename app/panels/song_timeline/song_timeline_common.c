@@ -183,6 +183,12 @@ typedef struct
 		bool active;
 	}
 	zoom_drag;
+	struct
+	{
+		float anchor_x;
+		bool anchored;
+	}
+	follow;
 	uint32_t max_track_depth;
 	float content_height;
 	float bottom_drop_y;
@@ -195,6 +201,7 @@ typedef struct
 	bool bottom_hovered;
 	bool disable_space_to_play;
 	bool time_display_seconds;
+	bool follow_playhead;
 }
 Uph_SongTimelineState;
 
