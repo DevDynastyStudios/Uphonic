@@ -231,6 +231,9 @@ void naui_panel_close(Naui_PanelID panel_id)
         return;
 
     node->closed = true;
+    node->close_hovered = false;
+    if (node->parent || node == _naui_panel_manager_state.main_viewport)
+        node->visual.scale = 0.0f;
     if (_naui_panel_manager_state.focused_panel == node)
         _naui_panel_manager_state.focused_panel = NULL;
     naui_panel_undock(panel_id);
@@ -599,6 +602,8 @@ static bool naui_range_occludes_point(float mx, float my, uint32_t from, Naui_Pa
     for (uint32_t i = from; i < naui_list_len(_naui_panel_manager_state.root_nodes); i++)
     {
         Naui_PanelNode *other = _naui_panel_manager_state.root_nodes[i];
+        if (other->closed)
+            continue;
         if (skip && (other == skip || other == skip->root))
             continue;
         Leaf_BoundingBox b = leaf_get_bounding_box(leaf_id_indexed(NAUI_ROOT_PANEL_ID, (Naui_PanelID)other));
@@ -1039,7 +1044,9 @@ static void naui_render_next_panel_child(Naui_PanelNode *node)
 
 static void naui_render_panel(Naui_PanelNode *node)
 {
-    const float scale = naui_ease_out_quint(node->visual.scale);
+    const float scale = node->closed ?
+        1.0f - naui_ease_out_quint(1.0f - node->visual.scale) :
+        naui_ease_out_quint(node->visual.scale);
     const int32_t size_px = NAUI_DPI(12 - 12 * scale);
 
     const Naui_Vec2 scaled_size = {
@@ -1442,6 +1449,15 @@ static inline void naui_set_group_occluded(Naui_PanelNode *node, bool occluded)
             node->tabs[i]->occluded = occluded;
 }
 
+static void naui_render_closing_panel(Naui_PanelNode *node)
+{
+    naui_set_group_occluded(node, true);
+    leaf_set_pointer_pos(-100000, -100000);
+    naui_render_panel(node);
+    leaf_set_pointer_pos(naui_mouse_x(), naui_mouse_y());
+    node->visual.scale = NAUI_CLAMP01(node->visual.scale - naui_delta_time() * NAUI_UI_ANIM_SPEED);
+}
+
 static inline void naui_calculate_and_cache_panel_occlusion(Naui_PanelNode *node)
 {
     if (_naui_panel_manager_state.occlude_all ||
@@ -1544,13 +1560,17 @@ void naui_render_panels_and_viewport(void)
     naui_render_main_viewport();
     for (int32_t i = 0; i < (int32_t)naui_list_len(_naui_panel_manager_state.root_nodes); i++)
     {
-        if (!_naui_panel_manager_state.root_nodes[i]->closed)
+        Naui_PanelNode *node = _naui_panel_manager_state.root_nodes[i];
+        if (node->closed)
         {
-            naui_render_panel(_naui_panel_manager_state.root_nodes[i]);
-            _naui_panel_manager_state.root_nodes[i]->visual.scale = naui_app_animations_enabled() ? NAUI_CLAMP01(
-                _naui_panel_manager_state.root_nodes[i]->visual.scale + naui_delta_time() * NAUI_UI_ANIM_SPEED
-            ) : 1.0f;
+            if (node->visual.scale > 0.0f && naui_app_animations_enabled())
+                naui_render_closing_panel(node);
+            continue;
         }
+
+        naui_render_panel(node);
+        node->visual.scale = naui_app_animations_enabled() ?
+            NAUI_CLAMP01(node->visual.scale + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
     }
 
 
@@ -1816,6 +1836,8 @@ static void naui_panel_set_open_state(Naui_PanelNode *node, bool open)
 
     node->closed = !open;
     node->close_hovered = false;
+    if (!open)
+        node->visual.scale = 0.0f;
 
     if (!open && _naui_panel_manager_state.focused_panel == node)
         _naui_panel_manager_state.focused_panel = NULL;
