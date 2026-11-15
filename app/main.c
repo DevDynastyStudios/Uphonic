@@ -280,27 +280,16 @@ void naui_app_end(void)
 	naui_log(NAUI_LOG_INFO, "Thanks For Using Uphonic.");
 }
  
-static void _uph_update_track_plugin(Uph_Track *track, Uph_Plugin *plugin)
-{
-	if (!plugin->loaded)
-		return;
-
-	uph_plugin_update(plugin);
-
-	uint64_t param_id;
-	if (uph_plugin_take_touched_param(plugin, &param_id))
-	{
-		track->last_touched.plugin_handle = plugin->internal_handle;
-		track->last_touched.param_id = param_id;
-	}
-}
-
 static void uph_update_all_track_plugins(Uph_Track *track)
 {
-	_uph_update_track_plugin(track, &track->instrument);
+	if (track->instrument.loaded)
+		uph_plugin_update(&track->instrument);
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-		_uph_update_track_plugin(track, &track->effects[i].plugin);
+	{
+		if (track->effects[i].plugin.loaded)
+			uph_plugin_update(&track->effects[i].plugin);
+	}
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 		uph_update_all_track_plugins(&track->subtracks[i]);

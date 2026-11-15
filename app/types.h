@@ -319,6 +319,8 @@ typedef struct
 	void *internal_handle;
 	Uph_PluginFormat format;
 	Naui_List(Uph_PluginParam) params;
+	uint64_t last_touched_param;
+	uint64_t last_touched_order;
 	bool loaded;
 }
 Uph_Plugin;
@@ -374,13 +376,6 @@ struct Uph_Track
 
 	Uph_PluginParam *automation_param;
 	Uph_AutomationTarget automation_target;
-
-	struct
-	{
-		const void *plugin_handle;
-		uint64_t param_id;
-	}
-	last_touched;
 
 	Uph_ResourceType type;
 	Uph_TrackState state;

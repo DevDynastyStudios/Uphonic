@@ -239,34 +239,23 @@ bool uph_resources_param_owner_index(const Uph_Track *track, const Uph_PluginPar
 	return false;
 }
 
-static bool _uph_resources_plugin_index_by_handle(const Uph_Track *track, const void *handle, int32_t *out_effect_index)
+Uph_PluginParam *uph_resources_last_touched_param(Uph_Track *track, int32_t *out_effect_index)
 {
-	if (track->instrument.internal_handle == handle)
-	{
-		*out_effect_index = -1;
-		return true;
-	}
-
+	const Uph_Plugin *latest = &track->instrument;
+	int32_t effect_index = -1;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
 	{
-		if (track->effects[i].plugin.internal_handle == handle)
+		if (track->effects[i].plugin.last_touched_order > latest->last_touched_order)
 		{
-			*out_effect_index = (int32_t)i;
-			return true;
+			latest = &track->effects[i].plugin;
+			effect_index = (int32_t)i;
 		}
 	}
 
-	return false;
-}
-
-Uph_PluginParam *uph_resources_last_touched_param(Uph_Track *track, int32_t *out_effect_index)
-{
-	const void *handle = track->last_touched.plugin_handle;
-	int32_t effect_index;
-	if (!handle || !_uph_resources_plugin_index_by_handle(track, handle, &effect_index))
+	if (latest->last_touched_order == 0)
 		return NULL;
 
-	Uph_PluginParam *param = uph_resources_find_param(track, effect_index, track->last_touched.param_id);
+	Uph_PluginParam *param = uph_resources_find_param(track, effect_index, latest->last_touched_param);
 	if (!param || param->used)
 		return NULL;
 

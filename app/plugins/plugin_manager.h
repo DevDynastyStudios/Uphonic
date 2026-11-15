@@ -25,11 +25,6 @@ uint8_t uph_plugin_cc_value(
 	uint8_t cc
 );
 
-bool uph_plugin_take_touched_param(
-	Uph_Plugin *plugin,
-	uint64_t *out_param_id
-);
-
 bool uph_plugin_save_state(
 	const Uph_Plugin *plug,
 	const Naui_Path path

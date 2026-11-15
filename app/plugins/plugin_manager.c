@@ -441,24 +441,22 @@ struct Uph_PluginInternalHandle_
     atomic_uint_least64_t touched_param;
 };
 
+static uint64_t _uph_plugin_touch_order;
+
 static void _uph_plugin_mark_touched(Uph_PluginInternalHandle *ih, uint64_t param_id)
 {
     if (ih)
         atomic_store_explicit(&ih->touched_param, param_id + 1, memory_order_relaxed);
 }
 
-bool uph_plugin_take_touched_param(Uph_Plugin *plug, uint64_t *out_param_id)
+static void _uph_plugin_collect_touched_param(Uph_Plugin *plug, Uph_PluginInternalHandle *ih)
 {
-    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
-    if (!ih)
-        return false;
-
     const uint64_t touched = atomic_exchange_explicit(&ih->touched_param, 0, memory_order_relaxed);
     if (touched == 0)
-        return false;
+        return;
 
-    *out_param_id = touched - 1;
-    return true;
+    plug->last_touched_param = touched - 1;
+    plug->last_touched_order = ++_uph_plugin_touch_order;
 }
 
 static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih);
@@ -4271,6 +4269,7 @@ void uph_plugin_update(Uph_Plugin *plug)
         return;
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
+    _uph_plugin_collect_touched_param(plug, internal_handle);
 
     if (!internal_handle->visible)
         return;
