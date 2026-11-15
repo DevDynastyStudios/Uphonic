@@ -2,7 +2,6 @@
 
 static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_Color fg_color, Leaf_Color bg_color, void (*event)(void))
 {
-	const float dpi_scale = naui_app_dpi_scale();
 	const bool hovered = leaf_hovered(id);
 	if (hovered)
 	{
@@ -13,7 +12,7 @@ static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_
 	leaf({
 		.id = id,
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
-		.padding = LEAF_PADDING_AXES(8.0f * dpi_scale, 0.0f),
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), 0.0f),
 		.color = hovered ?
 			bg_color :
 			LEAF_COLOR_TRANSPARENT,
@@ -21,7 +20,7 @@ static void uph_render_titlebar_icon_button(Naui_Image *image, Leaf_ID id, Leaf_
 	})
 	leaf({
 		.image = image,
-		.size = { .width = LEAF_SIZE_DERIVED, .height = LEAF_SIZE_FIXED(12.0f * dpi_scale) },
+		.size = { .width = LEAF_SIZE_DERIVED, .height = LEAF_SIZE_FIXED(NAUI_DPI(12)) },
 		.color = fg_color,
 		.aspect_ratio = 1.0f
 	});
@@ -124,9 +123,8 @@ void uph_render_main_titlebar(void)
 
 	bool titlebar_widgets_hovered = leaf_hovered(left_area_id) || leaf_hovered(right_area_id);
 
-	const float dpi_scale = naui_app_dpi_scale();
-	const float titlebar_height = 34.0f * dpi_scale;
-	naui_app_set_caption_area(0, 0, naui_app_width() * dpi_scale, titlebar_widgets_hovered || naui_panel_is_any_hovered() ? 0 : titlebar_height);
+	const int32_t titlebar_height = NAUI_DPI(34);
+	naui_app_set_caption_area(0, 0, NAUI_DPI(naui_app_width()), titlebar_widgets_hovered || naui_panel_is_any_hovered() ? 0 : titlebar_height);
 
 	Naui_Vec2 padding = NAUI_PANEL_TITLEBAR_PADDING;
 	Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);

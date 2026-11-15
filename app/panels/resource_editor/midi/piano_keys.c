@@ -95,11 +95,11 @@ static inline Uph_PianoStyle uph_piano_default_style(void)
 		.black_key_length_ratio = 0.55f,
 		.black_key_height_ratio = 0.55f,
 		.white_key_border_alpha = 120.0f,
-		.white_key_border_thick = 0.8f,
+		.white_key_border_thick = 1.0f,
 		.black_key_border_alpha = 255.0f,
 		.black_key_border_thick = 1.0f,
 		.octave_border_alpha = 220.0f,
-		.octave_border_thick = 1.2f
+		.octave_border_thick = 1.0f
 	};
 }
 
