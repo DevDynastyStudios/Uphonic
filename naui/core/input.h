@@ -207,6 +207,7 @@ NAUI_API bool naui_mouse_double_clicked(Naui_MouseButton button);
 NAUI_API int8_t naui_mouse_scroll_delta(void);
 NAUI_API int32_t naui_mouse_x(void);
 NAUI_API int32_t naui_mouse_y(void);
+NAUI_API bool naui_mouse_inside(void);
 NAUI_API bool naui_mouse_dragging(Naui_MouseButton button);
 NAUI_API void naui_set_cursor(Naui_Cursor cursor);
 

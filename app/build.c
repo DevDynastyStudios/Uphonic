@@ -29,6 +29,7 @@
 #include "plugins/plugin_manager.h"
 
 #include "ui/widgets.h"
+#include "ui/cursors.h"
 #include "ui/dialog.h"
 
 #include "panels/song_timeline/song_timeline.h"
@@ -75,6 +76,7 @@
 #include "ui/waveform.c"
 #include "ui/automation_curve.c"
 #include "ui/widgets.c"
+#include "ui/cursors.c"
 #include "ui/drag.c"
 #include "ui/dialog.c"
 #include "ui/particles.c"

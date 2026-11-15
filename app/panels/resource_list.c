@@ -539,7 +539,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
     if (hovered)
     {
         _uph_resource_list_item_hovered = true;
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             const Uph_DragResource resource = { .type = type, .index = index };
@@ -675,7 +675,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
 	bool hovered = uph_ui_widget_hovered(id);
 	if (hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (type == UPH_RESOURCE_SAMPLE)

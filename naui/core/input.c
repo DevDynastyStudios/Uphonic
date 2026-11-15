@@ -155,6 +155,11 @@ int32_t naui_mouse_y(void)
     return mgapp_mouse_y();
 }
 
+bool naui_mouse_inside(void)
+{
+    return mgapp_mouse_inside();
+}
+
 typedef struct
 {
     bool dragging[MG_MOUSE_BUTTON_MAX];

@@ -65,7 +65,7 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorState *editor, bool handle_
 	}
 
 	if (lane->splitter_hovered || lane->resizing)
-		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+		uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
 
 	if (!lane->resizing)
 		return;
@@ -261,7 +261,7 @@ void uph_midi_velocity_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box,
 		const int32_t hovered = _uph_velocity_hit_test(editor, box, pattern);
 		lane->hovered_note = hovered;
 		if (hovered >= 0)
-			naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+			uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
 
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			_uph_velocity_begin(editor, box, pattern, hovered);
@@ -276,12 +276,12 @@ void uph_midi_velocity_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box,
 	{
 		lane->hovered_note = (int32_t)drag->grabbed_index;
 		_uph_velocity_apply_handle(lane, box, pattern);
-		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+		uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
 	}
 	else
 	{
 		_uph_velocity_apply_paint(editor, lane, box, pattern);
-		naui_set_cursor(NAUI_CURSOR_CROSSHAIR);
+		uph_ui_set_cursor(UPH_CURSOR_CROSSHAIR);
 	}
 
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))

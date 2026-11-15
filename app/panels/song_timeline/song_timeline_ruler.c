@@ -52,7 +52,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 		uph_state.shared.song_timeline_playhead_position = beat;
 	}
 
-	naui_set_cursor(NAUI_CURSOR_HAND);
+	uph_ui_set_cursor(UPH_CURSOR_HAND);
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 		dragging_playhead = false;
 }

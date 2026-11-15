@@ -313,6 +313,7 @@ MGAPP_API bool mgapp_mouse_double_clicked(mg_mouse_button button);
 MGAPP_API int8_t mgapp_mouse_scroll_delta(void);
 MGAPP_API int32_t mgapp_mouse_x(void);
 MGAPP_API int32_t mgapp_mouse_y(void);
+MGAPP_API bool mgapp_mouse_inside(void);
 
 MGAPP_API uint32_t mgapp_dpi(void);
 MGAPP_API float mgapp_dpi_scale(void);
@@ -382,6 +383,7 @@ typedef struct
         int16_t x;
         int16_t y;
         int8_t delta;
+        bool inside;
 
         bool buttons[4];
     }
@@ -452,6 +454,7 @@ typedef struct
     WNDPROC original_proc;
 
     HCURSOR cursor_table[MG_CURSOR_MAX];
+    bool tracking_mouse;
 
     float clock_frequency;
     LARGE_INTEGER start_time;
@@ -829,6 +832,11 @@ int32_t mgapp_mouse_y(void)
     return mgapp_state.input.mouse.y;
 }
 
+bool mgapp_mouse_inside(void)
+{
+    return mgapp_state.input.mouse.inside;
+}
+
 float mgapp_frame_time(void)
 {
     return mgapp_state.frame_time;
@@ -1035,8 +1043,15 @@ static EM_BOOL mgapp_emscripten_mouse_button_callback(int32_t event_type, const 
     return EM_TRUE;
 }
 
+static EM_BOOL mgapp_emscripten_mouse_cross_callback(int32_t event_type, const EmscriptenMouseEvent *e, void *user_data)
+{
+    mgapp_state.input.mouse.inside = event_type == EMSCRIPTEN_EVENT_MOUSEENTER;
+    return EM_TRUE;
+}
+
 static EM_BOOL mgapp_emscripten_mouse_move_callback(int32_t event_type, const EmscriptenMouseEvent *e, void *user_data)
 {
+    mgapp_state.input.mouse.inside = true;
     mgapp_state.input.mouse.x = (int16_t)e->targetX;
     mgapp_state.input.mouse.y = (int16_t)e->targetY;
     mgapp_event event = {
@@ -1127,6 +1142,8 @@ int32_t mgapp_run(const mgapp_init_info *info)
     emscripten_set_mousedown_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_button_callback);
     emscripten_set_mouseup_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_button_callback);
     emscripten_set_mousemove_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_move_callback);
+    emscripten_set_mouseenter_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_cross_callback);
+    emscripten_set_mouseleave_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_mouse_cross_callback);
     emscripten_set_wheel_callback(MGAPP_EMSCRIPTEN_CANVAS, NULL, EM_TRUE, mgapp_emscripten_wheel_callback);
     emscripten_set_resize_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, NULL, EM_TRUE, mgapp_emscripten_resize_callback);
 
@@ -1376,6 +1393,14 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             int32_t y = GET_Y_LPARAM(l_param);
             mgapp_state.input.mouse.x = x;
             mgapp_state.input.mouse.y = y;
+            RECT client_rect;
+            GetClientRect(hwnd, &client_rect);
+            mgapp_state.input.mouse.inside = x >= client_rect.left && x < client_rect.right && y >= client_rect.top && y < client_rect.bottom;
+            if (!mgapp_state.win32.tracking_mouse)
+            {
+                TRACKMOUSEEVENT track = { .cbSize = sizeof(track), .dwFlags = TME_LEAVE, .hwndTrack = hwnd };
+                mgapp_state.win32.tracking_mouse = TrackMouseEvent(&track) != 0;
+            }
             mgapp_event event = {
                 .mouse = {
                     .x = x,
@@ -1438,8 +1463,15 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             mgapp_call_event(&event);
             break;
         }
+        case WM_MOUSELEAVE:
+        {
+            mgapp_state.win32.tracking_mouse = false;
+            mgapp_state.input.mouse.inside = false;
+            break;
+        }
         case WM_SETCURSOR:
         {
+            mgapp_state.input.mouse.inside = LOWORD(l_param) == HTCLIENT;
             if (LOWORD(l_param) == HTCLIENT)
             {
                 SetCursor(mgapp_state.win32.cursor_table[mgapp_state.current_cursor]);
@@ -1581,6 +1613,7 @@ static LRESULT CALLBACK mgapp_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM
             ScreenToClient(mgapp_state.win32.hwnd, &pt);
             mgapp_state.input.mouse.x = (int16_t)pt.x;
             mgapp_state.input.mouse.y = (int16_t)pt.y;
+            mgapp_state.input.mouse.inside = false;
             mgapp_event event = {
                 .mouse = {
                     .x = pt.x,
@@ -2302,7 +2335,7 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
         StructureNotifyMask | ExposureMask |
         KeyPressMask | KeyReleaseMask | FocusChangeMask |
         ButtonPressMask | ButtonReleaseMask |
-        PointerMotionMask;
+        PointerMotionMask | EnterWindowMask | LeaveWindowMask;
 
     xlib_state->window = XCreateWindow(
         xlib_state->display,
@@ -2571,10 +2604,25 @@ static int32_t mgapp_xlib_run(const mgapp_init_info *info)
                     mgapp_call_event(&event);
                     break;
                 }
+                case EnterNotify:
+                {
+                    mgapp_state.input.mouse.x = (int16_t)xev.xcrossing.x;
+                    mgapp_state.input.mouse.y = (int16_t)xev.xcrossing.y;
+                    mgapp_state.input.mouse.inside = true;
+                    break;
+                }
+                case LeaveNotify:
+                {
+                    mgapp_state.input.mouse.inside = false;
+                    break;
+                }
                 case MotionNotify:
                 {
                     mgapp_state.input.mouse.x = (int16_t)xev.xmotion.x;
                     mgapp_state.input.mouse.y = (int16_t)xev.xmotion.y;
+                    mgapp_state.input.mouse.inside =
+                        xev.xmotion.x >= 0 && xev.xmotion.x < mgapp_state.window_width &&
+                        xev.xmotion.y >= 0 && xev.xmotion.y < mgapp_state.window_height;
                     mgapp_event event = {
                         .mouse = {
                             .x = xev.xmotion.x,
@@ -2881,4 +2929,4 @@ float mgapp_time(void)
 
 #endif
 
-#endif
+#endif

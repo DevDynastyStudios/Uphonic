@@ -86,7 +86,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 			point->beat = snapped_beat;
 		}
 
-		naui_set_cursor(NAUI_CURSOR_HAND);
+		uph_ui_set_cursor(UPH_CURSOR_HAND);
 
 		if (naui_mouse_released(NAUI_MOUSE_LEFT))
 			_uph_song_timeline_finish_point_edit(automation);
@@ -107,7 +107,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 		if (dx * dx + dy * dy <= (float)(hit_radius * hit_radius))
 		{
 			hovering_existing_point = true;
-			naui_set_cursor(NAUI_CURSOR_HAND);
+			uph_ui_set_cursor(UPH_CURSOR_HAND);
 
 			if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			{

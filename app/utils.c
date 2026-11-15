@@ -473,7 +473,7 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
         }
 
         if (hover != UPH_LOOP_DRAG_NONE)
-            naui_set_cursor(hover == UPH_LOOP_DRAG_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
+            uph_ui_set_cursor(hover == UPH_LOOP_DRAG_MOVE ? UPH_CURSOR_HAND : UPH_CURSOR_RESIZE_EW);
 
         if (hover != UPH_LOOP_DRAG_NONE && naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
@@ -504,7 +504,7 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
                 region->end = fmax(drag->anchor, snapped);
             }
 
-            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
             if (!naui_mouse_down(NAUI_MOUSE_RIGHT))
             {
                 if (!drag->moved || !uph_loop_region_valid(region))
@@ -517,11 +517,11 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
         }
         case UPH_LOOP_DRAG_START:
             region->start = fmax(0.0, fmin(snapped, region->end - division));
-            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
             break;
         case UPH_LOOP_DRAG_END:
             region->end = fmax(snapped, region->start + division);
-            naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+            uph_ui_set_cursor(UPH_CURSOR_RESIZE_EW);
             break;
         case UPH_LOOP_DRAG_MOVE:
         {
@@ -529,7 +529,7 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
             const double start = fmax(0.0, round((beat - drag->anchor) / division) * division);
             region->start = start;
             region->end = start + length;
-            naui_set_cursor(NAUI_CURSOR_HAND);
+            uph_ui_set_cursor(UPH_CURSOR_HAND);
             break;
         }
     }

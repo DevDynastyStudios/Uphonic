@@ -207,7 +207,7 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 
 		const int32_t hovered = _uph_pedal_hit_test(editor, box, pattern);
 		lane->hovered_event = hovered;
-		naui_set_cursor(hovered >= 0 ? NAUI_CURSOR_RESIZE_ALL : NAUI_CURSOR_CROSSHAIR);
+		uph_ui_set_cursor(hovered >= 0 ? UPH_CURSOR_RESIZE_ALL : UPH_CURSOR_CROSSHAIR);
 
 		if (hovered >= 0 && naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 		{
@@ -224,7 +224,7 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 
 	_uph_pedal_apply_drag(editor, box, pattern);
 	lane->hovered_event = (int32_t)drag->index;
-	naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
+	uph_ui_set_cursor(UPH_CURSOR_RESIZE_ALL);
 
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 	{
@@ -265,7 +265,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 
 		if (hovered)
 		{
-			naui_set_cursor(NAUI_CURSOR_HAND);
+			uph_ui_set_cursor(UPH_CURSOR_HAND);
 			if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 				editor->pedal_lane.type = type;
 		}

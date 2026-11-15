@@ -271,7 +271,7 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     const bool hovered = uph_ui_widget_hovered(id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
@@ -319,7 +319,7 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     }
 
     if (dragging_this)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     if (dragging_this)
     {
@@ -428,7 +428,7 @@ static bool _uph_ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
     const bool dragging_this = (ddata->id.value == id.value);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
@@ -1052,7 +1052,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     bool hovered = leaf_hovered(element_id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     bool result;
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -1110,7 +1110,7 @@ static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color
     const bool hovered = uph_ui_widget_hovered(id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     Leaf_Color color;
     if (hovered)
@@ -1172,7 +1172,7 @@ static bool _uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui
     const bool hovered = uph_ui_widget_hovered(id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     Leaf_Color color;
     if (hovered)
@@ -1237,7 +1237,7 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
     const bool hovered = uph_ui_widget_hovered(id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
@@ -1276,7 +1276,7 @@ static bool _uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID i
     const bool hovered = uph_ui_widget_hovered(id);
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     if (enabled_bg_color && hovered)
@@ -1548,7 +1548,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     }
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_IBEAM);
+        uph_ui_set_cursor(UPH_CURSOR_IBEAM);
 
     if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
@@ -1833,7 +1833,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
     const float rounding = UPH_UI_FRAME_ROUNDING;
 
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     leaf({
         .id = id,
@@ -1896,7 +1896,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     if (hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (was_open)
@@ -1994,7 +1994,7 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
     bool result = false;
 
     if (hovered || dragging)
-        naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+        uph_ui_set_cursor(UPH_CURSOR_RESIZE_NS);
 
     if (hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
@@ -2104,7 +2104,7 @@ static bool _uph_ui_triangle_button(const Leaf_ID id, bool up, float width, floa
 {
     const bool hovered = uph_ui_widget_hovered(id);
     if (hovered)
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
 
     Leaf_Color background = LEAF_COLOR_TRANSPARENT;
     if (hovered)
@@ -2160,7 +2160,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
     const bool tap_hovered = uph_ui_widget_hovered(tap_id);
     if (tap_hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         float tapped_bpm;
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && _uph_metronome_tap(&tapped_bpm))
         {
@@ -2280,7 +2280,7 @@ bool uph_ui_time_display(double beat, bool *show_seconds, const char *id)
     const bool hovered = uph_ui_widget_hovered(frame_id);
     if (hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             *show_seconds = !*show_seconds;
@@ -2346,7 +2346,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
     const bool arrow_hovered = uph_ui_widget_hovered(arrow_id) || (was_open && leaf_hovered(arrow_id));
     if (denominator_hovered || arrow_hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (was_open)
@@ -2503,7 +2503,7 @@ int32_t uph_ui_track_color_palette(const Uph_Track *track)
 
                         if (hovered)
                         {
-                            naui_set_cursor(NAUI_CURSOR_HAND);
+                            uph_ui_set_cursor(UPH_CURSOR_HAND);
                             if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
                             {
                                 picked = (int32_t)index;

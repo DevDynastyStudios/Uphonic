@@ -316,6 +316,7 @@ void naui_app_update(void)
 	uph_dialog_render();
 	uph_ui_widgets_flush();
 	uph_drag_flush();
+	uph_ui_cursor_render();
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);

@@ -277,7 +277,7 @@ static void _uph_song_timeline_render_color_strip(Uph_Track *track, Uph_UIMenuID
 	const bool hovered = uph_ui_widget_hovered(strip_id);
 	if (hovered)
 	{
-		naui_set_cursor(NAUI_CURSOR_HAND);
+		uph_ui_set_cursor(UPH_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		{
 			state->current_color_options_track = track;
@@ -629,7 +629,7 @@ void uph_song_timeline_render_track_plus(void)
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
 
-		naui_set_cursor(NAUI_CURSOR_HAND);
+		uph_ui_set_cursor(UPH_CURSOR_HAND);
 	}
 
 	leaf({
@@ -1056,7 +1056,7 @@ void uph_song_timeline_update_track_drag(void)
 	const uint32_t carried = automation ? (uint32_t)naui_list_len(dragged) : uph_resources_count_movable_tracks(dragged);
 	naui_list_free(dragged);
 
-	naui_set_cursor(NAUI_CURSOR_HAND);
+	uph_ui_set_cursor(UPH_CURSOR_HAND);
 	if (target.valid)
 		_uph_song_timeline_render_drop_line(target);
 

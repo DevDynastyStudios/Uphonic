@@ -293,7 +293,7 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
             state->current_plugin_index = item_index;
         if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
             uph_plugin_list_load();
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
     }
 
     Naui_Color color = { 0 };
@@ -453,7 +453,7 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
     Naui_Color color = naui_theme_color("uph_ui_selection_color");
     if (hovered)
     {
-        naui_set_cursor(NAUI_CURSOR_HAND);
+        uph_ui_set_cursor(UPH_CURSOR_HAND);
         color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
             uph_color_mix(color, naui_theme_color("uph_ui_frame_bg_color"), 0.25f) :
             naui_theme_color("uph_ui_slider_fill_color");

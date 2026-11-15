@@ -808,7 +808,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 
 	if (hovered)
 	{
-		naui_set_cursor(NAUI_CURSOR_HAND);
+		uph_ui_set_cursor(UPH_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		{
 			if (is_dir)
@@ -1003,7 +1003,7 @@ static void _uph_sample_browser_preview_strip(void)
 	const Leaf_ID waveform_id = leaf_id("uph_sample_browser_waveform");
 	if (uph_ui_widget_hovered(waveform_id))
 	{
-		naui_set_cursor(NAUI_CURSOR_HAND);
+		uph_ui_set_cursor(UPH_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		{
 			if (uph_audio_engine_preview_playing())
