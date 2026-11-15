@@ -46,6 +46,8 @@ void main()
     case 1:
     {
         float coverage = texture(texture1, frag_uv).r;
+        float luminance = dot(frag_color.rgb, vec3(0.2126, 0.7152, 0.0722));
+        coverage = pow(coverage, mix(1.15, 0.6, luminance));
         out_color = vec4(frag_color.rgb, frag_color.a * coverage);
         return;
     }
