@@ -16,6 +16,7 @@ typedef struct
 Uph_PluginInfo;
 
 #if NAUI_LINUX
+#include <X11/Xlibint.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/shape.h>
 #endif
@@ -280,6 +281,39 @@ Uph_Vst2Events;
 
 typedef AEffect *(__cdecl *Uph_Vst2MainFn)(audioMasterCallback);
 
+typedef struct
+{
+    uint8_t *pixels;
+    uint32_t width, height;
+}
+Uph_PluginGuiFrame;
+
+typedef struct
+{
+    Naui_Thread thread;
+    Naui_Mutex lock;
+    Naui_Cond wake;
+    bool stop;
+    bool requested;
+    bool fresh;
+    bool finished;
+    uint32_t width, height;
+#if NAUI_LINUX
+    Window window;
+    Display *display;
+#elif NAUI_WINDOWS
+    HWND window;
+    HDC dc;
+    HBITMAP bitmap;
+    void *bits;
+    uint32_t bitmap_width, bitmap_height;
+#endif
+    Uph_PluginGuiFrame back;
+    Uph_PluginGuiFrame ready;
+    Uph_PluginGuiFrame front;
+}
+Uph_PluginGuiCapture;
+
 struct Uph_PluginInternalHandle_
 {
     union
@@ -393,13 +427,10 @@ struct Uph_PluginInternalHandle_
     HWND window;
     POINT cursor;
     bool native_input;
-    HDC capture_dc;
-    HBITMAP capture_bitmap;
-    void *capture_bits;
 #endif
     Naui_PanelID panel;
     Naui_Texture texture;
-    uint8_t *pixels;
+    Uph_PluginGuiCapture capture;
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
@@ -3529,14 +3560,14 @@ void uph_plugin_unload(Uph_Plugin *plug)
             internal_handle->panel = 0;
         }
 
+        _uph_plugin_gui_release_capture(internal_handle);
+
         switch (plug->format)
         {
             case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
             case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
             case UPH_PLUGIN_VST2: _uph_vst2_unload(internal_handle); break;
         }
-
-        _uph_plugin_gui_release_capture(internal_handle);
 
         free(plug->internal_handle);
         plug->internal_handle = NULL;
@@ -3567,54 +3598,82 @@ static void _uph_plugin_gui_release_texture(Uph_PluginInternalHandle *ih)
     ih->texture_width = ih->texture_height = 0;
 }
 
-static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
+static void _uph_plugin_gui_frame_reserve(Uph_PluginGuiFrame *frame, uint32_t width, uint32_t height)
 {
-    _uph_plugin_gui_release_texture(ih);
-    free(ih->pixels);
-    ih->pixels = NULL;
+    if (frame->pixels && frame->width == width && frame->height == height)
+        return;
 
-#if NAUI_WINDOWS
-    if (ih->capture_dc)
-        DeleteDC(ih->capture_dc);
-    if (ih->capture_bitmap)
-        DeleteObject(ih->capture_bitmap);
-    ih->capture_dc = NULL;
-    ih->capture_bitmap = NULL;
-    ih->capture_bits = NULL;
-#endif
+    free(frame->pixels);
+    frame->pixels = (uint8_t*)malloc((size_t)width * height * 4);
+    frame->width = width;
+    frame->height = height;
+}
+
+static void _uph_plugin_gui_frame_free(Uph_PluginGuiFrame *frame)
+{
+    free(frame->pixels);
+    *frame = (Uph_PluginGuiFrame){ 0 };
+}
+
+static void _uph_plugin_gui_copy_opaque_row(uint8_t *dst, const uint8_t *src, uint32_t width)
+{
+    uint32_t *out = (uint32_t*)dst;
+    const uint32_t *in = (const uint32_t*)src;
+    for (uint32_t x = 0; x < width; x++)
+        out[x] = in[x] | 0xFF000000u;
 }
 
 #if NAUI_LINUX
-static int _uph_plugin_x11_error_handler(Display *display, XErrorEvent *event)
+static int _uph_plugin_x11_swallow_error(Display *display, xError *error, XExtCodes *codes, int *ret_code)
 {
     (void)display;
-    (void)event;
-    return 0;
+    (void)error;
+    (void)codes;
+    *ret_code = 0;
+    return True;
 }
 
-static bool _uph_plugin_gui_read_pixels(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 {
-    XSync(ih->display, False);
-    int (*previous_handler)(Display*, XErrorEvent*) = XSetErrorHandler(_uph_plugin_x11_error_handler);
+    capture->display = XOpenDisplay(NULL);
+    if (!capture->display)
+        return;
+
+    XExtCodes *codes = XAddExtension(capture->display);
+    if (codes)
+        XESetError(capture->display, codes->extension, _uph_plugin_x11_swallow_error);
+}
+
+static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
+{
+    if (capture->display)
+        XCloseDisplay(capture->display);
+    capture->display = NULL;
+}
+
+static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
+{
+    Display *display = capture->display;
+    if (!display)
+        return false;
 
     bool ok = false;
-    Pixmap pixmap = XCompositeNameWindowPixmap(ih->display, ih->window);
-    XImage *image = pixmap ? XGetImage(ih->display, pixmap, 0, 0, width, height, AllPlanes, ZPixmap) : NULL;
+    Pixmap pixmap = XCompositeNameWindowPixmap(display, capture->window);
+    XImage *image = pixmap ? XGetImage(display, pixmap, 0, 0, frame->width, frame->height, AllPlanes, ZPixmap) : NULL;
 
     if (image && image->bits_per_pixel == 32)
     {
-        for (uint32_t y = 0; y < height; y++)
-            memcpy(ih->pixels + (size_t)y * width * 4, image->data + (size_t)y * image->bytes_per_line, (size_t)width * 4);
+        for (uint32_t y = 0; y < frame->height; y++)
+            _uph_plugin_gui_copy_opaque_row(frame->pixels + (size_t)y * frame->width * 4, (const uint8_t*)image->data + (size_t)y * image->bytes_per_line, frame->width);
         ok = true;
     }
 
     if (image)
         XDestroyImage(image);
     if (pixmap)
-        XFreePixmap(ih->display, pixmap);
+        XFreePixmap(display, pixmap);
 
-    XSync(ih->display, False);
-    XSetErrorHandler(previous_handler);
+    XSync(display, False);
     return ok;
 }
 #elif NAUI_WINDOWS
@@ -3622,36 +3681,161 @@ static bool _uph_plugin_gui_read_pixels(Uph_PluginInternalHandle *ih, uint32_t w
     #define PW_RENDERFULLCONTENT 0x00000002
 #endif
 
-static bool _uph_plugin_gui_read_pixels(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 {
-    if (!ih->capture_dc)
+    (void)capture;
+}
+
+static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
+{
+    if (capture->dc)
+        DeleteDC(capture->dc);
+    if (capture->bitmap)
+        DeleteObject(capture->bitmap);
+    capture->dc = NULL;
+    capture->bitmap = NULL;
+    capture->bits = NULL;
+    capture->bitmap_width = capture->bitmap_height = 0;
+}
+
+static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
+{
+    if (!capture->dc || capture->bitmap_width != frame->width || capture->bitmap_height != frame->height)
     {
+        _uph_plugin_gui_capture_close(capture);
+
         HDC screen_dc = GetDC(NULL);
         BITMAPINFO info = { 0 };
         info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-        info.bmiHeader.biWidth = (LONG)width;
-        info.bmiHeader.biHeight = -(LONG)height;
+        info.bmiHeader.biWidth = (LONG)frame->width;
+        info.bmiHeader.biHeight = -(LONG)frame->height;
         info.bmiHeader.biPlanes = 1;
         info.bmiHeader.biBitCount = 32;
         info.bmiHeader.biCompression = BI_RGB;
 
-        ih->capture_dc = CreateCompatibleDC(screen_dc);
-        ih->capture_bitmap = CreateDIBSection(screen_dc, &info, DIB_RGB_COLORS, &ih->capture_bits, NULL, 0);
+        capture->dc = CreateCompatibleDC(screen_dc);
+        capture->bitmap = CreateDIBSection(screen_dc, &info, DIB_RGB_COLORS, &capture->bits, NULL, 0);
         ReleaseDC(NULL, screen_dc);
 
-        if (!ih->capture_dc || !ih->capture_bitmap)
+        if (!capture->dc || !capture->bitmap)
             return false;
-        SelectObject(ih->capture_dc, ih->capture_bitmap);
+        SelectObject(capture->dc, capture->bitmap);
+        capture->bitmap_width = frame->width;
+        capture->bitmap_height = frame->height;
     }
 
-    if (!PrintWindow(ih->window, ih->capture_dc, PW_RENDERFULLCONTENT))
+    if (!PrintWindow(capture->window, capture->dc, PW_RENDERFULLCONTENT))
         return false;
     GdiFlush();
 
-    memcpy(ih->pixels, ih->capture_bits, (size_t)width * height * 4);
+    const size_t row_bytes = (size_t)frame->width * 4;
+    for (uint32_t y = 0; y < frame->height; y++)
+        _uph_plugin_gui_copy_opaque_row(frame->pixels + y * row_bytes, (const uint8_t*)capture->bits + y * row_bytes, frame->width);
     return true;
 }
 #endif
+
+static int _uph_plugin_gui_capture_thread(void *arg)
+{
+    Uph_PluginGuiCapture *capture = (Uph_PluginGuiCapture*)arg;
+    _uph_plugin_gui_capture_open(capture);
+
+    naui_mutex_lock(capture->lock);
+    for (;;)
+    {
+        while (!capture->stop && !capture->requested)
+            naui_cond_wait(capture->wake, capture->lock);
+        if (capture->stop)
+            break;
+
+        capture->requested = false;
+        const uint32_t width = capture->width;
+        const uint32_t height = capture->height;
+        naui_mutex_unlock(capture->lock);
+
+        _uph_plugin_gui_frame_reserve(&capture->back, width, height);
+        const bool ok = capture->back.pixels && _uph_plugin_gui_read_pixels(capture, &capture->back);
+
+        naui_mutex_lock(capture->lock);
+        if (ok)
+        {
+            const Uph_PluginGuiFrame captured = capture->back;
+            capture->back = capture->ready;
+            capture->ready = captured;
+            capture->fresh = true;
+        }
+    }
+    capture->finished = true;
+    naui_mutex_unlock(capture->lock);
+
+    _uph_plugin_gui_capture_close(capture);
+    return 0;
+}
+
+static bool _uph_plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
+{
+    Uph_PluginGuiCapture *capture = &ih->capture;
+    capture->lock = naui_mutex_create();
+    capture->wake = naui_cond_create();
+    capture->window = ih->window;
+    capture->stop = capture->requested = capture->fresh = capture->finished = false;
+
+    if (capture->lock && capture->wake)
+        capture->thread = naui_thread_create(_uph_plugin_gui_capture_thread, capture);
+    if (capture->thread)
+        return true;
+
+    if (capture->wake)
+        naui_cond_destroy(capture->wake);
+    if (capture->lock)
+        naui_mutex_destroy(capture->lock);
+    capture->wake = NULL;
+    capture->lock = NULL;
+    return false;
+}
+
+static void _uph_plugin_gui_capture_stop(Uph_PluginGuiCapture *capture)
+{
+    if (!capture->thread)
+        return;
+
+    naui_mutex_lock(capture->lock);
+    capture->stop = true;
+    naui_cond_signal(capture->wake);
+    naui_mutex_unlock(capture->lock);
+
+#if NAUI_WINDOWS
+    for (;;)
+    {
+        naui_mutex_lock(capture->lock);
+        const bool finished = capture->finished;
+        naui_mutex_unlock(capture->lock);
+        if (finished)
+            break;
+
+        MSG msg;
+        PeekMessageA(&msg, NULL, 0, 0, PM_NOREMOVE | PM_QS_SENDMESSAGE);
+        naui_thread_sleep_ms(1);
+    }
+#endif
+
+    naui_thread_join(capture->thread, NULL);
+    naui_cond_destroy(capture->wake);
+    naui_mutex_destroy(capture->lock);
+    capture->thread = NULL;
+    capture->wake = NULL;
+    capture->lock = NULL;
+
+    _uph_plugin_gui_frame_free(&capture->back);
+    _uph_plugin_gui_frame_free(&capture->ready);
+    _uph_plugin_gui_frame_free(&capture->front);
+}
+
+static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
+{
+    _uph_plugin_gui_capture_stop(&ih->capture);
+    _uph_plugin_gui_release_texture(ih);
+}
 
 static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
 {
@@ -3660,23 +3844,37 @@ static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
     if (!width || !height)
         return;
 
+    Uph_PluginGuiCapture *capture = &ih->capture;
+    if (!capture->thread && !_uph_plugin_gui_capture_start(ih))
+        return;
+
+    naui_mutex_lock(capture->lock);
+    const bool fresh = capture->fresh;
+    if (fresh)
+    {
+        const Uph_PluginGuiFrame captured = capture->ready;
+        capture->ready = capture->front;
+        capture->front = captured;
+        capture->fresh = false;
+    }
+    capture->width = width;
+    capture->height = height;
+    capture->requested = true;
+    naui_cond_signal(capture->wake);
+    naui_mutex_unlock(capture->lock);
+
+    if (!fresh || capture->front.width != width || capture->front.height != height)
+        return;
+
     if (ih->texture_width != width || ih->texture_height != height)
     {
-        _uph_plugin_gui_release_capture(ih);
-        ih->pixels = (uint8_t*)malloc((size_t)width * height * 4);
+        _uph_plugin_gui_release_texture(ih);
         ih->texture = naui_texture_create(width, height, NAUI_TEXTURE_FORMAT_BGRA8, NAUI_MEMORY_SHARED);
         ih->texture_width = width;
         ih->texture_height = height;
     }
 
-    if (!_uph_plugin_gui_read_pixels(ih, width, height))
-        return;
-
-    const size_t pixel_count = (size_t)width * height;
-    for (size_t i = 0; i < pixel_count; i++)
-        ih->pixels[i * 4 + 3] = 0xFF;
-
-    naui_texture_update(ih->texture, ih->pixels);
+    naui_texture_update(ih->texture, capture->front.pixels);
 }
 
 const char *uph_plugin_gui_title(Uph_PluginInternalHandle *handle)
