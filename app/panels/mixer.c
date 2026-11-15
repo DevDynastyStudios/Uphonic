@@ -384,7 +384,7 @@ static void uph_mixer_render_effect_list(void)
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_effect_list_bg_color"),
+			.color = naui_theme_color("uph_mixer_effect_list_bg_color"),
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 			.clip_children = true
@@ -405,7 +405,7 @@ static void uph_mixer_render_effect_list(void)
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-		.color = naui_theme_color("uph_effect_list_bg_color"),
+		.color = naui_theme_color("uph_mixer_effect_list_bg_color"),
 		.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 		.clip_children = true
 	})
@@ -842,9 +842,15 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 					.size = { .width = LEAF_SIZE_PERCENT(0.2f), .height = LEAF_SIZE_FULL }
 				});
 				Uph_ActionTrackRef track_ref = uph_action_track_ref(strip);
+				Uph_LevelMeterData meter_data = {
+					.track = track_ref,
+					.low_color = naui_theme_color("uph_mixer_meter_low_color"),
+					.medium_color = naui_theme_color("uph_mixer_meter_medium_color"),
+					.high_color = naui_theme_color("uph_mixer_meter_high_color")
+				};
 				leaf({
 					.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
-					.custom_draw_data = LEAF_DATA_SLICE(track_ref),
+					.custom_draw_data = LEAF_DATA_SLICE(meter_data),
 					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
 					.color = naui_theme_color("uph_ui_well_bg_color")
 				});

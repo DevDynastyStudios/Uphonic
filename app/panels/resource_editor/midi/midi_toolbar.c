@@ -68,18 +68,18 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
 		.padding = { .top = 1, .bottom = 1 },
-		.color = naui_theme_color("uph_toolbox_border_color")
+		.color = naui_theme_color("uph_midi_editor_toolbox_border_color")
 	})
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_midi_editor_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(UPH_TOOLBOX_GROUP_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
+		const Naui_Color icon_color = naui_theme_color("uph_midi_editor_tool_icon_color");
 
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
@@ -92,14 +92,14 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_midi_editor_play"),
-				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
+				naui_theme_color(playing ? "uph_midi_editor_pause_icon_color" : "uph_midi_editor_play_icon_color"),
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) uph_midi_editor_toggle_playback();
 
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_midi_editor_stop"),
-				naui_theme_color("uph_stop_icon_color"),
+				naui_theme_color("uph_midi_editor_stop_icon_color"),
 				NAUI_CORNER_NONE
 			)) uph_midi_editor_stop_playback();
 

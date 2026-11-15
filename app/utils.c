@@ -159,11 +159,17 @@ static void _uph_grid_lines(float origin_x, float width, float zoom_x, float scr
 
 typedef struct
 {
-    Leaf_BoundingBox bbox;
     Leaf_Color sub_color;
     Leaf_Color beat_color;
     Leaf_Color bar_color;
     Leaf_Color number_color;
+}
+Uph_GridColors;
+
+typedef struct
+{
+    Leaf_BoundingBox bbox;
+    Uph_GridColors colors;
 }
 Uph_GridStyle;
 
@@ -173,7 +179,7 @@ static void _uph_grid_draw_beat_line(float x, Uph_GridLineKind kind, int64_t bar
     if (x < style->bbox.x || x > style->bbox.x + style->bbox.width)
         return;
 
-    const Leaf_Color color = kind == UPH_GRID_LINE_BAR ? style->bar_color : kind == UPH_GRID_LINE_BEAT ? style->beat_color : style->sub_color;
+    const Leaf_Color color = kind == UPH_GRID_LINE_BAR ? style->colors.bar_color : kind == UPH_GRID_LINE_BEAT ? style->colors.beat_color : style->colors.sub_color;
     naui_draw_line((Naui_Vec2){x, style->bbox.y}, (Naui_Vec2){x, style->bbox.y + style->bbox.height}, color, 1.0f);
 }
 
@@ -186,7 +192,7 @@ static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t ba
 
     if (kind == UPH_GRID_LINE_SUBDIVISION)
     {
-        naui_draw_line((Naui_Vec2){x, bbox.y + bbox.height * 0.6f}, (Naui_Vec2){x, bbox.y + bbox.height}, style->sub_color, 1.0f);
+        naui_draw_line((Naui_Vec2){x, bbox.y + bbox.height * 0.6f}, (Naui_Vec2){x, bbox.y + bbox.height}, style->colors.sub_color, 1.0f);
         return;
     }
 
@@ -194,7 +200,7 @@ static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t ba
     naui_draw_line(
         (Naui_Vec2){x, bbox.y + bbox.height * (is_bar ? 0.4f : 0.6f)},
         (Naui_Vec2){x, bbox.y + bbox.height},
-        is_bar ? style->bar_color : style->beat_color,
+        is_bar ? style->colors.bar_color : style->colors.beat_color,
         1.0f
     );
 
@@ -202,31 +208,20 @@ static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t ba
     {
         char label[16];
         snprintf(label, sizeof(label), "%d", (int)bar_index);
-        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13), 0, style->number_color);
+        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13), 0, style->colors.number_color);
     }
 }
 
-void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division)
+void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division, Uph_GridColors colors)
 {
-    Uph_GridStyle style = {
-        .bbox = bbox,
-        .sub_color = naui_theme_color("uph_timeline_grid_subbeat_color"),
-        .beat_color = naui_theme_color("uph_timeline_grid_beat_color"),
-        .bar_color = naui_theme_color("uph_timeline_grid_bar_color")
-    };
+    Uph_GridStyle style = { .bbox = bbox, .colors = colors };
 
     _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_beat_line, &style);
 }
 
-void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division)
+void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division, Uph_GridColors colors)
 {
-    Uph_GridStyle style = {
-        .bbox = bbox,
-        .sub_color = naui_theme_color("uph_timeline_top_ruler_grid_subbeat_color"),
-        .beat_color = naui_theme_color("uph_timeline_top_ruler_grid_beat_color"),
-        .bar_color = naui_theme_color("uph_timeline_top_ruler_grid_bar_color"),
-        .number_color = naui_theme_color("uph_timeline_top_ruler_grid_text_color")
-    };
+    Uph_GridStyle style = { .bbox = bbox, .colors = colors };
 
     naui_push_clip_rect(bbox.x - 0.5f, bbox.y, bbox.width, bbox.height);
     _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_ruler_line, &style);
@@ -540,14 +535,13 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
     return true;
 }
 
-static Leaf_Color _uph_loop_region_color(bool enabled, uint8_t alpha)
+static Leaf_Color _uph_loop_region_color(Leaf_Color color, bool enabled, uint8_t alpha)
 {
-    Leaf_Color color = naui_theme_color("uph_selection_outline_color");
     color.a = enabled ? alpha : (uint8_t)(alpha / 3);
     return color;
 }
 
-void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, bool enabled)
+void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox bbox, float zoom_x, float scroll_x, bool enabled, Leaf_Color outline_color)
 {
     if (!uph_loop_region_valid(region))
         return;
@@ -557,21 +551,21 @@ void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox
     const float strip_height = bbox.height * UPH_LOOP_REGION_STRIP;
 
     naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
-    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, _uph_loop_region_color(enabled, 30), 0.0f, NAUI_CORNER_NONE);
-    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, _uph_loop_region_color(enabled, 170), 0.0f, NAUI_CORNER_NONE);
-    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1));
-    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1));
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, _uph_loop_region_color(outline_color, enabled, 30), 0.0f, NAUI_CORNER_NONE);
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, _uph_loop_region_color(outline_color, enabled, 170), 0.0f, NAUI_CORNER_NONE);
+    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
+    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
     naui_pop_clip_rect();
 }
 
-void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x, float top, float bottom, float zoom_x, float scroll_x, bool enabled)
+void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x, float top, float bottom, float zoom_x, float scroll_x, bool enabled, Leaf_Color outline_color)
 {
     if (!uph_loop_region_valid(region))
         return;
 
     const float start_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->start);
     const float end_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->end);
-    const Leaf_Color color = _uph_loop_region_color(enabled, 110);
+    const Leaf_Color color = _uph_loop_region_color(outline_color, enabled, 110);
 
     naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1));
     naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1));

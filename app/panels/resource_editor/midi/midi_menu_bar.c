@@ -103,7 +103,7 @@ void uph_midi_menu_bar_render(Uph_MidiEditorState *editor)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_MENU_BAR_HEIGHT)) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X) * 0.5f, 0.0f),
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_midi_editor_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(UPH_UI_MENU_BAR_ITEM_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL

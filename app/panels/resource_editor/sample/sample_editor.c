@@ -413,7 +413,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 			uph_sample_preview_set_loop(true);
 		}
 		_uph_sample_editor_track_edit(state, uph_state.shared.selected_resource.index, &before, sample);
-		uph_loop_region_render_ruler(&sample->loop_region, box, zoom, scroll, uph_sample_preview_looping());
+		uph_loop_region_render_ruler(&sample->loop_region, box, zoom, scroll, uph_sample_preview_looping(), naui_theme_color("uph_sample_editor_selection_outline_color"));
 	}
 	else
 		state->loop_drag.mode = UPH_LOOP_DRAG_NONE;
@@ -421,9 +421,9 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	if (!loop_busy)
 		_uph_sample_editor_update_playhead_drag(state, box);
 
-	const Leaf_Color sub_color = naui_theme_color("uph_timeline_top_ruler_grid_subbeat_color");
-	const Leaf_Color bar_color = naui_theme_color("uph_timeline_top_ruler_grid_bar_color");
-	const Leaf_Color number_color = naui_theme_color("uph_timeline_top_ruler_grid_text_color");
+	const Leaf_Color sub_color = naui_theme_color("uph_sample_editor_ruler_grid_subbeat_color");
+	const Leaf_Color bar_color = naui_theme_color("uph_sample_editor_ruler_grid_bar_color");
+	const Leaf_Color number_color = naui_theme_color("uph_sample_editor_ruler_grid_text_color");
 
 	const double sample_rate = (double)source->sample_rate;
 	const double fpp = state->frames_per_pixel;
@@ -465,7 +465,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 
 	const float playhead_x = _uph_sample_editor_frame_to_x(state, box, _uph_sample_editor_playhead_frame(state));
 	const int32_t icon_size = NAUI_DPI(16);
-	const Naui_Color playhead_color = naui_theme_color("uph_playhead_color");
+	const Naui_Color playhead_color = naui_theme_color("uph_sample_editor_playhead_color");
 	naui_draw_line((Naui_Vec2) { playhead_x, box.y + box.height - icon_size * 0.5f }, (Naui_Vec2) { playhead_x, box.y + box.height }, playhead_color, NAUI_DPI(1));
 	naui_draw_image(
 		naui_asset_image("uph_icon_playhead"),
@@ -481,8 +481,8 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 static void _uph_sample_editor_draw_grid(const Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
-	const Leaf_Color major_color = naui_theme_color("uph_timeline_grid_bar_color");
-	const Leaf_Color minor_color = naui_theme_color("uph_timeline_grid_subbeat_color");
+	const Leaf_Color major_color = naui_theme_color("uph_sample_editor_grid_bar_color");
+	const Leaf_Color minor_color = naui_theme_color("uph_sample_editor_grid_subbeat_color");
 
 	const double sample_rate = (double)source->sample_rate;
 	const double fpp = editor->frames_per_pixel;
@@ -674,9 +674,9 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 	const int32_t tick = NAUI_DPI(4);
 	const int32_t padding = NAUI_DPI(UPH_SAMPLE_EDITOR_LANE_PADDING);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_disabled_color");
-	const Leaf_Color tick_color = naui_theme_color("uph_timeline_top_ruler_grid_beat_color");
+	const Leaf_Color tick_color = naui_theme_color("uph_sample_editor_ruler_grid_beat_color");
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_sample_editor_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 
 	for (uint32_t c = 0; c < channels; c++)
@@ -714,7 +714,7 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 			naui_draw_text((Naui_Vec2) { box.x + box.width - tick - NAUI_DPI(3) - inf_size.x, mid_y - inf_size.y * 0.5f }, inf_label, font_size, 0, text_color);
 
 		if (c > 0)
-			naui_draw_line((Naui_Vec2) { box.x, (float)lane.y }, (Naui_Vec2) { box.x + box.width, (float)lane.y }, naui_theme_color("uph_timeline_grid_beat_color"), 1.0f);
+			naui_draw_line((Naui_Vec2) { box.x, (float)lane.y }, (Naui_Vec2) { box.x + box.width, (float)lane.y }, naui_theme_color("uph_sample_editor_grid_beat_color"), 1.0f);
 	}
 
 	naui_pop_clip_rect();
@@ -731,10 +731,10 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 
 	const uint32_t channels = source->channels;
 	const float lane_height = box.height / (float)channels;
-	Leaf_Color accent_color = naui_theme_color("uph_resource_list_item_fg_color");
+	Leaf_Color accent_color = naui_theme_color("uph_sample_editor_accent_color");
 	accent_color.a = 255;
-	const Leaf_Color guide_color = naui_theme_color("uph_timeline_grid_subbeat_color");
-	const Leaf_Color zero_color = naui_theme_color("uph_timeline_grid_beat_color");
+	const Leaf_Color guide_color = naui_theme_color("uph_sample_editor_grid_subbeat_color");
+	const Leaf_Color zero_color = naui_theme_color("uph_sample_editor_grid_beat_color");
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 
@@ -743,7 +743,7 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 		naui_fill_rect(
 			(Naui_Vec2) { box.x, box.y + lane_height * (float)c },
 			(Naui_Vec2) { box.width, lane_height },
-			naui_theme_color((c % 2) == 0 ? "uph_timeline_row_bg1_color" : "uph_timeline_row_bg2_color"),
+			naui_theme_color((c % 2) == 0 ? "uph_sample_editor_row_bg1_color" : "uph_sample_editor_row_bg2_color"),
 			0.0f,
 			NAUI_CORNER_NONE
 		);
@@ -779,10 +779,10 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 
 	const Uph_Sample *loop_sample = _uph_sample_editor_current_sample();
 	if (loop_sample)
-		uph_loop_region_render_bounds(&loop_sample->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), _uph_sample_editor_seconds_zoom(state), _uph_sample_editor_seconds_scroll(state), uph_sample_preview_looping());
+		uph_loop_region_render_bounds(&loop_sample->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), _uph_sample_editor_seconds_zoom(state), _uph_sample_editor_seconds_scroll(state), uph_sample_preview_looping(), naui_theme_color("uph_sample_editor_selection_outline_color"));
 
 	const float playhead_x = _uph_sample_editor_frame_to_x(state, box, _uph_sample_editor_playhead_frame(state));
-	naui_draw_line((Naui_Vec2) { playhead_x, box.y }, (Naui_Vec2) { playhead_x, box.y + box.height }, naui_theme_color("uph_playhead_color"), NAUI_DPI(1));
+	naui_draw_line((Naui_Vec2) { playhead_x, box.y }, (Naui_Vec2) { playhead_x, box.y + box.height }, naui_theme_color("uph_sample_editor_playhead_color"), NAUI_DPI(1));
 
 	if (state->wave_hovered && !state->panning)
 	{
@@ -948,18 +948,18 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
 		.padding = { .top = 1, .bottom = 1 },
-		.color = naui_theme_color("uph_toolbox_border_color")
+		.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
 	})
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		const Naui_Color bg_color = naui_theme_color("uph_ui_frame_bg_color");
-		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
+		const Naui_Color icon_color = naui_theme_color("uph_sample_editor_tool_icon_color");
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
@@ -971,14 +971,14 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_sample_editor_play"),
-				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
+				naui_theme_color(playing ? "uph_sample_editor_pause_icon_color" : "uph_sample_editor_play_icon_color"),
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) _uph_sample_editor_toggle_playback();
 
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_sample_editor_stop"),
-				naui_theme_color("uph_stop_icon_color"),
+				naui_theme_color("uph_sample_editor_stop_icon_color"),
 				NAUI_CORNER_NONE
 			)) uph_sample_preview_stop();
 
@@ -1084,7 +1084,7 @@ static void _uph_sample_editor_render_separator(void)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(1) },
-		.color = naui_theme_color("uph_toolbox_separator_color")
+		.color = naui_theme_color("uph_sample_editor_toolbox_separator_color")
 	});
 }
 
@@ -1149,9 +1149,9 @@ static void _uph_sample_editor_render_properties(const Uph_SampleEditorState *ed
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_TOP,
-			.color = naui_theme_color("uph_toolbox_border_color")
+			.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
 		},
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 		.child_gap = NAUI_DPI(6),
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
@@ -1199,9 +1199,9 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_RIGHT,
-				.color = naui_theme_color("uph_toolbox_border_color")
+				.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
 			},
-			.color = naui_theme_color("uph_toolbox_bg_color"),
+			.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
 			.direction = LEAF_DIRECTION_VERTICAL
 		})
@@ -1217,9 +1217,9 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_RIGHT,
-			.color = naui_theme_color("uph_toolbox_border_color")
+			.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
 		},
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 		.child_gap = NAUI_DPI(8),
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
@@ -1304,7 +1304,7 @@ static void _uph_sample_editor_render_status_item(const char *text, bool separat
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FIXED(1), .height = LEAF_SIZE_FIXED(NAUI_DPI(12)) },
-			.color = naui_theme_color("uph_toolbox_separator_color")
+			.color = naui_theme_color("uph_sample_editor_toolbox_separator_color")
 		});
 	}
 
@@ -1344,9 +1344,9 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *ed
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_TOP,
-			.color = naui_theme_color("uph_toolbox_border_color")
+			.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
 		},
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(10),
 		.direction = LEAF_DIRECTION_HORIZONTAL,
@@ -1486,7 +1486,7 @@ void uph_sample_editor_update(void)
 				{
 					leaf({
 						.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-						.color = naui_theme_color("uph_toolbox_bg_color")
+						.color = naui_theme_color("uph_sample_editor_toolbox_bg_color")
 					});
 					leaf({
 						.custom_draw = _uph_sample_editor_ruler_draw,
@@ -1494,9 +1494,9 @@ void uph_sample_editor_update(void)
 						.border = {
 							.width = 1,
 							.sides = LEAF_SIDE_ALL,
-							.color = naui_theme_color("uph_timeline_top_ruler_border_color")
+							.color = naui_theme_color("uph_sample_editor_ruler_border_color")
 						},
-						.color = naui_theme_color("uph_timeline_top_ruler_bg_color")
+						.color = naui_theme_color("uph_sample_editor_ruler_bg_color")
 					});
 				}
 

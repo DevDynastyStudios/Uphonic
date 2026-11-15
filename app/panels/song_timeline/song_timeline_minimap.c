@@ -104,7 +104,7 @@ static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_da
 	_uph_song_timeline_minimap_draw_tracks(uph_state.project.tracks, &y, &map);
 
 	const float playhead_x = map.rect.x + (float)(uph_state.shared.song_timeline_playhead_position * map.scale_x);
-	Naui_Color playhead_color = naui_theme_color("uph_playhead_color");
+	Naui_Color playhead_color = naui_theme_color("uph_song_timeline_playhead_color");
 	playhead_color.a = (uint8_t)(playhead_color.a * 0.6f);
 	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, playhead_color, NAUI_DPI(1));
 
@@ -237,7 +237,7 @@ void uph_song_timeline_render_time_display(void)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_ALL,
-			.color = naui_theme_color("uph_timeline_top_ruler_border_color")
+			.color = naui_theme_color("uph_song_timeline_ruler_border_color")
 		},
 		.color = naui_theme_color("uph_song_timeline_header_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },

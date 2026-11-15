@@ -430,7 +430,7 @@ void uph_piano_render(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_
 	naui_draw_line(
 		(Naui_Vec2) { box.x + box.width, box.y },
 		(Naui_Vec2) { box.x + box.width, box.y + box.height },
-		naui_theme_color("uph_timeline_top_ruler_border_color"),
+		naui_theme_color("uph_midi_editor_ruler_border_color"),
 		NAUI_DPI(2)
 	);
 

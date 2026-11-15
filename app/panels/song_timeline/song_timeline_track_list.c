@@ -3,7 +3,11 @@
 #define UPH_TRACK_STRIP_HIT_WIDTH				10
 #define UPH_TRACK_HEADER_CHILD_GAP				10
 #define UPH_TRACK_HEADER_ROW_GAP				6
-#define UPH_TRACK_HEADER_PADDING_Y				10
+#define UPH_TRACK_HEADER_PADDING_Y				7
+#define UPH_TRACK_HEADER_CARD_INSET				4
+#define UPH_TRACK_HEADER_CARD_INSET_Y			4
+#define UPH_TRACK_HEADER_CARD_INSET_EDGE		6
+#define UPH_TRACK_HEADER_CARD_ROUNDING			6
 #define UPH_TRACK_HEADER_CONTENT_TOP_PADDING	3
 #define UPH_TRACK_HEADER_KNOB_SIZE				24
 #define UPH_TRACK_HEADER_METER_WIDTH			12
@@ -473,19 +477,24 @@ static void _uph_song_timeline_render_instrument_row(Uph_Track *track)
 
 static void _uph_song_timeline_render_meter(const Uph_Track *track)
 {
-	Uph_ActionTrackRef ref = uph_action_track_ref(track);
+	Uph_LevelMeterData meter_data = {
+		.track = uph_action_track_ref(track),
+		.low_color = naui_theme_color("uph_song_timeline_meter_low_color"),
+		.medium_color = naui_theme_color("uph_song_timeline_meter_medium_color"),
+		.high_color = naui_theme_color("uph_song_timeline_meter_high_color")
+	};
 	leaf({
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_TRACK_HEADER_METER_PADDING)),
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_LEFT,
-			.color = naui_theme_color("uph_song_timeline_header_border_color")
+			.color = naui_theme_color("uph_song_timeline_header_card_border_color")
 		}
 	})
 	leaf({
 		.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
-		.custom_draw_data = LEAF_DATA_SLICE(ref),
+		.custom_draw_data = LEAF_DATA_SLICE(meter_data),
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TRACK_HEADER_METER_WIDTH)), .height = LEAF_SIZE_FULL },
 		.color = naui_theme_color("uph_ui_well_bg_color")
 	});
@@ -510,9 +519,15 @@ static void _uph_song_timeline_render_header_rows(Uph_Track *track, Uph_UIMenuID
 		_uph_song_timeline_render_instrument_row(track);
 }
 
+static const Uph_Track *_uph_song_timeline_next_row(const Uph_Track *track);
+
 static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const int32_t inset_y = NAUI_DPI(UPH_TRACK_HEADER_CARD_INSET_Y);
+	const int32_t inset_edge = NAUI_DPI(UPH_TRACK_HEADER_CARD_INSET_EDGE);
+	const int32_t inset_top = state->visual.settled_row_y == 0.0f ? inset_edge : inset_y;
+	const int32_t inset_bottom = _uph_song_timeline_next_row(track) ? inset_y : inset_edge;
 	const Naui_Vec2 padding = UPH_SONG_TIMELINE_HEADER_PADDING;
 	const int32_t strip_overhang = (int32_t)NAUI_DPI(UPH_TRACK_STRIP_HIT_WIDTH) - (int32_t)NAUI_DPI(UPH_TRACK_STRIP_WIDTH);
 	const Leaf_ID header_id = leaf_id_indexed("uph_song_timeline_header", (uint64_t)track);
@@ -532,12 +547,23 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 		leaf({
 			.id = header_id,
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+			.padding = {
+				.left = NAUI_DPI(UPH_TRACK_HEADER_CARD_INSET),
+				.right = NAUI_DPI(UPH_TRACK_HEADER_CARD_INSET),
+				.top = inset_top,
+				.bottom = inset_bottom
+			},
+			.color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG)
+		})
+		leaf({
+			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_ALL,
-				.color = naui_theme_color("uph_song_timeline_header_border_color")
+				.color = naui_theme_color("uph_song_timeline_header_card_border_color")
 			},
 			.color = _uph_song_timeline_header_color(track),
+			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_TRACK_HEADER_CARD_ROUNDING), LEAF_CORNER_ALL),
 			.direction = LEAF_DIRECTION_HORIZONTAL,
 			.clip_children = true
 		})
@@ -653,7 +679,7 @@ void uph_song_timeline_render_track_plus(void)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_ALL,
-			.color = naui_theme_color("uph_song_timeline_header_border_color")
+			.color = naui_theme_color("uph_song_timeline_header_card_border_color")
 		},
 		.color = naui_theme_color(hovered ? "uph_ui_frame_hovered_bg_color" : "uph_song_timeline_header_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },

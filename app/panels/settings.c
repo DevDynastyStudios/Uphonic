@@ -322,12 +322,12 @@ static void uph_settings_load_theme_preview(const Naui_Path path, Uph_SettingsTh
 	const Naui_JsonValue *root = json.root;
 
 	preview->viewport = uph_settings_theme_key(root, "naui_viewport_bg_color", gray);
-	preview->toolbox = uph_settings_theme_key(root, "uph_toolbox_bg_color", gray);
-	preview->border = uph_settings_theme_key(root, "uph_toolbox_border_color", gray);
+	preview->toolbox = uph_settings_theme_key(root, "uph_song_timeline_toolbox_bg_color", gray);
+	preview->border = uph_settings_theme_key(root, "uph_song_timeline_toolbox_border_color", gray);
 	preview->header = uph_settings_theme_key(root, "uph_song_timeline_header_color", gray);
 	preview->header_border = uph_settings_theme_key(root, "uph_song_timeline_header_border_color", gray);
-	preview->row[0] = uph_settings_theme_key(root, "uph_timeline_row_bg1_color", gray);
-	preview->row[1] = uph_settings_theme_key(root, "uph_timeline_row_bg2_color", gray);
+	preview->row[0] = uph_settings_theme_key(root, "uph_song_timeline_row_bg1_color", gray);
+	preview->row[1] = uph_settings_theme_key(root, "uph_song_timeline_row_bg2_color", gray);
 	preview->logo = uph_settings_theme_key(root, "uph_logo_color", light);
 	preview->text = uph_settings_theme_key(root, "naui_panel_text_color", light);
 	preview->accent = uph_settings_theme_key(root, "uph_ui_slider_fill_color", light);

@@ -569,7 +569,7 @@ static void _uph_sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_Pr
 	uph_ui_waveform_peaks(
 		(Naui_Vec2){ box.x, box.y + inset },
 		(Naui_Vec2){ box.width, box.height - inset * 2.0f },
-		naui_theme_color("uph_resource_list_item_fg_color"),
+		naui_theme_color("uph_sample_browser_item_fg_color"),
 		info->peaks,
 		ready_count,
 		bin_count,
@@ -1037,7 +1037,7 @@ static void _uph_sample_browser_preview_strip(void)
 			.custom_draw = (Leaf_CustomDrawFn)_uph_sample_browser_waveform_draw,
 			.custom_draw_data = LEAF_DATA_SLICE(info),
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT)) },
-			.color = naui_theme_color("uph_resource_list_item_bg_color"),
+			.color = naui_theme_color("uph_sample_browser_item_bg_color"),
 			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
 		});
 	}

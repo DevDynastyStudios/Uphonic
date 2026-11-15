@@ -64,7 +64,7 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 			naui_draw_rect(
 				(Naui_Vec2) { note_x, y_position },
 				(Naui_Vec2) { note_width, lane_height },
-				naui_theme_color("uph_selection_outline_color"),
+				naui_theme_color("uph_midi_editor_selection_outline_color"),
 				NAUI_DPI(2),
 				note_rounding,
 				LEAF_CORNER_ALL,
@@ -98,7 +98,7 @@ void uph_midi_notes_render_marquee(const Uph_MidiView *view, Leaf_BoundingBox bo
 	const Naui_Vec2 top_left = { fminf(corner_x, (float)naui_mouse_x()), fminf(corner_y, (float)naui_mouse_y()) };
 	const Naui_Vec2 size = { fabsf(corner_x - (float)naui_mouse_x()), fabsf(corner_y - (float)naui_mouse_y()) };
 
-	Leaf_Color fill_color = naui_theme_color("uph_selection_outline_color");
+	Leaf_Color fill_color = naui_theme_color("uph_midi_editor_selection_outline_color");
 	Leaf_Color border_color = fill_color;
 	fill_color.a = 30;
 	border_color.a = 160;
@@ -115,7 +115,7 @@ void uph_midi_notes_render_cut_line(Leaf_BoundingBox box, const Uph_MidiView *vi
 	naui_draw_line(
 		(Naui_Vec2) { x, box.y },
 		(Naui_Vec2) { x, box.y + box.height },
-		naui_theme_color("uph_playhead_color"),
+		naui_theme_color("uph_midi_editor_playhead_color"),
 		NAUI_DPI(1.5f)
 	);
 }

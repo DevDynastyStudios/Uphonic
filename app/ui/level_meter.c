@@ -54,9 +54,18 @@ void uph_level_meter_smooth(Uph_Track *track)
 	track->smooth_peak_right = NAUI_LERP(track->smooth_peak_right, track->peak_right, speed);
 }
 
-void uph_level_meter_draw(Leaf_BoundingBox bounding_box, Uph_ActionTrackRef *data)
+typedef struct
 {
-	const Uph_Track *track = uph_action_track_resolve(*data);
+	Uph_ActionTrackRef track;
+	Naui_Color low_color;
+	Naui_Color medium_color;
+	Naui_Color high_color;
+}
+Uph_LevelMeterData;
+
+void uph_level_meter_draw(Leaf_BoundingBox bounding_box, Uph_LevelMeterData *data)
+{
+	const Uph_Track *track = uph_action_track_resolve(data->track);
 	if (!track)
 		return;
 
@@ -64,9 +73,9 @@ void uph_level_meter_draw(Leaf_BoundingBox bounding_box, Uph_ActionTrackRef *dat
 	const float left_fraction = uph_level_meter_fraction(uph_linear_to_db(track->smooth_peak_left));
 	const float right_fraction = uph_level_meter_fraction(uph_linear_to_db(track->smooth_peak_right));
 
-	const Naui_Color low_color = naui_theme_color("uph_mixer_bar_low_color");
-	const Naui_Color medium_color = naui_theme_color("uph_mixer_bar_medium_color");
-	const Naui_Color high_color = naui_theme_color("uph_mixer_bar_high_color");
+	const Naui_Color low_color = data->low_color;
+	const Naui_Color medium_color = data->medium_color;
+	const Naui_Color high_color = data->high_color;
 
 	const float half_width = bounding_box.width * 0.5f;
 	_uph_level_meter_draw_half(

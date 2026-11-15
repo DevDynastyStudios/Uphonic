@@ -205,7 +205,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 	const int32_t font_size = NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE);
 	const float title_height = uph_song_timeline_block_title_height();
 	const int32_t rounding = (int32_t)NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING);
-	const Naui_Color text_color = naui_theme_color("uph_timeline_block_text_color");
+	const Naui_Color text_color = naui_theme_color("uph_song_timeline_block_text_color");
 
 	const float visible_left = offset.x + (size.x - anim_size.x) * 0.5f;
 	const float title_shift = fminf(fmaxf(-visible_left, 0.0f), fmaxf(anim_size.x - title_padding * 2.0f, 0.0f));
@@ -295,7 +295,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		if (block->selected)
 		{
 			const int32_t line_width = (int32_t)NAUI_DPI(2);
-			const Leaf_Color outline_color = naui_theme_color("uph_selection_outline_color");
+			const Leaf_Color outline_color = naui_theme_color("uph_song_timeline_selection_outline_color");
 			leaf({
 				.size = { .width = LEAF_SIZE_FIXED((int32_t)anim_size.x - line_width * 2), .height = LEAF_SIZE_FIXED((int32_t)anim_size.y - line_width * 2) },
 				.border = {

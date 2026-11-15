@@ -735,7 +735,7 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 	naui_fill_rect(
 		(Naui_Vec2){ bbox.x, bbox.y + bbox.height - 1.0f },
 		(Naui_Vec2){ bbox.width, 1.0f },
-		naui_theme_color("uph_timeline_row_border_color"),
+		naui_theme_color("uph_song_timeline_row_border_color"),
 		0.0f,
 		NAUI_CORNER_NONE
 	);
@@ -810,7 +810,7 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const uint32_t row_counter = state->visual.row_counter;
-	const Leaf_Color bg_color = row_counter & 1 ? naui_theme_color("uph_timeline_row_bg1_color") : naui_theme_color("uph_timeline_row_bg2_color");
+	const Leaf_Color bg_color = row_counter & 1 ? naui_theme_color("uph_song_timeline_row_bg1_color") : naui_theme_color("uph_song_timeline_row_bg2_color");
 	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_border_color");
 
 	const int32_t row_height = NAUI_DPI(state->zoom.y);

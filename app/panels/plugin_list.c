@@ -492,7 +492,7 @@ static void uph_plugin_list_current_menu(void)
             .sides = LEAF_SIDE_LEFT,
             .color = naui_theme_color("uph_ui_frame_border")
         },
-        .color = naui_theme_color("uph_effect_list_bg_color"),
+        .color = naui_theme_color("uph_plugin_list_bg_color"),
         .child_gap = NAUI_DPI(padding.y * 2),
         .clip_children = true
     })

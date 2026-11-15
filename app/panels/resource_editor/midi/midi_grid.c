@@ -39,10 +39,19 @@ void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, 
 
 void uph_midi_grid_render_beats(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
-	uph_grid_render_beats(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x));
+	uph_grid_render_beats(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x), (Uph_GridColors){
+		.sub_color = naui_theme_color("uph_midi_editor_grid_subbeat_color"),
+		.beat_color = naui_theme_color("uph_midi_editor_grid_beat_color"),
+		.bar_color = naui_theme_color("uph_midi_editor_grid_bar_color")
+	});
 }
 
 void uph_midi_grid_render_ruler(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
-	uph_grid_render_ruler(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x));
+	uph_grid_render_ruler(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x), (Uph_GridColors){
+		.sub_color = naui_theme_color("uph_midi_editor_ruler_grid_subbeat_color"),
+		.beat_color = naui_theme_color("uph_midi_editor_ruler_grid_beat_color"),
+		.bar_color = naui_theme_color("uph_midi_editor_ruler_grid_bar_color"),
+		.number_color = naui_theme_color("uph_midi_editor_ruler_grid_text_color")
+	});
 }

@@ -231,7 +231,7 @@ static void _uph_midi_editor_playhead_overlay_draw(Leaf_BoundingBox box, void *u
 	const int32_t size = NAUI_DPI(16);
 	const float half_size = size * 0.5f;
 	const float ruler_bottom = box.y + (float)(NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT) - 2);
-	const Naui_Color color = naui_theme_color("uph_playhead_color");
+	const Naui_Color color = naui_theme_color("uph_midi_editor_playhead_color");
 
 	naui_push_clip_rect(lanes.x - NAUI_DPI(1), box.y, lanes.width + NAUI_DPI(1), lanes.y + lanes.height - box.y);
 	naui_draw_line((Naui_Vec2) { x, ruler_bottom - half_size }, (Naui_Vec2) { x, lanes.y + lanes.height }, color, NAUI_DPI(1));
@@ -346,7 +346,7 @@ static void _uph_midi_editor_lanes_draw(Leaf_BoundingBox box, void *user_data)
 	uph_midi_note_input_update(state, box, pattern);
 	_uph_midi_editor_update_audition(state, pattern);
 	_uph_midi_editor_render_loop_end(state, box, pattern);
-	uph_loop_region_render_bounds(&pattern->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), state->view.zoom.x, state->view.scroll.x, uph_midi_preview_looping());
+	uph_loop_region_render_bounds(&pattern->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), state->view.zoom.x, state->view.scroll.x, uph_midi_preview_looping(), naui_theme_color("uph_midi_editor_selection_outline_color"));
 	uph_midi_notes_render(box, &state->view, &state->note_map, pattern);
 	uph_midi_notes_render_marquee(&state->view, box, &state->note_input.marquee);
 	naui_pop_clip_rect();
@@ -358,7 +358,7 @@ static void _uph_midi_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	_uph_midi_editor_update_playhead_drag(state, box);
 	const Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 	if (pattern)
-		uph_loop_region_render_ruler(&pattern->loop_region, box, state->view.zoom.x, state->view.scroll.x, uph_midi_preview_looping());
+		uph_loop_region_render_ruler(&pattern->loop_region, box, state->view.zoom.x, state->view.scroll.x, uph_midi_preview_looping(), naui_theme_color("uph_midi_editor_selection_outline_color"));
 	uph_midi_grid_render_ruler(box, &state->view, state->snap_resolution);
 }
 
@@ -462,7 +462,7 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID
 	}
 
 	const bool handle_active = lane->splitter_hovered || lane->resizing;
-	const Leaf_Color border_color = naui_theme_color(handle_active ? "uph_ui_frame_hovered_bg_color" : "uph_toolbox_border_color");
+	const Leaf_Color border_color = naui_theme_color(handle_active ? "uph_ui_frame_hovered_bg_color" : "uph_midi_editor_toolbox_border_color");
 
 	leaf({
 		.id = bar_id,
@@ -473,7 +473,7 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID
 			.sides = lane->visible ? (LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM) : LEAF_SIDE_TOP,
 			.color = border_color
 		},
-		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.color = naui_theme_color("uph_midi_editor_toolbox_bg_color"),
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_BOTTOM },
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
@@ -512,9 +512,9 @@ static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorState *editor)
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_ALL,
-				.color = naui_theme_color("uph_timeline_top_ruler_border_color")
+				.color = naui_theme_color("uph_midi_editor_ruler_border_color")
 			},
-			.color = naui_theme_color("uph_timeline_top_ruler_bg_color")
+			.color = naui_theme_color("uph_midi_editor_ruler_bg_color")
 		});
 	}
 }

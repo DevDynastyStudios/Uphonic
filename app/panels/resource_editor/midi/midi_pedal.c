@@ -246,7 +246,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_midi_editor_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 	for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
@@ -333,7 +333,7 @@ static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int3
 void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const Uph_PedalLane *lane = &editor->pedal_lane;
-	const Leaf_Color guide_color = naui_theme_color("uph_timeline_grid_subbeat_color");
+	const Leaf_Color guide_color = naui_theme_color("uph_midi_editor_grid_subbeat_color");
 	const Leaf_Color color = uph_midi_view_note_color();
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_midi_editor_scale_lane_color"), 0.0f, NAUI_CORNER_NONE);

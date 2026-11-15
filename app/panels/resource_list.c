@@ -653,7 +653,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
             .sides = LEAF_SIDE_ALL,
             .color = naui_theme_color("uph_ui_frame_border")
         },
-        .color = naui_theme_color("uph_song_timeline_header_color"),
+        .color = naui_theme_color("uph_resource_list_header_color"),
         .child_alignment = {
             .x = LEAF_ALIGN_X_CENTER,
             .y = LEAF_ALIGN_Y_CENTER
