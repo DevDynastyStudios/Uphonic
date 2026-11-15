@@ -109,6 +109,22 @@
 	"menu.windows.hide": "すべて非表示",
 	"menu.windows.show": "すべて表示",
 
+	"midi.edit": "編集",
+	"midi.edit.delete": "削除",
+	"midi.edit.deselect": "選択解除",
+	"midi.edit.duplicate": "複製",
+	"midi.edit.select_all": "すべて選択",
+
+	"midi.tools": "ツール",
+	"midi.tools.quantize": "クオンタイズ",
+
+	"midi.scale": "スケール",
+	"midi.scale.root": "ルート音",
+
+	"midi.view": "表示",
+	"midi.view.velocity_lane": "ベロシティレーン",
+	"midi.view.reset_scroll": "スクロール位置をリセット",
+
 	"mixer.title": "ミキサー",
 
 	"pattern.default.name": "無題のパターン",
