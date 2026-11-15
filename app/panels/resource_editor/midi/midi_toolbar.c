@@ -103,6 +103,15 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 				NAUI_CORNER_NONE
 			)) uph_midi_editor_stop_playback();
 
+			const bool recording = uph_midi_recorder_pattern_armed();
+			if (uph_ui_toolbox_toggle_button_ex(
+				naui_asset_image("uph_icon_mic"),
+				leaf_id("uph_midi_editor_record"),
+				recording ? naui_theme_color("uph_record_armed_color") : icon_color,
+				NAUI_CORNER_NONE,
+				recording
+			)) uph_midi_editor_toggle_recording();
+
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_reset"),
 				leaf_id("uph_midi_editor_reset"),

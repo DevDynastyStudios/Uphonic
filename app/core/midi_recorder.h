@@ -14,6 +14,23 @@ void uph_midi_recorder_process(
 	bool playing
 );
 
+void uph_midi_recorder_process_pattern(
+	uint32_t frame_count,
+	uint32_t sample_rate,
+	float bpm
+);
+
+bool uph_midi_recorder_pattern_armed(void);
+
+bool uph_midi_recorder_note_recording(
+	uint32_t pattern_index,
+	uint32_t note_index
+);
+
+void uph_midi_recorder_set_pattern_armed(
+	bool armed
+);
+
 void uph_midi_recorder_finish_take(
 	Uph_Track *track
 );

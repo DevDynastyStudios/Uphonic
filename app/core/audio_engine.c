@@ -729,6 +729,9 @@ static void uph_queue_pattern_block_notes(
 
     for (uint64_t n = 0; n < note_count; n++)
     {
+        if (uph_midi_recorder_note_recording(block->resource_index, (uint32_t)n))
+            continue;
+
         Uph_MidiNote *note = &pattern->notes[n];
 
         double note_start_beat = block->start_beat
@@ -1032,6 +1035,9 @@ static void uph_mark_block_held_notes(
 
     for (uint64_t n = 0; n < note_count; n++)
     {
+        if (uph_midi_recorder_note_recording(block->resource_index, (uint32_t)n))
+            continue;
+
         Uph_MidiNote *note = &pattern->notes[n];
         double note_start_beat = block->start_beat + (note->start_beat - block->start_offset_beats);
         double note_end_beat = note_start_beat + note->length_beats;
@@ -2621,6 +2627,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
 
     float *rendered = output_channels == 2 ? out : alloca(frame_count * 2 * sizeof(float));
     uph_midi_preview_begin_buffer(frame_count, engine_sample_rate, bpm, is_playing);
+    uph_midi_recorder_process_pattern(frame_count, engine_sample_rate, bpm);
     uph_render_audio(playhead_start_beat, engine_sample_rate, rendered, frame_count, is_playing, input_f);
     uph_midi_preview_end_buffer();
     uph_sample_preview_mix(rendered, frame_count, engine_sample_rate, bpm, is_playing);

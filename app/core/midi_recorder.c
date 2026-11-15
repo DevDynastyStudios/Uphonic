@@ -27,6 +27,7 @@ typedef struct
 	uint32_t pattern_index;
 	uint32_t note_index;
 	double raw_start_beat;
+	double clock_offset;
 	uint8_t key;
 }
 Uph_MidiRecordOpenNote;
@@ -40,6 +41,14 @@ typedef struct
 	_Atomic bool live_held_keys[128];
 	_Atomic uint8_t live_pedals[UPH_MIDI_PEDAL_COUNT];
 	double last_end_beat;
+	struct
+	{
+		_Atomic bool armed;
+		bool active;
+		Uph_ResourceIndex pattern_index;
+		double clock;
+	}
+	pattern_take;
 }
 Uph_MidiRecorderState;
 
@@ -57,6 +66,21 @@ static void uph_midi_record_ring_push(Uph_MidiRecordEvent event)
 	atomic_store_explicit(&state->ring.tail, tail + 1, memory_order_release);
 }
 
+bool uph_midi_recorder_pattern_armed(void)
+{
+	return atomic_load_explicit(&_uph_midi_recorder_state.pattern_take.armed, memory_order_relaxed);
+}
+
+void uph_midi_recorder_set_pattern_armed(bool armed)
+{
+	atomic_store_explicit(&_uph_midi_recorder_state.pattern_take.armed, armed, memory_order_relaxed);
+}
+
+static bool uph_midi_record_accepts_input(void)
+{
+	return uph_state.shared.song_timeline_playing || (uph_midi_recorder_pattern_armed() && uph_midi_preview_playing());
+}
+
 void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity)
 {
 	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
@@ -68,7 +92,7 @@ void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity)
 
 	atomic_store_explicit(&state->live_held_keys[key], note_on, memory_order_relaxed);
 
-	if (!uph_state.shared.song_timeline_playing)
+	if (!uph_midi_record_accepts_input())
 		return;
 
 	uph_midi_record_ring_push((Uph_MidiRecordEvent){
@@ -89,7 +113,7 @@ void uph_midi_recorder_pedal_input(uint8_t cc, uint8_t value)
 	value &= 0x7F;
 	atomic_store_explicit(&state->live_pedals[type], value, memory_order_relaxed);
 
-	if (!uph_state.shared.song_timeline_playing)
+	if (!uph_midi_record_accepts_input())
 		return;
 
 	uph_midi_record_ring_push((Uph_MidiRecordEvent){
@@ -135,6 +159,7 @@ static void uph_midi_record_close_note(uint32_t open_index, double end_beat)
 	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
 	Uph_MidiRecordOpenNote open = state->open_notes[open_index];
 	state->open_notes[open_index] = state->open_notes[--state->open_note_count];
+	end_beat += open.clock_offset;
 
 	Uph_Project *project = &uph_state.project;
 	if (open.pattern_index >= naui_list_len(project->midi_patterns))
@@ -406,7 +431,8 @@ void uph_midi_recorder_process(double buffer_start_beat, uint32_t frame_count, u
 	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
 	if (!playing || bpm <= 0.0f)
 	{
-		uph_midi_record_ring_drain(NULL, UPH_MIDI_RECORD_RING_CAPACITY);
+		if (!uph_midi_recorder_pattern_armed())
+			uph_midi_record_ring_drain(NULL, UPH_MIDI_RECORD_RING_CAPACITY);
 		return;
 	}
 
@@ -417,3 +443,155 @@ void uph_midi_recorder_process(double buffer_start_beat, uint32_t frame_count, u
 
 	uph_midi_record_tracks(uph_state.project.tracks, event_count, callback_time, buffer_start_beat, buffer_end_beat, bpm);
 }
+
+#pragma region Pattern Take
+
+bool uph_midi_recorder_note_recording(uint32_t pattern_index, uint32_t note_index)
+{
+	const Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	if (!state->pattern_take.active || state->pattern_take.pattern_index != pattern_index)
+		return false;
+
+	for (uint32_t i = 0; i < state->open_note_count; i++)
+	{
+		if (state->open_notes[i].pattern_index == pattern_index && state->open_notes[i].note_index == note_index)
+			return true;
+	}
+	return false;
+}
+
+static void uph_midi_record_finish_pattern_take(void)
+{
+	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	if (!state->pattern_take.active)
+		return;
+
+	uph_midi_record_close_pattern_notes(state->pattern_take.pattern_index, state->pattern_take.clock);
+	state->pattern_take.active = false;
+}
+
+static double uph_midi_record_pattern_local_beat(const Uph_MidiPreviewRange *range, double beats_ago)
+{
+	double local = range->start_beat - beats_ago;
+	const double span = range->loop_end - range->loop_start;
+	if (range->loop && local < range->loop_start && span > 0.0)
+		local += span;
+	return local > 0.0 ? local : 0.0;
+}
+
+static void uph_midi_record_pattern_note_on(Uph_MidiPattern *pattern, double local_beat, double clock_beat, uint8_t key, uint8_t velocity)
+{
+	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	const uint32_t pattern_index = state->pattern_take.pattern_index;
+	for (uint32_t i = 0; i < state->open_note_count; i++)
+	{
+		if (state->open_notes[i].pattern_index == pattern_index && state->open_notes[i].key == key)
+		{
+			uph_midi_record_close_note(i, clock_beat);
+			break;
+		}
+	}
+
+	double start_beat = local_beat;
+	if (uph_state.settings.midi.record_quantize)
+		start_beat = fmax(0.0, uph_snap_beat_round(local_beat, (Uph_SnapResolution)uph_state.settings.midi.record_quantize_grid, 0.0f));
+
+	const uint32_t note_index = (uint32_t)naui_list_len(pattern->notes);
+	naui_list_push(pattern->notes, ((Uph_MidiNote){
+		.start_beat = start_beat,
+		.length_beats = UPH_MIDI_RECORD_MIN_NOTE_BEATS,
+		.key_number = key,
+		.velocity = velocity
+	}));
+
+	if (state->open_note_count < UPH_MIDI_RECORD_MAX_OPEN_NOTES)
+	{
+		state->open_notes[state->open_note_count++] = (Uph_MidiRecordOpenNote){
+			.pattern_index = pattern_index,
+			.note_index = note_index,
+			.raw_start_beat = local_beat,
+			.clock_offset = local_beat - clock_beat,
+			.key = key
+		};
+	}
+}
+
+static void uph_midi_record_pattern_note_off(double clock_beat, uint8_t key)
+{
+	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	for (uint32_t i = 0; i < state->open_note_count; i++)
+	{
+		if (state->open_notes[i].pattern_index == state->pattern_take.pattern_index && state->open_notes[i].key == key)
+		{
+			uph_midi_record_close_note(i, clock_beat);
+			return;
+		}
+	}
+}
+
+void uph_midi_recorder_process_pattern(uint32_t frame_count, uint32_t sample_rate, float bpm)
+{
+	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_Project *project = &uph_state.project;
+
+	Uph_MidiPreviewRange range;
+	const bool recording = uph_midi_recorder_pattern_armed()
+		&& bpm > 0.0f
+		&& sample_rate > 0
+		&& uph_midi_preview_buffer_range(&range)
+		&& range.pattern_index < naui_list_len(project->midi_patterns);
+
+	if (state->pattern_take.active && (!recording || state->pattern_take.pattern_index != range.pattern_index))
+		uph_midi_record_finish_pattern_take();
+
+	if (!recording)
+	{
+		if (!uph_state.shared.song_timeline_playing)
+			uph_midi_record_ring_drain(NULL, UPH_MIDI_RECORD_RING_CAPACITY);
+		return;
+	}
+
+	if (!state->pattern_take.active)
+	{
+		uph_midi_record_drop_pattern_notes(range.pattern_index);
+		state->pattern_take.active = true;
+		state->pattern_take.pattern_index = range.pattern_index;
+		state->pattern_take.clock = 0.0;
+	}
+
+	Uph_MidiPattern *pattern = &project->midi_patterns[range.pattern_index];
+	const float callback_time = naui_time();
+	const uint32_t event_count = uph_midi_record_ring_drain(state->events, UPH_MIDI_RECORD_RING_CAPACITY);
+	const double clock = state->pattern_take.clock;
+
+	for (uint32_t e = 0; e < event_count; e++)
+	{
+		const Uph_MidiRecordEvent *event = &state->events[e];
+		const double seconds_ago = fmax(0.0, (double)(callback_time - event->time));
+		const double beats_ago = uph_seconds_to_beats(seconds_ago, bpm);
+		const double local_beat = uph_midi_record_pattern_local_beat(&range, beats_ago);
+		const double clock_beat = clock - beats_ago;
+
+		if (event->pedal)
+			uph_midi_record_pedal(pattern, local_beat, (Uph_MidiPedalType)event->key, event->velocity);
+		else if (event->note_on)
+			uph_midi_record_pattern_note_on(pattern, local_beat, clock_beat, event->key, event->velocity);
+		else
+			uph_midi_record_pattern_note_off(clock_beat, event->key);
+	}
+
+	const double clock_end = clock + uph_seconds_to_beats((double)frame_count / (double)sample_rate, bpm);
+	for (uint32_t o = 0; o < state->open_note_count; o++)
+	{
+		const Uph_MidiRecordOpenNote *open = &state->open_notes[o];
+		if (open->pattern_index != range.pattern_index || open->note_index >= naui_list_len(pattern->notes))
+			continue;
+
+		const double length = clock_end + open->clock_offset - open->raw_start_beat;
+		pattern->notes[open->note_index].length_beats = length > UPH_MIDI_RECORD_MIN_NOTE_BEATS ? length : UPH_MIDI_RECORD_MIN_NOTE_BEATS;
+	}
+
+	state->pattern_take.clock = clock_end;
+}
+
+#pragma endregion

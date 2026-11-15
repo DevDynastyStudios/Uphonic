@@ -156,9 +156,30 @@ void uph_midi_editor_stop_playback(void)
 	uph_midi_preview_stop();
 }
 
+void uph_midi_editor_toggle_recording(void)
+{
+	if (uph_midi_recorder_pattern_armed())
+	{
+		uph_midi_recorder_set_pattern_armed(false);
+		return;
+	}
+
+	if (uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN && uph_note_pattern(uph_state.shared.selected_resource.index))
+		uph_midi_recorder_set_pattern_armed(true);
+}
+
+static void _uph_midi_editor_update_recording(Uph_MidiEditorState *editor)
+{
+	const bool playing = uph_midi_preview_playing();
+	if (editor->record_was_playing && !playing)
+		uph_midi_recorder_set_pattern_armed(false);
+	editor->record_was_playing = playing;
+}
+
 static void _uph_midi_editor_update_playback(Uph_MidiEditorState *editor)
 {
 	uph_midi_preview_refresh_voice();
+	_uph_midi_editor_update_recording(editor);
 
 	if (naui_panel_focused() == uph_state.panels.resource_editor && naui_keybind_pressed(uph_state.settings.keybinds.play_pause) && !uph_ui_any_menu_open())
 		uph_midi_editor_toggle_playback();

@@ -183,6 +183,12 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 	{
 		uph_piano_set_external_key(&state->piano, event->note, note_on);
 		uph_midi_recorder_input(note_on, event->note, event->velocity);
+
+		const Uph_Track *voice = uph_midi_preview_voice();
+		if (!note_on || event->velocity == 0)
+			uph_midi_preview_note_off(event->note);
+		else if (voice && uph_midi_preview_voice_monitoring() && !uph_track_monitors_instrument(voice))
+			uph_midi_preview_note_on(event->note, event->velocity);
  
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 		{
@@ -321,7 +327,12 @@ void naui_app_update(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);
  
-	atomic_store_explicit(&_uph_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
+	const bool midi_editor_focused = naui_panel_focused() == uph_state.panels.resource_editor
+		&& uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN
+		&& uph_note_pattern(uph_state.shared.selected_resource.index);
+	uph_midi_preview_set_voice_monitoring(midi_editor_focused);
+	const bool voice_monitoring = uph_midi_preview_voice_monitoring();
+	atomic_store_explicit(&_uph_midi_instrument_monitoring, voice_monitoring || _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
 	uph_autosave_update();
 }
  

@@ -144,6 +144,7 @@ typedef struct
 	uint8_t scale_root;
 	bool panning;
 	bool playhead_dragging;
+	bool record_was_playing;
 	bool lanes_hovered;
 	bool panel_hovered;
 	bool piano_hovered;

@@ -8,6 +8,7 @@ typedef struct
 	double loop_end;
 	bool loop;
 	bool repeat;
+	bool extend;
 }
 Uph_MidiPreviewRange;
 
@@ -16,6 +17,7 @@ typedef struct
 	Uph_Track *voice;
 	Uph_ActionTrackRef voice_ref;
 	bool none_chosen;
+	_Atomic bool voice_monitoring;
 
 	bool playing;
 	bool loop;
@@ -77,6 +79,16 @@ void uph_midi_preview_set_voice(Uph_Track *track)
 Uph_Track *uph_midi_preview_voice(void)
 {
 	return _uph_midi_preview_state.voice;
+}
+
+void uph_midi_preview_set_voice_monitoring(bool monitoring)
+{
+	atomic_store_explicit(&_uph_midi_preview_state.voice_monitoring, monitoring, memory_order_relaxed);
+}
+
+bool uph_midi_preview_voice_monitoring(void)
+{
+	return atomic_load_explicit(&_uph_midi_preview_state.voice_monitoring, memory_order_relaxed) && _uph_midi_preview_state.voice;
 }
 
 void uph_midi_preview_refresh_voice(void)
@@ -199,7 +211,9 @@ void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, f
 	if (length <= 0.0)
 		return;
 
-	const bool region = state->loop && uph_loop_region_valid(&pattern->loop_region);
+	const bool extend = uph_midi_recorder_pattern_armed();
+	const bool loop = state->loop && !extend;
+	const bool region = loop && uph_loop_region_valid(&pattern->loop_region);
 	const double loop_start = region ? pattern->loop_region.start : 0.0;
 	const double loop_end = region ? pattern->loop_region.end : length;
 
@@ -210,7 +224,7 @@ void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, f
 		if (start >= loop_end && start >= length)
 			start = loop_start;
 	}
-	else if (start >= length)
+	else if (start >= length && !extend)
 		start = fmod(start, length);
 
 	double end = start + uph_seconds_to_beats((double)frame_count / (double)sample_rate, bpm);
@@ -224,8 +238,9 @@ void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, f
 		.length = length,
 		.loop_start = loop_start,
 		.loop_end = start < loop_end ? loop_end : length,
-		.loop = state->loop,
-		.repeat = state->loop && !region
+		.loop = loop,
+		.repeat = loop && !region,
+		.extend = extend
 	};
 	state->buffer_playing = true;
 }
@@ -234,6 +249,16 @@ bool uph_midi_preview_playback_range(const Uph_Track *track, Uph_MidiPreviewRang
 {
 	const Uph_MidiPreviewState *state = &_uph_midi_preview_state;
 	if (!state->buffer_playing || !track || track != state->voice)
+		return false;
+
+	*range = state->buffer_range;
+	return true;
+}
+
+bool uph_midi_preview_buffer_range(Uph_MidiPreviewRange *range)
+{
+	const Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	if (!state->buffer_playing)
 		return false;
 
 	*range = state->buffer_range;
@@ -267,7 +292,7 @@ void uph_midi_preview_end_buffer(void)
 
 	const Uph_MidiPreviewRange *range = &state->buffer_range;
 	double next = range->end_beat;
-	if (next >= range->loop_end)
+	if (next >= range->loop_end && !range->extend)
 	{
 		if (range->repeat)
 			next = fmod(next, range->length);

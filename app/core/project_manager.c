@@ -1,6 +1,7 @@
 static void _uph_project_default_shared_state()
 {
 	uph_state.shared.song_timeline_playing = false;
+	uph_midi_recorder_set_pattern_armed(false);
 	uph_state.shared.selected_resource.index = 0;
 	uph_state.shared.selected_resource.type = UPH_RESOURCE_PATTERN;
 	uph_state.shared.song_timeline_current_block_length = uph_time_signature_bar_length();
