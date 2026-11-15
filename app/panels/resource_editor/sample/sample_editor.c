@@ -461,7 +461,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 		{
 			char label[32];
 			_uph_sample_editor_format_time(label, sizeof(label), time, decimals);
-			naui_draw_text((Naui_Vec2) { x + 4.0f, box.y + box.height * 0.4f }, label, NAUI_DPI(13), 0, number_color);
+			naui_draw_text((Naui_Vec2) { x + 4.0f, box.y + box.height * 0.4f }, label, NAUI_DPI(13), number_color);
 		}
 	}
 
@@ -689,8 +689,8 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 		const bool compact = half < NAUI_DPI(36);
 
 		const char *channel_label = channels == 1 ? "M" : (c == 0 ? "L" : "R");
-		const Naui_Vec2 channel_size = naui_measure_text(channel_label, 1, NAUI_DPI(12), 0);
-		naui_draw_text((Naui_Vec2) { box.x + NAUI_DPI(6), mid_y - channel_size.y * 0.5f }, channel_label, NAUI_DPI(12), 0, naui_theme_color("uph_ui_text_color"));
+		const Naui_Vec2 channel_size = naui_measure_text(channel_label, 1, NAUI_DPI(12));
+		naui_draw_text((Naui_Vec2) { box.x + NAUI_DPI(6), mid_y - channel_size.y * 0.5f }, channel_label, NAUI_DPI(12), naui_theme_color("uph_ui_text_color"));
 
 		for (int32_t side = -1; side <= 1; side += 2)
 		{
@@ -702,18 +702,18 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 				const float y = mid_y - (float)side * _uph_sample_editor_db_to_amplitude(marks[m]) * half;
 				char label[16];
 				snprintf(label, sizeof(label), "%d", (int)marks[m]);
-				const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+				const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 
 				naui_draw_line((Naui_Vec2) { box.x + box.width - tick, y }, (Naui_Vec2) { box.x + box.width, y }, tick_color, 1.0f);
-				naui_draw_text((Naui_Vec2) { box.x + box.width - tick - NAUI_DPI(3) - size.x, NAUI_CLAMP(y - size.y * 0.5f, (float)lane.y, (float)(lane.y + lane.height) - size.y) }, label, font_size, 0, text_color);
+				naui_draw_text((Naui_Vec2) { box.x + box.width - tick - NAUI_DPI(3) - size.x, NAUI_CLAMP(y - size.y * 0.5f, (float)lane.y, (float)(lane.y + lane.height) - size.y) }, label, font_size, text_color);
 			}
 		}
 
 		const char *inf_label = "-inf";
-		const Naui_Vec2 inf_size = naui_measure_text(inf_label, (uint32_t)strlen(inf_label), font_size, 0);
+		const Naui_Vec2 inf_size = naui_measure_text(inf_label, (uint32_t)strlen(inf_label), font_size);
 		naui_draw_line((Naui_Vec2) { box.x + box.width - tick, mid_y }, (Naui_Vec2) { box.x + box.width, mid_y }, tick_color, 1.0f);
 		if (!compact)
-			naui_draw_text((Naui_Vec2) { box.x + box.width - tick - NAUI_DPI(3) - inf_size.x, mid_y - inf_size.y * 0.5f }, inf_label, font_size, 0, text_color);
+			naui_draw_text((Naui_Vec2) { box.x + box.width - tick - NAUI_DPI(3) - inf_size.x, mid_y - inf_size.y * 0.5f }, inf_label, font_size, text_color);
 
 		if (c > 0)
 			naui_draw_line((Naui_Vec2) { box.x, (float)lane.y }, (Naui_Vec2) { box.x + box.width, (float)lane.y }, naui_theme_color("uph_sample_editor_grid_beat_color"), 1.0f);

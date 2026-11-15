@@ -3,8 +3,8 @@
 
 #define NAUI_RENDERER_CORNER_SEGMENTS 4
 
-#define NAUI_FONT_MAX_SLOTS         4
 #define NAUI_FONT_MAX_RANGES        64
+#define NAUI_FONT_MAX_SOURCES       4
 
 #define NAUI_FONT_NAME_MAX          64
 
@@ -106,17 +106,38 @@ Naui_FontRange;
 
 typedef struct
 {
-    Naui_FontRange *ranges;
-    int             range_count;
-    mgfx_image      atlas;
-    int             atlas_size;
-    float           ascent;
-    float           descent;
-    float           baked_size;
-    int             pixel_size;
-    bool            loaded;
+    int              codepoint;
+    stbtt_packedchar chars;
+}
+Naui_FontGlyph;
+
+typedef struct
+{
+    Naui_FontRange    *ranges;
+    int                range_count;
+    Naui_FontGlyph    *glyphs;
+    int                glyph_count;
+    int                glyph_capacity;
+    uint8_t           *pixels;
+    stbtt_pack_context pack;
+    bool               dirty;
+    mgfx_image         atlas;
+    int                atlas_size;
+    float              ascent;
+    float              descent;
+    float              baked_size;
+    int                pixel_size;
+    bool               loaded;
 }
 Naui_FontBake;
+
+typedef struct
+{
+    uint8_t       *ttf[NAUI_FONT_MAX_SOURCES];
+    stbtt_fontinfo info[NAUI_FONT_MAX_SOURCES];
+    int            count;
+}
+Naui_FontSources;
 
 typedef struct
 {
@@ -126,6 +147,8 @@ typedef struct
     int   padding;
     int   oversample_h;
     int   mip_count;
+    bool  growable;
+    int   min_atlas_size;
 }
 Naui_FontBakeParams;
 
@@ -150,13 +173,12 @@ typedef struct
 
     mgfx_image image_atlas;
 
-    Naui_FontBake  font[NAUI_FONT_MAX_SLOTS];
-    bool           font_loaded[NAUI_FONT_MAX_SLOTS];
-    uint8_t       *font_ttf[NAUI_FONT_MAX_SLOTS];
-    stbtt_fontinfo font_info[NAUI_FONT_MAX_SLOTS];
-    Naui_FontBake  font_sized[NAUI_FONT_MAX_SLOTS][NAUI_FONT_MAX_SIZED];
-    int            font_sized_count[NAUI_FONT_MAX_SLOTS];
-    mgfx_image     font_bound_atlas;
+    Naui_FontBake    font;
+    bool             font_loaded;
+    Naui_FontSources font_sources;
+    Naui_FontBake    font_sized[NAUI_FONT_MAX_SIZED];
+    int              font_sized_count;
+    mgfx_image       font_bound_atlas;
 
     Naui_ClipRect clip_stack[NAUI_CLIP_STACK_MAX];
     int32_t       clip_stack_depth;
@@ -213,6 +235,16 @@ static const stbtt_packedchar *naui_bake_lookup(const Naui_FontBake *bake, int c
         if (cp >= r->first_codepoint && cp < r->first_codepoint + r->num_chars)
             return &r->chars[cp - r->first_codepoint];
     }
+
+    int lo = 0, hi = bake->glyph_count;
+    while (lo < hi)
+    {
+        const int mid = (lo + hi) / 2;
+        if (bake->glyphs[mid].codepoint < cp) lo = mid + 1;
+        else hi = mid;
+    }
+    if (lo < bake->glyph_count && bake->glyphs[lo].codepoint == cp)
+        return &bake->glyphs[lo].chars;
     return NULL;
 }
 
@@ -758,14 +790,25 @@ static void naui_free_bake(Naui_FontBake *bake)
     bake->ranges = NULL;
     bake->range_count = 0;
 
+    free(bake->glyphs);
+    bake->glyphs = NULL;
+    bake->glyph_count = 0;
+    bake->glyph_capacity = 0;
+
+    if (bake->pixels)
+    {
+        stbtt_PackEnd(&bake->pack);
+        free(bake->pixels);
+        bake->pixels = NULL;
+    }
+
     mgfx_destroy_image(bake->atlas);
     bake->loaded = false;
 }
 
 void naui_renderer_shutdown(void)
 {
-    for (int i = 0; i < NAUI_FONT_MAX_SLOTS; i++)
-        naui_unload_font((uint8_t)i);
+    naui_unload_fonts();
     mgfx_destroy_sampler(_naui_renderer_state->linear_sampler);
     mgfx_destroy_sampler(_naui_renderer_state->nearest_sampler);
     mgfx_destroy_sampler(_naui_renderer_state->font_sampler);
@@ -802,7 +845,7 @@ bool naui_renderer_begin(void)
     mgfx_bind_index_buffer(_naui_renderer_state->batch_ib, MGFX_INDEX_TYPE_UINT32);
     mgfx_bind_sampled_image(_naui_renderer_state->image_atlas, _naui_renderer_state->linear_sampler, 0);
 
-    _naui_renderer_state->font_bound_atlas = _naui_renderer_state->font_loaded[0] ? _naui_renderer_state->font[0].atlas : _naui_renderer_state->image_atlas;
+    _naui_renderer_state->font_bound_atlas = _naui_renderer_state->font_loaded ? _naui_renderer_state->font.atlas : _naui_renderer_state->image_atlas;
     mgfx_bind_sampled_image(_naui_renderer_state->font_bound_atlas, _naui_renderer_state->font_sampler, 1);
 
     struct { Naui_Vec2 u_resolution; } ub_data;
@@ -812,8 +855,11 @@ bool naui_renderer_begin(void)
     return true;
 }
 
+static void naui_upload_dirty_font_atlases(void);
+
 void naui_renderer_end(void)
 {
+    naui_upload_dirty_font_atlases();
     naui_renderer_flush();
     mgfx_end();
 }
@@ -880,9 +926,37 @@ static void naui_build_mip_chain(uint8_t *base, int size, int mip_count, void **
     }
 }
 
+static int naui_font_glyph_owner(const Naui_FontSources *sources, int cp)
+{
+    for (int s = 0; s < sources->count; s++)
+    {
+        if (stbtt_FindGlyphIndex(&sources->info[s], cp) != 0)
+            return s;
+    }
+    return -1;
+}
+
+static float naui_source_font_size(const Naui_FontSources *sources, int source, float bake_size)
+{
+    if (source == 0)
+        return bake_size;
+
+    const float em_px = stbtt_ScaleForPixelHeight(&sources->info[0], bake_size) / stbtt_ScaleForMappingEmToPixels(&sources->info[0], 1.0f);
+    return STBTT_POINT_SIZE(em_px);
+}
+
+static void naui_set_range_sizes(stbtt_pack_range *ranges, const Naui_FontSources *sources, const int *first_range, const int *range_count, float bake_size)
+{
+    for (int s = 0; s < sources->count; s++)
+    {
+        const float size = naui_source_font_size(sources, s, bake_size);
+        for (int i = 0; i < range_count[s]; i++)
+            ranges[first_range[s] + i].font_size = size;
+    }
+}
+
 static int naui_bake_font(
-    const uint8_t             *ttf_buf,
-    stbtt_fontinfo            *info,
+    const Naui_FontSources    *sources,
     const Naui_FontBakeParams *params,
     Naui_FontBake             *bake)
 {
@@ -898,34 +972,43 @@ static int naui_bake_font(
 
     int range_count  = 0;
     int total_glyphs = 0;
+    int source_first_range[NAUI_FONT_MAX_SOURCES];
+    int source_range_count[NAUI_FONT_MAX_SOURCES];
 
-    for (int b = 0; b < K_NUM_UNICODE_BLOCKS; b++)
+    for (int s = 0; s < sources->count; s++)
     {
-        int block_start = k_unicode_blocks[b].start;
-        int block_end   = block_start + k_unicode_blocks[b].count;
-        int run_start   = -1;
+        source_first_range[s] = range_count;
 
-        if (!params->include_cjk && naui_block_is_cjk(block_start))
-            continue;
-
-        for (int cp = block_start; cp <= block_end; cp++)
+        for (int b = 0; b < K_NUM_UNICODE_BLOCKS; b++)
         {
-            int present = (cp < block_end) && (stbtt_FindGlyphIndex(info, cp) != 0);
+            int block_start = k_unicode_blocks[b].start;
+            int block_end   = block_start + k_unicode_blocks[b].count;
+            int run_start   = -1;
 
-            if (present && run_start < 0)
+            if (!params->include_cjk && naui_block_is_cjk(block_start))
+                continue;
+
+            for (int cp = block_start; cp <= block_end; cp++)
             {
-                run_start = cp;
-            }
-            else if (!present && run_start >= 0)
-            {
-                int num = cp - run_start;
-                meta[range_count].first_codepoint = run_start;
-                meta[range_count].num_chars       = num;
-                range_count++;
-                total_glyphs += num;
-                run_start = -1;
+                int present = (cp < block_end) && naui_font_glyph_owner(sources, cp) == s;
+
+                if (present && run_start < 0)
+                {
+                    run_start = cp;
+                }
+                else if (!present && run_start >= 0)
+                {
+                    int num = cp - run_start;
+                    meta[range_count].first_codepoint = run_start;
+                    meta[range_count].num_chars       = num;
+                    range_count++;
+                    total_glyphs += num;
+                    run_start = -1;
+                }
             }
         }
+
+        source_range_count[s] = range_count - source_first_range[s];
     }
 
     if (range_count == 0)
@@ -953,16 +1036,17 @@ static int naui_bake_font(
             free(tmp_ranges); free(meta);
             return 0;
         }
-        tmp_ranges[i].font_size                        = bake_size;
         tmp_ranges[i].first_unicode_codepoint_in_range = meta[i].first_codepoint;
         tmp_ranges[i].array_of_unicode_codepoints       = NULL;
         tmp_ranges[i].num_chars                         = meta[i].num_chars;
         tmp_ranges[i].chardata_for_range                = chars;
     }
     free(meta);
+    naui_set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
 
     int chosen_atlas_size = 0;
     uint8_t *alpha = NULL;
+    stbtt_pack_context pack;
     const int max_attempts = params->exact ? 1 : 6;
 
     for (int attempt = 0; attempt < max_attempts && !alpha; attempt++)
@@ -971,24 +1055,29 @@ static int naui_bake_font(
         {
             bake_size *= 0.9f;
             if (bake_size < NAUI_FONT_MIN_BAKE_SIZE) break;
-            for (int i = 0; i < range_count; i++) tmp_ranges[i].font_size = bake_size;
+            naui_set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
         }
 
         int initial = naui_choose_initial_atlas(total_glyphs, bake_size, params->oversample_h, params->padding);
 
         for (int ci = 0; ci < K_NUM_ATLAS_CANDIDATES; ci++)
         {
-            if (k_atlas_size_candidates[ci] < initial) continue;
+            if (k_atlas_size_candidates[ci] < initial || k_atlas_size_candidates[ci] < params->min_atlas_size) continue;
 
             int sz = k_atlas_size_candidates[ci];
             uint8_t *buf = calloc(sz * sz, 1);
             if (!buf) continue;
 
-            stbtt_pack_context pc;
-            stbtt_PackBegin(&pc, buf, sz, sz, 0, params->padding, NULL);
-            stbtt_PackSetOversampling(&pc, (unsigned int)params->oversample_h, 1);
-            int ok = stbtt_PackFontRanges(&pc, ttf_buf, 0, tmp_ranges, range_count);
-            stbtt_PackEnd(&pc);
+            stbtt_PackBegin(&pack, buf, sz, sz, 0, params->padding, NULL);
+            stbtt_PackSetOversampling(&pack, (unsigned int)params->oversample_h, 1);
+            int ok = 1;
+            for (int s = 0; s < sources->count && ok; s++)
+            {
+                if (source_range_count[s] > 0)
+                    ok = stbtt_PackFontRanges(&pack, sources->ttf[s], 0, tmp_ranges + source_first_range[s], source_range_count[s]);
+            }
+            if (!ok || !params->growable)
+                stbtt_PackEnd(&pack);
 
             if (ok)
             {
@@ -1028,16 +1117,27 @@ static int naui_bake_font(
 
     bake->atlas = mgfx_create_image(&image_info);
 
-    for (int m = 0; m < MGFX_MAX_MIPMAPS; m++)
+    for (int m = params->growable ? 1 : 0; m < MGFX_MAX_MIPMAPS; m++)
         free(levels[m]);
 
     bake->ranges = malloc(range_count * sizeof(Naui_FontRange));
     if (!bake->ranges)
     {
         mgfx_destroy_image(bake->atlas);
+        if (params->growable)
+        {
+            stbtt_PackEnd(&pack);
+            free(alpha);
+        }
         for (int i = 0; i < range_count; i++) free(tmp_ranges[i].chardata_for_range);
         free(tmp_ranges);
         return 0;
+    }
+
+    if (params->growable)
+    {
+        bake->pixels = alpha;
+        bake->pack   = pack;
     }
 
     bake->atlas_size  = chosen_atlas_size;
@@ -1051,8 +1151,8 @@ static int naui_bake_font(
     free(tmp_ranges);
 
     int raw_ascent, raw_descent, raw_line_gap;
-    stbtt_GetFontVMetrics(info, &raw_ascent, &raw_descent, &raw_line_gap);
-    const float font_scale = stbtt_ScaleForPixelHeight(info, bake_size);
+    stbtt_GetFontVMetrics(&sources->info[0], &raw_ascent, &raw_descent, &raw_line_gap);
+    const float font_scale = stbtt_ScaleForPixelHeight(&sources->info[0], bake_size);
     bake->ascent  = raw_ascent  * font_scale;
     bake->descent = -raw_descent * font_scale;
 
@@ -1078,10 +1178,8 @@ static bool naui_font_name_is_valid(const char *name)
     return true;
 }
 
-bool naui_load_font(uint8_t index, const char *file_name)
+static bool naui_font_read_source(const char *file_name, uint8_t **out_ttf, stbtt_fontinfo *out_info)
 {
-    if (index >= NAUI_FONT_MAX_SLOTS) return false;
-
     if (!naui_font_name_is_valid(file_name))
     {
         naui_log(NAUI_LOG_WARNING, "Invalid font name: '%s'", file_name ? file_name : "(null)");
@@ -1101,14 +1199,40 @@ bool naui_load_font(uint8_t index, const char *file_name)
         return false;
     }
 
-    stbtt_fontinfo info;
     const int font_offset = size >= 12 ? stbtt_GetFontOffsetForIndex(ttf_buf, 0) : -1;
-    if (font_offset < 0 || !stbtt_InitFont(&info, ttf_buf, font_offset))
+    if (font_offset < 0 || !stbtt_InitFont(out_info, ttf_buf, font_offset))
     {
         naui_log(NAUI_LOG_WARNING, "Not a usable font file: %s", font_path.data);
         free(ttf_buf);
         return false;
     }
+
+    *out_ttf = ttf_buf;
+    return true;
+}
+
+static void naui_free_sources(Naui_FontSources *sources)
+{
+    for (int s = 0; s < sources->count; s++)
+        free(sources->ttf[s]);
+    memset(sources, 0, sizeof(*sources));
+}
+
+bool naui_load_fonts(const char *const *file_names, uint32_t file_count)
+{
+    if (file_count == 0 || file_count > NAUI_FONT_MAX_SOURCES)
+        return false;
+
+    Naui_FontSources sources;
+    memset(&sources, 0, sizeof(sources));
+    for (uint32_t i = 0; i < file_count; i++)
+    {
+        if (naui_font_read_source(file_names[i], &sources.ttf[sources.count], &sources.info[sources.count]))
+            sources.count++;
+    }
+
+    if (sources.count == 0)
+        return false;
 
     Naui_FontBake fresh;
     memset(&fresh, 0, sizeof(fresh));
@@ -1120,98 +1244,188 @@ bool naui_load_font(uint8_t index, const char *file_name)
         .oversample_h = 1,
         .mip_count    = NAUI_FONT_MAIN_MIP_COUNT,
     };
-    bool loaded = naui_bake_font(ttf_buf, &info, &params, &fresh) != 0;
 
-    if (!loaded)
+    if (!naui_bake_font(&sources, &params, &fresh))
     {
-        free(ttf_buf);
-        naui_log(NAUI_LOG_WARNING, "Couldn't bake font: %s", font_path.data);
+        naui_log(NAUI_LOG_WARNING, "Couldn't bake font: %s", file_names[0]);
+        naui_free_sources(&sources);
         return false;
     }
 
-    naui_unload_font(index);
-    _naui_renderer_state->font[index] = fresh;
-    _naui_renderer_state->font_loaded[index] = true;
-    _naui_renderer_state->font_ttf[index] = ttf_buf;
-    _naui_renderer_state->font_info[index] = info;
-    _naui_renderer_state->font_sized_count[index] = 0;
+    naui_unload_fonts();
+    _naui_renderer_state->font = fresh;
+    _naui_renderer_state->font_loaded = true;
+    _naui_renderer_state->font_sources = sources;
+    _naui_renderer_state->font_sized_count = 0;
     return true;
 }
 
-void naui_unload_font(uint8_t index)
+void naui_unload_fonts(void)
 {
-    if (index >= NAUI_FONT_MAX_SLOTS || !_naui_renderer_state->font_loaded[index])
+    if (!_naui_renderer_state->font_loaded)
         return;
 
-    if (_naui_renderer_state->font_bound_atlas == _naui_renderer_state->font[index].atlas)
+    if (_naui_renderer_state->font_bound_atlas == _naui_renderer_state->font.atlas)
         _naui_renderer_state->font_bound_atlas = NULL;
-    naui_free_bake(&_naui_renderer_state->font[index]);
+    naui_free_bake(&_naui_renderer_state->font);
 
-    for (int i = 0; i < _naui_renderer_state->font_sized_count[index]; i++)
+    for (int i = 0; i < _naui_renderer_state->font_sized_count; i++)
     {
-        Naui_FontBake *sized = &_naui_renderer_state->font_sized[index][i];
+        Naui_FontBake *sized = &_naui_renderer_state->font_sized[i];
         if (sized->loaded && _naui_renderer_state->font_bound_atlas == sized->atlas)
             _naui_renderer_state->font_bound_atlas = NULL;
         naui_free_bake(sized);
     }
-    _naui_renderer_state->font_sized_count[index] = 0;
+    _naui_renderer_state->font_sized_count = 0;
 
-    free(_naui_renderer_state->font_ttf[index]);
-    _naui_renderer_state->font_ttf[index] = NULL;
-    _naui_renderer_state->font_loaded[index] = false;
+    naui_free_sources(&_naui_renderer_state->font_sources);
+    _naui_renderer_state->font_loaded = false;
 }
 
-bool naui_font_is_loaded(uint8_t index)
+bool naui_fonts_are_loaded(void)
 {
-    return index < NAUI_FONT_MAX_SLOTS && _naui_renderer_state->font_loaded[index];
+    return _naui_renderer_state->font_loaded;
 }
 
-bool naui_font_has_codepoint(uint8_t index, uint32_t codepoint)
+bool naui_font_has_codepoint(uint32_t codepoint)
 {
-    if (!naui_font_is_loaded(index))
+    if (!_naui_renderer_state->font_loaded)
         return false;
 
-    return naui_bake_lookup(&_naui_renderer_state->font[index], (int)codepoint) != NULL;
+    return naui_bake_lookup(&_naui_renderer_state->font, (int)codepoint) != NULL;
 }
 
-static const Naui_FontBake *naui_font_sized_bake(uint8_t font_index, int pixel_size)
+static Naui_FontBakeParams naui_sized_bake_params(int pixel_size, int min_atlas_size)
+{
+    return (Naui_FontBakeParams){
+        .size           = (float)pixel_size,
+        .exact          = true,
+        .include_cjk    = false,
+        .padding        = 1,
+        .oversample_h   = NAUI_FONT_SIZED_OVERSAMPLE,
+        .mip_count      = 1,
+        .growable       = true,
+        .min_atlas_size = min_atlas_size,
+    };
+}
+
+static Naui_FontBake *naui_font_sized_bake(int pixel_size)
 {
     if (pixel_size < 1 || pixel_size > NAUI_FONT_SIZED_MAX_PX)
         return NULL;
 
-    for (int i = 0; i < _naui_renderer_state->font_sized_count[font_index]; i++)
+    for (int i = 0; i < _naui_renderer_state->font_sized_count; i++)
     {
-        const Naui_FontBake *sized = &_naui_renderer_state->font_sized[font_index][i];
+        Naui_FontBake *sized = &_naui_renderer_state->font_sized[i];
         if (sized->pixel_size == pixel_size)
             return sized->loaded ? sized : NULL;
     }
 
-    if (_naui_renderer_state->font_sized_count[font_index] >= NAUI_FONT_MAX_SIZED)
+    if (_naui_renderer_state->font_sized_count >= NAUI_FONT_MAX_SIZED)
         return NULL;
 
-    Naui_FontBake *sized = &_naui_renderer_state->font_sized[font_index][_naui_renderer_state->font_sized_count[font_index]++];
+    Naui_FontBake *sized = &_naui_renderer_state->font_sized[_naui_renderer_state->font_sized_count++];
     memset(sized, 0, sizeof(*sized));
 
-    const Naui_FontBakeParams params = {
-        .size         = (float)pixel_size,
-        .exact        = true,
-        .include_cjk  = false,
-        .padding      = 1,
-        .oversample_h = NAUI_FONT_SIZED_OVERSAMPLE,
-        .mip_count    = 1,
-    };
-
-    if (!naui_bake_font(_naui_renderer_state->font_ttf[font_index], &_naui_renderer_state->font_info[font_index], &params, sized))
+    const Naui_FontBakeParams params = naui_sized_bake_params(pixel_size, 0);
+    if (!naui_bake_font(&_naui_renderer_state->font_sources, &params, sized))
         memset(sized, 0, sizeof(*sized));
 
     sized->pixel_size = pixel_size;
     return sized->loaded ? sized : NULL;
 }
 
-static const Naui_FontBake *naui_select_text_bake(uint8_t font_index, const char *text, const char *end, float size)
+static bool naui_bake_pack_glyph(Naui_FontBake *bake, const Naui_FontSources *sources, int cp, stbtt_packedchar *out)
 {
-    const Naui_FontBake *main_bake = &_naui_renderer_state->font[font_index];
-    const Naui_FontBake *sized = naui_font_sized_bake(font_index, (int)floorf(size + 0.5f));
+    const int source = naui_font_glyph_owner(sources, cp);
+    if (source < 0)
+        return false;
+
+    stbtt_pack_range range = {
+        .font_size                        = naui_source_font_size(sources, source, bake->baked_size),
+        .first_unicode_codepoint_in_range = cp,
+        .num_chars                        = 1,
+        .chardata_for_range               = out,
+    };
+    return stbtt_PackFontRanges(&bake->pack, sources->ttf[source], 0, &range, 1) != 0;
+}
+
+static bool naui_font_sized_grow(Naui_FontBake *bake)
+{
+    const int max_atlas = k_atlas_size_candidates[K_NUM_ATLAS_CANDIDATES - 1];
+    if (bake->atlas_size >= max_atlas)
+        return false;
+
+    const Naui_FontSources *sources = &_naui_renderer_state->font_sources;
+    const Naui_FontBakeParams params = naui_sized_bake_params(bake->pixel_size, bake->atlas_size * 2);
+
+    Naui_FontBake grown;
+    memset(&grown, 0, sizeof(grown));
+    if (!naui_bake_font(sources, &params, &grown))
+        return false;
+
+    grown.glyphs = malloc((size_t)bake->glyph_capacity * sizeof(Naui_FontGlyph));
+    if (!grown.glyphs)
+    {
+        naui_free_bake(&grown);
+        return false;
+    }
+    grown.glyph_capacity = bake->glyph_capacity;
+
+    for (int i = 0; i < bake->glyph_count; i++)
+    {
+        Naui_FontGlyph *glyph = &grown.glyphs[grown.glyph_count];
+        glyph->codepoint = bake->glyphs[i].codepoint;
+        if (naui_bake_pack_glyph(&grown, sources, glyph->codepoint, &glyph->chars))
+            grown.glyph_count++;
+    }
+
+    naui_renderer_flush();
+    if (_naui_renderer_state->font_bound_atlas == bake->atlas)
+        _naui_renderer_state->font_bound_atlas = NULL;
+
+    grown.pixel_size = bake->pixel_size;
+    naui_free_bake(bake);
+    *bake = grown;
+    return true;
+}
+
+static bool naui_font_sized_add_glyph(Naui_FontBake *bake, int cp)
+{
+    if (bake->glyph_count == bake->glyph_capacity)
+    {
+        const int capacity = bake->glyph_capacity ? bake->glyph_capacity * 2 : 64;
+        Naui_FontGlyph *glyphs = realloc(bake->glyphs, (size_t)capacity * sizeof(Naui_FontGlyph));
+        if (!glyphs)
+            return false;
+        bake->glyphs = glyphs;
+        bake->glyph_capacity = capacity;
+    }
+
+    stbtt_packedchar chars;
+    const Naui_FontSources *sources = &_naui_renderer_state->font_sources;
+    while (!naui_bake_pack_glyph(bake, sources, cp, &chars))
+    {
+        if (!naui_font_sized_grow(bake))
+            return false;
+    }
+
+    int at = bake->glyph_count;
+    while (at > 0 && bake->glyphs[at - 1].codepoint > cp)
+    {
+        bake->glyphs[at] = bake->glyphs[at - 1];
+        at--;
+    }
+    bake->glyphs[at] = (Naui_FontGlyph){ .codepoint = cp, .chars = chars };
+    bake->glyph_count++;
+    bake->dirty = true;
+    return true;
+}
+
+static Naui_FontBake *naui_select_text_bake(const char *text, const char *end, float size)
+{
+    Naui_FontBake *main_bake = &_naui_renderer_state->font;
+    Naui_FontBake *sized = naui_font_sized_bake((int)floorf(size + 0.5f));
     if (!sized)
         return main_bake;
 
@@ -1223,11 +1437,27 @@ static const Naui_FontBake *naui_select_text_bake(uint8_t font_index, const char
         if (cp == '\n' || cp == '\r')
             continue;
 
-        if (!naui_bake_lookup(sized, cp) && naui_bake_lookup(main_bake, cp))
+        if (naui_bake_lookup(sized, cp) || !naui_bake_lookup(main_bake, cp))
+            continue;
+
+        if (!naui_font_sized_add_glyph(sized, (int)cp))
             return main_bake;
     }
 
     return sized;
+}
+
+static void naui_upload_dirty_font_atlases(void)
+{
+    for (int i = 0; i < _naui_renderer_state->font_sized_count; i++)
+    {
+        Naui_FontBake *sized = &_naui_renderer_state->font_sized[i];
+        if (!sized->dirty)
+            continue;
+
+        mgfx_update_image(sized->atlas, &(mgfx_image_update_info){ .subimages = { sized->pixels } });
+        sized->dirty = false;
+    }
 }
 
 static inline float naui_bake_scale(const Naui_FontBake *bake, float size)
@@ -1235,14 +1465,13 @@ static inline float naui_bake_scale(const Naui_FontBake *bake, float size)
     return bake->pixel_size > 0 ? 1.0f : size / bake->baked_size;
 }
 
-Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size, uint8_t font_index)
+Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size)
 {
     if (!text || length == 0) return (Naui_Vec2){0};
-    if (font_index >= NAUI_FONT_MAX_SLOTS) return (Naui_Vec2){0};
-    if (!_naui_renderer_state->font_loaded[font_index]) return (Naui_Vec2){0};
+    if (!_naui_renderer_state->font_loaded) return (Naui_Vec2){0};
 
     const char *end = text + length;
-    const Naui_FontBake *bake = naui_select_text_bake(font_index, text, end, font_size);
+    const Naui_FontBake *bake = naui_select_text_bake(text, end, font_size);
 
     float scale  = naui_bake_scale(bake, font_size);
     float x = 0.0f;
@@ -1284,14 +1513,13 @@ Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size, 
     return (Naui_Vec2){ .x = max_x, .y = font_size * num_lines };
 }
 
-void naui_draw_text(Naui_Vec2 position, const char *text, float size, uint8_t font_index, Naui_Color color)
+void naui_draw_text(Naui_Vec2 position, const char *text, float size, Naui_Color color)
 {
     if (!text || !*text) return;
-    if (font_index >= NAUI_FONT_MAX_SLOTS) return;
-    if (!_naui_renderer_state->font_loaded[font_index]) return;
+    if (!_naui_renderer_state->font_loaded) return;
 
     const char *end = text + strlen(text);
-    const Naui_FontBake *bake = naui_select_text_bake(font_index, text, end, size);
+    const Naui_FontBake *bake = naui_select_text_bake(text, end, size);
 
     if (_naui_renderer_state->font_bound_atlas != bake->atlas)
     {

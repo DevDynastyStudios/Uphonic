@@ -654,10 +654,10 @@ static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_
 
 		char label[16];
 		snprintf(label, sizeof(label), "%.2f", value);
-		const Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+		const Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 
 		naui_draw_line((Naui_Vec2) { box.x + box.width - padding * 0.5f, y }, (Naui_Vec2) { box.x + box.width, y }, tick_color, 1.0f);
-		naui_draw_text((Naui_Vec2) { box.x + box.width - padding - text_size.x, y - text_size.y * 0.5f }, label, font_size, 0, text_color);
+		naui_draw_text((Naui_Vec2) { box.x + box.width - padding - text_size.x, y - text_size.y * 0.5f }, label, font_size, text_color);
 	}
 }
 
@@ -665,7 +665,7 @@ static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 
 {
 	const int32_t font_size = NAUI_DPI(12);
 	const int32_t padding = NAUI_DPI(5);
-	const Naui_Vec2 text_size = naui_measure_text(text, (uint32_t)strlen(text), font_size, 0);
+	const Naui_Vec2 text_size = naui_measure_text(text, (uint32_t)strlen(text), font_size);
 	const Naui_Vec2 size = { text_size.x + padding * 2.0f, text_size.y + padding * 2.0f };
 
 	Naui_Vec2 position = { anchor.x + NAUI_DPI(10), anchor.y - NAUI_DPI(10) - size.y };
@@ -677,7 +677,7 @@ static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 
 	Leaf_Color background = naui_theme_color("uph_automation_editor_toolbox_bg_color");
 	background.a = 230;
 	naui_fill_rect(position, size, background, NAUI_DPI(3), NAUI_CORNER_ALL);
-	naui_draw_text((Naui_Vec2) { position.x + padding, position.y + padding }, text, font_size, 0, naui_theme_color("uph_ui_text_color"));
+	naui_draw_text((Naui_Vec2) { position.x + padding, position.y + padding }, text, font_size, naui_theme_color("uph_ui_text_color"));
 }
 
 static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_data)

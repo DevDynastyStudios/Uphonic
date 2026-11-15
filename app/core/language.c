@@ -1,37 +1,14 @@
-#define UPH_DEFAULT_FONT_NAME "MYRIADPRO-REGULAR"
-
-static Naui_String _uph_active_font = {0};
-
-static bool _uph_language_load_font(const char *name)
-{
-	if (!naui_load_font(0, name))
-		return false;
-
-	_uph_active_font = naui_string_from_cstr(name);
-	return true;
-}
+static const char *const _uph_language_fonts[] = { "MYRIADPRO-REGULAR", "NotoSansJP-Regular" };
 
 void uph_language_apply(void)
 {
 	const Uph_GeneralSettings *general = &uph_state.settings.general;
 	naui_localization_set_current(naui_string_format("%s-%s", general->language_code.data, general->region_code.data));
 
-	const Naui_Language *language = naui_localization_get_current();
-	const char *wanted = (language && language->meta.font.length > 0) ? language->meta.font.data : UPH_DEFAULT_FONT_NAME;
+	if (!naui_fonts_are_loaded())
+		naui_load_fonts(_uph_language_fonts, sizeof(_uph_language_fonts) / sizeof(_uph_language_fonts[0]));
 
-	if (!naui_font_is_loaded(0) || strcmp(wanted, _uph_active_font.data) != 0)
-	{
-		if (!_uph_language_load_font(wanted))
-		{
-			const bool default_is_active = naui_font_is_loaded(0) && strcmp(_uph_active_font.data, UPH_DEFAULT_FONT_NAME) == 0;
-			naui_log(NAUI_LOG_WARNING, "Couldn't load font '%s' for this language%s", wanted, default_is_active ? "" : ", falling back to the default font");
-
-			if (!default_is_active)
-				_uph_language_load_font(UPH_DEFAULT_FONT_NAME);
-		}
-	}
-
-	naui_localization_check_font(0);
+	naui_localization_check_font();
 }
 
 static void _uph_language_apply_event(void *data)

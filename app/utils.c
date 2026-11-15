@@ -208,7 +208,7 @@ static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t ba
     {
         char label[16];
         snprintf(label, sizeof(label), "%d", (int)bar_index);
-        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13), 0, style->colors.number_color);
+        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13), style->colors.number_color);
     }
 }
 

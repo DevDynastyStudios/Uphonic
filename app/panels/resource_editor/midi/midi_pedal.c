@@ -260,8 +260,8 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 			naui_fill_rect((Naui_Vec2) { box.x + NAUI_DPI(3), y }, (Naui_Vec2) { box.width - NAUI_DPI(6), row_height }, naui_theme_color(active ? "uph_ui_frame_pressed_bg_color" : "uph_ui_frame_hovered_bg_color"), NAUI_DPI(3), LEAF_CORNER_ALL);
 
 		const char *label = _uph_pedal_labels[type];
-		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
-		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y + (row_height - size.y) * 0.5f }, label, font_size, 0, naui_theme_color(active || hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color"));
+		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
+		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y + (row_height - size.y) * 0.5f }, label, font_size, naui_theme_color(active || hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color"));
 
 		if (hovered)
 		{
@@ -318,7 +318,7 @@ static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int3
 
 	const int32_t font_size = NAUI_DPI(11);
 	const int32_t padding = NAUI_DPI(3);
-	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 
 	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS) + NAUI_DPI(4);
 	if (label_x + size.x + padding * 2.0f > box.x + box.width)
@@ -327,7 +327,7 @@ static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int3
 	const float label_y = NAUI_CLAMP(y - size.y * 0.5f - padding, box.y, box.y + box.height - size.y - padding * 2.0f);
 
 	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3), LEAF_CORNER_ALL);
-	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
+	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, LEAF_COLOR_WHITE);
 }
 
 void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)

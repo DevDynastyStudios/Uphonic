@@ -79,7 +79,6 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 				(Naui_Vec2) { note_x + note_label_padding, y_position + (lane_height - velocity_bar_reserved - note_label_font_size) * 0.5f },
 				map->notes[note->key_number].name,
 				note_label_font_size,
-				0,
 				note_label_color
 			);
 			naui_pop_clip_rect();

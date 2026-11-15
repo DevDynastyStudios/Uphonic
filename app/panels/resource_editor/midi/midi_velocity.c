@@ -306,10 +306,10 @@ void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 	{
 		char label[8];
 		snprintf(label, sizeof(label), "%d", (int)marks[i]);
-		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), small_font_size, 0);
+		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), small_font_size);
 		const float y = NAUI_CLAMP(_uph_velocity_to_y(box, (float)marks[i]) - size.y * 0.5f, box.y, box.y + box.height - size.y);
 
-		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y }, label, small_font_size, 0, dim_color);
+		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y }, label, small_font_size, dim_color);
 	}
 	naui_pop_clip_rect();
 }
@@ -352,7 +352,7 @@ static void _uph_velocity_render_label(Leaf_BoundingBox box, float x, float y, i
 
 	const int32_t font_size = NAUI_DPI(11);
 	const int32_t padding = NAUI_DPI(3);
-	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 
 	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS) + NAUI_DPI(4);
 	if (label_x + size.x + padding * 2.0f > box.x + box.width)
@@ -361,7 +361,7 @@ static void _uph_velocity_render_label(Leaf_BoundingBox box, float x, float y, i
 	const float label_y = NAUI_CLAMP(y - size.y * 0.5f - padding, box.y, box.y + box.height - size.y - padding * 2.0f);
 
 	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3), LEAF_CORNER_ALL);
-	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
+	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, LEAF_COLOR_WHITE);
 }
 
 void uph_midi_velocity_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)

@@ -3,8 +3,7 @@
 	"_meta": {
 		"language": "ja-JP",
 		"direction": "ltr",
-		"name": "日本語",
-		"font": "NotoSansJP-Regular"
+		"name": "日本語"
 	},
 
 	"automation.default.name": "無題のオートメーション",

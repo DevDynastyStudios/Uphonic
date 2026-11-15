@@ -13,7 +13,6 @@ typedef struct
 	Naui_String language_code;
 	Naui_String region_code;
 	Naui_String display_name;
-	Naui_String font;
 	Naui_TextDirection text_direction;
 } Naui_LanguageMeta;
 
@@ -67,6 +66,6 @@ const char* naui_localization_get(const Naui_Language* language, const char* key
 char* naui_localization_format(const Naui_Language* language, const char* key, const char** args, int arg_count);
 
 /* Logs a warning when the current language uses characters the loaded font has no glyph for. */
-void naui_localization_check_font(uint8_t font_index);
+void naui_localization_check_font(void);
 
 void naui_localization_free(Naui_Language* language);

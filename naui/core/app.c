@@ -45,7 +45,7 @@ void naui_themes_shutdown(void);
 
 static Leaf_Dimensions measure_text_bridge(const char *text, uint32_t length, int32_t resolved_font_size, const Leaf_TextConfig *config)
 {
-    Naui_Vec2 size = naui_measure_text(text, length, resolved_font_size, config->font_id);
+    Naui_Vec2 size = naui_measure_text(text, length, resolved_font_size);
     return (Leaf_Dimensions){size.x, size.y};
 }
 
@@ -80,7 +80,7 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
                 break;
             }
             case LEAF_RENDER_CMD_TEXT:
-            naui_draw_text((Naui_Vec2){cmd.bounding_box.x, cmd.bounding_box.y}, cmd.text.text, cmd.text.font_size, cmd.text.font_id, cmd.color);
+            naui_draw_text((Naui_Vec2){cmd.bounding_box.x, cmd.bounding_box.y}, cmd.text.text, cmd.text.font_size, cmd.color);
             break;
             case LEAF_RENDER_CMD_SHADOW:
             {

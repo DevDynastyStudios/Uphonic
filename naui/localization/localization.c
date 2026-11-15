@@ -93,7 +93,6 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 			const Naui_JsonValue* lang_v = naui_json_object_get(value, "language");
 			const Naui_JsonValue* dir_v = naui_json_object_get(value, "direction");
 			const Naui_JsonValue* name_v = naui_json_object_get(value, "name");
-			const Naui_JsonValue* font_v = naui_json_object_get(value, "font");
 			if (lang_v && lang_v->type == NAUI_JSON_STRING)
 			{
 				char lang_code_buf[64];
@@ -110,9 +109,6 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 
 			if (name_v && name_v->type == NAUI_JSON_STRING)
 				naui_json_copy_string(name_v, &out_language->meta.display_name);
-
-			if (font_v && font_v->type == NAUI_JSON_STRING)
-				naui_json_copy_string(font_v, &out_language->meta.font);
 
 			continue;
 		}
@@ -368,14 +364,14 @@ void naui_localization_free(Naui_Language* language)
 	naui_arena_free(&language->arena);
 }
 
-void naui_localization_check_font(uint8_t font_index)
+void naui_localization_check_font(void)
 {
 	if (!_naui_localization_state.current_loaded)
 		return;
 
-	if (!naui_font_is_loaded(font_index))
+	if (!naui_fonts_are_loaded())
 	{
-		naui_log(NAUI_LOG_WARNING, "Font %u is not loaded, can't check it against the language", (unsigned)font_index);
+		naui_log(NAUI_LOG_WARNING, "No fonts are loaded, can't check them against the language");
 		return;
 	}
 
@@ -401,7 +397,7 @@ void naui_localization_check_font(uint8_t font_index)
 			}
 
 			i += n;
-			if (cp < 0x20 || cp == 0x7F || naui_font_has_codepoint(font_index, cp))
+			if (cp < 0x20 || cp == 0x7F || naui_font_has_codepoint(cp))
 				continue;
 
 			missing_total++;
@@ -430,6 +426,6 @@ void naui_localization_check_font(uint8_t font_index)
 		w += (size_t)snprintf(list + w, sizeof(list) - w, "U+%04X ", (unsigned)missing[k]);
 	}
 
-	naui_log(NAUI_LOG_WARNING, "%u characters in %s-%s have no glyph in font %u and will show as '?'. Examples: %s. Load a font that covers this script.", missing_total, _naui_localization_state.current_language.meta.language_code.data, _naui_localization_state.current_language.meta.region_code.data, (unsigned)font_index, list);
+	naui_log(NAUI_LOG_WARNING, "%u characters in %s-%s have no glyph in the loaded fonts and will show as '?'. Examples: %s. Load a font that covers this script.", missing_total, _naui_localization_state.current_language.meta.language_code.data, _naui_localization_state.current_language.meta.region_code.data, list);
 }
 #pragma endregion

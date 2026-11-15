@@ -243,14 +243,14 @@ static size_t _uph_ui_cursor_from_x(const Naui_String *value, float local_x, flo
         return 0;
 
     size_t best = value->length;
-    float best_dist = fabsf(naui_measure_text(value->data, value->length, font_size, 0).x - local_x);
+    float best_dist = fabsf(naui_measure_text(value->data, value->length, font_size).x - local_x);
 
     for (size_t i = 0; i <= value->length; ++i)
     {
         if (!naui_string_is_char_boundary(value, i))
             continue;
 
-        float x = naui_measure_text(value->data, i, font_size, 0).x;
+        float x = naui_measure_text(value->data, i, font_size).x;
         float dist = fabsf(x - local_x);
         if (dist < best_dist)
         {
@@ -1365,7 +1365,7 @@ bool uph_ui_toolbox_toggle_button(const Naui_Image *image, const Leaf_ID id, Nau
 
 static Leaf_BoundingBox _uph_ui_textfield_line_box(Leaf_BoundingBox box, float font_size)
 {
-    const float line_height = NAUI_MIN(naui_measure_text("Ag", 2, font_size, 0).y, box.height);
+    const float line_height = NAUI_MIN(naui_measure_text("Ag", 2, font_size).y, box.height);
     box.y += (int32_t)roundf(((float)box.height - line_height) * 0.5f);
     box.height = (int32_t)roundf(line_height);
     return box;
@@ -1385,7 +1385,6 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
             (Naui_Vec2) { box.x - draw_data->scroll_x, box.y },
             draw_data->value->data,
             font_size,
-            0,
             naui_theme_color("uph_ui_text_color")
         );
     }
@@ -1395,7 +1394,6 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
             (Naui_Vec2) { box.x, box.y },
             draw_data->placeholder,
             font_size,
-            0,
             naui_theme_color("uph_ui_text_disabled_color")
         );
     }
@@ -1416,8 +1414,8 @@ static void uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_dat
     size_t lo = NAUI_MIN(data->cursor, data->select_start);
     size_t hi = NAUI_MAX(data->cursor, data->select_start);
 
-    const Naui_Vec2 lo_pos = naui_measure_text(data->target_string->data, lo, font_size, 0);
-    const Naui_Vec2 hi_pos = naui_measure_text(data->target_string->data, hi, font_size, 0);
+    const Naui_Vec2 lo_pos = naui_measure_text(data->target_string->data, lo, font_size);
+    const Naui_Vec2 hi_pos = naui_measure_text(data->target_string->data, hi, font_size);
 
     naui_push_clip_rect(box.x, box.y, box.width, box.height);
     naui_fill_rect(
@@ -1438,7 +1436,7 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     box = _uph_ui_textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
-    const Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size, 0);
+    const Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size);
     const int32_t cursor_width = NAUI_DPI(2);
 
     naui_push_clip_rect(box.x, box.y, box.width + cursor_width, box.height);
@@ -1778,8 +1776,8 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
     if (active)
     {
-        const Naui_Vec2 cursor_pos = naui_measure_text(value->data, data->cursor, font_size, 0);
-        const Naui_Vec2 full_pos = naui_measure_text(value->data, value->length, font_size, 0);
+        const Naui_Vec2 cursor_pos = naui_measure_text(value->data, data->cursor, font_size);
+        const Naui_Vec2 full_pos = naui_measure_text(value->data, value->length, font_size);
 
         if (cursor_pos.x - data->scroll_x < 0.0f)
             data->scroll_x = cursor_pos.x;

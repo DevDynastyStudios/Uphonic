@@ -592,12 +592,12 @@ static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 		char label[8];
 		snprintf(label, sizeof(label), "%.0f", uph_mixer_db_ticks[i]);
 
-		Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
+		Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 		float label_y = NAUI_CLAMP(y - text_size.y * 0.5f, bounding_box.y, bounding_box.y + bounding_box.height - text_size.y);
 
 		naui_draw_text(
 			(Naui_Vec2){bounding_box.x + tick_length - label_gap - text_size.x + bounding_box.width, label_y},
-			label, font_size, 0, label_color
+			label, font_size, label_color
 		);
 	}
 }
@@ -1104,7 +1104,7 @@ static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, 
             else
             {
                 const Leaf_ID title_id = leaf_id_indexed("uph_mixer_group_title", (uint64_t)strip);
-                const float title_width = naui_measure_text(strip->name.data, (uint32_t)strip->name.length, font_size, 0).x;
+                const float title_width = naui_measure_text(strip->name.data, (uint32_t)strip->name.length, font_size).x;
                 const bool title_overflows = title_width > leaf_get_bounding_box(title_id).width;
                 leaf({
                     .id = title_id,

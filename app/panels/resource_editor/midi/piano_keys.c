@@ -412,10 +412,10 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 		if (label_y < box.y || label_y + label_font_size > box.y + box.height)
 			continue;
 
-		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), label_font_size, 0).x;
+		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), label_font_size).x;
 		const float label_anchor_x = box.x + rect.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
 		const float label_x = _uph_piano_text_x(label_anchor_x, label_width, UPH_PIANO_LABEL_ALIGNMENT);
-		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, label_font_size, 0, rect.accidental ? sharp_label_color : label_color);
+		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, label_font_size, rect.accidental ? sharp_label_color : label_color);
 	}
 }
 
