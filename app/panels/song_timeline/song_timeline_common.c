@@ -175,6 +175,14 @@ typedef struct
 		bool snap_track_motion;
 	}
 	visual;
+	struct
+	{
+		float last_mouse_y;
+		float anchor_local_y;
+		float unsnapped_zoom_y;
+		bool active;
+	}
+	zoom_drag;
 	uint32_t max_track_depth;
 	float content_height;
 	float bottom_drop_y;

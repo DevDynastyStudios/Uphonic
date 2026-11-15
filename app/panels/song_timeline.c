@@ -50,7 +50,7 @@ static void uph_song_timeline_on_attach(void)
 	Naui_PanelID panel = naui_panel_current();
 
 	state->scroll = (Naui_Vec2) { 0.0f, 0.0f };
-	state->zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 104.0f };
+	state->zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 124.0f };
 	state->snap_resolution = UPH_SNAP_LINE;
 	state->current_action_mode = UPH_ACTION_DRAW;
 	state->automation_edit.dragging_point_index = -1;
@@ -114,8 +114,6 @@ static void uph_song_timeline_on_update(void)
 	state->visual.row_counter = 0;
 	state->visual.row_y = 0.0f;
 	state->visual.settled_row_y = 0.0f;
-	state->visual.snap_track_motion = state->visual.zoom_y != state->zoom.y;
-	state->visual.zoom_y = state->zoom.y;
 	state->max_track_depth = 0;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
 	{
@@ -135,6 +133,8 @@ static void uph_song_timeline_on_update(void)
 	
 	uph_song_timeline_update_minimap();
 	uph_song_timeline_update_input();
+	state->visual.snap_track_motion = state->visual.zoom_y != state->zoom.y;
+	state->visual.zoom_y = state->zoom.y;
 	uph_song_timeline_update_selection_keys();
 	uph_song_timeline_update_drag_track_switch();
 	uph_song_timeline_update_bottom_drop();

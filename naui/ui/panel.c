@@ -1017,7 +1017,7 @@ static void naui_render_next_panel_child(Naui_PanelNode *node)
                 (Leaf_Size){LEAF_SIZE_GROW, LEAF_SIZE_FULL},
                 .border = {
                     .width = border_width,
-                    .sides = LEAF_SIDE_ALL,
+                    .sides = node->split_axis == NAUI_SPLIT_AXIS_VERTICAL ? LEAF_SIDE_TOP : LEAF_SIDE_LEFT,
                     .color = border_color
                 }
             })
@@ -1086,6 +1086,7 @@ static void naui_render_main_viewport(void)
     leaf({
         .id = id,
         .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
+        .padding = { .top = node ? (int32_t)NAUI_PANEL_BORDER_WIDTH : 0 },
         .color = node ?
             naui_theme_color(NAUI_PANEL_BORDER_COLOR_TAG) :
             naui_theme_color(NAUI_VIEWPORT_BG_COLOR_TAG)

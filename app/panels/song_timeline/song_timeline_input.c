@@ -3,6 +3,9 @@
 #define UPH_SONG_TIMELINE_PAN_SPEED 1.0f
 #define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
 #define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
+#define UPH_SONG_TIMELINE_ZOOM_Y_MIN 80.0f
+#define UPH_SONG_TIMELINE_ZOOM_Y_MAX 320.0f
+#define UPH_SONG_TIMELINE_ZOOM_Y_DRAG_SPEED 0.008f
 
 static float _uph_song_timeline_content_origin_x(void)
 {
@@ -46,8 +49,43 @@ void uph_song_timeline_update_input(void)
 	static bool panning = false;
 	if (naui_panel_is_hovered(uph_state.panels.song_timeline) && naui_mouse_pressed(NAUI_MOUSE_MIDDLE))
 	{
-		panning = true;
-		pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
+		if (uph_ui_ctrl_down())
+		{
+			state->zoom_drag.active = true;
+			state->zoom_drag.last_mouse_y = (float)naui_mouse_y();
+			state->zoom_drag.anchor_local_y = (float)naui_mouse_y() - state->panel_bounding_box.y;
+			state->zoom_drag.unsnapped_zoom_y = state->zoom.y;
+		}
+		else
+		{
+			panning = true;
+			pan_last_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
+		}
+	}
+
+	if (state->zoom_drag.active)
+	{
+		const float mouse_y = (float)naui_mouse_y();
+		const float delta_y = mouse_y - state->zoom_drag.last_mouse_y;
+		state->zoom_drag.last_mouse_y = mouse_y;
+		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
+
+		state->zoom_drag.unsnapped_zoom_y = NAUI_CLAMP(state->zoom_drag.unsnapped_zoom_y * expf(-delta_y * UPH_SONG_TIMELINE_ZOOM_Y_DRAG_SPEED), UPH_SONG_TIMELINE_ZOOM_Y_MIN, UPH_SONG_TIMELINE_ZOOM_Y_MAX);
+
+		const float dpi_scale = naui_app_dpi_scale();
+		const int32_t old_row_px = NAUI_DPI(state->zoom.y);
+		const int32_t new_row_px = NAUI_DPI(state->zoom_drag.unsnapped_zoom_y);
+		if (new_row_px != old_row_px && old_row_px > 0)
+		{
+			const float ratio = (float)new_row_px / (float)old_row_px;
+			const float anchor_content_y = state->zoom_drag.anchor_local_y + state->scroll.y;
+			const float scaled_max_scroll_y = fmaxf(0.0f, state->content_height * ratio - (float)new_row_px / dpi_scale);
+			state->zoom.y = (float)new_row_px / dpi_scale;
+			state->scroll.y = NAUI_CLAMP(roundf(anchor_content_y * ratio - state->zoom_drag.anchor_local_y), 0.0f, scaled_max_scroll_y);
+		}
+
+		if (naui_mouse_released(NAUI_MOUSE_MIDDLE) || !naui_mouse_down(NAUI_MOUSE_MIDDLE))
+			state->zoom_drag.active = false;
 	}
 
 	if (panning)
