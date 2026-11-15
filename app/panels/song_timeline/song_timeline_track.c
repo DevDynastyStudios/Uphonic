@@ -825,6 +825,15 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 	naui_pop_clip_rect();
 }
 
+static void _uph_song_timeline_render_dimmed_grid(Leaf_BoundingBox bbox, void *data)
+{
+	(void)data;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
+	uph_song_timeline_render_ruler(bbox, state->zoom.x, state->scroll.x);
+	naui_pop_clip_rect();
+}
+
 static bool _uph_song_timeline_row_expanded(const Uph_Track *track)
 {
 	return naui_list_len(track->subtracks) > 0 && !(uph_track_is_folder(track) && (track->state & UPH_TRACK_TIMELINE_COLLAPSED));
@@ -894,6 +903,18 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 	})
 	{
 		if (row_visible)
+		{
 			uph_song_timeline_render_track_timeline_blocks(track);
+
+			if (!uph_track_is_audible(&uph_state.project, track))
+			{
+				leaf({
+					.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+					.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_dimmed_grid,
+					.color = leaf_rgba(bg_color.r, bg_color.g, bg_color.b, 190),
+					.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+				});
+			}
+		}
 	}
 }

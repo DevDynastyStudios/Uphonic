@@ -590,6 +590,17 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 			if (track->type != UPH_RESOURCE_AUTOMATION)
 				_uph_song_timeline_render_meter(track);
 
+			if (!uph_track_is_audible(&uph_state.project, track))
+			{
+				const Leaf_Color header_color = _uph_song_timeline_header_color(track);
+				leaf({
+					.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+					.color = leaf_rgba(header_color.r, header_color.g, header_color.b, 120),
+					.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_TRACK_HEADER_CARD_ROUNDING), LEAF_CORNER_ALL),
+					.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+				});
+			}
+
 			_uph_song_timeline_update_header_input(track, header_id, options_menu);
 		}
 	}
