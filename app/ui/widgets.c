@@ -262,7 +262,7 @@ static size_t _uph_ui_cursor_from_x(const Naui_String *value, float local_x, flo
     return best;
 }
 
-static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color)
+static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
 {
     Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
     static Naui_String edit_buffer;
@@ -363,7 +363,6 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
     const int32_t track_size = NAUI_DPI(UPH_UI_SLIDER_TRACK_SIZE);
     const int32_t handle_size = NAUI_DPI(dragging_this || hovered ? UPH_UI_SLIDER_HANDLE_HOVERED_SIZE : UPH_UI_SLIDER_HANDLE_SIZE);
-    const Leaf_Color fill_color = naui_theme_color("uph_ui_slider_fill_color");
 
     const float length = vertical ? box.height : box.width;
     const float handle_offset = t * NAUI_MAX(length - handle_size, 0.0f);
@@ -1806,19 +1805,19 @@ bool uph_ui_drag_int(int32_t *value, const Leaf_ID id, float speed, int32_t min,
     return _uph_ui_drag_scalar(id, value, false, speed, 0.0f, 0.0f, min, max, format, flags);
 }
 
-bool uph_ui_slider_float_ex(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color)
+bool uph_ui_slider_float_ex(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
 {
-    return _uph_ui_slider_scalar(id, value, true, min, max, 0, 0, format, flags, handle_color);
+    return _uph_ui_slider_scalar(id, value, true, min, max, 0, 0, format, flags, handle_color, fill_color);
 }
 
 bool uph_ui_slider_float(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags)
 {
-    return uph_ui_slider_float_ex(value, id, min, max, format, flags, naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG));
+    return uph_ui_slider_float_ex(value, id, min, max, format, flags, naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG), naui_theme_color("uph_ui_slider_fill_color"));
 }
 
 bool uph_ui_slider_int(int32_t *value, const Leaf_ID id, int32_t min, int32_t max, const char *format, Uph_UISliderFlags flags)
 {
-    return _uph_ui_slider_scalar(id, value, false, 0.0f, 0.0f, min, max, format, flags, naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG));
+    return _uph_ui_slider_scalar(id, value, false, 0.0f, 0.0f, min, max, format, flags, naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG), naui_theme_color("uph_ui_slider_fill_color"));
 }
 
 bool uph_ui_checkbox(bool *value, const Leaf_ID id)

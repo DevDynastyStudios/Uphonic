@@ -14,7 +14,7 @@
 #define UPH_TOOLBOX_PADDING_X               16
 #define UPH_TOOLBOX_ICON_SIZE               17
 #define UPH_TOOLBOX_FONT_SIZE               14.5f
-#define UPH_TOOLBOX_GROUP_GAP               18
+#define UPH_TOOLBOX_GROUP_GAP               20
 #define UPH_TOOLBOX_BUTTON_GAP              5
 #define UPH_TOOLBOX_BUTTON_PADDING          6
 #define UPH_TOOLBOX_LABEL_GAP               6

@@ -398,7 +398,7 @@ static void _uph_song_timeline_render_volume_slider(Uph_Track *track)
 	const bool automated = uph_track_playing_automation_value(track, UPH_AUTOMATION_TARGET_TRACK_VOLUME, &shown_volume);
 	float volume_db = uph_linear_to_db(shown_volume);
 
-	if (uph_ui_slider_float_ex(&volume_db, leaf_id_indexed("uph_song_timeline_volume", (uint64_t)track), UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f dB", UPH_UI_SLIDER_FLAG_NONE, _uph_song_timeline_header_color(track)) && !automated)
+	if (uph_ui_slider_float_ex(&volume_db, leaf_id_indexed("uph_song_timeline_volume", (uint64_t)track), UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f dB", UPH_UI_SLIDER_FLAG_NONE, _uph_song_timeline_header_color(track), uph_resources_track_color(track->color_index)) && !automated)
 	{
 		uph_action_track_value_begin(uph_action_track_ref(track), UPH_ACTION_TRACK_VALUE_VOLUME, track->volume);
 		track->volume = uph_db_to_linear(volume_db);
