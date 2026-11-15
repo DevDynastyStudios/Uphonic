@@ -1,8 +1,8 @@
 #define UPH_UI_FONT_SIZE                    14
-#define UPH_UI_FRAME_ROUNDING               4
+#define UPH_UI_FRAME_ROUNDING               3
 #define UPH_UI_FRAME_PADDING                ((Naui_Vec2){ 6.0f, 6.0f })
 #define UPH_UI_FRAME_HEIGHT                 26
-#define UPH_UI_SCROLLBAR_HANDLE_ROUNDING    6
+#define UPH_UI_SCROLLBAR_HANDLE_ROUNDING    4
 #define UPH_UI_SLIDER_TRACK_SIZE            4
 #define UPH_UI_SLIDER_HANDLE_SIZE           12
 #define UPH_UI_SLIDER_HANDLE_HOVERED_SIZE   14
