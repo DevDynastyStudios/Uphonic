@@ -427,6 +427,7 @@ struct Uph_PluginInternalHandle_
     Window window;
     Window container;
     Window input_target;
+    Window foreign_focus;
     Display *display;
     uint8_t buttons_down;
 #elif NAUI_WINDOWS
@@ -3409,6 +3410,18 @@ void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
 
 #pragma endregion
 
+#if NAUI_LINUX
+static int _uph_plugin_x11_swallow_error(Display *display, xError *error, XExtCodes *codes, int *ret_code)
+{
+    (void)display;
+    (void)error;
+    (void)codes;
+    *ret_code = 0;
+    return True;
+}
+
+#endif
+
 static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 {
     Uph_Plugin effect = { 0 };
@@ -3444,6 +3457,10 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 #if NAUI_LINUX
     Display *dpy = (Display*)XOpenDisplay(NULL);
     int screen = DefaultScreen(dpy);
+
+    XExtCodes *error_codes = XAddExtension(dpy);
+    if (error_codes)
+        XESetError(dpy, error_codes->extension, _uph_plugin_x11_swallow_error);
 
     XSetWindowAttributes attributes = { .override_redirect = True };
     Window container = XCreateWindow(
@@ -3658,15 +3675,6 @@ static void _uph_plugin_gui_copy_opaque_row(uint8_t *dst, const uint8_t *src, ui
 }
 
 #if NAUI_LINUX
-static int _uph_plugin_x11_swallow_error(Display *display, xError *error, XExtCodes *codes, int *ret_code)
-{
-    (void)display;
-    (void)error;
-    (void)codes;
-    *ret_code = 0;
-    return True;
-}
-
 static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 {
     capture->display = XOpenDisplay(NULL);
@@ -4329,6 +4337,49 @@ bool uph_plugin_window_visible(Uph_Plugin *plug)
     return internal_handle->visible;
 }
 
+#if NAUI_LINUX
+static bool _uph_plugin_gui_x11_owns_window(Uph_PluginInternalHandle *ih, Window window)
+{
+    while (window != None)
+    {
+        if (window == ih->container)
+            return true;
+
+        Window root, parent, *children = NULL;
+        unsigned int count = 0;
+        if (!XQueryTree(ih->display, window, &root, &parent, &children, &count))
+            return false;
+        if (children)
+            XFree(children);
+        if (window == root)
+            return false;
+        window = parent;
+    }
+    return false;
+}
+
+static void _uph_plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
+{
+    Window focus;
+    int revert_to;
+    XGetInputFocus(ih->display, &focus, &revert_to);
+
+    const Window main_window = (Window)mgapp_primary_handle();
+    if (focus == main_window || focus == None || focus == PointerRoot || focus == ih->foreign_focus)
+        return;
+
+    if (!_uph_plugin_gui_x11_owns_window(ih, focus))
+    {
+        ih->foreign_focus = focus;
+        return;
+    }
+
+    ih->foreign_focus = None;
+    XSetInputFocus(ih->display, main_window, RevertToParent, CurrentTime);
+    XFlush(ih->display);
+}
+#endif
+
 static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
 {
 #if NAUI_LINUX
@@ -4340,6 +4391,8 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
         XEvent event;
         XNextEvent(internal_handle->display, &event);
     }
+
+    _uph_plugin_gui_x11_reclaim_focus(internal_handle);
 #else
     (void)plug;
 #endif
