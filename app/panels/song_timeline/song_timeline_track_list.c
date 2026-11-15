@@ -5,7 +5,7 @@
 
 static void _uph_song_timeline_finish_rename(Uph_Track *track)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	if (!track->name.length)
 		track->name = naui_string_from_cstr(NAUI_TR("song_timeline.track.title"));
 
@@ -25,7 +25,7 @@ static void _uph_song_timeline_finish_rename(Uph_Track *track)
 
 static void _uph_song_timeline_begin_rename(Uph_Track *track)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	timeline->disable_space_to_play = true;
 	timeline->rename_track = track;
 	timeline->rename_old_name = track->name;
@@ -38,7 +38,7 @@ static bool _uph_song_timeline_track_selectable(const Uph_Track *track)
 
 static bool _uph_song_timeline_track_selected(const Uph_Track *track)
 {
-	Naui_List(Uph_TrackPtr) selected = uph_song_timeline_data.selected_tracks;
+	Naui_List(Uph_TrackPtr) selected = _uph_song_timeline_state.selected_tracks;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
 	{
 		if (selected[i] == track)
@@ -49,7 +49,7 @@ static bool _uph_song_timeline_track_selected(const Uph_Track *track)
 
 static void _uph_song_timeline_set_selection(Naui_List(Uph_TrackPtr) tracks)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	naui_list_clear(timeline->selected_tracks);
 	timeline->selection_anchor = NULL;
 
@@ -65,7 +65,7 @@ static void _uph_song_timeline_set_selection(Naui_List(Uph_TrackPtr) tracks)
 
 static void _uph_song_timeline_select_track(Uph_Track *track)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	naui_list_clear(timeline->selected_tracks);
 	timeline->selection_anchor = track;
 
@@ -75,7 +75,7 @@ static void _uph_song_timeline_select_track(Uph_Track *track)
 
 static void _uph_song_timeline_toggle_track(Uph_Track *track)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(timeline->selected_tracks); i++)
 	{
 		if (timeline->selected_tracks[i] != track)
@@ -95,7 +95,7 @@ static void _uph_song_timeline_toggle_track(Uph_Track *track)
 
 static void _uph_song_timeline_select_track_range(Uph_Track *to)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	Uph_Track *from = timeline->selection_anchor;
 	if (!from || from->parent != to->parent)
 	{
@@ -129,7 +129,7 @@ static bool _uph_song_timeline_press_keeps_selection(const Uph_Track *track)
 {
 	return
 		_uph_song_timeline_track_selected(track) &&
-		naui_list_len(uph_song_timeline_data.selected_tracks) >= 2 &&
+		naui_list_len(_uph_song_timeline_state.selected_tracks) >= 2 &&
 		!uph_ui_ctrl_down() &&
 		!uph_ui_shift_down();
 }
@@ -139,7 +139,7 @@ static void _uph_song_timeline_open_options(Uph_Track *track, Uph_UIMenuID optio
 	if (_uph_song_timeline_track_selectable(track) && !_uph_song_timeline_track_selected(track))
 		_uph_song_timeline_click_select(track, false);
 
-	uph_song_timeline_data.current_options_track = track;
+	_uph_song_timeline_state.current_options_track = track;
 	uph_ui_open_context_menu(options_menu);
 }
 
@@ -152,7 +152,7 @@ static void _uph_song_timeline_open_instrument_list(Uph_Track *track)
 
 static void _uph_song_timeline_update_header_input(Uph_Track *track, const Leaf_ID header_id, Uph_UIMenuID options_menu)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	if (timeline->rename_track == track || uph_ui_any_widget_hovered())
 		return;
 
@@ -219,8 +219,8 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 		bg_color = naui_theme_color("uph_song_timeline_header_selected_color");
 
 	const Leaf_ID header_id = leaf_id_indexed("uph_song_timeline_header", track_id);
-	if (uph_song_timeline_data.panel_hovered && leaf_hovered_clipped(header_id))
-		uph_song_timeline_data.track_header_hovered = true;
+	if (_uph_song_timeline_state.panel_hovered && leaf_hovered_clipped(header_id))
+		_uph_song_timeline_state.track_header_hovered = true;
 
 
 	leaf({
@@ -256,7 +256,7 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 
 					if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 					{
-						uph_song_timeline_data.current_color_options_track = track;
+						_uph_song_timeline_state.current_color_options_track = track;
 						uph_ui_open_context_menu(color_menu);
 					}
 				}
@@ -333,14 +333,14 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 								});
 							}
 						}
-						else if (uph_song_timeline_data.rename_track == track)
+						else if (_uph_song_timeline_state.rename_track == track)
 						{
 							if (uph_ui_textfield(&track->name, name_id, UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_TINTED, NAUI_TR("song_timeline.track.title")))
 								_uph_song_timeline_finish_rename(track);
 						}
 						else
 						{
-							if (uph_song_timeline_data.panel_hovered && leaf_hovered_clipped(name_id) && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
+							if (_uph_song_timeline_state.panel_hovered && leaf_hovered_clipped(name_id) && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
 								_uph_song_timeline_begin_rename(track);
 
 							leaf({
@@ -429,8 +429,8 @@ static float _uph_song_timeline_approach(float current, float target, float spee
 
 void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
-	const float full_height = uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(uph_song_timeline_data.zoom.y);
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	const float full_height = uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(_uph_song_timeline_state.zoom.y);
 	const float target_y = data->visual.settled_row_y;
 
 	if (track->visual.lifetime <= 0.0f || data->visual.snap_track_motion)
@@ -481,7 +481,7 @@ void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenu
 
 void uph_song_timeline_render_track_color_menu(Uph_UIMenuID track_color_options_context_menu)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	if (naui_list_len(uph_state.project.tracks) == 0 || !data->current_color_options_track)
 		return;
 
@@ -490,7 +490,7 @@ void uph_song_timeline_render_track_color_menu(Uph_UIMenuID track_color_options_
 
 void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu, Uph_UIMenuID track_color_options_context_menu)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	if (naui_list_len(uph_state.project.tracks) == 0 || !data->current_options_track)
 		return;
 
@@ -808,7 +808,7 @@ static Naui_List(Uph_TrackPtr) _uph_song_timeline_drag_tracks(Uph_Track *source)
 	}
 
 	const bool automation = source->type == UPH_RESOURCE_AUTOMATION;
-	Naui_List(Uph_TrackPtr) selected = uph_song_timeline_data.selected_tracks;
+	Naui_List(Uph_TrackPtr) selected = _uph_song_timeline_state.selected_tracks;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
 	{
 		const bool compatible = automation ?
@@ -823,7 +823,7 @@ static Naui_List(Uph_TrackPtr) _uph_song_timeline_drag_tracks(Uph_Track *source)
 
 void uph_song_timeline_update_track_drag(void)
 {
-	Uph_SongTimelineData *timeline = &uph_song_timeline_data;
+	Uph_SongTimelineState *timeline = &_uph_song_timeline_state;
 	Uph_TrackDragState *drag = &timeline->track_drag;
 
 	if (naui_any_mouse_pressed() && !timeline->track_header_hovered && !uph_ui_any_menu_open())
@@ -931,7 +931,7 @@ void uph_song_timeline_update_track_drag(void)
 
 void uph_song_timeline_apply_pending_move(void)
 {
-	Uph_TrackPendingMove *move = &uph_song_timeline_data.pending_move;
+	Uph_TrackPendingMove *move = &_uph_song_timeline_state.pending_move;
 	if (!move->tracks)
 		return;
 

@@ -8,13 +8,13 @@ Uph_SongTimelineMinimapMapping;
 
 static float _uph_song_timeline_minimap_view_width(void)
 {
-	const Uph_SongTimelineData *data = &uph_song_timeline_data;
+	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	return fmaxf(1.0f, data->panel_bounding_box.width - NAUI_DPI(uph_song_timeline_header_column_width()));
 }
 
 static double _uph_song_timeline_minimap_total_beats(void)
 {
-	const Uph_SongTimelineData *data = &uph_song_timeline_data;
+	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	const double song_end = uph_audio_engine_get_song_length() + uph_time_signature_bar_length() * 4.0;
 	const double view_end = ((double)data->scroll.x + _uph_song_timeline_minimap_view_width()) / data->zoom.x;
 	return fmax(song_end, view_end);
@@ -42,7 +42,7 @@ static Uph_SongTimelineMinimapMapping _uph_song_timeline_minimap_mapping(Leaf_Bo
 
 static void _uph_song_timeline_minimap_draw_tracks(Naui_List(Uph_Track) tracks, float *y, const Uph_SongTimelineMinimapMapping *map)
 {
-	const float zoom_y = uph_song_timeline_data.zoom.y;
+	const float zoom_y = _uph_song_timeline_state.zoom.y;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
@@ -81,7 +81,7 @@ static float _uph_song_timeline_minimap_rows_height(Naui_List(Uph_Track) tracks)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
-		height += uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(uph_song_timeline_data.zoom.y);
+		height += uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(_uph_song_timeline_state.zoom.y);
 		height += _uph_song_timeline_minimap_rows_height(track->subtracks);
 	}
 	return height;
@@ -89,7 +89,7 @@ static float _uph_song_timeline_minimap_rows_height(Naui_List(Uph_Track) tracks)
 
 static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_data)
 {
-	const Uph_SongTimelineData *data = &uph_song_timeline_data;
+	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	const double total_beats = data->minimap.dragging ? data->minimap.total_beats : _uph_song_timeline_minimap_total_beats();
 	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, total_beats, _uph_song_timeline_minimap_rows_height(uph_state.project.tracks));
 
@@ -117,7 +117,7 @@ static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_da
 
 static void _uph_song_timeline_minimap_apply(Leaf_BoundingBox bbox)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, data->minimap.total_beats, 1.0f);
 	const float thumb_start = (float)naui_mouse_x() - data->minimap.grab_offset - map.rect.x;
 	data->scroll.x = fmaxf(0.0f, (thumb_start / map.scale_x) * data->zoom.x);
@@ -125,7 +125,7 @@ static void _uph_song_timeline_minimap_apply(Leaf_BoundingBox bbox)
 
 static void _uph_song_timeline_minimap_press(Leaf_BoundingBox bbox)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	data->minimap.total_beats = _uph_song_timeline_minimap_total_beats();
 	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, data->minimap.total_beats, 1.0f);
 
@@ -140,8 +140,8 @@ static void _uph_song_timeline_minimap_press(Leaf_BoundingBox bbox)
 
 void uph_song_timeline_update_minimap(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
-	extern Uph_GlobalWidgetData uph_global_widget_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	extern Uph_GlobalWidgetState uph_global_widget_state;
 
 	const Leaf_BoundingBox bbox = leaf_get_bounding_box(leaf_id("uph_song_timeline_minimap"));
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
@@ -155,7 +155,7 @@ void uph_song_timeline_update_minimap(void)
 		else
 		{
 			_uph_song_timeline_minimap_apply(bbox);
-			uph_global_widget_data.any_widget_hovered = true;
+			uph_global_widget_state.any_widget_hovered = true;
 			naui_set_cursor(NAUI_CURSOR_HAND);
 			return;
 		}
@@ -168,7 +168,7 @@ void uph_song_timeline_update_minimap(void)
 		return;
 
 	data->minimap.hovered = true;
-	uph_global_widget_data.any_widget_hovered = true;
+	uph_global_widget_state.any_widget_hovered = true;
 	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
 		_uph_song_timeline_minimap_press(bbox);
@@ -195,7 +195,7 @@ void uph_song_timeline_render_minimap(void)
 
 void uph_song_timeline_render_time_display(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	const Leaf_ID id = leaf_id("uph_song_timeline_time_display");
 	const double beat = uph_state.shared.song_timeline_playhead_position;
 	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);

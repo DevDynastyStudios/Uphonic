@@ -87,8 +87,8 @@ typedef struct
     bool textfield_submitted_this_frame;
     bool any_widget_hovered;
 }
-Uph_GlobalWidgetData;
-Uph_GlobalWidgetData uph_global_widget_data = { 0 };
+Uph_GlobalWidgetState;
+Uph_GlobalWidgetState uph_global_widget_state = { 0 };
 
 #pragma region Static Helpers
 
@@ -241,7 +241,7 @@ static size_t uph_ui__cursor_from_x(const Naui_String *value, float local_x, flo
 
 static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags)
 {
-    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
+    Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
     static Naui_String edit_buffer;
     bool text_editing = (tdata->id.value == id.value) && (tdata->mode == UPH_UI_EDIT_MODE_TEXT) && (tdata->target_number == value);
     bool result = false;
@@ -281,7 +281,7 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
         return result;
     }
 
-    Uph_DragData *ddata = &uph_global_widget_data.drag_data;
+    Uph_DragData *ddata = &uph_global_widget_state.drag_data;
     Leaf_BoundingBox box = leaf_get_bounding_box(id);
     const bool vertical = (flags & UPH_UI_SLIDER_FLAG_VERTICAL) != 0;
 
@@ -424,8 +424,8 @@ static bool uph_ui__slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
 static bool uph_ui__drag_scalar(const Leaf_ID id, void *value, bool is_float, float speed, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UIDragFlags flags)
 {
-    Uph_TextfieldData *tdata = &uph_global_widget_data.textfield_data;
-    Uph_DragData *ddata = &uph_global_widget_data.drag_data;
+    Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
+    Uph_DragData *ddata = &uph_global_widget_state.drag_data;
 
     bool result = false;
 
@@ -669,7 +669,7 @@ static void uph_ui__knob_draw(Leaf_BoundingBox box, void *user_data)
 #pragma region Public API
 bool uph_ui_widget_active(const Leaf_ID id)
 {
-    return uph_global_widget_data.drag_data.id.value == id.value;
+    return uph_global_widget_state.drag_data.id.value == id.value;
 }
 
 bool uph_ui_widget_hovered(const Leaf_ID id)
@@ -679,13 +679,13 @@ bool uph_ui_widget_hovered(const Leaf_ID id)
 
     const bool result = !uph_ui_any_widget_hovered() && ((!naui_panel_current() && !naui_panel_is_any_hovered()) || (naui_panel_current() && naui_panel_is_hovered(naui_panel_current()))) && leaf_hovered_clipped(id);
     if (result)
-        uph_global_widget_data.any_widget_hovered = true;
+        uph_global_widget_state.any_widget_hovered = true;
     return result;
 }
 
 bool uph_ui_any_widget_hovered(void)
 {
-    return uph_global_widget_data.any_widget_hovered;
+    return uph_global_widget_state.any_widget_hovered;
 }
 
 static void uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
@@ -814,7 +814,7 @@ static void uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec
     }
 }
 
-static Uph_UIMenuNode *uph_ui__menu_root(Uph_GlobalWidgetData *data, const Leaf_ID element_id)
+static Uph_UIMenuNode *uph_ui__menu_root(Uph_GlobalWidgetState *data, const Leaf_ID element_id)
 {
     Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
     menu->element_id = element_id;
@@ -823,7 +823,7 @@ static Uph_UIMenuNode *uph_ui__menu_root(Uph_GlobalWidgetData *data, const Leaf_
     return menu;
 }
 
-static void uph_ui__open_menu(Uph_GlobalWidgetData *data, Uph_UIMenuNode *menu, bool context)
+static void uph_ui__open_menu(Uph_GlobalWidgetState *data, Uph_UIMenuNode *menu, bool context)
 {
     data->current_open_menu = menu;
     data->open_menu_key = menu->element_id.value;
@@ -832,18 +832,18 @@ static void uph_ui__open_menu(Uph_GlobalWidgetData *data, Uph_UIMenuNode *menu, 
     data->visual.menu_lifetime = 0.0f;
 }
 
-static void uph_ui__close_menu(Uph_GlobalWidgetData *data)
+static void uph_ui__close_menu(Uph_GlobalWidgetState *data)
 {
     data->current_open_menu = NULL;
     data->open_menu_key = 0;
 }
 
-static bool uph_ui__menu_is_open(const Uph_GlobalWidgetData *data, const Uph_UIMenuNode *menu)
+static bool uph_ui__menu_is_open(const Uph_GlobalWidgetState *data, const Uph_UIMenuNode *menu)
 {
     return data->open_menu_key != 0 && menu->element_id.value == data->open_menu_key;
 }
 
-static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
+static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
 {
     data->menu_dropdown_hovered = false;
     if (data->current_open_menu)
@@ -917,13 +917,13 @@ static void uph_ui_render_menu_dropdown(Uph_GlobalWidgetData *data)
 
 void uph_ui_widgets_init(void)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     naui_arena_init(&data->menu_arena, (1 << 14));
 }
 
 void uph_ui_widgets_flush(void)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     uph_ui_render_menu_dropdown(data);
     if (!data->current_open_menu)
         data->open_menu_key = 0;
@@ -941,7 +941,7 @@ void uph_ui_widgets_flush(void)
 
 Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
 
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, element_id);
 
@@ -988,14 +988,14 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 
 Uph_UIMenuID uph_ui_context_menu(const Leaf_ID id)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     return (Uph_UIMenuID)menu;
 }
 
 Uph_UIMenuID uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id))
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     menu->deferred_render = custom_render;
     return (Uph_UIMenuID)menu;
@@ -1003,19 +1003,19 @@ Uph_UIMenuID uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(
 
 void uph_ui_open_context_menu(Uph_UIMenuID menu)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     uph_ui__open_menu(data, (Uph_UIMenuNode*)menu, true);
     data->current_context_menu_position = (Naui_Vec2){naui_mouse_x(), naui_mouse_y()};
 }
 
 static void _uph_ui_close_menu(void)
 {
-    uph_ui__close_menu(&uph_global_widget_data);
+    uph_ui__close_menu(&uph_global_widget_state);
 }
 
 bool uph_ui_any_menu_open(void)
 {
-    return uph_global_widget_data.open_menu_key != 0;
+    return uph_global_widget_state.open_menu_key != 0;
 }
 
 static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
@@ -1034,7 +1034,7 @@ static void uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *chi
 
 Uph_UIMenuID uph_ui_submenu(Uph_UIMenuID parent_id, const char *name, const Leaf_ID element_id)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
 
     Uph_UIMenuNode *parent = (Uph_UIMenuNode*)parent_id;
     Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
@@ -1052,7 +1052,7 @@ Uph_UIMenuID uph_ui_submenu(Uph_UIMenuID parent_id, const char *name, const Leaf
 
 bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
 
     Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
     Uph_UIMenuNode *item = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
@@ -1072,7 +1072,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     bool result;
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        uph_ui__close_menu(&uph_global_widget_data);
+        uph_ui__close_menu(&uph_global_widget_state);
         result = true;
     }
     else result = false;
@@ -1088,7 +1088,7 @@ bool uph_ui_menu_shortcut_item(Uph_UIMenuID menu_id, const char *name, const Lea
     if (text.length > 0)
     {
         Uph_UIMenuNode *parent = (Uph_UIMenuNode*)menu_id;
-        char *shortcut = naui_arena_alloc(&uph_global_widget_data.menu_arena, text.length + 1);
+        char *shortcut = naui_arena_alloc(&uph_global_widget_state.menu_arena, text.length + 1);
         memcpy(shortcut, text.data, text.length + 1);
         parent->last_child->shortcut = shortcut;
     }
@@ -1404,12 +1404,12 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
 
 bool uph_ui_any_textfield_active(void)
 {
-    return uph_global_widget_data.textfield_data.mode == UPH_UI_EDIT_MODE_TEXT;
+    return uph_global_widget_state.textfield_data.mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
 bool uph_ui_textfield_active(const Leaf_ID id)
 {
-    const Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
+    const Uph_TextfieldData *data = &uph_global_widget_state.textfield_data;
     return data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
@@ -1513,7 +1513,7 @@ static void uph_ui__textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawD
 
 bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags flags, const char *placeholder)
 {
-    Uph_TextfieldData *data = &uph_global_widget_data.textfield_data;
+    Uph_TextfieldData *data = &uph_global_widget_state.textfield_data;
 
     bool result = false;
 
@@ -1773,7 +1773,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     }
 
     if (data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT)
-        uph_global_widget_data.textfield_submitted_this_frame = true;
+        uph_global_widget_state.textfield_submitted_this_frame = true;
 
     return result;
 }
@@ -1864,7 +1864,7 @@ static void uph_ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
 
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id)
 {
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     Uph_UIMenuNode *menu = uph_ui__menu_root(data, id);
     bool result = false;
 
@@ -1963,7 +1963,7 @@ bool uph_ui_snap_dropdown(Uph_SnapResolution *snap, const Leaf_ID id)
 
 bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, float default_value, Naui_Color color, Uph_UIKnobStartType start_type)
 {
-    Uph_KnobData *kdata = &uph_global_widget_data.knob_data;
+    Uph_KnobData *kdata = &uph_global_widget_state.knob_data;
 
     const bool hovered = uph_ui_widget_hovered(id);
     const bool dragging = (kdata->id.value == id.value);
@@ -2306,7 +2306,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
     static const char *preset_labels[] = { "2/4", "3/4", "4/4", "5/4", "6/8", "7/8", "9/8", "12/8", "15/16" };
     const uint32_t preset_count = sizeof(presets) / sizeof(presets[0]);
 
-    Uph_GlobalWidgetData *data = &uph_global_widget_data;
+    Uph_GlobalWidgetState *data = &uph_global_widget_state;
     const Leaf_ID frame_id = leaf_id(id);
     const Leaf_ID denominator_id = leaf_id_indexed(id, 1);
     const Leaf_ID arrow_id = leaf_id_indexed(id, 2);

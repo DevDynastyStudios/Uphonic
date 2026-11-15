@@ -11,8 +11,12 @@ typedef struct
 }
 Uph_PluginScan;
 
-static Uph_PluginScan *s_scan;
-static Naui_JobHandle s_scan_job;
+static struct
+{
+	Uph_PluginScan *scan;
+	Naui_JobHandle job;
+}
+_uph_plugin_scan_state;
 
 static inline Naui_Path _uph_plugin_get_cache_file(void)
 {
@@ -21,7 +25,7 @@ static inline Naui_Path _uph_plugin_get_cache_file(void)
 
 #define UPH_PLUGIN_SCAN_MAX_DEPTH 16
 
-static const char *const s_uph_plugin_cache_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
+static const char *const _uph_plugin_cache_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
 	[UPH_PLUGIN_CLAP] = "CLAP",
 	[UPH_PLUGIN_VST3] = "VST3",
 	[UPH_PLUGIN_VST2] = "VST2"
@@ -100,12 +104,12 @@ static void _uph_plugin_scan_deliver(Naui_List(Uph_PluginInfo) *info_list)
 {
 	Naui_List(Uph_PluginInfo) fresh = NULL;
 
-	naui_mutex_lock(s_scan->lock);
-	for (uint32_t i = s_scan->delivered; i < (uint32_t)naui_list_len(s_scan->found); i++)
-		naui_list_push(fresh, s_scan->found[i]);
+	naui_mutex_lock(_uph_plugin_scan_state.scan->lock);
+	for (uint32_t i = _uph_plugin_scan_state.scan->delivered; i < (uint32_t)naui_list_len(_uph_plugin_scan_state.scan->found); i++)
+		naui_list_push(fresh, _uph_plugin_scan_state.scan->found[i]);
 
-	s_scan->delivered = (uint32_t)naui_list_len(s_scan->found);
-	naui_mutex_unlock(s_scan->lock);
+	_uph_plugin_scan_state.scan->delivered = (uint32_t)naui_list_len(_uph_plugin_scan_state.scan->found);
+	naui_mutex_unlock(_uph_plugin_scan_state.scan->lock);
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(fresh); i++)
 		_uph_plugin_cache_merge(info_list, &fresh[i]);
@@ -126,7 +130,7 @@ static void _uph_plugin_cache_write(const Naui_List(Uph_PluginInfo) info_list)
 		naui_json_set_string(&json, object, "name", info->name.data);
 		naui_json_set_string(&json, object, "vendor", info->vendor.data);
 		naui_json_set_string(&json, object, "type", info->type == UPH_PLUGIN_EFFECT ? "FX" : "INST");
-		naui_json_set_string(&json, object, "format", s_uph_plugin_cache_format_names[info->format]);
+		naui_json_set_string(&json, object, "format", _uph_plugin_cache_format_names[info->format]);
 	}
 
 	naui_directories_create(UPHONIC_FOLDER);
@@ -174,13 +178,13 @@ static void _uph_plugin_scan_job(void *data, char *err_buf, size_t err_size)
 
 static void _uph_plugin_scan_free(void)
 {
-	naui_list_free(s_scan->folders);
-	naui_list_free(s_scan->known);
-	naui_list_free(s_scan->found);
-	naui_mutex_destroy(s_scan->lock);
-	free(s_scan);
-	s_scan = NULL;
-	s_scan_job = NAUI_JOB_INVALID;
+	naui_list_free(_uph_plugin_scan_state.scan->folders);
+	naui_list_free(_uph_plugin_scan_state.scan->known);
+	naui_list_free(_uph_plugin_scan_state.scan->found);
+	naui_mutex_destroy(_uph_plugin_scan_state.scan->lock);
+	free(_uph_plugin_scan_state.scan);
+	_uph_plugin_scan_state.scan = NULL;
+	_uph_plugin_scan_state.job = NAUI_JOB_INVALID;
 }
 
 bool uph_plugin_cache_read(Naui_List(Uph_PluginInfo) *info_list)
@@ -213,7 +217,7 @@ bool uph_plugin_cache_read(Naui_List(Uph_PluginInfo) *info_list)
 		info.format = UPH_PLUGIN_CLAP;
 		for (Uph_PluginFormat f = 0; f < UPH_PLUGIN_FORMAT_COUNT; f++)
 		{
-			if (strcmp(format, s_uph_plugin_cache_format_names[f]) == 0)
+			if (strcmp(format, _uph_plugin_cache_format_names[f]) == 0)
 				info.format = f;
 		}
 
@@ -226,38 +230,38 @@ bool uph_plugin_cache_read(Naui_List(Uph_PluginInfo) *info_list)
 
 void uph_plugin_scan_start(const Naui_List(Uph_PluginInfo) known)
 {
-	if (s_scan)
+	if (_uph_plugin_scan_state.scan)
 		return;
 
-	s_scan = (Uph_PluginScan*)calloc(1, sizeof(*s_scan));
-	s_scan->lock = naui_mutex_create();
+	_uph_plugin_scan_state.scan = (Uph_PluginScan*)calloc(1, sizeof(*_uph_plugin_scan_state.scan));
+	_uph_plugin_scan_state.scan->lock = naui_mutex_create();
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.settings.plugin.plugin_paths); i++)
-		naui_list_push(s_scan->folders, uph_state.settings.plugin.plugin_paths[i]);
+		naui_list_push(_uph_plugin_scan_state.scan->folders, uph_state.settings.plugin.plugin_paths[i]);
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(known); i++)
-		naui_list_push(s_scan->known, known[i]);
+		naui_list_push(_uph_plugin_scan_state.scan->known, known[i]);
 
-	if (naui_job_submit(&s_scan_job, _uph_plugin_scan_job, s_scan) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&_uph_plugin_scan_state.job, _uph_plugin_scan_job, _uph_plugin_scan_state.scan) != NAUI_JOB_SUBMIT_OK)
 	{
-		s_scan_job = NAUI_JOB_INVALID;
-		_uph_plugin_scan_job(s_scan, NULL, 0);
+		_uph_plugin_scan_state.job = NAUI_JOB_INVALID;
+		_uph_plugin_scan_job(_uph_plugin_scan_state.scan, NULL, 0);
 	}
 }
 
 bool uph_plugin_scan_poll(Naui_List(Uph_PluginInfo) *info_list)
 {
-	if (!s_scan)
+	if (!_uph_plugin_scan_state.scan)
 		return false;
 
 	_uph_plugin_scan_deliver(info_list);
 
-	const bool ran_inline = !naui_job_is_valid(s_scan_job);
-	if (!ran_inline && !naui_job_is_done(s_scan_job))
+	const bool ran_inline = !naui_job_is_valid(_uph_plugin_scan_state.job);
+	if (!ran_inline && !naui_job_is_done(_uph_plugin_scan_state.job))
 		return false;
 
-	const bool succeeded = ran_inline || naui_job_status(s_scan_job) == NAUI_JOB_DONE;
+	const bool succeeded = ran_inline || naui_job_status(_uph_plugin_scan_state.job) == NAUI_JOB_DONE;
 	if (!ran_inline)
-		naui_job_release(s_scan_job);
+		naui_job_release(_uph_plugin_scan_state.job);
 
 	if (succeeded)
 	{
@@ -265,7 +269,7 @@ bool uph_plugin_scan_poll(Naui_List(Uph_PluginInfo) *info_list)
 
 		for (uint32_t i = (uint32_t)naui_list_len(*info_list); i > 0; i--)
 		{
-			if (!_uph_plugin_cache_find(s_scan->found, (*info_list)[i - 1].path))
+			if (!_uph_plugin_cache_find(_uph_plugin_scan_state.scan->found, (*info_list)[i - 1].path))
 				naui_list_remove(*info_list, i - 1);
 		}
 	}
@@ -277,23 +281,23 @@ bool uph_plugin_scan_poll(Naui_List(Uph_PluginInfo) *info_list)
 Uph_PluginScanProgress uph_plugin_scan_progress(void)
 {
 	Uph_PluginScanProgress progress = { 0 };
-	if (!s_scan)
+	if (!_uph_plugin_scan_state.scan)
 		return progress;
 
 	progress.active = true;
-	progress.scanned = atomic_load(&s_scan->scanned);
-	progress.total = atomic_load(&s_scan->total);
+	progress.scanned = atomic_load(&_uph_plugin_scan_state.scan->scanned);
+	progress.total = atomic_load(&_uph_plugin_scan_state.scan->total);
 	return progress;
 }
 
 void uph_plugin_scan_shutdown(void)
 {
-	if (!s_scan)
+	if (!_uph_plugin_scan_state.scan)
 		return;
 
-	atomic_store(&s_scan->cancel, true);
-	if (naui_job_is_valid(s_scan_job))
-		naui_job_wait(s_scan_job);
+	atomic_store(&_uph_plugin_scan_state.scan->cancel, true);
+	if (naui_job_is_valid(_uph_plugin_scan_state.job))
+		naui_job_wait(_uph_plugin_scan_state.job);
 
 	_uph_plugin_scan_free();
 }

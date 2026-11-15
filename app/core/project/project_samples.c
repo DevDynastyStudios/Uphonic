@@ -1,5 +1,9 @@
-static Naui_List(Naui_String) s_adopted_sample_files;
-static Naui_List(Uph_PendingSample *) s_pending_samples;
+static struct
+{
+	Naui_List(Naui_String) adopted_files;
+	Naui_List(Uph_PendingSample *) pending;
+}
+_uph_project_samples_state;
 
 static bool _uph_path_is_inside(const Naui_Path path, const Naui_Path folder)
 {
@@ -61,9 +65,9 @@ static int32_t _uph_project_find_duplicate_sample(const Uph_Project *project, co
 static Uph_PendingSample *_uph_pending_sample_find(const Naui_Path path)
 {
 	const Naui_Path wanted = naui_path_normalize(path);
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); i++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_project_samples_state.pending); i++)
 	{
-		Uph_PendingSample *pending = s_pending_samples[i];
+		Uph_PendingSample *pending = _uph_project_samples_state.pending[i];
 		if (strcmp(naui_path_normalize(pending->source_path).data, wanted.data) == 0 || strcmp(naui_path_normalize(pending->load_path).data, wanted.data) == 0)
 			return pending;
 	}
@@ -302,21 +306,21 @@ bool uph_project_add_sample_file(Uph_Project *project, const Naui_Path file_path
 	pending->name = naui_view_to_string(naui_file_stem(&pending->load_path));
 	if (on_loaded)
 		naui_list_push(pending->callbacks, callback);
-	naui_list_push(s_pending_samples, pending);
+	naui_list_push(_uph_project_samples_state.pending, pending);
 	_uph_pending_sample_submit(pending);
 	return true;
 }
 
 Naui_List(Uph_PendingSample *) uph_project_pending_samples(void)
 {
-	return s_pending_samples;
+	return _uph_project_samples_state.pending;
 }
 
 void uph_project_update_pending_samples(void)
 {
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); )
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_project_samples_state.pending); )
 	{
-		Uph_PendingSample *pending = s_pending_samples[i];
+		Uph_PendingSample *pending = _uph_project_samples_state.pending[i];
 		if (!pending->submitted)
 			_uph_pending_sample_submit(pending);
 
@@ -326,16 +330,16 @@ void uph_project_update_pending_samples(void)
 			continue;
 		}
 
-		naui_list_remove(s_pending_samples, i);
+		naui_list_remove(_uph_project_samples_state.pending, i);
 		_uph_pending_sample_finish(pending, true);
 	}
 }
 
 void uph_project_flush_pending_samples(bool keep)
 {
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_pending_samples); i++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_project_samples_state.pending); i++)
 	{
-		Uph_PendingSample *pending = s_pending_samples[i];
+		Uph_PendingSample *pending = _uph_project_samples_state.pending[i];
 		if (!pending->submitted && keep)
 			_uph_pending_sample_run_inline(pending);
 		else if (naui_job_is_valid(pending->job))
@@ -344,12 +348,12 @@ void uph_project_flush_pending_samples(bool keep)
 		_uph_pending_sample_finish(pending, keep);
 	}
 
-	naui_list_clear(s_pending_samples);
+	naui_list_clear(_uph_project_samples_state.pending);
 }
 
 void uph_project_clear_adopted_samples(void)
 {
-	naui_list_clear(s_adopted_sample_files);
+	naui_list_clear(_uph_project_samples_state.adopted_files);
 }
 
 void uph_project_rebase_sample_paths(Uph_Project *project, const Naui_Path from_folder, const Naui_Path to_folder)
@@ -403,10 +407,10 @@ Naui_List(Naui_String) uph_project_collect_sample_candidates(const Naui_Path pro
 	}
 	naui_directory_filter_free(temp_files);
 
-	for (size_t i = 0; i < naui_list_len(s_adopted_sample_files); i++)
+	for (size_t i = 0; i < naui_list_len(_uph_project_samples_state.adopted_files); i++)
 	{
-		if (!uph_project_names_contain(candidates, s_adopted_sample_files[i].data))
-			naui_list_push(candidates, s_adopted_sample_files[i]);
+		if (!uph_project_names_contain(candidates, _uph_project_samples_state.adopted_files[i].data))
+			naui_list_push(candidates, _uph_project_samples_state.adopted_files[i]);
 	}
 
 	return candidates;
@@ -507,7 +511,7 @@ void uph_project_adopt_sample_files(Uph_Project *project, const Naui_Path projec
 		}
 
 		naui_log(NAUI_LOG_INFO, "Added sample found in the project folder: %s", file.data);
-		naui_list_push(s_adopted_sample_files, naui_view_to_string(naui_file_filename(&file)));
+		naui_list_push(_uph_project_samples_state.adopted_files, naui_view_to_string(naui_file_filename(&file)));
 	}
 
 	naui_list_free(defined);

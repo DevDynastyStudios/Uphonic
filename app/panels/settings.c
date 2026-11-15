@@ -112,9 +112,9 @@ typedef struct
 	const Uph_KeybindInfo *capturing_keybind;
 	float shortcuts_scroll;
 }
-Uph_SettingsData;
+Uph_SettingsState;
 
-static Uph_SettingsData uph_settings_data;
+static Uph_SettingsState _uph_settings_state;
 
 static const uint32_t uph_settings_sample_rates[] = { 44100, 48000, 88200, 96000, 176400, 192000 };
 static const char *const uph_settings_sample_rate_labels[] = { "44.1 kHz", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz" };
@@ -341,7 +341,7 @@ static void uph_settings_load_theme_preview(const Naui_Path path, Uph_SettingsTh
 	naui_json_free(&json);
 }
 
-static void uph_settings_refresh_themes(Uph_SettingsData *data)
+static void uph_settings_refresh_themes(Uph_SettingsState *data)
 {
 	data->themes.count = 0;
 
@@ -364,7 +364,7 @@ static void uph_settings_refresh_themes(Uph_SettingsData *data)
 	naui_directory_filter_free(entries);
 }
 
-static void uph_settings_refresh_languages(Uph_SettingsData *data)
+static void uph_settings_refresh_languages(Uph_SettingsState *data)
 {
 	data->language_count = 0;
 
@@ -379,7 +379,7 @@ static void uph_settings_refresh_languages(Uph_SettingsData *data)
 	}
 }
 
-static void uph_settings_refresh_audio_devices(Uph_SettingsData *data)
+static void uph_settings_refresh_audio_devices(Uph_SettingsState *data)
 {
 	data->audio_outputs.count = 0;
 	data->audio_inputs.count = 0;
@@ -413,7 +413,7 @@ static void uph_settings_refresh_audio_devices(Uph_SettingsData *data)
 		ma_context_uninit(&temporary);
 }
 
-static void uph_settings_refresh_midi_devices(Uph_SettingsData *data)
+static void uph_settings_refresh_midi_devices(Uph_SettingsState *data)
 {
 	data->midi_inputs.count = 0;
 	data->midi_outputs.count = 0;
@@ -431,7 +431,7 @@ static void uph_settings_refresh_midi_devices(Uph_SettingsData *data)
 	}
 }
 
-static void uph_settings_refresh_all(Uph_SettingsData *data)
+static void uph_settings_refresh_all(Uph_SettingsState *data)
 {
 	uph_settings_refresh_themes(data);
 	uph_settings_refresh_languages(data);
@@ -469,7 +469,7 @@ static void uph_settings_audio_copy_device_fields(Uph_AudioSettings *dst, const 
 	dst->input_channel = src->input_channel;
 }
 
-static void uph_settings_apply_audio(Uph_SettingsData *data)
+static void uph_settings_apply_audio(Uph_SettingsState *data)
 {
 	Uph_AudioSettings *audio = &uph_state.settings.audio;
 	const Uph_AudioSettings previous = *audio;
@@ -499,7 +499,7 @@ static void uph_settings_restart_dialog_result(int32_t button, void *user_data)
 	if (button != 0)
 		return;
 
-	Uph_SettingsData *data = (Uph_SettingsData*)user_data;
+	Uph_SettingsState *data = (Uph_SettingsState*)user_data;
 	const bool unsaved_changes = uph_autosave_has_unsaved_changes();
 	const bool reopen_project = unsaved_changes || uph_project_has_been_saved(&uph_state.project);
 
@@ -516,7 +516,7 @@ static void uph_settings_restart_dialog_result(int32_t button, void *user_data)
 	naui_defer(uph_settings_restart_deferred, NULL, 0);
 }
 
-static void uph_settings_request_audio_apply(Uph_SettingsData *data)
+static void uph_settings_request_audio_apply(Uph_SettingsState *data)
 {
 	if (data->audio_pending.sample_rate == uph_state.settings.audio.sample_rate)
 	{
@@ -604,7 +604,7 @@ static const cmidi_device_t *uph_settings_find_midi_device(const Uph_SettingsMid
 // Opens the ports named in the settings. A non connected device is skipped and its name stays saved.
 void uph_settings_open_midi_ports(const bool use_first_device)
 {
-	Uph_SettingsData *data = &uph_settings_data;
+	Uph_SettingsState *data = &_uph_settings_state;
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
 
 	uph_settings_refresh_midi_devices(data);
@@ -781,7 +781,7 @@ static bool uph_settings_name_dropdown(Naui_String *value, const Uph_SettingsNam
 	return false;
 }
 
-static bool uph_settings_language_dropdown(Uph_SettingsData *data, const Leaf_ID id)
+static bool uph_settings_language_dropdown(Uph_SettingsState *data, const Leaf_ID id)
 {
 	Uph_GeneralSettings *general = &uph_state.settings.general;
 
@@ -823,7 +823,7 @@ static bool uph_settings_language_dropdown(Uph_SettingsData *data, const Leaf_ID
 	return false;
 }
 
-static bool uph_settings_midi_dropdown(Uph_SettingsData *data, const bool input, const Leaf_ID id)
+static bool uph_settings_midi_dropdown(Uph_SettingsState *data, const bool input, const Leaf_ID id)
 {
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
 	const Uph_SettingsMidiList *list = input ? &data->midi_inputs : &data->midi_outputs;
@@ -924,7 +924,7 @@ static bool uph_settings_checkbox_row(const char *label, bool *value, const Leaf
 	return *value != before;
 }
 
-static void uph_settings_page_general(Uph_SettingsData *data)
+static void uph_settings_page_general(Uph_SettingsState *data)
 {
 	Uph_GeneralSettings *general = &uph_state.settings.general;
 
@@ -1074,7 +1074,7 @@ static void uph_settings_theme_thumbnail(const Uph_SettingsThemePreview *preview
 	}
 }
 
-static void uph_settings_theme_card(Uph_SettingsData *data, const uint32_t index)
+static void uph_settings_theme_card(Uph_SettingsState *data, const uint32_t index)
 {
 	Uph_GeneralSettings *general = &uph_state.settings.general;
 	const Naui_String *name = &data->themes.name[index];
@@ -1130,7 +1130,7 @@ static void uph_settings_theme_card(Uph_SettingsData *data, const uint32_t index
 	}
 }
 
-static void uph_settings_page_themes(Uph_SettingsData *data)
+static void uph_settings_page_themes(Uph_SettingsState *data)
 {
 	uph_settings_section(NAUI_TR("settings.general.theme"), true, NULL, UPH_SETTINGS_NO_ID);
 
@@ -1156,7 +1156,7 @@ static void uph_settings_page_themes(Uph_SettingsData *data)
 	uph_ui_end_scroll_container(&container);
 }
 
-static void uph_settings_page_audio(Uph_SettingsData *data)
+static void uph_settings_page_audio(Uph_SettingsState *data)
 {
 	Uph_AudioSettings *audio = &uph_state.settings.audio;
 	Uph_AudioSettings *pending = &data->audio_pending;
@@ -1287,7 +1287,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 // 	uph_ui_drag_float(&value->y, leaf_id(id_y), speed, min, max, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED);
 // }
 
-// static void uph_settings_page_interface(Uph_SettingsData *data)
+// static void uph_settings_page_interface(Uph_SettingsState *data)
 // {
 // 	(void)data;
 // 	Uph_UISettings *ui = &uph_state.settings.ui;
@@ -1322,7 +1322,7 @@ static void uph_settings_page_audio(Uph_SettingsData *data)
 // 	uph_settings_checkbox_row(NAUI_TR("settings.ui.show_tooltips"), &ui->show_tooltips, leaf_id("uph_settings_tooltips"));
 // }
 
-static void uph_settings_page_midi(Uph_SettingsData *data)
+static void uph_settings_page_midi(Uph_SettingsState *data)
 {
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
 
@@ -1420,7 +1420,7 @@ static void uph_settings_open_plugin_folder_dialog(void)
 	naui_dialog_title_set(UPH_SETTINGS_PLUGIN_DIALOG_KEY, NAUI_TR("settings.plugins.browse_title"));
 }
 
-static void uph_settings_page_plugins(Uph_SettingsData *data)
+static void uph_settings_page_plugins(Uph_SettingsState *data)
 {
 	(void)data;
 	Uph_PluginSettings *plugin = &uph_state.settings.plugin;
@@ -1477,7 +1477,7 @@ static void uph_settings_page_plugins(Uph_SettingsData *data)
 	// uph_settings_checkbox_row(NAUI_TR("settings.plugins.sandbox"), &plugin->sandbox_plugins, leaf_id("uph_settings_sandbox"));
 }
 
-static void uph_settings_cancel_keybind_capture(Uph_SettingsData *data)
+static void uph_settings_cancel_keybind_capture(Uph_SettingsState *data)
 {
 	if (!data->capturing_keybind)
 		return;
@@ -1555,7 +1555,7 @@ static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool ca
 	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-static void uph_settings_page_shortcuts(Uph_SettingsData *data)
+static void uph_settings_page_shortcuts(Uph_SettingsState *data)
 {
 	if (data->capturing_keybind)
 	{
@@ -1650,7 +1650,7 @@ static void uph_settings_page_shortcuts(Uph_SettingsData *data)
 		uph_settings_cancel_keybind_capture(data);
 }
 
-static void uph_settings_sidebar(Uph_SettingsData *data)
+static void uph_settings_sidebar(Uph_SettingsState *data)
 {
 	static const char *const keys[UPH_SETTINGS_PAGE_COUNT] =
 	{
@@ -1749,22 +1749,22 @@ static void uph_settings_on_detach(void)
 
 static void uph_settings_on_open(void)
 {
-	uph_settings_refresh_all(&uph_settings_data);
-	uph_settings_data.was_opened = true;
+	uph_settings_refresh_all(&_uph_settings_state);
+	_uph_settings_state.was_opened = true;
 }
 
 static void uph_settings_on_close(void)
 {
-	uph_settings_cancel_keybind_capture(&uph_settings_data);
+	uph_settings_cancel_keybind_capture(&_uph_settings_state);
 
-	if (uph_settings_data.was_opened)
+	if (_uph_settings_state.was_opened)
 		uph_settings_save();
 }
 
 static void uph_settings_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("settings.title"));
-	Uph_SettingsData *data = &uph_settings_data;
+	Uph_SettingsState *data = &_uph_settings_state;
 	if (!data->lists_ready)
 		uph_settings_refresh_all(data);
 

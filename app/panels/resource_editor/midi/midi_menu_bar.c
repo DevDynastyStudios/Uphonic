@@ -9,7 +9,7 @@ uint32_t uph_midi_editor_find_scale(const char *name)
 	return 0;
 }
 
-void uph_midi_editor_set_scale(Uph_MidiEditorData *editor, uint32_t scale_index, uint8_t root)
+void uph_midi_editor_set_scale(Uph_MidiEditorState *editor, uint32_t scale_index, uint8_t root)
 {
 	if (scale_index >= (uint32_t)naui_list_len(uph_state.scales))
 		return;
@@ -19,7 +19,7 @@ void uph_midi_editor_set_scale(Uph_MidiEditorData *editor, uint32_t scale_index,
 	uph_note_map_apply_scale(&editor->note_map, uph_state.scales[scale_index].mask, editor->scale_root);
 }
 
-void uph_midi_editor_quantize(Uph_MidiEditorData *editor)
+void uph_midi_editor_quantize(Uph_MidiEditorState *editor)
 {
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
 		return;
@@ -27,7 +27,7 @@ void uph_midi_editor_quantize(Uph_MidiEditorData *editor)
 	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
-static void _uph_midi_menu_bar_edit(Uph_MidiEditorData *editor, Uph_MidiPattern *pattern)
+static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
 {
 	Uph_UIMenuID menu = uph_ui_menu("Edit", leaf_id("uph_midi_menu_edit"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
@@ -46,7 +46,7 @@ static void _uph_midi_menu_bar_edit(Uph_MidiEditorData *editor, Uph_MidiPattern 
 		uph_note_delete_selected(pattern_index);
 }
 
-static void _uph_midi_menu_bar_tools(Uph_MidiEditorData *editor)
+static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu("Tools", leaf_id("uph_midi_menu_tools"));
 
@@ -54,7 +54,7 @@ static void _uph_midi_menu_bar_tools(Uph_MidiEditorData *editor)
 		uph_midi_editor_quantize(editor);
 }
 
-static void _uph_midi_menu_bar_scale(Uph_MidiEditorData *editor)
+static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu("Scale", leaf_id("uph_midi_menu_scale"));
 
@@ -72,7 +72,7 @@ static void _uph_midi_menu_bar_scale(Uph_MidiEditorData *editor)
 	}
 }
 
-static void _uph_midi_menu_bar_view(Uph_MidiEditorData *editor)
+static void _uph_midi_menu_bar_view(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu("View", leaf_id("uph_midi_menu_view"));
 
@@ -83,7 +83,7 @@ static void _uph_midi_menu_bar_view(Uph_MidiEditorData *editor)
 		uph_midi_editor_reset_scroll();
 }
 
-static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorData *editor)
+static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorState *editor)
 {
 	if (editor->scale_index >= (uint32_t)naui_list_len(uph_state.scales))
 		return;
@@ -102,7 +102,7 @@ static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorData *edit
 	});
 }
 
-void uph_midi_menu_bar_render(Uph_MidiEditorData *editor)
+void uph_midi_menu_bar_render(Uph_MidiEditorState *editor)
 {
 	Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 

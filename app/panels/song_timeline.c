@@ -2,7 +2,7 @@ NAUI_PANEL(uph_song_timeline)
 
 void uph_song_timeline_invalidate_tracks(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	naui_list_free(data->drag.group_blocks);
 	data->drag.group_blocks = NULL;
 	data->drag.active = false;
@@ -39,7 +39,7 @@ void uph_song_timeline_invalidate_tracks(void)
 
 void uph_song_timeline_reset_scroll(void)
 {
-	uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
+	_uph_song_timeline_state.scroll = (Naui_Vec2) { 0.0f, 0.0f };
 }
 
 #pragma region Panel Events
@@ -47,11 +47,11 @@ static void uph_song_timeline_on_attach(void)
 {
 	Naui_PanelID panel = naui_panel_current();
 
-	uph_song_timeline_data.scroll = (Naui_Vec2) { 0.0f, 0.0f };
-	uph_song_timeline_data.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 104.0f };
-	uph_song_timeline_data.snap_resolution = UPH_SNAP_LINE;
-	uph_song_timeline_data.current_action_mode = UPH_ACTION_DRAW;
-	uph_song_timeline_data.automation_edit.dragging_point_index = -1;
+	_uph_song_timeline_state.scroll = (Naui_Vec2) { 0.0f, 0.0f };
+	_uph_song_timeline_state.zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 104.0f };
+	_uph_song_timeline_state.snap_resolution = UPH_SNAP_LINE;
+	_uph_song_timeline_state.current_action_mode = UPH_ACTION_DRAW;
+	_uph_song_timeline_state.automation_edit.dragging_point_index = -1;
 }
 
 static void uph_song_timeline_on_detach(void)
@@ -73,7 +73,7 @@ static void uph_song_timeline_on_close(void)
 
 static void uph_song_timeline_on_update(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("song_timeline.title"));
 	const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
 	const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");

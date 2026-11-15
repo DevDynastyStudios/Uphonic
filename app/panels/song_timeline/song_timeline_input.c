@@ -1,6 +1,6 @@
 static float _uph_song_timeline_content_origin_x(void)
 {
-	return uph_song_timeline_data.panel_bounding_box.x + NAUI_DPI(uph_song_timeline_header_column_width());
+	return _uph_song_timeline_state.panel_bounding_box.x + NAUI_DPI(uph_song_timeline_header_column_width());
 }
 
 void uph_song_timeline_update_input(void)
@@ -9,29 +9,29 @@ void uph_song_timeline_update_input(void)
 	const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
 	const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
-	if (uph_song_timeline_data.panel_hovered)
+	if (_uph_song_timeline_state.panel_hovered)
 	{
 		if (ctrl_held && wheel_y != 0.0f)
 		{
-			const float old_zoom_x = uph_song_timeline_data.zoom.x;
+			const float old_zoom_x = _uph_song_timeline_state.zoom.x;
 			const float mouse_local_x = (float)naui_mouse_x() - _uph_song_timeline_content_origin_x();
-			const double mouse_beat_before = ((double)mouse_local_x + uph_song_timeline_data.scroll.x) / old_zoom_x;
+			const double mouse_beat_before = ((double)mouse_local_x + _uph_song_timeline_state.scroll.x) / old_zoom_x;
 			float new_zoom_x = old_zoom_x * (1.0f + wheel_y * UPH_SONG_TIMELINE_ZOOM_SPEED);
 
 			new_zoom_x = NAUI_CLAMP(new_zoom_x, UPH_SONG_TIMELINE_ZOOM_X_MIN, UPH_SONG_TIMELINE_ZOOM_X_MAX);
-			uph_song_timeline_data.zoom.x = new_zoom_x;
-			uph_song_timeline_data.scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
-			uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
+			_uph_song_timeline_state.zoom.x = new_zoom_x;
+			_uph_song_timeline_state.scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
+			_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
 		}
-		else if (wheel_y != 0.0f && uph_song_timeline_data.minimap.hovered)
+		else if (wheel_y != 0.0f && _uph_song_timeline_state.minimap.hovered)
 		{
-			uph_song_timeline_data.scroll.x -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
-			uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
+			_uph_song_timeline_state.scroll.x -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
+			_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
 		}
 		else if (wheel_y != 0.0f)
 		{
-			uph_song_timeline_data.scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
-			uph_song_timeline_data.scroll.y = NAUI_CLAMP(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
+			_uph_song_timeline_state.scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
+			_uph_song_timeline_state.scroll.y = NAUI_CLAMP(_uph_song_timeline_state.scroll.y, 0.0f, max_scroll_y);
 		}
 	}
 
@@ -48,11 +48,11 @@ void uph_song_timeline_update_input(void)
 		Naui_Vec2 current = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
 		Naui_Vec2 delta = (Naui_Vec2) { current.x - pan_last_mouse.x, current.y - pan_last_mouse.y };
 
-		uph_song_timeline_data.scroll.x -= delta.x * UPH_SONG_TIMELINE_PAN_SPEED;
-		uph_song_timeline_data.scroll.x = fmaxf(0.0f, uph_song_timeline_data.scroll.x);
+		_uph_song_timeline_state.scroll.x -= delta.x * UPH_SONG_TIMELINE_PAN_SPEED;
+		_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
 
-		uph_song_timeline_data.scroll.y -= delta.y * UPH_SONG_TIMELINE_PAN_SPEED;
-		uph_song_timeline_data.scroll.y = NAUI_CLAMP(uph_song_timeline_data.scroll.y, 0.0f, max_scroll_y);
+		_uph_song_timeline_state.scroll.y -= delta.y * UPH_SONG_TIMELINE_PAN_SPEED;
+		_uph_song_timeline_state.scroll.y = NAUI_CLAMP(_uph_song_timeline_state.scroll.y, 0.0f, max_scroll_y);
 		pan_last_mouse = current;
 
 		if (naui_mouse_released(NAUI_MOUSE_MIDDLE))
@@ -62,7 +62,7 @@ void uph_song_timeline_update_input(void)
 
 void uph_song_timeline_update_selection_keys(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 
 	if (naui_panel_focused() != uph_state.panels.song_timeline || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
 		return;
@@ -101,7 +101,7 @@ static bool _uph_song_timeline_group_row_hovered(Naui_List(Uph_Track) tracks, fl
 
 void uph_song_timeline_update_empty_space_marquee(void)
 {
-	Uph_SongTimelineData *data = &uph_song_timeline_data;
+	Uph_SongTimelineState *data = &_uph_song_timeline_state;
 
 	if (!data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
 		return;

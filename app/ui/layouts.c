@@ -11,7 +11,7 @@ typedef struct
 	bool menu_was_open;
 }
 Uph_LayoutsState;
-static Uph_LayoutsState uph_layouts_state = { 0 };
+static Uph_LayoutsState _uph_layouts_state = { 0 };
 
 static Naui_Path uph_layouts_path_in(const Naui_Path folder, const char *name)
 {
@@ -64,7 +64,7 @@ static void uph_layouts_scan(const Naui_Path folder, char names[UPH_LAYOUT_MAX_C
 
 static void uph_layouts_refresh(void)
 {
-	Uph_LayoutsState *state = &uph_layouts_state;
+	Uph_LayoutsState *state = &_uph_layouts_state;
 	uph_layouts_scan(UPHONIC_BUILTIN_LAYOUTS_FOLDER, state->builtin_names, &state->builtin_count);
 	uph_layouts_scan(UPHONIC_LAYOUTS_FOLDER, state->names, &state->count);
 
@@ -258,10 +258,10 @@ static void _uph_delete_layout_result(int32_t button, void *user_data)
 	if (button != 0)
 		return;
 
-	const Naui_Path path = uph_layouts_path(uph_layouts_state.pending_delete);
+	const Naui_Path path = uph_layouts_path(_uph_layouts_state.pending_delete);
 	if (!naui_file_delete(path))
 		naui_log(NAUI_LOG_ERROR, "Failed to delete layout: %s", path.data);
-	else if (!strcmp(uph_state.settings.general.layout.data, uph_layouts_state.pending_delete))
+	else if (!strcmp(uph_state.settings.general.layout.data, _uph_layouts_state.pending_delete))
 		uph_layouts_select("");
 
 	uph_layouts_refresh();
@@ -269,11 +269,11 @@ static void _uph_delete_layout_result(int32_t button, void *user_data)
 
 static void _uph_confirm_delete_layout(const char *name)
 {
-	snprintf(uph_layouts_state.pending_delete, sizeof(uph_layouts_state.pending_delete), "%s", name);
+	snprintf(_uph_layouts_state.pending_delete, sizeof(_uph_layouts_state.pending_delete), "%s", name);
 
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("menu.layout.delete"),
-		.message = uph_layouts_state.pending_delete,
+		.message = _uph_layouts_state.pending_delete,
 		.buttons = { NAUI_TR("menu.layout.delete"), NAUI_TR("menu.layout.popup.cancel") },
 		.default_button = 1,
 		.cancel_button = 1,
@@ -283,7 +283,7 @@ static void _uph_confirm_delete_layout(const char *name)
 
 void uph_layouts_render_menu(void)
 {
-	Uph_LayoutsState *state = &uph_layouts_state;
+	Uph_LayoutsState *state = &_uph_layouts_state;
 
 	const bool menu_open = uph_ui_any_menu_open();
 	if (menu_open && !state->menu_was_open)

@@ -12,10 +12,16 @@ Uph_FileDialogData;
 
 NAUI_PANEL_WITH_DATA(uph_file_dialog, Uph_FileDialogData)
 
-static Naui_Dialog *s_file_dialog_pending;
-static Naui_Dialog *s_file_dialog_ending;
-static bool s_file_dialog_recentering;
-static char s_file_dialog_overwrite_key[NAUI_DIALOG_KEY_MAX];
+static struct
+{
+	Naui_Dialog *pending;
+	Naui_Dialog *ending;
+	bool recentering;
+	char overwrite_key[NAUI_DIALOG_KEY_MAX];
+	Naui_PanelID panels[NAUI_MAX_DIALOGS];
+	Naui_Dialog *panel_owners[NAUI_MAX_DIALOGS];
+}
+_uph_file_dialog_state;
 
 typedef struct
 {
@@ -62,7 +68,7 @@ static void _uph_file_dialog_overwrite_result(int32_t button, void *user_data)
 	if (button != 0)
 		return;
 
-	Naui_Dialog *dialog = naui_dialog_find(s_file_dialog_overwrite_key);
+	Naui_Dialog *dialog = naui_dialog_find(_uph_file_dialog_state.overwrite_key);
 	if (dialog)
 		naui_dialog_confirm(dialog, true);
 }
@@ -78,7 +84,7 @@ static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_Dialog
 			break;
 
 		case NAUI_DIALOG_CONFIRM_NEEDS_OVERWRITE:
-			snprintf(s_file_dialog_overwrite_key, sizeof(s_file_dialog_overwrite_key), "%s", data->dialog->key);
+			snprintf(_uph_file_dialog_state.overwrite_key, sizeof(_uph_file_dialog_state.overwrite_key), "%s", data->dialog->key);
 			uph_dialog_open(&(Uph_DialogConfig){
 				.title = NAUI_TR("file_dialog.overwrite.title"),
 				.message = NAUI_TR("file_dialog.overwrite.message"),
@@ -366,9 +372,9 @@ static void uph_file_dialog_on_attach(void)
 {
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	memset(data, 0, sizeof(*data));
-	data->dialog = s_file_dialog_pending;
-	data->instance = (uint64_t)(uintptr_t)s_file_dialog_pending;
-	s_file_dialog_pending = NULL;
+	data->dialog = _uph_file_dialog_state.pending;
+	data->instance = (uint64_t)(uintptr_t)_uph_file_dialog_state.pending;
+	_uph_file_dialog_state.pending = NULL;
 
 	const Naui_PanelID self = naui_panel_current();
 	naui_panel_set_title(self, data->dialog->title);
@@ -389,14 +395,14 @@ static void uph_file_dialog_on_open(void)
 
 static void uph_file_dialog_on_close(void)
 {
-	if (s_file_dialog_recentering)
+	if (_uph_file_dialog_state.recentering)
 		return;
 
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	Naui_Dialog *dialog = data->dialog;
 	data->dialog = NULL;
 
-	if (dialog && dialog != s_file_dialog_ending)
+	if (dialog && dialog != _uph_file_dialog_state.ending)
 		naui_dialog_cancel(dialog);
 }
 
@@ -443,13 +449,10 @@ static void uph_file_dialog_on_update(void)
 
 #pragma region Renderer
 
-static Naui_PanelID s_file_dialog_panels[NAUI_MAX_DIALOGS];
-static Naui_Dialog *s_file_dialog_panel_owners[NAUI_MAX_DIALOGS];
-
 static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 {
 	uint32_t slot = 0;
-	while (slot < NAUI_MAX_DIALOGS && s_file_dialog_panel_owners[slot])
+	while (slot < NAUI_MAX_DIALOGS && _uph_file_dialog_state.panel_owners[slot])
 		slot++;
 
 	if (slot == NAUI_MAX_DIALOGS)
@@ -460,17 +463,17 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 	snprintf(dialog->title, sizeof(dialog->title), "%s", titles[dialog->mode]);
 	snprintf(dialog->confirm_label, sizeof(dialog->confirm_label), "%s", labels[dialog->mode]);
 
-	s_file_dialog_pending = dialog;
+	_uph_file_dialog_state.pending = dialog;
 	const Naui_PanelID panel = NAUI_ATTACH_PANEL(uph_file_dialog);
-	s_file_dialog_pending = NULL;
+	_uph_file_dialog_state.pending = NULL;
 	if (!panel)
 		return false;
 
-	s_file_dialog_panels[slot] = panel;
-	s_file_dialog_panel_owners[slot] = dialog;
-	s_file_dialog_recentering = true;
+	_uph_file_dialog_state.panels[slot] = panel;
+	_uph_file_dialog_state.panel_owners[slot] = dialog;
+	_uph_file_dialog_state.recentering = true;
 	naui_panel_close(panel);
-	s_file_dialog_recentering = false;
+	_uph_file_dialog_state.recentering = false;
 	naui_panel_open(panel);
 	return true;
 }
@@ -479,29 +482,29 @@ static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 {
 	for (uint32_t i = 0; i < NAUI_MAX_DIALOGS; i++)
 	{
-		if (s_file_dialog_panel_owners[i] != dialog)
+		if (_uph_file_dialog_state.panel_owners[i] != dialog)
 			continue;
 
-		const Naui_PanelID panel = s_file_dialog_panels[i];
-		s_file_dialog_panel_owners[i] = NULL;
-		s_file_dialog_panels[i] = 0;
+		const Naui_PanelID panel = _uph_file_dialog_state.panels[i];
+		_uph_file_dialog_state.panel_owners[i] = NULL;
+		_uph_file_dialog_state.panels[i] = 0;
 
-		s_file_dialog_ending = dialog;
+		_uph_file_dialog_state.ending = dialog;
 		naui_panel_close(panel);
-		s_file_dialog_ending = NULL;
+		_uph_file_dialog_state.ending = NULL;
 		naui_panel_detach(panel);
 		return;
 	}
 }
 
-static const Naui_DialogRenderer s_uph_file_dialog_renderer = {
+static const Naui_DialogRenderer _uph_file_dialog_renderer = {
 	.begin = uph_file_dialog_renderer_begin,
 	.end = uph_file_dialog_renderer_end
 };
 
 void uph_file_dialog_register(void)
 {
-	naui_dialog_set_renderer(&s_uph_file_dialog_renderer);
+	naui_dialog_set_renderer(&_uph_file_dialog_renderer);
 }
 
 #pragma endregion

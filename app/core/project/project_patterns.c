@@ -1,4 +1,4 @@
-static const char *s_midi_extensions[] = { ".mid", ".midi", ".rmi", ".kar", NULL };
+static const char *_uph_midi_extensions[] = { ".mid", ".midi", ".rmi", ".kar", NULL };
 
 typedef struct
 {
@@ -110,7 +110,7 @@ static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, c
 
 bool uph_project_is_midi_extension(const Naui_StringView extension)
 {
-	for (const char **midi = s_midi_extensions; *midi; midi++)
+	for (const char **midi = _uph_midi_extensions; *midi; midi++)
 	{
 		if (naui_string_view_equals_cstr(extension, *midi, false))
 			return true;
@@ -150,7 +150,7 @@ bool uph_project_add_pattern_file(Uph_Project *project, const Naui_Path file_pat
 void uph_project_adopt_pattern_files(Uph_Project *project, const Naui_Path project_folder)
 {
 	const Naui_Path patterns_dir = naui_path_join(project_folder, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
-	Naui_List(Naui_DirEntry) files = naui_directory_filter(patterns_dir, NULL, s_midi_extensions);
+	Naui_List(Naui_DirEntry) files = naui_directory_filter(patterns_dir, NULL, _uph_midi_extensions);
 	if (!files)
 		return;
 

@@ -9,9 +9,9 @@ typedef struct
 {
     Naui_String filter;
 }
-Uph_AutomationListData;
+Uph_AutomationListState;
 
-static Uph_AutomationListData uph_automation_list_data = { 0 };
+static Uph_AutomationListState _uph_automation_list_state = { 0 };
 
 void uph_automation_list_on_attach(void)
 {
@@ -33,16 +33,16 @@ void uph_automation_list_on_open(void)
 void uph_automation_list_on_close(void)
 {
     uph_song_timeline_cancel_automation_drop();
-    uph_automation_list_data.filter = (Naui_String){0};
+    _uph_automation_list_state.filter = (Naui_String){0};
 }
 
 static bool uph_automation_list_matches_filter(const Uph_PluginParam *param, const Uph_Plugin *plugin)
 {
-    if (uph_automation_list_data.filter.length == 0)
+    if (_uph_automation_list_state.filter.length == 0)
         return true;
 
-    return naui_string_contains(param->name, uph_automation_list_data.filter, false)
-        || naui_string_contains(plugin->name, uph_automation_list_data.filter, false);
+    return naui_string_contains(param->name, _uph_automation_list_state.filter, false)
+        || naui_string_contains(plugin->name, _uph_automation_list_state.filter, false);
 }
 
 static bool uph_automation_list_param_visible(const Uph_PluginParam *param, const Uph_Plugin *plugin)
@@ -194,8 +194,8 @@ static bool uph_automation_list_track_target_visible(const Uph_Track *track, Uph
     if (track && uph_resources_track_has_automation_target(track, target))
         return false;
 
-    return uph_automation_list_data.filter.length == 0
-        || naui_string_contains(naui_string_from_cstr(name), uph_automation_list_data.filter, false);
+    return _uph_automation_list_state.filter.length == 0
+        || naui_string_contains(naui_string_from_cstr(name), _uph_automation_list_state.filter, false);
 }
 
 static bool uph_automation_list_render_track_params(const Uph_Track *track, Uph_ActionTrackRef parent, const Uph_AutomationListTarget *targets, uint32_t target_count, const char *section, uint32_t *row_index)
@@ -269,7 +269,7 @@ void uph_automation_list_on_update(void)
         }
     })
     {
-        uph_ui_textfield(&uph_automation_list_data.filter, leaf_id("uph_automation_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_SEARCH, "Search");
+        uph_ui_textfield(&_uph_automation_list_state.filter, leaf_id("uph_automation_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_SEARCH, "Search");
     }
 
     static float scroll = 0.0f;

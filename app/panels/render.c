@@ -30,8 +30,8 @@ typedef struct
 	bool dither;
 	float progress;
 }
-Uph_ProjectRenderData;
-static Uph_ProjectRenderData uph_project_render_data = {
+Uph_ProjectRenderState;
+static Uph_ProjectRenderState _uph_project_render_state = {
 	.range = UPH_RENDER_RANGE_SONG,
 	.bit_depth = UPH_RENDER_BIT_DEPTH_24,
 	.dither = true
@@ -45,7 +45,7 @@ static bool _uph_render_loop_valid(void)
 
 static Uph_RenderSettings _uph_render_settings(void)
 {
-	const Uph_ProjectRenderData *state = &uph_project_render_data;
+	const Uph_ProjectRenderState *state = &_uph_project_render_state;
 	Uph_RenderSettings settings = {
 		.tail_seconds = state->tail_seconds,
 		.sample_rate = uph_render_sample_rates[state->sample_rate_index],
@@ -109,7 +109,7 @@ static void _uph_render_row_end(void)
 
 static void _uph_render_options(void)
 {
-	Uph_ProjectRenderData *state = &uph_project_render_data;
+	Uph_ProjectRenderState *state = &_uph_project_render_state;
 
 	const bool loop_valid = _uph_render_loop_valid();
 	if (!loop_valid)
@@ -219,7 +219,7 @@ static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_
 		return;
 	}
 
-	uph_project_render_data.progress = 0.0f;
+	_uph_project_render_state.progress = 0.0f;
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("render.progress.title"),
 		.message = NAUI_TR("render.progress.message"),
@@ -227,7 +227,7 @@ static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_
 		.default_button = -1,
 		.cancel_button = 0,
 		.callback = _uph_render_progress_closed,
-		.progress = &uph_project_render_data.progress
+		.progress = &_uph_project_render_state.progress
 	});
 }
 
@@ -237,7 +237,7 @@ void uph_render_update(void)
 		return;
 
 	const Uph_RenderStatus status = uph_audio_engine_render_step(UPH_RENDER_FRAME_BUDGET);
-	uph_project_render_data.progress = uph_audio_engine_render_progress();
+	_uph_project_render_state.progress = uph_audio_engine_render_progress();
 
 	if (status == UPH_RENDER_STATUS_RUNNING)
 		return;

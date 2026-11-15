@@ -1,11 +1,11 @@
 #define UPH_MIDI_EDITOR_PREVIEW_CHANNEL 1
 #define UPH_MIDI_EDITOR_PREVIEW_VELOCITY 127
 
-static Uph_MidiEditorData uph_midi_editor_data;
+static Uph_MidiEditorState _uph_midi_editor_state;
 
 void uph_midi_editor_init(void)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 
 	uph_midi_note_input_cancel_drag(editor);
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
@@ -28,7 +28,7 @@ void uph_midi_editor_init(void)
 
 void uph_midi_editor_reset_scroll(void)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	const int32_t top_row = uph_note_map_row(&editor->note_map, UPH_MIDI_EDITOR_INITIAL_TOP_KEY);
 	editor->view.scroll = (Naui_Vec2) { 0.0f, fmaxf(0.0f, (float)top_row * uph_midi_view_lane_height(&editor->view)) };
 }
@@ -41,7 +41,7 @@ void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const 
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN || uph_state.shared.selected_resource.index != pattern_index)
 		return;
 
-	const Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	const Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	const Leaf_BoundingBox box = editor->lanes_bounding_box;
 	const Naui_Vec4 note_box = uph_midi_view_note_box(&editor->view, &editor->note_map, box, note);
 	const Leaf_Color color = uph_midi_view_velocity_color(uph_midi_view_note_color(), note->velocity);
@@ -64,10 +64,10 @@ static void _uph_midi_editor_send_preview(Uph_PianoEvents events)
 		uph_midi_preview_note_off((uint8_t)events.released);
 
 	if (events.pressed != -1)
-		uph_midi_preview_note_on((uint8_t)events.pressed, (uint8_t)uph_midi_editor_data.note_input.last_note_velocity);
+		uph_midi_preview_note_on((uint8_t)events.pressed, (uint8_t)_uph_midi_editor_state.note_input.last_note_velocity);
 }
 
-static void _uph_midi_editor_set_audition(Uph_MidiEditorData *editor, int16_t key, uint8_t velocity)
+static void _uph_midi_editor_set_audition(Uph_MidiEditorState *editor, int16_t key, uint8_t velocity)
 {
 	if (key == editor->audition_key)
 		return;
@@ -81,7 +81,7 @@ static void _uph_midi_editor_set_audition(Uph_MidiEditorData *editor, int16_t ke
 	editor->audition_key = key;
 }
 
-static void _uph_midi_editor_update_audition(Uph_MidiEditorData *editor, const Uph_MidiPattern *pattern)
+static void _uph_midi_editor_update_audition(Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern)
 {
 	const Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	const bool playing = uph_midi_preview_playing() || uph_state.shared.song_timeline_playing;
@@ -97,7 +97,7 @@ static void _uph_midi_editor_update_audition(Uph_MidiEditorData *editor, const U
 
 void uph_midi_editor_reset_interaction(void)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	uph_midi_note_input_cancel_drag(editor);
 	uph_midi_note_input_cancel_erase(editor);
 	uph_midi_velocity_cancel_drag(&editor->velocity_lane);
@@ -128,8 +128,8 @@ void uph_midi_editor_toggle_playback(void)
 
 	uph_state.shared.song_timeline_playing = false;
 	uph_sample_preview_pause();
-	uph_midi_editor_data.playing_pattern = uph_state.shared.selected_resource.index;
-	uph_midi_preview_play(uph_midi_editor_data.playing_pattern);
+	_uph_midi_editor_state.playing_pattern = uph_state.shared.selected_resource.index;
+	uph_midi_preview_play(_uph_midi_editor_state.playing_pattern);
 }
 
 void uph_midi_editor_stop_playback(void)
@@ -137,7 +137,7 @@ void uph_midi_editor_stop_playback(void)
 	uph_midi_preview_stop();
 }
 
-static void _uph_midi_editor_update_playback(Uph_MidiEditorData *editor)
+static void _uph_midi_editor_update_playback(Uph_MidiEditorState *editor)
 {
 	uph_midi_preview_refresh_voice();
 
@@ -151,7 +151,7 @@ static void _uph_midi_editor_update_playback(Uph_MidiEditorData *editor)
 	uph_midi_preview_stop();
 }
 
-static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Leaf_BoundingBox box)
+static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
 	const bool over_ruler = uph_song_timeline_vec4_contains_vec2((Naui_Vec4) { box.x, box.y, box.width, box.height }, mouse);
@@ -206,7 +206,7 @@ static void _uph_midi_editor_update_playhead_drag(Uph_MidiEditorData *editor, Le
 
 static void _uph_midi_editor_playhead_overlay_draw(Leaf_BoundingBox box, void *user_data)
 {
-	const Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	const Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	const Leaf_BoundingBox lanes = editor->lanes_bounding_box;
 	const float x = uph_midi_view_beat_to_x(&editor->view, lanes, uph_midi_preview_position());
 	const float size = NAUI_DPI(16.0f);
@@ -227,7 +227,7 @@ static void _uph_midi_editor_playhead_overlay_draw(Leaf_BoundingBox box, void *u
 	naui_pop_clip_rect();
 }
 
-static void _uph_midi_editor_render_loop_end(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+static void _uph_midi_editor_render_loop_end(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const float x = uph_midi_view_beat_to_x(&editor->view, box, uph_midi_preview_loop_length(pattern));
 	if (x > box.x + box.width)
@@ -241,7 +241,7 @@ static void _uph_midi_editor_render_loop_end(const Uph_MidiEditorData *editor, L
 
 #pragma region View input
 
-static void _uph_midi_editor_update_view_input(Uph_MidiEditorData *editor, Leaf_BoundingBox box)
+static void _uph_midi_editor_update_view_input(Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
 	Uph_MidiView *view = &editor->view;
 	const float wheel_y = (float)naui_mouse_scroll_delta();
@@ -299,7 +299,7 @@ static void _uph_midi_editor_update_view_input(Uph_MidiEditorData *editor, Leaf_
 
 static void _uph_midi_editor_piano_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	const Uph_PianoCanvas canvas = uph_midi_view_piano_canvas(&editor->view, box);
 
 	_uph_midi_editor_send_preview(uph_piano_update(&editor->piano, &editor->note_map, &canvas, editor->piano_hovered));
@@ -308,7 +308,7 @@ static void _uph_midi_editor_piano_draw(Leaf_BoundingBox box, void *user_data)
 
 static void _uph_midi_editor_lanes_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	uph_midi_grid_render_lanes(box, &editor->view, &editor->note_map, &editor->piano);
 	editor->note_input.hovered_note.active = false;
 
@@ -335,7 +335,7 @@ static void _uph_midi_editor_lanes_draw(Leaf_BoundingBox box, void *user_data)
 
 static void _uph_midi_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	_uph_midi_editor_update_playhead_drag(editor, box);
 	const Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 	if (pattern)
@@ -345,15 +345,15 @@ static void _uph_midi_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 
 static void _uph_midi_editor_velocity_header_draw(Leaf_BoundingBox box, void *user_data)
 {
-	if (uph_midi_editor_data.lane_tab == UPH_MIDI_LANE_TAB_PEDAL)
-		uph_midi_pedal_render_header(&uph_midi_editor_data, box);
+	if (_uph_midi_editor_state.lane_tab == UPH_MIDI_LANE_TAB_PEDAL)
+		uph_midi_pedal_render_header(&_uph_midi_editor_state, box);
 	else
 		uph_midi_velocity_render_header(box);
 }
 
 static void _uph_midi_editor_velocity_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 	Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
@@ -420,7 +420,7 @@ static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool activ
 	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorData *editor, Leaf_ID bar_id)
+static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID bar_id)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	const Leaf_ID tab_id = leaf_id("uph_midi_editor_velocity_tab");
@@ -474,7 +474,7 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorData *editor, Leaf_ID 
 	}
 }
 
-static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorData *editor)
+static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorState *editor)
 {
 	const int32_t height = NAUI_DPI(UPH_MIDI_EDITOR_TOP_RULER_HEIGHT);
 	leaf({
@@ -501,7 +501,7 @@ static void _uph_midi_editor_render_top_ruler(const Uph_MidiEditorData *editor)
 
 void uph_midi_editor_update(void)
 {
-	Uph_MidiEditorData *editor = &uph_midi_editor_data;
+	Uph_MidiEditorState *editor = &_uph_midi_editor_state;
 
 	const Leaf_ID lanes_id = leaf_id("uph_midi_editor_lanes");
 	const Leaf_ID piano_id = leaf_id("uph_midi_editor_piano");

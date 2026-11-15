@@ -198,13 +198,13 @@ typedef struct
 	bool piano_hovered;
 	bool panel_focused;
 }
-Uph_MidiEditorData;
+Uph_MidiEditorState;
 
 void uph_midi_editor_init(void);
 void uph_midi_editor_update(void);
 void uph_midi_editor_reset_interaction(void);
 void uph_midi_editor_toggle_playback(void);
 void uph_midi_editor_stop_playback(void);
-void uph_midi_editor_set_scale(Uph_MidiEditorData *editor, uint32_t scale_index, uint8_t root);
+void uph_midi_editor_set_scale(Uph_MidiEditorState *editor, uint32_t scale_index, uint8_t root);
 uint32_t uph_midi_editor_find_scale(const char *name);
-void uph_midi_editor_quantize(Uph_MidiEditorData *editor);
+void uph_midi_editor_quantize(Uph_MidiEditorState *editor);

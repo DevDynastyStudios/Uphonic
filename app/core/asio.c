@@ -141,7 +141,7 @@ typedef struct
 }
 Uph_AsioState;
 
-static Uph_AsioState uph_asio;
+static Uph_AsioState _uph_asio_state;
 
 static const IID uph_asio_iid_class_factory = { 0x00000001, 0x0000, 0x0000, { 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46 } };
 
@@ -261,23 +261,23 @@ static bool uph_asio_load(const CLSID *clsid)
 		return false;
 	}
 
-	uph_asio.driver = (Uph_AsioDriver*)instance;
-	uph_asio.module = module;
+	_uph_asio_state.driver = (Uph_AsioDriver*)instance;
+	_uph_asio_state.module = module;
 	return true;
 }
 
 static void uph_asio_unload(void)
 {
-	if (uph_asio.driver)
+	if (_uph_asio_state.driver)
 	{
-		uph_asio.driver->vtbl->release(uph_asio.driver);
-		uph_asio.driver = NULL;
+		_uph_asio_state.driver->vtbl->release(_uph_asio_state.driver);
+		_uph_asio_state.driver = NULL;
 	}
 
-	if (uph_asio.module)
+	if (_uph_asio_state.module)
 	{
-		FreeLibrary(uph_asio.module);
-		uph_asio.module = NULL;
+		FreeLibrary(_uph_asio_state.module);
+		_uph_asio_state.module = NULL;
 	}
 }
 
@@ -414,27 +414,27 @@ static void uph_asio_write_channel(void *dst, const long type, const float *src,
 
 static void uph_asio_process(const long index)
 {
-	const long frames = uph_asio.buffer_size;
-	float *input = uph_asio.input_scratch;
-	float *output = uph_asio.output_scratch;
+	const long frames = _uph_asio_state.buffer_size;
+	float *input = _uph_asio_state.input_scratch;
+	float *output = _uph_asio_state.output_scratch;
 
-	if (uph_asio.input_count < UPH_ASIO_MAX_CHANNELS)
+	if (_uph_asio_state.input_count < UPH_ASIO_MAX_CHANNELS)
 		memset(input, 0, (size_t)frames * UPH_ASIO_MAX_CHANNELS * sizeof(float));
 
-	for (long c = 0; c < uph_asio.input_count; c++)
-		uph_asio_read_channel(uph_asio.buffers[c].buffers[index], uph_asio.input_types[c], input + c, UPH_ASIO_MAX_CHANNELS, frames);
+	for (long c = 0; c < _uph_asio_state.input_count; c++)
+		uph_asio_read_channel(_uph_asio_state.buffers[c].buffers[index], _uph_asio_state.input_types[c], input + c, UPH_ASIO_MAX_CHANNELS, frames);
 
-	ma_device_handle_backend_data_callback(uph_asio.device, output, input, (ma_uint32)frames);
+	ma_device_handle_backend_data_callback(_uph_asio_state.device, output, input, (ma_uint32)frames);
 
-	for (long c = 0; c < uph_asio.output_count; c++)
+	for (long c = 0; c < _uph_asio_state.output_count; c++)
 	{
-		const ma_uint32 source = c < (long)uph_asio.playback_channels ? (ma_uint32)c : 0;
-		const Uph_AsioBufferInfo *info = &uph_asio.buffers[uph_asio.input_count + c];
-		uph_asio_write_channel(info->buffers[index], uph_asio.output_types[c], output + source, uph_asio.playback_channels, frames);
+		const ma_uint32 source = c < (long)_uph_asio_state.playback_channels ? (ma_uint32)c : 0;
+		const Uph_AsioBufferInfo *info = &_uph_asio_state.buffers[_uph_asio_state.input_count + c];
+		uph_asio_write_channel(info->buffers[index], _uph_asio_state.output_types[c], output + source, _uph_asio_state.playback_channels, frames);
 	}
 
-	if (uph_asio.post_output)
-		uph_asio.driver->vtbl->output_ready(uph_asio.driver);
+	if (_uph_asio_state.post_output)
+		_uph_asio_state.driver->vtbl->output_ready(_uph_asio_state.driver);
 }
 
 static void uph_asio_on_buffer_switch(long index, Uph_AsioBool direct)
@@ -453,7 +453,7 @@ static Uph_AsioTime *uph_asio_on_buffer_switch_time_info(Uph_AsioTime *params, l
 static void uph_asio_on_sample_rate_changed(double rate)
 {
 	(void)rate;
-	atomic_store(&uph_asio.reset_requested, true);
+	atomic_store(&_uph_asio_state.reset_requested, true);
 }
 
 static long uph_asio_on_message(long selector, long value, void *message, double *opt)
@@ -473,7 +473,7 @@ static long uph_asio_on_message(long selector, long value, void *message, double
 			return 2;
 		case UPH_ASIO_MSG_RESET_REQUEST:
 		case UPH_ASIO_MSG_BUFFER_SIZE_CHANGE:
-			atomic_store(&uph_asio.reset_requested, true);
+			atomic_store(&_uph_asio_state.reset_requested, true);
 			return 1;
 		case UPH_ASIO_MSG_RESYNC_REQUEST:
 		case UPH_ASIO_MSG_LATENCIES_CHANGED:
@@ -509,27 +509,27 @@ static long uph_asio_pick_buffer_size(const long requested, const long min, cons
 static void uph_asio_log_driver_error(const char *what)
 {
 	char message[124] = { 0 };
-	if (uph_asio.driver)
-		uph_asio.driver->vtbl->get_error_message(uph_asio.driver, message);
+	if (_uph_asio_state.driver)
+		_uph_asio_state.driver->vtbl->get_error_message(_uph_asio_state.driver, message);
 
 	fprintf(stderr, "uph_asio: %s%s%s\n", what, message[0] ? ": " : "", message);
 }
 
 static void uph_asio_release_device(void)
 {
-	if (uph_asio.buffers_created)
+	if (_uph_asio_state.buffers_created)
 	{
-		uph_asio.driver->vtbl->dispose_buffers(uph_asio.driver);
-		uph_asio.buffers_created = false;
+		_uph_asio_state.driver->vtbl->dispose_buffers(_uph_asio_state.driver);
+		_uph_asio_state.buffers_created = false;
 	}
 
 	uph_asio_unload();
 
-	free(uph_asio.input_scratch);
-	free(uph_asio.output_scratch);
-	uph_asio.input_scratch = NULL;
-	uph_asio.output_scratch = NULL;
-	uph_asio.device = NULL;
+	free(_uph_asio_state.input_scratch);
+	free(_uph_asio_state.output_scratch);
+	_uph_asio_state.input_scratch = NULL;
+	_uph_asio_state.output_scratch = NULL;
+	_uph_asio_state.device = NULL;
 }
 
 static ma_result uph_asio_on_context_init(ma_context *context, const ma_context_config *config, ma_backend_callbacks *callbacks)
@@ -563,7 +563,7 @@ static void uph_asio_fill_descriptor(ma_device_descriptor *descriptor, const ma_
 	descriptor->format = ma_format_f32;
 	descriptor->channels = channels;
 	descriptor->sampleRate = sample_rate;
-	descriptor->periodSizeInFrames = (ma_uint32)uph_asio.buffer_size;
+	descriptor->periodSizeInFrames = (ma_uint32)_uph_asio_state.buffer_size;
 	descriptor->periodCount = 2;
 	ma_channel_map_init_standard(ma_standard_channel_map_default, descriptor->channelMap, MA_MAX_CHANNELS, channels);
 }
@@ -583,7 +583,7 @@ static ma_result uph_asio_on_device_init(ma_device *device, const ma_device_conf
 		return MA_FAILED_TO_INIT_BACKEND;
 	}
 
-	Uph_AsioDriver *driver = uph_asio.driver;
+	Uph_AsioDriver *driver = _uph_asio_state.driver;
 	if (!driver->vtbl->init(driver, GetDesktopWindow()))
 	{
 		uph_asio_log_driver_error("failed to init driver");
@@ -618,35 +618,35 @@ static ma_result uph_asio_on_device_init(ma_device *device, const ma_device_conf
 		return MA_FAILED_TO_INIT_BACKEND;
 	}
 
-	uph_asio.buffer_size = uph_asio_pick_buffer_size((long)playback->periodSizeInFrames, min_size, max_size, preferred_size, granularity);
-	uph_asio.input_count = NAUI_MIN(driver_inputs, UPH_ASIO_MAX_CHANNELS);
-	uph_asio.output_count = NAUI_MIN(driver_outputs, UPH_ASIO_MAX_CHANNELS);
-	uph_asio.playback_channels = NAUI_MIN(playback->channels, (ma_uint32)uph_asio.output_count);
+	_uph_asio_state.buffer_size = uph_asio_pick_buffer_size((long)playback->periodSizeInFrames, min_size, max_size, preferred_size, granularity);
+	_uph_asio_state.input_count = NAUI_MIN(driver_inputs, UPH_ASIO_MAX_CHANNELS);
+	_uph_asio_state.output_count = NAUI_MIN(driver_outputs, UPH_ASIO_MAX_CHANNELS);
+	_uph_asio_state.playback_channels = NAUI_MIN(playback->channels, (ma_uint32)_uph_asio_state.output_count);
 
 	long buffer_count = 0;
-	for (long c = 0; c < uph_asio.input_count; c++)
-		uph_asio.buffers[buffer_count++] = (Uph_AsioBufferInfo){ .is_input = 1, .channel = c };
-	for (long c = 0; c < uph_asio.output_count; c++)
-		uph_asio.buffers[buffer_count++] = (Uph_AsioBufferInfo){ .is_input = 0, .channel = c };
+	for (long c = 0; c < _uph_asio_state.input_count; c++)
+		_uph_asio_state.buffers[buffer_count++] = (Uph_AsioBufferInfo){ .is_input = 1, .channel = c };
+	for (long c = 0; c < _uph_asio_state.output_count; c++)
+		_uph_asio_state.buffers[buffer_count++] = (Uph_AsioBufferInfo){ .is_input = 0, .channel = c };
 
-	uph_asio.callbacks = (Uph_AsioCallbacks){
+	_uph_asio_state.callbacks = (Uph_AsioCallbacks){
 		.buffer_switch = uph_asio_on_buffer_switch,
 		.sample_rate_changed = uph_asio_on_sample_rate_changed,
 		.message = uph_asio_on_message,
 		.buffer_switch_time_info = uph_asio_on_buffer_switch_time_info
 	};
 
-	if (driver->vtbl->create_buffers(driver, uph_asio.buffers, buffer_count, uph_asio.buffer_size, &uph_asio.callbacks) != UPH_ASE_OK)
+	if (driver->vtbl->create_buffers(driver, _uph_asio_state.buffers, buffer_count, _uph_asio_state.buffer_size, &_uph_asio_state.callbacks) != UPH_ASE_OK)
 	{
 		uph_asio_log_driver_error("failed to create buffers");
 		uph_asio_release_device();
 		return MA_FAILED_TO_INIT_BACKEND;
 	}
-	uph_asio.buffers_created = true;
+	_uph_asio_state.buffers_created = true;
 
 	for (long i = 0; i < buffer_count; i++)
 	{
-		Uph_AsioChannelInfo info = { .channel = uph_asio.buffers[i].channel, .is_input = uph_asio.buffers[i].is_input };
+		Uph_AsioChannelInfo info = { .channel = _uph_asio_state.buffers[i].channel, .is_input = _uph_asio_state.buffers[i].is_input };
 		if (driver->vtbl->get_channel_info(driver, &info) != UPH_ASE_OK || !uph_asio_type_supported(info.type))
 		{
 			fprintf(stderr, "uph_asio: unsupported sample type %ld on channel %ld\n", info.type, info.channel);
@@ -654,20 +654,20 @@ static ma_result uph_asio_on_device_init(ma_device *device, const ma_device_conf
 			return MA_FORMAT_NOT_SUPPORTED;
 		}
 
-		if (i < uph_asio.input_count)
-			uph_asio.input_types[i] = info.type;
+		if (i < _uph_asio_state.input_count)
+			_uph_asio_state.input_types[i] = info.type;
 		else
-			uph_asio.output_types[i - uph_asio.input_count] = info.type;
+			_uph_asio_state.output_types[i - _uph_asio_state.input_count] = info.type;
 	}
 
-	uph_asio.input_scratch = (float*)malloc((size_t)uph_asio.buffer_size * UPH_ASIO_MAX_CHANNELS * sizeof(float));
-	uph_asio.output_scratch = (float*)malloc((size_t)uph_asio.buffer_size * uph_asio.playback_channels * sizeof(float));
+	_uph_asio_state.input_scratch = (float*)malloc((size_t)_uph_asio_state.buffer_size * UPH_ASIO_MAX_CHANNELS * sizeof(float));
+	_uph_asio_state.output_scratch = (float*)malloc((size_t)_uph_asio_state.buffer_size * _uph_asio_state.playback_channels * sizeof(float));
 	uph_asio_fill_descriptor(capture, UPH_ASIO_MAX_CHANNELS, (ma_uint32)rate);
-	uph_asio_fill_descriptor(playback, uph_asio.playback_channels, (ma_uint32)rate);
+	uph_asio_fill_descriptor(playback, _uph_asio_state.playback_channels, (ma_uint32)rate);
 
-	uph_asio.post_output = driver->vtbl->output_ready(driver) == UPH_ASE_OK;
-	atomic_store(&uph_asio.reset_requested, false);
-	uph_asio.device = device;
+	_uph_asio_state.post_output = driver->vtbl->output_ready(driver) == UPH_ASE_OK;
+	atomic_store(&_uph_asio_state.reset_requested, false);
+	_uph_asio_state.device = device;
 	return MA_SUCCESS;
 }
 
@@ -681,7 +681,7 @@ static ma_result uph_asio_on_device_uninit(ma_device *device)
 static ma_result uph_asio_on_device_start(ma_device *device)
 {
 	(void)device;
-	if (uph_asio.driver->vtbl->start(uph_asio.driver) != UPH_ASE_OK)
+	if (_uph_asio_state.driver->vtbl->start(_uph_asio_state.driver) != UPH_ASE_OK)
 	{
 		uph_asio_log_driver_error("failed to start");
 		return MA_FAILED_TO_START_BACKEND_DEVICE;
@@ -693,7 +693,7 @@ static ma_result uph_asio_on_device_start(ma_device *device)
 static ma_result uph_asio_on_device_stop(ma_device *device)
 {
 	(void)device;
-	uph_asio.driver->vtbl->stop(uph_asio.driver);
+	_uph_asio_state.driver->vtbl->stop(_uph_asio_state.driver);
 	return MA_SUCCESS;
 }
 
@@ -727,20 +727,20 @@ void uph_asio_get_backend_callbacks(ma_backend_callbacks *callbacks)
 
 bool uph_asio_show_control_panel(void)
 {
-	if (!uph_asio.driver)
+	if (!_uph_asio_state.driver)
 		return false;
 
-	return uph_asio.driver->vtbl->control_panel(uph_asio.driver) == UPH_ASE_OK;
+	return _uph_asio_state.driver->vtbl->control_panel(_uph_asio_state.driver) == UPH_ASE_OK;
 }
 
 bool uph_asio_consume_reset_request(void)
 {
-	return atomic_exchange(&uph_asio.reset_requested, false);
+	return atomic_exchange(&_uph_asio_state.reset_requested, false);
 }
 
 uint32_t uph_asio_input_count(void)
 {
-	return uph_asio.device ? (uint32_t)uph_asio.input_count : 0;
+	return _uph_asio_state.device ? (uint32_t)_uph_asio_state.input_count : 0;
 }
 
 #else

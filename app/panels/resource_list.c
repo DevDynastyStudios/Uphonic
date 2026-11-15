@@ -9,14 +9,14 @@ static struct
     Naui_String old_name;
     bool active;
 }
-_Uph_ResourceListRename;
+_uph_resource_list_rename_state;
 
 static struct
 {
     Uph_ResourceType type;
     Uph_ResourceIndex index;
 }
-_Uph_ResourceListAnchor;
+_uph_resource_list_anchor_state;
 
 static bool _Uph_ResourceListItemHovered;
 
@@ -275,8 +275,8 @@ static void uph_resource_list_select_single(Uph_ResourceType type, Uph_ResourceI
     uph_resource_list_clear_selection();
     *uph_resource_list_selected_flag(type, index) = true;
     uph_resource_list_set_primary(type, index);
-    _Uph_ResourceListAnchor.type = type;
-    _Uph_ResourceListAnchor.index = index;
+    _uph_resource_list_anchor_state.type = type;
+    _uph_resource_list_anchor_state.index = index;
 }
 
 static bool uph_resource_list_find_other_selected(Uph_ResourceType skip_type, Uph_ResourceIndex skip_index, Uph_ResourceType *out_type, Uph_ResourceIndex *out_index)
@@ -300,8 +300,8 @@ static bool uph_resource_list_find_other_selected(Uph_ResourceType skip_type, Up
 static void uph_resource_list_toggle(Uph_ResourceType type, Uph_ResourceIndex index)
 {
     bool *flag = uph_resource_list_selected_flag(type, index);
-    _Uph_ResourceListAnchor.type = type;
-    _Uph_ResourceListAnchor.index = index;
+    _uph_resource_list_anchor_state.type = type;
+    _uph_resource_list_anchor_state.index = index;
 
     if (!*flag)
     {
@@ -328,13 +328,13 @@ static void uph_resource_list_toggle(Uph_ResourceType type, Uph_ResourceIndex in
 
 static void uph_resource_list_select_range(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    if (_Uph_ResourceListAnchor.type != type || _Uph_ResourceListAnchor.index >= uph_resource_list_count(type))
+    if (_uph_resource_list_anchor_state.type != type || _uph_resource_list_anchor_state.index >= uph_resource_list_count(type))
     {
         uph_resource_list_select_single(type, index);
         return;
     }
 
-    const Uph_ResourceIndex anchor = _Uph_ResourceListAnchor.index;
+    const Uph_ResourceIndex anchor = _uph_resource_list_anchor_state.index;
     const Uph_ResourceIndex low = anchor < index ? anchor : index;
     const Uph_ResourceIndex high = anchor < index ? index : anchor;
 
@@ -357,26 +357,26 @@ static void uph_resource_list_click_select(Uph_ResourceType type, Uph_ResourceIn
 
 static void uph_resource_list_finish_rename(void)
 {
-    _Uph_ResourceListRename.active = false;
+    _uph_resource_list_rename_state.active = false;
 
-    Naui_String *name = uph_resource_list_name(_Uph_ResourceListRename.type, _Uph_ResourceListRename.index);
-    if (!name || naui_strings_equal(*name, _Uph_ResourceListRename.old_name, true))
+    Naui_String *name = uph_resource_list_name(_uph_resource_list_rename_state.type, _uph_resource_list_rename_state.index);
+    if (!name || naui_strings_equal(*name, _uph_resource_list_rename_state.old_name, true))
         return;
 
     Uph_ActionResourceRename data = {
-        .resource_index = _Uph_ResourceListRename.index,
-        .old_name = _Uph_ResourceListRename.old_name,
+        .resource_index = _uph_resource_list_rename_state.index,
+        .old_name = _uph_resource_list_rename_state.old_name,
         .new_name = *name
     };
 
     const char *action = NULL;
-    if (_Uph_ResourceListRename.type == UPH_RESOURCE_PATTERN)
+    if (_uph_resource_list_rename_state.type == UPH_RESOURCE_PATTERN)
         action = UPH_ACTION_PATTERN_RENAME;
 
-    else if (_Uph_ResourceListRename.type == UPH_RESOURCE_SAMPLE)
+    else if (_uph_resource_list_rename_state.type == UPH_RESOURCE_SAMPLE)
         action = UPH_ACTION_SAMPLE_RENAME;
 
-    else if (_Uph_ResourceListRename.type == UPH_RESOURCE_AUTOMATION)
+    else if (_uph_resource_list_rename_state.type == UPH_RESOURCE_AUTOMATION)
         action = UPH_ACTION_AUTOMATION_RENAME;
 
     if (action)
@@ -389,10 +389,10 @@ static void uph_resource_list_update_rename(void)
     const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
     const bool renaming = uph_state.shared.selected_resource.renaming;
 
-    if (_Uph_ResourceListRename.active && (!renaming || _Uph_ResourceListRename.type != type || _Uph_ResourceListRename.index != index))
+    if (_uph_resource_list_rename_state.active && (!renaming || _uph_resource_list_rename_state.type != type || _uph_resource_list_rename_state.index != index))
         uph_resource_list_finish_rename();
 
-    if (renaming && !_Uph_ResourceListRename.active)
+    if (renaming && !_uph_resource_list_rename_state.active)
     {
         Naui_String *name = uph_resource_list_name(type, index);
         if (!name)
@@ -401,10 +401,10 @@ static void uph_resource_list_update_rename(void)
             return;
         }
 
-        _Uph_ResourceListRename.type = type;
-        _Uph_ResourceListRename.index = index;
-        _Uph_ResourceListRename.old_name = *name;
-        _Uph_ResourceListRename.active = true;
+        _uph_resource_list_rename_state.type = type;
+        _uph_resource_list_rename_state.index = index;
+        _uph_resource_list_rename_state.old_name = *name;
+        _uph_resource_list_rename_state.active = true;
     }
 }
 

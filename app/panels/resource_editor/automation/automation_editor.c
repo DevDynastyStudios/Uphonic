@@ -65,9 +65,9 @@ typedef struct
 	bool lane_hovered;
 	bool panel_hovered;
 }
-Uph_AutomationEditorData;
+Uph_AutomationEditorState;
 
-static Uph_AutomationEditorData uph_automation_editor_data;
+static Uph_AutomationEditorState _uph_automation_editor_state;
 
 static const char *_uph_automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT] = {
 	"Curve",
@@ -107,7 +107,7 @@ static inline float _uph_automation_editor_y_to_value(Leaf_BoundingBox box, floa
 	return NAUI_CLAMP01(1.0f - (y - _uph_automation_editor_value_top(box)) / _uph_automation_editor_value_height(box));
 }
 
-static inline Naui_Vec2 _uph_automation_editor_point_position(const Uph_AutomationEditorData *editor, Leaf_BoundingBox box, const Uph_AutomationPoint *point)
+static inline Naui_Vec2 _uph_automation_editor_point_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_AutomationPoint *point)
 {
 	return (Naui_Vec2) {
 		uph_midi_view_beat_to_x(&editor->view, box, point->beat),
@@ -115,7 +115,7 @@ static inline Naui_Vec2 _uph_automation_editor_point_position(const Uph_Automati
 	};
 }
 
-static Uph_Automation *_uph_automation_editor_current(const Uph_AutomationEditorData *editor)
+static Uph_Automation *_uph_automation_editor_current(const Uph_AutomationEditorState *editor)
 {
 	if (!editor->has_automation || editor->automation_index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.automations))
 		return NULL;
@@ -123,7 +123,7 @@ static Uph_Automation *_uph_automation_editor_current(const Uph_AutomationEditor
 	return &uph_state.project.automations[editor->automation_index];
 }
 
-static bool _uph_automation_editor_handle_position(const Uph_AutomationEditorData *editor, Leaf_BoundingBox box, const Uph_Automation *automation, uint32_t segment, Naui_Vec2 *out)
+static bool _uph_automation_editor_handle_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_Automation *automation, uint32_t segment, Naui_Vec2 *out)
 {
 	if (segment + 1 >= (uint32_t)naui_list_len(automation->points))
 		return false;
@@ -169,7 +169,7 @@ static double _uph_automation_editor_clamp_beat(const Uph_Automation *automation
 	return fmax(beat, 0.0);
 }
 
-static double _uph_automation_editor_snap(const Uph_AutomationEditorData *editor, double beat)
+static double _uph_automation_editor_snap(const Uph_AutomationEditorState *editor, double beat)
 {
 	if (_uph_automation_editor_snap_disabled())
 		return beat;
@@ -203,7 +203,7 @@ static void _uph_automation_editor_commit_move(Uph_ResourceIndex automation_inde
 	naui_action_execute_stack(UPH_ACTION_AUTOMATION_POINT_MOVE, data);
 }
 
-static void _uph_automation_editor_delete_point(Uph_AutomationEditorData *editor, uint32_t index)
+static void _uph_automation_editor_delete_point(Uph_AutomationEditorState *editor, uint32_t index)
 {
 	Uph_ActionAutomationPointDelete data = { .automation_index = editor->automation_index, .point_index = index };
 	naui_action_execute_stack(UPH_ACTION_AUTOMATION_POINT_DELETE, data);
@@ -217,7 +217,7 @@ static void _uph_automation_editor_delete_point(Uph_AutomationEditorData *editor
 	editor->hovered_handle = -1;
 }
 
-static void _uph_automation_editor_set_curve(Uph_AutomationEditorData *editor, Uph_Automation *automation, uint32_t index, Uph_AutomationCurve curve, float tension)
+static void _uph_automation_editor_set_curve(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, Uph_AutomationCurve curve, float tension)
 {
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint old_point = *point;
@@ -226,7 +226,7 @@ static void _uph_automation_editor_set_curve(Uph_AutomationEditorData *editor, U
 	_uph_automation_editor_commit_move(editor->automation_index, index, old_point, *point);
 }
 
-static void _uph_automation_editor_set_value(Uph_AutomationEditorData *editor, Uph_Automation *automation, uint32_t index, float value)
+static void _uph_automation_editor_set_value(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, float value)
 {
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint old_point = *point;
@@ -234,20 +234,20 @@ static void _uph_automation_editor_set_value(Uph_AutomationEditorData *editor, U
 	_uph_automation_editor_commit_move(editor->automation_index, index, old_point, *point);
 }
 
-static void _uph_automation_editor_open_entry(Uph_AutomationEditorData *editor, uint32_t index)
+static void _uph_automation_editor_open_entry(Uph_AutomationEditorState *editor, uint32_t index)
 {
 	editor->entry_active = true;
 	editor->entry_index = (int32_t)index;
 	editor->entry_text = naui_string_from_cstr("");
 }
 
-static void _uph_automation_editor_close_entry(Uph_AutomationEditorData *editor)
+static void _uph_automation_editor_close_entry(Uph_AutomationEditorState *editor)
 {
 	editor->entry_active = false;
 	editor->entry_index = -1;
 }
 
-static void _uph_automation_editor_begin_drag(Uph_AutomationEditorData *editor, const Uph_Automation *automation, uint32_t index, Uph_AutomationDragMode mode, bool creating)
+static void _uph_automation_editor_begin_drag(Uph_AutomationEditorState *editor, const Uph_Automation *automation, uint32_t index, Uph_AutomationDragMode mode, bool creating)
 {
 	editor->drag_mode = mode;
 	editor->drag_index = (int32_t)index;
@@ -257,7 +257,7 @@ static void _uph_automation_editor_begin_drag(Uph_AutomationEditorData *editor, 
 	editor->drag_offset = (Naui_Vec2) { 0.0f, 0.0f };
 }
 
-static void _uph_automation_editor_finish_drag(Uph_AutomationEditorData *editor)
+static void _uph_automation_editor_finish_drag(Uph_AutomationEditorState *editor)
 {
 	const Uph_AutomationDragMode mode = editor->drag_mode;
 	const int32_t index = editor->drag_index;
@@ -286,7 +286,7 @@ static void _uph_automation_editor_finish_drag(Uph_AutomationEditorData *editor)
 	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)index, editor->drag_initial, point);
 }
 
-static void _uph_automation_editor_commit_fields(Uph_AutomationEditorData *editor)
+static void _uph_automation_editor_commit_fields(Uph_AutomationEditorState *editor)
 {
 	if (!editor->field_editing)
 		return;
@@ -303,7 +303,7 @@ static void _uph_automation_editor_commit_fields(Uph_AutomationEditorData *edito
 
 #pragma region Input
 
-static void _uph_automation_editor_update_view(Uph_AutomationEditorData *editor, const Uph_Automation *automation)
+static void _uph_automation_editor_update_view(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
 {
 	Uph_MidiView *view = &editor->view;
 	const Leaf_BoundingBox box = editor->lane_box;
@@ -356,7 +356,7 @@ static void _uph_automation_editor_update_view(Uph_AutomationEditorData *editor,
 	view->scroll.x = fmaxf(0.0f, view->scroll.x);
 }
 
-static void _uph_automation_editor_update_hover(Uph_AutomationEditorData *editor, const Uph_Automation *automation)
+static void _uph_automation_editor_update_hover(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
 {
 	editor->hovered_point = -1;
 	editor->hovered_handle = -1;
@@ -403,7 +403,7 @@ static void _uph_automation_editor_update_hover(Uph_AutomationEditorData *editor
 	}
 }
 
-static void _uph_automation_editor_update_drag(Uph_AutomationEditorData *editor, Uph_Automation *automation)
+static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	const uint32_t count = (uint32_t)naui_list_len(automation->points);
 	const int32_t index = editor->drag_index;
@@ -450,7 +450,7 @@ static void _uph_automation_editor_update_drag(Uph_AutomationEditorData *editor,
 	_uph_automation_editor_finish_drag(editor);
 }
 
-static void _uph_automation_editor_update_mouse(Uph_AutomationEditorData *editor, Uph_Automation *automation, Uph_UIMenuID point_menu, Uph_UIMenuID segment_menu)
+static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID point_menu, Uph_UIMenuID segment_menu)
 {
 	if (editor->drag_mode != UPH_AUTOMATION_DRAG_NONE)
 	{
@@ -539,7 +539,7 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorData *editor
 	}
 }
 
-static void _uph_automation_editor_update_keys(Uph_AutomationEditorData *editor, Uph_Automation *automation)
+static void _uph_automation_editor_update_keys(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->drag_mode != UPH_AUTOMATION_DRAG_NONE || editor->entry_active || _uph_automation_editor_fields_text_active())
 		return;
@@ -586,7 +586,7 @@ static void _uph_automation_editor_update_keys(Uph_AutomationEditorData *editor,
 	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)index, old_point, *point);
 }
 
-static void _uph_automation_editor_update_point_menu(Uph_AutomationEditorData *editor, Uph_Automation *automation, Uph_UIMenuID menu)
+static void _uph_automation_editor_update_point_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
 {
 	const int32_t index = editor->menu_point;
 	const bool valid = index >= 0 && (uint32_t)index < (uint32_t)naui_list_len(automation->points);
@@ -615,7 +615,7 @@ static void _uph_automation_editor_update_point_menu(Uph_AutomationEditorData *e
 	}
 }
 
-static void _uph_automation_editor_update_segment_menu(Uph_AutomationEditorData *editor, Uph_Automation *automation, Uph_UIMenuID menu)
+static void _uph_automation_editor_update_segment_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
 {
 	const int32_t segment = editor->menu_segment;
 	const bool valid = segment >= 0 && (uint32_t)segment + 1 < (uint32_t)naui_list_len(automation->points);
@@ -636,7 +636,7 @@ static void _uph_automation_editor_update_segment_menu(Uph_AutomationEditorData 
 
 static void _uph_automation_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
-	uph_midi_grid_render_ruler(box, &uph_automation_editor_data.view, uph_automation_editor_data.snap_resolution);
+	uph_midi_grid_render_ruler(box, &_uph_automation_editor_state.view, _uph_automation_editor_state.snap_resolution);
 }
 
 static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
@@ -681,7 +681,7 @@ static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 
 
 static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_AutomationEditorData *editor = &uph_automation_editor_data;
+	Uph_AutomationEditorState *editor = &_uph_automation_editor_state;
 	const Uph_Automation *automation = _uph_automation_editor_current(editor);
 	if (!automation)
 		return;
@@ -844,7 +844,7 @@ static void _uph_automation_editor_render_info(const Uph_Automation *automation)
 	}
 }
 
-static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorData *editor, Uph_Automation *automation)
+static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
@@ -996,7 +996,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorData *edit
 		_uph_automation_editor_commit_fields(editor);
 }
 
-static void _uph_automation_editor_render_entry(Uph_AutomationEditorData *editor, Uph_Automation *automation)
+static void _uph_automation_editor_render_entry(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	if (!editor->entry_active)
 		return;
@@ -1043,7 +1043,7 @@ static void _uph_automation_editor_render_entry(Uph_AutomationEditorData *editor
 
 void uph_automation_editor_init(void)
 {
-	Uph_AutomationEditorData *editor = &uph_automation_editor_data;
+	Uph_AutomationEditorState *editor = &_uph_automation_editor_state;
 	memset(editor, 0, sizeof(*editor));
 	editor->view.zoom = (Naui_Vec2) { NAUI_DPI(100.0f), NAUI_DPI(30.0f) };
 	editor->snap_resolution = UPH_SNAP_LINE;
@@ -1060,7 +1060,7 @@ void uph_automation_editor_init(void)
 
 void uph_automation_editor_reset_interaction(void)
 {
-	Uph_AutomationEditorData *editor = &uph_automation_editor_data;
+	Uph_AutomationEditorState *editor = &_uph_automation_editor_state;
 	_uph_automation_editor_finish_drag(editor);
 	_uph_automation_editor_commit_fields(editor);
 	_uph_automation_editor_close_entry(editor);
@@ -1073,7 +1073,7 @@ void uph_automation_editor_reset_interaction(void)
 
 void uph_automation_editor_update(void)
 {
-	Uph_AutomationEditorData *editor = &uph_automation_editor_data;
+	Uph_AutomationEditorState *editor = &_uph_automation_editor_state;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 
 	if (index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.automations))

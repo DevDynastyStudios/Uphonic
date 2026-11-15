@@ -25,7 +25,7 @@ typedef struct
 	visual;
 }
 Uph_DialogState;
-static Uph_DialogState s_dialog;
+static Uph_DialogState _uph_dialog_state;
 
 static void _uph_dialog_copy(char *dest, size_t dest_size, const char *source)
 {
@@ -34,51 +34,51 @@ static void _uph_dialog_copy(char *dest, size_t dest_size, const char *source)
 
 bool uph_dialog_open(const Uph_DialogConfig *config)
 {
-	if (s_dialog.open || !config || !config->buttons[0])
+	if (_uph_dialog_state.open || !config || !config->buttons[0])
 		return false;
 
-	s_dialog = (Uph_DialogState){0};
+	_uph_dialog_state = (Uph_DialogState){0};
 	for (int32_t i = 0; i < UPH_DIALOG_MAX_BUTTONS && config->buttons[i]; i++)
 	{
-		_uph_dialog_copy(s_dialog.buttons[i], sizeof(s_dialog.buttons[i]), config->buttons[i]);
-		s_dialog.button_count++;
+		_uph_dialog_copy(_uph_dialog_state.buttons[i], sizeof(_uph_dialog_state.buttons[i]), config->buttons[i]);
+		_uph_dialog_state.button_count++;
 	}
 
-	_uph_dialog_copy(s_dialog.title, sizeof(s_dialog.title), config->title);
-	_uph_dialog_copy(s_dialog.message, sizeof(s_dialog.message), config->message);
-	_uph_dialog_copy(s_dialog.input_placeholder, sizeof(s_dialog.input_placeholder), config->input_placeholder);
-	s_dialog.input = config->input;
-	s_dialog.progress = config->progress;
+	_uph_dialog_copy(_uph_dialog_state.title, sizeof(_uph_dialog_state.title), config->title);
+	_uph_dialog_copy(_uph_dialog_state.message, sizeof(_uph_dialog_state.message), config->message);
+	_uph_dialog_copy(_uph_dialog_state.input_placeholder, sizeof(_uph_dialog_state.input_placeholder), config->input_placeholder);
+	_uph_dialog_state.input = config->input;
+	_uph_dialog_state.progress = config->progress;
 
-	s_dialog.default_button = (config->default_button >= 0 && config->default_button < s_dialog.button_count) ? config->default_button : -1;
-	s_dialog.cancel_button = (config->cancel_button >= 0 && config->cancel_button < s_dialog.button_count) ? config->cancel_button : -1;
-	s_dialog.callback = config->callback;
-	s_dialog.user_data = config->user_data;
-	s_dialog.opened_this_frame = true;
-	s_dialog.open = true;
+	_uph_dialog_state.default_button = (config->default_button >= 0 && config->default_button < _uph_dialog_state.button_count) ? config->default_button : -1;
+	_uph_dialog_state.cancel_button = (config->cancel_button >= 0 && config->cancel_button < _uph_dialog_state.button_count) ? config->cancel_button : -1;
+	_uph_dialog_state.callback = config->callback;
+	_uph_dialog_state.user_data = config->user_data;
+	_uph_dialog_state.opened_this_frame = true;
+	_uph_dialog_state.open = true;
 	return true;
 }
 
 bool uph_dialog_is_open(void)
 {
-	return s_dialog.open;
+	return _uph_dialog_state.open;
 }
 
 void uph_dialog_close(void)
 {
-	s_dialog = (Uph_DialogState){0};
+	_uph_dialog_state = (Uph_DialogState){0};
 }
 
 bool uph_dialog_blocks_input(void)
 {
-	return s_dialog.open && !s_dialog.drawing;
+	return _uph_dialog_state.open && !_uph_dialog_state.drawing;
 }
 
 static void _uph_dialog_finish(int32_t button)
 {
-	const Uph_DialogCallback callback = s_dialog.callback;
-	void *user_data = s_dialog.user_data;
-	s_dialog = (Uph_DialogState){0};
+	const Uph_DialogCallback callback = _uph_dialog_state.callback;
+	void *user_data = _uph_dialog_state.user_data;
+	_uph_dialog_state = (Uph_DialogState){0};
 
 	if (callback)
 		callback(button, user_data);
@@ -86,7 +86,7 @@ static void _uph_dialog_finish(int32_t button)
 
 void uph_dialog_render(void)
 {
-	if (!s_dialog.open)
+	if (!_uph_dialog_state.open)
 		return;
 
 	naui_panel_occlude_all();
@@ -96,10 +96,10 @@ void uph_dialog_render(void)
 	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 
 	int32_t pressed = -1;
-	s_dialog.drawing = true;
+	_uph_dialog_state.drawing = true;
 
-	s_dialog.visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(s_dialog.visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
-	const float reveal = naui_ease_out_cubic(s_dialog.visual.lifetime);
+	_uph_dialog_state.visual.lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(_uph_dialog_state.visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
+	const float reveal = naui_ease_out_cubic(_uph_dialog_state.visual.lifetime);
 	leaf({
 		.transparency = 1.0f - reveal,
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
@@ -122,19 +122,19 @@ void uph_dialog_render(void)
 			}
 		})
 		{
-			leaf_text(s_dialog.title, {
+			leaf_text(_uph_dialog_state.title, {
 				.color = text_color,
 				.font_size = {font_size * 1.15f}
 			});
 
-			if (s_dialog.message[0])
+			if (_uph_dialog_state.message[0])
 			{
 				leaf({
 					.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
 					.direction = LEAF_DIRECTION_VERTICAL
 				})
 				{
-					leaf_text(s_dialog.message, {
+					leaf_text(_uph_dialog_state.message, {
 						.color = text_color,
 						.font_size = {font_size},
 						.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
@@ -142,20 +142,20 @@ void uph_dialog_render(void)
 				}
 			}
 
-			if (s_dialog.input)
+			if (_uph_dialog_state.input)
 			{
 				leaf({
 					.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
 					.direction = LEAF_DIRECTION_HORIZONTAL
 				})
 				{
-					uph_ui_textfield(s_dialog.input, leaf_id("uph_dialog_input"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, s_dialog.input_placeholder[0] ? s_dialog.input_placeholder : NULL);
+					uph_ui_textfield(_uph_dialog_state.input, leaf_id("uph_dialog_input"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE, _uph_dialog_state.input_placeholder[0] ? _uph_dialog_state.input_placeholder : NULL);
 				}
 			}
 
-			if (s_dialog.progress)
+			if (_uph_dialog_state.progress)
 			{
-				const float progress = NAUI_CLAMP01(*s_dialog.progress);
+				const float progress = NAUI_CLAMP01(*_uph_dialog_state.progress);
 				char percent[16];
 				snprintf(percent, sizeof(percent), "%d%%", (int32_t)(progress * 100.0f));
 
@@ -195,10 +195,10 @@ void uph_dialog_render(void)
 				.child_gap = NAUI_DPI(8.0f)
 			})
 			{
-				for (int32_t i = 0; i < s_dialog.button_count; i++)
+				for (int32_t i = 0; i < _uph_dialog_state.button_count; i++)
 				{
-					const Naui_Color bg = (i == s_dialog.default_button) ? naui_theme_color("naui_widget_accent_color") : naui_theme_color("uph_ui_frame_bg_color");
-					if (uph_ui_text_button_ex(s_dialog.buttons[i], leaf_id_indexed("uph_dialog_button", (uint32_t)i), bg, NAUI_CORNER_ALL))
+					const Naui_Color bg = (i == _uph_dialog_state.default_button) ? naui_theme_color("naui_widget_accent_color") : naui_theme_color("uph_ui_frame_bg_color");
+					if (uph_ui_text_button_ex(_uph_dialog_state.buttons[i], leaf_id_indexed("uph_dialog_button", (uint32_t)i), bg, NAUI_CORNER_ALL))
 						pressed = i;
 				}
 			}
@@ -206,19 +206,19 @@ void uph_dialog_render(void)
 	}
 
 
-	s_dialog.drawing = false;
-	if (s_dialog.opened_this_frame)
+	_uph_dialog_state.drawing = false;
+	if (_uph_dialog_state.opened_this_frame)
 	{
-		s_dialog.opened_this_frame = false;
+		_uph_dialog_state.opened_this_frame = false;
 		return;
 	}
 
 	if (pressed < 0)
 	{
-	    if (s_dialog.default_button >= 0 && naui_key_pressed(NAUI_KEY_ENTER))
-	        pressed = s_dialog.default_button;
-	    else if (s_dialog.cancel_button >= 0 && naui_key_pressed(NAUI_KEY_ESCAPE))
-	        pressed = s_dialog.cancel_button;
+	    if (_uph_dialog_state.default_button >= 0 && naui_key_pressed(NAUI_KEY_ENTER))
+	        pressed = _uph_dialog_state.default_button;
+	    else if (_uph_dialog_state.cancel_button >= 0 && naui_key_pressed(NAUI_KEY_ESCAPE))
+	        pressed = _uph_dialog_state.cancel_button;
 	}
 	
 	if (pressed >= 0)

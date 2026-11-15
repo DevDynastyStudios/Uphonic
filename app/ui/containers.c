@@ -42,7 +42,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     const float max_scroll = content_size - max_size;
     const bool this_drag = drag_active && drag_id.value == scroll_id.value;
 
-    extern Uph_GlobalWidgetData uph_global_widget_data;
+    extern Uph_GlobalWidgetState uph_global_widget_state;
 
     if (max_scroll > 0.0f)
     {
@@ -72,7 +72,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
 
             if (leaf_hovered(scroll_id))
             {
-                uph_global_widget_data.any_widget_hovered = true;
+                uph_global_widget_state.any_widget_hovered = true;
                 naui_set_cursor(NAUI_CURSOR_HAND);
                 if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
                 {
@@ -183,7 +183,7 @@ static struct
     int32_t start_mouse;
     float start_scroll;
 }
-_uph_ui_scroll_area_drag;
+_uph_ui_scroll_area_drag_state;
 
 static struct
 {
@@ -191,7 +191,7 @@ static struct
     Leaf_ID id;
     int32_t last_mouse_x, last_mouse_y;
 }
-_uph_ui_scroll_area_pan;
+_uph_ui_scroll_area_pan_state;
 
 static bool _uph_ui_shift_down(void)
 {
@@ -200,14 +200,14 @@ static bool _uph_ui_shift_down(void)
 
 static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handle_id, float max_size, float content_size)
 {
-    extern Uph_GlobalWidgetData uph_global_widget_data;
+    extern Uph_GlobalWidgetState uph_global_widget_state;
 
     const float max_scroll = content_size - max_size;
-    const bool this_drag = _uph_ui_scroll_area_drag.active && _uph_ui_scroll_area_drag.id.value == handle_id.value;
+    const bool this_drag = _uph_ui_scroll_area_drag_state.active && _uph_ui_scroll_area_drag_state.id.value == handle_id.value;
     if (max_scroll <= 0.0f)
     {
         if (this_drag)
-            _uph_ui_scroll_area_drag.active = false;
+            _uph_ui_scroll_area_drag_state.active = false;
         return false;
     }
 
@@ -218,24 +218,24 @@ static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handl
         {
             const float thumb_travel = max_size - (float)_uph_ui_thumb_length(max_size, content_size);
             if (thumb_travel > 0.0f)
-                *scroll = _uph_ui_scroll_area_drag.start_scroll + (float)(mouse_pos - _uph_ui_scroll_area_drag.start_mouse) * (max_scroll / thumb_travel);
+                *scroll = _uph_ui_scroll_area_drag_state.start_scroll + (float)(mouse_pos - _uph_ui_scroll_area_drag_state.start_mouse) * (max_scroll / thumb_travel);
         }
         else
-            _uph_ui_scroll_area_drag.active = false;
+            _uph_ui_scroll_area_drag_state.active = false;
         naui_set_cursor(NAUI_CURSOR_HAND);
         return true;
     }
 
     if (naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(handle_id))
     {
-        uph_global_widget_data.any_widget_hovered = true;
+        uph_global_widget_state.any_widget_hovered = true;
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
-            _uph_ui_scroll_area_drag.active = true;
-            _uph_ui_scroll_area_drag.id = handle_id;
-            _uph_ui_scroll_area_drag.start_mouse = mouse_pos;
-            _uph_ui_scroll_area_drag.start_scroll = *scroll;
+            _uph_ui_scroll_area_drag_state.active = true;
+            _uph_ui_scroll_area_drag_state.id = handle_id;
+            _uph_ui_scroll_area_drag_state.start_mouse = mouse_pos;
+            _uph_ui_scroll_area_drag_state.start_scroll = *scroll;
         }
         return true;
     }
@@ -294,32 +294,32 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
     const bool handle_x_active = _uph_ui_scroll_area_axis(false, scroll_x, area.handle_x_id, area.viewport_size.x, area.content_size.x);
     const bool handle_y_active = _uph_ui_scroll_area_axis(true, scroll_y, area.handle_y_id, area.viewport_size.y, area.content_size.y);
 
-    const bool this_pan = _uph_ui_scroll_area_pan.active && _uph_ui_scroll_area_pan.id.value == scroll_id.value;
+    const bool this_pan = _uph_ui_scroll_area_pan_state.active && _uph_ui_scroll_area_pan_state.id.value == scroll_id.value;
     if (this_pan)
     {
         if (naui_mouse_down(NAUI_MOUSE_MIDDLE))
         {
-            *scroll_x -= (float)(naui_mouse_x() - _uph_ui_scroll_area_pan.last_mouse_x);
-            *scroll_y -= (float)(naui_mouse_y() - _uph_ui_scroll_area_pan.last_mouse_y);
-            _uph_ui_scroll_area_pan.last_mouse_x = naui_mouse_x();
-            _uph_ui_scroll_area_pan.last_mouse_y = naui_mouse_y();
+            *scroll_x -= (float)(naui_mouse_x() - _uph_ui_scroll_area_pan_state.last_mouse_x);
+            *scroll_y -= (float)(naui_mouse_y() - _uph_ui_scroll_area_pan_state.last_mouse_y);
+            _uph_ui_scroll_area_pan_state.last_mouse_x = naui_mouse_x();
+            _uph_ui_scroll_area_pan_state.last_mouse_y = naui_mouse_y();
             naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
         }
         else
-            _uph_ui_scroll_area_pan.active = false;
+            _uph_ui_scroll_area_pan_state.active = false;
     }
-    else if (!_uph_ui_scroll_area_drag.active && (max_scroll_x > 0.0f || max_scroll_y > 0.0f) &&
+    else if (!_uph_ui_scroll_area_drag_state.active && (max_scroll_x > 0.0f || max_scroll_y > 0.0f) &&
         naui_mouse_pressed(NAUI_MOUSE_MIDDLE) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(viewport_id))
     {
-        _uph_ui_scroll_area_pan.active = true;
-        _uph_ui_scroll_area_pan.id = scroll_id;
-        _uph_ui_scroll_area_pan.last_mouse_x = naui_mouse_x();
-        _uph_ui_scroll_area_pan.last_mouse_y = naui_mouse_y();
+        _uph_ui_scroll_area_pan_state.active = true;
+        _uph_ui_scroll_area_pan_state.id = scroll_id;
+        _uph_ui_scroll_area_pan_state.last_mouse_x = naui_mouse_x();
+        _uph_ui_scroll_area_pan_state.last_mouse_y = naui_mouse_y();
         naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
     }
 
     const int8_t wheel = naui_mouse_scroll_delta();
-    if (wheel != 0 && !_uph_ui_scroll_area_drag.active && naui_panel_is_hovered(naui_panel_current()))
+    if (wheel != 0 && !_uph_ui_scroll_area_drag_state.active && naui_panel_is_hovered(naui_panel_current()))
     {
         float *target = NULL;
         if (handle_x_active)

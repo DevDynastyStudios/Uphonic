@@ -1,4 +1,4 @@
-static const char *const s_uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "Sustain", "Sostenuto", "Soft" };
+static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "Sustain", "Sostenuto", "Soft" };
 
 static float _uph_pedal_usable_height(Leaf_BoundingBox box)
 {
@@ -36,7 +36,7 @@ void uph_midi_pedal_cancel_drag(Uph_PedalLane *lane)
 
 #pragma region Input
 
-static int32_t _uph_pedal_hit_test(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+static int32_t _uph_pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
@@ -121,12 +121,12 @@ static void _uph_pedal_commit(Uph_ResourceIndex pattern_index, Uph_MidiPattern *
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static double _uph_pedal_mouse_beat(const Uph_MidiEditorData *editor, Leaf_BoundingBox box)
+static double _uph_pedal_mouse_beat(const Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
 	return uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
 }
 
-static void _uph_pedal_begin(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
+static void _uph_pedal_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
 {
 	Uph_PedalLane *lane = &editor->pedal_lane;
 	Uph_PedalDragState *drag = &lane->drag;
@@ -159,7 +159,7 @@ static void _uph_pedal_begin(Uph_MidiEditorData *editor, Leaf_BoundingBox box, U
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static void _uph_pedal_apply_drag(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void _uph_pedal_apply_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_PedalDragState *drag = &editor->pedal_lane.drag;
 	if (drag->index >= (uint32_t)naui_list_len(pattern->pedals))
@@ -189,7 +189,7 @@ static void _uph_pedal_delete(Uph_MidiPattern *pattern, uint32_t index)
 	_uph_pedal_commit(uph_state.shared.selected_resource.index, pattern, originals);
 }
 
-void uph_midi_pedal_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_PedalLane *lane = &editor->pedal_lane;
 	Uph_PedalDragState *drag = &lane->drag;
@@ -236,7 +236,7 @@ void uph_midi_pedal_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph
 
 #pragma region Rendering
 
-void uph_midi_pedal_render_header(Uph_MidiEditorData *editor, Leaf_BoundingBox box)
+void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
 	const float font_size = NAUI_DPI(10.0f);
 	const float padding = NAUI_DPI(6.0f);
@@ -257,7 +257,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorData *editor, Leaf_BoundingBox b
 		if (active || hovered)
 			naui_fill_rect((Naui_Vec2) { box.x + NAUI_DPI(3.0f), y }, (Naui_Vec2) { box.width - NAUI_DPI(6.0f), row_height }, naui_theme_color(active ? "uph_ui_frame_pressed_bg_color" : "uph_ui_frame_hovered_bg_color"), NAUI_DPI(3.0f), LEAF_CORNER_ALL);
 
-		const char *label = s_uph_pedal_labels[type];
+		const char *label = _uph_pedal_labels[type];
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
 		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y + (row_height - size.y) * 0.5f }, label, font_size, 0, naui_theme_color(active || hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color"));
 
@@ -271,7 +271,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorData *editor, Leaf_BoundingBox b
 	naui_pop_clip_rect();
 }
 
-static void _uph_pedal_render_steps(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Uph_MidiPedalType type, Leaf_Color color, bool fill)
+static void _uph_pedal_render_steps(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Uph_MidiPedalType type, Leaf_Color color, bool fill)
 {
 	const float end_x = uph_midi_view_beat_to_x(&editor->view, box, uph_midi_preview_loop_length(pattern));
 	const float bottom = _uph_pedal_to_y(box, 0.0f);
@@ -328,7 +328,7 @@ static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int3
 	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
 }
 
-void uph_midi_pedal_render(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const Uph_PedalLane *lane = &editor->pedal_lane;
 	const Leaf_Color guide_color = naui_theme_color("uph_timeline_grid_subbeat_color");

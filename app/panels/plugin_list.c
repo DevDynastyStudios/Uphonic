@@ -27,9 +27,9 @@ typedef struct
 
     Uph_PluginListLoad load;
 }
-Uph_PluginListData;
+Uph_PluginListState;
 
-static Uph_PluginListData uph_plugin_list_data = { 0 };
+static Uph_PluginListState _uph_plugin_list_state = { 0 };
 
 static bool uph_plugin_list_ensure_selection(void);
 
@@ -43,7 +43,7 @@ static void uph_plugin_list_prefetch_job(void *data, char *err_buf, size_t err_s
 
 static void uph_plugin_list_cancel_load(void)
 {
-    Uph_PluginListLoad *load = &uph_plugin_list_data.load;
+    Uph_PluginListLoad *load = &_uph_plugin_list_state.load;
     if (!load->active)
         return;
 
@@ -59,8 +59,8 @@ void uph_plugin_list_on_attach(void)
 {
     const Naui_PanelID panel_id = naui_panel_current();
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
-    if (!uph_plugin_cache_read(&uph_plugin_list_data.plugin_infos))
-        uph_plugin_scan_start(uph_plugin_list_data.plugin_infos);
+    if (!uph_plugin_cache_read(&_uph_plugin_list_state.plugin_infos))
+        uph_plugin_scan_start(_uph_plugin_list_state.plugin_infos);
 }
 
 void uph_plugin_list_on_detach(void)
@@ -77,7 +77,7 @@ void uph_plugin_list_on_open(void)
 void uph_plugin_list_on_close(void)
 {
     uph_plugin_list_cancel_load();
-    uph_plugin_list_data.filter = (Naui_String){0};
+    _uph_plugin_list_state.filter = (Naui_String){0};
 }
 
 static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
@@ -102,11 +102,11 @@ static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
 // Load plugins on the main thread only plz
 static void uph_plugin_list_load(void)
 {
-    Uph_PluginListLoad *load = &uph_plugin_list_data.load;
+    Uph_PluginListLoad *load = &_uph_plugin_list_state.load;
     if (load->active || !uph_plugin_list_ensure_selection())
         return;
 
-    const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
+    const Uph_PluginInfo *info = &_uph_plugin_list_state.plugin_infos[_uph_plugin_list_state.current_plugin_index];
     load->path = info->path;
     load->name = info->name;
     load->frames = 0;
@@ -119,7 +119,7 @@ static void uph_plugin_list_load(void)
 
 static bool uph_plugin_list_update_load(void)
 {
-    Uph_PluginListLoad *load = &uph_plugin_list_data.load;
+    Uph_PluginListLoad *load = &_uph_plugin_list_state.load;
     if (!load->active)
         return false;
 
@@ -140,7 +140,7 @@ static bool uph_plugin_list_update_load(void)
 
 static void uph_plugin_list_poll_scan(void)
 {
-    Uph_PluginListData *data = &uph_plugin_list_data;
+    Uph_PluginListState *data = &_uph_plugin_list_state;
     const bool had_selection = data->current_plugin_index < (int32_t)naui_list_len(data->plugin_infos);
     const Naui_Path selected = had_selection ? naui_path_normalize(data->plugin_infos[data->current_plugin_index].path) : (Naui_Path){ 0 };
 
@@ -207,7 +207,7 @@ static void uph_plugin_list_status(void)
     static char text[256];
     text[0] = '\0';
 
-    const Uph_PluginListLoad *load = &uph_plugin_list_data.load;
+    const Uph_PluginListLoad *load = &_uph_plugin_list_state.load;
     const Uph_PluginScanProgress scan = uph_plugin_scan_progress();
     if (load->active)
         snprintf(text, sizeof(text), "%s  %s", NAUI_TR("plugin.menu.loading"), load->name.data);
@@ -279,11 +279,11 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Leaf_ID id = leaf_id_indexed("uph_plugin_list_item", item_index);
     const bool hovered = uph_ui_widget_hovered(id);
-    const bool selected = uph_plugin_list_data.current_plugin_index == (int32_t)item_index;
+    const bool selected = _uph_plugin_list_state.current_plugin_index == (int32_t)item_index;
     if (hovered)
     {
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-            uph_plugin_list_data.current_plugin_index = item_index;
+            _uph_plugin_list_state.current_plugin_index = item_index;
         if (naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
             uph_plugin_list_load();
         naui_set_cursor(NAUI_CURSOR_HAND);
@@ -329,7 +329,7 @@ static bool uph_plugin_list_matches_target(const Uph_PluginInfo *info)
 
 static bool uph_plugin_list_ensure_selection(void)
 {
-    Uph_PluginListData *data = &uph_plugin_list_data;
+    Uph_PluginListState *data = &_uph_plugin_list_state;
     const int32_t count = (int32_t)naui_list_len(data->plugin_infos);
     if (data->current_plugin_index >= 0 && data->current_plugin_index < count && uph_plugin_list_matches_target(&data->plugin_infos[data->current_plugin_index]))
         return true;
@@ -350,10 +350,10 @@ static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
     if (!uph_plugin_list_matches_target(info))
         return false;
 
-    if (uph_plugin_list_data.filter.length == 0)
+    if (_uph_plugin_list_state.filter.length == 0)
         return true;
 
-    return naui_string_contains(info->name, uph_plugin_list_data.filter, false) || naui_string_contains(info->vendor, uph_plugin_list_data.filter, false);
+    return naui_string_contains(info->name, _uph_plugin_list_state.filter, false) || naui_string_contains(info->vendor, _uph_plugin_list_state.filter, false);
 }
 
 static void uph_plugin_list_main_menu(void)
@@ -391,9 +391,9 @@ static void uph_plugin_list_main_menu(void)
         .child_gap = NAUI_DPI(UPH_PLUGIN_LIST_ROW_GAP)
     })
     {
-        for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_plugin_list_data.plugin_infos); i++)
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_plugin_list_state.plugin_infos); i++)
         {
-            Uph_PluginInfo info = uph_plugin_list_data.plugin_infos[i];
+            Uph_PluginInfo info = _uph_plugin_list_state.plugin_infos[i];
             if (!uph_plugin_list_matches_filter(&info))
                 continue;
             uph_plugin_list_item(&info, i);
@@ -472,7 +472,7 @@ static void uph_plugin_list_current_menu(void)
 {
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const Uph_PluginInfo *info = &uph_plugin_list_data.plugin_infos[uph_plugin_list_data.current_plugin_index];
+    const Uph_PluginInfo *info = &_uph_plugin_list_state.plugin_infos[_uph_plugin_list_state.current_plugin_index];
 
     leaf({
         .size = {LEAF_SIZE_PERCENT(0.28f), LEAF_SIZE_FULL},
@@ -547,14 +547,14 @@ void uph_plugin_list_on_update(void)
         .child_gap = NAUI_DPI(padding.x)
     })
     {
-        uph_ui_textfield(&uph_plugin_list_data.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_SEARCH, "Search");
+        uph_ui_textfield(&_uph_plugin_list_state.filter, leaf_id("uph_plugin_list_filter"), UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_SEARCH, "Search");
         if (uph_ui_text_button("Refresh", leaf_id("uph_plugin_list_refresh")))
-            uph_plugin_scan_start(uph_plugin_list_data.plugin_infos);
+            uph_plugin_scan_start(_uph_plugin_list_state.plugin_infos);
     }
 
     uph_plugin_list_status();
 
-    if (naui_list_len(uph_plugin_list_data.plugin_infos) == 0)
+    if (naui_list_len(_uph_plugin_list_state.plugin_infos) == 0)
     {
         if (uph_plugin_scan_progress().active)
             return;

@@ -38,18 +38,18 @@ typedef struct
 	const char* group_name;
 	bool group_active;
 }
-Naui_ActionData;
-static Naui_ActionData _naui_action_data;
+Naui_ActionState;
+static Naui_ActionState _naui_action_state;
 
 void __naui_register_action(const char* name, Naui_Action action)
 {
-	if(_naui_action_data.registered_count == _naui_action_data.registered_capacity)
+	if(_naui_action_state.registered_count == _naui_action_state.registered_capacity)
 	{
-		_naui_action_data.registered_capacity = _naui_action_data.registered_capacity ? _naui_action_data.registered_capacity * 2 : 16;
-		_naui_action_data.registered = (Naui_RegisteredAction*)realloc(_naui_action_data.registered, _naui_action_data.registered_capacity * sizeof(Naui_RegisteredAction));
+		_naui_action_state.registered_capacity = _naui_action_state.registered_capacity ? _naui_action_state.registered_capacity * 2 : 16;
+		_naui_action_state.registered = (Naui_RegisteredAction*)realloc(_naui_action_state.registered, _naui_action_state.registered_capacity * sizeof(Naui_RegisteredAction));
 	}
 
-	_naui_action_data.registered[_naui_action_data.registered_count++] = (Naui_RegisteredAction){ name, action };
+	_naui_action_state.registered[_naui_action_state.registered_count++] = (Naui_RegisteredAction){ name, action };
 }
 
 bool __naui_action_execute_stack(const char* name, const void* data, size_t size)
@@ -68,10 +68,10 @@ bool __naui_action_execute_stack(const char* name, const void* data, size_t size
 
 static const Naui_Action* find_action(const char* name)
 {
-	for(size_t i = 0; i < _naui_action_data.registered_count; i++)
+	for(size_t i = 0; i < _naui_action_state.registered_count; i++)
 	{
-		if(strcmp(_naui_action_data.registered[i].name, name) == 0)
-			return &_naui_action_data.registered[i].action;
+		if(strcmp(_naui_action_state.registered[i].name, name) == 0)
+			return &_naui_action_state.registered[i].action;
 	}
 
 	return NULL;
@@ -138,17 +138,17 @@ static const Naui_Action _naui_group_action = {
 
 uint64_t naui_action_get_revision(void)
 {
-	return _naui_action_data.revision;
+	return _naui_action_state.revision;
 }
 
 static inline size_t undo_physical_index(size_t logical_index)
 {
-	return (_naui_action_data.undo_head + logical_index) % _naui_action_data.capacity;
+	return (_naui_action_state.undo_head + logical_index) % _naui_action_state.capacity;
 }
 
 static void ensure_initialized(void)
 {
-	if(_naui_action_data.capacity == 0)
+	if(_naui_action_state.capacity == 0)
 		naui_action_set_history_capacity(NAUI_ACTION_DEFAULT_CAPACITY);
 }
 
@@ -157,79 +157,79 @@ void naui_action_set_history_capacity(size_t capacity)
 	if(capacity == 0)
 		capacity = 1;
 
-	while(_naui_action_data.undo_count > capacity)
+	while(_naui_action_state.undo_count > capacity)
 	{
-		destroy_entry(&_naui_action_data.undo_entries[_naui_action_data.undo_head]);
-		_naui_action_data.undo_head = (_naui_action_data.undo_head + 1) % _naui_action_data.capacity;
-		_naui_action_data.undo_count--;
+		destroy_entry(&_naui_action_state.undo_entries[_naui_action_state.undo_head]);
+		_naui_action_state.undo_head = (_naui_action_state.undo_head + 1) % _naui_action_state.capacity;
+		_naui_action_state.undo_count--;
 	}
 
-	while(_naui_action_data.redo_count > capacity)
+	while(_naui_action_state.redo_count > capacity)
 	{
-		destroy_entry(&_naui_action_data.redo_entries[0]);
-		memmove(&_naui_action_data.redo_entries[0], &_naui_action_data.redo_entries[1], (_naui_action_data.redo_count - 1) * sizeof(Naui_ActionEntry));
-		_naui_action_data.redo_count--;
+		destroy_entry(&_naui_action_state.redo_entries[0]);
+		memmove(&_naui_action_state.redo_entries[0], &_naui_action_state.redo_entries[1], (_naui_action_state.redo_count - 1) * sizeof(Naui_ActionEntry));
+		_naui_action_state.redo_count--;
 	}
 
-	size_t old_undo_count = _naui_action_data.undo_count;
-	size_t old_redo_count = _naui_action_data.redo_count;
+	size_t old_undo_count = _naui_action_state.undo_count;
+	size_t old_redo_count = _naui_action_state.redo_count;
 	Naui_ActionEntry* undo_tmp = old_undo_count ? (Naui_ActionEntry*)malloc(old_undo_count * sizeof(Naui_ActionEntry)) : NULL;
 	for(size_t i = 0; i < old_undo_count; i++)
 	{
-		undo_tmp[i] = _naui_action_data.undo_entries[undo_physical_index(i)];
+		undo_tmp[i] = _naui_action_state.undo_entries[undo_physical_index(i)];
 	}
 
 	Naui_ActionEntry* redo_tmp = old_redo_count ? (Naui_ActionEntry*)malloc(old_redo_count * sizeof(Naui_ActionEntry)) : NULL;
 	if(redo_tmp)
-		memcpy(redo_tmp, _naui_action_data.redo_entries, old_redo_count * sizeof(Naui_ActionEntry));
+		memcpy(redo_tmp, _naui_action_state.redo_entries, old_redo_count * sizeof(Naui_ActionEntry));
 
-	naui_arena_reset(&_naui_action_data.ring_arena);
-	_naui_action_data.undo_entries = (Naui_ActionEntry*)naui_arena_alloc(&_naui_action_data.ring_arena, capacity * sizeof(Naui_ActionEntry));
-	_naui_action_data.redo_entries = (Naui_ActionEntry*)naui_arena_alloc(&_naui_action_data.ring_arena, capacity * sizeof(Naui_ActionEntry));
+	naui_arena_reset(&_naui_action_state.ring_arena);
+	_naui_action_state.undo_entries = (Naui_ActionEntry*)naui_arena_alloc(&_naui_action_state.ring_arena, capacity * sizeof(Naui_ActionEntry));
+	_naui_action_state.redo_entries = (Naui_ActionEntry*)naui_arena_alloc(&_naui_action_state.ring_arena, capacity * sizeof(Naui_ActionEntry));
 
 	if(undo_tmp)
 	{
-		memcpy(_naui_action_data.undo_entries, undo_tmp, old_undo_count * sizeof(Naui_ActionEntry));
+		memcpy(_naui_action_state.undo_entries, undo_tmp, old_undo_count * sizeof(Naui_ActionEntry));
 		free(undo_tmp);
 	}
 
 	if(redo_tmp)
 	{
-		memcpy(_naui_action_data.redo_entries, redo_tmp, old_redo_count * sizeof(Naui_ActionEntry));
+		memcpy(_naui_action_state.redo_entries, redo_tmp, old_redo_count * sizeof(Naui_ActionEntry));
 		free(redo_tmp);
 	}
 
-	_naui_action_data.capacity = capacity;
-	_naui_action_data.undo_head = 0;
-	_naui_action_data.undo_count = old_undo_count;
-	_naui_action_data.redo_count = old_redo_count;
+	_naui_action_state.capacity = capacity;
+	_naui_action_state.undo_head = 0;
+	_naui_action_state.undo_count = old_undo_count;
+	_naui_action_state.redo_count = old_redo_count;
 }
 
 size_t naui_action_get_history_capacity(void)
 {
 	ensure_initialized();
-	return _naui_action_data.capacity;
+	return _naui_action_state.capacity;
 }
 
 static void history_push(Naui_ActionEntry entry)
 {
 	ensure_initialized();
-	for(size_t i = 0; i < _naui_action_data.redo_count; i++)
+	for(size_t i = 0; i < _naui_action_state.redo_count; i++)
 	{
-		destroy_entry(&_naui_action_data.redo_entries[i]);
+		destroy_entry(&_naui_action_state.redo_entries[i]);
 	}
 
-	_naui_action_data.redo_count = 0;
+	_naui_action_state.redo_count = 0;
 
-	if(_naui_action_data.undo_count == _naui_action_data.capacity)
+	if(_naui_action_state.undo_count == _naui_action_state.capacity)
 	{
-		destroy_entry(&_naui_action_data.undo_entries[_naui_action_data.undo_head]);
-		_naui_action_data.undo_head = (_naui_action_data.undo_head + 1) % _naui_action_data.capacity;
-		_naui_action_data.undo_count--;
+		destroy_entry(&_naui_action_state.undo_entries[_naui_action_state.undo_head]);
+		_naui_action_state.undo_head = (_naui_action_state.undo_head + 1) % _naui_action_state.capacity;
+		_naui_action_state.undo_count--;
 	}
 
-	_naui_action_data.undo_entries[undo_physical_index(_naui_action_data.undo_count)] = entry;
-	_naui_action_data.undo_count++;
+	_naui_action_state.undo_entries[undo_physical_index(_naui_action_state.undo_count)] = entry;
+	_naui_action_state.undo_count++;
 }
 
 struct Naui_ActionStageNode
@@ -240,35 +240,35 @@ struct Naui_ActionStageNode
 
 void naui_action_group_start(const char* name)
 {
-	NAUI_ACTION_FATAL(_naui_action_data.group_active, "naui_action_group_start called while a group is already active. Nested groups aren't supported.");
-	_naui_action_data.group_active = true;
-	_naui_action_data.group_name = name;
-	_naui_action_data.group_head = NULL;
-	_naui_action_data.group_tail = NULL;
-	_naui_action_data.group_count = 0;
+	NAUI_ACTION_FATAL(_naui_action_state.group_active, "naui_action_group_start called while a group is already active. Nested groups aren't supported.");
+	_naui_action_state.group_active = true;
+	_naui_action_state.group_name = name;
+	_naui_action_state.group_head = NULL;
+	_naui_action_state.group_tail = NULL;
+	_naui_action_state.group_count = 0;
 }
 
 bool naui_action_group_end(void)
 {
-	NAUI_ACTION_FATAL(!_naui_action_data.group_active, "naui_action_group_end called with no active group.");
-	_naui_action_data.group_active = false;
-	if(_naui_action_data.group_count == 0)
+	NAUI_ACTION_FATAL(!_naui_action_state.group_active, "naui_action_group_end called with no active group.");
+	_naui_action_state.group_active = false;
+	if(_naui_action_state.group_count == 0)
 	{
-		naui_arena_reset(&_naui_action_data.group_arena);
+		naui_arena_reset(&_naui_action_state.group_arena);
 		return false;
 	}
 
-	Naui_ActionEntry* actions = (Naui_ActionEntry*)malloc(_naui_action_data.group_count * sizeof(Naui_ActionEntry));
+	Naui_ActionEntry* actions = (Naui_ActionEntry*)malloc(_naui_action_state.group_count * sizeof(Naui_ActionEntry));
 	size_t i = 0;
-	for(Naui_ActionStageNode* node = _naui_action_data.group_head; node; node = node->next)
+	for(Naui_ActionStageNode* node = _naui_action_state.group_head; node; node = node->next)
 	{
 		actions[i++] = node->entry;
 	}
 
-	naui_arena_reset(&_naui_action_data.group_arena);
+	naui_arena_reset(&_naui_action_state.group_arena);
 	Naui_GroupData* group_data = (Naui_GroupData*)malloc(sizeof(Naui_GroupData));
 	*group_data = (Naui_GroupData){ .actions = actions, .count = i };
-	history_push((Naui_ActionEntry){ .name = _naui_action_data.group_name, .action = &_naui_group_action, .data = group_data });
+	history_push((Naui_ActionEntry){ .name = _naui_action_state.group_name, .action = &_naui_group_action, .data = group_data });
 	return true;
 }
 
@@ -279,21 +279,21 @@ bool naui_action_execute(const char* name, void* data)
 	if(!action || !action->execute(data))
 		return false;
 
-	_naui_action_data.revision++;
+	_naui_action_state.revision++;
 	Naui_ActionEntry entry = { .name = name, .action = action, .data = data };
-	if(_naui_action_data.group_active)
+	if(_naui_action_state.group_active)
 	{
-		Naui_ActionStageNode* node = (Naui_ActionStageNode*)naui_arena_alloc(&_naui_action_data.group_arena, sizeof(Naui_ActionStageNode));
+		Naui_ActionStageNode* node = (Naui_ActionStageNode*)naui_arena_alloc(&_naui_action_state.group_arena, sizeof(Naui_ActionStageNode));
 		node->entry = entry;
 		node->next = NULL;
 
-		if(_naui_action_data.group_tail)
-			_naui_action_data.group_tail->next = node;
+		if(_naui_action_state.group_tail)
+			_naui_action_state.group_tail->next = node;
 		else
-			_naui_action_data.group_head = node;
+			_naui_action_state.group_head = node;
 
-		_naui_action_data.group_tail = node;
-		_naui_action_data.group_count++;
+		_naui_action_state.group_tail = node;
+		_naui_action_state.group_count++;
 	}
 	else
 	{
@@ -306,58 +306,58 @@ bool naui_action_execute(const char* name, void* data)
 bool naui_action_undo(void)
 {
 	ensure_initialized();
-	if(_naui_action_data.undo_count == 0)
+	if(_naui_action_state.undo_count == 0)
 		return false;
 
-	Naui_ActionEntry* entry = &_naui_action_data.undo_entries[undo_physical_index(_naui_action_data.undo_count - 1)];
+	Naui_ActionEntry* entry = &_naui_action_state.undo_entries[undo_physical_index(_naui_action_state.undo_count - 1)];
 	if(!entry->action->undo(entry->data))
 		return false;
 
-	_naui_action_data.revision++;
-	_naui_action_data.redo_entries[_naui_action_data.redo_count++] = *entry;
-	_naui_action_data.undo_count--;
+	_naui_action_state.revision++;
+	_naui_action_state.redo_entries[_naui_action_state.redo_count++] = *entry;
+	_naui_action_state.undo_count--;
 	return true;
 }
 
 bool naui_action_redo(void)
 {
 	ensure_initialized();
-	if(_naui_action_data.redo_count == 0)
+	if(_naui_action_state.redo_count == 0)
 		return false;
 
-	Naui_ActionEntry* entry = &_naui_action_data.redo_entries[_naui_action_data.redo_count - 1];
+	Naui_ActionEntry* entry = &_naui_action_state.redo_entries[_naui_action_state.redo_count - 1];
 	Naui_ActionFn fn = entry->action->redo ? entry->action->redo : entry->action->execute;
 	if(!fn(entry->data))
 		return false;
 
-	_naui_action_data.revision++;
-	_naui_action_data.undo_entries[undo_physical_index(_naui_action_data.undo_count)] = *entry;
-	_naui_action_data.undo_count++;
-	_naui_action_data.redo_count--;
+	_naui_action_state.revision++;
+	_naui_action_state.undo_entries[undo_physical_index(_naui_action_state.undo_count)] = *entry;
+	_naui_action_state.undo_count++;
+	_naui_action_state.redo_count--;
 	return true;
 }
 
 bool naui_action_can_undo(void)
 {
 	ensure_initialized();
-	return _naui_action_data.undo_count > 0;
+	return _naui_action_state.undo_count > 0;
 }
 
 bool naui_action_can_redo(void)
 {
 	ensure_initialized();
-	return _naui_action_data.redo_count > 0;
+	return _naui_action_state.redo_count > 0;
 }
 
 const Naui_List(Naui_Action) naui_action_get_undo_history(void)
 {
 	ensure_initialized();
 	Naui_List(Naui_Action) result = NULL;
-	naui_list_reserve(result, _naui_action_data.undo_count);
+	naui_list_reserve(result, _naui_action_state.undo_count);
 
-	for(size_t i = _naui_action_data.undo_count; i > 0; i--)
+	for(size_t i = _naui_action_state.undo_count; i > 0; i--)
 	{
-		const Naui_ActionEntry* entry = &_naui_action_data.undo_entries[undo_physical_index(i - 1)];
+		const Naui_ActionEntry* entry = &_naui_action_state.undo_entries[undo_physical_index(i - 1)];
 		Naui_Action item = *entry->action;
 		item.name = naui_string_from_cstr(entry->name);
 		naui_list_push(result, item);
@@ -370,11 +370,11 @@ const Naui_List(Naui_Action) naui_action_get_redo_history(void)
 {
 	ensure_initialized();
 	Naui_List(Naui_Action) result = NULL;
-	naui_list_reserve(result, _naui_action_data.redo_count);
+	naui_list_reserve(result, _naui_action_state.redo_count);
 
-	for(size_t i = _naui_action_data.redo_count; i > 0; i--)
+	for(size_t i = _naui_action_state.redo_count; i > 0; i--)
 	{
-		const Naui_ActionEntry* entry = &_naui_action_data.redo_entries[i - 1];
+		const Naui_ActionEntry* entry = &_naui_action_state.redo_entries[i - 1];
 		Naui_Action item = *entry->action;
 		item.name = naui_string_from_cstr(entry->name);
 		naui_list_push(result, item);
@@ -386,17 +386,17 @@ const Naui_List(Naui_Action) naui_action_get_redo_history(void)
 void naui_action_clear_history(void)
 {
 	ensure_initialized();
-	for(size_t i = 0; i < _naui_action_data.undo_count; i++)
+	for(size_t i = 0; i < _naui_action_state.undo_count; i++)
 	{
-		destroy_entry(&_naui_action_data.undo_entries[undo_physical_index(i)]);
+		destroy_entry(&_naui_action_state.undo_entries[undo_physical_index(i)]);
 	}
 
-	for(size_t i = 0; i < _naui_action_data.redo_count; i++)
+	for(size_t i = 0; i < _naui_action_state.redo_count; i++)
 	{
-		destroy_entry(&_naui_action_data.redo_entries[i]);
+		destroy_entry(&_naui_action_state.redo_entries[i]);
 	}
 
-	_naui_action_data.undo_head = 0;
-	_naui_action_data.undo_count = 0;
-	_naui_action_data.redo_count = 0;
+	_naui_action_state.undo_head = 0;
+	_naui_action_state.undo_count = 0;
+	_naui_action_state.redo_count = 0;
 }

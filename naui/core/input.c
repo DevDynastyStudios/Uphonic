@@ -163,11 +163,11 @@ typedef struct
     Naui_Cursor current_cursor;
 }
 Naui_GlobalInputState;
-static Naui_GlobalInputState naui_input_state;
+static Naui_GlobalInputState _naui_input_state;
 
 void naui_set_cursor(Naui_Cursor cursor)
 {
-    naui_input_state.current_cursor = cursor;
+    _naui_input_state.current_cursor = cursor;
 }
 
 void naui_input_update(void)
@@ -178,28 +178,28 @@ void naui_input_update(void)
     {
         if (mgapp_mouse_pressed((mg_mouse_button)i))
         {
-            naui_input_state.drag_start_x[i] = mgapp_mouse_x();
-            naui_input_state.drag_start_y[i] = mgapp_mouse_y();
-            naui_input_state.dragging[i] = false;
+            _naui_input_state.drag_start_x[i] = mgapp_mouse_x();
+            _naui_input_state.drag_start_y[i] = mgapp_mouse_y();
+            _naui_input_state.dragging[i] = false;
         }
         else if (mgapp_mouse_down((mg_mouse_button)i))
         {
-            int32_t dx = mgapp_mouse_x() - naui_input_state.drag_start_x[i];
-            int32_t dy = mgapp_mouse_y() - naui_input_state.drag_start_y[i];
-            if (!naui_input_state.dragging[i] && (dx * dx + dy * dy) > (DRAG_THRESHOLD * DRAG_THRESHOLD))
-                naui_input_state.dragging[i] = true;
+            int32_t dx = mgapp_mouse_x() - _naui_input_state.drag_start_x[i];
+            int32_t dy = mgapp_mouse_y() - _naui_input_state.drag_start_y[i];
+            if (!_naui_input_state.dragging[i] && (dx * dx + dy * dy) > (DRAG_THRESHOLD * DRAG_THRESHOLD))
+                _naui_input_state.dragging[i] = true;
         }
         else
         {
-            naui_input_state.dragging[i] = false;
+            _naui_input_state.dragging[i] = false;
         }
     }
 
-    mgapp_set_cursor((mg_cursor)naui_input_state.current_cursor);
-    naui_input_state.current_cursor = NAUI_CURSOR_ARROW;
+    mgapp_set_cursor((mg_cursor)_naui_input_state.current_cursor);
+    _naui_input_state.current_cursor = NAUI_CURSOR_ARROW;
 }
 
 bool naui_mouse_dragging(Naui_MouseButton button)
 {
-    return naui_input_state.dragging[(int)button];
+    return _naui_input_state.dragging[(int)button];
 }

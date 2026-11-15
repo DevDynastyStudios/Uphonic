@@ -2,13 +2,13 @@
 
 static double _uph_song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
 {
-	const double raw = ((double)naui_mouse_x() - position.x) / uph_song_timeline_data.zoom.x + start_offset;
-	return uph_snap_beat_round(raw, uph_song_timeline_data.snap_resolution, uph_song_timeline_data.zoom.x);
+	const double raw = ((double)naui_mouse_x() - position.x) / _uph_song_timeline_state.zoom.x + start_offset;
+	return uph_snap_beat_round(raw, _uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x);
 }
 
 static void _uph_song_timeline_finish_point_edit(const Uph_Automation *automation)
 {
-	Uph_AutomationEditState *edit = &uph_song_timeline_data.automation_edit;
+	Uph_AutomationEditState *edit = &_uph_song_timeline_state.automation_edit;
 	const int32_t index = edit->dragging_point_index;
 	edit->dragging_point_index = -1;
 
@@ -46,10 +46,10 @@ static void _uph_song_timeline_finish_point_edit(const Uph_Automation *automatio
 
 void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec2 size, Uph_Track *track, uint32_t block_index, double start_offset, Uph_ResourceIndex automation_index)
 {
-	Uph_AutomationEditState *edit = &uph_song_timeline_data.automation_edit;
+	Uph_AutomationEditState *edit = &_uph_song_timeline_state.automation_edit;
 	Uph_Automation *automation = &uph_state.project.automations[automation_index];
-	const float zoom_x = uph_song_timeline_data.zoom.x;
-	const float scroll_x = uph_song_timeline_data.scroll.x;
+	const float zoom_x = _uph_song_timeline_state.zoom.x;
+	const float scroll_x = _uph_song_timeline_state.scroll.x;
 	const int32_t point_size = NAUI_DPI(6);
 	const int32_t hit_radius = point_size;
 	const bool is_target_block = (edit->track == track && edit->block_index == block_index);

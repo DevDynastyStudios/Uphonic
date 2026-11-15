@@ -23,9 +23,9 @@ typedef struct
     uint64_t hash;
     bool hash_valid;
 }
-Uph_TempoMapData;
+Uph_TempoMapState;
 
-static Uph_TempoMapData uph_tempo_map_data = { 0 };
+static Uph_TempoMapState _uph_tempo_map_state = { 0 };
 
 static float _uph_tempo_from_automation(float value)
 {
@@ -51,7 +51,7 @@ Uph_Track *uph_tempo_find_lane(void)
 
 bool uph_tempo_lane_active(void)
 {
-    return atomic_load(&uph_tempo_map_data.current) != NULL;
+    return atomic_load(&_uph_tempo_map_state.current) != NULL;
 }
 
 static float uph_tempo_base_bpm(void)
@@ -202,7 +202,7 @@ static Uph_TempoMap *uph_tempo_map_build(const Uph_Track *lane, float base)
 
 static bool uph_tempo_map_try_release_retired(void)
 {
-    Uph_TempoMapData *data = &uph_tempo_map_data;
+    Uph_TempoMapState *data = &_uph_tempo_map_state;
     if (!data->retired)
         return true;
 
@@ -218,7 +218,7 @@ static bool uph_tempo_map_try_release_retired(void)
 
 static void uph_tempo_map_publish(Uph_TempoMap *map)
 {
-    Uph_TempoMapData *data = &uph_tempo_map_data;
+    Uph_TempoMapState *data = &_uph_tempo_map_state;
     Uph_TempoMap *old = atomic_exchange(&data->current, map);
     data->retired = old;
     data->retired_after = atomic_load(&data->callbacks_started);
@@ -227,7 +227,7 @@ static void uph_tempo_map_publish(Uph_TempoMap *map)
 
 void uph_tempo_map_update(void)
 {
-    Uph_TempoMapData *data = &uph_tempo_map_data;
+    Uph_TempoMapState *data = &_uph_tempo_map_state;
     if (!uph_tempo_map_try_release_retired())
         return;
 
@@ -255,7 +255,7 @@ void uph_tempo_map_update(void)
 
 void uph_tempo_map_shutdown(void)
 {
-    Uph_TempoMapData *data = &uph_tempo_map_data;
+    Uph_TempoMapState *data = &_uph_tempo_map_state;
     uph_tempo_map_free(atomic_exchange(&data->current, NULL));
     uph_tempo_map_free(data->retired);
     data->retired = NULL;
@@ -264,17 +264,17 @@ void uph_tempo_map_shutdown(void)
 
 void uph_tempo_map_audio_begin(void)
 {
-    atomic_fetch_add(&uph_tempo_map_data.callbacks_started, 1);
+    atomic_fetch_add(&_uph_tempo_map_state.callbacks_started, 1);
 }
 
 void uph_tempo_map_audio_end(void)
 {
-    atomic_fetch_add(&uph_tempo_map_data.callbacks_finished, 1);
+    atomic_fetch_add(&_uph_tempo_map_state.callbacks_finished, 1);
 }
 
 float uph_tempo_bpm_at(double beat)
 {
-    const Uph_TempoMap *map = atomic_load(&uph_tempo_map_data.current);
+    const Uph_TempoMap *map = atomic_load(&_uph_tempo_map_state.current);
     if (!map)
         return uph_tempo_base_bpm();
 
@@ -290,7 +290,7 @@ float uph_tempo_bpm_at(double beat)
 
 double uph_tempo_beat_to_seconds(double beat)
 {
-    const Uph_TempoMap *map = atomic_load(&uph_tempo_map_data.current);
+    const Uph_TempoMap *map = atomic_load(&_uph_tempo_map_state.current);
     if (!map)
         return beat * 60.0 / (double)uph_tempo_base_bpm();
 
@@ -307,7 +307,7 @@ double uph_tempo_beat_to_seconds(double beat)
 
 double uph_tempo_seconds_to_beat(double seconds)
 {
-    const Uph_TempoMap *map = atomic_load(&uph_tempo_map_data.current);
+    const Uph_TempoMap *map = atomic_load(&_uph_tempo_map_state.current);
     if (!map)
         return seconds * (double)uph_tempo_base_bpm() / 60.0;
 
@@ -338,11 +338,11 @@ double uph_tempo_beat_after_seconds(double beat, double seconds)
 
 void uph_tempo_set_current_bpm(float bpm)
 {
-    atomic_store(&uph_tempo_map_data.current_bpm, bpm);
+    atomic_store(&_uph_tempo_map_state.current_bpm, bpm);
 }
 
 float uph_tempo_current_bpm(void)
 {
-    const float bpm = atomic_load(&uph_tempo_map_data.current_bpm);
+    const float bpm = atomic_load(&_uph_tempo_map_state.current_bpm);
     return bpm > 0.0f ? bpm : uph_tempo_base_bpm();
 }

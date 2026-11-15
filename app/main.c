@@ -7,16 +7,20 @@ Uph_State uph_state = { 0 };
  
 #pragma region Crash Recovery
  
-static bool s_exit_confirmed;
-static bool s_exit_dialog_open;
-static Naui_Path s_restore_project_folder;
+static struct
+{
+	bool exit_confirmed;
+	bool exit_dialog_open;
+	Naui_Path restore_project_folder;
+}
+_uph_crash_recovery_state;
  
 static void uph_show_restore_dialog(const Naui_Path project_folder);
  
 static void uph_exit_dialog_result(int32_t button, void *user_data)
 {
 	(void)user_data;
-	s_exit_dialog_open = false;
+	_uph_crash_recovery_state.exit_dialog_open = false;
  
 	if (button == 0)	// Save
 	{
@@ -34,16 +38,16 @@ static void uph_exit_dialog_result(int32_t button, void *user_data)
 	else
 		return;	// Cancel
  
-	s_exit_confirmed = true;
+	_uph_crash_recovery_state.exit_confirmed = true;
 	naui_defer((Naui_DeferredEvent)naui_app_close, NULL, 0);
 }
  
 static void uph_handle_close_request(void)
 {
-	if (s_exit_confirmed)
+	if (_uph_crash_recovery_state.exit_confirmed)
 		return;
  
-	if (s_exit_dialog_open)
+	if (_uph_crash_recovery_state.exit_dialog_open)
 	{
 		naui_app_cancel_close();
 		return;
@@ -77,7 +81,7 @@ static void uph_handle_close_request(void)
 	}
  
 	naui_app_cancel_close();
-	s_exit_dialog_open = uph_dialog_open(&(Uph_DialogConfig){
+	_uph_crash_recovery_state.exit_dialog_open = uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("dialog.exit.title"),
 		.message = NAUI_TR("dialog.exit.message"),
 		.buttons = { NAUI_TR("dialog.exit.save"), NAUI_TR("dialog.exit.discard"), NAUI_TR("dialog.cancel") },
@@ -93,13 +97,13 @@ static void uph_restore_dialog_result(int32_t button, void *user_data)
  
 	if (button == 0)	// Restore
 	{
-		if (!uph_project_load(&uph_state.project, s_restore_project_folder))
-			naui_log(NAUI_LOG_ERROR, "Failed to restore project: %s", s_restore_project_folder.data);
+		if (!uph_project_load(&uph_state.project, _uph_crash_recovery_state.restore_project_folder))
+			naui_log(NAUI_LOG_ERROR, "Failed to restore project: %s", _uph_crash_recovery_state.restore_project_folder.data);
  
 		return;
 	}
  
-	uph_recovery_discard_project(s_restore_project_folder);
+	uph_recovery_discard_project(_uph_crash_recovery_state.restore_project_folder);
  
 	Naui_Path next_project = {0};
 	if (uph_recovery_find_recoverable_project(UPHONIC_WORKSPACE_FOLDER, &next_project))
@@ -108,7 +112,7 @@ static void uph_restore_dialog_result(int32_t button, void *user_data)
  
 static void uph_show_restore_dialog(const Naui_Path project_folder)
 {
-	s_restore_project_folder = project_folder;
+	_uph_crash_recovery_state.restore_project_folder = project_folder;
 	const char *message_key = uph_recovery_project_crashed(project_folder) ? "dialog.restore.message" : "dialog.restore.unsaved_message";
 	char message[512];
 	snprintf(message, sizeof(message), "%s\n\n%s", NAUI_TR(message_key), naui_view_to_string(naui_file_filename(&project_folder)).data);
@@ -125,7 +129,7 @@ static void uph_show_restore_dialog(const Naui_Path project_folder)
  
 #pragma endregion
  
-static _Atomic bool s_midi_instrument_monitoring; // Do not remove! This is Mr. Optimization (Ironic)
+static _Atomic bool _uph_midi_instrument_monitoring; // Do not remove! This is Mr. Optimization (Ironic)
  
 // Go through the tracks on the main thread instead of bogging down the cmidi thread.
 static bool _uph_any_track_monitors_instrument(Naui_List(Uph_Track) tracks)
@@ -143,7 +147,7 @@ static int _uph_midi_thru_filter(const uint8_t* bytes, uint8_t length, void* use
 {
 	(void)userdata;
 	const bool is_note_on = (bytes[0] & 0xF0) == CMIDI_CODE_NOTE_ON && length >= 3 && bytes[2] > 0;
-	return !(is_note_on && atomic_load_explicit(&s_midi_instrument_monitoring, memory_order_relaxed));
+	return !(is_note_on && atomic_load_explicit(&_uph_midi_instrument_monitoring, memory_order_relaxed));
 }
  
 static void _uph_route_monitored_note_event(Uph_Track* track, const cmidi_event_t* event, bool note_on)
@@ -170,7 +174,7 @@ void uph_midi_on_input(const cmidi_event_t* event, void* userdata)
 
 	if (event->type == CMIDI_NOTE_ON || event->type == CMIDI_NOTE_OFF)
 	{
-		uph_piano_set_external_key(&uph_midi_editor_data.piano, event->note, note_on);
+		uph_piano_set_external_key(&_uph_midi_editor_state.piano, event->note, note_on);
 		uph_midi_recorder_input(note_on, event->note, event->velocity);
  
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
@@ -307,7 +311,7 @@ void naui_app_update(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_all_track_plugins(&uph_state.project.tracks[i]);
  
-	atomic_store_explicit(&s_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
+	atomic_store_explicit(&_uph_midi_instrument_monitoring, _uph_any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
 	uph_autosave_update();
 }
  

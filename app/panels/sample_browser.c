@@ -88,7 +88,7 @@ static struct
 	uint32_t pressed_node;
 	Naui_Vec2 press_mouse;
 }
-s_sample_browser = {
+_uph_sample_browser_state = {
 	.selected = UPH_SAMPLE_BROWSER_NONE,
 	.context_node = UPH_SAMPLE_BROWSER_NONE,
 	.pressed_node = UPH_SAMPLE_BROWSER_NONE
@@ -309,27 +309,27 @@ static void _uph_sample_browser_scan_free(Uph_SampleBrowserScan *scan)
 
 static void _uph_sample_browser_cancel_scan(void)
 {
-	if (!s_sample_browser.scan)
+	if (!_uph_sample_browser_state.scan)
 		return;
 
-	atomic_store(&s_sample_browser.scan->cancel, true);
-	if (naui_job_is_valid(s_sample_browser.scan_job))
-		naui_job_wait(s_sample_browser.scan_job);
+	atomic_store(&_uph_sample_browser_state.scan->cancel, true);
+	if (naui_job_is_valid(_uph_sample_browser_state.scan_job))
+		naui_job_wait(_uph_sample_browser_state.scan_job);
 
-	_uph_sample_browser_scan_free(s_sample_browser.scan);
-	s_sample_browser.scan = NULL;
-	s_sample_browser.scan_job = NAUI_JOB_INVALID;
+	_uph_sample_browser_scan_free(_uph_sample_browser_state.scan);
+	_uph_sample_browser_state.scan = NULL;
+	_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
 }
 
 static void _uph_sample_browser_start_scan(void)
 {
-	if (s_sample_browser.scan)
+	if (_uph_sample_browser_state.scan)
 	{
-		s_sample_browser.rescan_requested = true;
+		_uph_sample_browser_state.rescan_requested = true;
 		return;
 	}
 
-	s_sample_browser.rescan_requested = false;
+	_uph_sample_browser_state.rescan_requested = false;
 
 	Uph_SampleBrowserScan *scan = calloc(1, sizeof(Uph_SampleBrowserScan));
 	if (!scan)
@@ -340,15 +340,15 @@ static void _uph_sample_browser_start_scan(void)
 
 	atomic_init(&scan->cancel, false);
 
-	if (naui_job_submit(&s_sample_browser.scan_job, _uph_sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&_uph_sample_browser_state.scan_job, _uph_sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
 	{
 		naui_log(NAUI_LOG_WARNING, "Sample browser: couldn't queue folder scan");
 		_uph_sample_browser_scan_free(scan);
-		s_sample_browser.scan_job = NAUI_JOB_INVALID;
+		_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
 		return;
 	}
 
-	s_sample_browser.scan = scan;
+	_uph_sample_browser_state.scan = scan;
 }
 
 static uint32_t _uph_sample_browser_find_path(const Uph_SampleBrowserIndex *index, const char *path)
@@ -364,7 +364,7 @@ static uint32_t _uph_sample_browser_find_path(const Uph_SampleBrowserIndex *inde
 
 static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 {
-	Uph_SampleBrowserIndex *old = &s_sample_browser.index;
+	Uph_SampleBrowserIndex *old = &_uph_sample_browser_state.index;
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(old->nodes); i++)
 	{
@@ -377,35 +377,35 @@ static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 	}
 
 	uint32_t selected = UPH_SAMPLE_BROWSER_NONE;
-	if (s_sample_browser.selected < (uint32_t)naui_list_len(old->nodes))
-		selected = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, s_sample_browser.selected));
+	if (_uph_sample_browser_state.selected < (uint32_t)naui_list_len(old->nodes))
+		selected = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, _uph_sample_browser_state.selected));
 
 	_uph_sample_browser_index_free(old);
 	*old = *fresh;
 	*fresh = (Uph_SampleBrowserIndex){ 0 };
 
-	s_sample_browser.selected = selected;
-	s_sample_browser.context_node = UPH_SAMPLE_BROWSER_NONE;
-	s_sample_browser.rows_dirty = true;
+	_uph_sample_browser_state.selected = selected;
+	_uph_sample_browser_state.context_node = UPH_SAMPLE_BROWSER_NONE;
+	_uph_sample_browser_state.rows_dirty = true;
 }
 
 static void _uph_sample_browser_poll_scan(void)
 {
-	Uph_SampleBrowserScan *scan = s_sample_browser.scan;
-	if (!scan || !naui_job_is_done(s_sample_browser.scan_job))
+	Uph_SampleBrowserScan *scan = _uph_sample_browser_state.scan;
+	if (!scan || !naui_job_is_done(_uph_sample_browser_state.scan_job))
 		return;
 
-	naui_job_release(s_sample_browser.scan_job);
-	s_sample_browser.scan_job = NAUI_JOB_INVALID;
+	naui_job_release(_uph_sample_browser_state.scan_job);
+	_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
 
 	if (scan->result.truncated)
 		naui_log(NAUI_LOG_WARNING, "Sample browser: index truncated at %u entries", UPH_SAMPLE_BROWSER_MAX_NODES);
 
 	_uph_sample_browser_adopt_index(&scan->result);
 	_uph_sample_browser_scan_free(scan);
-	s_sample_browser.scan = NULL;
+	_uph_sample_browser_state.scan = NULL;
 
-	if (s_sample_browser.rescan_requested)
+	if (_uph_sample_browser_state.rescan_requested)
 		_uph_sample_browser_start_scan();
 }
 
@@ -482,14 +482,14 @@ static void _uph_sample_browser_start_load(const Naui_Path path)
 		return;
 
 	load->path = path;
-	if (naui_job_submit(&s_sample_browser.load_job, _uph_sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&_uph_sample_browser_state.load_job, _uph_sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
 	{
 		free(load);
-		s_sample_browser.load_job = NAUI_JOB_INVALID;
+		_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
 		return;
 	}
 
-	s_sample_browser.load = load;
+	_uph_sample_browser_state.load = load;
 }
 
 static void _uph_sample_browser_preview(const char *path)
@@ -497,11 +497,11 @@ static void _uph_sample_browser_preview(const char *path)
 	const Naui_Path target = naui_path_from_cstr(path);
 	uph_audio_engine_preview_stop();
 
-	if (s_sample_browser.load)
+	if (_uph_sample_browser_state.load)
 	{
-		s_sample_browser.load_cancelled = false;
-		s_sample_browser.load_next = target;
-		s_sample_browser.load_next_pending = true;
+		_uph_sample_browser_state.load_cancelled = false;
+		_uph_sample_browser_state.load_next = target;
+		_uph_sample_browser_state.load_next_pending = true;
 		return;
 	}
 
@@ -517,21 +517,21 @@ static void _uph_sample_browser_preview(const char *path)
 
 static void _uph_sample_browser_poll_load(void)
 {
-	Uph_SampleBrowserLoad *load = s_sample_browser.load;
-	if (!load || !naui_job_is_done(s_sample_browser.load_job))
+	Uph_SampleBrowserLoad *load = _uph_sample_browser_state.load;
+	if (!load || !naui_job_is_done(_uph_sample_browser_state.load_job))
 		return;
 
-	naui_job_release(s_sample_browser.load_job);
-	s_sample_browser.load_job = NAUI_JOB_INVALID;
-	s_sample_browser.load = NULL;
+	naui_job_release(_uph_sample_browser_state.load_job);
+	_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
+	_uph_sample_browser_state.load = NULL;
 
-	const bool stale = s_sample_browser.load_next_pending;
-	const bool cancelled = s_sample_browser.load_cancelled;
-	s_sample_browser.load_cancelled = false;
+	const bool stale = _uph_sample_browser_state.load_next_pending;
+	const bool cancelled = _uph_sample_browser_state.load_cancelled;
+	_uph_sample_browser_state.load_cancelled = false;
 	if (!stale && !cancelled && uph_audio_engine_preview_source_valid(&load->source))
 	{
 		uph_audio_engine_preview_play(load->source);
-		s_sample_browser.previewing = load->path;
+		_uph_sample_browser_state.previewing = load->path;
 	}
 	else
 		uph_audio_engine_preview_close(&load->source);
@@ -540,8 +540,8 @@ static void _uph_sample_browser_poll_load(void)
 
 	if (stale)
 	{
-		s_sample_browser.load_next_pending = false;
-		_uph_sample_browser_preview(s_sample_browser.load_next.data);
+		_uph_sample_browser_state.load_next_pending = false;
+		_uph_sample_browser_preview(_uph_sample_browser_state.load_next.data);
 	}
 }
 
@@ -608,9 +608,9 @@ static void _uph_sample_browser_stop_on_playback(void)
 	if (playing && !was_playing)
 	{
 		uph_audio_engine_preview_stop();
-		s_sample_browser.load_next_pending = false;
-		if (s_sample_browser.load)
-			s_sample_browser.load_cancelled = true;
+		_uph_sample_browser_state.load_next_pending = false;
+		if (_uph_sample_browser_state.load)
+			_uph_sample_browser_state.load_cancelled = true;
 	}
 
 	was_playing = playing;
@@ -668,9 +668,9 @@ static bool _uph_sample_browser_matches(const char *name, const char *query)
 
 static bool _uph_sample_browser_searching(void)
 {
-	for (size_t i = 0; i < s_sample_browser.filter.length; i++)
+	for (size_t i = 0; i < _uph_sample_browser_state.filter.length; i++)
 	{
-		if (s_sample_browser.filter.data[i] != ' ')
+		if (_uph_sample_browser_state.filter.data[i] != ' ')
 			return true;
 	}
 
@@ -679,8 +679,8 @@ static bool _uph_sample_browser_searching(void)
 
 static void _uph_sample_browser_push_tree(uint32_t node)
 {
-	const Uph_SampleBrowserIndex *index = &s_sample_browser.index;
-	naui_list_push(s_sample_browser.rows, node);
+	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
+	naui_list_push(_uph_sample_browser_state.rows, node);
 
 	const Uph_SampleBrowserNode *info = &index->nodes[node];
 	if (!(info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
@@ -692,15 +692,15 @@ static void _uph_sample_browser_push_tree(uint32_t node)
 
 static void _uph_sample_browser_rebuild_rows(void)
 {
-	const Uph_SampleBrowserIndex *index = &s_sample_browser.index;
-	naui_list_clear(s_sample_browser.rows);
+	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
+	naui_list_clear(_uph_sample_browser_state.rows);
 
 	if (_uph_sample_browser_searching())
 	{
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(index->nodes); i++)
 		{
-			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && _uph_sample_browser_matches(_uph_sample_browser_node_name(index, i), s_sample_browser.filter.data))
-				naui_list_push(s_sample_browser.rows, i);
+			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && _uph_sample_browser_matches(_uph_sample_browser_node_name(index, i), _uph_sample_browser_state.filter.data))
+				naui_list_push(_uph_sample_browser_state.rows, i);
 		}
 	}
 	else
@@ -709,14 +709,14 @@ static void _uph_sample_browser_rebuild_rows(void)
 			_uph_sample_browser_push_tree(i);
 	}
 
-	s_sample_browser.rows_dirty = false;
+	_uph_sample_browser_state.rows_dirty = false;
 }
 
 static int32_t _uph_sample_browser_row_of(uint32_t node)
 {
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(s_sample_browser.rows); i++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_sample_browser_state.rows); i++)
 	{
-		if (s_sample_browser.rows[i] == node)
+		if (_uph_sample_browser_state.rows[i] == node)
 			return (int32_t)i;
 	}
 
@@ -725,41 +725,41 @@ static int32_t _uph_sample_browser_row_of(uint32_t node)
 
 static bool _uph_sample_browser_is_dir(uint32_t node)
 {
-	return node < (uint32_t)naui_list_len(s_sample_browser.index.nodes) && (s_sample_browser.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_DIR);
+	return node < (uint32_t)naui_list_len(_uph_sample_browser_state.index.nodes) && (_uph_sample_browser_state.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_DIR);
 }
 
 static void _uph_sample_browser_set_expanded(uint32_t node, bool expanded)
 {
-	Uph_SampleBrowserNode *info = &s_sample_browser.index.nodes[node];
+	Uph_SampleBrowserNode *info = &_uph_sample_browser_state.index.nodes[node];
 	const bool was_expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
 	if (was_expanded == expanded)
 		return;
 
 	info->flags ^= UPH_SAMPLE_BROWSER_NODE_EXPANDED;
-	s_sample_browser.rows_dirty = true;
+	_uph_sample_browser_state.rows_dirty = true;
 }
 
 static void _uph_sample_browser_select(uint32_t node, bool preview)
 {
-	s_sample_browser.selected = node;
+	_uph_sample_browser_state.selected = node;
 	if (preview && !_uph_sample_browser_is_dir(node) && uph_state.settings.browser.auto_preview)
-		_uph_sample_browser_preview(_uph_sample_browser_node_path(&s_sample_browser.index, node));
+		_uph_sample_browser_preview(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node));
 }
 
 static void _uph_sample_browser_activate(uint32_t node)
 {
 	if (_uph_sample_browser_is_dir(node))
 	{
-		_uph_sample_browser_set_expanded(node, !(s_sample_browser.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
+		_uph_sample_browser_set_expanded(node, !(_uph_sample_browser_state.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
 		return;
 	}
 
-	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&s_sample_browser.index, node)), NULL, NULL);
+	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node)), NULL, NULL);
 }
 
 static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t out_size)
 {
-	const Uph_SampleBrowserIndex *index = &s_sample_browser.index;
+	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
 	out[0] = '\0';
 
 	const uint32_t parent = index->nodes[node].parent;
@@ -778,14 +778,14 @@ static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t
 
 static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bool searching, float row_height)
 {
-	const Uph_SampleBrowserIndex *index = &s_sample_browser.index;
+	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
 	const Uph_SampleBrowserNode *info = &index->nodes[node];
 	const bool is_dir = (info->flags & UPH_SAMPLE_BROWSER_NODE_DIR) != 0;
 	const bool expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
 	const Leaf_ID row_id = leaf_id_indexed("uph_sample_browser_row", node);
 	const bool hovered = uph_ui_widget_hovered(row_id);
-	const bool selected = s_sample_browser.selected == node;
-	const bool previewing = !is_dir && strcmp(s_sample_browser.previewing.data, _uph_sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
+	const bool selected = _uph_sample_browser_state.selected == node;
+	const bool previewing = !is_dir && strcmp(_uph_sample_browser_state.previewing.data, _uph_sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
 
 	if (hovered)
 	{
@@ -794,31 +794,31 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 		{
 			if (is_dir)
 			{
-				s_sample_browser.selected = node;
+				_uph_sample_browser_state.selected = node;
 				_uph_sample_browser_set_expanded(node, !expanded);
 			}
 			else
 			{
 				_uph_sample_browser_select(node, false);
-				s_sample_browser.pressed_node = node;
-				s_sample_browser.press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
+				_uph_sample_browser_state.pressed_node = node;
+				_uph_sample_browser_state.press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
 				const Naui_Path path = naui_path_from_cstr(_uph_sample_browser_node_path(index, node));
 				uph_drag_begin(UPH_DRAG_TYPE_SAMPLE_FILE, &path, sizeof(path), _uph_sample_browser_render_drag);
 			}
 		}
-		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && s_sample_browser.pressed_node == node)
+		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && _uph_sample_browser_state.pressed_node == node)
 		{
-			const float dx = (float)naui_mouse_x() - s_sample_browser.press_mouse.x;
-			const float dy = (float)naui_mouse_y() - s_sample_browser.press_mouse.y;
+			const float dx = (float)naui_mouse_x() - _uph_sample_browser_state.press_mouse.x;
+			const float dy = (float)naui_mouse_y() - _uph_sample_browser_state.press_mouse.y;
 			const float threshold = NAUI_DPI(UPH_SAMPLE_BROWSER_CLICK_THRESHOLD);
 			if (dx * dx + dy * dy < threshold * threshold)
 				_uph_sample_browser_select(node, true);
-			s_sample_browser.pressed_node = UPH_SAMPLE_BROWSER_NONE;
+			_uph_sample_browser_state.pressed_node = UPH_SAMPLE_BROWSER_NONE;
 		}
 		else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 		{
-			s_sample_browser.selected = node;
-			s_sample_browser.context_node = node;
+			_uph_sample_browser_state.selected = node;
+			_uph_sample_browser_state.context_node = node;
 			uph_ui_open_context_menu(context_menu);
 		}
 	}
@@ -886,7 +886,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 
 static void uph_sample_browser_on_attach(void)
 {
-	s_sample_browser.rows_dirty = true;
+	_uph_sample_browser_state.rows_dirty = true;
 	if (naui_list_len(uph_state.settings.browser.folders) > 0)
 		_uph_sample_browser_start_scan();
 }
@@ -910,20 +910,20 @@ void uph_sample_browser_shutdown(void)
 {
 	_uph_sample_browser_cancel_scan();
 
-	if (s_sample_browser.load)
+	if (_uph_sample_browser_state.load)
 	{
-		if (naui_job_is_valid(s_sample_browser.load_job))
-			naui_job_wait(s_sample_browser.load_job);
+		if (naui_job_is_valid(_uph_sample_browser_state.load_job))
+			naui_job_wait(_uph_sample_browser_state.load_job);
 
-		uph_audio_engine_preview_close(&s_sample_browser.load->source);
-		free(s_sample_browser.load);
-		s_sample_browser.load = NULL;
-		s_sample_browser.load_job = NAUI_JOB_INVALID;
+		uph_audio_engine_preview_close(&_uph_sample_browser_state.load->source);
+		free(_uph_sample_browser_state.load);
+		_uph_sample_browser_state.load = NULL;
+		_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
 	}
 
-	_uph_sample_browser_index_free(&s_sample_browser.index);
-	naui_list_free(s_sample_browser.rows);
-	s_sample_browser.rows = NULL;
+	_uph_sample_browser_index_free(&_uph_sample_browser_state.index);
+	naui_list_free(_uph_sample_browser_state.rows);
+	_uph_sample_browser_state.rows = NULL;
 }
 
 static void _uph_sample_browser_toolbar(void)
@@ -940,7 +940,7 @@ static void _uph_sample_browser_toolbar(void)
 		.child_gap = NAUI_DPI(4.0f)
 	})
 	{
-		uph_ui_textfield(&s_sample_browser.filter, leaf_id("uph_sample_browser_search"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("sample_browser.search"));
+		uph_ui_textfield(&_uph_sample_browser_state.filter, leaf_id("uph_sample_browser_search"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("sample_browser.search"));
 
 		if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_headphones"), leaf_id("uph_sample_browser_auto_preview"), (Naui_Vec2){ button_size, button_size }, tint, uph_state.settings.browser.auto_preview))
 		{
@@ -1047,12 +1047,12 @@ static void _uph_sample_browser_status(void)
 {
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	char status[128];
-	if (s_sample_browser.scan)
+	if (_uph_sample_browser_state.scan)
 		snprintf(status, sizeof(status), "%s", NAUI_TR("sample_browser.indexing"));
 	else if (_uph_sample_browser_searching())
-		snprintf(status, sizeof(status), "%u / %u", (uint32_t)naui_list_len(s_sample_browser.rows), s_sample_browser.index.file_count);
+		snprintf(status, sizeof(status), "%u / %u", (uint32_t)naui_list_len(_uph_sample_browser_state.rows), _uph_sample_browser_state.index.file_count);
 	else
-		snprintf(status, sizeof(status), "%u", s_sample_browser.index.file_count);
+		snprintf(status, sizeof(status), "%u", _uph_sample_browser_state.index.file_count);
 
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
@@ -1075,12 +1075,12 @@ static void _uph_sample_browser_keyboard(void)
 	if (naui_panel_focused() != uph_state.panels.sample_browser || uph_ui_any_menu_open())
 		return;
 
-	const int32_t row_count = (int32_t)naui_list_len(s_sample_browser.rows);
+	const int32_t row_count = (int32_t)naui_list_len(_uph_sample_browser_state.rows);
 	if (row_count == 0)
 		return;
 
-	const int32_t current = _uph_sample_browser_row_of(s_sample_browser.selected);
-	const uint32_t node = s_sample_browser.selected;
+	const int32_t current = _uph_sample_browser_row_of(_uph_sample_browser_state.selected);
+	const uint32_t node = _uph_sample_browser_state.selected;
 	const bool searching = _uph_sample_browser_searching();
 
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
@@ -1089,8 +1089,8 @@ static void _uph_sample_browser_keyboard(void)
 	{
 		int32_t next = current < 0 ? 0 : current + (down ? 1 : -1);
 		next = NAUI_CLAMP(next, 0, row_count - 1);
-		_uph_sample_browser_select(s_sample_browser.rows[next], true);
-		s_sample_browser.scroll_to_selected = true;
+		_uph_sample_browser_select(_uph_sample_browser_state.rows[next], true);
+		_uph_sample_browser_state.scroll_to_selected = true;
 	}
 	else if (current < 0)
 		return;
@@ -1098,13 +1098,13 @@ static void _uph_sample_browser_keyboard(void)
 		_uph_sample_browser_set_expanded(node, true);
 	else if (naui_keybind_pressed(keybinds->browser_collapse) && !searching)
 	{
-		const Uph_SampleBrowserNode *info = &s_sample_browser.index.nodes[node];
+		const Uph_SampleBrowserNode *info = &_uph_sample_browser_state.index.nodes[node];
 		if (_uph_sample_browser_is_dir(node) && (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
 			_uph_sample_browser_set_expanded(node, false);
 		else if (info->parent != UPH_SAMPLE_BROWSER_NONE)
 		{
-			s_sample_browser.selected = info->parent;
-			s_sample_browser.scroll_to_selected = true;
+			_uph_sample_browser_state.selected = info->parent;
+			_uph_sample_browser_state.scroll_to_selected = true;
 		}
 	}
 	else if (naui_keybind_pressed(keybinds->browser_activate))
@@ -1114,18 +1114,18 @@ static void _uph_sample_browser_keyboard(void)
 		if (uph_audio_engine_preview_playing())
 			uph_audio_engine_preview_stop();
 		else
-			_uph_sample_browser_preview(_uph_sample_browser_node_path(&s_sample_browser.index, node));
+			_uph_sample_browser_preview(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node));
 	}
 }
 
 static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 {
-	const uint32_t node = s_sample_browser.context_node;
-	if (node >= (uint32_t)naui_list_len(s_sample_browser.index.nodes))
+	const uint32_t node = _uph_sample_browser_state.context_node;
+	if (node >= (uint32_t)naui_list_len(_uph_sample_browser_state.index.nodes))
 		return;
 
-	const Uph_SampleBrowserNode info = s_sample_browser.index.nodes[node];
-	const char *path = _uph_sample_browser_node_path(&s_sample_browser.index, node);
+	const Uph_SampleBrowserNode info = _uph_sample_browser_state.index.nodes[node];
+	const char *path = _uph_sample_browser_node_path(&_uph_sample_browser_state.index, node);
 
 	if (!(info.flags & UPH_SAMPLE_BROWSER_NODE_DIR))
 	{
@@ -1150,19 +1150,19 @@ static void uph_sample_browser_on_update(void)
 {
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("sample_browser.title"));
 
-	if (!naui_strings_equal(s_sample_browser.filter, s_sample_browser.applied_filter, true))
+	if (!naui_strings_equal(_uph_sample_browser_state.filter, _uph_sample_browser_state.applied_filter, true))
 	{
-		s_sample_browser.applied_filter = s_sample_browser.filter;
-		s_sample_browser.rows_dirty = true;
-		s_sample_browser.scroll = 0.0f;
+		_uph_sample_browser_state.applied_filter = _uph_sample_browser_state.filter;
+		_uph_sample_browser_state.rows_dirty = true;
+		_uph_sample_browser_state.scroll = 0.0f;
 	}
 
-	if (s_sample_browser.rows_dirty)
+	if (_uph_sample_browser_state.rows_dirty)
 		_uph_sample_browser_rebuild_rows();
 
 	_uph_sample_browser_keyboard();
 
-	if (s_sample_browser.rows_dirty)
+	if (_uph_sample_browser_state.rows_dirty)
 		_uph_sample_browser_rebuild_rows();
 
 	Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_sample_browser_context_menu"));
@@ -1179,33 +1179,33 @@ static void uph_sample_browser_on_update(void)
 
 	const bool searching = _uph_sample_browser_searching();
 	const float row_height = NAUI_DPI(UPH_SAMPLE_BROWSER_ROW_HEIGHT);
-	const uint32_t row_count = (uint32_t)naui_list_len(s_sample_browser.rows);
+	const uint32_t row_count = (uint32_t)naui_list_len(_uph_sample_browser_state.rows);
 	const Leaf_ID scroll_id = leaf_id("uph_sample_browser_scrollbar");
 
 	const Leaf_BoundingBox view_box = leaf_get_bounding_box((Leaf_ID){ .value = scroll_id.value + 2 });
 	const float view_height = view_box.height > 0.0f ? view_box.height : row_height * 40.0f;
 
-	if (s_sample_browser.scroll_to_selected)
+	if (_uph_sample_browser_state.scroll_to_selected)
 	{
-		const int32_t row = _uph_sample_browser_row_of(s_sample_browser.selected);
+		const int32_t row = _uph_sample_browser_row_of(_uph_sample_browser_state.selected);
 		if (row >= 0)
 		{
 			const float top = (float)row * row_height;
-			if (top < s_sample_browser.scroll)
-				s_sample_browser.scroll = top;
-			else if (top + row_height > s_sample_browser.scroll + view_height)
-				s_sample_browser.scroll = top + row_height - view_height;
+			if (top < _uph_sample_browser_state.scroll)
+				_uph_sample_browser_state.scroll = top;
+			else if (top + row_height > _uph_sample_browser_state.scroll + view_height)
+				_uph_sample_browser_state.scroll = top + row_height - view_height;
 		}
-		s_sample_browser.scroll_to_selected = false;
+		_uph_sample_browser_state.scroll_to_selected = false;
 	}
 
-	Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &s_sample_browser.scroll, scroll_id);
+	Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &_uph_sample_browser_state.scroll, scroll_id);
 	leaf({
 		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(4.0f), 0)
 	})
 	{
-		uint32_t first = (uint32_t)(s_sample_browser.scroll / row_height);
+		uint32_t first = (uint32_t)(_uph_sample_browser_state.scroll / row_height);
 		uint32_t last = first + (uint32_t)(view_height / row_height) + 2;
 		if (first > row_count)
 			first = row_count;
@@ -1216,12 +1216,12 @@ static void uph_sample_browser_on_update(void)
 			leaf({ .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED((float)first * row_height)} });
 
 		for (uint32_t i = first; i < last; i++)
-			_uph_sample_browser_row(s_sample_browser.rows[i], context_menu, searching, row_height);
+			_uph_sample_browser_row(_uph_sample_browser_state.rows[i], context_menu, searching, row_height);
 
 		if (last < row_count)
 			leaf({ .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED((float)(row_count - last) * row_height)} });
 
-		if (row_count == 0 && !s_sample_browser.scan)
+		if (row_count == 0 && !_uph_sample_browser_state.scan)
 		{
 			leaf({
 				.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},

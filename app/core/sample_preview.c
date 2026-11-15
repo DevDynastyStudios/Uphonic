@@ -7,21 +7,21 @@ typedef struct
 	bool playing;
 	bool loop;
 }
-Uph_SamplePreviewData;
+Uph_SamplePreviewState;
 
-static Uph_SamplePreviewData uph_sample_preview_data;
+static Uph_SamplePreviewState _uph_sample_preview_state;
 
 #pragma region Main thread control
 
 void uph_sample_preview_play(Uph_ResourceIndex sample_index)
 {
-	uph_sample_preview_data.sample_index = sample_index;
-	uph_sample_preview_data.playing = true;
+	_uph_sample_preview_state.sample_index = sample_index;
+	_uph_sample_preview_state.playing = true;
 }
 
 void uph_sample_preview_pause(void)
 {
-	uph_sample_preview_data.playing = false;
+	_uph_sample_preview_state.playing = false;
 }
 
 void uph_sample_preview_stop(void)
@@ -32,27 +32,27 @@ void uph_sample_preview_stop(void)
 
 void uph_sample_preview_seek(double beat)
 {
-	uph_sample_preview_data.position = fmax(0.0, beat);
+	_uph_sample_preview_state.position = fmax(0.0, beat);
 }
 
 void uph_sample_preview_set_loop(bool loop)
 {
-	uph_sample_preview_data.loop = loop;
+	_uph_sample_preview_state.loop = loop;
 }
 
 bool uph_sample_preview_looping(void)
 {
-	return uph_sample_preview_data.loop;
+	return _uph_sample_preview_state.loop;
 }
 
 bool uph_sample_preview_playing(void)
 {
-	return uph_sample_preview_data.playing;
+	return _uph_sample_preview_state.playing;
 }
 
 double uph_sample_preview_position(void)
 {
-	return uph_sample_preview_data.position;
+	return _uph_sample_preview_state.position;
 }
 
 double uph_sample_preview_length(const Uph_Sample *sample, const Uph_SampleData *data)
@@ -66,7 +66,7 @@ double uph_sample_preview_length(const Uph_Sample *sample, const Uph_SampleData 
 
 void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_rate, float bpm, bool timeline_playing)
 {
-	Uph_SamplePreviewData *p = &uph_sample_preview_data;
+	Uph_SamplePreviewState *p = &_uph_sample_preview_state;
 
 	if (p->playing && timeline_playing)
 		p->playing = false;

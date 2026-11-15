@@ -78,13 +78,13 @@ typedef struct
 	bool wave_hovered;
 	bool sidebar_hidden;
 }
-Uph_SampleEditorData;
+Uph_SampleEditorState;
 
-static Uph_SampleEditorData uph_sample_editor_data;
+static Uph_SampleEditorState _uph_sample_editor_state;
 
 #pragma region Edit
 
-static void _uph_sample_editor_track_edit(Uph_SampleEditorData *editor, Uph_ResourceIndex index, const Uph_ActionSampleSettings *before, const Uph_Sample *sample)
+static void _uph_sample_editor_track_edit(Uph_SampleEditorState *editor, Uph_ResourceIndex index, const Uph_ActionSampleSettings *before, const Uph_Sample *sample)
 {
 	if (editor->edit_active)
 		return;
@@ -98,7 +98,7 @@ static void _uph_sample_editor_track_edit(Uph_SampleEditorData *editor, Uph_Reso
 	editor->edit_before = *before;
 }
 
-static void _uph_sample_editor_commit_edit(Uph_SampleEditorData *editor)
+static void _uph_sample_editor_commit_edit(Uph_SampleEditorState *editor)
 {
 	if (!editor->edit_active)
 		return;
@@ -121,7 +121,7 @@ static void _uph_sample_editor_commit_edit(Uph_SampleEditorData *editor)
 
 #pragma region View
 
-static void _uph_sample_editor_view_resolve(Uph_SampleEditorData *editor, double width)
+static void _uph_sample_editor_view_resolve(Uph_SampleEditorState *editor, double width)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	if (!source->valid || width < 1.0)
@@ -157,12 +157,12 @@ static inline uint64_t _uph_sample_editor_source_frame(const Uph_SampleEditorSou
 	return source->reversed ? source->frame_count - 1 - frame : frame;
 }
 
-static inline float _uph_sample_editor_frame_to_x(const Uph_SampleEditorData *editor, Leaf_BoundingBox box, double frame)
+static inline float _uph_sample_editor_frame_to_x(const Uph_SampleEditorState *editor, Leaf_BoundingBox box, double frame)
 {
 	return box.x + (float)((frame - editor->start_frame) / editor->frames_per_pixel);
 }
 
-static void _uph_sample_editor_update_input(Uph_SampleEditorData *editor, Leaf_BoundingBox box)
+static void _uph_sample_editor_update_input(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	if (!editor->source.valid || box.width < 1.0f)
 		return;
@@ -219,7 +219,7 @@ static void _uph_sample_editor_update_input(Uph_SampleEditorData *editor, Leaf_B
 	}
 }
 
-static double _uph_sample_editor_fit_frames_per_pixel(const Uph_SampleEditorData *editor)
+static double _uph_sample_editor_fit_frames_per_pixel(const Uph_SampleEditorState *editor)
 {
 	const double width = editor->wave_box.width;
 	if (width < 1.0)
@@ -228,7 +228,7 @@ static double _uph_sample_editor_fit_frames_per_pixel(const Uph_SampleEditorData
 	return fmax((double)editor->source.frame_count / width, UPH_SAMPLE_EDITOR_MIN_FRAMES_PER_PIXEL);
 }
 
-static void _uph_sample_editor_set_zoom(Uph_SampleEditorData *editor, double frames_per_pixel)
+static void _uph_sample_editor_set_zoom(Uph_SampleEditorState *editor, double frames_per_pixel)
 {
 	const double width = editor->wave_box.width;
 	if (!editor->source.valid || width < 1.0)
@@ -241,7 +241,7 @@ static void _uph_sample_editor_set_zoom(Uph_SampleEditorData *editor, double fra
 	_uph_sample_editor_view_resolve(editor, width);
 }
 
-static double _uph_sample_editor_playhead_frame(const Uph_SampleEditorData *editor)
+static double _uph_sample_editor_playhead_frame(const Uph_SampleEditorState *editor)
 {
 	if (editor->playback_length <= 0.0)
 		return 0.0;
@@ -263,7 +263,7 @@ static void _uph_sample_editor_toggle_playback(void)
 	uph_sample_preview_play(uph_state.shared.selected_resource.index);
 }
 
-static void _uph_sample_editor_update_playhead_drag(Uph_SampleEditorData *editor, Leaf_BoundingBox box)
+static void _uph_sample_editor_update_playhead_drag(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
@@ -369,17 +369,17 @@ static Uph_Sample *_uph_sample_editor_current_sample(void)
 	return &uph_state.project.samples[index];
 }
 
-static float _uph_sample_editor_seconds_zoom(const Uph_SampleEditorData *editor)
+static float _uph_sample_editor_seconds_zoom(const Uph_SampleEditorState *editor)
 {
 	return (float)((double)editor->source.sample_rate / editor->frames_per_pixel);
 }
 
-static float _uph_sample_editor_seconds_scroll(const Uph_SampleEditorData *editor)
+static float _uph_sample_editor_seconds_scroll(const Uph_SampleEditorState *editor)
 {
 	return (float)(editor->start_frame / editor->frames_per_pixel);
 }
 
-static double _uph_sample_editor_minor_step(const Uph_SampleEditorData *editor)
+static double _uph_sample_editor_minor_step(const Uph_SampleEditorState *editor)
 {
 	const double step = _uph_sample_editor_major_step((double)editor->source.sample_rate / editor->frames_per_pixel);
 	return step / (double)_uph_sample_editor_step_subdivisions(step);
@@ -387,7 +387,7 @@ static double _uph_sample_editor_minor_step(const Uph_SampleEditorData *editor)
 
 static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	const Uph_SampleEditorSource *source = &editor->source;
 	if (!source->valid)
 		return;
@@ -478,7 +478,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	naui_pop_clip_rect();
 }
 
-static void _uph_sample_editor_draw_grid(const Uph_SampleEditorData *editor, Leaf_BoundingBox box)
+static void _uph_sample_editor_draw_grid(const Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	const Leaf_Color major_color = naui_theme_color("uph_timeline_grid_bar_color");
@@ -512,7 +512,7 @@ static inline float _uph_sample_editor_clamp_amplitude(float v)
 	return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
 }
 
-static void _uph_sample_editor_draw_channel(const Uph_SampleEditorData *editor, uint32_t channel, Leaf_BoundingBox lane, Leaf_Color color)
+static void _uph_sample_editor_draw_channel(const Uph_SampleEditorState *editor, uint32_t channel, Leaf_BoundingBox lane, Leaf_Color color)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	const Naui_List(Uph_ChannelPeak) peaks = source->data->channel_peaks;
@@ -663,7 +663,7 @@ static Leaf_BoundingBox _uph_sample_editor_lane_box(Leaf_BoundingBox box, uint32
 
 static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
 {
-	const Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	const Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	const Uph_SampleEditorSource *source = &editor->source;
 	if (!source->valid)
 		return;
@@ -722,7 +722,7 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 
 static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	const Uph_SampleEditorSource *source = &editor->source;
 	if (!source->valid)
 		return;
@@ -864,7 +864,7 @@ static double _uph_sample_editor_time_to_scale(uint32_t unit, double value, doub
 	}
 }
 
-static void _uph_sample_editor_render_time_scale(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void _uph_sample_editor_render_time_scale(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
 	static const char *units[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
 		"Ratio",
@@ -941,7 +941,7 @@ static void _uph_sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMo
 	sample->time_scale = (float)NAUI_CLAMP(scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
 }
 
-static void _uph_sample_editor_render_toolbar(Uph_SampleEditorData *editor)
+static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 
@@ -1133,7 +1133,7 @@ static void _uph_sample_editor_format_db(char *out, size_t size, double amplitud
 		snprintf(out, size, "%.1f dB", 20.0 * log10(amplitude));
 }
 
-static void _uph_sample_editor_render_properties(const Uph_SampleEditorData *editor, const Uph_SampleData *data)
+static void _uph_sample_editor_render_properties(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 
@@ -1188,7 +1188,7 @@ static void _uph_sample_editor_render_properties(const Uph_SampleEditorData *edi
 	}
 }
 
-static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorData *editor)
+static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorState *editor)
 {
 	const float icon_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	if (uph_ui_image_button_ex(
@@ -1201,7 +1201,7 @@ static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorData *edito
 	)) editor->sidebar_hidden = !editor->sidebar_hidden;
 }
 
-static void _uph_sample_editor_render_sidebar(Uph_SampleEditorData *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
 	if (editor->sidebar_hidden)
 	{
@@ -1326,7 +1326,7 @@ static void _uph_sample_editor_render_status_item(const char *text, bool separat
 	});
 }
 
-static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorData *editor, const Uph_SampleData *data)
+static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	const char *file_name = _uph_sample_editor_file_name(data->file_path.data);
@@ -1385,14 +1385,14 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorData *edi
 
 void uph_sample_editor_init(void)
 {
-	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	memset(editor, 0, sizeof(*editor));
 	editor->fit = true;
 }
 
 void uph_sample_editor_reset_interaction(void)
 {
-	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	_uph_sample_editor_commit_edit(editor);
 	editor->panning = false;
 	editor->wave_hovered = false;
@@ -1409,7 +1409,7 @@ void uph_sample_editor_release(void)
 
 void uph_sample_editor_update(void)
 {
-	Uph_SampleEditorData *editor = &uph_sample_editor_data;
+	Uph_SampleEditorState *editor = &_uph_sample_editor_state;
 	Uph_Project *project = &uph_state.project;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 

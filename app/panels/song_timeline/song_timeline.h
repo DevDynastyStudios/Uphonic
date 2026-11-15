@@ -197,9 +197,9 @@ typedef struct
 	bool disable_space_to_play;
 	bool time_display_seconds;
 }
-Uph_SongTimelineData;
+Uph_SongTimelineState;
 
-static Uph_SongTimelineData uph_song_timeline_data;
+static Uph_SongTimelineState _uph_song_timeline_state;
 
 #pragma region Temp Helpers
 static inline bool uph_ui_ctrl_down(void)	// Simply because Naui is broken
@@ -215,10 +215,10 @@ static inline bool uph_ui_shift_down(void)
 
 static inline Uph_ActionMode uph_song_timeline_tool(void)
 {
-	if (uph_song_timeline_data.current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
+	if (_uph_song_timeline_state.current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
 		return UPH_ACTION_SELECT;
 
-	return uph_song_timeline_data.current_action_mode;
+	return _uph_song_timeline_state.current_action_mode;
 }
 
 #pragma region Shared Helpers
@@ -256,7 +256,7 @@ static uint32_t uph_song_timeline_track_depth(const Uph_Track *track)
 
 static float uph_song_timeline_header_depth_width(void)
 {
-	return uph_song_timeline_data.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
+	return _uph_song_timeline_state.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
 }
 
 static float uph_song_timeline_header_column_width(void)
@@ -266,7 +266,7 @@ static float uph_song_timeline_header_column_width(void)
 
 static float uph_song_timeline_max_scroll_y(void)
 {
-	return fmaxf(0.0f, uph_song_timeline_data.content_height - uph_song_timeline_data.zoom.y);
+	return fmaxf(0.0f, _uph_song_timeline_state.content_height - _uph_song_timeline_state.zoom.y);
 }
 
 static inline float uph_song_timeline_block_title_height(void)
@@ -276,7 +276,7 @@ static inline float uph_song_timeline_block_title_height(void)
 
 static inline float uph_song_timeline_block_title_bar_height(void)
 {
-	const float measured = uph_song_timeline_data.block_menu.measured_title_height;
+	const float measured = _uph_song_timeline_state.block_menu.measured_title_height;
 	return measured > 0.0f ? measured : uph_song_timeline_block_title_height();
 }
 

@@ -59,7 +59,7 @@ static void _uph_midi_toolbar_render_voice(void)
 	}
 }
 
-void uph_midi_toolbar_render(Uph_MidiEditorData *editor)
+void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 {
 	Uph_ActionMode *action_mode = &editor->current_action_mode;
 	Uph_SnapResolution *snap_resolution = &editor->snap_resolution;

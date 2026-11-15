@@ -43,7 +43,7 @@ void uph_midi_velocity_cancel_drag(Uph_VelocityLane *lane)
 
 #pragma region Splitter
 
-void uph_midi_velocity_update_splitter(Uph_MidiEditorData *editor, bool handle_hovered)
+void uph_midi_velocity_update_splitter(Uph_MidiEditorState *editor, bool handle_hovered)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	lane->splitter_hovered = handle_hovered && editor->panel_hovered;
@@ -73,7 +73,7 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorData *editor, bool handle_h
 
 #pragma region Input
 
-static int32_t _uph_velocity_hit_test(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+static int32_t _uph_velocity_hit_test(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
@@ -113,7 +113,7 @@ static void _uph_velocity_apply_handle(Uph_VelocityLane *lane, Leaf_BoundingBox 
 	}
 }
 
-static void _uph_velocity_apply_paint(const Uph_MidiEditorData *editor, Uph_VelocityLane *lane, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void _uph_velocity_apply_paint(const Uph_MidiEditorState *editor, Uph_VelocityLane *lane, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_VelocityDragState *drag = &lane->drag;
 	const float mouse_x = (float)naui_mouse_x();
@@ -137,7 +137,7 @@ static void _uph_velocity_apply_paint(const Uph_MidiEditorData *editor, Uph_Velo
 	drag->last_mouse_x = mouse_x;
 }
 
-static void _uph_velocity_begin(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
+static void _uph_velocity_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	Uph_VelocityDragState *drag = &lane->drag;
@@ -207,7 +207,7 @@ static void _uph_velocity_commit(Uph_ResourceIndex pattern_index, Uph_MidiPatter
 	naui_action_group_end();
 }
 
-static void _uph_velocity_finish(Uph_MidiEditorData *editor, Uph_MidiPattern *pattern)
+static void _uph_velocity_finish(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
 {
 	Uph_VelocityDragState *drag = &editor->velocity_lane.drag;
 	_uph_velocity_commit(drag->pattern_index, pattern, drag->originals);
@@ -236,7 +236,7 @@ static void _uph_velocity_reset(Uph_MidiPattern *pattern, uint32_t note_index)
 	naui_list_free(originals);
 }
 
-void uph_midi_velocity_update(Uph_MidiEditorData *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+void uph_midi_velocity_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
 	Uph_VelocityDragState *drag = &lane->drag;
@@ -306,7 +306,7 @@ void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 	naui_pop_clip_rect();
 }
 
-static void _uph_velocity_render_note(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiNote *note, bool hovered, Leaf_Color base_color)
+static void _uph_velocity_render_note(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiNote *note, bool hovered, Leaf_Color base_color)
 {
 	const float radius = NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS);
 	const float x = uph_midi_view_beat_to_x(&editor->view, box, note->start_beat);
@@ -356,7 +356,7 @@ static void _uph_velocity_render_label(Leaf_BoundingBox box, float x, float y, i
 	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
 }
 
-void uph_midi_velocity_render(const Uph_MidiEditorData *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+void uph_midi_velocity_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const Uph_VelocityLane *lane = &editor->velocity_lane;
 	const Leaf_Color guide_color = naui_theme_color("uph_timeline_grid_subbeat_color");
