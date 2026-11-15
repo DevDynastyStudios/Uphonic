@@ -251,6 +251,21 @@ static void _uph_song_timeline_emit_rejected_block(Leaf_BoundingBox bbox, double
 		uph_particle_emit_shockwave(position, size, leaf_rgba(error.r, error.g, error.b, 255), rounding, clip);
 }
 
+static bool _uph_song_timeline_draw_resource_ready(void)
+{
+	const Uph_ResourceType type = uph_state.shared.selected_resource.type;
+	if (type == UPH_RESOURCE_NONE)
+		return false;
+
+	if (type == UPH_RESOURCE_SAMPLE && !uph_state.project.samples)
+		return false;
+
+	if (type == UPH_RESOURCE_PATTERN && !uph_state.project.midi_patterns)
+		return false;
+
+	return true;
+}
+
 static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
@@ -289,13 +304,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 	}
 	else if (tool == UPH_ACTION_DRAW)
 	{
-		if (uph_state.shared.selected_resource.type == UPH_RESOURCE_NONE)
-			return;
-
-		else if (uph_state.shared.selected_resource.type == UPH_RESOURCE_SAMPLE && !uph_state.project.samples)
-			return;
-
-		else if (uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN && !uph_state.project.midi_patterns)
+		if (!_uph_song_timeline_draw_resource_ready())
 			return;
 
 		if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || state->hovered_block.active || !mouse_over_track)
@@ -533,6 +542,53 @@ static void _uph_song_timeline_render_block_ghost(Leaf_BoundingBox bbox, double 
 	naui_fill_rect((Naui_Vec2){ x, bbox.y + 1.0f }, (Naui_Vec2){ width, bbox.height - 2.0f }, leaf_rgba(accent.r, accent.g, accent.b, 110), NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL);
 }
 
+static double _uph_song_timeline_draw_ghost_length(void)
+{
+	const Uph_SelectedResourceState *selected = &uph_state.shared.selected_resource;
+	const bool pattern_stale = uph_state.shared.current_pattern_updated && selected->type == UPH_RESOURCE_PATTERN;
+	if (pattern_stale && selected->index < (uint32_t)naui_list_len(uph_state.project.midi_patterns))
+		return uph_calculate_pattern_length(&uph_state.project.midi_patterns[selected->index]);
+
+	return uph_state.shared.song_timeline_current_block_length;
+}
+
+static void _uph_song_timeline_render_draw_ghost(Leaf_BoundingBox bbox, const Uph_Track *track)
+{
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	if (uph_song_timeline_tool() != UPH_ACTION_DRAW || !state->tracks_hovered)
+		return;
+
+	if (state->automation_edit.active || state->hovered_block.active || state->drag.active || state->marquee.active)
+		return;
+
+	const Uph_BlockMenuHover *menu_hover = &state->block_menu.next_hover;
+	if (menu_hover->button_hovered && menu_hover->track == track)
+		return;
+
+	if (!_uph_song_timeline_draw_resource_ready() || uph_drag_hover(UPH_DRAG_TYPE_RESOURCE) || uph_drag_hover(UPH_DRAG_TYPE_SAMPLE_FILE))
+		return;
+
+	Leaf_Color fill = naui_theme_color("uph_song_timeline_draw_ghost_color");
+	Leaf_Color outline = naui_theme_color("uph_song_timeline_draw_ghost_border_color");
+	if (!_uph_song_timeline_drop_compatible(track, uph_state.shared.selected_resource.type))
+	{
+		const Leaf_Color reject = naui_theme_color("naui_panel_close_hovered_bg_color");
+		fill = leaf_rgba(reject.r, reject.g, reject.b, fill.a);
+		outline = leaf_rgba(reject.r, reject.g, reject.b, outline.a);
+	}
+
+	const float zoom = state->zoom.x;
+	const double length_beats = _uph_song_timeline_draw_ghost_length();
+	const float x = bbox.x + (float)_uph_song_timeline_drop_beat(bbox) * zoom - state->scroll.x;
+	const float width = length_beats > 0.0 ? (float)length_beats * zoom : NAUI_DPI(2);
+	const Naui_Vec2 position = { x, bbox.y + 1.0f };
+	const Naui_Vec2 size = { width, bbox.height - 2.0f };
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
+
+	naui_fill_rect(position, size, fill, rounding, NAUI_CORNER_ALL);
+	naui_draw_rect(position, size, outline, NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+}
+
 static void _uph_song_timeline_render_drop_preview(Leaf_BoundingBox bbox, double length_beats)
 {
 	_uph_song_timeline_render_block_ghost(bbox, _uph_song_timeline_drop_beat(bbox), length_beats, naui_theme_color("naui_panel_tab_accent_color"));
@@ -762,6 +818,9 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 	}
 
 	_uph_song_timeline_update_marquee(bbox, track);
+
+	if (mouse_over_track)
+		_uph_song_timeline_render_draw_ghost(bbox, track);
 
 	naui_pop_clip_rect();
 }

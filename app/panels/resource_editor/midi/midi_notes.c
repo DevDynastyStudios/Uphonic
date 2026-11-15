@@ -98,10 +98,8 @@ void uph_midi_notes_render_marquee(const Uph_MidiView *view, Leaf_BoundingBox bo
 	const Naui_Vec2 top_left = { fminf(corner_x, (float)naui_mouse_x()), fminf(corner_y, (float)naui_mouse_y()) };
 	const Naui_Vec2 size = { fabsf(corner_x - (float)naui_mouse_x()), fabsf(corner_y - (float)naui_mouse_y()) };
 
-	Leaf_Color fill_color = naui_theme_color("uph_midi_editor_selection_outline_color");
-	Leaf_Color border_color = fill_color;
-	fill_color.a = 30;
-	border_color.a = 160;
+	const Leaf_Color fill_color = naui_theme_color("uph_midi_editor_marquee_color");
+	const Leaf_Color border_color = naui_theme_color("uph_midi_editor_marquee_border_color");
 	naui_fill_rect(top_left, size, fill_color, 0.0f, NAUI_CORNER_NONE);
 	naui_draw_rect(top_left, size, border_color, NAUI_DPI(1), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
 }
