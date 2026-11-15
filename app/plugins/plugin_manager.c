@@ -434,6 +434,7 @@ struct Uph_PluginInternalHandle_
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
+    bool origin_dirty;
     bool visible;
     bool is_clap;
     Naui_String display_name;
@@ -3895,6 +3896,41 @@ Naui_Texture uph_plugin_gui_texture(Uph_PluginInternalHandle *handle, uint32_t *
     return handle->texture;
 }
 
+#if NAUI_LINUX
+static void _uph_plugin_gui_x11_notify_moved(Uph_PluginInternalHandle *ih)
+{
+    Window root, parent, *children = NULL;
+    unsigned int count = 0;
+    if (!XQueryTree(ih->display, ih->window, &root, &parent, &children, &count))
+        return;
+
+    for (unsigned int i = 0; i < count; i++)
+    {
+        XWindowAttributes attributes;
+        if (!XGetWindowAttributes(ih->display, children[i], &attributes))
+            continue;
+
+        XEvent event = { 0 };
+        XConfigureEvent *e = &event.xconfigure;
+        e->type = ConfigureNotify;
+        e->display = ih->display;
+        e->event = children[i];
+        e->window = children[i];
+        e->x = ih->screen_x + attributes.x;
+        e->y = ih->screen_y + attributes.y;
+        e->width = attributes.width;
+        e->height = attributes.height;
+        e->border_width = attributes.border_width;
+        e->above = None;
+        e->override_redirect = False;
+        XSendEvent(ih->display, children[i], False, StructureNotifyMask, &event);
+    }
+
+    if (children)
+        XFree(children);
+}
+#endif
+
 void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
 #if NAUI_LINUX
@@ -3908,14 +3944,16 @@ void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int3
     const int32_t root_x = point.x, root_y = point.y;
 #endif
 
-    if (root_x == handle->screen_x && root_y == handle->screen_y)
+    if (root_x == handle->screen_x && root_y == handle->screen_y && !handle->origin_dirty)
         return;
 
     handle->screen_x = root_x;
     handle->screen_y = root_y;
+    handle->origin_dirty = false;
 
 #if NAUI_LINUX
     XMoveWindow(handle->display, handle->container, root_x, root_y);
+    _uph_plugin_gui_x11_notify_moved(handle);
     XFlush(handle->display);
 #elif NAUI_WINDOWS
     SetWindowPos(handle->window, NULL, root_x, root_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -4113,6 +4151,7 @@ static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
         return;
 
     ih->visible = visible;
+    ih->origin_dirty = visible;
 #if NAUI_LINUX
     ih->buttons_down = 0;
     ih->input_target = 0;
