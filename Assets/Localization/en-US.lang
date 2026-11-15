@@ -109,6 +109,22 @@
 	"menu.windows.hide": "Hide All",
 	"menu.windows.show": "Show All",
 
+	"midi.edit": "Edit",
+	"midi.edit.delete": "Delete",
+	"midi.edit.deselect": "Deselect",
+	"midi.edit.duplicate": "Duplicate",
+	"midi.edit.select_all": "Select All",
+
+	"midi.tools": "Tools",
+	"midi.tools.quantize": "Quantize",
+
+	"midi.scale": "Scale",
+	"midi.scale.root": "Root",
+
+	"midi.view": "View",
+	"midi.view.velocity_lane": "Velocity Lane",
+	"midi.view.reset_scroll": "Reset Scroll",
+
 	"mixer.title": "Mixer",
 
 	"pattern.default.name": "Untitled Pattern",
