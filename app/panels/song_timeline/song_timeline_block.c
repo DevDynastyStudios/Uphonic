@@ -216,7 +216,6 @@ static void _uph_song_timeline_update_group_track_switch(Uph_DraggingBlockState 
 	naui_list_free(rows);
 }
 
-
 static void _uph_song_timeline_reset_block_drag(Uph_DraggingBlockState *drag)
 {
 	naui_list_free(drag->group_blocks);
@@ -281,7 +280,8 @@ static void _uph_song_timeline_drag_restore_source(Uph_DraggingBlockState *drag)
 
 static bool _uph_song_timeline_finish_drag_to_new_tracks(Uph_DraggingBlockState *drag)
 {
-	if (!_uph_song_timeline_state.bottom_hovered || !_uph_song_timeline_drag_fits_new_tracks(drag))
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	if (!state->bottom_hovered || !_uph_song_timeline_drag_fits_new_tracks(drag))
 		return false;
 
 	const bool creating = drag->creating;
@@ -385,7 +385,8 @@ static bool _uph_song_timeline_finish_drag_to_new_tracks(Uph_DraggingBlockState 
 
 static bool _uph_song_timeline_block_menu_resolve(Uph_Track **out_track, Uph_TimelineBlock **out_block)
 {
-	Uph_BlockMenuState *menu = &_uph_song_timeline_state.block_menu;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_BlockMenuState *menu = &state->block_menu;
 	if (!menu->target_valid)
 		return false;
 
@@ -582,14 +583,15 @@ Uph_TimelineBlock uph_song_timeline_block_create(double start_beat, uint32_t res
 
 void uph_song_timeline_update_drag_track_switch(void)
 {
-	Uph_DraggingBlockState *drag = &_uph_song_timeline_state.drag;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_DraggingBlockState *drag = &state->drag;
 	if (!drag->active)
 		return;
 
 	if (drag->mode != UPH_BLOCK_INTERACTION_MOVE)
 		return;
 
-	Uph_Track *new_track = _uph_song_timeline_state.current_hovered_track;
+	Uph_Track *new_track = state->current_hovered_track;
 
 	if (!new_track || new_track == drag->track)
 		return;
@@ -626,7 +628,8 @@ void uph_song_timeline_update_drag_track_switch(void)
 
 void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, Uph_BlockInteractionMode mode, double mouse_beat)
 {
-	Uph_DraggingBlockState *drag = &_uph_song_timeline_state.drag;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_DraggingBlockState *drag = &state->drag;
 	Uph_TimelineBlock *block = &track->blocks[block_index];
 	naui_list_free(drag->group_blocks);
 	drag->group_blocks = NULL;
@@ -688,8 +691,9 @@ void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, 
 
 void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed)
 {
-	const Uph_DraggingBlockState *drag = &_uph_song_timeline_state.drag;
-	const double division = uph_snap_division(_uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x);
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const Uph_DraggingBlockState *drag = &state->drag;
+	const double division = uph_snap_division(state->snap_resolution, state->zoom.x);
 	double delta_start = grabbed->start_beat - drag->initial_start_beat;
 	double delta_length = grabbed->length_beats - drag->initial_length_beats;
 
@@ -737,7 +741,8 @@ void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed)
 
 void uph_song_timeline_finish_block_drag(void)
 {
-	Uph_DraggingBlockState *drag = &_uph_song_timeline_state.drag;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_DraggingBlockState *drag = &state->drag;
 	const char *transform_action = drag->mode == UPH_BLOCK_INTERACTION_MOVE ? UPH_ACTION_BLOCK_MOVE : UPH_ACTION_BLOCK_RESIZE;
 	if (_uph_song_timeline_finish_drag_to_new_tracks(drag))
 	{
@@ -825,10 +830,10 @@ void uph_song_timeline_finish_block_drag(void)
 	_uph_song_timeline_reset_block_drag(drag);
 }
 
-
 void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index)
 {
-	Uph_BlockMenuState *menu = &_uph_song_timeline_state.block_menu;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_BlockMenuState *menu = &state->block_menu;
 	menu->target_track = uph_action_track_ref(track);
 	menu->target_index = block_index;
 	menu->target_valid = true;
@@ -837,10 +842,12 @@ void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index
 
 void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu)
 {
-	Uph_BlockMenuState *state = &_uph_song_timeline_state.block_menu;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_BlockMenuState *menu = &state->block_menu;
+
 	if (!uph_ui_any_menu_open())
 	{
-		state->target_valid = false;
+		menu->target_valid = false;
 		return;
 	}
 
@@ -849,8 +856,8 @@ void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu
 	if (!_uph_song_timeline_block_menu_resolve(&track, &block))
 		return;
 
-	const Uph_ActionTrackRef ref = state->target_track;
-	const uint32_t index = state->target_index;
+	const Uph_ActionTrackRef ref = menu->target_track;
+	const uint32_t index = menu->target_index;
 	const Uph_TimelineBlock snapshot = *block;
 
 	if (uph_ui_menu_item(block_options_menu, "Edit", leaf_id("uph_song_timeline_block_edit")))
@@ -875,7 +882,7 @@ void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu
 			_uph_song_timeline_block_slice(ref, index, uph_time_signature_beat_length());
 
 		if (uph_ui_menu_item(slice_menu, "Every Grid Step", leaf_id("uph_song_timeline_block_slice_grid")))
-			_uph_song_timeline_block_slice(ref, index, uph_snap_division(_uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x));
+			_uph_song_timeline_block_slice(ref, index, uph_snap_division(state->snap_resolution, state->zoom.x));
 	}
 
 	const char *fit_label = snapshot.type == UPH_RESOURCE_SAMPLE ? "Reset to Full Sample" : "Fit to Content";

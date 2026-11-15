@@ -1,5 +1,24 @@
 typedef struct
 {
+	uint32_t index;
+	Uph_MidiNote note;
+} Uph_NoteSnapshot;
+
+typedef struct
+{
+	uint32_t resource_index;
+	bool resource_exists;
+} Uph_ActionResourceCreate;
+
+typedef struct
+{
+	Uph_ResourceIndex resource_index;
+	Naui_String old_name;
+	Naui_String new_name;
+} Uph_ActionResourceRename;
+
+typedef struct
+{
 	Uph_ResourceIndex resource_index;
 	Uph_MidiPattern pattern;
 	Naui_List(Uph_ActionBlockSnapshot) blocks;
@@ -45,12 +64,6 @@ typedef struct
 	uint8_t old_velocity, new_velocity;
 	bool applied_live;
 } Uph_ActionNoteVelocity;
-
-typedef struct
-{
-	uint32_t index;
-	Uph_MidiNote note;
-} Uph_NoteSnapshot;
 
 typedef struct
 {

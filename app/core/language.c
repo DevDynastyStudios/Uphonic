@@ -1,3 +1,5 @@
+#define UPH_DEFAULT_FONT_NAME "MYRIADPRO-REGULAR"
+
 static Naui_String _uph_active_font = {0};
 
 static bool _uph_language_load_font(const char *name)

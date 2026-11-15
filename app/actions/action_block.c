@@ -1,6 +1,13 @@
 typedef struct
 {
 	Uph_ActionTrackRef track;
+	uint32_t index;
+	Uph_TimelineBlock block;
+} Uph_ActionBlockSnapshot;
+
+typedef struct
+{
+	Uph_ActionTrackRef track;
 	uint32_t block_index;
 	Uph_TimelineBlock block;
 	bool applied_live;
@@ -23,13 +30,6 @@ typedef struct
 	double new_start, new_length, new_offset;
 	bool applied_live;
 } Uph_ActionBlockTransform;
-
-typedef struct
-{
-	Uph_ActionTrackRef track;
-	uint32_t index;
-	Uph_TimelineBlock block;
-} Uph_ActionBlockSnapshot;
 
 typedef struct
 {

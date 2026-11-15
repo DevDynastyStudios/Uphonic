@@ -1,17 +1,17 @@
 void uph_song_timeline_render_toolbox(void)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT))},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
 		.padding = { .top = 1, .bottom = 1 },
 		.color = naui_theme_color("uph_toolbox_border_color")
 	})
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(22),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
@@ -21,9 +21,9 @@ void uph_song_timeline_render_toolbox(void)
 		const Naui_Color icon_color = naui_theme_color("uph_tool_icon_color");
 
 		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			if (uph_ui_image_button_ex(
@@ -74,9 +74,9 @@ void uph_song_timeline_render_toolbox(void)
 			)) uph_state.project.loop_enabled = !uph_state.project.loop_enabled;
 		}
 		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			if (uph_ui_image_toggle_button_ex(
@@ -86,8 +86,8 @@ void uph_song_timeline_render_toolbox(void)
 				icon_color,
 				bg_color,
 				NAUI_CORNER_TL | NAUI_CORNER_BL,
-				data->current_action_mode == UPH_ACTION_SELECT
-			)) data->current_action_mode = UPH_ACTION_SELECT;
+				state->current_action_mode == UPH_ACTION_SELECT
+			)) state->current_action_mode = UPH_ACTION_SELECT;
 
 			if (uph_ui_image_toggle_button_ex(
 				naui_asset_image("uph_icon_draw"),
@@ -96,8 +96,8 @@ void uph_song_timeline_render_toolbox(void)
 				icon_color,
 				bg_color,
 				NAUI_CORNER_NONE,
-				data->current_action_mode == UPH_ACTION_DRAW
-			)) data->current_action_mode = UPH_ACTION_DRAW;
+				state->current_action_mode == UPH_ACTION_DRAW
+			)) state->current_action_mode = UPH_ACTION_DRAW;
 
 			if (uph_ui_image_toggle_button_ex(
 				naui_asset_image("uph_icon_cut"),
@@ -106,30 +106,30 @@ void uph_song_timeline_render_toolbox(void)
 				icon_color,
 				bg_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,
-				data->current_action_mode == UPH_ACTION_CUT
-			)) data->current_action_mode = UPH_ACTION_CUT;
+				state->current_action_mode == UPH_ACTION_CUT
+			)) state->current_action_mode = UPH_ACTION_CUT;
 		}
 		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			leaf_text("Snap: ", {
-				.font_size = NAUI_DPI(UPH_TOOLBOX_FONT_SIZE),
-				.color = naui_theme_color("uph_ui_text_color")
+				.color = naui_theme_color("uph_ui_text_color"),
+				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});
 			leaf({
-				.size = {LEAF_SIZE_FIXED(NAUI_DPI(64)), LEAF_SIZE_FULL},
-				.child_alignment = {LEAF_ALIGN_Y_CENTER, LEAF_ALIGN_Y_CENTER}
-			}) uph_ui_snap_dropdown(&data->snap_resolution, leaf_id("uph_song_timeline_snap"));
+				.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(64)), .height = LEAF_SIZE_FULL },
+				.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER }
+			}) uph_ui_snap_dropdown(&state->snap_resolution, leaf_id("uph_song_timeline_snap"));
 		}
 
 		leaf({
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FULL},
-			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(8)
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(8),
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			const Leaf_ID bpm_id = leaf_id("uph_bpm_drag");

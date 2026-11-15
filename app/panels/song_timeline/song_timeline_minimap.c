@@ -1,3 +1,7 @@
+#define UPH_SONG_TIMELINE_MINIMAP_HEIGHT 30
+#define UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE 1.4f
+#define UPH_SONG_TIMELINE_MINIMAP_INSET 2
+
 typedef struct
 {
 	Leaf_BoundingBox rect;
@@ -8,21 +12,20 @@ Uph_SongTimelineMinimapMapping;
 
 static float _uph_song_timeline_minimap_view_width(void)
 {
-	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
-	return fmaxf(1.0f, data->panel_bounding_box.width - NAUI_DPI(uph_song_timeline_header_column_width()));
+	return fmaxf(1.0f, _uph_song_timeline_state.panel_bounding_box.width - NAUI_DPI(uph_song_timeline_header_column_width()));
 }
 
 static double _uph_song_timeline_minimap_total_beats(void)
 {
-	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	const Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const double song_end = uph_audio_engine_get_song_length() + uph_time_signature_bar_length() * 4.0;
-	const double view_end = ((double)data->scroll.x + _uph_song_timeline_minimap_view_width()) / data->zoom.x;
+	const double view_end = ((double)state->scroll.x + _uph_song_timeline_minimap_view_width()) / state->zoom.x;
 	return fmax(song_end, view_end);
 }
 
 static Leaf_BoundingBox _uph_song_timeline_minimap_inset(Leaf_BoundingBox bbox)
 {
-	const float inset = NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_INSET);
+	const int32_t inset = NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_INSET);
 	bbox.x += inset;
 	bbox.y += inset;
 	bbox.width = fmaxf(1.0f, bbox.width - inset * 2.0f);
@@ -42,7 +45,8 @@ static Uph_SongTimelineMinimapMapping _uph_song_timeline_minimap_mapping(Leaf_Bo
 
 static void _uph_song_timeline_minimap_draw_tracks(Naui_List(Uph_Track) tracks, float *y, const Uph_SongTimelineMinimapMapping *map)
 {
-	const float zoom_y = _uph_song_timeline_state.zoom.y;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const float zoom_y = state->zoom.y;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
@@ -77,11 +81,12 @@ static void _uph_song_timeline_minimap_draw_tracks(Naui_List(Uph_Track) tracks, 
 
 static float _uph_song_timeline_minimap_rows_height(Naui_List(Uph_Track) tracks)
 {
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	float height = 0.0f;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		const Uph_Track *track = &tracks[i];
-		height += uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(_uph_song_timeline_state.zoom.y);
+		height += uph_track_is_folder(track) ? NAUI_DPI(56) : NAUI_DPI(state->zoom.y);
 		height += _uph_song_timeline_minimap_rows_height(track->subtracks);
 	}
 	return height;
@@ -89,8 +94,8 @@ static float _uph_song_timeline_minimap_rows_height(Naui_List(Uph_Track) tracks)
 
 static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_data)
 {
-	const Uph_SongTimelineState *data = &_uph_song_timeline_state;
-	const double total_beats = data->minimap.dragging ? data->minimap.total_beats : _uph_song_timeline_minimap_total_beats();
+	const Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const double total_beats = state->minimap.dragging ? state->minimap.total_beats : _uph_song_timeline_minimap_total_beats();
 	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, total_beats, _uph_song_timeline_minimap_rows_height(uph_state.project.tracks));
 
 	naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
@@ -99,59 +104,59 @@ static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_da
 	_uph_song_timeline_minimap_draw_tracks(uph_state.project.tracks, &y, &map);
 
 	const float playhead_x = map.rect.x + (float)(uph_state.shared.song_timeline_playhead_position * map.scale_x);
-	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, naui_theme_color("uph_playhead_color"), NAUI_DPI(1.0f));
+	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, naui_theme_color("uph_playhead_color"), NAUI_DPI(1));
 
-	const Naui_Vec2 thumb_pos = { map.rect.x + (data->scroll.x / data->zoom.x) * map.scale_x, bbox.y };
-	const Naui_Vec2 thumb_size = { fmaxf(NAUI_DPI(6.0f), (_uph_song_timeline_minimap_view_width() / data->zoom.x) * map.scale_x), bbox.height };
-	const bool active = data->minimap.dragging || data->minimap.hovered;
+	const Naui_Vec2 thumb_pos = { map.rect.x + (state->scroll.x / state->zoom.x) * map.scale_x, bbox.y };
+	const Naui_Vec2 thumb_size = { fmaxf(NAUI_DPI(6), (_uph_song_timeline_minimap_view_width() / state->zoom.x) * map.scale_x), bbox.height };
+	const bool active = state->minimap.dragging || state->minimap.hovered;
 	Naui_Color fill = naui_theme_color("uph_ui_scrollbar_handle_color");
 	Naui_Color outline = fill;
 	fill.a = active ? 110 : 70;
 	outline.a = active ? 255 : 180;
-	const float rounding = NAUI_DPI(UPH_UI_SCROLLBAR_HANDLE_ROUNDING * 0.5f);
+	const int32_t rounding = NAUI_DPI(UPH_UI_SCROLLBAR_HANDLE_ROUNDING * 0.5f);
 	naui_fill_rect(thumb_pos, thumb_size, fill, rounding, NAUI_CORNER_ALL);
-	naui_draw_rect(thumb_pos, thumb_size, outline, NAUI_DPI(1.0f), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+	naui_draw_rect(thumb_pos, thumb_size, outline, NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
 
 	naui_pop_clip_rect();
 }
 
 static void _uph_song_timeline_minimap_apply(Leaf_BoundingBox bbox)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
-	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, data->minimap.total_beats, 1.0f);
-	const float thumb_start = (float)naui_mouse_x() - data->minimap.grab_offset - map.rect.x;
-	data->scroll.x = fmaxf(0.0f, (thumb_start / map.scale_x) * data->zoom.x);
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, state->minimap.total_beats, 1.0f);
+	const float thumb_start = (float)naui_mouse_x() - state->minimap.grab_offset - map.rect.x;
+	state->scroll.x = fmaxf(0.0f, (thumb_start / map.scale_x) * state->zoom.x);
 }
 
 static void _uph_song_timeline_minimap_press(Leaf_BoundingBox bbox)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
-	data->minimap.total_beats = _uph_song_timeline_minimap_total_beats();
-	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, data->minimap.total_beats, 1.0f);
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	state->minimap.total_beats = _uph_song_timeline_minimap_total_beats();
+	const Uph_SongTimelineMinimapMapping map = _uph_song_timeline_minimap_mapping(bbox, state->minimap.total_beats, 1.0f);
 
 	const float mouse = (float)naui_mouse_x();
-	const float thumb_start = map.rect.x + (data->scroll.x / data->zoom.x) * map.scale_x;
-	const float thumb_length = (_uph_song_timeline_minimap_view_width() / data->zoom.x) * map.scale_x;
+	const float thumb_start = map.rect.x + (state->scroll.x / state->zoom.x) * map.scale_x;
+	const float thumb_length = (_uph_song_timeline_minimap_view_width() / state->zoom.x) * map.scale_x;
 	const bool on_thumb = mouse >= thumb_start && mouse < thumb_start + thumb_length;
-	data->minimap.grab_offset = on_thumb ? mouse - thumb_start : thumb_length * 0.5f;
-	data->minimap.dragging = true;
+	state->minimap.grab_offset = on_thumb ? mouse - thumb_start : thumb_length * 0.5f;
+	state->minimap.dragging = true;
 	_uph_song_timeline_minimap_apply(bbox);
 }
 
 void uph_song_timeline_update_minimap(void)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	extern Uph_GlobalWidgetState uph_global_widget_state;
 
 	const Leaf_BoundingBox bbox = leaf_get_bounding_box(leaf_id("uph_song_timeline_minimap"));
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
 
-	data->minimap.hovered = false;
+	state->minimap.hovered = false;
 
-	if (data->minimap.dragging)
+	if (state->minimap.dragging)
 	{
 		if (!naui_mouse_down(NAUI_MOUSE_LEFT))
-			data->minimap.dragging = false;
+			state->minimap.dragging = false;
 		else
 		{
 			_uph_song_timeline_minimap_apply(bbox);
@@ -161,13 +166,13 @@ void uph_song_timeline_update_minimap(void)
 		}
 	}
 
-	if (!data->panel_hovered || data->drag.active || data->marquee.active)
+	if (!state->panel_hovered || state->drag.active || state->marquee.active)
 		return;
 
 	if (!uph_song_timeline_vec4_contains_vec2((Naui_Vec4){ bbox.x, bbox.y, bbox.width, bbox.height }, mouse))
 		return;
 
-	data->minimap.hovered = true;
+	state->minimap.hovered = true;
 	uph_global_widget_state.any_widget_hovered = true;
 	naui_set_cursor(NAUI_CURSOR_HAND);
 	if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
@@ -177,28 +182,28 @@ void uph_song_timeline_update_minimap(void)
 void uph_song_timeline_render_minimap(void)
 {
 	leaf({
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_HEIGHT))}
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_HEIGHT)) },
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		leaf({
-			.size = {LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width())), LEAF_SIZE_FULL}
+			.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width())), .height = LEAF_SIZE_FULL }
 		});
 		leaf({
 			.id = leaf_id("uph_song_timeline_minimap"),
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL},
-			.color = naui_theme_color("uph_ui_scrollbar_bg_color"),
-			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_minimap_draw
+			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_minimap_draw,
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+			.color = naui_theme_color("uph_ui_scrollbar_bg_color")
 		});
 	}
 }
 
 void uph_song_timeline_render_time_display(void)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const Leaf_ID id = leaf_id("uph_song_timeline_time_display");
 	const double beat = uph_state.shared.song_timeline_playhead_position;
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const Naui_Vec2 padding = UPH_SONG_TIMELINE_HEADER_PADDING;
 
 	const bool hovered = uph_ui_widget_hovered(id);
@@ -206,13 +211,13 @@ void uph_song_timeline_render_time_display(void)
 	{
 		naui_set_cursor(NAUI_CURSOR_HAND);
 		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-			data->time_display_seconds = !data->time_display_seconds;
+			state->time_display_seconds = !state->time_display_seconds;
 	}
 
 	char primary_text[32];
 	char secondary_text[32];
-	const char *primary_label = uph_ui_format_time(beat, data->time_display_seconds, primary_text, sizeof(primary_text));
-	const char *secondary_label = uph_ui_format_time(beat, !data->time_display_seconds, secondary_text, sizeof(secondary_text));
+	const char *primary_label = uph_ui_format_time(beat, state->time_display_seconds, primary_text, sizeof(primary_text));
+	const char *secondary_label = uph_ui_format_time(beat, !state->time_display_seconds, secondary_text, sizeof(secondary_text));
 
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	Leaf_Color dim_color = text_color;
@@ -222,50 +227,50 @@ void uph_song_timeline_render_time_display(void)
 
 	leaf({
 		.id = id,
-		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.size = {
-			LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width()) - NAUI_DPI(padding.x) * 2.0f),
-			LEAF_SIZE_FIXED(NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_HEIGHT + UPH_SONG_TIMELINE_TOP_RULER_HEIGHT))
+			.width = LEAF_SIZE_FIXED(NAUI_DPI(uph_song_timeline_header_column_width()) - NAUI_DPI(padding.x) * 2.0f),
+			.height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SONG_TIMELINE_MINIMAP_HEIGHT + UPH_SONG_TIMELINE_TOP_RULER_HEIGHT))
 		},
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0.0f),
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.color = naui_theme_color("uph_song_timeline_header_color"),
 		.border = {
 			.width = 1,
-			.color = naui_theme_color("uph_timeline_top_ruler_border_color"),
-			.sides = LEAF_SIDE_ALL
-		}
+			.sides = LEAF_SIDE_ALL,
+			.color = naui_theme_color("uph_timeline_top_ruler_border_color")
+		},
+		.color = naui_theme_color("uph_song_timeline_header_color"),
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
 	})
 	{
 		leaf({
-			.direction = LEAF_DIRECTION_VERTICAL,
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
-			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER}
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.direction = LEAF_DIRECTION_VERTICAL
 		})
 		{
 			leaf_text(primary_text, {
-				.font_size = font_size * UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE,
-				.color = text_color
+				.color = text_color,
+				.font_size = LEAF_SIZE_FIXED(font_size * UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE)
 			});
 			leaf_text(primary_label, {
-				.font_size = font_size * 0.72f,
-				.color = dim_color
+				.color = dim_color,
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.72f)
 			});
 		}
 		leaf({
-			.direction = LEAF_DIRECTION_VERTICAL,
-			.size = {LEAF_SIZE_FIT, LEAF_SIZE_FIT},
-			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
+			.direction = LEAF_DIRECTION_VERTICAL
 		})
 		{
 			leaf_text(secondary_text, {
-				.font_size = font_size * 0.9f,
-				.color = dim_color
+				.color = dim_color,
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.9f)
 			});
 			leaf_text(secondary_label, {
-				.font_size = font_size * 0.72f,
-				.color = faint_color
+				.color = faint_color,
+				.font_size = LEAF_SIZE_FIXED(font_size * 0.72f)
 			});
 		}
 	}

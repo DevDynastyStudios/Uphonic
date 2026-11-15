@@ -1,3 +1,29 @@
+typedef uint8_t Uph_ParticleShape;
+enum
+{
+	UPH_PARTICLE_RECT,
+	UPH_PARTICLE_RECT_OUTLINE,
+	UPH_PARTICLE_CIRCLE,
+	UPH_PARTICLE_CIRCLE_OUTLINE
+};
+
+typedef struct
+{
+	Naui_Vec2 position;
+	Naui_Vec2 size;
+	Naui_Vec2 velocity;
+	Naui_Vec2 growth;
+	Naui_Color color;
+	Leaf_BoundingBox clip;
+	float duration;
+	float age;
+	float line_width;
+	float rounding;
+	float rounding_growth;
+	Uph_ParticleShape shape;
+}
+Uph_Particle;
+
 static Naui_List(Uph_Particle) uph_particles;
 
 void uph_particle_emit(const Uph_Particle *particle)
@@ -10,7 +36,7 @@ void uph_particle_emit(const Uph_Particle *particle)
 
 void uph_particle_emit_shockwave(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, float rounding, Leaf_BoundingBox clip)
 {
-	const float expand = NAUI_DPI(14.0f);
+	const int32_t expand = NAUI_DPI(14);
 	uph_particle_emit(&(Uph_Particle){
 		.position = position,
 		.size = size,
@@ -18,7 +44,7 @@ void uph_particle_emit_shockwave(Naui_Vec2 position, Naui_Vec2 size, Naui_Color 
 		.color = color,
 		.clip = clip,
 		.duration = 1.0f / NAUI_UI_ANIM_SPEED,
-		.line_width = NAUI_DPI(2.0f),
+		.line_width = NAUI_DPI(2),
 		.rounding = rounding,
 		.rounding_growth = expand,
 		.shape = UPH_PARTICLE_RECT_OUTLINE
@@ -93,8 +119,8 @@ void uph_particles_render(void)
 		return;
 
 	leaf({
-		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.custom_draw = _uph_particles_draw
+		.custom_draw = _uph_particles_draw,
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	});
 }

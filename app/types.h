@@ -1,3 +1,12 @@
+#pragma region Asio
+typedef enum
+{
+	UPH_AUDIO_DRIVER_SYSTEM,
+	UPH_AUDIO_DRIVER_ASIO
+}
+Uph_AudioDriver;
+#pragma endregion
+
 #define UPH_VERSION (Uph_Version) { .major = 0, .minor = 0, .patch = 1 };
 
 #pragma region Settings
@@ -123,55 +132,6 @@ typedef struct Uph_KeybindSettings
 	Naui_Keybind browser_preview;
 }
 Uph_KeybindSettings;
-
-typedef uint8_t Uph_SaveType;
-enum
-{
-	UPH_SAVE_TYPE_CANONICAL,
-	UPH_SAVE_TYPE_TEMP
-};
-
-typedef uint8_t Uph_ExportFormat;
-enum
-{
-	UPH_EXPORT_UPH,
-	UPH_EXPORT_WAV,
-	UPH_EXPORT_MP3,
-	UPH_EXPORT_OGG,
-	UPH_EXPORT_FLAC,
-	UPH_EXPORT_MIDI
-};
-
-typedef uint8_t Uph_RenderBitDepth;
-enum
-{
-	UPH_RENDER_BIT_DEPTH_16,
-	UPH_RENDER_BIT_DEPTH_24,
-	UPH_RENDER_BIT_DEPTH_32_FLOAT,
-	UPH_RENDER_BIT_DEPTH_COUNT
-};
-
-typedef struct
-{
-	double start_beat;
-	double end_beat;
-	float tail_seconds;
-	uint32_t sample_rate;
-	uint32_t channels;
-	Uph_RenderBitDepth bit_depth;
-	bool normalize;
-	bool dither;
-}
-Uph_RenderSettings;
-
-typedef uint8_t Uph_RenderStatus;
-enum
-{
-	UPH_RENDER_STATUS_IDLE,
-	UPH_RENDER_STATUS_RUNNING,
-	UPH_RENDER_STATUS_DONE,
-	UPH_RENDER_STATUS_FAILED
-};
 
 typedef uint32_t Uph_ResourceIndex;
 #pragma endregion
@@ -329,13 +289,6 @@ enum
 	UPH_TRACK_TIMELINE_COLLAPSED = 1 << 4
 };
 
-typedef uint8_t Uph_PluginType;
-enum
-{
-	UPH_PLUGIN_INSTRUMENT,
-	UPH_PLUGIN_EFFECT
-};
-
 typedef uint8_t Uph_PluginFormat;
 enum
 {
@@ -344,16 +297,6 @@ enum
 	UPH_PLUGIN_VST2,
 	UPH_PLUGIN_FORMAT_COUNT
 };
-
-typedef struct
-{
-	Naui_Path path;
-	Naui_String name;
-	Naui_String vendor;
-	Uph_PluginType type;
-	Uph_PluginFormat format;
-}
-Uph_PluginInfo;
 
 typedef struct
 {
@@ -428,7 +371,6 @@ struct Uph_Track
 		float mixer_x;
 	}
 	visual;
-
 
 	Uph_PluginParam *automation_param;
 	Uph_AutomationTarget automation_target;
@@ -520,14 +462,6 @@ typedef struct
 }
 Uph_Settings;
 
-typedef uint8_t Uph_ActionMode;
-enum
-{
-	UPH_ACTION_SELECT,
-	UPH_ACTION_DRAW,
-	UPH_ACTION_CUT
-};
-
 typedef struct
 {
 	Uph_ResourceIndex index;
@@ -547,7 +481,7 @@ typedef struct
 {
 	double song_timeline_current_block_length;
 	double song_timeline_current_block_start_offset;
-	
+
 	double song_timeline_playhead_position;
 	bool song_timeline_playing;
 
@@ -565,8 +499,6 @@ typedef struct
 	Uph_Track *current_automation_list_track;
 }
 Uph_SharedState;
-
-#define UPH_SCALE_CHROMATIC_MASK 0xFFF
 
 typedef struct
 {
@@ -605,5 +537,4 @@ typedef struct
 Uph_State;
 
 extern Uph_State uph_state;
-
 #pragma endregion

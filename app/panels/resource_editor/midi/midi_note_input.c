@@ -1,3 +1,156 @@
+#define UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH 9
+#define UPH_MIDI_EDITOR_RESIZE_HANDLE_MAX_RATIO 0.33f
+#define UPH_MIDI_EDITOR_CLICK_THRESHOLD 3
+
+typedef uint8_t Uph_NoteInteractionMode;
+enum
+{
+	UPH_NOTE_INTERACTION_NONE,
+	UPH_NOTE_INTERACTION_MOVE,
+	UPH_NOTE_INTERACTION_RESIZE_LEFT,
+	UPH_NOTE_INTERACTION_RESIZE_RIGHT
+};
+
+typedef struct
+{
+	double initial_drag_beat_offset;
+	double initial_start_beat;
+	double initial_length_beats;
+	uint8_t initial_key_number;
+	int32_t initial_drag_key_offset;
+	uint32_t note_index;
+	Uph_ResourceIndex pattern_index;
+	Naui_List(Uph_NoteSnapshot) group_notes;
+	Naui_List(Uph_ActionBlockSnapshot) tail_blocks;
+	Naui_Vec2 initial_mouse;
+	bool active;
+	bool moved;
+	bool creating;
+	bool group;
+	bool additive;
+	bool select_tool;
+	Uph_NoteInteractionMode mode;
+}
+Uph_DraggingNoteState;
+
+typedef struct
+{
+	uint32_t note_index;
+	bool active;
+}
+Uph_HoveredNoteState;
+
+typedef struct
+{
+	Naui_List(Uph_NoteSnapshot) erased;
+	Naui_Vec2 last_mouse;
+	uint64_t revision;
+	Uph_ResourceIndex pattern_index;
+	bool active;
+}
+Uph_NoteEraseState;
+
+typedef struct
+{
+	Uph_DraggingNoteState drag;
+	Uph_HoveredNoteState hovered_note;
+	Uph_NoteMarqueeState marquee;
+	Uph_NoteEraseState erase;
+	double last_note_length;
+	double last_note_velocity;
+}
+Uph_MidiNoteInput;
+
+typedef uint8_t Uph_VelocityDragMode;
+enum
+{
+	UPH_VELOCITY_DRAG_NONE,
+	UPH_VELOCITY_DRAG_HANDLE,
+	UPH_VELOCITY_DRAG_PAINT
+};
+
+typedef struct
+{
+	Naui_List(Uph_NoteSnapshot) originals;
+	Uph_ResourceIndex pattern_index;
+	uint32_t grabbed_index;
+	int32_t grab_mouse_velocity;
+	float last_mouse_x;
+	Uph_VelocityDragMode mode;
+}
+Uph_VelocityDragState;
+
+typedef struct
+{
+	Uph_VelocityDragState drag;
+	float height;
+	float resize_start_mouse_y;
+	float resize_start_height;
+	int32_t hovered_note;
+	bool resizing;
+	bool visible;
+	bool hovered;
+	bool splitter_hovered;
+}
+Uph_VelocityLane;
+
+typedef uint8_t Uph_MidiLaneTab;
+enum
+{
+	UPH_MIDI_LANE_TAB_VELOCITY,
+	UPH_MIDI_LANE_TAB_PEDAL
+};
+
+typedef struct
+{
+	Naui_List(Uph_MidiPedalEvent) originals;
+	Uph_ResourceIndex pattern_index;
+	uint32_t index;
+	double grab_beat_offset;
+	Naui_Vec2 initial_mouse;
+	bool active;
+	bool moved;
+	bool created;
+}
+Uph_PedalDragState;
+
+typedef struct
+{
+	Uph_PedalDragState drag;
+	Uph_MidiPedalType type;
+	int32_t hovered_event;
+	bool hovered;
+}
+Uph_PedalLane;
+
+typedef struct
+{
+	Uph_MidiView view;
+	Uph_NoteMap note_map;
+	Uph_Piano piano;
+	Uph_MidiNoteInput note_input;
+	Uph_VelocityLane velocity_lane;
+	Uph_PedalLane pedal_lane;
+	Uph_MidiLaneTab lane_tab;
+	Leaf_BoundingBox lanes_bounding_box;
+	Uph_ActionMode current_action_mode;
+	Uph_SnapResolution snap_resolution;
+	Naui_Vec2 pan_last_mouse;
+	Uph_ResourceIndex playing_pattern;
+	Uph_LoopRegionDrag loop_drag;
+	double playhead_drag_beat;
+	int16_t audition_key;
+	uint32_t scale_index;
+	uint8_t scale_root;
+	bool panning;
+	bool playhead_dragging;
+	bool lanes_hovered;
+	bool panel_hovered;
+	bool piano_hovered;
+	bool panel_focused;
+}
+Uph_MidiEditorState;
+
 static Uph_ActionMode _uph_note_input_tool(const Uph_MidiEditorState *editor)
 {
 	if (editor->current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
@@ -285,7 +438,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 
 		if (is_dragging_this_note)
 		{
-			const float threshold = NAUI_DPI(UPH_MIDI_EDITOR_CLICK_THRESHOLD);
+			const int32_t threshold = NAUI_DPI(UPH_MIDI_EDITOR_CLICK_THRESHOLD);
 			if (fabsf((float)naui_mouse_x() - drag->initial_mouse.x) > threshold || fabsf((float)naui_mouse_y() - drag->initial_mouse.y) > threshold)
 				drag->moved = true;
 
@@ -636,6 +789,14 @@ void uph_midi_note_input_update(Uph_MidiEditorState *editor, Leaf_BoundingBox bo
 
 	_uph_note_input_update_erase(editor, box, pattern);
 	_uph_note_input_update_marquee(editor, box, pattern);
+}
+
+void uph_midi_editor_quantize(Uph_MidiEditorState *editor)
+{
+	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
+		return;
+
+	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
 void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)

@@ -1,15 +1,19 @@
-#define UPH_PATH_TEMP ".temp"
-#define UPHONIC_FOLDER naui_path_join(naui_directory_get(NAUI_DIR_APPDATA), NAUI_PATH("Uphonic"))
-#define UPHONIC_WORKSPACE_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("workspace"))
-#define UPHONIC_SETTINGS_FILE naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_IO_FILE_SETTINGS))
+typedef uint8_t Uph_SaveType;
+enum
+{
+	UPH_SAVE_TYPE_CANONICAL,
+	UPH_SAVE_TYPE_TEMP
+};
 
-bool uph_project_create(Naui_String project_name);
-bool uph_project_save(Uph_Project* project, Uph_SaveType save_type);
+bool uph_project_save(
+	Uph_Project* project,
+	Uph_SaveType save_type
+);
 
-bool uph_project_has_been_saved(const Uph_Project* project);
-bool uph_project_save_as(Uph_Project* project, const Naui_Path destination);
-bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_ExportFormat format);
-bool uph_project_load(Uph_Project* project, const Naui_Path project_path);
-bool uph_project_add_file(Uph_Project* project, const Naui_Path file_path);
+bool uph_project_has_been_saved(
+	const Uph_Project* project
+);
 
-Naui_Path uph_project_get_path(const Uph_Project* project);
+Naui_Path uph_project_get_path(
+	const Uph_Project* project
+);

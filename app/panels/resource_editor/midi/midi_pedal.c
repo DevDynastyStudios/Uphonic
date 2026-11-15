@@ -1,3 +1,5 @@
+#define UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS 4
+
 static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "Sustain", "Sostenuto", "Soft" };
 
 static float _uph_pedal_usable_height(Leaf_BoundingBox box)
@@ -40,7 +42,7 @@ static int32_t _uph_pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_Bound
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
-	const float radius = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS + 3.0f);
+	const int32_t radius = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS + 3);
 
 	int32_t best = -1;
 	float best_distance = FLT_MAX;
@@ -238,9 +240,9 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 
 void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
-	const float font_size = NAUI_DPI(10.0f);
-	const float padding = NAUI_DPI(6.0f);
-	const float row_height = NAUI_DPI(15.0f);
+	const int32_t font_size = NAUI_DPI(10);
+	const int32_t padding = NAUI_DPI(6);
+	const int32_t row_height = NAUI_DPI(15);
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
 
@@ -255,7 +257,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 			&& mouse_x >= box.x && mouse_x < box.x + box.width && mouse_y >= y && mouse_y < y + row_height;
 
 		if (active || hovered)
-			naui_fill_rect((Naui_Vec2) { box.x + NAUI_DPI(3.0f), y }, (Naui_Vec2) { box.width - NAUI_DPI(6.0f), row_height }, naui_theme_color(active ? "uph_ui_frame_pressed_bg_color" : "uph_ui_frame_hovered_bg_color"), NAUI_DPI(3.0f), LEAF_CORNER_ALL);
+			naui_fill_rect((Naui_Vec2) { box.x + NAUI_DPI(3), y }, (Naui_Vec2) { box.width - NAUI_DPI(6), row_height }, naui_theme_color(active ? "uph_ui_frame_pressed_bg_color" : "uph_ui_frame_hovered_bg_color"), NAUI_DPI(3), LEAF_CORNER_ALL);
 
 		const char *label = _uph_pedal_labels[type];
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
@@ -314,17 +316,17 @@ static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int3
 	char label[8];
 	snprintf(label, sizeof(label), "%d", (int)value);
 
-	const float font_size = NAUI_DPI(11.0f);
-	const float padding = NAUI_DPI(3.0f);
+	const int32_t font_size = NAUI_DPI(11);
+	const int32_t padding = NAUI_DPI(3);
 	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
 
-	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS) + NAUI_DPI(4.0f);
+	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS) + NAUI_DPI(4);
 	if (label_x + size.x + padding * 2.0f > box.x + box.width)
-		label_x = x - NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS) - NAUI_DPI(4.0f) - size.x - padding * 2.0f;
+		label_x = x - NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS) - NAUI_DPI(4) - size.x - padding * 2.0f;
 
 	const float label_y = NAUI_CLAMP(y - size.y * 0.5f - padding, box.y, box.y + box.height - size.y - padding * 2.0f);
 
-	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3.0f), LEAF_CORNER_ALL);
+	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3), LEAF_CORNER_ALL);
 	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
 }
 
@@ -356,7 +358,7 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 	}
 	_uph_pedal_render_steps(editor, box, pattern, lane->type, color, true);
 
-	const float radius = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS);
+	const int32_t radius = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS);
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->pedals); i++)
 	{
 		const Uph_MidiPedalEvent *pedal = &pattern->pedals[i];
@@ -374,11 +376,11 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 		if (hovered)
 		{
 			naui_draw_rect(
-				(Naui_Vec2) { x - radius - NAUI_DPI(2.0f), y - radius - NAUI_DPI(2.0f) },
-				(Naui_Vec2) { radius * 2.0f + NAUI_DPI(4.0f), radius * 2.0f + NAUI_DPI(4.0f) },
+				(Naui_Vec2) { x - radius - NAUI_DPI(2), y - radius - NAUI_DPI(2) },
+				(Naui_Vec2) { radius * 2.0f + NAUI_DPI(4), radius * 2.0f + NAUI_DPI(4) },
 				LEAF_COLOR_WHITE,
-				NAUI_DPI(1.0f),
-				radius + NAUI_DPI(2.0f),
+				NAUI_DPI(1),
+				radius + NAUI_DPI(2),
 				LEAF_CORNER_ALL,
 				NAUI_SIDE_ALL
 			);

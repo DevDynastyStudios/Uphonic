@@ -10,6 +10,28 @@
 #define UPH_KB_RL	UPH_KEYBIND_SCOPE_RESOURCE_LIST
 #define UPH_KB_SB	UPH_KEYBIND_SCOPE_SAMPLE_BROWSER
 
+typedef uint32_t Uph_KeybindScope;
+enum
+{
+	UPH_KEYBIND_SCOPE_ANY				= 0,
+	UPH_KEYBIND_SCOPE_SONG_TIMELINE		= 1 << 0,
+	UPH_KEYBIND_SCOPE_MIDI_EDITOR		= 1 << 1,
+	UPH_KEYBIND_SCOPE_AUTOMATION_EDITOR	= 1 << 2,
+	UPH_KEYBIND_SCOPE_RESOURCE_LIST		= 1 << 3,
+	UPH_KEYBIND_SCOPE_SAMPLE_BROWSER	= 1 << 4
+};
+
+typedef struct
+{
+	const char *id;
+	const char *label_key;
+	const char *group_key;
+	Uph_KeybindScope scope;
+	Naui_Keybind *chord;
+	Naui_Keybind default_chord;
+}
+Uph_KeybindInfo;
+
 static const Uph_KeybindInfo uph_keybind_info_table[] =
 {
 	{ "new_project", "settings.shortcuts.new_project", UPH_KEYBIND_GROUP_GENERAL, UPH_KEYBIND_SCOPE_ANY, &uph_state.settings.keybinds.new_project, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_N) },

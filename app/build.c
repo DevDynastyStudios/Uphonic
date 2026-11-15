@@ -10,73 +10,67 @@
 #define CMIDI_IMPLEMENTATION
 #include <vendor/cmidi/cmidi.h>
 
-#include "core/asio.h"
-#include "core/types.h"
-#include "core/keybinds.h"
-#include "core/keybinds.c"
-#include "ui/metrics.h"
-#include "actions/action_manager.h"
-
-#include "utils.h"
-#include "utils.c"
-
 #include <vendor/vst3_c_api.h>
 #include <vendor/clap/clap.h>
 #include <vendor/vestige/vestige.h>
 
-#include "plugins/event_ring.h"
-#include "plugins/plugin_manager.h"
-#include "panels/plugin_editor.h"
+#include "types.h"
 
-#include "core/language.h"
-#include "core/language.c"
-#include "core/audio_engine.h"
-#include "core/resource_manager.h"
-#include "core/tempo_map.h"
 #include "core/midi_manager.h"
-#include "core/midi_manager.c"
-#include "core/midi_recorder.h"
-#include "core/midi_preview.h"
-#include "core/sample_preview.h"
-#include "io/file_signature.h"
-#include "io/file_signature.c"
-#include "io/serialization.h"
-#include "io/serialization.c"
-#include "core/autosave.h"
-#include "core/recovery.h"
-
 #include "core/project_manager.h"
-#include "core/project/project_files.h"
-#include "core/project/project_naming.h"
-#include "core/project/project_samples.h"
-#include "core/project/project_patterns.h"
-#include "core/project/project_package.h"
+#include "core/recovery.h"
+#include "core/resource_manager.h"
+#include "core/sample_preview.h"
+#include "core/audio_engine.h"
+#include "core/midi_recorder.h"
+
+#include "actions/action_manager.h"
+
+#include "plugins/plugin_manager.h"
+
+#include "ui/widgets.h"
+#include "ui/dialog.h"
+
+#include "panels/song_timeline/song_timeline.h"
+#include "panels/resource_list.h"
+#include "panels/plugin_editor.h"
+#include "panels/resource_editor/midi/midi_editor.h"
+#include "panels/sample_browser.h"
+
+#include "core/constants.h"
+#include "core/paths.h"
+#include "ui/metrics.h"
+#include "actions/actions.h"
+
+#include "core/keybinds.c"
+
+#include "utils.c"
+
+#include "plugins/event_ring.c"
+
+#include "core/language.c"
+#include "core/midi_manager.c"
+#include "io/file_signature.c"
+#include "core/asio.c"
+#include "io/serialization.c"
+
 #include "core/project/project_files.c"
 #include "core/project/project_naming.c"
 #include "core/project/project_samples.c"
 #include "core/project/project_patterns.c"
 #include "core/project/project_package.c"
+#include "core/autosave.c"
 #include "core/project_manager.c"
 
-#include "core/autosave.c"
 #include "core/recovery.c"
-#include "core/metronome.h"
+#include "core/metronome.c"
 
+#include "core/tempo_map.c"
 #include "plugins/plugin_manager.c"
 
-#include "plugins/plugin_cache.h"
 #include "plugins/plugin_cache.c"
 
-#include "ui/titlebar.h"
-#include "ui/waveform.h"
-#include "ui/automation_curve.h"
-#include "ui/widgets.h"
-#include "ui/drag.h"
-#include "ui/dialog.h"
-#include "ui/particles.h"
-#include "ui/containers.h"
-#include "ui/layouts.h"
-
+#include "ui/layouts.c"
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
 #include "ui/automation_curve.c"
@@ -85,7 +79,6 @@
 #include "ui/dialog.c"
 #include "ui/particles.c"
 #include "ui/containers.c"
-#include "ui/layouts.c"
 
 #include "actions/action_track.c"
 #include "actions/action_block.c"
@@ -95,18 +88,15 @@
 #include "actions/action_manager.c"
 
 #include "core/resource_manager.c"
-#include "core/tempo_map.c"
 
 #include "core/midi_preview.c"
-#include "core/asio.c"
 #include "core/audio_engine.c"
 #include "core/sample_preview.c"
 #include "core/midi_recorder.c"
 
 #include "panels/file_dialog.c"
-#include "panels/sample_browser.h"
 
-#include "panels/song_timeline/song_timeline.h"
+#include "panels/song_timeline/song_timeline_common.c"
 #include "panels/song_timeline/song_timeline_automation.c"
 #include "panels/song_timeline/song_timeline_track_list.c"
 #include "panels/song_timeline/song_timeline_track.c"
@@ -124,32 +114,20 @@
 #include "panels/plugin_editor.c"
 #include "panels/automation_list.c"
 
-#include "panels/resource_editor/midi/note_map.h"
 #include "panels/resource_editor/midi/note_map.c"
-#include "panels/resource_editor/midi/piano_keys.h"
 #include "panels/resource_editor/midi/piano_keys.c"
-#include "panels/resource_editor/midi/midi_view.h"
-#include "panels/resource_editor/midi/midi_editor.h"
-#include "panels/resource_editor/midi/midi_grid.h"
+#include "panels/resource_editor/midi/midi_view.c"
 #include "panels/resource_editor/midi/midi_grid.c"
-#include "panels/resource_editor/midi/midi_notes.h"
 #include "panels/resource_editor/midi/midi_notes.c"
-#include "panels/resource_editor/midi/midi_note_input.h"
 #include "panels/resource_editor/midi/midi_note_input.c"
-#include "panels/resource_editor/midi/midi_velocity.h"
 #include "panels/resource_editor/midi/midi_velocity.c"
-#include "panels/resource_editor/midi/midi_pedal.h"
 #include "panels/resource_editor/midi/midi_pedal.c"
-#include "panels/resource_editor/midi/midi_toolbar.h"
 #include "panels/resource_editor/midi/midi_toolbar.c"
-#include "panels/resource_editor/midi/midi_menu_bar.h"
 #include "panels/resource_editor/midi/midi_menu_bar.c"
 #include "panels/resource_editor/midi/midi_editor.c"
 
-#include "panels/resource_editor/sample/sample_editor.h"
 #include "panels/resource_editor/sample/sample_editor.c"
 
-#include "panels/resource_editor/automation/automation_editor.h"
 #include "panels/resource_editor/automation/automation_editor.c"
 
 #include "panels/resource_editor.c"

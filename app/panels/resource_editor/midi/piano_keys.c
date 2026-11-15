@@ -1,7 +1,112 @@
-#define UPH_PIANO_LABEL_FONT_SIZE 16.0f
-#define UPH_PIANO_LABEL_MIN_FONT_SIZE 9.0f
+#define UPH_PIANO_LABEL_FONT_SIZE 16
+#define UPH_PIANO_LABEL_MIN_FONT_SIZE 9
 #define UPH_PIANO_LABEL_ALIGNMENT LEAF_TEXT_ALIGN_RIGHT
-#define UPH_PIANO_LABEL_EDGE_PADDING 8.0f
+#define UPH_PIANO_LABEL_EDGE_PADDING 8
+#define UPH_KEY_BITSET_BITS_PER_WORD (sizeof(uint64_t) * 8)
+#define UPH_KEY_BITSET_WORD_COUNT ((UPH_NOTE_MAP_KEY_COUNT + UPH_KEY_BITSET_BITS_PER_WORD - 1) / UPH_KEY_BITSET_BITS_PER_WORD)
+
+typedef uint64_t Uph_KeyBitset[UPH_KEY_BITSET_WORD_COUNT];
+
+typedef struct
+{
+	float key_length;
+	float black_key_length_ratio;
+	float black_key_height_ratio;
+	float white_key_border_alpha;
+	float white_key_border_thick;
+	float black_key_border_alpha;
+	float black_key_border_thick;
+	float octave_border_alpha;
+	float octave_border_thick;
+}
+Uph_PianoStyle;
+
+typedef struct
+{
+	Uph_PianoStyle style;
+	Uph_KeyBitset external_keys;
+	int16_t mouse_key;
+	bool mouse_active;
+}
+Uph_Piano;
+
+typedef struct
+{
+	Leaf_BoundingBox box;
+	float lane_height;
+	float scroll_y;
+}
+Uph_PianoCanvas;
+
+typedef struct
+{
+	float top;
+	float bottom;
+	float width;
+	bool accidental;
+}
+Uph_PianoKeyRect;
+
+typedef struct
+{
+	int16_t pressed;
+	int16_t released;
+}
+Uph_PianoEvents;
+
+static inline bool uph_key_bitset_get(const Uph_KeyBitset set, uint8_t key)
+{
+	return (set[key / UPH_KEY_BITSET_BITS_PER_WORD] >> (key % UPH_KEY_BITSET_BITS_PER_WORD)) & 1u;
+}
+
+static inline void uph_key_bitset_set(Uph_KeyBitset set, uint8_t key, bool pressed)
+{
+	const uint64_t mask = (uint64_t)1u << (key % UPH_KEY_BITSET_BITS_PER_WORD);
+	uint64_t *word = &set[key / UPH_KEY_BITSET_BITS_PER_WORD];
+	*word = pressed ? (*word | mask) : (*word & ~mask);
+}
+
+static inline void uph_key_bitset_clear(Uph_KeyBitset set)
+{
+	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
+		set[i] = 0;
+}
+
+static inline void uph_key_bitset_copy(Uph_KeyBitset dst, const Uph_KeyBitset src)
+{
+	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
+		dst[i] = src[i];
+}
+
+static inline bool uph_key_bitset_was_pressed(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+	return !uph_key_bitset_get(prev, key) && uph_key_bitset_get(current, key);
+}
+
+static inline bool uph_key_bitset_was_released(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
+{
+	return uph_key_bitset_get(prev, key) && !uph_key_bitset_get(current, key);
+}
+
+static inline Uph_PianoStyle uph_piano_default_style(void)
+{
+	return (Uph_PianoStyle) {
+		.key_length = 100.0f,
+		.black_key_length_ratio = 0.55f,
+		.black_key_height_ratio = 0.55f,
+		.white_key_border_alpha = 120.0f,
+		.white_key_border_thick = 0.8f,
+		.black_key_border_alpha = 255.0f,
+		.black_key_border_thick = 1.0f,
+		.octave_border_alpha = 220.0f,
+		.octave_border_thick = 1.2f
+	};
+}
+
+static inline float uph_piano_width(const Uph_Piano *piano)
+{
+	return NAUI_DPI(piano->style.key_length);
+}
 
 static const float _uph_piano_accidental_offsets[UPH_NOTES_PER_OCTAVE] =
 {
@@ -221,7 +326,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 {
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
-	const float rounding = NAUI_DPI(2.0f);
+	const int32_t rounding = NAUI_DPI(2);
 	const Leaf_Color border_color = naui_theme_color("uph_piano_sharp_border_color");
 	const Leaf_Color shine_color = naui_theme_color("uph_piano_sharp_shine_color");
 
@@ -255,13 +360,13 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 		outline.a = _uph_piano_scale_alpha(border_color.a, style->black_key_border_alpha);
 		naui_draw_rect(position, size, outline, NAUI_DPI(style->black_key_border_thick), rounding, NAUI_CORNER_TR | NAUI_CORNER_BR, NAUI_SIDE_ALL);
 
-		if (!pressed && size.y > NAUI_DPI(7.0f))
+		if (!pressed && size.y > NAUI_DPI(7))
 		{
 			naui_fill_rect(
 				(Naui_Vec2) { box.x + NAUI_DPI(1.5f), top + NAUI_DPI(1.5f) },
-				(Naui_Vec2) { NAUI_DPI(2.0f), size.y - NAUI_DPI(3.0f) },
+				(Naui_Vec2) { NAUI_DPI(2), size.y - NAUI_DPI(3) },
 				shine_color,
-				NAUI_DPI(1.0f),
+				NAUI_DPI(1),
 				NAUI_CORNER_TR | NAUI_CORNER_BR
 			);
 		}
@@ -283,7 +388,7 @@ static float _uph_piano_text_x(float anchor_x, float text_width, Leaf_TextAlignm
 static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Leaf_BoundingBox box = canvas->box;
-	const float font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
+	const int32_t font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
 	const Leaf_Color label_color = naui_theme_color("uph_piano_label_color");
 	const Leaf_Color sharp_label_color = naui_theme_color("uph_piano_sharp_label_color");
 
@@ -299,7 +404,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 
 		const float top = box.y + rect.top - canvas->scroll_y;
 		const float bottom = box.y + rect.bottom - canvas->scroll_y;
-		const float label_font_size = fminf(font_size, bottom - top - NAUI_DPI(3.0f));
+		const float label_font_size = fminf(font_size, bottom - top - NAUI_DPI(3));
 		if (label_font_size < NAUI_DPI(UPH_PIANO_LABEL_MIN_FONT_SIZE))
 			continue;
 
@@ -326,7 +431,7 @@ void uph_piano_render(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_
 		(Naui_Vec2) { box.x + box.width, box.y },
 		(Naui_Vec2) { box.x + box.width, box.y + box.height },
 		naui_theme_color("uph_timeline_top_ruler_border_color"),
-		NAUI_DPI(2.0f)
+		NAUI_DPI(2)
 	);
 
 	naui_pop_clip_rect();

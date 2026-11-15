@@ -1,10 +1,10 @@
 NAUI_PANEL(uph_render)
 
 #define UPH_RENDER_FILE_DIALOG_KEY "uph_render_audio"
-#define UPH_RENDER_PANEL_WIDTH 460.0f
-#define UPH_RENDER_PANEL_HEIGHT 380.0f
-#define UPH_RENDER_LABEL_WIDTH 130.0f
-#define UPH_RENDER_ROW_HEIGHT 28.0f
+#define UPH_RENDER_PANEL_WIDTH 460
+#define UPH_RENDER_PANEL_HEIGHT 380
+#define UPH_RENDER_LABEL_WIDTH 130
+#define UPH_RENDER_ROW_HEIGHT 28
 #define UPH_RENDER_TAIL_MAX 30.0f
 #define UPH_RENDER_FRAME_BUDGET (1.0 / 90.0)
 
@@ -72,27 +72,27 @@ static Uph_RenderSettings _uph_render_settings(void)
 static void _uph_render_row_begin(const char *label)
 {
 	leaf_begin_element((Leaf_ElementConfig){
-		.size = { LEAF_SIZE_GROW, LEAF_SIZE_FIXED(NAUI_DPI(UPH_RENDER_ROW_HEIGHT)) },
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(12.0f)
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_RENDER_ROW_HEIGHT)) },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(12),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	});
 
 	leaf({
-		.size = { LEAF_SIZE_FIXED(NAUI_DPI(UPH_RENDER_LABEL_WIDTH)), LEAF_SIZE_FULL },
-		.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_RENDER_LABEL_WIDTH)), .height = LEAF_SIZE_FULL },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.clip_children = true
 	})
 	leaf_text(label, {
-		.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
-		.color = naui_theme_color("uph_ui_text_color")
+		.color = naui_theme_color("uph_ui_text_color"),
+		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 
 	leaf_begin_element((Leaf_ElementConfig){
-		.size = { LEAF_SIZE_GROW, LEAF_SIZE_FULL },
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(8.0f)
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(8),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	});
 }
 
@@ -182,12 +182,12 @@ static void _uph_render_options(void)
 		megabytes);
 
 	leaf({
-		.size = { LEAF_SIZE_GROW, LEAF_SIZE_FIT },
-		.padding = { .top = NAUI_DPI(6.0f) }
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+		.padding = { .top = NAUI_DPI(6) }
 	})
 	leaf_text(info, {
-		.font_size = { NAUI_DPI(UPH_UI_FONT_SIZE) },
-		.color = naui_theme_color("naui_panel_text_color")
+		.color = naui_theme_color("naui_panel_text_color"),
+		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 }
 
@@ -209,6 +209,7 @@ static void _uph_render_progress_closed(int32_t button, void *user_data)
 
 static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
+	Uph_ProjectRenderState *state = &_uph_project_render_state;
 	if (is_cancelled || result->count == 0)
 		return;
 
@@ -219,7 +220,7 @@ static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_
 		return;
 	}
 
-	_uph_project_render_state.progress = 0.0f;
+	state->progress = 0.0f;
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("render.progress.title"),
 		.message = NAUI_TR("render.progress.message"),
@@ -227,17 +228,18 @@ static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_
 		.default_button = -1,
 		.cancel_button = 0,
 		.callback = _uph_render_progress_closed,
-		.progress = &_uph_project_render_state.progress
+		.progress = &state->progress
 	});
 }
 
 void uph_render_update(void)
 {
+	Uph_ProjectRenderState *state = &_uph_project_render_state;
 	if (!uph_audio_engine_render_active())
 		return;
 
 	const Uph_RenderStatus status = uph_audio_engine_render_step(UPH_RENDER_FRAME_BUDGET);
-	_uph_project_render_state.progress = uph_audio_engine_render_progress();
+	state->progress = uph_audio_engine_render_progress();
 
 	if (status == UPH_RENDER_STATUS_RUNNING)
 		return;
@@ -307,23 +309,23 @@ static void uph_render_on_update(void)
 	bool cancel = false;
 
 	leaf({
-		.size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
-		.direction = LEAF_DIRECTION_VERTICAL,
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(18.0f), NAUI_DPI(14.0f)),
-		.child_gap = NAUI_DPI(4.0f),
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(18), NAUI_DPI(14)),
 		.color = naui_theme_color("naui_panel_title_bg_color"),
+		.child_gap = NAUI_DPI(4),
+		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
 	})
 	{
 		_uph_render_options();
 
-		leaf({ .size = { LEAF_SIZE_GROW, LEAF_SIZE_GROW } });
+		leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW } });
 
 		leaf({
-			.size = { LEAF_SIZE_GROW, LEAF_SIZE_FIT },
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.child_alignment = { LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(8.0f)
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(8),
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			cancel = uph_ui_text_button(NAUI_TR("dialog.cancel"), leaf_id("uph_render_cancel"));

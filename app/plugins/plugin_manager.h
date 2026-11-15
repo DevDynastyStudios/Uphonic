@@ -1,74 +1,36 @@
-#if NAUI_WINDOWS
-    #define UPH_VST2_EXTENSION ".dll"
-#else
-    #define UPH_VST2_EXTENSION ".so"
-#endif
-
-bool                uph_plugin_format_from_path (Naui_Path path, Uph_PluginFormat *format);
-
-Uph_Plugin          uph_plugin_load             (Naui_Path path, bool show_window);
-void                uph_plugin_unload           (Uph_Plugin *plugin);
-void                uph_plugin_update           (Uph_Plugin *plugin);
-
-void                uph_plugin_hide_window      (Uph_Plugin *plugin);
-void                uph_plugin_show_window      (Uph_Plugin *plugin);
-
-bool                uph_plugin_window_visible   (Uph_Plugin *plugin);
-
-typedef struct Uph_PluginInternalHandle_ Uph_PluginInternalHandle;
-
-const char         *uph_plugin_gui_title        (Uph_PluginInternalHandle *handle);
-void                uph_plugin_gui_size         (Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height);
-Naui_Texture        uph_plugin_gui_texture      (Uph_PluginInternalHandle *handle, uint32_t *width, uint32_t *height);
-void                uph_plugin_gui_set_origin   (Uph_PluginInternalHandle *handle, int32_t x, int32_t y);
-#if NAUI_LINUX
-void                uph_plugin_gui_mouse_move   (Uph_PluginInternalHandle *handle, int32_t x, int32_t y);
-void                uph_plugin_gui_mouse_button (Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y);
-void                uph_plugin_gui_mouse_scroll (Uph_PluginInternalHandle *handle, int32_t delta, int32_t x, int32_t y);
-#elif NAUI_WINDOWS
-void                uph_plugin_gui_native_input (Uph_PluginInternalHandle *handle, bool enabled);
-#endif
-void                uph_plugin_gui_closed       (Uph_PluginInternalHandle *handle);
-
-void uph_plugin_queue_note_event(
-    Uph_Plugin *effect,
-    bool note_on,
-    uint8_t key,
-    int16_t channel,
-    uint8_t velocity,
-    uint32_t sample_offset
+bool uph_plugin_format_from_path(
+	Naui_Path path,
+	Uph_PluginFormat *format
 );
 
-void uph_plugin_queue_param_change(
-    Uph_Plugin *plug,
-    clap_id param_id,
-    double value,
-    uint32_t sample_offset
+Uph_Plugin uph_plugin_load(
+	Naui_Path path,
+	bool show_window
 );
 
-void uph_plugin_queue_stop_all(Uph_Plugin *plugin, uint32_t sample_offset);
-void uph_plugin_queue_midi_cc(Uph_Plugin *plugin, uint8_t channel, uint8_t cc, uint8_t value, uint32_t sample_offset);
-uint8_t uph_plugin_cc_value(Uph_Plugin *plugin, uint8_t cc);
-bool uph_plugin_note_active(Uph_Plugin *plugin, uint8_t key);
-
-void uph_plugin_process(
-    Uph_Plugin *plug,
-    float **inputs,
-    float **outputs,
-    uint32_t frame_count,
-    double playhead_beat,
-    bool is_playing
+void uph_plugin_show_window(
+	Uph_Plugin *plugin
 );
 
-bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path);
-bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path);
+void uph_plugin_queue_midi_cc(
+	Uph_Plugin *plugin,
+	uint8_t channel,
+	uint8_t cc,
+	uint8_t value,
+	uint32_t sample_offset
+);
 
-// ONLY init/deinit a DSO that is loaded or being loaded on the main thread
-void                uph_plugin_modules_init     (void);
-void                uph_plugin_modules_shutdown (void);
-bool                uph_plugin_module_scan_begin(Naui_Path path);
-void                uph_plugin_module_scan_end  (void);
+uint8_t uph_plugin_cc_value(
+	Uph_Plugin *plugin,
+	uint8_t cc
+);
 
-// Prefetch and read the plugin binary
-void                uph_plugin_prefetch         (Naui_Path path, const atomic_bool *cancel);
-void                uph_plugin_prefetch_abort   (void);
+bool uph_plugin_save_state(
+	const Uph_Plugin *plug,
+	const Naui_Path path
+);
+
+bool uph_plugin_load_state(
+	Uph_Plugin *plug,
+	const Naui_Path path
+);

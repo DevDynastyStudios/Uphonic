@@ -1,20 +1,29 @@
-#define UPH_MIDI_NOTE_VELOCITY_BAR_HEIGHT 3.0f
-#define UPH_MIDI_NOTE_VELOCITY_BAR_INSET 2.0f
+#define UPH_MIDI_NOTE_VELOCITY_BAR_HEIGHT 3
+#define UPH_MIDI_NOTE_VELOCITY_BAR_INSET 2
 #define UPH_MIDI_NOTE_VELOCITY_BAR_MAX_LANE_RATIO 0.25f
-#define UPH_MIDI_NOTE_VELOCITY_BAR_MIN_LANE_HEIGHT 10.0f
+#define UPH_MIDI_NOTE_VELOCITY_BAR_MIN_LANE_HEIGHT 10
 #define UPH_MIDI_NOTE_VELOCITY_TRACK_DARKEN_MIX 0.45f
 #define UPH_MIDI_NOTE_VELOCITY_FILL_LIGHTEN_MIX 0.60f
+#define UPH_MIDI_EDITOR_VELOCITY_MAX 127
+
+typedef struct
+{
+	double start_beat;
+	float start_content_y;
+	bool active;
+}
+Uph_NoteMarqueeState;
 
 void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_MidiPattern *pattern)
 {
 	const float lane_height = uph_midi_view_lane_height(view);
 	const bool show_velocity_bar = lane_height >= NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_MIN_LANE_HEIGHT);
 	const float velocity_bar_height = fminf(NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_HEIGHT), lane_height * UPH_MIDI_NOTE_VELOCITY_BAR_MAX_LANE_RATIO);
-	const float velocity_bar_inset = NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_INSET);
+	const int32_t velocity_bar_inset = NAUI_DPI(UPH_MIDI_NOTE_VELOCITY_BAR_INSET);
 	const float velocity_bar_reserved = show_velocity_bar ? velocity_bar_height + velocity_bar_inset : 0.0f;
-	const float note_label_font_size = fminf(NAUI_DPI(11.0f), (lane_height - velocity_bar_reserved) * (show_velocity_bar ? 0.9f : 0.8f));
-	const float note_label_padding = NAUI_DPI(3.0f);
-	const float note_rounding = NAUI_DPI(3.0f);
+	const float note_label_font_size = fminf(NAUI_DPI(11), (lane_height - velocity_bar_reserved) * (show_velocity_bar ? 0.9f : 0.8f));
+	const int32_t note_label_padding = NAUI_DPI(3);
+	const int32_t note_rounding = NAUI_DPI(3);
 	const Leaf_Color note_label_color = LEAF_COLOR_WHITE;
 	const Leaf_Color note_color = uph_midi_view_note_color();
 	Leaf_Color velocity_track_color = uph_color_mix(note_color, LEAF_COLOR_BLACK, UPH_MIDI_NOTE_VELOCITY_TRACK_DARKEN_MIX);
@@ -56,14 +65,14 @@ void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const
 				(Naui_Vec2) { note_x, y_position },
 				(Naui_Vec2) { note_width, lane_height },
 				naui_theme_color("uph_selection_outline_color"),
-				NAUI_DPI(2.0f),
+				NAUI_DPI(2),
 				note_rounding,
 				LEAF_CORNER_ALL,
 				NAUI_SIDE_ALL
 			);
 		}
 
-		if (note_label_font_size >= NAUI_DPI(6.0f) && note->key_number < UPH_NOTE_MAP_KEY_COUNT)
+		if (note_label_font_size >= NAUI_DPI(6) && note->key_number < UPH_NOTE_MAP_KEY_COUNT)
 		{
 			naui_push_clip_rect(note_x, y_position, note_width, lane_height);
 			naui_draw_text(
@@ -94,7 +103,7 @@ void uph_midi_notes_render_marquee(const Uph_MidiView *view, Leaf_BoundingBox bo
 	fill_color.a = 30;
 	border_color.a = 160;
 	naui_fill_rect(top_left, size, fill_color, 0.0f, NAUI_CORNER_NONE);
-	naui_draw_rect(top_left, size, border_color, NAUI_DPI(1.0f), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
+	naui_draw_rect(top_left, size, border_color, NAUI_DPI(1), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
 }
 
 void uph_midi_notes_render_cut_line(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)

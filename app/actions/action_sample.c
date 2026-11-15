@@ -1,6 +1,13 @@
 typedef struct
 {
 	Uph_ResourceIndex resource_index;
+	Uph_ActionSampleSettings old_settings;
+	Uph_ActionSampleSettings new_settings;
+} Uph_ActionSampleEdit;
+
+typedef struct
+{
+	Uph_ResourceIndex resource_index;
 	Uph_Sample sample;
 	Uph_SampleData data;
 	Uph_ResourceIndex data_index;

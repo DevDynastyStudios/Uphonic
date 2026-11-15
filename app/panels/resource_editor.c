@@ -28,13 +28,13 @@ static void uph_resource_editor_on_close(void)
 static void uph_midi_editor_render_empty(const char *message)
 {
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 	})
 	{
 		leaf_text(message, {
 			.color = naui_theme_color("uph_ui_text_color"),
-			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
+			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}
 }

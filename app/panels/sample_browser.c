@@ -3,10 +3,10 @@ NAUI_PANEL(uph_sample_browser)
 #define UPH_SAMPLE_BROWSER_ADD_FOLDER_DIALOG_KEY "uph_sample_browser_add_folder"
 #define UPH_SAMPLE_BROWSER_MAX_NODES 500000u
 #define UPH_SAMPLE_BROWSER_MAX_DEPTH 32
-#define UPH_SAMPLE_BROWSER_ROW_HEIGHT 22.0f
-#define UPH_SAMPLE_BROWSER_INDENT 14.0f
-#define UPH_SAMPLE_BROWSER_CLICK_THRESHOLD 4.0f
-#define UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT 56.0f
+#define UPH_SAMPLE_BROWSER_ROW_HEIGHT 22
+#define UPH_SAMPLE_BROWSER_INDENT 14
+#define UPH_SAMPLE_BROWSER_CLICK_THRESHOLD 4
+#define UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT 56
 #define UPH_SAMPLE_BROWSER_NONE UINT32_MAX
 
 typedef uint8_t Uph_SampleBrowserNodeFlags;
@@ -63,7 +63,7 @@ typedef struct
 }
 Uph_SampleBrowserEntry;
 
-static struct
+typedef struct
 {
 	Uph_SampleBrowserIndex index;
 	Uph_SampleBrowserScan *scan;
@@ -88,7 +88,9 @@ static struct
 	uint32_t pressed_node;
 	Naui_Vec2 press_mouse;
 }
-_uph_sample_browser_state = {
+Uph_SampleBrowserState;
+
+static Uph_SampleBrowserState _uph_sample_browser_state = {
 	.selected = UPH_SAMPLE_BROWSER_NONE,
 	.context_node = UPH_SAMPLE_BROWSER_NONE,
 	.pressed_node = UPH_SAMPLE_BROWSER_NONE
@@ -309,27 +311,29 @@ static void _uph_sample_browser_scan_free(Uph_SampleBrowserScan *scan)
 
 static void _uph_sample_browser_cancel_scan(void)
 {
-	if (!_uph_sample_browser_state.scan)
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	if (!state->scan)
 		return;
 
-	atomic_store(&_uph_sample_browser_state.scan->cancel, true);
-	if (naui_job_is_valid(_uph_sample_browser_state.scan_job))
-		naui_job_wait(_uph_sample_browser_state.scan_job);
+	atomic_store(&state->scan->cancel, true);
+	if (naui_job_is_valid(state->scan_job))
+		naui_job_wait(state->scan_job);
 
-	_uph_sample_browser_scan_free(_uph_sample_browser_state.scan);
-	_uph_sample_browser_state.scan = NULL;
-	_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
+	_uph_sample_browser_scan_free(state->scan);
+	state->scan = NULL;
+	state->scan_job = NAUI_JOB_INVALID;
 }
 
 static void _uph_sample_browser_start_scan(void)
 {
-	if (_uph_sample_browser_state.scan)
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	if (state->scan)
 	{
-		_uph_sample_browser_state.rescan_requested = true;
+		state->rescan_requested = true;
 		return;
 	}
 
-	_uph_sample_browser_state.rescan_requested = false;
+	state->rescan_requested = false;
 
 	Uph_SampleBrowserScan *scan = calloc(1, sizeof(Uph_SampleBrowserScan));
 	if (!scan)
@@ -340,15 +344,15 @@ static void _uph_sample_browser_start_scan(void)
 
 	atomic_init(&scan->cancel, false);
 
-	if (naui_job_submit(&_uph_sample_browser_state.scan_job, _uph_sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&state->scan_job, _uph_sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
 	{
 		naui_log(NAUI_LOG_WARNING, "Sample browser: couldn't queue folder scan");
 		_uph_sample_browser_scan_free(scan);
-		_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
+		state->scan_job = NAUI_JOB_INVALID;
 		return;
 	}
 
-	_uph_sample_browser_state.scan = scan;
+	state->scan = scan;
 }
 
 static uint32_t _uph_sample_browser_find_path(const Uph_SampleBrowserIndex *index, const char *path)
@@ -364,7 +368,8 @@ static uint32_t _uph_sample_browser_find_path(const Uph_SampleBrowserIndex *inde
 
 static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 {
-	Uph_SampleBrowserIndex *old = &_uph_sample_browser_state.index;
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserIndex *old = &state->index;
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(old->nodes); i++)
 	{
@@ -377,35 +382,36 @@ static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 	}
 
 	uint32_t selected = UPH_SAMPLE_BROWSER_NONE;
-	if (_uph_sample_browser_state.selected < (uint32_t)naui_list_len(old->nodes))
-		selected = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, _uph_sample_browser_state.selected));
+	if (state->selected < (uint32_t)naui_list_len(old->nodes))
+		selected = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, state->selected));
 
 	_uph_sample_browser_index_free(old);
 	*old = *fresh;
 	*fresh = (Uph_SampleBrowserIndex){ 0 };
 
-	_uph_sample_browser_state.selected = selected;
-	_uph_sample_browser_state.context_node = UPH_SAMPLE_BROWSER_NONE;
-	_uph_sample_browser_state.rows_dirty = true;
+	state->selected = selected;
+	state->context_node = UPH_SAMPLE_BROWSER_NONE;
+	state->rows_dirty = true;
 }
 
 static void _uph_sample_browser_poll_scan(void)
 {
-	Uph_SampleBrowserScan *scan = _uph_sample_browser_state.scan;
-	if (!scan || !naui_job_is_done(_uph_sample_browser_state.scan_job))
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserScan *scan = state->scan;
+	if (!scan || !naui_job_is_done(state->scan_job))
 		return;
 
-	naui_job_release(_uph_sample_browser_state.scan_job);
-	_uph_sample_browser_state.scan_job = NAUI_JOB_INVALID;
+	naui_job_release(state->scan_job);
+	state->scan_job = NAUI_JOB_INVALID;
 
 	if (scan->result.truncated)
 		naui_log(NAUI_LOG_WARNING, "Sample browser: index truncated at %u entries", UPH_SAMPLE_BROWSER_MAX_NODES);
 
 	_uph_sample_browser_adopt_index(&scan->result);
 	_uph_sample_browser_scan_free(scan);
-	_uph_sample_browser_state.scan = NULL;
+	state->scan = NULL;
 
-	if (_uph_sample_browser_state.rescan_requested)
+	if (state->rescan_requested)
 		_uph_sample_browser_start_scan();
 }
 
@@ -477,31 +483,33 @@ static void _uph_sample_browser_load_job(void *data, char *err_buf, size_t err_s
 
 static void _uph_sample_browser_start_load(const Naui_Path path)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	Uph_SampleBrowserLoad *load = calloc(1, sizeof(Uph_SampleBrowserLoad));
 	if (!load)
 		return;
 
 	load->path = path;
-	if (naui_job_submit(&_uph_sample_browser_state.load_job, _uph_sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&state->load_job, _uph_sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
 	{
 		free(load);
-		_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
+		state->load_job = NAUI_JOB_INVALID;
 		return;
 	}
 
-	_uph_sample_browser_state.load = load;
+	state->load = load;
 }
 
 static void _uph_sample_browser_preview(const char *path)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	const Naui_Path target = naui_path_from_cstr(path);
 	uph_audio_engine_preview_stop();
 
-	if (_uph_sample_browser_state.load)
+	if (state->load)
 	{
-		_uph_sample_browser_state.load_cancelled = false;
-		_uph_sample_browser_state.load_next = target;
-		_uph_sample_browser_state.load_next_pending = true;
+		state->load_cancelled = false;
+		state->load_next = target;
+		state->load_next_pending = true;
 		return;
 	}
 
@@ -517,21 +525,22 @@ static void _uph_sample_browser_preview(const char *path)
 
 static void _uph_sample_browser_poll_load(void)
 {
-	Uph_SampleBrowserLoad *load = _uph_sample_browser_state.load;
-	if (!load || !naui_job_is_done(_uph_sample_browser_state.load_job))
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserLoad *load = state->load;
+	if (!load || !naui_job_is_done(state->load_job))
 		return;
 
-	naui_job_release(_uph_sample_browser_state.load_job);
-	_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
-	_uph_sample_browser_state.load = NULL;
+	naui_job_release(state->load_job);
+	state->load_job = NAUI_JOB_INVALID;
+	state->load = NULL;
 
-	const bool stale = _uph_sample_browser_state.load_next_pending;
-	const bool cancelled = _uph_sample_browser_state.load_cancelled;
-	_uph_sample_browser_state.load_cancelled = false;
+	const bool stale = state->load_next_pending;
+	const bool cancelled = state->load_cancelled;
+	state->load_cancelled = false;
 	if (!stale && !cancelled && uph_audio_engine_preview_source_valid(&load->source))
 	{
 		uph_audio_engine_preview_play(load->source);
-		_uph_sample_browser_state.previewing = load->path;
+		state->previewing = load->path;
 	}
 	else
 		uph_audio_engine_preview_close(&load->source);
@@ -540,8 +549,8 @@ static void _uph_sample_browser_poll_load(void)
 
 	if (stale)
 	{
-		_uph_sample_browser_state.load_next_pending = false;
-		_uph_sample_browser_preview(_uph_sample_browser_state.load_next.data);
+		state->load_next_pending = false;
+		_uph_sample_browser_preview(state->load_next.data);
 	}
 }
 
@@ -555,7 +564,7 @@ static void _uph_sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_Pr
 	if (bin_count == 0 || ready_count == 0)
 		return;
 
-	const float inset = NAUI_DPI(3.0f);
+	const int32_t inset = NAUI_DPI(3);
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 	uph_ui_waveform_peaks(
 		(Naui_Vec2){ box.x, box.y + inset },
@@ -570,7 +579,7 @@ static void _uph_sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_Pr
 	if (uph_audio_engine_preview_playing())
 	{
 		const float progress = (float)NAUI_CLAMP(uph_audio_engine_preview_progress(), 0.0, 1.0);
-		naui_fill_rect((Naui_Vec2){ box.x + progress * box.width, box.y }, (Naui_Vec2){ NAUI_DPI(2.0f), box.height }, naui_theme_color("naui_panel_tab_accent_color"), 0, NAUI_CORNER_NONE);
+		naui_fill_rect((Naui_Vec2){ box.x + progress * box.width, box.y }, (Naui_Vec2){ NAUI_DPI(2), box.height }, naui_theme_color("naui_panel_tab_accent_color"), 0, NAUI_CORNER_NONE);
 	}
 	naui_pop_clip_rect();
 }
@@ -603,14 +612,15 @@ static void _uph_sample_browser_render_drag(const void *payload)
 
 static void _uph_sample_browser_stop_on_playback(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	static bool was_playing;
 	const bool playing = uph_state.shared.song_timeline_playing || uph_midi_preview_playing();
 	if (playing && !was_playing)
 	{
 		uph_audio_engine_preview_stop();
-		_uph_sample_browser_state.load_next_pending = false;
-		if (_uph_sample_browser_state.load)
-			_uph_sample_browser_state.load_cancelled = true;
+		state->load_next_pending = false;
+		if (state->load)
+			state->load_cancelled = true;
 	}
 
 	was_playing = playing;
@@ -668,9 +678,10 @@ static bool _uph_sample_browser_matches(const char *name, const char *query)
 
 static bool _uph_sample_browser_searching(void)
 {
-	for (size_t i = 0; i < _uph_sample_browser_state.filter.length; i++)
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	for (size_t i = 0; i < state->filter.length; i++)
 	{
-		if (_uph_sample_browser_state.filter.data[i] != ' ')
+		if (state->filter.data[i] != ' ')
 			return true;
 	}
 
@@ -679,8 +690,9 @@ static bool _uph_sample_browser_searching(void)
 
 static void _uph_sample_browser_push_tree(uint32_t node)
 {
-	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
-	naui_list_push(_uph_sample_browser_state.rows, node);
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	const Uph_SampleBrowserIndex *index = &state->index;
+	naui_list_push(state->rows, node);
 
 	const Uph_SampleBrowserNode *info = &index->nodes[node];
 	if (!(info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
@@ -692,15 +704,16 @@ static void _uph_sample_browser_push_tree(uint32_t node)
 
 static void _uph_sample_browser_rebuild_rows(void)
 {
-	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
-	naui_list_clear(_uph_sample_browser_state.rows);
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	const Uph_SampleBrowserIndex *index = &state->index;
+	naui_list_clear(state->rows);
 
 	if (_uph_sample_browser_searching())
 	{
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(index->nodes); i++)
 		{
-			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && _uph_sample_browser_matches(_uph_sample_browser_node_name(index, i), _uph_sample_browser_state.filter.data))
-				naui_list_push(_uph_sample_browser_state.rows, i);
+			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && _uph_sample_browser_matches(_uph_sample_browser_node_name(index, i), state->filter.data))
+				naui_list_push(state->rows, i);
 		}
 	}
 	else
@@ -709,14 +722,15 @@ static void _uph_sample_browser_rebuild_rows(void)
 			_uph_sample_browser_push_tree(i);
 	}
 
-	_uph_sample_browser_state.rows_dirty = false;
+	state->rows_dirty = false;
 }
 
 static int32_t _uph_sample_browser_row_of(uint32_t node)
 {
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_sample_browser_state.rows); i++)
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->rows); i++)
 	{
-		if (_uph_sample_browser_state.rows[i] == node)
+		if (state->rows[i] == node)
 			return (int32_t)i;
 	}
 
@@ -730,36 +744,40 @@ static bool _uph_sample_browser_is_dir(uint32_t node)
 
 static void _uph_sample_browser_set_expanded(uint32_t node, bool expanded)
 {
-	Uph_SampleBrowserNode *info = &_uph_sample_browser_state.index.nodes[node];
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserNode *info = &state->index.nodes[node];
 	const bool was_expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
 	if (was_expanded == expanded)
 		return;
 
 	info->flags ^= UPH_SAMPLE_BROWSER_NODE_EXPANDED;
-	_uph_sample_browser_state.rows_dirty = true;
+	state->rows_dirty = true;
 }
 
 static void _uph_sample_browser_select(uint32_t node, bool preview)
 {
-	_uph_sample_browser_state.selected = node;
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	state->selected = node;
 	if (preview && !_uph_sample_browser_is_dir(node) && uph_state.settings.browser.auto_preview)
-		_uph_sample_browser_preview(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node));
+		_uph_sample_browser_preview(_uph_sample_browser_node_path(&state->index, node));
 }
 
 static void _uph_sample_browser_activate(uint32_t node)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	if (_uph_sample_browser_is_dir(node))
 	{
-		_uph_sample_browser_set_expanded(node, !(_uph_sample_browser_state.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
+		_uph_sample_browser_set_expanded(node, !(state->index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
 		return;
 	}
 
-	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node)), NULL, NULL);
+	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&state->index, node)), NULL, NULL);
 }
 
 static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t out_size)
 {
-	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	const Uph_SampleBrowserIndex *index = &state->index;
 	out[0] = '\0';
 
 	const uint32_t parent = index->nodes[node].parent;
@@ -778,14 +796,15 @@ static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t
 
 static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bool searching, float row_height)
 {
-	const Uph_SampleBrowserIndex *index = &_uph_sample_browser_state.index;
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	const Uph_SampleBrowserIndex *index = &state->index;
 	const Uph_SampleBrowserNode *info = &index->nodes[node];
 	const bool is_dir = (info->flags & UPH_SAMPLE_BROWSER_NODE_DIR) != 0;
 	const bool expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
+	const bool selected = state->selected == node;
+	const bool previewing = !is_dir && strcmp(state->previewing.data, _uph_sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
 	const Leaf_ID row_id = leaf_id_indexed("uph_sample_browser_row", node);
 	const bool hovered = uph_ui_widget_hovered(row_id);
-	const bool selected = _uph_sample_browser_state.selected == node;
-	const bool previewing = !is_dir && strcmp(_uph_sample_browser_state.previewing.data, _uph_sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
 
 	if (hovered)
 	{
@@ -794,31 +813,31 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 		{
 			if (is_dir)
 			{
-				_uph_sample_browser_state.selected = node;
+				state->selected = node;
 				_uph_sample_browser_set_expanded(node, !expanded);
 			}
 			else
 			{
 				_uph_sample_browser_select(node, false);
-				_uph_sample_browser_state.pressed_node = node;
-				_uph_sample_browser_state.press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
+				state->pressed_node = node;
+				state->press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
 				const Naui_Path path = naui_path_from_cstr(_uph_sample_browser_node_path(index, node));
 				uph_drag_begin(UPH_DRAG_TYPE_SAMPLE_FILE, &path, sizeof(path), _uph_sample_browser_render_drag);
 			}
 		}
-		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && _uph_sample_browser_state.pressed_node == node)
+		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && state->pressed_node == node)
 		{
-			const float dx = (float)naui_mouse_x() - _uph_sample_browser_state.press_mouse.x;
-			const float dy = (float)naui_mouse_y() - _uph_sample_browser_state.press_mouse.y;
-			const float threshold = NAUI_DPI(UPH_SAMPLE_BROWSER_CLICK_THRESHOLD);
+			const float dx = (float)naui_mouse_x() - state->press_mouse.x;
+			const float dy = (float)naui_mouse_y() - state->press_mouse.y;
+			const int32_t threshold = NAUI_DPI(UPH_SAMPLE_BROWSER_CLICK_THRESHOLD);
 			if (dx * dx + dy * dy < threshold * threshold)
 				_uph_sample_browser_select(node, true);
-			_uph_sample_browser_state.pressed_node = UPH_SAMPLE_BROWSER_NONE;
+			state->pressed_node = UPH_SAMPLE_BROWSER_NONE;
 		}
 		else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 		{
-			_uph_sample_browser_state.selected = node;
-			_uph_sample_browser_state.context_node = node;
+			state->selected = node;
+			state->context_node = node;
 			uph_ui_open_context_menu(context_menu);
 		}
 	}
@@ -829,43 +848,43 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 	else if (hovered)
 		background = naui_theme_color("uph_ui_frame_hovered_bg_color");
 
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-	const float icon_size = NAUI_DPI(14.0f);
+	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const int32_t icon_size = NAUI_DPI(14);
+	const float indent = searching ? 0.0f : NAUI_DPI(UPH_SAMPLE_BROWSER_INDENT) * (float)info->depth;
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 	const Leaf_Color muted_color = naui_theme_color("uph_ui_text_disabled_color");
 	const Leaf_Color icon_color = previewing ? naui_theme_color("naui_panel_tab_accent_color") : text_color;
-	const float indent = searching ? 0.0f : NAUI_DPI(UPH_SAMPLE_BROWSER_INDENT) * (float)info->depth;
 
 	leaf({
 		.id = row_id,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(row_height)},
-		.padding = {(int32_t)(NAUI_DPI(6.0f) + indent), (int32_t)NAUI_DPI(6.0f), 0, 0},
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.child_gap = NAUI_DPI(4.0f),
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(row_height) },
+		.padding = { .left = (int32_t)(NAUI_DPI(6) + indent), .right = (int32_t)NAUI_DPI(6), .top = 0, .bottom = 0 },
 		.color = background,
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.child_gap = NAUI_DPI(4),
+		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.clip_children = true
 	})
 	{
 		if (!searching)
 		{
 			leaf({
-				.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
-				.color = is_dir && info->child_count > 0 ? muted_color : LEAF_COLOR_TRANSPARENT,
-				.image = (void*)naui_asset_image(expanded ? "uph_icon_arrow_down" : "uph_icon_arrow_right")
+				.image = (void*)naui_asset_image(expanded ? "uph_icon_arrow_down" : "uph_icon_arrow_right"),
+				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
+				.color = is_dir && info->child_count > 0 ? muted_color : LEAF_COLOR_TRANSPARENT
 			});
 		}
 
 		leaf({
-			.size = {LEAF_SIZE_FIXED(icon_size), LEAF_SIZE_FIXED(icon_size)},
-			.color = is_dir ? muted_color : icon_color,
-			.image = (void*)naui_asset_image(is_dir ? "uph_icon_folder" : "uph_icon_wave")
+			.image = (void*)naui_asset_image(is_dir ? "uph_icon_folder" : "uph_icon_wave"),
+			.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
+			.color = is_dir ? muted_color : icon_color
 		});
 
 		leaf_text(_uph_sample_browser_node_name(index, node), {
-			.font_size = {font_size},
-			.color = text_color
+			.color = text_color,
+			.font_size = LEAF_SIZE_FIXED(font_size)
 		});
 
 		if (searching)
@@ -873,8 +892,8 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			char folder[NAUI_PATH_MAX];
 			_uph_sample_browser_relative_folder(node, folder, sizeof(folder));
 			leaf_text(folder, {
-				.font_size = {font_size},
-				.color = muted_color
+				.color = muted_color,
+				.font_size = LEAF_SIZE_FIXED(font_size)
 			});
 		}
 	}
@@ -886,7 +905,8 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 
 static void uph_sample_browser_on_attach(void)
 {
-	_uph_sample_browser_state.rows_dirty = true;
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	state->rows_dirty = true;
 	if (naui_list_len(uph_state.settings.browser.folders) > 0)
 		_uph_sample_browser_start_scan();
 }
@@ -908,39 +928,41 @@ static void uph_sample_browser_on_close(void)
 
 void uph_sample_browser_shutdown(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	_uph_sample_browser_cancel_scan();
 
-	if (_uph_sample_browser_state.load)
+	if (state->load)
 	{
-		if (naui_job_is_valid(_uph_sample_browser_state.load_job))
-			naui_job_wait(_uph_sample_browser_state.load_job);
+		if (naui_job_is_valid(state->load_job))
+			naui_job_wait(state->load_job);
 
-		uph_audio_engine_preview_close(&_uph_sample_browser_state.load->source);
-		free(_uph_sample_browser_state.load);
-		_uph_sample_browser_state.load = NULL;
-		_uph_sample_browser_state.load_job = NAUI_JOB_INVALID;
+		uph_audio_engine_preview_close(&state->load->source);
+		free(state->load);
+		state->load = NULL;
+		state->load_job = NAUI_JOB_INVALID;
 	}
 
-	_uph_sample_browser_index_free(&_uph_sample_browser_state.index);
-	naui_list_free(_uph_sample_browser_state.rows);
-	_uph_sample_browser_state.rows = NULL;
+	_uph_sample_browser_index_free(&state->index);
+	naui_list_free(state->rows);
+	state->rows = NULL;
 }
 
 static void _uph_sample_browser_toolbar(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-	const float button_size = NAUI_DPI(16.0f);
+	const int32_t button_size = NAUI_DPI(16);
 	const Leaf_Color tint = naui_theme_color("uph_ui_text_color");
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.child_gap = NAUI_DPI(4.0f)
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(4),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		uph_ui_textfield(&_uph_sample_browser_state.filter, leaf_id("uph_sample_browser_search"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("sample_browser.search"));
+		uph_ui_textfield(&state->filter, leaf_id("uph_sample_browser_search"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("sample_browser.search"));
 
 		if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_headphones"), leaf_id("uph_sample_browser_auto_preview"), (Naui_Vec2){ button_size, button_size }, tint, uph_state.settings.browser.auto_preview))
 		{
@@ -963,12 +985,12 @@ static void _uph_sample_browser_preview_strip(void)
 	if (!uph_audio_engine_preview_info(&info))
 		return;
 
-	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const Naui_StringView name = naui_file_filename(info.path);
 	const uint32_t rate = info.original_sample_rate ? info.original_sample_rate : uph_state.settings.audio.sample_rate;
 	const double seconds = uph_frames_to_seconds(info.frame_count, uph_state.settings.audio.sample_rate);
 	const char *channels = info.channel_type == UPH_SAMPLE_STEREO ? "Stereo" : "Mono";
+	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	char title[NAUI_STRING_MAX_SIZE];
 	snprintf(title, sizeof(title), "%.*s", (int)name.length, name.data);
@@ -992,31 +1014,31 @@ static void _uph_sample_browser_preview_strip(void)
 	}
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
-		.child_gap = NAUI_DPI(4.0f)
+		.child_gap = NAUI_DPI(4)
 	})
 	{
 		leaf({
-			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(8),
 			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-			.child_gap = NAUI_DPI(8.0f),
 			.clip_children = true
 		})
 		{
-			leaf({ .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT}, .clip_children = true })
-				leaf_text(title, { .font_size = {font_size}, .color = naui_theme_color("uph_ui_text_color") });
-			leaf_text(details, { .font_size = {font_size}, .color = naui_theme_color("uph_ui_text_disabled_color") });
+			leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT }, .clip_children = true })
+				leaf_text(title, { .color = naui_theme_color("uph_ui_text_color"), .font_size = LEAF_SIZE_FIXED(font_size) });
+			leaf_text(details, { .color = naui_theme_color("uph_ui_text_disabled_color"), .font_size = LEAF_SIZE_FIXED(font_size) });
 		}
 
 		leaf({
 			.id = waveform_id,
-			.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT))},
-			.color = naui_theme_color("uph_resource_list_item_bg_color"),
-			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 			.custom_draw = (Leaf_CustomDrawFn)_uph_sample_browser_waveform_draw,
-			.custom_draw_data = LEAF_DATA_SLICE(info)
+			.custom_draw_data = LEAF_DATA_SLICE(info),
+			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT)) },
+			.color = naui_theme_color("uph_resource_list_item_bg_color"),
+			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
 		});
 	}
 }
@@ -1025,15 +1047,15 @@ static void _uph_sample_browser_empty_state(void)
 {
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-		.padding = LEAF_PADDING_ALL(NAUI_DPI(padding.x * 2.0f)),
-		.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
-		.child_gap = NAUI_DPI(8.0f)
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(padding.x * 2)),
+		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(8)
 	})
 	{
 		leaf_text(NAUI_TR("sample_browser.empty"), {
-			.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
 			.color = naui_theme_color("uph_ui_text_disabled_color"),
+			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)),
 			.alignment = LEAF_TEXT_ALIGN_CENTER,
 			.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
 		});
@@ -1045,42 +1067,44 @@ static void _uph_sample_browser_empty_state(void)
 
 static void _uph_sample_browser_status(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	char status[128];
-	if (_uph_sample_browser_state.scan)
+	if (state->scan)
 		snprintf(status, sizeof(status), "%s", NAUI_TR("sample_browser.indexing"));
 	else if (_uph_sample_browser_searching())
-		snprintf(status, sizeof(status), "%u / %u", (uint32_t)naui_list_len(_uph_sample_browser_state.rows), _uph_sample_browser_state.index.file_count);
+		snprintf(status, sizeof(status), "%u / %u", (uint32_t)naui_list_len(state->rows), state->index.file_count);
 	else
-		snprintf(status, sizeof(status), "%u", _uph_sample_browser_state.index.file_count);
+		snprintf(status, sizeof(status), "%u", state->index.file_count);
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
 		.border = {
 			.width = 1,
-			.color = naui_theme_color("uph_ui_frame_border"),
-			.sides = LEAF_SIDE_TOP
+			.sides = LEAF_SIDE_TOP,
+			.color = naui_theme_color("uph_ui_frame_border")
 		},
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
+		.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		leaf_text(status, { .font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}, .color = naui_theme_color("uph_ui_text_disabled_color") });
+		leaf_text(status, { .color = naui_theme_color("uph_ui_text_disabled_color"), .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)) });
 	}
 }
 
 static void _uph_sample_browser_keyboard(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	if (naui_panel_focused() != uph_state.panels.sample_browser || uph_ui_any_menu_open())
 		return;
 
-	const int32_t row_count = (int32_t)naui_list_len(_uph_sample_browser_state.rows);
+	const int32_t row_count = (int32_t)naui_list_len(state->rows);
 	if (row_count == 0)
 		return;
 
-	const int32_t current = _uph_sample_browser_row_of(_uph_sample_browser_state.selected);
-	const uint32_t node = _uph_sample_browser_state.selected;
+	const uint32_t node = state->selected;
+	const int32_t current = _uph_sample_browser_row_of(state->selected);
 	const bool searching = _uph_sample_browser_searching();
 
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
@@ -1089,8 +1113,8 @@ static void _uph_sample_browser_keyboard(void)
 	{
 		int32_t next = current < 0 ? 0 : current + (down ? 1 : -1);
 		next = NAUI_CLAMP(next, 0, row_count - 1);
-		_uph_sample_browser_select(_uph_sample_browser_state.rows[next], true);
-		_uph_sample_browser_state.scroll_to_selected = true;
+		_uph_sample_browser_select(state->rows[next], true);
+		state->scroll_to_selected = true;
 	}
 	else if (current < 0)
 		return;
@@ -1098,13 +1122,13 @@ static void _uph_sample_browser_keyboard(void)
 		_uph_sample_browser_set_expanded(node, true);
 	else if (naui_keybind_pressed(keybinds->browser_collapse) && !searching)
 	{
-		const Uph_SampleBrowserNode *info = &_uph_sample_browser_state.index.nodes[node];
+		const Uph_SampleBrowserNode *info = &state->index.nodes[node];
 		if (_uph_sample_browser_is_dir(node) && (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
 			_uph_sample_browser_set_expanded(node, false);
 		else if (info->parent != UPH_SAMPLE_BROWSER_NONE)
 		{
-			_uph_sample_browser_state.selected = info->parent;
-			_uph_sample_browser_state.scroll_to_selected = true;
+			state->selected = info->parent;
+			state->scroll_to_selected = true;
 		}
 	}
 	else if (naui_keybind_pressed(keybinds->browser_activate))
@@ -1114,18 +1138,19 @@ static void _uph_sample_browser_keyboard(void)
 		if (uph_audio_engine_preview_playing())
 			uph_audio_engine_preview_stop();
 		else
-			_uph_sample_browser_preview(_uph_sample_browser_node_path(&_uph_sample_browser_state.index, node));
+			_uph_sample_browser_preview(_uph_sample_browser_node_path(&state->index, node));
 	}
 }
 
 static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 {
-	const uint32_t node = _uph_sample_browser_state.context_node;
-	if (node >= (uint32_t)naui_list_len(_uph_sample_browser_state.index.nodes))
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	const uint32_t node = state->context_node;
+	if (node >= (uint32_t)naui_list_len(state->index.nodes))
 		return;
 
-	const Uph_SampleBrowserNode info = _uph_sample_browser_state.index.nodes[node];
-	const char *path = _uph_sample_browser_node_path(&_uph_sample_browser_state.index, node);
+	const Uph_SampleBrowserNode info = state->index.nodes[node];
+	const char *path = _uph_sample_browser_node_path(&state->index, node);
 
 	if (!(info.flags & UPH_SAMPLE_BROWSER_NODE_DIR))
 	{
@@ -1148,21 +1173,22 @@ static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 
 static void uph_sample_browser_on_update(void)
 {
+	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
 	naui_panel_set_title(naui_panel_current(), NAUI_TR("sample_browser.title"));
 
-	if (!naui_strings_equal(_uph_sample_browser_state.filter, _uph_sample_browser_state.applied_filter, true))
+	if (!naui_strings_equal(state->filter, state->applied_filter, true))
 	{
-		_uph_sample_browser_state.applied_filter = _uph_sample_browser_state.filter;
-		_uph_sample_browser_state.rows_dirty = true;
-		_uph_sample_browser_state.scroll = 0.0f;
+		state->applied_filter = state->filter;
+		state->rows_dirty = true;
+		state->scroll = 0.0f;
 	}
 
-	if (_uph_sample_browser_state.rows_dirty)
+	if (state->rows_dirty)
 		_uph_sample_browser_rebuild_rows();
 
 	_uph_sample_browser_keyboard();
 
-	if (_uph_sample_browser_state.rows_dirty)
+	if (state->rows_dirty)
 		_uph_sample_browser_rebuild_rows();
 
 	Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_sample_browser_context_menu"));
@@ -1178,34 +1204,34 @@ static void uph_sample_browser_on_update(void)
 	}
 
 	const bool searching = _uph_sample_browser_searching();
-	const float row_height = NAUI_DPI(UPH_SAMPLE_BROWSER_ROW_HEIGHT);
-	const uint32_t row_count = (uint32_t)naui_list_len(_uph_sample_browser_state.rows);
+	const uint32_t row_count = (uint32_t)naui_list_len(state->rows);
 	const Leaf_ID scroll_id = leaf_id("uph_sample_browser_scrollbar");
+	const int32_t row_height = NAUI_DPI(UPH_SAMPLE_BROWSER_ROW_HEIGHT);
 
 	const Leaf_BoundingBox view_box = leaf_get_bounding_box((Leaf_ID){ .value = scroll_id.value + 2 });
 	const float view_height = view_box.height > 0.0f ? view_box.height : row_height * 40.0f;
 
-	if (_uph_sample_browser_state.scroll_to_selected)
+	if (state->scroll_to_selected)
 	{
-		const int32_t row = _uph_sample_browser_row_of(_uph_sample_browser_state.selected);
+		const int32_t row = _uph_sample_browser_row_of(state->selected);
 		if (row >= 0)
 		{
 			const float top = (float)row * row_height;
-			if (top < _uph_sample_browser_state.scroll)
-				_uph_sample_browser_state.scroll = top;
-			else if (top + row_height > _uph_sample_browser_state.scroll + view_height)
-				_uph_sample_browser_state.scroll = top + row_height - view_height;
+			if (top < state->scroll)
+				state->scroll = top;
+			else if (top + row_height > state->scroll + view_height)
+				state->scroll = top + row_height - view_height;
 		}
-		_uph_sample_browser_state.scroll_to_selected = false;
+		state->scroll_to_selected = false;
 	}
 
-	Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &_uph_sample_browser_state.scroll, scroll_id);
+	Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &state->scroll, scroll_id);
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(4.0f), 0)
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(4), 0)
 	})
 	{
-		uint32_t first = (uint32_t)(_uph_sample_browser_state.scroll / row_height);
+		uint32_t first = (uint32_t)(state->scroll / row_height);
 		uint32_t last = first + (uint32_t)(view_height / row_height) + 2;
 		if (first > row_count)
 			first = row_count;
@@ -1213,25 +1239,25 @@ static void uph_sample_browser_on_update(void)
 			last = row_count;
 
 		if (first > 0)
-			leaf({ .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED((float)first * row_height)} });
+			leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED((float)first * row_height) } });
 
 		for (uint32_t i = first; i < last; i++)
-			_uph_sample_browser_row(_uph_sample_browser_state.rows[i], context_menu, searching, row_height);
+			_uph_sample_browser_row(state->rows[i], context_menu, searching, row_height);
 
 		if (last < row_count)
-			leaf({ .size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED((float)(row_count - last) * row_height)} });
+			leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED((float)(row_count - last) * row_height) } });
 
-		if (row_count == 0 && !_uph_sample_browser_state.scan)
+		if (row_count == 0 && !state->scan)
 		{
 			leaf({
-				.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIT},
-				.padding = LEAF_PADDING_ALL(NAUI_DPI(8.0f)),
-				.child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER}
+				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+				.padding = LEAF_PADDING_ALL(NAUI_DPI(8)),
+				.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 			})
 			{
 				leaf_text(NAUI_TR(searching ? "sample_browser.no_matches" : "sample_browser.no_samples"), {
-					.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)},
-					.color = naui_theme_color("uph_ui_text_disabled_color")
+					.color = naui_theme_color("uph_ui_text_disabled_color"),
+					.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 				});
 			}
 		}

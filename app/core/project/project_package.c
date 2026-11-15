@@ -1,5 +1,16 @@
 #define UPH_ORIGIN_FILE ".origin"
 
+typedef uint8_t Uph_ExportFormat;
+enum
+{
+	UPH_EXPORT_UPH,
+	UPH_EXPORT_WAV,
+	UPH_EXPORT_MP3,
+	UPH_EXPORT_OGG,
+	UPH_EXPORT_FLAC,
+	UPH_EXPORT_MIDI
+};
+
 typedef struct
 {
 	Naui_Path relative;

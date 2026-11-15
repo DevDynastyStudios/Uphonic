@@ -1,3 +1,48 @@
+static inline Naui_Color uph_resources_track_color(const int32_t color_index)
+{
+	const Naui_List(Naui_Color) list = naui_theme_color_list("uph_track_palette");
+	return list[color_index % naui_list_len(list)];
+}
+
+static inline bool uph_track_is_folder(const Uph_Track *track)
+{
+	return track->type == UPH_RESOURCE_GROUP || track->type == UPH_RESOURCE_MASTER;
+}
+
+static inline bool uph_track_monitors_instrument(const Uph_Track *track)
+{
+	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && (track->state & UPH_TRACK_MONITORED);
+}
+
+static inline bool uph_track_is_descendant_of(const Uph_Track *track, const Uph_Track *ancestor)
+{
+	for (const Uph_Track *p = track ? track->parent : NULL; p; p = p->parent)
+	{
+		if (p == ancestor)
+			return true;
+	}
+	return false;
+}
+
+static inline bool uph_track_is_silenced(const Uph_Project *project, const Uph_Track *track)
+{
+	const Uph_Track *solo = project->soloed_track;
+	if (!solo)
+		return false;
+
+	return solo != track && !uph_track_is_descendant_of(track, solo) && !uph_track_is_descendant_of(solo, track);
+}
+
+static inline bool uph_track_is_audible(const Uph_Project *project, const Uph_Track *track)
+{
+	for (const Uph_Track *t = track; t; t = t->parent)
+	{
+		if (t->state & UPH_TRACK_MUTED)
+			return false;
+	}
+	return !uph_track_is_silenced(project, track);
+}
+
 #pragma region Helpers
 static void uph_resources_link_track_list(Naui_List(Uph_Track) tracks, Uph_Track *parent)
 {

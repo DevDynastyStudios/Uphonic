@@ -1,3 +1,103 @@
+#define UPH_WAVEFORM_INV_65535 0.000015259f
+#define UPH_WAVEFORM_INV_65535_2 0.000030518f
+
+typedef uint8_t Uph_RenderBitDepth;
+enum
+{
+	UPH_RENDER_BIT_DEPTH_16,
+	UPH_RENDER_BIT_DEPTH_24,
+	UPH_RENDER_BIT_DEPTH_32_FLOAT,
+	UPH_RENDER_BIT_DEPTH_COUNT
+};
+
+typedef struct
+{
+	double start_beat;
+	double end_beat;
+	float tail_seconds;
+	uint32_t sample_rate;
+	uint32_t channels;
+	Uph_RenderBitDepth bit_depth;
+	bool normalize;
+	bool dither;
+}
+Uph_RenderSettings;
+
+typedef uint8_t Uph_RenderStatus;
+enum
+{
+	UPH_RENDER_STATUS_IDLE,
+	UPH_RENDER_STATUS_RUNNING,
+	UPH_RENDER_STATUS_DONE,
+	UPH_RENDER_STATUS_FAILED
+};
+
+typedef struct Uph_PreviewStream Uph_PreviewStream;
+
+typedef struct
+{
+	Uph_SampleData *data;
+	Uph_PreviewStream *stream;
+}
+Uph_PreviewSource;
+
+typedef struct
+{
+	const Naui_Path *path;
+	const Uph_WaveformPeak *peaks;
+	uint64_t peak_count;
+	uint64_t peak_total;
+	uint64_t frame_count;
+	uint32_t original_sample_rate;
+	Uph_SampleChannelType channel_type;
+	bool streaming;
+}
+Uph_PreviewInfo;
+
+static inline uint16_t uph_waveform_encode_uint16(float v)
+{
+    if (v < -1.0f) v = -1.0f;
+    if (v >  1.0f) v =  1.0f;
+    return (uint16_t)lrintf((v * 0.5f + 0.5f) * 65535.0f);
+}
+
+static inline float uph_waveform_decode_uint16(uint16_t v)
+{
+    return (float)v * UPH_WAVEFORM_INV_65535_2 - 1.0f;
+}
+
+static inline double uph_frames_to_seconds(uint64_t frames, uint32_t sample_rate)
+{
+	return (double)frames / (double)sample_rate;
+}
+
+static inline uint64_t uph_seconds_to_frames(double seconds, uint32_t sample_rate)
+{
+	return (uint64_t)(seconds * (double)sample_rate);
+}
+
+static inline double uph_beats_to_seconds(double beats, float bpm)
+{
+    return (beats / (double)bpm) * 60.0;
+}
+
+static inline double uph_seconds_to_beats(double seconds, float bpm)
+{
+    return (seconds / 60.0) * (double)bpm;
+}
+
+static inline double uph_frames_to_beats(uint64_t frames, uint32_t sample_rate, double bpm)
+{
+	double seconds = uph_frames_to_seconds(frames, sample_rate);
+	return uph_seconds_to_beats(seconds, bpm);
+}
+
+static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, double bpm)
+{
+	double seconds = uph_beats_to_seconds(beats, bpm);
+	return uph_seconds_to_frames(seconds, sample_rate);
+}
+
 #ifndef UPH_INVALID_TIMELINE_BLOCK
 #define UPH_INVALID_TIMELINE_BLOCK NULL
 #endif
@@ -119,9 +219,10 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, bool
 
 static void uph_stretch_init_window(void)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     for (uint32_t i = 0; i < UPH_WSOLA_GRAIN_FRAMES; i++)
     {
-        _uph_audio_engine_state.stretch_window[i] = 0.5f - 0.5f * cosf(
+        state->stretch_window[i] = 0.5f - 0.5f * cosf(
             2.0f * (float)NAUI_PI * (float)i / (float)UPH_WSOLA_GRAIN_FRAMES);
     }
 }
@@ -269,6 +370,7 @@ static int64_t uph_wsola_find_start(const Uph_SampleData *s, bool reversed, int6
 
 static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample, int64_t k)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     const int64_t hop   = UPH_WSOLA_HOP_FRAMES;
     const int64_t grain = UPH_WSOLA_GRAIN_FRAMES;
 
@@ -295,7 +397,7 @@ static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample,
 
     for (int64_t i = 0; i < grain; i++)
     {
-        const float w = (k == 0 && i < hop) ? 1.0f : _uph_audio_engine_state.stretch_window[i];
+        const float w = (k == 0 && i < hop) ? 1.0f : state->stretch_window[i];
 
         float l, r;
         uph_sample_stereo_at(sample, a + i, st->reversed, &l, &r);
@@ -333,14 +435,15 @@ static void uph_stretcher_reset(Uph_Stretcher *st, double out_pos)
 
 static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 {
-    Uph_Stretcher *oldest = &_uph_audio_engine_state.stretchers[0];
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_Stretcher *oldest = &state->stretchers[0];
 
     for (int i = 0; i < UPH_WSOLA_MAX_STATES; i++)
     {
-        Uph_Stretcher *st = &_uph_audio_engine_state.stretchers[i];
+        Uph_Stretcher *st = &state->stretchers[i];
         if (st->key == key)
         {
-            st->last_used = ++_uph_audio_engine_state.stretcher_clock;
+            st->last_used = ++state->stretcher_clock;
             return st;
         }
         if (st->last_used < oldest->last_used)
@@ -349,7 +452,7 @@ static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 
     oldest->key       = key;
     oldest->valid     = false;
-    oldest->last_used = ++_uph_audio_engine_state.stretcher_clock;
+    oldest->last_used = ++state->stretcher_clock;
     return oldest;
 }
 
@@ -399,6 +502,7 @@ static void uph_stretcher_prepare_follow(
     double src_pos
 )
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     const double predicted_src = st->anchor_src + (st->q - st->anchor_q) * st->beta;
     const bool continuing = st->valid
         && st->follow
@@ -406,10 +510,10 @@ static void uph_stretcher_prepare_follow(
         && st->reversed == reversed
         && st->frame_count == data->frame_count
         && st->start_offset_frames == start_offset_frames
-        && st->last_callback + 1 == _uph_audio_engine_state.stretcher_callback
+        && st->last_callback + 1 == state->stretcher_callback
         && fabs(predicted_src - src_pos) < (double)UPH_WSOLA_GRAIN_FRAMES;
 
-    st->last_callback = _uph_audio_engine_state.stretcher_callback;
+    st->last_callback = state->stretcher_callback;
 
     st->beta      = beta;
     st->read_rate = read_rate;
@@ -596,11 +700,12 @@ static void uph_render_sample_block(
 
 double uph_sample_playback_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, float bpm)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     if (bpm <= 0.0f || data->frame_count == 0)
         return 0.0;
 
     const double time_scale = uph_sample_effective_time_scale(sample, (double)bpm);
-    const double seconds = (double)data->frame_count / (double)_uph_audio_engine_state.device.sampleRate;
+    const double seconds = (double)data->frame_count / (double)state->device.sampleRate;
 
     return uph_seconds_to_beats(seconds * time_scale, bpm);
 }
@@ -1432,8 +1537,9 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
 static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count, bool timeline_playing, const float *input)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     memset(out, 0, sizeof(float) * 2 * frame_count);
-    _uph_audio_engine_state.stretcher_callback++;
+    state->stretcher_callback++;
 
     Uph_Project *project = &uph_state.project;
     if (project->bpm <= 0.0f || frame_count == 0)
@@ -1534,44 +1640,47 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
 void uph_audio_engine_stop(void)
 {
-    ma_device_stop(&_uph_audio_engine_state.device);
-    if (_uph_audio_engine_state.capture_ready)
-        ma_device_stop(&_uph_audio_engine_state.capture_device);
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    ma_device_stop(&state->device);
+    if (state->capture_ready)
+        ma_device_stop(&state->capture_device);
 }
 
 void uph_audio_engine_start(void)
 {
-    if (_uph_audio_engine_state.capture_ready)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (state->capture_ready)
     {
-        _uph_audio_engine_state.input_primed = false;
-        ma_device_start(&_uph_audio_engine_state.capture_device);
+        state->input_primed = false;
+        ma_device_start(&state->capture_device);
     }
-    ma_device_start(&_uph_audio_engine_state.device);
+    ma_device_start(&state->device);
 }
 
 void uph_audio_engine_lock(void)
 {
-    if (_uph_audio_engine_state.render_lock_depth++ > 0)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (state->render_lock_depth++ > 0)
         return;
 
-    if (!ma_device_is_started(&_uph_audio_engine_state.device))
+    if (!ma_device_is_started(&state->device))
     {
-        atomic_store(&_uph_audio_engine_state.render_state, UPH_RENDER_PARKED);
+        atomic_store(&state->render_state, UPH_RENDER_PARKED);
         return;
     }
 
-    atomic_store(&_uph_audio_engine_state.render_state, UPH_RENDER_REQUESTED);
+    atomic_store(&state->render_state, UPH_RENDER_REQUESTED);
 
     const float deadline = naui_time() + 0.25f;
-    while (atomic_load(&_uph_audio_engine_state.render_state) != UPH_RENDER_PARKED)
+    while (atomic_load(&state->render_state) != UPH_RENDER_PARKED)
     {
         if (naui_time() > deadline)
         {
             fprintf(stderr, "uph_audio_engine_lock: audio thread did not park in time, stopping device\n");
-            ma_device_stop(&_uph_audio_engine_state.device);
-            _uph_audio_engine_state.render_lock_stopped_device = true;
-            _uph_audio_engine_state.render_gain = 0.0f;
-            atomic_store(&_uph_audio_engine_state.render_state, UPH_RENDER_PARKED);
+            ma_device_stop(&state->device);
+            state->render_lock_stopped_device = true;
+            state->render_gain = 0.0f;
+            atomic_store(&state->render_state, UPH_RENDER_PARKED);
             break;
         }
 
@@ -1581,15 +1690,16 @@ void uph_audio_engine_lock(void)
 
 void uph_audio_engine_unlock(void)
 {
-    if (_uph_audio_engine_state.render_lock_depth == 0 || --_uph_audio_engine_state.render_lock_depth > 0)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (state->render_lock_depth == 0 || --state->render_lock_depth > 0)
         return;
 
-    atomic_store(&_uph_audio_engine_state.render_state, UPH_RENDER_RUNNING);
+    atomic_store(&state->render_state, UPH_RENDER_RUNNING);
 
-    if (_uph_audio_engine_state.render_lock_stopped_device)
+    if (state->render_lock_stopped_device)
     {
-        _uph_audio_engine_state.render_lock_stopped_device = false;
-        ma_device_start(&_uph_audio_engine_state.device);
+        state->render_lock_stopped_device = false;
+        ma_device_start(&state->device);
     }
 }
 
@@ -1681,7 +1791,8 @@ double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
 
 double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat)
 {
-    uint32_t rate = _uph_audio_engine_state.device.sampleRate;
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    uint32_t rate = state->device.sampleRate;
     if (rate == 0)
         rate = uph_state.settings.audio.sample_rate;
     if (rate == 0 || data->frame_count == 0)
@@ -1721,12 +1832,13 @@ static void uph_build_waveform_peaks(Uph_SampleData *sample_data)
 
 static void uph_begin_recording(Uph_Track *track)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     if (track->type == UPH_RESOURCE_NONE)
         track->type = UPH_RESOURCE_SAMPLE;
     if (track->type != UPH_RESOURCE_SAMPLE)
         return;
 
-    const uint32_t rate = _uph_audio_engine_state.device.sampleRate;
+    const uint32_t rate = state->device.sampleRate;
 
     Uph_SampleData data = {0};
     data.channel_type = UPH_SAMPLE_STEREO;
@@ -1944,7 +2056,8 @@ static void uph_record_input(
 
 static void uph_audio_engine_capture_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
-    ma_pcm_rb *rb = &_uph_audio_engine_state.input_rb;
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    ma_pcm_rb *rb = &state->input_rb;
     const ma_uint32 channels = device->capture.channels;
     const float *src = (const float*)input;
 
@@ -1964,20 +2077,21 @@ static void uph_audio_engine_capture_callback(ma_device *device, void *output, c
 
 static void uph_audio_engine_read_input(float *dst, ma_uint32 frame_count, ma_uint32 channels)
 {
-    ma_pcm_rb *rb = &_uph_audio_engine_state.input_rb;
-    const ma_uint32 capture_period = _uph_audio_engine_state.capture_device.capture.internalPeriodSizeInFrames;
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    ma_pcm_rb *rb = &state->input_rb;
+    const ma_uint32 capture_period = state->capture_device.capture.internalPeriodSizeInFrames;
     const ma_uint32 prime_frames = 2 * (frame_count > capture_period ? frame_count : capture_period);
 
     ma_uint32 available = ma_pcm_rb_available_read(rb);
 
-    if (!_uph_audio_engine_state.input_primed)
+    if (!state->input_primed)
     {
         if (available < prime_frames)
         {
             memset(dst, 0, (size_t)frame_count * channels * sizeof(float));
             return;
         }
-        _uph_audio_engine_state.input_primed = true;
+        state->input_primed = true;
     }
 
     if (available > prime_frames * 2)
@@ -1999,7 +2113,7 @@ static void uph_audio_engine_read_input(float *dst, ma_uint32 frame_count, ma_ui
     if (done < frame_count)
     {
         memset(dst + (size_t)done * channels, 0, (size_t)(frame_count - done) * channels * sizeof(float));
-        _uph_audio_engine_state.input_primed = false;
+        state->input_primed = false;
     }
 }
 
@@ -2032,14 +2146,16 @@ struct Uph_PreviewStream
     bool peaks_done;
 };
 
-static struct
+typedef struct
 {
     volatile ma_spinlock lock;
     Uph_PreviewSource source;
     _Atomic uint64_t position;
     _Atomic bool playing;
 }
-_uph_audio_engine_preview_state;
+Uph_AudioEnginePreviewState;
+
+static Uph_AudioEnginePreviewState _uph_audio_engine_preview_state;
 
 static ma_result uph_preview_decoder_init_file(const Naui_Path *path, const ma_decoder_config *config, ma_decoder *decoder)
 {
@@ -2214,8 +2330,9 @@ static Uph_PreviewStream *uph_preview_stream_open(const Naui_Path path, uint32_t
 
 Uph_PreviewSource uph_audio_engine_preview_open(const Naui_Path path)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     Uph_PreviewSource source = { 0 };
-    const uint32_t device_rate = _uph_audio_engine_state.device.sampleRate;
+    const uint32_t device_rate = state->device.sampleRate;
 
     ma_decoder probe;
     const ma_decoder_config probe_config = ma_decoder_config_init(ma_format_f32, 0, 0);
@@ -2274,10 +2391,11 @@ void uph_audio_engine_preview_close(Uph_PreviewSource *source)
 
 static void uph_audio_engine_preview_mix_stream(Uph_PreviewStream *stream, float *out, ma_uint32 frame_count, float gain)
 {
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
     if (atomic_load_explicit(&stream->seek_request, memory_order_acquire))
         return;
 
-    uint64_t position = atomic_load_explicit(&_uph_audio_engine_preview_state.position, memory_order_relaxed);
+    uint64_t position = atomic_load_explicit(&state->position, memory_order_relaxed);
     ma_uint32 mixed = 0;
     while (mixed < frame_count)
     {
@@ -2297,15 +2415,16 @@ static void uph_audio_engine_preview_mix_stream(Uph_PreviewStream *stream, float
         mixed += frames;
         position += frames;
     }
-    atomic_store_explicit(&_uph_audio_engine_preview_state.position, position, memory_order_relaxed);
+    atomic_store_explicit(&state->position, position, memory_order_relaxed);
 
     if (mixed < frame_count && atomic_load_explicit(&stream->end_of_stream, memory_order_acquire) && ma_pcm_rb_available_read(&stream->buffer) == 0)
-        atomic_store_explicit(&_uph_audio_engine_preview_state.playing, false, memory_order_release);
+        atomic_store_explicit(&state->playing, false, memory_order_release);
 }
 
 static void uph_audio_engine_preview_mix_data(const Uph_SampleData *data, float *out, ma_uint32 frame_count, float gain)
 {
-    uint64_t position = atomic_load_explicit(&_uph_audio_engine_preview_state.position, memory_order_relaxed);
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    uint64_t position = atomic_load_explicit(&state->position, memory_order_relaxed);
     const bool stereo = data->channel_type == UPH_SAMPLE_STEREO;
     for (ma_uint32 f = 0; f < frame_count && position < data->frame_count; f++, position++)
     {
@@ -2314,33 +2433,35 @@ static void uph_audio_engine_preview_mix_data(const Uph_SampleData *data, float 
         out[f * 2 + 0] += left * gain;
         out[f * 2 + 1] += right * gain;
     }
-    atomic_store_explicit(&_uph_audio_engine_preview_state.position, position, memory_order_relaxed);
+    atomic_store_explicit(&state->position, position, memory_order_relaxed);
 
     if (position >= data->frame_count)
-        atomic_store_explicit(&_uph_audio_engine_preview_state.playing, false, memory_order_release);
+        atomic_store_explicit(&state->playing, false, memory_order_release);
 }
 
 static void uph_audio_engine_preview_mix(float *out, ma_uint32 frame_count)
 {
-    if (!atomic_load_explicit(&_uph_audio_engine_preview_state.playing, memory_order_acquire))
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    if (!atomic_load_explicit(&state->playing, memory_order_acquire))
         return;
 
-    ma_spinlock_lock(&_uph_audio_engine_preview_state.lock);
+    ma_spinlock_lock(&state->lock);
     const float gain = NAUI_CLAMP(uph_state.settings.browser.preview_volume, 0.0f, 1.0f);
-    const Uph_PreviewSource source = _uph_audio_engine_preview_state.source;
+    const Uph_PreviewSource source = state->source;
 
     if (source.data && source.data->frames)
         uph_audio_engine_preview_mix_data(source.data, out, frame_count, gain);
     else if (source.stream)
         uph_audio_engine_preview_mix_stream(source.stream, out, frame_count, gain);
     else
-        atomic_store_explicit(&_uph_audio_engine_preview_state.playing, false, memory_order_release);
+        atomic_store_explicit(&state->playing, false, memory_order_release);
 
-    ma_spinlock_unlock(&_uph_audio_engine_preview_state.lock);
+    ma_spinlock_unlock(&state->lock);
 }
 
 void uph_audio_engine_preview_play(Uph_PreviewSource source)
 {
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
     if (source.stream && !source.stream->thread)
     {
         source.stream->thread = naui_thread_create(uph_preview_stream_thread, source.stream);
@@ -2351,31 +2472,33 @@ void uph_audio_engine_preview_play(Uph_PreviewSource source)
         }
     }
 
-    ma_spinlock_lock(&_uph_audio_engine_preview_state.lock);
-    Uph_PreviewSource old = _uph_audio_engine_preview_state.source;
-    _uph_audio_engine_preview_state.source = source;
-    atomic_store_explicit(&_uph_audio_engine_preview_state.position, 0, memory_order_relaxed);
-    atomic_store_explicit(&_uph_audio_engine_preview_state.playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
-    ma_spinlock_unlock(&_uph_audio_engine_preview_state.lock);
+    ma_spinlock_lock(&state->lock);
+    Uph_PreviewSource old = state->source;
+    state->source = source;
+    atomic_store_explicit(&state->position, 0, memory_order_relaxed);
+    atomic_store_explicit(&state->playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
+    ma_spinlock_unlock(&state->lock);
 
     uph_audio_engine_preview_close(&old);
 }
 
 void uph_audio_engine_preview_restart(void)
 {
-    ma_spinlock_lock(&_uph_audio_engine_preview_state.lock);
-    const Uph_PreviewSource source = _uph_audio_engine_preview_state.source;
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    ma_spinlock_lock(&state->lock);
+    const Uph_PreviewSource source = state->source;
     if (source.stream)
         atomic_store_explicit(&source.stream->seek_request, true, memory_order_release);
 
-    atomic_store_explicit(&_uph_audio_engine_preview_state.position, 0, memory_order_relaxed);
-    atomic_store_explicit(&_uph_audio_engine_preview_state.playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
-    ma_spinlock_unlock(&_uph_audio_engine_preview_state.lock);
+    atomic_store_explicit(&state->position, 0, memory_order_relaxed);
+    atomic_store_explicit(&state->playing, uph_audio_engine_preview_source_valid(&source), memory_order_release);
+    ma_spinlock_unlock(&state->lock);
 }
 
 void uph_audio_engine_preview_stop(void)
 {
-    atomic_store_explicit(&_uph_audio_engine_preview_state.playing, false, memory_order_release);
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    atomic_store_explicit(&state->playing, false, memory_order_release);
 }
 
 bool uph_audio_engine_preview_playing(void)
@@ -2385,17 +2508,19 @@ bool uph_audio_engine_preview_playing(void)
 
 double uph_audio_engine_preview_progress(void)
 {
-    const Uph_PreviewSource source = _uph_audio_engine_preview_state.source;
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    const Uph_PreviewSource source = state->source;
     const uint64_t frame_count = source.data ? source.data->frame_count : source.stream ? source.stream->frame_count : 0;
     if (frame_count == 0)
         return 0.0;
 
-    return (double)atomic_load_explicit(&_uph_audio_engine_preview_state.position, memory_order_relaxed) / (double)frame_count;
+    return (double)atomic_load_explicit(&state->position, memory_order_relaxed) / (double)frame_count;
 }
 
 bool uph_audio_engine_preview_info(Uph_PreviewInfo *out)
 {
-    const Uph_PreviewSource source = _uph_audio_engine_preview_state.source;
+    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    const Uph_PreviewSource source = state->source;
     if (source.data)
     {
         *out = (Uph_PreviewInfo){
@@ -2431,9 +2556,10 @@ bool uph_audio_engine_preview_info(Uph_PreviewInfo *out)
 
 static void uph_audio_engine_render_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     static bool was_playing = false;
 
-    const int render_state = atomic_load(&_uph_audio_engine_state.render_state);
+    const int render_state = atomic_load(&state->render_state);
     if (render_state == UPH_RENDER_PARKED)
     {
         memset(output, 0, (size_t)frame_count * device->playback.channels * sizeof(float));
@@ -2456,7 +2582,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     ma_uint32 input_channels = 0;
     const ma_uint32 output_channels = device->playback.channels;
 
-    if (_uph_audio_engine_state.duplex)
+    if (state->duplex)
     {
         if (input)
         {
@@ -2464,9 +2590,9 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
             input_channels = device->capture.channels;
         }
     }
-    else if (_uph_audio_engine_state.capture_ready)
+    else if (state->capture_ready)
     {
-        input_channels = _uph_audio_engine_state.capture_device.capture.channels;
+        input_channels = state->capture_device.capture.channels;
         float *buffer = alloca(frame_count * input_channels * sizeof(float));
         uph_audio_engine_read_input(buffer, frame_count, input_channels);
         captured = buffer;
@@ -2517,7 +2643,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
 
     const float monitor_db = uph_state.settings.audio.monitor_volume_db;
     const float monitor_gain = monitor_db <= UPH_MIXER_DB_MIN ? 0.0f : uph_db_to_linear(monitor_db);
-    const float gain_from = _uph_audio_engine_state.render_gain;
+    const float gain_from = state->render_gain;
     const float gain_to = render_state == UPH_RENDER_REQUESTED ? 0.0f : monitor_gain;
     if (gain_from != 1.0f || gain_to != 1.0f)
     {
@@ -2529,7 +2655,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
                 out[f * output_channels + c] *= gain;
         }
     }
-    _uph_audio_engine_state.render_gain = gain_to;
+    state->render_gain = gain_to;
 
     if (is_playing && input_f && bpm > 0.0f)
         uph_record_input(uph_state.project.tracks, input_f, frame_count, engine_sample_rate, bpm);
@@ -2563,7 +2689,7 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     }
 
     if (render_state == UPH_RENDER_REQUESTED)
-        atomic_store(&_uph_audio_engine_state.render_state, UPH_RENDER_PARKED);
+        atomic_store(&state->render_state, UPH_RENDER_PARKED);
 }
 
 static void uph_audio_engine_data_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
@@ -2575,7 +2701,8 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
 
 static bool uph_audio_engine_find_device(const ma_device_type type, const char *name, ma_device_id *id)
 {
-    if (!_uph_audio_engine_state.context_ready || !name[0])
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (!state->context_ready || !name[0])
         return false;
 
     ma_device_info *playback = NULL;
@@ -2583,7 +2710,7 @@ static bool uph_audio_engine_find_device(const ma_device_type type, const char *
     ma_uint32 playback_count = 0;
     ma_uint32 capture_count = 0;
 
-    if (ma_context_get_devices(&_uph_audio_engine_state.context, &playback, &playback_count, &capture, &capture_count) != MA_SUCCESS)
+    if (ma_context_get_devices(&state->context, &playback, &playback_count, &capture, &capture_count) != MA_SUCCESS)
         return false;
 
     const ma_device_info *devices = type == ma_device_type_playback ? playback : capture;
@@ -2604,40 +2731,42 @@ static bool uph_audio_engine_find_device(const ma_device_type type, const char *
 
 static void uph_audio_engine_init_capture_device(ma_context *context, const Uph_AudioSettings *settings, const ma_device_id *capture_id)
 {
-    _uph_audio_engine_state.capture_ready = false;
-    _uph_audio_engine_state.input_primed = false;
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    state->capture_ready = false;
+    state->input_primed = false;
 
     ma_device_config config = ma_device_config_init(ma_device_type_capture);
     config.capture.format     = ma_format_f32;
     config.capture.channels   = 2;
     config.capture.pDeviceID  = (ma_device_id*)capture_id;
     config.capture.shareMode  = settings->exclusive_mode ? ma_share_mode_exclusive : ma_share_mode_shared;
-    config.sampleRate         = _uph_audio_engine_state.device.sampleRate;
+    config.sampleRate         = state->device.sampleRate;
     config.dataCallback       = uph_audio_engine_capture_callback;
     config.performanceProfile = ma_performance_profile_low_latency;
     config.periodSizeInFrames = settings->buffer_size;
 
-    ma_result result = ma_device_init(context, &config, &_uph_audio_engine_state.capture_device);
+    ma_result result = ma_device_init(context, &config, &state->capture_device);
     if (result != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_init: failed to init capture device (%s), recording disabled\n", ma_result_description(result));
         return;
     }
 
-    const ma_uint32 rb_frames = _uph_audio_engine_state.device.sampleRate / 2;
-    result = ma_pcm_rb_init(ma_format_f32, _uph_audio_engine_state.capture_device.capture.channels, rb_frames, NULL, NULL, &_uph_audio_engine_state.input_rb);
+    const ma_uint32 rb_frames = state->device.sampleRate / 2;
+    result = ma_pcm_rb_init(ma_format_f32, state->capture_device.capture.channels, rb_frames, NULL, NULL, &state->input_rb);
     if (result != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_init: failed to init input ring buffer (%s), recording disabled\n", ma_result_description(result));
-        ma_device_uninit(&_uph_audio_engine_state.capture_device);
+        ma_device_uninit(&state->capture_device);
         return;
     }
 
-    _uph_audio_engine_state.capture_ready = true;
+    state->capture_ready = true;
 }
 
 static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     ma_device_id device_id;
     const bool has_device_id = uph_audio_engine_find_device(ma_device_type_playback, settings->asio_device.data, &device_id);
 
@@ -2653,23 +2782,24 @@ static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
     config.performanceProfile = ma_performance_profile_low_latency;
     config.periodSizeInFrames = settings->buffer_size;
 
-    ma_result result = ma_device_init(uph_audio_engine_get_context(), &config, &_uph_audio_engine_state.device);
+    ma_result result = ma_device_init(uph_audio_engine_get_context(), &config, &state->device);
     if (result != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_init: failed to init ASIO device (%s)\n", ma_result_description(result));
         return false;
     }
 
-    _uph_audio_engine_state.duplex = true;
-    ma_device_start(&_uph_audio_engine_state.device);
+    state->duplex = true;
+    ma_device_start(&state->device);
     return true;
 }
 
 static bool uph_audio_engine_init_device(void)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     Uph_AudioSettings settings = uph_state.settings.audio;
 
-    if (_uph_audio_engine_state.context_driver == UPH_AUDIO_DRIVER_ASIO)
+    if (state->context_driver == UPH_AUDIO_DRIVER_ASIO)
         return uph_audio_engine_init_asio_device(&settings);
 
     ma_device_id playback_id;
@@ -2691,7 +2821,7 @@ static bool uph_audio_engine_init_device(void)
 
     ma_context *context = uph_audio_engine_get_context();
 
-    ma_result result = ma_device_init(context, &config, &_uph_audio_engine_state.device);
+    ma_result result = ma_device_init(context, &config, &state->device);
     if (result != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_init: failed to init playback device (%s)\n", ma_result_description(result));
@@ -2700,70 +2830,75 @@ static bool uph_audio_engine_init_device(void)
 
     uph_audio_engine_init_capture_device(context, &settings, has_capture_id ? &capture_id : NULL);
 
-    if (_uph_audio_engine_state.capture_ready)
-        ma_device_start(&_uph_audio_engine_state.capture_device);
-    ma_device_start(&_uph_audio_engine_state.device);
+    if (state->capture_ready)
+        ma_device_start(&state->capture_device);
+    ma_device_start(&state->device);
     return true;
 }
 
 static void uph_audio_engine_uninit_device(void)
 {
-    ma_device_uninit(&_uph_audio_engine_state.device);
-    _uph_audio_engine_state.duplex = false;
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    ma_device_uninit(&state->device);
+    state->duplex = false;
 
-    if (_uph_audio_engine_state.capture_ready)
+    if (state->capture_ready)
     {
-        ma_device_uninit(&_uph_audio_engine_state.capture_device);
-        ma_pcm_rb_uninit(&_uph_audio_engine_state.input_rb);
-        _uph_audio_engine_state.capture_ready = false;
+        ma_device_uninit(&state->capture_device);
+        ma_pcm_rb_uninit(&state->input_rb);
+        state->capture_ready = false;
     }
 }
 
 static bool uph_audio_engine_init_asio_context(void)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     ma_context_config config = ma_context_config_init();
     uph_asio_get_backend_callbacks(&config.custom);
 
     const ma_backend backends[] = { ma_backend_custom };
-    return ma_context_init(backends, 1, &config, &_uph_audio_engine_state.context) == MA_SUCCESS;
+    return ma_context_init(backends, 1, &config, &state->context) == MA_SUCCESS;
 }
 
 static void uph_audio_engine_init_context(Uph_AudioDriver driver)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     if (driver == UPH_AUDIO_DRIVER_ASIO)
     {
         if (uph_asio_supported() && uph_audio_engine_init_asio_context())
         {
-            _uph_audio_engine_state.context_ready = true;
-            _uph_audio_engine_state.context_driver = UPH_AUDIO_DRIVER_ASIO;
+            state->context_ready = true;
+            state->context_driver = UPH_AUDIO_DRIVER_ASIO;
             return;
         }
 
         fprintf(stderr, "uph_audio_engine_init: ASIO unavailable, falling back to the system driver\n");
     }
 
-    _uph_audio_engine_state.context_driver = UPH_AUDIO_DRIVER_SYSTEM;
-    _uph_audio_engine_state.context_ready = ma_context_init(NULL, 0, NULL, &_uph_audio_engine_state.context) == MA_SUCCESS;
+    state->context_driver = UPH_AUDIO_DRIVER_SYSTEM;
+    state->context_ready = ma_context_init(NULL, 0, NULL, &state->context) == MA_SUCCESS;
 
-    if (!_uph_audio_engine_state.context_ready)
+    if (!state->context_ready)
         fprintf(stderr, "uph_audio_engine_init: failed to init context, using a temporary one per device\n");
 }
 
 static void uph_audio_engine_uninit_context(void)
 {
-    if (!_uph_audio_engine_state.context_ready)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (!state->context_ready)
         return;
 
-    ma_context_uninit(&_uph_audio_engine_state.context);
-    _uph_audio_engine_state.context_ready = false;
+    ma_context_uninit(&state->context);
+    state->context_ready = false;
 }
 
 void uph_audio_engine_init(void)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     uph_stretch_init_window();
     uph_audio_engine_init_context(uph_state.settings.audio.driver);
 
-    if (!uph_audio_engine_init_device() && _uph_audio_engine_state.context_driver == UPH_AUDIO_DRIVER_ASIO)
+    if (!uph_audio_engine_init_device() && state->context_driver == UPH_AUDIO_DRIVER_ASIO)
     {
         uph_audio_engine_uninit_context();
         uph_audio_engine_init_context(UPH_AUDIO_DRIVER_SYSTEM);
@@ -2786,16 +2921,17 @@ ma_context *uph_audio_engine_get_context(void)
 
 bool uph_audio_engine_recreate(void)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     uph_audio_engine_uninit_device();
 
     const Uph_AudioDriver driver = uph_state.settings.audio.driver;
-    if (driver != _uph_audio_engine_state.context_driver)
+    if (driver != state->context_driver)
     {
         uph_audio_engine_uninit_context();
         uph_audio_engine_init_context(driver);
     }
 
-    return _uph_audio_engine_state.context_driver == driver && uph_audio_engine_init_device();
+    return state->context_driver == driver && uph_audio_engine_init_device();
 }
 
 Uph_AudioDriver uph_audio_engine_active_driver(void)
@@ -2805,18 +2941,20 @@ Uph_AudioDriver uph_audio_engine_active_driver(void)
 
 uint32_t uph_audio_engine_input_channel_count(void)
 {
-    if (_uph_audio_engine_state.duplex)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (state->duplex)
         return uph_asio_input_count();
 
-    if (_uph_audio_engine_state.capture_ready)
-        return _uph_audio_engine_state.capture_device.capture.internalChannels;
+    if (state->capture_ready)
+        return state->capture_device.capture.internalChannels;
 
     return 0;
 }
 
 void uph_audio_engine_update(void)
 {
-    if (!uph_asio_consume_reset_request() || _uph_audio_engine_state.context_driver != UPH_AUDIO_DRIVER_ASIO)
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    if (!uph_asio_consume_reset_request() || state->context_driver != UPH_AUDIO_DRIVER_ASIO)
         return;
 
     uph_audio_engine_stop();
@@ -2830,6 +2968,7 @@ bool uph_audio_engine_device_running(void)
 
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
 {
+    Uph_AudioEngineState *state = &_uph_audio_engine_state;
     Uph_SampleData sample_data = {0};
 
     size_t file_size;
@@ -2840,7 +2979,7 @@ Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
         return sample_data;
     }
 
-    const uint32_t device_rate = _uph_audio_engine_state.device.sampleRate;
+    const uint32_t device_rate = state->device.sampleRate;
 
     uint32_t original_sample_rate = device_rate;
     ma_uint32 native_channels = 2;
@@ -3039,38 +3178,38 @@ typedef struct
     bool encoder_ready;
     bool locked;
 }
-Uph_RenderJob;
-static Uph_RenderJob _uph_render_job_state;
+Uph_RenderJobState;
+static Uph_RenderJobState _uph_render_job_state;
 
 static void uph_render_job_release(bool delete_file)
 {
-    Uph_RenderJob *job = &_uph_render_job_state;
+    Uph_RenderJobState *state = &_uph_render_job_state;
 
-    if (job->locked)
+    if (state->locked)
     {
         uph_audio_engine_stop_all_notes();
         uph_audio_engine_unlock();
     }
 
-    if (job->encoder_ready)
-        ma_encoder_uninit(&job->encoder);
+    if (state->encoder_ready)
+        ma_encoder_uninit(&state->encoder);
 
-    if (job->converter_ready)
-        ma_data_converter_uninit(&job->converter, NULL);
+    if (state->converter_ready)
+        ma_data_converter_uninit(&state->converter, NULL);
 
-    free(job->out_buffer);
-    free(job->rendered);
+    free(state->out_buffer);
+    free(state->rendered);
 
-    if (delete_file && job->encoder_ready)
-        remove(job->filepath);
+    if (delete_file && state->encoder_ready)
+        remove(state->filepath);
 
-    *job = (Uph_RenderJob){0};
+    *state = (Uph_RenderJobState){0};
 }
 
 bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSettings *settings)
 {
-    Uph_RenderJob *job = &_uph_render_job_state;
-    if (job->phase != UPH_RENDER_JOB_IDLE)
+    Uph_RenderJobState *state = &_uph_render_job_state;
+    if (state->phase != UPH_RENDER_JOB_IDLE)
         return false;
 
     if (settings->end_beat <= settings->start_beat)
@@ -3085,55 +3224,55 @@ bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSetting
         return false;
     }
 
-    *job = (Uph_RenderJob){0};
-    job->settings = *settings;
-    snprintf(job->filepath, sizeof(job->filepath), "%s", filepath);
+    *state = (Uph_RenderJobState){0};
+    state->settings = *settings;
+    snprintf(state->filepath, sizeof(state->filepath), "%s", filepath);
 
-    job->engine_rate = _uph_audio_engine_state.device.sampleRate;
-    job->output_rate = settings->sample_rate ? settings->sample_rate : job->engine_rate;
-    job->output_channels = settings->channels == 1 ? 1 : 2;
-    job->output_format = uph_render_bit_depth_format(settings->bit_depth);
+    state->engine_rate = uph_audio_engine_sample_rate();
+    state->output_rate = settings->sample_rate ? settings->sample_rate : state->engine_rate;
+    state->output_channels = settings->channels == 1 ? 1 : 2;
+    state->output_format = uph_render_bit_depth_format(settings->bit_depth);
 
-    job->start_seconds = uph_tempo_beat_to_seconds(settings->start_beat);
-    const double duration_seconds = uph_tempo_beat_to_seconds(settings->end_beat) - job->start_seconds + NAUI_MAX(0.0f, settings->tail_seconds);
-    job->total_frames = (uint64_t)(duration_seconds * (double)job->engine_rate);
-    if (job->total_frames == 0)
+    state->start_seconds = uph_tempo_beat_to_seconds(settings->start_beat);
+    const double duration_seconds = uph_tempo_beat_to_seconds(settings->end_beat) - state->start_seconds + NAUI_MAX(0.0f, settings->tail_seconds);
+    state->total_frames = (uint64_t)(duration_seconds * (double)state->engine_rate);
+    if (state->total_frames == 0)
         return false;
 
-    ma_data_converter_config converter_config = ma_data_converter_config_init(ma_format_f32, job->output_format, 2, job->output_channels, job->engine_rate, job->output_rate);
-    converter_config.ditherMode = settings->dither && job->output_format != ma_format_f32 ? ma_dither_mode_triangle : ma_dither_mode_none;
+    ma_data_converter_config converter_config = ma_data_converter_config_init(ma_format_f32, state->output_format, 2, state->output_channels, state->engine_rate, state->output_rate);
+    converter_config.ditherMode = settings->dither && state->output_format != ma_format_f32 ? ma_dither_mode_triangle : ma_dither_mode_none;
     converter_config.resampling.algorithm = ma_resample_algorithm_linear;
     converter_config.resampling.linear.lpfOrder = MA_MAX_FILTER_ORDER;
 
-    if (ma_data_converter_init(&converter_config, NULL, &job->converter) != MA_SUCCESS)
+    if (ma_data_converter_init(&converter_config, NULL, &state->converter) != MA_SUCCESS)
     {
         fprintf(stderr, "uph_audio_engine_render_begin: failed to init converter\n");
         uph_render_job_release(false);
         return false;
     }
-    job->converter_ready = true;
+    state->converter_ready = true;
 
-    job->buffer_frames = job->total_frames + ma_data_converter_get_input_latency(&job->converter);
-    job->rendered = (float*)calloc((size_t)job->buffer_frames * 2, sizeof(float));
-    job->out_buffer = malloc((size_t)UPH_RENDER_JOB_OUTPUT_CHUNK * job->output_channels * ma_get_bytes_per_sample(job->output_format));
-    if (!job->rendered || !job->out_buffer)
+    state->buffer_frames = state->total_frames + ma_data_converter_get_input_latency(&state->converter);
+    state->rendered = (float*)calloc((size_t)state->buffer_frames * 2, sizeof(float));
+    state->out_buffer = malloc((size_t)UPH_RENDER_JOB_OUTPUT_CHUNK * state->output_channels * ma_get_bytes_per_sample(state->output_format));
+    if (!state->rendered || !state->out_buffer)
     {
         fprintf(stderr, "uph_audio_engine_render_begin: out of memory\n");
         uph_render_job_release(false);
         return false;
     }
 
-    job->target_frames = (uint64_t)((double)job->total_frames * (double)job->output_rate / (double)job->engine_rate);
+    state->target_frames = (uint64_t)((double)state->total_frames * (double)state->output_rate / (double)state->engine_rate);
 
     uph_audio_engine_lock();
-    job->locked = true;
+    state->locked = true;
     uph_audio_engine_stop_all_notes();
 
-    job->phase = UPH_RENDER_JOB_RENDERING;
+    state->phase = UPH_RENDER_JOB_RENDERING;
     return true;
 }
 
-static void uph_render_job_normalize(Uph_RenderJob *job)
+static void uph_render_job_normalize(Uph_RenderJobState *job)
 {
     float peak = 0.0f;
     for (uint64_t i = 0; i < job->total_frames * 2; i++)
@@ -3147,7 +3286,7 @@ static void uph_render_job_normalize(Uph_RenderJob *job)
         job->rendered[i] *= gain;
 }
 
-static bool uph_render_job_start_writing(Uph_RenderJob *job)
+static bool uph_render_job_start_writing(Uph_RenderJobState *job)
 {
     uph_audio_engine_stop_all_notes();
     uph_audio_engine_unlock();
@@ -3168,7 +3307,7 @@ static bool uph_render_job_start_writing(Uph_RenderJob *job)
     return true;
 }
 
-static bool uph_render_job_write_chunk(Uph_RenderJob *job)
+static bool uph_render_job_write_chunk(Uph_RenderJobState *job)
 {
     ma_uint64 frames_in = job->buffer_frames - job->consumed_frames;
     ma_uint64 frames_out = NAUI_MIN((uint64_t)UPH_RENDER_JOB_OUTPUT_CHUNK, job->target_frames - job->written_frames);
@@ -3195,8 +3334,8 @@ static bool uph_render_job_write_chunk(Uph_RenderJob *job)
 
 Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
 {
-    Uph_RenderJob *job = &_uph_render_job_state;
-    if (job->phase == UPH_RENDER_JOB_IDLE)
+    Uph_RenderJobState *state = &_uph_render_job_state;
+    if (state->phase == UPH_RENDER_JOB_IDLE)
         return UPH_RENDER_STATUS_IDLE;
 
     const ma_uint32 chunk_frames = NAUI_MAX(64u, uph_state.settings.audio.buffer_size);
@@ -3204,14 +3343,14 @@ Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
 
     do
     {
-        if (job->phase == UPH_RENDER_JOB_RENDERING)
+        if (state->phase == UPH_RENDER_JOB_RENDERING)
         {
-            const ma_uint32 frames = (ma_uint32)NAUI_MIN((uint64_t)chunk_frames, job->total_frames - job->rendered_frames);
-            const double playhead_beat = uph_tempo_seconds_to_beat(job->start_seconds + (double)job->rendered_frames / (double)job->engine_rate);
-            uph_render_audio(playhead_beat, job->engine_rate, job->rendered + job->rendered_frames * 2, frames, true, NULL);
-            job->rendered_frames += frames;
+            const ma_uint32 frames = (ma_uint32)NAUI_MIN((uint64_t)chunk_frames, state->total_frames - state->rendered_frames);
+            const double playhead_beat = uph_tempo_seconds_to_beat(state->start_seconds + (double)state->rendered_frames / (double)state->engine_rate);
+            uph_render_audio(playhead_beat, state->engine_rate, state->rendered + state->rendered_frames * 2, frames, true, NULL);
+            state->rendered_frames += frames;
 
-            if (job->rendered_frames >= job->total_frames && !uph_render_job_start_writing(job))
+            if (state->rendered_frames >= state->total_frames && !uph_render_job_start_writing(state))
             {
                 uph_render_job_release(true);
                 return UPH_RENDER_STATUS_FAILED;
@@ -3219,15 +3358,15 @@ Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
         }
         else
         {
-            if (!uph_render_job_write_chunk(job))
+            if (!uph_render_job_write_chunk(state))
             {
                 uph_render_job_release(true);
                 return UPH_RENDER_STATUS_FAILED;
             }
 
-            if (job->written_frames >= job->target_frames)
+            if (state->written_frames >= state->target_frames)
             {
-                fprintf(stdout, "uph_audio_engine_render: rendered %llu frames to '%s'\n", (unsigned long long)job->written_frames, job->filepath);
+                fprintf(stdout, "uph_audio_engine_render: rendered %llu frames to '%s'\n", (unsigned long long)state->written_frames, state->filepath);
                 uph_render_job_release(false);
                 return UPH_RENDER_STATUS_DONE;
             }
@@ -3240,12 +3379,12 @@ Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
 
 float uph_audio_engine_render_progress(void)
 {
-    const Uph_RenderJob *job = &_uph_render_job_state;
-    if (job->phase == UPH_RENDER_JOB_IDLE || job->total_frames == 0)
+    const Uph_RenderJobState *state = &_uph_render_job_state;
+    if (state->phase == UPH_RENDER_JOB_IDLE || state->total_frames == 0)
         return 0.0f;
 
-    const double rendered = (double)job->rendered_frames / (double)job->total_frames;
-    const double written = job->target_frames ? (double)job->written_frames / (double)job->target_frames : 0.0;
+    const double rendered = (double)state->rendered_frames / (double)state->total_frames;
+    const double written = state->target_frames ? (double)state->written_frames / (double)state->target_frames : 0.0;
     return (float)(rendered * UPH_RENDER_JOB_RENDER_WEIGHT + written * (1.0 - UPH_RENDER_JOB_RENDER_WEIGHT));
 }
 
@@ -3256,7 +3395,8 @@ bool uph_audio_engine_render_active(void)
 
 void uph_audio_engine_render_cancel(void)
 {
-    if (_uph_render_job_state.phase != UPH_RENDER_JOB_IDLE)
+    Uph_RenderJobState *state = &_uph_render_job_state;
+    if (state->phase != UPH_RENDER_JOB_IDLE)
         uph_render_job_release(true);
 }
 

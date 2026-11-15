@@ -18,7 +18,7 @@ Uph_PluginEditorDrawData;
 
 NAUI_PANEL_WITH_DATA(uph_plugin_editor, Uph_PluginEditorData)
 
-#define UPH_PLUGIN_EDITOR_TITLEBAR_GUESS 32.0f
+#define UPH_PLUGIN_EDITOR_TITLEBAR_GUESS 32
 
 static void _uph_plugin_editor_reset_fit(Uph_PluginEditorData *data)
 {
@@ -137,9 +137,9 @@ static void uph_plugin_editor_on_update(void)
     draw.texture = uph_plugin_gui_texture(data->handle, &draw.width, &draw.height);
 
     leaf({
-        .size = { LEAF_SIZE_FULL, LEAF_SIZE_FULL },
         .custom_draw = (Leaf_CustomDrawFn)_uph_plugin_editor_draw,
-        .custom_draw_data = LEAF_DATA_SLICE(draw)
+        .custom_draw_data = LEAF_DATA_SLICE(draw),
+        .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL }
     }) {}
 
     if (body.width <= 0.0f || body.height <= 0.0f)
@@ -163,7 +163,7 @@ Naui_PanelID uph_plugin_editor_create(Uph_PluginInternalHandle *handle)
     uph_plugin_gui_size(handle, &width, &height);
 
     naui_panel_set_title(panel, uph_plugin_gui_title(handle));
-    naui_panel_set_min_size(panel, (Naui_Vec2){ NAUI_DPI(64.0f), NAUI_DPI(64.0f) });
+    naui_panel_set_min_size(panel, (Naui_Vec2){ NAUI_DPI(64), NAUI_DPI(64) });
     naui_panel_set_size(panel, (Naui_Vec2){ (float)width, (float)height + NAUI_DPI(UPH_PLUGIN_EDITOR_TITLEBAR_GUESS) });
     naui_panel_enable_flags(panel, NAUI_PANEL_FLAG_NO_RESIZE | NAUI_PANEL_FLAG_NO_DOCK);
 

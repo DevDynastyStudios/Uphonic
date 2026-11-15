@@ -1,3 +1,9 @@
+#ifdef NAUI_WINDOWS
+#	define UPH_FILE_NAMES_CASE_SENSITIVE false
+#else
+#	define UPH_FILE_NAMES_CASE_SENSITIVE true
+#endif
+
 int uph_project_dir_entry_compare(const void *a, const void *b)
 {
 	return strcmp(((const Naui_DirEntry *)a)->path.data, ((const Naui_DirEntry *)b)->path.data);

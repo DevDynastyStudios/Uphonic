@@ -1,9 +1,124 @@
+#define UPH_GRID_MIN_SUB_SPACING 8
+#define UPH_GRID_MIN_BEAT_SPACING 5
+#define UPH_SNAP_LINE_MIN_DIVISION 0.25
+
+typedef enum
+{
+	UPH_SNAP_BEAT,
+	UPH_SNAP_HALF,
+	UPH_SNAP_QUARTER,
+	UPH_SNAP_EIGHTH,
+	UPH_SNAP_SIXTEENTH,
+	UPH_SNAP_LINE
+}
+Uph_SnapResolution;
+
+typedef uint8_t Uph_LoopRegionDragMode;
+enum
+{
+	UPH_LOOP_DRAG_NONE,
+	UPH_LOOP_DRAG_CREATE,
+	UPH_LOOP_DRAG_START,
+	UPH_LOOP_DRAG_END,
+	UPH_LOOP_DRAG_MOVE
+};
+
+typedef struct
+{
+	double anchor;
+	Uph_LoopRegionDragMode mode;
+	bool moved;
+	bool created;
+}
+Uph_LoopRegionDrag;
+
+typedef enum
+{
+	UPH_GRID_LINE_SUBDIVISION,
+	UPH_GRID_LINE_BEAT,
+	UPH_GRID_LINE_BAR
+}
+Uph_GridLineKind;
+
+typedef void (*Uph_GridLineFn)(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data);
+
+static inline double uph_time_signature_beat_length(void)
+{
+	const uint32_t denominator = uph_state.project.time_signature.denominator;
+	return denominator > 0 ? 4.0 / (double)denominator : 1.0;
+}
+
+static inline double uph_time_signature_bar_length(void)
+{
+	const uint32_t numerator = uph_state.project.time_signature.numerator;
+	return (double)(numerator > 0 ? numerator : 1) * uph_time_signature_beat_length();
+}
+
+static inline Leaf_Color uph_color_mix(Leaf_Color a, Leaf_Color b, float t)
+{
+	t = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+	return (Leaf_Color) {
+		(uint8_t)((float)a.r + ((float)b.r - (float)a.r) * t + 0.5f),
+		(uint8_t)((float)a.g + ((float)b.g - (float)a.g) * t + 0.5f),
+		(uint8_t)((float)a.b + ((float)b.b - (float)a.b) * t + 0.5f),
+		(uint8_t)((float)a.a + ((float)b.a - (float)a.a) * t + 0.5f)
+	};
+}
+
+static inline double uph_snap_line_division(float zoom_x)
+{
+	const double beat_length = uph_time_signature_beat_length();
+	if (zoom_x <= 0.0f)
+		return beat_length;
+
+	if (beat_length * zoom_x < NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING))
+		return uph_time_signature_bar_length();
+
+	double division = beat_length;
+	while (division * 0.5 >= UPH_SNAP_LINE_MIN_DIVISION && division * 0.5 * zoom_x >= NAUI_DPI(UPH_GRID_MIN_SUB_SPACING))
+		division *= 0.5;
+
+	return division;
+}
+
+static inline double uph_snap_division(Uph_SnapResolution res, float zoom_x)
+{
+	switch (res)
+	{
+		case UPH_SNAP_BEAT:      return uph_time_signature_beat_length();
+		case UPH_SNAP_HALF:      return 0.5;
+		case UPH_SNAP_QUARTER:   return 0.25;
+		case UPH_SNAP_EIGHTH:    return 0.125;
+		case UPH_SNAP_SIXTEENTH: return 0.0625;
+		case UPH_SNAP_LINE:      return uph_snap_line_division(zoom_x);
+	}
+
+	return 1.0;
+}
+
+static inline double uph_snap_beat_round(double beat, Uph_SnapResolution resolution, float zoom_x)
+{
+	const double division = uph_snap_division(resolution, zoom_x);
+	return round(beat / division) * division;
+}
+
+static inline double uph_snap_beat_floor(double beat, Uph_SnapResolution resolution, float zoom_x)
+{
+	const double division = uph_snap_division(resolution, zoom_x);
+	return floor(beat / division) * division;
+}
+
+static inline bool uph_loop_region_valid(const Uph_LoopRegion *region)
+{
+	return region->end > region->start;
+}
+
 static void _uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data)
 {
     const double beat_length = uph_time_signature_beat_length();
     const int64_t beats_per_bar = (int64_t)llround(uph_time_signature_bar_length() / beat_length);
-    const float min_sub_spacing = NAUI_DPI(UPH_GRID_MIN_SUB_SPACING);
-    const float min_beat_spacing = NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING);
+    const int32_t min_sub_spacing = NAUI_DPI(UPH_GRID_MIN_SUB_SPACING);
+    const int32_t min_beat_spacing = NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING);
 
     while (division > 0.0 && division < beat_length && division * zoom_x < min_sub_spacing)
         division *= 2.0;
@@ -87,7 +202,7 @@ static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t ba
     {
         char label[16];
         snprintf(label, sizeof(label), "%d", (int)bar_index);
-        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13.0f), 0, style->number_color);
+        naui_draw_text((Naui_Vec2){x + 4.0f, bbox.y + bbox.height * 0.4f}, label, NAUI_DPI(13), 0, style->number_color);
     }
 }
 
@@ -318,7 +433,7 @@ float uph_automation_to_pan(float value)
     return clamped * 2.0f - 1.0f;
 }
 
-#define UPH_LOOP_REGION_HANDLE_WIDTH 5.0f
+#define UPH_LOOP_REGION_HANDLE_WIDTH 5
 #define UPH_LOOP_REGION_STRIP 0.4f
 
 static float _uph_loop_region_x(float origin_x, float zoom_x, float scroll_x, double beat)
@@ -346,7 +461,7 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
         {
             const float start_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
             const float end_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
-            const float handle = NAUI_DPI(UPH_LOOP_REGION_HANDLE_WIDTH);
+            const int32_t handle = NAUI_DPI(UPH_LOOP_REGION_HANDLE_WIDTH);
             const bool in_strip = mouse_y < bbox.y + bbox.height * UPH_LOOP_REGION_STRIP;
 
             if (in_strip && fabsf(mouse_x - end_x) <= handle)
@@ -444,8 +559,8 @@ void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox
     naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
     naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, _uph_loop_region_color(enabled, 30), 0.0f, NAUI_CORNER_NONE);
     naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, _uph_loop_region_color(enabled, 170), 0.0f, NAUI_CORNER_NONE);
-    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1.0f));
-    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1.0f));
+    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1));
+    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(enabled, 220), NAUI_DPI(1));
     naui_pop_clip_rect();
 }
 
@@ -458,6 +573,6 @@ void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x,
     const float end_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->end);
     const Leaf_Color color = _uph_loop_region_color(enabled, 110);
 
-    naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1.0f));
-    naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1.0f));
+    naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1));
+    naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1));
 }

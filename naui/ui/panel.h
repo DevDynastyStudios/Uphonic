@@ -23,7 +23,7 @@
 #endif
 
 #ifndef NAUI_PANEL_ROUNDING
-    #define NAUI_PANEL_ROUNDING 6.0f
+    #define NAUI_PANEL_ROUNDING 6
 #endif
 
 #ifndef NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG
@@ -43,7 +43,7 @@
 #endif
 
 #ifndef NAUI_PANEL_FONT_SIZE
-    #define NAUI_PANEL_FONT_SIZE 14.0f
+    #define NAUI_PANEL_FONT_SIZE 14
 #endif
 
 #ifndef NAUI_PANEL_BUTTON_HOVERED_BG_COLOR_TAG

@@ -1,27 +1,3 @@
-#define UPH_SONG_TIMELINE_ZOOM_X_MIN 8.0f
-#define UPH_SONG_TIMELINE_ZOOM_X_MAX 256.0f
-#define UPH_SONG_TIMELINE_PAN_SPEED 1.0f
-#define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
-#define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
-#define UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH 6.0f
-#define UPH_SONG_TIMELINE_CLICK_THRESHOLD 3.0f
-#define UPH_SONG_TIMELINE_DEPTH_INDENT 12.0f
-#define UPH_SONG_TIMELINE_TOP_RULER_HEIGHT 28
-#define UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE 13.0f
-#define UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING 2.0f
-#define UPH_SONG_TIMELINE_MINIMAP_HEIGHT 30.0f
-#define UPH_SONG_TIMELINE_TIME_DISPLAY_SCALE 1.4f
-#define UPH_SONG_TIMELINE_MINIMAP_INSET 2.0f
-
-typedef struct
-{
-	double total_beats;
-	float grab_offset;
-	bool dragging;
-	bool hovered;
-}
-Uph_SongTimelineMinimapState;
-
 typedef uint8_t Uph_BlockInteractionMode;
 enum
 {
@@ -31,320 +7,51 @@ enum
 	UPH_BLOCK_INTERACTION_RESIZE_RIGHT
 };
 
-typedef struct
-{
-	Uph_Track *src_track;
-	Uph_Track *dst_track;
-	uint32_t src_index;
-	uint32_t dst_index;
-	uint32_t current_index;
-}
-Uph_GroupBlockMove;
+void uph_song_timeline_invalidate_tracks(void);
 
-typedef struct
-{
-	Uph_Track *track;
-	Uph_ResourceType type;
-}
-Uph_TrackTypeBackup;
+void uph_song_timeline_emit_block_shockwave(
+	const Uph_Track *track,
+	const Uph_TimelineBlock *block
+);
 
-typedef struct
-{
-	double initial_drag_beat_offset;
-	double initial_start_beat;
-	double initial_length_beats;
-	double initial_start_offset_beats;
-	uint32_t block_index;
-	Uph_Track *track;
-	Uph_ActionTrackRef source_track;
-	uint32_t source_index;
-	Naui_List(Uph_ActionBlockSnapshot) group_blocks;
-	Naui_List(Uph_GroupBlockMove) group_moves;
-	Naui_List(Uph_TrackTypeBackup) type_backups;
-	int32_t group_row_offset;
-	uint32_t group_grabbed;
-	Naui_Vec2 initial_mouse;
-	bool active;
-	bool creating;
-	bool group;
-	bool additive;
-	bool select_tool;
-	bool moved;
-	Uph_BlockInteractionMode mode;
-}
-Uph_DraggingBlockState;
+void uph_song_timeline_reset_scroll(void);
 
-typedef struct
-{
-	uint32_t block_index;
-	Uph_Track *track;
-	int32_t dragging_point_index;
-	Uph_ResourceIndex automation_index;
-	Uph_AutomationPoint initial_point;
-	bool creating;
-	bool active;
-}
-Uph_AutomationEditState;
+void uph_song_timeline_render_ruler(
+	Leaf_BoundingBox bbox,
+	float zoom_x,
+	float scroll_x
+);
 
-typedef struct
-{
-	uint32_t block_index;
-	Uph_Track *track;
-	bool active;
-}
-Uph_HoveredBlockState;
+void uph_song_timeline_render_track_timeline(
+	Uph_Track *track
+);
 
-typedef struct
-{
-	double start_beat;
-	float start_content_y;
-	bool active;
-}
-Uph_MarqueeState;
+void uph_song_timeline_open_automation_list(
+	Uph_Track *track
+);
 
-typedef struct
-{
-	const Uph_Track *track;
-	uint32_t block_index;
-	bool button_hovered;
-	bool active;
-}
-Uph_BlockMenuHover;
+Uph_TimelineBlock uph_song_timeline_block_create(
+	double start_beat,
+	uint32_t resource_index,
+	Uph_ResourceType block_type
+);
 
-typedef struct
-{
-	Uph_BlockMenuHover hover;
-	Uph_BlockMenuHover next_hover;
-	Uph_ActionTrackRef target_track;
-	uint32_t target_index;
-	float view_width;
-	float measured_title_height;
-	bool title_probe_used;
-	bool target_valid;
-	bool open_requested;
-}
-Uph_BlockMenuState;
+void uph_song_timeline_begin_block_drag(
+	Uph_Track *track,
+	uint32_t block_index,
+	Uph_BlockInteractionMode mode,
+	double mouse_beat
+);
 
-typedef struct
-{
-	Uph_ActionTrackRef source;
-	Naui_Vec2 press_position;
-	bool pending;
-	bool active;
-	bool select_on_release;
-}
-Uph_TrackDragState;
+void uph_song_timeline_apply_group_drag(
+	const Uph_TimelineBlock *grabbed
+);
 
-typedef struct
-{
-	Naui_List(Uph_TrackPtr) tracks;
-	Uph_Track *dest_group;
-	uint32_t dest_index;
-}
-Uph_TrackPendingMove;
+void uph_song_timeline_render_track_timeline_blocks(
+	Uph_Track *track
+);
 
-typedef struct
-{
-	Uph_ActionTrackRef parent;
-	Uph_TimelineBlock block;
-	bool active;
-}
-Uph_PendingAutomationDrop;
-
-typedef struct
-{
-	Naui_Vec2 scroll;
-	Naui_Vec2 zoom;
-	Uph_DraggingBlockState drag;
-	Uph_HoveredBlockState hovered_block;
-	Uph_AutomationEditState automation_edit;
-	Uph_MarqueeState marquee;
-	Uph_BlockMenuState block_menu;
-	Uph_LoopRegionDrag loop_drag;
-	Uph_SongTimelineMinimapState minimap;
-	Uph_TrackDragState track_drag;
-	Uph_TrackPendingMove pending_move;
-	Uph_PendingAutomationDrop pending_automation;
-	Naui_List(Uph_TrackPtr) selected_tracks;
-	Uph_Track *selection_anchor;
-	Leaf_BoundingBox panel_bounding_box;
-	Uph_Track *current_options_track;
-	Uph_Track *current_color_options_track;
-	Uph_Track *current_hovered_track;
-	Uph_Track *frame_hovered_track;
-	Uph_Track *hovered_track;
-	Uph_Track *rename_track;
-	Naui_String rename_old_name;
-	struct
-	{
-		uint32_t row_counter;
-		float row_y;
-		float settled_row_y;
-		float zoom_y;
-		bool snap_track_motion;
-	}
-	visual;
-	uint32_t max_track_depth;
-	float content_height;
-	float bottom_drop_y;
-	Uph_SnapResolution snap_resolution;
-	Uph_ActionMode current_action_mode;
-	bool panel_focused;
-	bool panel_hovered;
-	bool tracks_hovered;
-	bool track_header_hovered;
-	bool bottom_hovered;
-	bool disable_space_to_play;
-	bool time_display_seconds;
-}
-Uph_SongTimelineState;
-
-static Uph_SongTimelineState _uph_song_timeline_state;
-
-#pragma region Temp Helpers
-static inline bool uph_ui_ctrl_down(void)	// Simply because Naui is broken
-{
-	return naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
-}
-
-static inline bool uph_ui_shift_down(void)
-{
-	return naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
-}
-#pragma endregion
-
-static inline Uph_ActionMode uph_song_timeline_tool(void)
-{
-	if (_uph_song_timeline_state.current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
-		return UPH_ACTION_SELECT;
-
-	return _uph_song_timeline_state.current_action_mode;
-}
-
-#pragma region Shared Helpers
-
-static inline bool uph_song_timeline_vec4_contains_vec2(const Naui_Vec4 rect, const Naui_Vec2 point)
-{
-	return point.x >= rect.x && point.x < rect.x + rect.z && point.y >= rect.y && point.y < rect.y + rect.w;
-}
-
-static inline bool uph_song_timeline_block_is_visible(double start_beat, double length_beats, float zoom_x, float scroll_x, float viewport_width)
-{
-	const double left = start_beat * zoom_x;
-	const double right = (start_beat + length_beats) * zoom_x;
-
-	if (right < scroll_x)
-		return false;
-
-	if (left > scroll_x + viewport_width)
-		return false;
-
-	return true;
-}
-
-static uint32_t uph_song_timeline_track_depth(const Uph_Track *track)
-{
-	uint32_t max_depth = 0;
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
-	{
-		const uint32_t depth = uph_song_timeline_track_depth(&track->subtracks[i]) + 1;
-		if (depth > max_depth)
-			max_depth = depth;
-	}
-	return max_depth;
-}
-
-static float uph_song_timeline_header_depth_width(void)
-{
-	return _uph_song_timeline_state.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
-}
-
-static float uph_song_timeline_header_column_width(void)
-{
-	return UPH_SONG_TIMELINE_HEADER_WIDTH + UPH_SONG_TIMELINE_HEADER_PADDING.x * 2.0f + uph_song_timeline_header_depth_width();
-}
-
-static float uph_song_timeline_max_scroll_y(void)
-{
-	return fmaxf(0.0f, _uph_song_timeline_state.content_height - _uph_song_timeline_state.zoom.y);
-}
-
-static inline float uph_song_timeline_block_title_height(void)
-{
-	return NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_FONT_SIZE) + NAUI_DPI(UPH_SONG_TIMELINE_BLOCK_TITLE_PADDING) * 2.0f;
-}
-
-static inline float uph_song_timeline_block_title_bar_height(void)
-{
-	const float measured = _uph_song_timeline_state.block_menu.measured_title_height;
-	return measured > 0.0f ? measured : uph_song_timeline_block_title_height();
-}
-
-static inline bool uph_song_timeline_block_menu_button_rect(float block_left, float block_width, float view_left, float view_right, Naui_Vec4 *out)
-{
-	const float bar_height = uph_song_timeline_block_title_bar_height();
-	const float size = fmaxf(bar_height - NAUI_DPI(2.0f), 1.0f);
-	const float inset = (bar_height - size) * 0.5f;
-	const float visible_left = fmaxf(block_left, view_left);
-	const float visible_right = fminf(block_left + block_width, view_right);
-	if (visible_right - visible_left < size * 2.0f + inset)
-		return false;
-
-	*out = (Naui_Vec4){ floorf(visible_right - inset - size), floorf((bar_height - size) * 0.5f), floorf(size), floorf(size) };
-	return true;
-}
-
-static Uph_BlockInteractionMode uph_song_timeline_classify_hover(Naui_Vec4 hover_box, float mouse_x)
-{
-    if (mouse_x <= hover_box.x + UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH)
-        return UPH_BLOCK_INTERACTION_RESIZE_LEFT;
-
-    if (mouse_x >= hover_box.x + hover_box.z - UPH_SONG_TIMELINE_RESIZE_HANDLE_WIDTH)
-        return UPH_BLOCK_INTERACTION_RESIZE_RIGHT;
-
-    return UPH_BLOCK_INTERACTION_MOVE;
-}
-
-#pragma endregion
-
-#pragma region Public API
-void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec2 size, Uph_Track *track, uint32_t block_index, double start_offset, Uph_ResourceIndex automation_index);
-
-void uph_song_timeline_update_input(void);
-void uph_song_timeline_update_selection_keys(void);
-void uph_song_timeline_update_empty_space_marquee(void);
-
-void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x);
-void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data);
-void uph_song_timeline_render_top_bar(void);
-
-void uph_song_timeline_render_track(Uph_Track *track, uint32_t depth, Uph_UIMenuID options_menu, Uph_UIMenuID color_menu);
-void uph_song_timeline_render_track_options_menu(Uph_UIMenuID track_options_context_menu, Uph_UIMenuID track_color_options_context_menu);
-void uph_song_timeline_render_track_plus(void);
-void uph_song_timeline_update_track_drag(void);
-void uph_song_timeline_apply_pending_move(void);
-
-void uph_song_timeline_render_track_timeline(Uph_Track *track);
-void uph_song_timeline_create_automation_lane(Uph_ActionTrackAutomationCreate lane);
-void uph_song_timeline_cancel_automation_drop(void);
-void uph_song_timeline_open_automation_list(Uph_Track *track);
-void uph_song_timeline_update_bottom_drop(void);
-void uph_song_timeline_render_bottom_drop_overlay(Leaf_BoundingBox bbox, void *data);
-
-Uph_TimelineBlock uph_song_timeline_block_create(double start_beat, uint32_t resource_index, Uph_ResourceType block_type);
-
-void uph_song_timeline_update_drag_track_switch(void);
-void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, Uph_BlockInteractionMode mode, double mouse_beat);
-void uph_song_timeline_apply_group_drag(const Uph_TimelineBlock *grabbed);
-void uph_song_timeline_finish_block_drag(void);
-
-void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track);
-void uph_song_timeline_request_block_menu(Uph_Track *track, uint32_t block_index);
-void uph_song_timeline_render_block_options_menu(Uph_UIMenuID block_options_menu);
-
-void uph_song_timeline_render_toolbox(void);
-
-void uph_song_timeline_update_minimap(void);
-void uph_song_timeline_render_minimap(void);
-void uph_song_timeline_render_time_display(void);
-#pragma endregion
+void uph_song_timeline_request_block_menu(
+	Uph_Track *track,
+	uint32_t block_index
+);

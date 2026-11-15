@@ -1,5 +1,5 @@
-#define UPH_FILE_DIALOG_WIDTH 760.0f
-#define UPH_FILE_DIALOG_HEIGHT 480.0f
+#define UPH_FILE_DIALOG_WIDTH 760
+#define UPH_FILE_DIALOG_HEIGHT 480
 
 typedef struct
 {
@@ -12,7 +12,7 @@ Uph_FileDialogData;
 
 NAUI_PANEL_WITH_DATA(uph_file_dialog, Uph_FileDialogData)
 
-static struct
+typedef struct
 {
 	Naui_Dialog *pending;
 	Naui_Dialog *ending;
@@ -21,7 +21,9 @@ static struct
 	Naui_PanelID panels[NAUI_MAX_DIALOGS];
 	Naui_Dialog *panel_owners[NAUI_MAX_DIALOGS];
 }
-_uph_file_dialog_state;
+Uph_FileDialogState;
+
+static Uph_FileDialogState _uph_file_dialog_state;
 
 typedef struct
 {
@@ -64,17 +66,19 @@ static void _uph_file_dialog_filter_text(const Naui_Dialog *dialog, char *out, s
 
 static void _uph_file_dialog_overwrite_result(int32_t button, void *user_data)
 {
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
 	(void)user_data;
 	if (button != 0)
 		return;
 
-	Naui_Dialog *dialog = naui_dialog_find(_uph_file_dialog_state.overwrite_key);
+	Naui_Dialog *dialog = naui_dialog_find(state->overwrite_key);
 	if (dialog)
 		naui_dialog_confirm(dialog, true);
 }
 
 static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_DialogConfirmResult result)
 {
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
 	data->error_key = NULL;
 
 	switch (result)
@@ -84,7 +88,7 @@ static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_Dialog
 			break;
 
 		case NAUI_DIALOG_CONFIRM_NEEDS_OVERWRITE:
-			snprintf(_uph_file_dialog_state.overwrite_key, sizeof(_uph_file_dialog_state.overwrite_key), "%s", data->dialog->key);
+			snprintf(state->overwrite_key, sizeof(state->overwrite_key), "%s", data->dialog->key);
 			uph_dialog_open(&(Uph_DialogConfig){
 				.title = NAUI_TR("file_dialog.overwrite.title"),
 				.message = NAUI_TR("file_dialog.overwrite.message"),
@@ -128,9 +132,9 @@ static void _uph_file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActio
 static void _uph_file_dialog_sidebar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	leaf({
-		.size = {LEAF_SIZE_FIXED(NAUI_DPI(130.0f)), LEAF_SIZE_GROW},
-		.direction = LEAF_DIRECTION_VERTICAL,
-		.child_gap = NAUI_DPI(4.0f)
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(130)), .height = LEAF_SIZE_GROW },
+		.child_gap = NAUI_DPI(4),
+		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
 		_uph_file_dialog_place(data, actions, NAUI_TR("file_dialog.places.home"), naui_directory_get(NAUI_DIR_HOME), 1);
@@ -157,7 +161,7 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 	}
 
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
@@ -171,27 +175,27 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 
 	leaf({
 		.id = row_id,
-		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = background,
-		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		leaf({
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 			.clip_children = true
 		})
 		{
-			leaf_text(name, { .color = text_color, .font_size = {font_size} });
+			leaf_text(name, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 		}
 
 		if (!entry->is_directory)
 		{
 			char size_text[32];
 			_uph_file_dialog_format_size(entry->size, size_text, sizeof(size_text));
-			leaf_text(size_text, { .color = text_color, .font_size = {font_size} });
+			leaf_text(size_text, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 		}
 	}
 }
@@ -201,7 +205,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 	const Naui_Dialog *dialog = data->dialog;
 
 	leaf({
-		.size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
 		.color = naui_theme_color("uph_ui_well_bg_color"),
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.clip_children = true
@@ -221,7 +225,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 		{
 			leaf_text(NAUI_TR("file_dialog.empty"), {
 				.color = naui_theme_color("uph_ui_text_color"),
-				.font_size = {NAUI_DPI(UPH_UI_FONT_SIZE)}
+				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 			});
 		}
 
@@ -235,10 +239,10 @@ static void _uph_file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogAct
 	const Leaf_ID path_id = leaf_id_indexed("uph_file_dialog_path", data->instance);
 
 	leaf({
-		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.child_gap = NAUI_DPI(6.0f)
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(6),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		if (uph_ui_text_button(NAUI_TR("file_dialog.up"), leaf_id_indexed("uph_file_dialog_up", data->instance)))
@@ -265,16 +269,16 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID name_id = leaf_id_indexed("uph_file_dialog_name", data->instance);
 	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
-	const float font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	if (data->error_key)
-		leaf_text(NAUI_TR(data->error_key), { .color = text_color, .font_size = {font_size} });
+		leaf_text(NAUI_TR(data->error_key), { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 
 	leaf({
-		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT},
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
-		.child_gap = NAUI_DPI(6.0f)
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(6),
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		const bool was_active = uph_ui_textfield_active(name_id);
@@ -287,7 +291,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 		char filters[NAUI_DIALOG_MAX_FILTERS * (NAUI_DIALOG_FILTER_MAX + 2)];
 		_uph_file_dialog_filter_text(dialog, filters, sizeof(filters));
 		if (filters[0])
-			leaf_text(filters, { .color = text_color, .font_size = {font_size} });
+			leaf_text(filters, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 
 		if (uph_ui_text_button(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance)))
 			actions->confirm = true;
@@ -370,16 +374,17 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 
 static void uph_file_dialog_on_attach(void)
 {
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	memset(data, 0, sizeof(*data));
-	data->dialog = _uph_file_dialog_state.pending;
-	data->instance = (uint64_t)(uintptr_t)_uph_file_dialog_state.pending;
-	_uph_file_dialog_state.pending = NULL;
+	data->dialog = state->pending;
+	data->instance = (uint64_t)(uintptr_t)state->pending;
+	state->pending = NULL;
 
 	const Naui_PanelID self = naui_panel_current();
 	naui_panel_set_title(self, data->dialog->title);
 	naui_panel_set_size(self, (Naui_Vec2){ NAUI_DPI(UPH_FILE_DIALOG_WIDTH), NAUI_DPI(UPH_FILE_DIALOG_HEIGHT) });
-	naui_panel_set_min_size(self, (Naui_Vec2){ NAUI_DPI(480.0f), NAUI_DPI(300.0f) });
+	naui_panel_set_min_size(self, (Naui_Vec2){ NAUI_DPI(480), NAUI_DPI(300) });
 	naui_panel_enable_flags(self, NAUI_PANEL_FLAG_NO_DOCK);
 }
 
@@ -395,14 +400,15 @@ static void uph_file_dialog_on_open(void)
 
 static void uph_file_dialog_on_close(void)
 {
-	if (_uph_file_dialog_state.recentering)
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	if (state->recentering)
 		return;
 
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	Naui_Dialog *dialog = data->dialog;
 	data->dialog = NULL;
 
-	if (dialog && dialog != _uph_file_dialog_state.ending)
+	if (dialog && dialog != state->ending)
 		naui_dialog_cancel(dialog);
 }
 
@@ -415,18 +421,18 @@ static void uph_file_dialog_on_update(void)
 	Uph_FileDialogActions actions = { .clicked_row = -1, .activated_row = -1 };
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FULL},
-		.direction = LEAF_DIRECTION_VERTICAL,
-		.padding = LEAF_PADDING_ALL(NAUI_DPI(8.0f)),
-		.child_gap = NAUI_DPI(8.0f)
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(8)),
+		.child_gap = NAUI_DPI(8),
+		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
 		_uph_file_dialog_top_bar(data, &actions);
 
 		leaf({
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
-			.direction = LEAF_DIRECTION_HORIZONTAL,
-			.child_gap = NAUI_DPI(8.0f)
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
+			.child_gap = NAUI_DPI(8),
+			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			_uph_file_dialog_sidebar(data, &actions);
@@ -451,8 +457,9 @@ static void uph_file_dialog_on_update(void)
 
 static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 {
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
 	uint32_t slot = 0;
-	while (slot < NAUI_MAX_DIALOGS && _uph_file_dialog_state.panel_owners[slot])
+	while (slot < NAUI_MAX_DIALOGS && state->panel_owners[slot])
 		slot++;
 
 	if (slot == NAUI_MAX_DIALOGS)
@@ -463,35 +470,36 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 	snprintf(dialog->title, sizeof(dialog->title), "%s", titles[dialog->mode]);
 	snprintf(dialog->confirm_label, sizeof(dialog->confirm_label), "%s", labels[dialog->mode]);
 
-	_uph_file_dialog_state.pending = dialog;
+	state->pending = dialog;
 	const Naui_PanelID panel = NAUI_ATTACH_PANEL(uph_file_dialog);
-	_uph_file_dialog_state.pending = NULL;
+	state->pending = NULL;
 	if (!panel)
 		return false;
 
-	_uph_file_dialog_state.panels[slot] = panel;
-	_uph_file_dialog_state.panel_owners[slot] = dialog;
-	_uph_file_dialog_state.recentering = true;
+	state->panels[slot] = panel;
+	state->panel_owners[slot] = dialog;
+	state->recentering = true;
 	naui_panel_close(panel);
-	_uph_file_dialog_state.recentering = false;
+	state->recentering = false;
 	naui_panel_open(panel);
 	return true;
 }
 
 static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 {
+	Uph_FileDialogState *state = &_uph_file_dialog_state;
 	for (uint32_t i = 0; i < NAUI_MAX_DIALOGS; i++)
 	{
-		if (_uph_file_dialog_state.panel_owners[i] != dialog)
+		if (state->panel_owners[i] != dialog)
 			continue;
 
-		const Naui_PanelID panel = _uph_file_dialog_state.panels[i];
-		_uph_file_dialog_state.panel_owners[i] = NULL;
-		_uph_file_dialog_state.panels[i] = 0;
+		const Naui_PanelID panel = state->panels[i];
+		state->panel_owners[i] = NULL;
+		state->panels[i] = 0;
 
-		_uph_file_dialog_state.ending = dialog;
+		state->ending = dialog;
 		naui_panel_close(panel);
-		_uph_file_dialog_state.ending = NULL;
+		state->ending = NULL;
 		naui_panel_detach(panel);
 		return;
 	}

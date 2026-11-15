@@ -1,13 +1,16 @@
+#define UPH_SONG_TIMELINE_TOP_RULER_HEIGHT 28
+
 void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x)
 {
-	uph_grid_render_beats(bbox, zoom_x, scroll_x, uph_snap_division(_uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x));
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	uph_grid_render_beats(bbox, zoom_x, scroll_x, uph_snap_division(state->snap_resolution, state->zoom.x));
 }
 
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 {
 	static bool dragging_playhead;
 	static double drag_beat;
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 
 	const bool mouse_over_ruler = uph_song_timeline_vec4_contains_vec2(
 		(Naui_Vec4){ bbox.x, bbox.y, bbox.width, bbox.height },
@@ -15,13 +18,13 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 	);
 
 	const bool loop_busy = uph_loop_region_update(
-		&uph_state.project.loop_region, &data->loop_drag, bbox,
-		data->zoom.x, data->scroll.x, uph_snap_division(data->snap_resolution, _uph_song_timeline_state.zoom.x),
+		&uph_state.project.loop_region, &state->loop_drag, bbox,
+		state->zoom.x, state->scroll.x, uph_snap_division(state->snap_resolution, state->zoom.x),
 		!dragging_playhead && naui_panel_is_hovered(uph_state.panels.song_timeline)
 	);
-	if (data->loop_drag.created)
+	if (state->loop_drag.created)
 	{
-		data->loop_drag.created = false;
+		state->loop_drag.created = false;
 		uph_state.project.loop_enabled = true;
 	}
 
@@ -34,13 +37,13 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 	if (!dragging_playhead)
 		return;
 
-	const double mouse_beat_raw = ((double)naui_mouse_x() - bbox.x + data->scroll.x) / data->zoom.x;
-	double beat = fmax(0.0, uph_snap_beat_floor(mouse_beat_raw, data->snap_resolution, _uph_song_timeline_state.zoom.x));
+	const double mouse_beat_raw = ((double)naui_mouse_x() - bbox.x + state->scroll.x) / state->zoom.x;
+	double beat = fmax(0.0, uph_snap_beat_floor(mouse_beat_raw, state->snap_resolution, state->zoom.x));
 	if (uph_state.project.loop_enabled && !uph_loop_region_valid(&uph_state.project.loop_region))
 	{
 		const double length = uph_audio_engine_get_song_length();
 		if (length > 0.0 && beat >= length)
-			beat = fmax(0.0, length - uph_snap_division(data->snap_resolution, _uph_song_timeline_state.zoom.x));
+			beat = fmax(0.0, length - uph_snap_division(state->snap_resolution, state->zoom.x));
 	}
 
 	if (beat != drag_beat)
@@ -56,9 +59,10 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 
 static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)
 {
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	uph_song_timeline_update_playhead_drag(bbox);
-	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, _uph_song_timeline_state.zoom.x, _uph_song_timeline_state.scroll.x, uph_state.project.loop_enabled);
-	uph_grid_render_ruler(bbox, _uph_song_timeline_state.zoom.x, _uph_song_timeline_state.scroll.x, uph_snap_division(_uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x));
+	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, state->zoom.x, state->scroll.x, uph_state.project.loop_enabled);
+	uph_grid_render_ruler(bbox, state->zoom.x, state->scroll.x, uph_snap_division(state->snap_resolution, state->zoom.x));
 }
 
 void uph_song_timeline_render_top_bar(void)
@@ -68,23 +72,23 @@ void uph_song_timeline_render_top_bar(void)
 	const uint32_t height = NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT);
 
 	leaf({
-		.direction = LEAF_DIRECTION_HORIZONTAL,
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(height)}
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(height) },
+		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		leaf({
-			.size = {LEAF_SIZE_FIXED(NAUI_DPI(header_width + uph_song_timeline_header_depth_width())), LEAF_SIZE_FULL},
+			.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(header_width + uph_song_timeline_header_depth_width())), .height = LEAF_SIZE_FULL },
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(header_padding.x), 0.0f),
-			.child_alignment = {LEAF_ALIGN_X_RIGHT, LEAF_ALIGN_Y_CENTER}
+			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
 		});
 
 		leaf({
-			.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 		})
 		{
 			leaf({
-				.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(height - 2)},
 				.custom_draw = (Leaf_CustomDrawFn)uph_song_timeline_render_top_ruler,
+				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(height - 2) },
 				.border = {
 					.width = 1,
 					.sides = LEAF_SIDE_ALL,
@@ -98,40 +102,41 @@ void uph_song_timeline_render_top_bar(void)
 
 void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data)
 {
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const Naui_Image *playhead_image = naui_asset_image("uph_icon_playhead");
 	const Naui_Color color = naui_theme_color("uph_playhead_color");
-	const float x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
-	const float playhead_size = NAUI_DPI(16.0f);
+	const int32_t x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
+	const int32_t playhead_size = NAUI_DPI(16);
 	const float playhead_half_size = playhead_size * 0.5f;
 	const float playhead_y = bbox.y + NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT) - playhead_size;
 	naui_push_clip_rect(bbox.x + x_offset - NAUI_DPI(1), bbox.y, bbox.width, bbox.height);
 
-	if (_uph_song_timeline_state.current_action_mode == UPH_ACTION_CUT)
+	if (state->current_action_mode == UPH_ACTION_CUT)
 	{
-		const double mouse_beat = ((double)naui_mouse_x() - (bbox.x + x_offset) + _uph_song_timeline_state.scroll.x) / _uph_song_timeline_state.zoom.x;
-		const double cut_beat = uph_snap_beat_round(mouse_beat, _uph_song_timeline_state.snap_resolution, _uph_song_timeline_state.zoom.x);
-		const float x = bbox.x + x_offset + (float)(cut_beat * _uph_song_timeline_state.zoom.x) - _uph_song_timeline_state.scroll.x;
+		const double mouse_beat = ((double)naui_mouse_x() - (bbox.x + x_offset) + state->scroll.x) / state->zoom.x;
+		const double cut_beat = uph_snap_beat_round(mouse_beat, state->snap_resolution, state->zoom.x);
+		const float x = bbox.x + x_offset + (float)(cut_beat * state->zoom.x) - state->scroll.x;
 		naui_draw_line(
 			(Naui_Vec2){ x, playhead_y },
 			(Naui_Vec2){ x, bbox.y + bbox.height },
 			color,
-			NAUI_DPI(1.0f)
+			NAUI_DPI(1)
 		);
 	}
 
 	uph_loop_region_render_bounds(
 		&uph_state.project.loop_region,
 		bbox.x + x_offset, bbox.y + NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT), bbox.y + bbox.height,
-		_uph_song_timeline_state.zoom.x, _uph_song_timeline_state.scroll.x, uph_state.project.loop_enabled
+		state->zoom.x, state->scroll.x, uph_state.project.loop_enabled
 	);
 
-	const Uph_MarqueeState *marquee = &_uph_song_timeline_state.marquee;
-	const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * _uph_song_timeline_state.zoom.x - _uph_song_timeline_state.scroll.x;
+	const Uph_MarqueeState *marquee = &state->marquee;
+	const float x = bbox.x + x_offset + uph_state.shared.song_timeline_playhead_position * state->zoom.x - state->scroll.x;
 	naui_draw_line(
 		(Naui_Vec2){ x, playhead_y },
 		(Naui_Vec2){ x, bbox.y + bbox.height },
 		color,
-		NAUI_DPI(1.0f)
+		NAUI_DPI(1)
 	);
 
 	naui_draw_image(
@@ -145,8 +150,8 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 
 	if (marquee->active)
 	{
-		const float corner_x = bbox.x + x_offset + (float)(marquee->start_beat * _uph_song_timeline_state.zoom.x) - _uph_song_timeline_state.scroll.x;
-		const float corner_y = _uph_song_timeline_state.panel_bounding_box.y - _uph_song_timeline_state.scroll.y + marquee->start_content_y;
+		const float corner_x = bbox.x + x_offset + (float)(marquee->start_beat * state->zoom.x) - state->scroll.x;
+		const float corner_y = state->panel_bounding_box.y - state->scroll.y + marquee->start_content_y;
 		const Naui_Vec2 top_left = { fminf(corner_x, (float)naui_mouse_x()), fminf(corner_y, (float)naui_mouse_y()) };
 		const Naui_Vec2 size = { fabsf(corner_x - (float)naui_mouse_x()), fabsf(corner_y - (float)naui_mouse_y()) };
 		Leaf_Color fill_color = naui_theme_color("uph_selection_outline_color");
@@ -154,7 +159,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 		fill_color.a = 30;
 		border_color.a = 160;
 		naui_fill_rect(top_left, size, fill_color, 0.0f, NAUI_CORNER_NONE);
-		naui_draw_rect(top_left, size, border_color, NAUI_DPI(1.0f), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
+		naui_draw_rect(top_left, size, border_color, NAUI_DPI(1), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
 	}
 
 	naui_pop_clip_rect();

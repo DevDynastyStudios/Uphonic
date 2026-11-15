@@ -1,3 +1,11 @@
+#define UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY 100
+#define UPH_MIDI_EDITOR_VELOCITY_LANE_HEIGHT 110
+#define UPH_MIDI_EDITOR_VELOCITY_LANE_MIN_HEIGHT 48
+#define UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_HEIGHT 400
+#define UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS 4
+#define UPH_MIDI_EDITOR_VELOCITY_PADDING 6
+#define UPH_MIDI_EDITOR_VELOCITY_MIN 1
+
 static float _uph_velocity_usable_height(Leaf_BoundingBox box)
 {
 	return fmaxf(1.0f, box.height - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_PADDING) * 2.0f);
@@ -23,7 +31,7 @@ static uint8_t _uph_velocity_clamp(int32_t velocity)
 
 static float _uph_velocity_hit_radius(void)
 {
-	return NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS + 2.0f);
+	return NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS + 2);
 }
 
 void uph_midi_velocity_init(Uph_VelocityLane *lane)
@@ -62,7 +70,7 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorState *editor, bool handle_
 	if (!lane->resizing)
 		return;
 
-	const float delta = (lane->resize_start_mouse_y - (float)naui_mouse_y()) / NAUI_DPI(1.0f);
+	const float delta = (lane->resize_start_mouse_y - (float)naui_mouse_y()) / NAUI_DPI(1);
 	lane->height = NAUI_CLAMP(lane->resize_start_height + delta, UPH_MIDI_EDITOR_VELOCITY_LANE_MIN_HEIGHT, UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_HEIGHT);
 
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
@@ -286,8 +294,8 @@ void uph_midi_velocity_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box,
 
 void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 {
-	const float small_font_size = NAUI_DPI(10.0f);
-	const float padding = NAUI_DPI(6.0f);
+	const int32_t small_font_size = NAUI_DPI(10);
+	const int32_t padding = NAUI_DPI(6);
 	const Leaf_Color dim_color = naui_theme_color("uph_ui_text_disabled_color");
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
@@ -308,7 +316,7 @@ void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 
 static void _uph_velocity_render_note(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiNote *note, bool hovered, Leaf_Color base_color)
 {
-	const float radius = NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS);
+	const int32_t radius = NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS);
 	const float x = uph_midi_view_beat_to_x(&editor->view, box, note->start_beat);
 	const float width = (float)(note->length_beats * editor->view.zoom.x);
 	if (x - radius > box.x + box.width || x + width < box.x - radius)
@@ -319,18 +327,18 @@ static void _uph_velocity_render_note(const Uph_MidiEditorState *editor, Leaf_Bo
 	Leaf_Color bar_color = color;
 	bar_color.a = 70;
 
-	naui_fill_rect((Naui_Vec2) { x, y - NAUI_DPI(1.0f) }, (Naui_Vec2) { width, NAUI_DPI(2.0f) }, bar_color, 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { x, y - NAUI_DPI(1) }, (Naui_Vec2) { width, NAUI_DPI(2) }, bar_color, 0.0f, NAUI_CORNER_NONE);
 	naui_draw_line((Naui_Vec2) { x, box.y + box.height }, (Naui_Vec2) { x, y }, color, NAUI_DPI(1.5f));
 	naui_fill_rect((Naui_Vec2) { x - radius, y - radius }, (Naui_Vec2) { radius * 2.0f, radius * 2.0f }, color, radius, LEAF_CORNER_ALL);
 
 	if (hovered)
 	{
 		naui_draw_rect(
-			(Naui_Vec2) { x - radius - NAUI_DPI(2.0f), y - radius - NAUI_DPI(2.0f) },
-			(Naui_Vec2) { radius * 2.0f + NAUI_DPI(4.0f), radius * 2.0f + NAUI_DPI(4.0f) },
+			(Naui_Vec2) { x - radius - NAUI_DPI(2), y - radius - NAUI_DPI(2) },
+			(Naui_Vec2) { radius * 2.0f + NAUI_DPI(4), radius * 2.0f + NAUI_DPI(4) },
 			LEAF_COLOR_WHITE,
-			NAUI_DPI(1.0f),
-			radius + NAUI_DPI(2.0f),
+			NAUI_DPI(1),
+			radius + NAUI_DPI(2),
 			LEAF_CORNER_ALL,
 			NAUI_SIDE_ALL
 		);
@@ -342,17 +350,17 @@ static void _uph_velocity_render_label(Leaf_BoundingBox box, float x, float y, i
 	char label[8];
 	snprintf(label, sizeof(label), "%d", (int)velocity);
 
-	const float font_size = NAUI_DPI(11.0f);
-	const float padding = NAUI_DPI(3.0f);
+	const int32_t font_size = NAUI_DPI(11);
+	const int32_t padding = NAUI_DPI(3);
 	const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size, 0);
 
-	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS) + NAUI_DPI(4.0f);
+	float label_x = x + NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS) + NAUI_DPI(4);
 	if (label_x + size.x + padding * 2.0f > box.x + box.width)
-		label_x = x - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS) - NAUI_DPI(4.0f) - size.x - padding * 2.0f;
+		label_x = x - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS) - NAUI_DPI(4) - size.x - padding * 2.0f;
 
 	const float label_y = NAUI_CLAMP(y - size.y * 0.5f - padding, box.y, box.y + box.height - size.y - padding * 2.0f);
 
-	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3.0f), LEAF_CORNER_ALL);
+	naui_fill_rect((Naui_Vec2) { label_x, label_y }, (Naui_Vec2) { size.x + padding * 2.0f, size.y + padding * 2.0f }, leaf_rgba(0, 0, 0, 170), NAUI_DPI(3), LEAF_CORNER_ALL);
 	naui_draw_text((Naui_Vec2) { label_x + padding, label_y + padding }, label, font_size, 0, LEAF_COLOR_WHITE);
 }
 

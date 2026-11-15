@@ -1,3 +1,9 @@
+#define UPH_SONG_TIMELINE_ZOOM_X_MIN 8.0f
+#define UPH_SONG_TIMELINE_ZOOM_X_MAX 256.0f
+#define UPH_SONG_TIMELINE_PAN_SPEED 1.0f
+#define UPH_SONG_TIMELINE_SCROLL_Y_SPEED 40.0f
+#define UPH_SONG_TIMELINE_ZOOM_SPEED 0.1f
+
 static float _uph_song_timeline_content_origin_x(void)
 {
 	return _uph_song_timeline_state.panel_bounding_box.x + NAUI_DPI(uph_song_timeline_header_column_width());
@@ -5,33 +11,34 @@ static float _uph_song_timeline_content_origin_x(void)
 
 void uph_song_timeline_update_input(void)
 {
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const float wheel_y = (float)naui_mouse_scroll_delta();
 	const bool ctrl_held = naui_key_down(NAUI_KEY_LCONTROL);
 	const float max_scroll_y = uph_song_timeline_max_scroll_y();
 
-	if (_uph_song_timeline_state.panel_hovered)
+	if (state->panel_hovered)
 	{
 		if (ctrl_held && wheel_y != 0.0f)
 		{
-			const float old_zoom_x = _uph_song_timeline_state.zoom.x;
+			const float old_zoom_x = state->zoom.x;
 			const float mouse_local_x = (float)naui_mouse_x() - _uph_song_timeline_content_origin_x();
-			const double mouse_beat_before = ((double)mouse_local_x + _uph_song_timeline_state.scroll.x) / old_zoom_x;
+			const double mouse_beat_before = ((double)mouse_local_x + state->scroll.x) / old_zoom_x;
 			float new_zoom_x = old_zoom_x * (1.0f + wheel_y * UPH_SONG_TIMELINE_ZOOM_SPEED);
 
 			new_zoom_x = NAUI_CLAMP(new_zoom_x, UPH_SONG_TIMELINE_ZOOM_X_MIN, UPH_SONG_TIMELINE_ZOOM_X_MAX);
-			_uph_song_timeline_state.zoom.x = new_zoom_x;
-			_uph_song_timeline_state.scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
-			_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
+			state->zoom.x = new_zoom_x;
+			state->scroll.x = (float)(mouse_beat_before * new_zoom_x) - mouse_local_x;
+			state->scroll.x = fmaxf(0.0f, state->scroll.x);
 		}
-		else if (wheel_y != 0.0f && _uph_song_timeline_state.minimap.hovered)
+		else if (wheel_y != 0.0f && state->minimap.hovered)
 		{
-			_uph_song_timeline_state.scroll.x -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
-			_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
+			state->scroll.x -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
+			state->scroll.x = fmaxf(0.0f, state->scroll.x);
 		}
 		else if (wheel_y != 0.0f)
 		{
-			_uph_song_timeline_state.scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
-			_uph_song_timeline_state.scroll.y = NAUI_CLAMP(_uph_song_timeline_state.scroll.y, 0.0f, max_scroll_y);
+			state->scroll.y -= wheel_y * UPH_SONG_TIMELINE_SCROLL_Y_SPEED;
+			state->scroll.y = NAUI_CLAMP(state->scroll.y, 0.0f, max_scroll_y);
 		}
 	}
 
@@ -48,11 +55,11 @@ void uph_song_timeline_update_input(void)
 		Naui_Vec2 current = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
 		Naui_Vec2 delta = (Naui_Vec2) { current.x - pan_last_mouse.x, current.y - pan_last_mouse.y };
 
-		_uph_song_timeline_state.scroll.x -= delta.x * UPH_SONG_TIMELINE_PAN_SPEED;
-		_uph_song_timeline_state.scroll.x = fmaxf(0.0f, _uph_song_timeline_state.scroll.x);
+		state->scroll.x -= delta.x * UPH_SONG_TIMELINE_PAN_SPEED;
+		state->scroll.x = fmaxf(0.0f, state->scroll.x);
 
-		_uph_song_timeline_state.scroll.y -= delta.y * UPH_SONG_TIMELINE_PAN_SPEED;
-		_uph_song_timeline_state.scroll.y = NAUI_CLAMP(_uph_song_timeline_state.scroll.y, 0.0f, max_scroll_y);
+		state->scroll.y -= delta.y * UPH_SONG_TIMELINE_PAN_SPEED;
+		state->scroll.y = NAUI_CLAMP(state->scroll.y, 0.0f, max_scroll_y);
 		pan_last_mouse = current;
 
 		if (naui_mouse_released(NAUI_MOUSE_MIDDLE))
@@ -62,9 +69,9 @@ void uph_song_timeline_update_input(void)
 
 void uph_song_timeline_update_selection_keys(void)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 
-	if (naui_panel_focused() != uph_state.panels.song_timeline || data->disable_space_to_play || data->drag.active || data->marquee.active || data->automation_edit.dragging_point_index >= 0)
+	if (naui_panel_focused() != uph_state.panels.song_timeline || state->disable_space_to_play || state->drag.active || state->marquee.active || state->automation_edit.dragging_point_index >= 0)
 		return;
 
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
@@ -101,9 +108,9 @@ static bool _uph_song_timeline_group_row_hovered(Naui_List(Uph_Track) tracks, fl
 
 void uph_song_timeline_update_empty_space_marquee(void)
 {
-	Uph_SongTimelineState *data = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 
-	if (!data->tracks_hovered || data->marquee.active || data->drag.active || data->automation_edit.active)
+	if (!state->tracks_hovered || state->marquee.active || state->drag.active || state->automation_edit.active)
 		return;
 
 	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
@@ -112,7 +119,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	const float origin_x = _uph_song_timeline_content_origin_x();
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
-	const float rows_bottom = data->panel_bounding_box.y - data->scroll.y + data->content_height;
+	const float rows_bottom = state->panel_bounding_box.y - state->scroll.y + state->content_height;
 	const bool below_rows = mouse_y >= rows_bottom;
 	const bool on_group_lane = mouse_x >= origin_x && _uph_song_timeline_group_row_hovered(uph_state.project.tracks, mouse_x, mouse_y);
 	if (!below_rows && !on_group_lane)
@@ -124,8 +131,8 @@ void uph_song_timeline_update_empty_space_marquee(void)
 		return;
 	}
 
-	data->marquee.active = true;
-	data->marquee.start_beat = ((double)naui_mouse_x() - origin_x + data->scroll.x) / data->zoom.x;
-	data->marquee.start_content_y = (float)naui_mouse_y() - data->panel_bounding_box.y + data->scroll.y;
+	state->marquee.active = true;
+	state->marquee.start_beat = ((double)naui_mouse_x() - origin_x + state->scroll.x) / state->zoom.x;
+	state->marquee.start_content_y = (float)naui_mouse_y() - state->panel_bounding_box.y + state->scroll.y;
 	uph_block_select_all(false);
 }

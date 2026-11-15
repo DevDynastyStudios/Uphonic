@@ -1,3 +1,5 @@
+#define UPH_MIDI_MENU_BAR_HEIGHT 30
+
 uint32_t uph_midi_editor_find_scale(const char *name)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.scales); i++)
@@ -17,14 +19,6 @@ void uph_midi_editor_set_scale(Uph_MidiEditorState *editor, uint32_t scale_index
 	editor->scale_index = scale_index;
 	editor->scale_root = root % UPH_NOTES_PER_OCTAVE;
 	uph_note_map_apply_scale(&editor->note_map, uph_state.scales[scale_index].mask, editor->scale_root);
-}
-
-void uph_midi_editor_quantize(Uph_MidiEditorState *editor)
-{
-	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
-		return;
-
-	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
 static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
@@ -94,11 +88,11 @@ static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorState *edi
 		naui_string_format("%s %s", uph_note_pitch_class_name(editor->scale_root), scale->name.data);
 
 	leaf({
-		.size = {LEAF_SIZE_GROW, LEAF_SIZE_FULL}
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 	});
 	leaf_text(label.data, {
-		.font_size = NAUI_DPI(UPH_UI_FONT_SIZE),
-		.color = naui_theme_color("uph_ui_text_color")
+		.color = naui_theme_color("uph_ui_text_color"),
+		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 }
 
@@ -107,10 +101,10 @@ void uph_midi_menu_bar_render(Uph_MidiEditorState *editor)
 	Uph_MidiPattern *pattern = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN ? uph_note_pattern(uph_state.shared.selected_resource.index) : NULL;
 
 	leaf({
-		.size = {LEAF_SIZE_FULL, LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_MENU_BAR_HEIGHT))},
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIDI_MENU_BAR_HEIGHT)) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X) * 0.5f, 0.0f),
-		.child_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER},
 		.color = naui_theme_color("uph_toolbox_bg_color"),
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{

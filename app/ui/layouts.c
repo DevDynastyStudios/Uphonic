@@ -1,5 +1,10 @@
 #define UPH_LAYOUT_NAME_MAX 192
 #define UPH_LAYOUT_MAX_COUNT 64
+#define UPHONIC_LAYOUTS_FOLDER naui_path_join(UPHONIC_FOLDER, NAUI_PATH("layouts"))
+#define UPHONIC_BUILTIN_LAYOUTS_FOLDER naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Layouts"))
+#define UPH_LAYOUT_EXTENSION ".json"
+#define UPH_LAYOUT_BUILTIN_PREFIX ":"
+#define UPH_LAYOUT_BUILTIN_DEFAULT "layout.default"
 
 typedef struct
 {
@@ -254,14 +259,15 @@ static void _uph_open_save_layout_dialog(void)
 
 static void _uph_delete_layout_result(int32_t button, void *user_data)
 {
+	Uph_LayoutsState *state = &_uph_layouts_state;
 	(void)user_data;
 	if (button != 0)
 		return;
 
-	const Naui_Path path = uph_layouts_path(_uph_layouts_state.pending_delete);
+	const Naui_Path path = uph_layouts_path(state->pending_delete);
 	if (!naui_file_delete(path))
 		naui_log(NAUI_LOG_ERROR, "Failed to delete layout: %s", path.data);
-	else if (!strcmp(uph_state.settings.general.layout.data, _uph_layouts_state.pending_delete))
+	else if (!strcmp(uph_state.settings.general.layout.data, state->pending_delete))
 		uph_layouts_select("");
 
 	uph_layouts_refresh();
@@ -269,11 +275,12 @@ static void _uph_delete_layout_result(int32_t button, void *user_data)
 
 static void _uph_confirm_delete_layout(const char *name)
 {
-	snprintf(_uph_layouts_state.pending_delete, sizeof(_uph_layouts_state.pending_delete), "%s", name);
+	Uph_LayoutsState *state = &_uph_layouts_state;
+	snprintf(state->pending_delete, sizeof(state->pending_delete), "%s", name);
 
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("menu.layout.delete"),
-		.message = _uph_layouts_state.pending_delete,
+		.message = state->pending_delete,
 		.buttons = { NAUI_TR("menu.layout.delete"), NAUI_TR("menu.layout.popup.cancel") },
 		.default_button = 1,
 		.cancel_button = 1,

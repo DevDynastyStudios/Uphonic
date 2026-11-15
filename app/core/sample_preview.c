@@ -15,13 +15,15 @@ static Uph_SamplePreviewState _uph_sample_preview_state;
 
 void uph_sample_preview_play(Uph_ResourceIndex sample_index)
 {
-	_uph_sample_preview_state.sample_index = sample_index;
-	_uph_sample_preview_state.playing = true;
+	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	state->sample_index = sample_index;
+	state->playing = true;
 }
 
 void uph_sample_preview_pause(void)
 {
-	_uph_sample_preview_state.playing = false;
+	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	state->playing = false;
 }
 
 void uph_sample_preview_stop(void)
@@ -32,12 +34,14 @@ void uph_sample_preview_stop(void)
 
 void uph_sample_preview_seek(double beat)
 {
-	_uph_sample_preview_state.position = fmax(0.0, beat);
+	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	state->position = fmax(0.0, beat);
 }
 
 void uph_sample_preview_set_loop(bool loop)
 {
-	_uph_sample_preview_state.loop = loop;
+	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	state->loop = loop;
 }
 
 bool uph_sample_preview_looping(void)
@@ -66,25 +70,25 @@ double uph_sample_preview_length(const Uph_Sample *sample, const Uph_SampleData 
 
 void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_rate, float bpm, bool timeline_playing)
 {
-	Uph_SamplePreviewState *p = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
 
-	if (p->playing && timeline_playing)
-		p->playing = false;
+	if (state->playing && timeline_playing)
+		state->playing = false;
 
-	if (!p->playing || sample_rate == 0 || frame_count == 0)
+	if (!state->playing || sample_rate == 0 || frame_count == 0)
 		return;
 
 	Uph_Project *project = &uph_state.project;
-	if (p->sample_index >= (uint32_t)naui_list_len(project->samples))
+	if (state->sample_index >= (uint32_t)naui_list_len(project->samples))
 	{
-		p->playing = false;
+		state->playing = false;
 		return;
 	}
 
-	const Uph_Sample *sample = &project->samples[p->sample_index];
+	const Uph_Sample *sample = &project->samples[state->sample_index];
 	if (sample->data_index >= (uint32_t)naui_list_len(project->sample_data))
 	{
-		p->playing = false;
+		state->playing = false;
 		return;
 	}
 
@@ -92,11 +96,11 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 	const double length = uph_sample_preview_length(sample, data);
 	if (!data->frames || length <= 0.0)
 	{
-		p->playing = false;
+		state->playing = false;
 		return;
 	}
 
-	bool region = p->loop && uph_loop_region_valid(&sample->loop_region) && data->frame_count > 0;
+	bool region = state->loop && uph_loop_region_valid(&sample->loop_region) && data->frame_count > 0;
 	double loop_start = 0.0;
 	double loop_end = length;
 	if (region)
@@ -107,8 +111,8 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 		region = loop_end > loop_start;
 	}
 
-	p->buffer_position = p->position;
-	double start = p->buffer_position;
+	state->buffer_position = state->position;
+	double start = state->buffer_position;
 	if (region)
 	{
 		if (start >= loop_end && start >= length)
@@ -119,10 +123,10 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 
 	const double wrap_end = region && start < loop_end ? loop_end : length;
 
-	p->block = (Uph_TimelineBlock){
+	state->block = (Uph_TimelineBlock){
 		.start_beat = 0.0,
 		.length_beats = wrap_end,
-		.resource_index = p->sample_index,
+		.resource_index = state->sample_index,
 		.type = UPH_RESOURCE_SAMPLE
 	};
 
@@ -132,7 +136,7 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 	memset(right, 0, frame_count * sizeof(float));
 
 	const float preview_bpm = project->bpm > 0.0f ? project->bpm : 120.0f;
-	uph_render_sample_block(&p->block, sample, data, start, frame_count, sample_rate, preview_bpm, left, right);
+	uph_render_sample_block(&state->block, sample, data, start, frame_count, sample_rate, preview_bpm, left, right);
 
 	for (uint32_t f = 0; f < frame_count; f++)
 	{
@@ -143,17 +147,17 @@ void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_ra
 	double next = start + uph_seconds_to_beats((double)frame_count / (double)sample_rate, preview_bpm);
 	if (next >= wrap_end)
 	{
-		if (p->loop)
+		if (state->loop)
 			next = region ? loop_start : 0.0;
 		else
 		{
 			next = 0.0;
-			p->playing = false;
+			state->playing = false;
 		}
 	}
 
-	if (p->position == p->buffer_position)
-		p->position = next;
+	if (state->position == state->buffer_position)
+		state->position = next;
 }
 
 #pragma endregion

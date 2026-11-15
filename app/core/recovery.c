@@ -1,3 +1,5 @@
+#define UPH_RECOVERY_AUTOSAVE_MARKER ".autosave"
+
 static Naui_Path _uph_recovery_locked_folder;
 
 static Naui_Path _uph_recovery_lock_file(const Naui_Path project_folder)

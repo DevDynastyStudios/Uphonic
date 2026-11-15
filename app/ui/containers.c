@@ -1,3 +1,30 @@
+typedef uint8_t Uph_UIScrollDirection;
+enum
+{
+    UPH_UI_SCROLL_DIRECTION_VERTICAL,
+    UPH_UI_SCROLL_DIRECTION_HORIZONTAL
+};
+
+typedef struct
+{
+    Uph_UIScrollDirection direction;
+    Leaf_ID handle_id;
+    float *out_scroll;
+    float container_max_size;
+    float container_current_size;
+    bool handle_hovered;
+}
+Uph_UIScrollContainer;
+
+typedef struct
+{
+    Leaf_ID handle_x_id, handle_y_id;
+    float *scroll_x, *scroll_y;
+    Leaf_Vec2 viewport_size;
+    Leaf_Vec2 content_size;
+}
+Uph_UIScrollArea;
+
 static int32_t _uph_ui_thumb_length(float max_size, float content_size)
 {
     int32_t length = (int32_t)(max_size * (max_size / content_size));
@@ -18,9 +45,9 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     container.handle_id = scroll_id;
 
     leaf_begin_element((Leaf_ElementConfig){
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
         .direction = direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             LEAF_DIRECTION_HORIZONTAL : LEAF_DIRECTION_VERTICAL,
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
         .clip_children = true
     });
 
@@ -91,26 +118,26 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
 
     leaf_begin_element((Leaf_ElementConfig){
         .id = max_area_id,
-        .direction = (Leaf_LayoutDirection)direction,
         .size = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             (Leaf_Size){LEAF_SIZE_GROW, LEAF_SIZE_FULL} :
             (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_GROW}
-        )
+        ),
+        .direction = (Leaf_LayoutDirection)direction
     });
 
     *out_scroll = NAUI_CLAMP(*out_scroll, 0.0f, NAUI_MAX(0.0f, max_scroll));
 
     leaf_begin_element((Leaf_ElementConfig){
         .id = current_area_id,
+        .size = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
+            (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIT} :
+            (Leaf_Size){LEAF_SIZE_FIT, LEAF_SIZE_FULL}
+        ),
         .child_offset = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
             (Leaf_Vec2){0.0f, *out_scroll} :
             (Leaf_Vec2){*out_scroll, 0.0f}
         ),
-        .direction = (Leaf_LayoutDirection)direction,
-        .size = (direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
-            (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIT} :
-            (Leaf_Size){LEAF_SIZE_FIT, LEAF_SIZE_FULL}
-        )
+        .direction = (Leaf_LayoutDirection)direction
     });
 
     return container;
@@ -156,19 +183,19 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
 
             leaf({
                 .id = container->handle_id,
-                .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
+                .size = (container->direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
+                    (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_length)} :
+                    (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_length), LEAF_SIZE_FULL}
+                ),
+                .color = naui_theme_color("uph_ui_scrollbar_handle_color"),
                 .floating = {
                     .offset = (container->direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
                         (Leaf_Vec2){0, handle_offset} :
                         (Leaf_Vec2){handle_offset, 0}
                     )
                 },
-                .size = (container->direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
-                    (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_length)} :
-                    (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_length), LEAF_SIZE_FULL}
-                ),
                 .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_SCROLLBAR_HANDLE_ROUNDING), LEAF_CORNER_ALL),
-                .color = naui_theme_color("uph_ui_scrollbar_handle_color")
+                .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
             });
         }
     }
@@ -176,22 +203,28 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
     leaf_end_element();
 }
 
-static struct
+typedef struct
 {
-    bool active;
-    Leaf_ID id;
-    int32_t start_mouse;
-    float start_scroll;
-}
-_uph_ui_scroll_area_drag_state;
+    struct
+    {
+        bool active;
+        Leaf_ID id;
+        int32_t start_mouse;
+        float start_scroll;
+    }
+    drag;
 
-static struct
-{
-    bool active;
-    Leaf_ID id;
-    int32_t last_mouse_x, last_mouse_y;
+    struct
+    {
+        bool active;
+        Leaf_ID id;
+        int32_t last_mouse_x, last_mouse_y;
+    }
+    pan;
 }
-_uph_ui_scroll_area_pan_state;
+Uph_UIScrollAreaState;
+
+static Uph_UIScrollAreaState _uph_ui_scroll_area_state;
 
 static bool _uph_ui_shift_down(void)
 {
@@ -200,14 +233,15 @@ static bool _uph_ui_shift_down(void)
 
 static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handle_id, float max_size, float content_size)
 {
+    Uph_UIScrollAreaState *state = &_uph_ui_scroll_area_state;
     extern Uph_GlobalWidgetState uph_global_widget_state;
 
     const float max_scroll = content_size - max_size;
-    const bool this_drag = _uph_ui_scroll_area_drag_state.active && _uph_ui_scroll_area_drag_state.id.value == handle_id.value;
+    const bool this_drag = state->drag.active && state->drag.id.value == handle_id.value;
     if (max_scroll <= 0.0f)
     {
         if (this_drag)
-            _uph_ui_scroll_area_drag_state.active = false;
+            state->drag.active = false;
         return false;
     }
 
@@ -218,10 +252,10 @@ static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handl
         {
             const float thumb_travel = max_size - (float)_uph_ui_thumb_length(max_size, content_size);
             if (thumb_travel > 0.0f)
-                *scroll = _uph_ui_scroll_area_drag_state.start_scroll + (float)(mouse_pos - _uph_ui_scroll_area_drag_state.start_mouse) * (max_scroll / thumb_travel);
+                *scroll = state->drag.start_scroll + (float)(mouse_pos - state->drag.start_mouse) * (max_scroll / thumb_travel);
         }
         else
-            _uph_ui_scroll_area_drag_state.active = false;
+            state->drag.active = false;
         naui_set_cursor(NAUI_CURSOR_HAND);
         return true;
     }
@@ -232,10 +266,10 @@ static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handl
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
-            _uph_ui_scroll_area_drag_state.active = true;
-            _uph_ui_scroll_area_drag_state.id = handle_id;
-            _uph_ui_scroll_area_drag_state.start_mouse = mouse_pos;
-            _uph_ui_scroll_area_drag_state.start_scroll = *scroll;
+            state->drag.active = true;
+            state->drag.id = handle_id;
+            state->drag.start_mouse = mouse_pos;
+            state->drag.start_scroll = *scroll;
         }
         return true;
     }
@@ -258,21 +292,22 @@ static void _uph_ui_scroll_area_bar(bool vertical, Leaf_ID handle_id, float scro
     {
         leaf({
             .id = handle_id,
-            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
-            .floating = {
-                .offset = vertical ? (Leaf_Vec2){0, handle_offset} : (Leaf_Vec2){handle_offset, 0}
-            },
             .size = vertical ?
                 (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(thumb_length)} :
                 (Leaf_Size){LEAF_SIZE_FIXED(thumb_length), LEAF_SIZE_FULL},
+            .color = naui_theme_color("uph_ui_scrollbar_handle_color"),
+            .floating = {
+                .offset = vertical ? (Leaf_Vec2){0, handle_offset} : (Leaf_Vec2){handle_offset, 0}
+            },
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_SCROLLBAR_HANDLE_ROUNDING), LEAF_CORNER_ALL),
-            .color = naui_theme_color("uph_ui_scrollbar_handle_color")
+            .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
         });
     }
 }
 
 Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, float min_content_height, Leaf_ID scroll_id)
 {
+    Uph_UIScrollAreaState *state = &_uph_ui_scroll_area_state;
     Uph_UIScrollArea area = {
         .handle_x_id = scroll_id,
         .handle_y_id = {.value = scroll_id.value + 3},
@@ -294,32 +329,32 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
     const bool handle_x_active = _uph_ui_scroll_area_axis(false, scroll_x, area.handle_x_id, area.viewport_size.x, area.content_size.x);
     const bool handle_y_active = _uph_ui_scroll_area_axis(true, scroll_y, area.handle_y_id, area.viewport_size.y, area.content_size.y);
 
-    const bool this_pan = _uph_ui_scroll_area_pan_state.active && _uph_ui_scroll_area_pan_state.id.value == scroll_id.value;
+    const bool this_pan = state->pan.active && state->pan.id.value == scroll_id.value;
     if (this_pan)
     {
         if (naui_mouse_down(NAUI_MOUSE_MIDDLE))
         {
-            *scroll_x -= (float)(naui_mouse_x() - _uph_ui_scroll_area_pan_state.last_mouse_x);
-            *scroll_y -= (float)(naui_mouse_y() - _uph_ui_scroll_area_pan_state.last_mouse_y);
-            _uph_ui_scroll_area_pan_state.last_mouse_x = naui_mouse_x();
-            _uph_ui_scroll_area_pan_state.last_mouse_y = naui_mouse_y();
+            *scroll_x -= (float)(naui_mouse_x() - state->pan.last_mouse_x);
+            *scroll_y -= (float)(naui_mouse_y() - state->pan.last_mouse_y);
+            state->pan.last_mouse_x = naui_mouse_x();
+            state->pan.last_mouse_y = naui_mouse_y();
             naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
         }
         else
-            _uph_ui_scroll_area_pan_state.active = false;
+            state->pan.active = false;
     }
-    else if (!_uph_ui_scroll_area_drag_state.active && (max_scroll_x > 0.0f || max_scroll_y > 0.0f) &&
+    else if (!state->drag.active && (max_scroll_x > 0.0f || max_scroll_y > 0.0f) &&
         naui_mouse_pressed(NAUI_MOUSE_MIDDLE) && naui_panel_is_hovered(naui_panel_current()) && leaf_hovered(viewport_id))
     {
-        _uph_ui_scroll_area_pan_state.active = true;
-        _uph_ui_scroll_area_pan_state.id = scroll_id;
-        _uph_ui_scroll_area_pan_state.last_mouse_x = naui_mouse_x();
-        _uph_ui_scroll_area_pan_state.last_mouse_y = naui_mouse_y();
+        state->pan.active = true;
+        state->pan.id = scroll_id;
+        state->pan.last_mouse_x = naui_mouse_x();
+        state->pan.last_mouse_y = naui_mouse_y();
         naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
     }
 
     const int8_t wheel = naui_mouse_scroll_delta();
-    if (wheel != 0 && !_uph_ui_scroll_area_drag_state.active && naui_panel_is_hovered(naui_panel_current()))
+    if (wheel != 0 && !state->drag.active && naui_panel_is_hovered(naui_panel_current()))
     {
         float *target = NULL;
         if (handle_x_active)
@@ -344,25 +379,25 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
     *scroll_y = NAUI_CLAMP(*scroll_y, 0.0f, max_scroll_y);
 
     leaf_begin_element((Leaf_ElementConfig){
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
         .direction = LEAF_DIRECTION_VERTICAL,
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
         .clip_children = true
     });
     leaf_begin_element((Leaf_ElementConfig){
-        .direction = LEAF_DIRECTION_HORIZONTAL,
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW}
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
+        .direction = LEAF_DIRECTION_HORIZONTAL
     });
     leaf_begin_element((Leaf_ElementConfig){
         .id = viewport_id,
+        .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
         .direction = LEAF_DIRECTION_HORIZONTAL,
-        .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
         .clip_children = true
     });
     leaf_begin_element((Leaf_ElementConfig){
         .id = content_id,
-        .child_offset = {*scroll_x, *scroll_y},
-        .direction = LEAF_DIRECTION_HORIZONTAL,
-        .size = {LEAF_SIZE_FIT, LEAF_SIZE_PERCENT_MIN(1.0f, NAUI_MAX(0.0f, min_content_height))}
+        .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_PERCENT_MIN(1.0f, NAUI_MAX(0.0f, min_content_height)) },
+        .child_offset = { .x = *scroll_x, .y = *scroll_y },
+        .direction = LEAF_DIRECTION_HORIZONTAL
     });
 
     return area;
@@ -383,15 +418,15 @@ void uph_ui_end_scroll_area(Uph_UIScrollArea *area)
     if (needs_x)
     {
         leaf({
-            .direction = LEAF_DIRECTION_HORIZONTAL,
-            .size = {LEAF_SIZE_GROW, LEAF_SIZE_FIT}
+            .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+            .direction = LEAF_DIRECTION_HORIZONTAL
         })
         {
             _uph_ui_scroll_area_bar(false, area->handle_x_id, *area->scroll_x, area->viewport_size.x, area->content_size.x);
             if (needs_y)
             {
                 leaf({
-                    .size = {LEAF_SIZE_FIXED(NAUI_DPI(16)), LEAF_SIZE_FIXED(NAUI_DPI(16))},
+                    .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(16)), .height = LEAF_SIZE_FIXED(NAUI_DPI(16)) },
                     .color = naui_theme_color("uph_ui_scrollbar_bg_color")
                 });
             }
