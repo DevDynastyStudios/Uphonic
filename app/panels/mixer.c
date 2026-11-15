@@ -68,6 +68,7 @@ typedef struct Uph_MixerFaderData
 {
 	Uph_ActionTrackRef track;
 	uint64_t id;
+	Leaf_Color bg_color;
 }
 Uph_MixerFaderData;
 
@@ -605,8 +606,9 @@ static void uph_mixer_draw_fader(Leaf_BoundingBox box, Uph_MixerFaderData *data)
 	const Naui_Vec2 cap_position = { roundf(center_x - cap_width * 0.5f), roundf(y - cap_height * 0.5f) };
 	const Naui_Vec2 cap_size = { roundf(cap_width), cap_height };
 	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.5f;
-	naui_fill_rect(cap_position, cap_size, naui_theme_color(dragging ? "uph_ui_frame_pressed_bg_color" : hovered ? "uph_ui_frame_hovered_bg_color" : "uph_ui_frame_bg_color"), rounding, NAUI_CORNER_ALL);
-	naui_draw_rect(cap_position, cap_size, naui_theme_color("uph_ui_frame_border"), NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+	naui_fill_rect(cap_position, cap_size, data->bg_color, rounding, NAUI_CORNER_ALL);
+	naui_fill_rect(cap_position, cap_size, naui_theme_color(dragging ? "uph_ui_tinted_frame_pressed_bg_color" : hovered ? "uph_ui_tinted_frame_hovered_bg_color" : "uph_ui_tinted_frame_bg_color"), rounding, NAUI_CORNER_ALL);
+	naui_draw_rect(cap_position, cap_size, naui_theme_color("uph_ui_tinted_frame_border"), NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
 
 	const float line_inset = NAUI_DPI(UPH_MIXER_FADER_LINE_INSET);
 	naui_fill_rect((Naui_Vec2){ cap_position.x + line_inset, roundf(y) }, (Naui_Vec2){ cap_size.x - line_inset * 2.0f, NAUI_DPI(1) }, naui_theme_color("uph_ui_text_color"), 0.0f, NAUI_CORNER_NONE);
@@ -848,7 +850,8 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 				});
 				Uph_MixerFaderData fader_data = {
 					.track = track_ref,
-					.id = track_id
+					.id = track_id,
+					.bg_color = bg_color
 				};
 				leaf({
 					.custom_draw = (Leaf_CustomDrawFn)uph_mixer_draw_fader,
