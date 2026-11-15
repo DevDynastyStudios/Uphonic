@@ -76,9 +76,9 @@
     "uph_midi_editor_lane_border_color": "#EAE3D4",
     "uph_midi_editor_loop_end_overlay_color": "#6B5A3C1E",
 
-    "uph_timeline_grid_beat_color": "#A8C5E780",
-    "uph_timeline_grid_subbeat_color": "#A8C5E735",
-    "uph_timeline_grid_bar_color": "#D8858570",
+    "uph_timeline_grid_beat_color": "#A8C5E76D",
+    "uph_timeline_grid_subbeat_color": "#A8C5E72D",
+    "uph_timeline_grid_bar_color": "#D885855F",
 
     "uph_timeline_top_ruler_bg_color": "#EEE6D6",
     "uph_timeline_top_ruler_border_color": "#D4CDC0",

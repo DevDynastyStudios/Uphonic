@@ -59,12 +59,12 @@ static void _uph_song_timeline_minimap_draw_tracks(Naui_List(Uph_Track) tracks, 
 
 		if (group)
 		{
-			color.a = 40;
+			color.a = 20;
 			naui_fill_rect((Naui_Vec2){ map->rect.x, row_y + gap }, (Naui_Vec2){ map->rect.width, row_h - gap * 2.0f }, color, 0.0f, NAUI_CORNER_NONE);
 		}
 		else
 		{
-			color.a = 220;
+			color.a = 90;
 			for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
 			{
 				const Uph_TimelineBlock *block = &track->blocks[b];
@@ -104,7 +104,9 @@ static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_da
 	_uph_song_timeline_minimap_draw_tracks(uph_state.project.tracks, &y, &map);
 
 	const float playhead_x = map.rect.x + (float)(uph_state.shared.song_timeline_playhead_position * map.scale_x);
-	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, naui_theme_color("uph_playhead_color"), NAUI_DPI(1));
+	Naui_Color playhead_color = naui_theme_color("uph_playhead_color");
+	playhead_color.a = (uint8_t)(playhead_color.a * 0.6f);
+	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, playhead_color, NAUI_DPI(1));
 
 	const Naui_Vec2 thumb_pos = { map.rect.x + (state->scroll.x / state->zoom.x) * map.scale_x, bbox.y };
 	const Naui_Vec2 thumb_size = { fmaxf(NAUI_DPI(6), (_uph_song_timeline_minimap_view_width() / state->zoom.x) * map.scale_x), bbox.height };
