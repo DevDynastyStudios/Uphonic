@@ -363,11 +363,16 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
 
     const int32_t track_size = NAUI_DPI(UPH_UI_SLIDER_TRACK_SIZE);
     const int32_t handle_size = NAUI_DPI(dragging_this || hovered ? UPH_UI_SLIDER_HANDLE_HOVERED_SIZE : UPH_UI_SLIDER_HANDLE_SIZE);
-
-    const float length = vertical ? box.height : box.width;
-    const float handle_offset = t * NAUI_MAX(length - handle_size, 0.0f);
-    const float fill_length = handle_offset + handle_size * 0.5f;
-    const Leaf_Alignment start = vertical ? (Leaf_Alignment){ LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM } : (Leaf_Alignment){ LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER };
+    const Leaf_Size travel_size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FIXED(track_size), .height = LEAF_SIZE_PERCENT(t) }
+        : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FIXED(track_size) };
+    const Leaf_Size cap_size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FIXED(track_size), .height = LEAF_SIZE_FIXED(handle_size / 2) }
+        : (Leaf_Size){ .width = LEAF_SIZE_FIXED(handle_size / 2), .height = LEAF_SIZE_FIXED(track_size) };
+    const Leaf_Size handle_box = { .width = LEAF_SIZE_FIXED(handle_size), .height = LEAF_SIZE_FIXED(handle_size) };
+    const Leaf_Size layer_size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL };
+    const Leaf_Padding layer_padding = vertical ? (Leaf_Padding){ .top = handle_size } : (Leaf_Padding){ .right = handle_size };
+    const Leaf_Alignment layer_alignment = vertical ? (Leaf_Alignment){ LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_BOTTOM } : (Leaf_Alignment){ LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_CENTER };
+    const Leaf_LayoutDirection layer_direction = vertical ? LEAF_DIRECTION_VERTICAL : LEAF_DIRECTION_HORIZONTAL;
+    const Leaf_Floating layer_floating = { .parent_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_TOP }, .self_alignment = { LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_TOP } };
 
     leaf({
         .id = id,
@@ -381,32 +386,50 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
             .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FIXED(track_size), .height = LEAF_SIZE_FULL }
                 : (Leaf_Size){ .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(track_size) },
             .color = naui_theme_color("uph_ui_well_bg_color"),
-            .floating = { .parent_alignment = start, .self_alignment = start },
+            .floating = { .parent_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER }, .self_alignment = { LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER } },
             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
         });
 
         leaf({
-            .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FIXED(track_size), .height = LEAF_SIZE_FIXED(fill_length) }
-                : (Leaf_Size){ .width = LEAF_SIZE_FIXED(fill_length), .height = LEAF_SIZE_FIXED(track_size) },
-            .color = fill_color,
-            .floating = { .parent_alignment = start, .self_alignment = start },
-            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
+            .size = layer_size,
+            .padding = layer_padding,
+            .child_alignment = layer_alignment,
+            .direction = layer_direction,
+            .floating = layer_floating,
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
-        });
+        })
+        {
+            if (vertical)
+                leaf({ .size = cap_size, .color = fill_color });
+
+            leaf({
+                .size = travel_size,
+                .color = fill_color,
+                .rounding = LEAF_ROUNDING_FIXED(track_size / 2, vertical ? (LEAF_CORNER_BL | LEAF_CORNER_BR) : (LEAF_CORNER_TL | LEAF_CORNER_BL))
+            });
+
+            if (!vertical)
+                leaf({ .size = cap_size, .color = fill_color });
+        }
 
         leaf({
-            .size = { .width = LEAF_SIZE_FIXED(handle_size), .height = LEAF_SIZE_FIXED(handle_size) },
-            .border = { .width = NAUI_DPI(2), .sides = LEAF_SIDE_ALL, .color = fill_color },
-            .color = handle_color,
-            .floating = {
-                .parent_alignment = start,
-                .self_alignment = start,
-                .offset = vertical ? (Leaf_Vec2){ 0.0f, -handle_offset } : (Leaf_Vec2){ handle_offset, 0.0f }
-            },
-            .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL),
+            .size = layer_size,
+            .padding = layer_padding,
+            .child_alignment = layer_alignment,
+            .direction = layer_direction,
+            .floating = layer_floating,
             .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
-        });
+        })
+        {
+            if (vertical)
+                leaf({ .size = handle_box, .border = { .width = NAUI_DPI(2), .sides = LEAF_SIDE_ALL, .color = fill_color }, .color = handle_color, .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL) });
+
+            leaf({ .size = vertical ? (Leaf_Size){ .width = LEAF_SIZE_FIXED(0), .height = LEAF_SIZE_PERCENT(t) } : (Leaf_Size){ .width = LEAF_SIZE_PERCENT(t), .height = LEAF_SIZE_FIXED(0) } });
+
+            if (!vertical)
+                leaf({ .size = handle_box, .border = { .width = NAUI_DPI(2), .sides = LEAF_SIDE_ALL, .color = fill_color }, .color = handle_color, .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL) });
+        }
     }
 
     return result;
