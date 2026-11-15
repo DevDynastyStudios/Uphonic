@@ -4477,36 +4477,6 @@ static bool uph_get_vst3_plugin_info_guarded(Naui_Path path, Uph_PluginInfo *out
     return ok;
 }
 
-typedef bool (*Uph_PluginInfoFn)(Naui_Path path, Uph_PluginInfo *out);
-
-#if NAUI_WINDOWS && defined(_MSC_VER)
-static int uph_seh_filter(unsigned int code)
-{
-    (void)code;
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-
-static bool _uph_plugin_info_guarded(Uph_PluginInfoFn info_fn, Naui_Path path, Uph_PluginInfo *out)
-{
-    bool ok = false;
-    __try
-    {
-        ok = info_fn(path, out);
-    }
-    __except (uph_seh_filter(GetExceptionCode()))
-    {
-        fprintf(stderr, "uph info: plugin faulted while scanning %s\n", path.data);
-        ok = false;
-    }
-    return ok;
-}
-#else
-static bool _uph_plugin_info_guarded(Uph_PluginInfoFn info_fn, Naui_Path path, Uph_PluginInfo *out)
-{
-    return info_fn(path, out);
-}
-#endif
-
 bool uph_plugin_format_from_path(Naui_Path path, Uph_PluginFormat *format)
 {
     static const char *const extensions[UPH_PLUGIN_FORMAT_COUNT] = {
@@ -4545,8 +4515,8 @@ bool uph_get_plugin_info(Naui_Path path, Uph_PluginInfo *out)
     switch (format)
     {
         case UPH_PLUGIN_CLAP: return uph_get_clap_plugin_info(path, out);
-        case UPH_PLUGIN_VST3: return _uph_plugin_info_guarded(uph_get_vst3_plugin_info_guarded, path, out);
-        case UPH_PLUGIN_VST2: return _uph_plugin_info_guarded(_uph_get_vst2_plugin_info, path, out);
+        case UPH_PLUGIN_VST3: return uph_get_vst3_plugin_info_guarded(path, out);
+        case UPH_PLUGIN_VST2: return _uph_get_vst2_plugin_info(path, out);
         default:              return false;
     }
 }
