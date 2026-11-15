@@ -1,23 +1,25 @@
 static void _uph_song_timeline_toggle_recording(void)
 {
+	uph_state.shared.song_timeline_recording = !uph_state.shared.song_timeline_recording;
+}
+
+void uph_song_timeline_update_record_track(void)
+{
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	Uph_SharedState *shared = &uph_state.shared;
-	if (shared->song_timeline_recording)
-	{
-		shared->song_timeline_recording = false;
-		return;
-	}
+	const bool rolling = shared->song_timeline_recording && shared->song_timeline_playing;
+	const bool started = rolling && !state->record_rolling;
+	state->record_rolling = rolling;
 
-	if (!uph_track_can_record(shared->record_track))
-	{
-		const Uph_ActionTrackRef track_ref = uph_action_track_ref_top((uint32_t)naui_list_len(uph_state.project.tracks));
-		naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
-		_uph_song_timeline_select_track(uph_action_track_resolve(track_ref));
-	}
-
-	if (!shared->record_track)
+	if (!started || uph_track_can_record(shared->record_track))
 		return;
 
-	shared->song_timeline_recording = true;
+	const Uph_ActionTrackRef track_ref = uph_action_track_ref_top((uint32_t)naui_list_len(uph_state.project.tracks));
+	naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
+
+	Uph_Track *track = uph_action_track_resolve(track_ref);
+	_uph_song_timeline_select_track(track);
+	shared->record_track = track;
 }
 
 void uph_song_timeline_render_toolbox(void)

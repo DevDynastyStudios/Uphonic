@@ -213,6 +213,7 @@ typedef struct
 	bool disable_space_to_play;
 	bool time_display_seconds;
 	bool follow_playhead;
+	bool record_rolling;
 }
 Uph_SongTimelineState;
 
