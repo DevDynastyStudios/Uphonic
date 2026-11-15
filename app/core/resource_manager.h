@@ -24,6 +24,10 @@ bool uph_resources_track_has_automation_target(
 	Uph_AutomationTarget target
 );
 
+Uph_Track *uph_resources_first_recordable_track(
+	Naui_List(Uph_Track) tracks
+);
+
 Uph_Track uph_resources_make_master_track(void);
 Uph_Track *uph_resources_master_track(void);
 void uph_resources_insert_master_track(void);

@@ -1963,7 +1963,6 @@ static bool uph_stop_recording_all(Naui_List(Uph_Track) tracks)
             continue;
 
         uph_finish_take(track);
-        track->state &= (Uph_TrackState)~UPH_TRACK_ARMED;
         was_recording = true;
     }
 
@@ -2000,7 +1999,7 @@ static void uph_record_input(
         if (track->type == UPH_RESOURCE_PATTERN)
             continue;
 
-        if (!(track->state & UPH_TRACK_ARMED))
+        if (!uph_track_is_recording(track))
         {
             uph_finish_take(track);
             continue;
@@ -2669,7 +2668,8 @@ static void uph_audio_engine_render_callback(ma_device *device, void *output, co
     if (was_playing && !is_playing)
     {
         uph_audio_engine_stop_all_notes();
-		
+        uph_state.shared.song_timeline_recording = false;
+
         if (uph_stop_recording_all(uph_state.project.tracks))
             uph_state.shared.song_timeline_playhead_position = 0.0;
     }

@@ -956,14 +956,6 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
                     .direction = LEAF_DIRECTION_HORIZONTAL
                 })
                 {
-                    if (uph_ui_image_toggle_button_colored(
-                        naui_asset_image("uph_icon_mic"),
-                        leaf_id_indexed("uph_mixer_arm_toggle", track_id),
-                        (Naui_Vec2) { button_size, button_size },
-                        text_color,
-                        strip->state & UPH_TRACK_ARMED,
-                        naui_theme_color("uph_record_armed_color")
-                    )) uph_resources_toggle_track_state(strip, UPH_TRACK_ARMED, UPH_ACTION_TRACK_ARM);
                     if (uph_ui_image_toggle_button(
                         naui_asset_image("uph_icon_headphones"),
                         leaf_id_indexed("uph_mixer_monitor_toggle", track_id),

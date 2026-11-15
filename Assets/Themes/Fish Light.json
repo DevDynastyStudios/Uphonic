@@ -84,6 +84,7 @@
     "uph_song_timeline_meter_medium_color": "#C06EE8",
     "uph_song_timeline_meter_high_color": "#E0507A",
     "uph_song_timeline_header_card_border_color": "#D3D0DF",
+    "uph_song_timeline_last_track_border_color": "#6E5AE0",
 
     "uph_midi_editor_scale_lane_color": "#F7F6FA",
     "uph_midi_editor_off_scale_lane_color": "#F0EEF5",

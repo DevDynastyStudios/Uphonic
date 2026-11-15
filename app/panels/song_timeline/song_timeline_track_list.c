@@ -42,6 +42,12 @@ static bool _uph_song_timeline_track_selected(const Uph_Track *track)
 
 #pragma region Selection
 
+static void _uph_song_timeline_remember_record_track(Uph_Track *track)
+{
+	if (uph_track_can_record(track) && !(uph_state.shared.song_timeline_recording && uph_state.shared.song_timeline_playing))
+		uph_state.shared.record_track = track;
+}
+
 static void _uph_song_timeline_select_track(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
@@ -50,6 +56,7 @@ static void _uph_song_timeline_select_track(Uph_Track *track)
 
 	if (track)
 		naui_list_push(state->selected_tracks, track);
+	_uph_song_timeline_remember_record_track(track);
 }
 
 static void _uph_song_timeline_set_selection(Naui_List(Uph_TrackPtr) tracks)
@@ -86,6 +93,7 @@ static void _uph_song_timeline_toggle_track(Uph_Track *track)
 
 	naui_list_push(state->selected_tracks, track);
 	state->selection_anchor = track;
+	_uph_song_timeline_remember_record_track(track);
 }
 
 static void _uph_song_timeline_select_track_range(Uph_Track *to)
@@ -105,6 +113,7 @@ static void _uph_song_timeline_select_track_range(Uph_Track *to)
 	naui_list_clear(state->selected_tracks);
 	for (uint32_t i = low; i <= high && i < (uint32_t)naui_list_len(list); i++)
 		naui_list_push(state->selected_tracks, &list[i]);
+	_uph_song_timeline_remember_record_track(to);
 }
 
 static void _uph_song_timeline_click_select(Uph_Track *track, bool allow_multi)
@@ -391,7 +400,7 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 				_uph_song_timeline_solo_toggle(track);
 		}
 
-		if (_uph_song_timeline_icon_button("uph_icon_dots", "uph_song_timeline_options", track))
+		if (_uph_song_timeline_icon_button("uph_icon_gear", "uph_song_timeline_options", track))
 			_uph_song_timeline_open_options(track, options_menu);
 	}
 }
@@ -576,9 +585,9 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 		leaf({
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 			.border = {
-				.width = 1,
+				.width = uph_state.shared.record_track == track ? NAUI_DPI(2) : 1,
 				.sides = LEAF_SIDE_ALL,
-				.color = naui_theme_color("uph_song_timeline_header_card_border_color")
+				.color = naui_theme_color(uph_state.shared.record_track == track ? "uph_song_timeline_last_track_border_color" : "uph_song_timeline_header_card_border_color")
 			},
 			.color = _uph_song_timeline_header_color(track),
 			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_TRACK_HEADER_CARD_ROUNDING), LEAF_CORNER_ALL),

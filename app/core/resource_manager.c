@@ -14,6 +14,16 @@ static inline bool uph_track_monitors_instrument(const Uph_Track *track)
 	return track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded && (track->state & UPH_TRACK_MONITORED);
 }
 
+static inline bool uph_track_can_record(const Uph_Track *track)
+{
+	return track && !uph_track_is_folder(track) && track->type != UPH_RESOURCE_AUTOMATION;
+}
+
+static inline bool uph_track_is_recording(const Uph_Track *track)
+{
+	return uph_state.shared.song_timeline_recording && uph_state.shared.record_track == track;
+}
+
 static inline bool uph_track_is_descendant_of(const Uph_Track *track, const Uph_Track *ancestor)
 {
 	for (const Uph_Track *p = track ? track->parent : NULL; p; p = p->parent)
@@ -181,6 +191,20 @@ Uph_Track *uph_resources_master_track(void)
 		return NULL;
 
 	return &uph_state.project.tracks[0];
+}
+
+Uph_Track *uph_resources_first_recordable_track(Naui_List(Uph_Track) tracks)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
+	{
+		if (uph_track_can_record(&tracks[i]))
+			return &tracks[i];
+
+		Uph_Track *child = uph_resources_first_recordable_track(tracks[i].subtracks);
+		if (child)
+			return child;
+	}
+	return NULL;
 }
 
 Uph_Track uph_resources_make_master_track(void)
@@ -358,6 +382,8 @@ void uph_resources_remove_track(Uph_Track *track)
 	naui_list_clear(uph_state.shared.selected_mixer_tracks);
 	if (uph_state.project.soloed_track == track || uph_resources_subtree_contains(track, uph_state.project.soloed_track))
 		uph_state.project.soloed_track = NULL;
+	if (uph_state.shared.record_track == track || uph_resources_subtree_contains(track, uph_state.shared.record_track))
+		uph_state.shared.record_track = NULL;
 
 	uph_plugin_unload(&track->instrument);
 	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
@@ -377,6 +403,8 @@ void uph_resources_clear_tracks(void)
 	uph_resources_clear_tracks_recursive(uph_state.project.tracks);
 	uph_state.project.tracks = NULL;
 	uph_state.project.soloed_track = NULL;
+	uph_state.shared.record_track = NULL;
+	uph_state.shared.song_timeline_recording = false;
 	uph_state.shared.current_mixer_track = NULL;
 	naui_list_clear(uph_state.shared.selected_mixer_tracks);
 	uph_song_timeline_invalidate_tracks();
@@ -524,7 +552,7 @@ void uph_resources_delete_tracks(Naui_List(Uph_TrackPtr) tracks)
 
 #pragma region Track Groups
 
-#define UPH_TRACK_POINTER_SLOT_COUNT 4
+#define UPH_TRACK_POINTER_SLOT_COUNT 5
 
 typedef struct
 {
@@ -539,6 +567,7 @@ static void uph_resources_capture_pointer_slots(Uph_TrackPointerSlot slots[UPH_T
 	slots[1].slot = &uph_state.shared.current_plugin_list_track;
 	slots[2].slot = &uph_state.shared.current_automation_list_track;
 	slots[3].slot = &uph_state.project.soloed_track;
+	slots[4].slot = &uph_state.shared.record_track;
 
 	for (uint32_t i = 0; i < UPH_TRACK_POINTER_SLOT_COUNT; i++)
 		slots[i].ref = uph_action_track_ref(*slots[i].slot);

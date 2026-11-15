@@ -1,3 +1,25 @@
+static void _uph_song_timeline_toggle_recording(void)
+{
+	Uph_SharedState *shared = &uph_state.shared;
+	if (shared->song_timeline_recording)
+	{
+		shared->song_timeline_recording = false;
+		return;
+	}
+
+	if (!uph_track_can_record(shared->record_track))
+	{
+		const Uph_ActionTrackRef track_ref = uph_action_track_ref_top((uint32_t)naui_list_len(uph_state.project.tracks));
+		naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
+		_uph_song_timeline_select_track(uph_action_track_resolve(track_ref));
+	}
+
+	if (!shared->record_track)
+		return;
+
+	shared->song_timeline_recording = true;
+}
+
 void uph_song_timeline_render_toolbox(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
@@ -44,6 +66,15 @@ void uph_song_timeline_render_toolbox(void)
 				uph_state.shared.song_timeline_playing = false;
 				uph_state.shared.song_timeline_playhead_position = 0.0;
 			}
+
+			const bool recording = uph_state.shared.song_timeline_recording;
+			if (uph_ui_toolbox_toggle_button_ex(
+				naui_asset_image("uph_icon_mic"),
+				leaf_id("uph_song_timeline_record"),
+				recording ? naui_theme_color("uph_record_armed_color") : icon_color,
+				NAUI_CORNER_NONE,
+				recording
+			)) _uph_song_timeline_toggle_recording();
 
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_reset"),

@@ -334,7 +334,7 @@ static void uph_midi_record_tracks(
 		if (track->type != UPH_RESOURCE_PATTERN)
 			continue;
 
-		if (!(track->state & UPH_TRACK_ARMED))
+		if (!uph_track_is_recording(track))
 		{
 			uph_midi_recorder_finish_take(track);
 			continue;

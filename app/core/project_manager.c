@@ -76,6 +76,7 @@ bool uph_project_create(Naui_String project_name)
 
 	uph_state.shared.song_timeline_playhead_position = 0.0;
 	_uph_project_default_shared_state();
+	uph_state.shared.record_track = uph_resources_first_recordable_track(uph_state.project.tracks);
 	uph_song_timeline_reset_scroll();
 	uph_midi_editor_reset_scroll();
 
@@ -346,6 +347,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 
 	if (naui_list_len(project->tracks) == 0)
 		uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), 0);
+	uph_state.shared.record_track = uph_resources_first_recordable_track(project->tracks);
 
 	uph_state.shared.song_timeline_playing = false;
 	uph_state.shared.selected_resource.index = 0;

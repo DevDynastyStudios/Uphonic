@@ -161,6 +161,7 @@ typedef struct
 	Uph_ActionTrackRef plugin_list;
 	Uph_ActionTrackRef automation_list;
 	Uph_ActionTrackRef soloed;
+	Uph_ActionTrackRef record;
 } Uph_ActionTrackPointers;
 
 static Uph_ActionTrackPointers uph_action_track_pointers_capture(void)
@@ -169,7 +170,8 @@ static Uph_ActionTrackPointers uph_action_track_pointers_capture(void)
 		.mixer = uph_action_track_ref(uph_state.shared.current_mixer_track),
 		.plugin_list = uph_action_track_ref(uph_state.shared.current_plugin_list_track),
 		.automation_list = uph_action_track_ref(uph_state.shared.current_automation_list_track),
-		.soloed = uph_action_track_ref(uph_state.project.soloed_track)
+		.soloed = uph_action_track_ref(uph_state.project.soloed_track),
+		.record = uph_action_track_ref(uph_state.shared.record_track)
 	};
 }
 
@@ -191,6 +193,7 @@ static void uph_action_tracks_changed(Uph_ActionTrackPointers before, Uph_Action
 	uph_state.shared.current_plugin_list_track = uph_action_track_pointer_shift(before.plugin_list, changed, delta);
 	uph_state.shared.current_automation_list_track = uph_action_track_pointer_shift(before.automation_list, changed, delta);
 	uph_state.project.soloed_track = uph_action_track_pointer_shift(before.soloed, changed, delta);
+	uph_state.shared.record_track = uph_action_track_pointer_shift(before.record, changed, delta);
 	uph_song_timeline_invalidate_tracks();
 }
 
@@ -406,7 +409,7 @@ bool _uph_action_track_color_redo(void* userdata)
 
 #pragma endregion
 
-#pragma region Track Mute / Arm
+#pragma region Track Mute
 bool _uph_action_track_state_execute(void* userdata)
 {
 	Uph_ActionTrackState* data = userdata;

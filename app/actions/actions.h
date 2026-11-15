@@ -18,7 +18,6 @@
 #define UPH_ACTION_TRACK_RENAME "Track Rename"
 #define UPH_ACTION_TRACK_COLOR "Track Color"
 #define UPH_ACTION_TRACK_MUTE "Track Mute"
-#define UPH_ACTION_TRACK_ARM "Track Arm"
 #define UPH_ACTION_TRACK_SOLO "Track Solo"
 #define UPH_ACTION_TRACK_VOLUME "Track Volume"
 #define UPH_ACTION_TRACK_PAN "Track Pan"
