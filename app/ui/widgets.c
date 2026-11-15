@@ -1119,10 +1119,11 @@ bool uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_I
     return result || right_clicked;
 }
 
-static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color bg_color, Leaf_SizeAxis width)
+static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color bg_color, Leaf_SizeAxis width, bool tinted)
 {
-    const Leaf_Color hovered_bg_color = naui_theme_color("uph_ui_frame_hovered_bg_color");
-    const Leaf_Color pressed_bg_color = naui_theme_color("uph_ui_frame_pressed_bg_color");
+    const Leaf_Color hovered_bg_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_hovered_bg_color" : "uph_ui_frame_hovered_bg_color");
+    const Leaf_Color pressed_bg_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_pressed_bg_color" : "uph_ui_frame_pressed_bg_color");
+    const Leaf_Color border_color = naui_theme_color(tinted ? "uph_ui_tinted_frame_border" : "uph_ui_frame_border");
 
     const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
 
@@ -1148,7 +1149,7 @@ static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color
         .id = id,
         .size = { .width = width, .height = UPH_UI_SIZE_EXACT(frame_height) },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
-        .border = bg_color.a > 0 ? _uph_ui_frame_border() : (Leaf_Border){0},
+        .border = bg_color.a > 0 ? _uph_ui_border(border_color) : (Leaf_Border){0},
         .color = color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
@@ -1164,12 +1165,17 @@ static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color
 
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    return _uph_ui_text_button(string, id, bg_color, LEAF_SIZE_FIT_MIN(_uph_ui_frame_height()));
+    return _uph_ui_text_button(string, id, bg_color, LEAF_SIZE_FIT_MIN(_uph_ui_frame_height()), false);
 }
 
 bool uph_ui_text_button_full(const char *string, const Leaf_ID id)
 {
-    return _uph_ui_text_button(string, id, naui_theme_color("uph_ui_frame_bg_color"), LEAF_SIZE_FULL);
+    return _uph_ui_text_button(string, id, naui_theme_color("uph_ui_frame_bg_color"), LEAF_SIZE_FULL, false);
+}
+
+bool uph_ui_tinted_text_button_full(const char *string, const Leaf_ID id)
+{
+    return _uph_ui_text_button(string, id, naui_theme_color("uph_ui_tinted_frame_bg_color"), LEAF_SIZE_FULL, true);
 }
 
 bool uph_ui_text_button(const char *string, const Leaf_ID id)

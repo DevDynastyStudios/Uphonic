@@ -464,7 +464,7 @@ static void _uph_song_timeline_render_automation_row(Uph_Track *track)
 static void _uph_song_timeline_render_instrument_row(Uph_Track *track)
 {
 	const char *label = track->instrument.loaded ? track->instrument.name.data : NAUI_TR("plugin.menu.instrument");
-	if (!uph_ui_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
+	if (!uph_ui_tinted_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
 		return;
 
 	if (!track->instrument.loaded)

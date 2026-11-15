@@ -14,6 +14,7 @@
 
 #define UPH_SAMPLE_EDITOR_GUTTER_WIDTH			48
 #define UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH			240
+#define UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING	6
 #define UPH_SAMPLE_EDITOR_SIDEBAR_CONTROL_WIDTH	112
 #define UPH_SAMPLE_EDITOR_STATUS_HEIGHT			26
 #define UPH_SAMPLE_EDITOR_SECTION_PADDING		12
@@ -77,6 +78,7 @@ typedef struct
 	bool panning;
 	bool wave_hovered;
 	bool sidebar_hidden;
+	float sidebar_collapse;
 }
 Uph_SampleEditorState;
 
@@ -1189,37 +1191,16 @@ static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorState *edit
 	)) editor->sidebar_hidden = !editor->sidebar_hidden;
 }
 
-static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static float _uph_sample_editor_sidebar_toggle_width(void)
 {
-	if (editor->sidebar_hidden)
-	{
-		leaf({
-			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
-			.padding = LEAF_PADDING_AXES(NAUI_DPI(6), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
-			.border = {
-				.width = 1,
-				.sides = LEAF_SIDE_RIGHT,
-				.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
-			},
-			.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
-			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
-			.direction = LEAF_DIRECTION_VERTICAL
-		})
-		{
-			_uph_sample_editor_render_sidebar_toggle(editor);
-		}
-		return;
-	}
+	return NAUI_MAX(leaf_get_bounding_box(leaf_id("uph_sample_editor_sidebar_toggle")).width, NAUI_DPI(UPH_UI_FRAME_HEIGHT));
+}
 
+static void _uph_sample_editor_render_sidebar_panel(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+{
 	leaf({
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
-		.border = {
-			.width = 1,
-			.sides = LEAF_SIDE_RIGHT,
-			.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
-		},
-		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
 		.child_gap = NAUI_DPI(8),
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
@@ -1236,7 +1217,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			{
 				_uph_sample_editor_render_heading(sample->name.data);
 			}
-			_uph_sample_editor_render_sidebar_toggle(editor);
+			leaf({ .size = { .width = LEAF_SIZE_FIXED((int32_t)_uph_sample_editor_sidebar_toggle_width()), .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FRAME_HEIGHT)) } });
 		}
 		_uph_sample_editor_render_separator();
 
@@ -1293,6 +1274,83 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 		_uph_sample_editor_sidebar_row("Normalize")
 		{
 			uph_ui_checkbox(&sample->normalized, leaf_id("uph_sample_editor_normalized"));
+		}
+	}
+}
+
+static float _uph_sample_editor_sidebar_collapse_eased(Uph_SampleEditorState *editor)
+{
+	const float target = editor->sidebar_hidden ? 1.0f : 0.0f;
+	if (!naui_app_animations_enabled())
+		editor->sidebar_collapse = target;
+	else if (editor->sidebar_collapse < target)
+		editor->sidebar_collapse = NAUI_MIN(editor->sidebar_collapse + naui_delta_time() * NAUI_UI_ANIM_SPEED, target);
+	else
+		editor->sidebar_collapse = NAUI_MAX(editor->sidebar_collapse - naui_delta_time() * NAUI_UI_ANIM_SPEED, target);
+
+	return editor->sidebar_hidden ?
+		naui_ease_out_quint(editor->sidebar_collapse) :
+		1.0f - naui_ease_out_quint(1.0f - editor->sidebar_collapse);
+}
+
+static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+{
+	const float collapse = _uph_sample_editor_sidebar_collapse_eased(editor);
+	const Leaf_Border border = {
+		.width = 1,
+		.sides = LEAF_SIDE_RIGHT,
+		.color = naui_theme_color("uph_sample_editor_toolbox_border_color")
+	};
+
+	if (collapse >= 1.0f)
+	{
+		leaf({
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
+			.border = border,
+			.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
+			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
+			.direction = LEAF_DIRECTION_VERTICAL
+		})
+		{
+			_uph_sample_editor_render_sidebar_toggle(editor);
+		}
+		return;
+	}
+
+	const float section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
+	const float strip_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING);
+	const float full_width = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH) + section_padding * 2.0f;
+	const float strip_width = strip_padding * 2.0f + _uph_sample_editor_sidebar_toggle_width();
+	const float width = full_width + (strip_width - full_width) * collapse;
+	const float toggle_margin = section_padding + (strip_padding - section_padding) * collapse;
+
+	leaf({
+		.size = { .width = LEAF_SIZE_FIXED((int32_t)width), .height = LEAF_SIZE_FULL },
+		.border = border,
+		.color = naui_theme_color("uph_sample_editor_toolbox_bg_color"),
+		.clip_children = true
+	})
+	{
+		leaf({
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.transparency = collapse
+		})
+		{
+			_uph_sample_editor_render_sidebar_panel(editor, sample, source);
+		}
+
+		leaf({
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
+			.floating = {
+				.parent_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_TOP },
+				.self_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_TOP },
+				.offset = { .x = -toggle_margin, .y = section_padding }
+			},
+			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+		})
+		{
+			_uph_sample_editor_render_sidebar_toggle(editor);
 		}
 	}
 }
