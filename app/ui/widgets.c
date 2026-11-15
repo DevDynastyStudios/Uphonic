@@ -1211,10 +1211,15 @@ static Naui_Vec2 _uph_ui_toolbox_frame(void)
     return (Naui_Vec2){ size, size };
 }
 
-bool uph_ui_toolbox_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint)
+bool uph_ui_toolbox_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, Naui_CornerFlags corners)
 {
     const float icon = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-    return _uph_ui_image_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL);
+    return _uph_ui_image_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, naui_theme_color("uph_ui_frame_bg_color"), corners);
+}
+
+bool uph_ui_toolbox_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint)
+{
+    return uph_ui_toolbox_button_ex(image, id, tint, NAUI_CORNER_ALL);
 }
 
 bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint)
@@ -1318,10 +1323,15 @@ bool uph_ui_image_toggle_button_colored(const Naui_Image *image, const Leaf_ID i
     return _uph_ui_image_toggle_button(image, id, size, _uph_ui_icon_frame(size), tint, naui_theme_color("uph_ui_tinted_frame_bg_color"), NAUI_CORNER_ALL, enabled, true, &enabled_bg_color);
 }
 
-bool uph_ui_toolbox_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, bool enabled)
+bool uph_ui_toolbox_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, Naui_CornerFlags corners, bool enabled)
 {
     const float icon = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-    return _uph_ui_image_toggle_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, naui_theme_color("uph_ui_frame_bg_color"), NAUI_CORNER_ALL, enabled, false, NULL);
+    return _uph_ui_image_toggle_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, naui_theme_color("uph_ui_frame_bg_color"), corners, enabled, false, NULL);
+}
+
+bool uph_ui_toolbox_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, bool enabled)
+{
+    return uph_ui_toolbox_toggle_button_ex(image, id, tint, NAUI_CORNER_ALL, enabled);
 }
 
 static Leaf_BoundingBox _uph_ui_textfield_line_box(Leaf_BoundingBox box, float font_size)

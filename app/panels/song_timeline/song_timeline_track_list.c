@@ -469,7 +469,12 @@ static void _uph_song_timeline_render_meter(const Uph_Track *track)
 	Uph_ActionTrackRef ref = uph_action_track_ref(track);
 	leaf({
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
-		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_TRACK_HEADER_METER_PADDING))
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_TRACK_HEADER_METER_PADDING)),
+		.border = {
+			.width = 1,
+			.sides = LEAF_SIDE_LEFT,
+			.color = naui_theme_color("uph_song_timeline_header_border_color")
+		}
 	})
 	leaf({
 		.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,

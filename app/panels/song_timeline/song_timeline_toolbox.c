@@ -21,70 +21,75 @@ void uph_song_timeline_render_toolbox(void)
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_song_timeline_play"),
-				naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_pause_icon_color" : "uph_play_icon_color")
+				naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
+				NAUI_CORNER_TL | NAUI_CORNER_BL
 			))
 			{
 				uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;
 			}
 
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_song_timeline_stop"),
-				naui_theme_color("uph_stop_icon_color")
+				naui_theme_color("uph_stop_icon_color"),
+				NAUI_CORNER_NONE
 			))
 			{
 				uph_state.shared.song_timeline_playing = false;
 				uph_state.shared.song_timeline_playhead_position = 0.0;
 			}
 
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_reset"),
 				leaf_id("uph_song_timeline_reset"),
-				icon_color
+				icon_color,
+				NAUI_CORNER_NONE
 			))
 			{
 				uph_state.shared.song_timeline_playhead_position = 0.0;
 			}
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_song_timeline_loop"),
 				icon_color,
+				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				uph_state.project.loop_enabled
 			)) uph_state.project.loop_enabled = !uph_state.project.loop_enabled;
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_select"),
 				leaf_id("uph_song_timeline_select"),
 				icon_color,
+				NAUI_CORNER_TL | NAUI_CORNER_BL,
 				state->current_action_mode == UPH_ACTION_SELECT
 			)) state->current_action_mode = UPH_ACTION_SELECT;
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_draw"),
 				leaf_id("uph_song_timeline_draw"),
 				icon_color,
+				NAUI_CORNER_NONE,
 				state->current_action_mode == UPH_ACTION_DRAW
 			)) state->current_action_mode = UPH_ACTION_DRAW;
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_cut"),
 				leaf_id("uph_song_timeline_cut"),
 				icon_color,
+				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				state->current_action_mode == UPH_ACTION_CUT
 			)) state->current_action_mode = UPH_ACTION_CUT;
 		}

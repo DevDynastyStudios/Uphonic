@@ -84,62 +84,67 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
 			const bool playing = uph_midi_preview_playing();
 
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_midi_editor_play"),
-				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color")
+				naui_theme_color(playing ? "uph_pause_icon_color" : "uph_play_icon_color"),
+				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) uph_midi_editor_toggle_playback();
 
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_midi_editor_stop"),
-				naui_theme_color("uph_stop_icon_color")
+				naui_theme_color("uph_stop_icon_color"),
+				NAUI_CORNER_NONE
 			)) uph_midi_editor_stop_playback();
 
-			if (uph_ui_toolbox_button(
+			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_reset"),
 				leaf_id("uph_midi_editor_reset"),
-				icon_color
+				icon_color,
+				NAUI_CORNER_NONE
 			)) uph_midi_preview_seek(0.0);
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_loop"),
 				leaf_id("uph_midi_editor_loop"),
 				icon_color,
+				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				uph_midi_preview_looping()
 			)) uph_midi_preview_set_loop(!uph_midi_preview_looping());
 		}
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
 			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-			.child_gap = NAUI_DPI(UPH_TOOLBOX_BUTTON_GAP),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_select"),
 				leaf_id("uph_midi_editor_select"),
 				icon_color,
+				NAUI_CORNER_TL | NAUI_CORNER_BL,
 				*action_mode == UPH_ACTION_SELECT
 			)) *action_mode = UPH_ACTION_SELECT;
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_draw"),
 				leaf_id("uph_midi_editor_draw"),
 				icon_color,
+				NAUI_CORNER_NONE,
 				*action_mode == UPH_ACTION_DRAW
 			)) *action_mode = UPH_ACTION_DRAW;
 
-			if (uph_ui_toolbox_toggle_button(
+			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_cut"),
 				leaf_id("uph_midi_editor_cut"),
 				icon_color,
+				NAUI_CORNER_TR | NAUI_CORNER_BR,
 				*action_mode == UPH_ACTION_CUT
 			)) *action_mode = UPH_ACTION_CUT;
 		}
