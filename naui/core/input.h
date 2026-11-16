@@ -200,19 +200,36 @@ NAUI_API bool naui_key_released(Naui_Key key);
 NAUI_API const char *naui_key_name(Naui_Key key);
 NAUI_API uint32_t naui_app_codepoint(void);
 
+typedef uint8_t Naui_ImeMode;
+enum
+{
+    NAUI_IME_MODE_OFF,
+    NAUI_IME_MODE_TEXT,
+    NAUI_IME_MODE_NUMBER,
+    NAUI_IME_MODE_PASSWORD
+};
+
+typedef struct
+{
+    int32_t start;
+    int32_t end;
+    bool target;
+}
+Naui_ImeClause;
+
 typedef struct
 {
     const char *text;
     int32_t length;
     int32_t cursor;
-    int32_t target_start;
-    int32_t target_end;
+    const Naui_ImeClause *clauses;
+    int32_t clause_count;
 }
 Naui_ImeComposition;
 
-NAUI_API void naui_ime_set_enabled(bool enabled);
-NAUI_API bool naui_ime_enabled(void);
-NAUI_API void naui_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height);
+NAUI_API void naui_ime_set_mode(Naui_ImeMode mode);
+NAUI_API Naui_ImeMode naui_ime_get_mode(void);
+NAUI_API void naui_ime_set_area(int32_t x, int32_t y, int32_t width, int32_t height, int32_t caret_x);
 NAUI_API bool naui_ime_get_composition(Naui_ImeComposition *out);
 NAUI_API void naui_ime_cancel(void);
 

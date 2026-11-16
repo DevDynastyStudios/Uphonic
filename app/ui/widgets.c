@@ -110,7 +110,7 @@ typedef struct
     }
     visual;
     bool textfield_submitted_this_frame;
-    bool ime_wanted;
+    Naui_ImeMode ime_mode;
     bool any_widget_hovered;
 }
 Uph_GlobalWidgetState;
@@ -156,11 +156,6 @@ static Leaf_Border _uph_ui_frame_border(void)
 static bool _uph_ui_is_word_char(char c)
 {
     return (unsigned char)c >= 0x80 || isalnum((unsigned char)c) || c == '_';
-}
-
-static bool _uph_ui_textfield_preedit(Uph_UITextFieldFlags flags, Naui_ImeComposition *out)
-{
-    return !(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY) && naui_ime_get_composition(out);
 }
 
 static void _uph_ui_textfield_finish_composition(Uph_TextfieldData *data, bool commit)
@@ -989,8 +984,8 @@ void uph_ui_widgets_flush(void)
         _uph_ui_end_edit(&data->textfield_data);
     data->textfield_submitted_this_frame = false;
 
-    naui_ime_set_enabled(data->ime_wanted);
-    data->ime_wanted = false;
+    naui_ime_set_mode(data->ime_mode);
+    data->ime_mode = NAUI_IME_MODE_OFF;
 
     data->id_counter = 0;
     data->any_widget_hovered = false;
@@ -1441,15 +1436,16 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
         const float thin = NAUI_MAX(1.0f, NAUI_DPI(1));
         const float thick = NAUI_MAX(2.0f, NAUI_DPI(2));
         const float underline_y = box.y + box.height - thick;
-        const float width = naui_measure_text(ime.text, (uint32_t)ime.length, font_size).x;
+        const float gap = NAUI_MAX(1.0f, NAUI_DPI(2));
 
-        naui_fill_rect((Naui_Vec2) { start_x, underline_y + (thick - thin) }, (Naui_Vec2) { width, thin }, text_color, 0.0f, NAUI_CORNER_NONE);
-
-        if (ime.target_end > ime.target_start)
+        for (int32_t i = 0; i < ime.clause_count; ++i)
         {
-            const float target_x0 = naui_measure_text(ime.text, (uint32_t)ime.target_start, font_size).x;
-            const float target_x1 = naui_measure_text(ime.text, (uint32_t)ime.target_end, font_size).x;
-            naui_fill_rect((Naui_Vec2) { start_x + target_x0, underline_y }, (Naui_Vec2) { target_x1 - target_x0, thick }, text_color, 0.0f, NAUI_CORNER_NONE);
+            const Naui_ImeClause clause = ime.clauses[i];
+            const float clause_x0 = naui_measure_text(ime.text, (uint32_t)clause.start, font_size).x;
+            const float clause_x1 = naui_measure_text(ime.text, (uint32_t)clause.end, font_size).x;
+            const float clause_width = NAUI_MAX(clause_x1 - clause_x0 - (i + 1 < ime.clause_count ? gap : 0.0f), 1.0f);
+            const float height = clause.target ? thick : thin;
+            naui_fill_rect((Naui_Vec2) { start_x + clause_x0, underline_y + (thick - height) }, (Naui_Vec2) { clause_width, height }, text_color, 0.0f, NAUI_CORNER_NONE);
         }
     }
     else if (draw_data->value->length)
@@ -1716,7 +1712,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         const bool shift = naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
 
         Naui_ImeComposition ime;
-        const bool composing = _uph_ui_textfield_preedit(flags, &ime);
+        const bool composing = naui_ime_get_composition(&ime);
         if (composing && data->select_active)
             _uph_ui_textfield_delete_selection(data);
 
@@ -1864,7 +1860,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         Naui_Vec2 full_pos = naui_measure_text(value->data, value->length, font_size);
 
         Naui_ImeComposition ime;
-        if (_uph_ui_textfield_preedit(flags, &ime))
+        if (naui_ime_get_composition(&ime))
         {
             cursor_pos.x += naui_measure_text(ime.text, (uint32_t)ime.cursor, font_size).x;
             full_pos.x += naui_measure_text(ime.text, (uint32_t)ime.length, font_size).x;
@@ -1883,15 +1879,15 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         data->scroll_x = 0.0f;
     }
 
-    if (active && !(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY))
+    if (active)
     {
-        uph_global_widget_state.ime_wanted = true;
+        uph_global_widget_state.ime_mode = (flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY) ? NAUI_IME_MODE_NUMBER : NAUI_IME_MODE_TEXT;
         Leaf_BoundingBox line_box = field_box;
         line_box.x += (int32_t)(padding_x + text_offset);
         line_box.width = (int32_t)visible_width;
         line_box = _uph_ui_textfield_line_box(line_box, font_size);
-        const float caret_x = (float)line_box.x - data->scroll_x + naui_measure_text(value->data, data->cursor, font_size).x;
-        naui_ime_set_cursor_rect((int32_t)caret_x, line_box.y, (int32_t)NAUI_DPI(2), line_box.height);
+        const float caret_x = naui_measure_text(value->data, data->cursor, font_size).x - data->scroll_x;
+        naui_ime_set_area(line_box.x, line_box.y, line_box.width, line_box.height, (int32_t)caret_x);
     }
 
     leaf({

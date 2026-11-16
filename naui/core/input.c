@@ -115,19 +115,19 @@ uint32_t naui_app_codepoint(void)
     return mgapp_codepoint();
 }
 
-void naui_ime_set_enabled(bool enabled)
+void naui_ime_set_mode(Naui_ImeMode mode)
 {
-    mgapp_ime_set_enabled(enabled);
+    mgapp_ime_set_mode((mgapp_ime_mode)mode);
 }
 
-bool naui_ime_enabled(void)
+Naui_ImeMode naui_ime_get_mode(void)
 {
-    return mgapp_ime_enabled();
+    return (Naui_ImeMode)mgapp_ime_get_mode();
 }
 
-void naui_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height)
+void naui_ime_set_area(int32_t x, int32_t y, int32_t width, int32_t height, int32_t caret_x)
 {
-    mgapp_ime_set_cursor_rect(x, y, width, height);
+    mgapp_ime_set_area(x, y, width, height, caret_x);
 }
 
 bool naui_ime_get_composition(Naui_ImeComposition *out)
@@ -141,8 +141,8 @@ bool naui_ime_get_composition(Naui_ImeComposition *out)
         out->text = composition.text;
         out->length = composition.length;
         out->cursor = composition.cursor;
-        out->target_start = composition.target_start;
-        out->target_end = composition.target_end;
+        out->clauses = (const Naui_ImeClause*)composition.clauses;
+        out->clause_count = composition.clause_count;
     }
 
     return true;
