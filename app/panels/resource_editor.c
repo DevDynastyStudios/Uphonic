@@ -12,6 +12,7 @@ static void uph_resource_editor_on_detach(void)
 	uph_midi_editor_reset_interaction();
 	uph_sample_editor_reset_interaction();
 	uph_automation_editor_reset_interaction();
+	uph_midi_editor_free_particles();
 }
 
 static void uph_resource_editor_on_open(void)

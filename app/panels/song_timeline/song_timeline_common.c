@@ -170,6 +170,7 @@ typedef struct
 	Naui_List(Uph_TrackPtr) selected_tracks;
 	Uph_Track *selection_anchor;
 	Leaf_BoundingBox panel_bounding_box;
+	Uph_ParticleSystem particles;
 	Uph_Track *current_options_track;
 	Uph_Track *current_color_options_track;
 	Uph_Track *current_hovered_track;

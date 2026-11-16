@@ -227,28 +227,25 @@ static void _uph_song_timeline_emit_rejected_block(Leaf_BoundingBox bbox, double
 	const float zoom = state->zoom.x;
 	const Naui_Vec2 position = { bbox.x + (float)start_beat * zoom - state->scroll.x, bbox.y + 1.0f };
 	const Naui_Vec2 size = { length_beats > 0.0 ? (float)length_beats * zoom : NAUI_DPI(8), bbox.height - 2.0f };
-	const Leaf_BoundingBox clip = naui_panel_bounding_box(uph_state.panels.song_timeline);
 	const int32_t rounding = NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING);
 
-	uph_particle_emit(&(Uph_Particle){
+	uph_particle_emit(&state->particles, &(Uph_Particle){
 		.position = { bbox.x, bbox.y },
 		.size = { bbox.width, bbox.height },
 		.color = leaf_rgba(error.r, error.g, error.b, 40),
-		.clip = clip,
 		.duration = 0.6f / NAUI_UI_ANIM_SPEED,
 		.shape = UPH_PARTICLE_RECT
 	});
-	uph_particle_emit(&(Uph_Particle){
+	uph_particle_emit(&state->particles, &(Uph_Particle){
 		.position = position,
 		.size = size,
 		.color = leaf_rgba(error.r, error.g, error.b, 140),
-		.clip = clip,
 		.duration = 0.6f / NAUI_UI_ANIM_SPEED,
 		.rounding = rounding,
 		.shape = UPH_PARTICLE_RECT
 	});
 	if (naui_app_animations_enabled())
-		uph_particle_emit_shockwave(position, size, leaf_rgba(error.r, error.g, error.b, 255), rounding, clip);
+		uph_particle_emit_shockwave(&state->particles, position, size, leaf_rgba(error.r, error.g, error.b, 255), rounding);
 }
 
 static bool _uph_song_timeline_draw_resource_ready(void)

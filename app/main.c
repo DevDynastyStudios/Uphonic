@@ -276,7 +276,6 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Destoying Actions...");
 	naui_action_clear_history();
-	uph_particles_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
 	uph_resources_clear_tracks();
@@ -336,7 +335,6 @@ void naui_app_update(void)
  
 	naui_render_panels_and_viewport();
 	uph_sample_browser_end_frame();
-	uph_particles_render();
 	uph_dialog_render();
 	uph_ui_widgets_flush();
 	uph_drag_flush();

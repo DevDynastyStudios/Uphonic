@@ -133,6 +133,7 @@ typedef struct
 	Uph_PedalLane pedal_lane;
 	Uph_MidiLaneTab lane_tab;
 	Leaf_BoundingBox lanes_bounding_box;
+	Uph_ParticleSystem particles;
 	Uph_ActionMode current_action_mode;
 	Uph_SnapResolution snap_resolution;
 	Naui_Vec2 pan_last_mouse;

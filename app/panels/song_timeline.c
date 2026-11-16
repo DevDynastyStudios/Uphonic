@@ -57,7 +57,8 @@ static void uph_song_timeline_on_attach(void)
 
 static void uph_song_timeline_on_detach(void)
 {
-
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	uph_particles_free(&state->particles);
 }
 
 static void uph_song_timeline_on_open(void)
@@ -230,5 +231,7 @@ static void uph_song_timeline_on_update(void)
 	uph_song_timeline_update_empty_space_marquee();
 	uph_song_timeline_render_track_options_menu(track_options_context_menu, track_color_options_context_menu);
 	uph_song_timeline_render_block_options_menu(block_options_context_menu);
+
+	uph_particles_render(&state->particles);
 }
 #pragma endregion

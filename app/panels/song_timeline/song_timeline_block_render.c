@@ -315,16 +315,16 @@ void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_Ti
 	if (!naui_app_animations_enabled() || !track || naui_panel_closed(uph_state.panels.song_timeline))
 		return;
 
-	const Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const Leaf_BoundingBox section = state->panel_bounding_box;
 	const float timeline_x = section.x + NAUI_DPI(uph_song_timeline_header_column_width());
 
 	uph_particle_emit_shockwave(
+		&state->particles,
 		(Naui_Vec2){ timeline_x + state->zoom.x * (float)block->start_beat - state->scroll.x, section.y - state->scroll.y + track->visual.y },
 		(Naui_Vec2){ state->zoom.x * (float)block->length_beats, NAUI_DPI(state->zoom.y) },
 		uph_color_mix(uph_resources_track_color(track->color_index), leaf_rgba(255, 255, 255, 255), 0.35f),
-		NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING),
-		naui_panel_bounding_box(uph_state.panels.song_timeline)
+		NAUI_DPI(UPH_TIMELINE_BLOCK_ROUNDING)
 	);
 }
 

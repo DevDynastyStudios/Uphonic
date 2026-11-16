@@ -58,18 +58,18 @@ void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const 
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN || uph_state.shared.selected_resource.index != pattern_index)
 		return;
 
-	const Uph_MidiEditorState *state = &_uph_midi_editor_state;
+	Uph_MidiEditorState *state = &_uph_midi_editor_state;
 	const Leaf_BoundingBox box = state->lanes_bounding_box;
 	const Naui_Vec4 note_box = uph_midi_view_note_box(&state->view, &state->note_map, box, note);
 	const Leaf_Color color = uph_midi_view_velocity_color(uph_midi_view_note_color(), note->velocity);
 
 	if (naui_app_animations_enabled())
 		uph_particle_emit_shockwave(
+			&state->particles,
 			(Naui_Vec2){ note_box.x, note_box.y },
 			(Naui_Vec2){ note_box.z, note_box.w },
 			uph_color_mix(color, leaf_rgba(255, 255, 255, 255), 0.35f),
-			NAUI_DPI(3),
-			naui_panel_bounding_box(uph_state.panels.resource_editor)
+			NAUI_DPI(3)
 		);
 }
 
@@ -127,6 +127,12 @@ void uph_midi_editor_reset_interaction(void)
 	state->playhead_dragging = false;
 	state->loop_drag.mode = UPH_LOOP_DRAG_NONE;
 	uph_midi_preview_stop();
+}
+
+void uph_midi_editor_free_particles(void)
+{
+	Uph_MidiEditorState *state = &_uph_midi_editor_state;
+	uph_particles_free(&state->particles);
 }
 
 #pragma endregion
@@ -628,4 +634,5 @@ void uph_midi_editor_update(void)
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
 		});
 	}
+	uph_particles_render(&state->particles);
 }

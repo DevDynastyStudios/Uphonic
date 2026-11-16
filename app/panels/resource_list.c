@@ -9,20 +9,26 @@ typedef struct
     Naui_String old_name;
     bool active;
 }
-Uph_ResourceListRenameState;
-
-static Uph_ResourceListRenameState _uph_resource_list_rename_state;
+Uph_ResourceListRename;
 
 typedef struct
 {
     Uph_ResourceType type;
     Uph_ResourceIndex index;
 }
-Uph_ResourceListAnchorState;
+Uph_ResourceListAnchor;
 
-static Uph_ResourceListAnchorState _uph_resource_list_anchor_state;
+typedef struct
+{
+    Uph_ResourceListRename rename;
+    Uph_ResourceListAnchor anchor;
+    Uph_ParticleSystem particles;
+    float scroll;
+    bool item_hovered;
+}
+Uph_ResourceListState;
 
-static bool _uph_resource_list_item_hovered;
+static Uph_ResourceListState _uph_resource_list_state;
 
 static const Uph_ResourceType _uph_resource_list_types[] = { UPH_RESOURCE_PATTERN, UPH_RESOURCE_SAMPLE, UPH_RESOURCE_AUTOMATION };
 #define UPH_RESOURCE_LIST_TYPE_COUNT ((uint32_t)(sizeof(_uph_resource_list_types) / sizeof(_uph_resource_list_types[0])))
@@ -34,7 +40,8 @@ static void uph_resource_list_on_attach(void)
 
 static void uph_resource_list_on_detach(void)
 {
-    
+    Uph_ResourceListState *state = &_uph_resource_list_state;
+    uph_particles_free(&state->particles);
 }
 
 static void uph_resource_list_on_open(void)
@@ -200,12 +207,13 @@ void uph_resource_list_emit_item_shockwave(Uph_ResourceType type, Uph_ResourceIn
     if (box.width <= 0.0f || box.height <= 0.0f)
         return;
 
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     uph_particle_emit_shockwave(
+        &state->particles,
         (Naui_Vec2){ box.x, box.y },
         (Naui_Vec2){ box.width, box.height },
         uph_color_mix(uph_state.colors.resource_list_item_fg, leaf_rgba(255, 255, 255, 255), 0.35f),
-        NAUI_DPI(UPH_UI_FRAME_ROUNDING),
-        naui_panel_bounding_box(uph_state.panels.resource_list)
+        NAUI_DPI(UPH_UI_FRAME_ROUNDING)
     );
 }
 
@@ -276,12 +284,12 @@ static void uph_resource_list_set_primary(Uph_ResourceType type, Uph_ResourceInd
 
 static void uph_resource_list_select_single(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    Uph_ResourceListAnchorState *state = &_uph_resource_list_anchor_state;
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     uph_resource_list_clear_selection();
     *uph_resource_list_selected_flag(type, index) = true;
     uph_resource_list_set_primary(type, index);
-    state->type = type;
-    state->index = index;
+    state->anchor.type = type;
+    state->anchor.index = index;
 }
 
 static bool uph_resource_list_find_other_selected(Uph_ResourceType skip_type, Uph_ResourceIndex skip_index, Uph_ResourceType *out_type, Uph_ResourceIndex *out_index)
@@ -304,10 +312,10 @@ static bool uph_resource_list_find_other_selected(Uph_ResourceType skip_type, Up
 
 static void uph_resource_list_toggle(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    Uph_ResourceListAnchorState *state = &_uph_resource_list_anchor_state;
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     bool *flag = uph_resource_list_selected_flag(type, index);
-    state->type = type;
-    state->index = index;
+    state->anchor.type = type;
+    state->anchor.index = index;
 
     if (!*flag)
     {
@@ -334,14 +342,14 @@ static void uph_resource_list_toggle(Uph_ResourceType type, Uph_ResourceIndex in
 
 static void uph_resource_list_select_range(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-    Uph_ResourceListAnchorState *state = &_uph_resource_list_anchor_state;
-    if (state->type != type || state->index >= uph_resource_list_count(type))
+    Uph_ResourceListState *state = &_uph_resource_list_state;
+    if (state->anchor.type != type || state->anchor.index >= uph_resource_list_count(type))
     {
         uph_resource_list_select_single(type, index);
         return;
     }
 
-    const Uph_ResourceIndex anchor = state->index;
+    const Uph_ResourceIndex anchor = state->anchor.index;
     const Uph_ResourceIndex low = anchor < index ? anchor : index;
     const Uph_ResourceIndex high = anchor < index ? index : anchor;
 
@@ -364,27 +372,27 @@ static void uph_resource_list_click_select(Uph_ResourceType type, Uph_ResourceIn
 
 static void uph_resource_list_finish_rename(void)
 {
-    Uph_ResourceListRenameState *state = &_uph_resource_list_rename_state;
-    state->active = false;
+    Uph_ResourceListState *state = &_uph_resource_list_state;
+    state->rename.active = false;
 
-    Naui_String *name = uph_resource_list_name(state->type, state->index);
-    if (!name || naui_strings_equal(*name, state->old_name, true))
+    Naui_String *name = uph_resource_list_name(state->rename.type, state->rename.index);
+    if (!name || naui_strings_equal(*name, state->rename.old_name, true))
         return;
 
     Uph_ActionResourceRename data = {
-        .resource_index = state->index,
-        .old_name = state->old_name,
+        .resource_index = state->rename.index,
+        .old_name = state->rename.old_name,
         .new_name = *name
     };
 
     const char *action = NULL;
-    if (state->type == UPH_RESOURCE_PATTERN)
+    if (state->rename.type == UPH_RESOURCE_PATTERN)
         action = UPH_ACTION_PATTERN_RENAME;
 
-    else if (state->type == UPH_RESOURCE_SAMPLE)
+    else if (state->rename.type == UPH_RESOURCE_SAMPLE)
         action = UPH_ACTION_SAMPLE_RENAME;
 
-    else if (state->type == UPH_RESOURCE_AUTOMATION)
+    else if (state->rename.type == UPH_RESOURCE_AUTOMATION)
         action = UPH_ACTION_AUTOMATION_RENAME;
 
     if (action)
@@ -393,15 +401,15 @@ static void uph_resource_list_finish_rename(void)
 
 static void uph_resource_list_update_rename(void)
 {
-    Uph_ResourceListRenameState *state = &_uph_resource_list_rename_state;
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     const Uph_ResourceType type = uph_state.shared.selected_resource.type;
     const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
     const bool renaming = uph_state.shared.selected_resource.renaming;
 
-    if (state->active && (!renaming || state->type != type || state->index != index))
+    if (state->rename.active && (!renaming || state->rename.type != type || state->rename.index != index))
         uph_resource_list_finish_rename();
 
-    if (renaming && !state->active)
+    if (renaming && !state->rename.active)
     {
         Naui_String *name = uph_resource_list_name(type, index);
         if (!name)
@@ -410,10 +418,10 @@ static void uph_resource_list_update_rename(void)
             return;
         }
 
-        state->type = type;
-        state->index = index;
-        state->old_name = *name;
-        state->active = true;
+        state->rename.type = type;
+        state->rename.index = index;
+        state->rename.old_name = *name;
+        state->rename.active = true;
     }
 }
 
@@ -497,11 +505,12 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
 
 static void uph_resource_list_render_pending_sample(Uph_PendingSample *pending, uint32_t index)
 {
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     const Leaf_ID id = leaf_id_indexed("uph_sample_list_pending_item", index);
     pending->lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(pending->lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
 
     if (uph_ui_widget_hovered(id))
-        _uph_resource_list_item_hovered = true;
+        state->item_hovered = true;
 
     Naui_Color spinner_color = uph_state.colors.resource_list_item_fg;
     uph_resource_list_box(
@@ -531,6 +540,7 @@ static void uph_resource_list_render_drag(const void *payload)
 
 static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType type, Uph_UIMenuID context_menu, Leaf_ID id)
 {
+    Uph_ResourceListState *state = &_uph_resource_list_state;
     bool is_primary = uph_state.shared.selected_resource.index == index && uph_state.shared.selected_resource.type == type;
     bool is_selected = uph_resource_list_is_selected(type, index);
     bool is_renaming = is_primary && uph_state.shared.selected_resource.renaming;
@@ -538,7 +548,7 @@ static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType t
 
     if (hovered)
     {
-        _uph_resource_list_item_hovered = true;
+        state->item_hovered = true;
         naui_set_cursor(NAUI_CURSOR_HAND);
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
@@ -782,6 +792,7 @@ static void uph_resource_list_duplicate_selected(void)
 
 static void uph_resource_list_on_update(void)
 {
+    Uph_ResourceListState *state = &_uph_resource_list_state;
 	const int32_t icon_size = NAUI_DPI(16);
     uph_resource_list_update_rename();
     uph_resource_list_sync_selection();
@@ -794,7 +805,7 @@ static void uph_resource_list_on_update(void)
     }
 
     const bool menu_was_open = uph_ui_any_menu_open();
-    _uph_resource_list_item_hovered = false;
+    state->item_hovered = false;
 
     if (naui_panel_focused() == uph_state.panels.resource_list && naui_keybind_pressed(uph_state.settings.keybinds.delete_selected) &&
         !uph_state.shared.selected_resource.renaming && uph_state.shared.selected_resource.type != UPH_RESOURCE_NONE)
@@ -805,11 +816,10 @@ static void uph_resource_list_on_update(void)
     const Naui_Color section_title_text_color = uph_state.colors.resource_list_section_text;
     const Naui_Color section_title_bg_color = uph_state.colors.resource_list_section_bg;
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-	static float scroll = 0.0f;
 
       Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
         UPH_UI_SCROLL_DIRECTION_VERTICAL,
-        &scroll,
+        &state->scroll,
         leaf_id("uph_resource_list_scrollbar")
     );
     leaf({
@@ -900,6 +910,7 @@ static void uph_resource_list_on_update(void)
             uph_resource_list_plus_box(UPH_RESOURCE_AUTOMATION, leaf_id("uph_automation_list_plus"));
         }
     }
+
     uph_ui_end_scroll_container(&scroll_container);
 
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.rename"), leaf_id("uph_pattern_rename")))
@@ -911,9 +922,11 @@ static void uph_resource_list_on_update(void)
     if (uph_ui_menu_item(context_menu, NAUI_TR("resource_list.duplicate"), leaf_id("uph_pattern_duplicate")))
         uph_resource_list_duplicate_selected();
 
-    if (!menu_was_open && !_uph_resource_list_item_hovered && naui_any_mouse_pressed())
+    if (!menu_was_open && !state->item_hovered && naui_any_mouse_pressed())
     {
         uph_resource_list_clear_selection();
         uph_resource_list_sync_selection();
     }
+
+    uph_particles_render(&state->particles);
 }
