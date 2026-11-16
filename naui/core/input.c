@@ -115,6 +115,44 @@ uint32_t naui_app_codepoint(void)
     return mgapp_codepoint();
 }
 
+void naui_ime_set_enabled(bool enabled)
+{
+    mgapp_ime_set_enabled(enabled);
+}
+
+bool naui_ime_enabled(void)
+{
+    return mgapp_ime_enabled();
+}
+
+void naui_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height)
+{
+    mgapp_ime_set_cursor_rect(x, y, width, height);
+}
+
+bool naui_ime_get_composition(Naui_ImeComposition *out)
+{
+    mgapp_ime_composition composition;
+    if (!mgapp_ime_get_composition(&composition))
+        return false;
+
+    if (out)
+    {
+        out->text = composition.text;
+        out->length = composition.length;
+        out->cursor = composition.cursor;
+        out->target_start = composition.target_start;
+        out->target_end = composition.target_end;
+    }
+
+    return true;
+}
+
+void naui_ime_cancel(void)
+{
+    mgapp_ime_cancel();
+}
+
 bool naui_mouse_down(Naui_MouseButton button)
 {
     return mgapp_mouse_down((mg_mouse_button)button);

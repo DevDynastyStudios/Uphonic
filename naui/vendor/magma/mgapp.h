@@ -276,7 +276,11 @@ typedef struct
 mgapp_init_info;
 
 #ifndef MGAPP_MAX_CODEPOINTS
-    #define MGAPP_MAX_CODEPOINTS 64
+    #define MGAPP_MAX_CODEPOINTS 256
+#endif
+
+#ifndef MGAPP_IME_MAX_TEXT
+    #define MGAPP_IME_MAX_TEXT 1024
 #endif
 
 MGAPP_API int32_t mgapp_run(const mgapp_init_info *info);
@@ -303,6 +307,22 @@ MGAPP_API bool mgapp_key_pressed_repeat(mg_key key);
 MGAPP_API bool mgapp_key_released(mg_key key);
 
 MGAPP_API uint32_t mgapp_codepoint(void);
+
+typedef struct
+{
+    const char *text;
+    int32_t length;
+    int32_t cursor;
+    int32_t target_start;
+    int32_t target_end;
+}
+mgapp_ime_composition;
+
+MGAPP_API void mgapp_ime_set_enabled(bool enabled);
+MGAPP_API bool mgapp_ime_enabled(void);
+MGAPP_API void mgapp_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height);
+MGAPP_API bool mgapp_ime_get_composition(mgapp_ime_composition *out);
+MGAPP_API void mgapp_ime_cancel(void);
 
 MGAPP_API bool mgapp_mouse_down(mg_mouse_button button);
 MGAPP_API bool mgapp_mouse_pressed(mg_mouse_button button);
@@ -443,8 +463,13 @@ mgapp_emscripten_state;
 #include <windows.h>
 #include <windowsx.h>
 #include <shellapi.h>
+#include <imm.h>
 #pragma comment(lib, "user32")
 #pragma comment(lib, "shell32")
+#pragma comment(lib, "imm32")
+
+#define MGAPP_IME_MAX_UTF16 512
+#define MGAPP_IS_SURROGATE(unit) (IS_HIGH_SURROGATE(unit) || IS_LOW_SURROGATE(unit))
 
 typedef struct
 {
@@ -455,6 +480,8 @@ typedef struct
 
     HCURSOR cursor_table[MG_CURSOR_MAX];
     bool tracking_mouse;
+
+    HIMC ime_himc;
 
     float clock_frequency;
     LARGE_INTEGER start_time;
@@ -569,6 +596,16 @@ typedef struct
     mgapp_linux_state _linux;
 #endif
     mgapp_input_state input;
+
+    struct
+    {
+        bool enabled;
+        bool composing;
+        char text[MGAPP_IME_MAX_TEXT];
+        int32_t length, cursor, target_start, target_end;
+        int32_t rect_x, rect_y, rect_width, rect_height;
+    }
+    ime;
 
     struct
     {
@@ -790,6 +827,79 @@ uint32_t mgapp_codepoint(void)
         return 0;
 
     return input_state->text.codepoints[input_state->text.read_index++];
+}
+
+#if defined(_WIN32)
+static void mgapp_platform_ime_set_enabled(bool enabled);
+static void mgapp_platform_ime_cancel(void);
+static void mgapp_platform_ime_apply_rect(void);
+#else
+static void mgapp_platform_ime_set_enabled(bool enabled) { (void)enabled; }
+static void mgapp_platform_ime_cancel(void) {}
+static void mgapp_platform_ime_apply_rect(void) {}
+#endif
+
+static inline void mgapp_ime_clear_composition(void)
+{
+    mgapp_state.ime.composing = false;
+    mgapp_state.ime.text[0] = '\0';
+    mgapp_state.ime.length = 0;
+    mgapp_state.ime.cursor = 0;
+    mgapp_state.ime.target_start = 0;
+    mgapp_state.ime.target_end = 0;
+}
+
+void mgapp_ime_set_enabled(bool enabled)
+{
+    if (mgapp_state.ime.enabled == enabled)
+        return;
+
+    mgapp_state.ime.enabled = enabled;
+    if (!enabled)
+        mgapp_ime_clear_composition();
+
+    mgapp_platform_ime_set_enabled(enabled);
+}
+
+bool mgapp_ime_enabled(void)
+{
+    return mgapp_state.ime.enabled;
+}
+
+void mgapp_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height)
+{
+    if (mgapp_state.ime.rect_x == x && mgapp_state.ime.rect_y == y &&
+        mgapp_state.ime.rect_width == width && mgapp_state.ime.rect_height == height)
+        return;
+
+    mgapp_state.ime.rect_x = x;
+    mgapp_state.ime.rect_y = y;
+    mgapp_state.ime.rect_width = width;
+    mgapp_state.ime.rect_height = height;
+    mgapp_platform_ime_apply_rect();
+}
+
+bool mgapp_ime_get_composition(mgapp_ime_composition *out)
+{
+    if (!mgapp_state.ime.enabled || mgapp_state.ime.length <= 0)
+        return false;
+
+    if (out)
+    {
+        out->text = mgapp_state.ime.text;
+        out->length = mgapp_state.ime.length;
+        out->cursor = mgapp_state.ime.cursor;
+        out->target_start = mgapp_state.ime.target_start;
+        out->target_end = mgapp_state.ime.target_end;
+    }
+
+    return true;
+}
+
+void mgapp_ime_cancel(void)
+{
+    mgapp_platform_ime_cancel();
+    mgapp_ime_clear_composition();
 }
 
 bool mgapp_mouse_down(mg_mouse_button button)
@@ -1285,6 +1395,217 @@ static inline void mgapp_win32_load_cursors(mgapp_win32_state *win32_state)
     win32_state->cursor_table[MG_CURSOR_HIDDEN]       = NULL;
 }
 
+static int32_t mgapp_win32_utf16_to_utf8(const WCHAR *src, int32_t src_len, char *dst, int32_t dst_capacity, int32_t *offsets)
+{
+    int32_t out = 0;
+    int32_t i = 0;
+    for (; i < src_len; ++i)
+    {
+        uint32_t codepoint = src[i];
+        int32_t units = 1;
+        if (IS_HIGH_SURROGATE(src[i]) && i + 1 < src_len && IS_LOW_SURROGATE(src[i + 1]))
+        {
+            codepoint = 0x10000u + (((uint32_t)src[i] - 0xD800u) << 10) + ((uint32_t)src[i + 1] - 0xDC00u);
+            units = 2;
+        }
+        else if (MGAPP_IS_SURROGATE(src[i]))
+        {
+            codepoint = 0xFFFD;
+        }
+
+        const int32_t bytes = codepoint < 0x80 ? 1 : codepoint < 0x800 ? 2 : codepoint < 0x10000 ? 3 : 4;
+        if (out + bytes >= dst_capacity)
+            break;
+
+        if (offsets)
+        {
+            offsets[i] = out;
+            if (units == 2)
+                offsets[i + 1] = out;
+        }
+
+        if (bytes == 1)
+            dst[out] = (char)codepoint;
+        else if (bytes == 2)
+        {
+            dst[out]     = (char)(0xC0 | (codepoint >> 6));
+            dst[out + 1] = (char)(0x80 | (codepoint & 0x3F));
+        }
+        else if (bytes == 3)
+        {
+            dst[out]     = (char)(0xE0 | (codepoint >> 12));
+            dst[out + 1] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+            dst[out + 2] = (char)(0x80 | (codepoint & 0x3F));
+        }
+        else
+        {
+            dst[out]     = (char)(0xF0 | (codepoint >> 18));
+            dst[out + 1] = (char)(0x80 | ((codepoint >> 12) & 0x3F));
+            dst[out + 2] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+            dst[out + 3] = (char)(0x80 | (codepoint & 0x3F));
+        }
+
+        out += bytes;
+        i += units - 1;
+    }
+
+    if (offsets)
+    {
+        for (int32_t k = i; k <= src_len; ++k)
+            offsets[k] = out;
+    }
+
+    dst[out] = '\0';
+    return out;
+}
+
+static void mgapp_win32_ime_commit(const WCHAR *text, int32_t length)
+{
+    for (int32_t i = 0; i < length; ++i)
+    {
+        uint32_t codepoint = text[i];
+        if (IS_HIGH_SURROGATE(text[i]) && i + 1 < length && IS_LOW_SURROGATE(text[i + 1]))
+        {
+            codepoint = 0x10000u + (((uint32_t)text[i] - 0xD800u) << 10) + ((uint32_t)text[i + 1] - 0xDC00u);
+            ++i;
+        }
+        else if (MGAPP_IS_SURROGATE(text[i]))
+        {
+            continue;
+        }
+
+        mgapp_input_process_char(codepoint);
+        mgapp_event event = { .codepoint = codepoint, .type = MGAPP_EVENT_CHAR };
+        mgapp_call_event(&event);
+    }
+}
+
+static void mgapp_win32_ime_composition(HWND hwnd, LPARAM flags)
+{
+    HIMC himc = ImmGetContext(hwnd);
+    if (!himc)
+        return;
+
+    if (flags & GCS_RESULTSTR)
+    {
+        WCHAR result[MGAPP_IME_MAX_UTF16];
+        LONG bytes = ImmGetCompositionStringW(himc, GCS_RESULTSTR, result, sizeof(result));
+        if (bytes > (LONG)sizeof(result))
+            bytes = (LONG)sizeof(result);
+        if (bytes > 0)
+            mgapp_win32_ime_commit(result, bytes / (LONG)sizeof(WCHAR));
+    }
+
+    if (flags & GCS_COMPSTR)
+    {
+        WCHAR comp[MGAPP_IME_MAX_UTF16];
+        LONG bytes = ImmGetCompositionStringW(himc, GCS_COMPSTR, comp, sizeof(comp));
+        if (bytes > (LONG)sizeof(comp))
+            bytes = (LONG)sizeof(comp);
+        const int32_t length = bytes > 0 ? (int32_t)(bytes / (LONG)sizeof(WCHAR)) : 0;
+
+        if (length == 0)
+        {
+            mgapp_ime_clear_composition();
+            mgapp_state.ime.composing = true;
+        }
+        else
+        {
+            int32_t offsets[MGAPP_IME_MAX_UTF16 + 1];
+            mgapp_state.ime.length = mgapp_win32_utf16_to_utf8(comp, length, mgapp_state.ime.text, MGAPP_IME_MAX_TEXT, offsets);
+            mgapp_state.ime.composing = true;
+
+            LONG cursor = ImmGetCompositionStringW(himc, GCS_CURSORPOS, NULL, 0);
+            if (cursor < 0 || cursor > length)
+                cursor = length;
+            mgapp_state.ime.cursor = offsets[cursor];
+
+            BYTE attributes[MGAPP_IME_MAX_UTF16];
+            const LONG attribute_bytes = ImmGetCompositionStringW(himc, GCS_COMPATTR, attributes, sizeof(attributes));
+            int32_t target_start = -1, target_end = -1;
+            for (int32_t i = 0; i < length && i < attribute_bytes; ++i)
+            {
+                if (attributes[i] == ATTR_TARGET_CONVERTED || attributes[i] == ATTR_TARGET_NOTCONVERTED)
+                {
+                    if (target_start < 0)
+                        target_start = i;
+                    target_end = i + 1;
+                }
+            }
+
+            mgapp_state.ime.target_start = target_start < 0 ? 0 : offsets[target_start];
+            mgapp_state.ime.target_end   = target_start < 0 ? 0 : offsets[target_end];
+        }
+    }
+    else
+    {
+        mgapp_ime_clear_composition();
+    }
+
+    ImmReleaseContext(hwnd, himc);
+}
+
+static void mgapp_platform_ime_apply_rect(void)
+{
+    HWND hwnd = mgapp_state.win32.hwnd;
+    if (!hwnd)
+        return;
+
+    HIMC himc = ImmGetContext(hwnd);
+    if (!himc)
+        return;
+
+    const int32_t x = mgapp_state.ime.rect_x;
+    const int32_t y = mgapp_state.ime.rect_y;
+    const int32_t width = mgapp_state.ime.rect_width > 0 ? mgapp_state.ime.rect_width : 1;
+    const int32_t height = mgapp_state.ime.rect_height;
+
+    COMPOSITIONFORM composition = { .dwStyle = CFS_POINT, .ptCurrentPos = { x, y } };
+    ImmSetCompositionWindow(himc, &composition);
+
+    CANDIDATEFORM candidate = {
+        .dwIndex = 0,
+        .dwStyle = CFS_EXCLUDE,
+        .ptCurrentPos = { x, y + height },
+        .rcArea = { x, y, x + width, y + height }
+    };
+    ImmSetCandidateWindow(himc, &candidate);
+
+    ImmReleaseContext(hwnd, himc);
+}
+
+static void mgapp_platform_ime_cancel(void)
+{
+    HWND hwnd = mgapp_state.win32.hwnd;
+    if (!hwnd)
+        return;
+
+    HIMC himc = ImmGetContext(hwnd);
+    if (!himc)
+        return;
+
+    ImmNotifyIME(himc, NI_COMPOSITIONSTR, CPS_CANCEL, 0);
+    ImmReleaseContext(hwnd, himc);
+}
+
+static void mgapp_platform_ime_set_enabled(bool enabled)
+{
+    mgapp_win32_state *win32_state = &mgapp_state.win32;
+    if (!win32_state->hwnd)
+        return;
+
+    if (enabled)
+    {
+        ImmAssociateContext(win32_state->hwnd, win32_state->ime_himc);
+        mgapp_platform_ime_apply_rect();
+    }
+    else
+    {
+        mgapp_platform_ime_cancel();
+        ImmAssociateContext(win32_state->hwnd, NULL);
+    }
+}
+
 static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPARAM w_param, LPARAM l_param)
 {
     switch (msg)
@@ -1331,6 +1652,13 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             bool pressed = (msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN);
             mg_key key = (mg_key)w_param;
 
+            if (w_param == VK_PROCESSKEY && !mgapp_state.ime.enabled)
+            {
+                const UINT real_key = ImmGetVirtualKey(hwnd);
+                if (real_key != 0 && real_key != VK_PROCESSKEY)
+                    key = (mg_key)real_key;
+            }
+
             bool extended = (l_param & (1 << 24)) != 0;
 
             switch (key)
@@ -1358,6 +1686,29 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             mgapp_call_event(&event);
             break;
         }
+        case WM_IME_SETCONTEXT:
+        {
+            l_param &= ~(LPARAM)ISC_SHOWUICOMPOSITIONWINDOW;
+            return DefWindowProcW(hwnd, msg, w_param, l_param);
+        }
+        case WM_IME_STARTCOMPOSITION:
+        {
+            mgapp_state.ime.composing = true;
+            mgapp_platform_ime_apply_rect();
+            return 0;
+        }
+        case WM_IME_COMPOSITION:
+        {
+            mgapp_win32_ime_composition(hwnd, l_param);
+            return 0;
+        }
+        case WM_IME_ENDCOMPOSITION:
+        {
+            mgapp_ime_clear_composition();
+            return 0;
+        }
+        case WM_IME_CHAR:
+            return 0;
         case WM_CHAR:
         {
             static WCHAR pending_high_surrogate = 0;
@@ -1494,10 +1845,11 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
         case WM_DROPFILES:
         {
             HDROP hdrop = (HDROP)w_param;
-            UINT count = DragQueryFileA(hdrop, 0xFFFFFFFF, NULL, 0);
+            UINT count = DragQueryFileW(hdrop, 0xFFFFFFFF, NULL, 0);
 
+            const size_t path_bytes = (size_t)MAX_PATH * 4;
             size_t ptr_block_size = sizeof(char*) * count;
-            size_t str_block_size = (size_t)MAX_PATH * count;
+            size_t str_block_size = path_bytes * count;
             char *block = (char*)malloc(ptr_block_size + str_block_size);
 
             if (block)
@@ -1507,8 +1859,11 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
 
                 for (UINT i = 0; i < count; i++)
                 {
-                    char *dst = strings + (size_t)i * MAX_PATH;
-                    DragQueryFileA(hdrop, i, dst, MAX_PATH);
+                    char *dst = strings + (size_t)i * path_bytes;
+                    WCHAR wide_path[MAX_PATH];
+                    dst[0] = '\0';
+                    if (DragQueryFileW(hdrop, i, wide_path, MAX_PATH) > 0)
+                        WideCharToMultiByte(CP_UTF8, 0, wide_path, -1, dst, (int)path_bytes, NULL, NULL);
                     paths[i] = dst;
                 }
 
@@ -1558,7 +1913,7 @@ static LRESULT CALLBACK mgapp_win32_process_message(HWND hwnd, uint32_t msg, WPA
             break;
         }
     }
-    return DefWindowProcA(hwnd, msg, w_param, l_param);
+    return DefWindowProcW(hwnd, msg, w_param, l_param);
 }
 
 static LRESULT CALLBACK mgapp_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM w_param, LPARAM l_param)
@@ -1634,28 +1989,28 @@ static LRESULT CALLBACK mgapp_win32_no_titlebar_proc(HWND hwnd, UINT msg, WPARAM
         case WM_NCACTIVATE:
             break;
     }
-    return CallWindowProc(mgapp_state.win32.original_proc, hwnd, msg, w_param, l_param);
+    return CallWindowProcW(mgapp_state.win32.original_proc, hwnd, msg, w_param, l_param);
 }
 
 int32_t mgapp_run(const mgapp_init_info *info)
 {
     mgapp_win32_state *win32_state = &mgapp_state.win32;
 
-    const char *class_name = "mgapp_window_class";
-    win32_state->hinstance = GetModuleHandleA(NULL);
+    const WCHAR *class_name = L"mgapp_window_class";
+    win32_state->hinstance = GetModuleHandleW(NULL);
 
     mgapp_win32_setup_clock(win32_state);
     mgapp_win32_load_cursors(win32_state);
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
 
-    WNDCLASSA wc = {0};
+    WNDCLASSW wc = {0};
     wc.lpfnWndProc = mgapp_win32_process_message;
     wc.hInstance = win32_state->hinstance;
     wc.lpszClassName = class_name;
     wc.hCursor = win32_state->cursor_table[MG_CURSOR_ARROW];
 
-    if (!RegisterClassA(&wc))
+    if (!RegisterClassW(&wc))
     {
         MGAPP_ERROR("Window registration failed!");
         return 1;
@@ -1675,10 +2030,14 @@ int32_t mgapp_run(const mgapp_init_info *info)
     if (info->flags & MGAPP_FLAG_NO_MAXIMIZE)
         style &= ~WS_MAXIMIZEBOX;
 
-    win32_state->hwnd = CreateWindowExA(
+    WCHAR wide_title[256] = L"";
+    if (info->title)
+        MultiByteToWideChar(CP_UTF8, 0, info->title, -1, wide_title, (int)(sizeof(wide_title) / sizeof(wide_title[0])));
+
+    win32_state->hwnd = CreateWindowExW(
         0,
         class_name,
-        info->title,
+        wide_title,
         style,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -1707,10 +2066,16 @@ int32_t mgapp_run(const mgapp_init_info *info)
         int32_t w = wr.right - wr.left;
         int32_t h = wr.bottom - wr.top;
 
-        win32_state->original_proc = (WNDPROC)GetWindowLongPtr(win32_state->hwnd, GWLP_WNDPROC);
-        SetWindowLongPtr(win32_state->hwnd, GWLP_WNDPROC, (LONG_PTR)mgapp_win32_no_titlebar_proc);
+        win32_state->original_proc = (WNDPROC)GetWindowLongPtrW(win32_state->hwnd, GWLP_WNDPROC);
+        SetWindowLongPtrW(win32_state->hwnd, GWLP_WNDPROC, (LONG_PTR)mgapp_win32_no_titlebar_proc);
         SetWindowPos(win32_state->hwnd, NULL, 0, 0, w, h, SWP_FRAMECHANGED | SWP_NOMOVE);
     }
+
+    if (!IsWindowUnicode(win32_state->hwnd))
+        MGAPP_ERROR("Window is not a Unicode window; IME and non-ASCII text input will not work.");
+
+    win32_state->ime_himc = ImmGetContext(win32_state->hwnd);
+    mgapp_platform_ime_set_enabled(false);
 
     if (!(info->flags & MGAPP_FLAG_HIDE_WINDOW))
     {
@@ -1737,7 +2102,7 @@ int32_t mgapp_run(const mgapp_init_info *info)
     while (mgapp_state.running)
     {
         MSG msg;
-        while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
+        while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
         {
             if (msg.message == WM_QUIT)
             {
@@ -1745,7 +2110,7 @@ int32_t mgapp_run(const mgapp_init_info *info)
                 continue;
             }
             TranslateMessage(&msg);
-            DispatchMessageA(&msg);
+            DispatchMessageW(&msg);
         }
 
         const float new_time = mgapp_time();
@@ -1762,7 +2127,7 @@ int32_t mgapp_run(const mgapp_init_info *info)
         info->events.end();
 
     DestroyWindow(win32_state->hwnd);
-    UnregisterClassA(class_name, win32_state->hinstance);
+    UnregisterClassW(class_name, win32_state->hinstance);
     return 0;
 }
 
@@ -2935,4 +3300,4 @@ float mgapp_time(void)
 
 #endif
 
-#endif
+#endif

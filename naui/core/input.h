@@ -200,6 +200,22 @@ NAUI_API bool naui_key_released(Naui_Key key);
 NAUI_API const char *naui_key_name(Naui_Key key);
 NAUI_API uint32_t naui_app_codepoint(void);
 
+typedef struct
+{
+    const char *text;
+    int32_t length;
+    int32_t cursor;
+    int32_t target_start;
+    int32_t target_end;
+}
+Naui_ImeComposition;
+
+NAUI_API void naui_ime_set_enabled(bool enabled);
+NAUI_API bool naui_ime_enabled(void);
+NAUI_API void naui_ime_set_cursor_rect(int32_t x, int32_t y, int32_t width, int32_t height);
+NAUI_API bool naui_ime_get_composition(Naui_ImeComposition *out);
+NAUI_API void naui_ime_cancel(void);
+
 NAUI_API bool naui_mouse_down(Naui_MouseButton button);
 NAUI_API bool naui_mouse_pressed(Naui_MouseButton button);
 NAUI_API bool naui_mouse_released(Naui_MouseButton button);

@@ -86,6 +86,8 @@ typedef struct
     Naui_String *value;
     const char *placeholder;
     float scroll_x;
+    size_t cursor;
+    bool composing;
 }
 Uph_TextfieldDrawData;
 
@@ -108,6 +110,7 @@ typedef struct
     }
     visual;
     bool textfield_submitted_this_frame;
+    bool ime_wanted;
     bool any_widget_hovered;
 }
 Uph_GlobalWidgetState;
@@ -155,8 +158,46 @@ static bool _uph_ui_is_word_char(char c)
     return (unsigned char)c >= 0x80 || isalnum((unsigned char)c) || c == '_';
 }
 
+static bool _uph_ui_textfield_preedit(Uph_UITextFieldFlags flags, Naui_ImeComposition *out)
+{
+    return !(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY) && naui_ime_get_composition(out);
+}
+
+static void _uph_ui_textfield_finish_composition(Uph_TextfieldData *data, bool commit)
+{
+    Naui_ImeComposition ime;
+    if (!naui_ime_get_composition(&ime))
+        return;
+
+    if (commit && data->mode == UPH_UI_EDIT_MODE_TEXT && data->target_string)
+    {
+        size_t i = 0;
+        while (i < (size_t)ime.length)
+        {
+            uint32_t codepoint = 0;
+            const size_t step = naui_utf8_next(ime.text + i, (size_t)ime.length - i, &codepoint);
+            if (step == 0)
+            {
+                ++i;
+                continue;
+            }
+            i += step;
+
+            const size_t inserted = naui_string_insert_codepoint(data->target_string, data->cursor, codepoint);
+            if (inserted == 0)
+                break;
+
+            data->cursor += inserted;
+        }
+    }
+
+    naui_ime_cancel();
+}
+
 static void _uph_ui_begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
 {
+    _uph_ui_textfield_finish_composition(data, true);
+
     data->id = id;
     data->mode = UPH_UI_EDIT_MODE_TEXT;
     data->target_string = value;
@@ -169,6 +210,8 @@ static void _uph_ui_begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, N
 
 static void _uph_ui_end_edit(Uph_TextfieldData *data)
 {
+    _uph_ui_textfield_finish_composition(data, false);
+
     data->id.value = 0;
     data->mode = UPH_UI_EDIT_MODE_NONE;
     data->target_string = NULL;
@@ -946,6 +989,9 @@ void uph_ui_widgets_flush(void)
         _uph_ui_end_edit(&data->textfield_data);
     data->textfield_submitted_this_frame = false;
 
+    naui_ime_set_enabled(data->ime_wanted);
+    data->ime_wanted = false;
+
     data->id_counter = 0;
     data->any_widget_hovered = false;
 
@@ -1378,8 +1424,35 @@ static void uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
     const Leaf_BoundingBox clip = box;
     box = _uph_ui_textfield_line_box(box, font_size);
 
+    Naui_ImeComposition ime = { 0 };
+    const bool has_preedit = draw_data->composing && naui_ime_get_composition(&ime);
+
     naui_push_clip_rect(clip.x, clip.y, clip.width, clip.height);
-    if (draw_data->value->length)
+    if (has_preedit)
+    {
+        const size_t at = NAUI_MIN(draw_data->cursor, draw_data->value->length);
+        const Naui_String composed = naui_string_format("%.*s%.*s%s", (int)at, draw_data->value->data, (int)ime.length, ime.text, draw_data->value->data + at);
+        const float origin_x = box.x - draw_data->scroll_x;
+        const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+
+        naui_draw_text((Naui_Vec2) { origin_x, box.y }, composed.data, font_size, text_color);
+
+        const float start_x = origin_x + naui_measure_text(draw_data->value->data, (uint32_t)at, font_size).x;
+        const float thin = NAUI_MAX(1.0f, NAUI_DPI(1));
+        const float thick = NAUI_MAX(2.0f, NAUI_DPI(2));
+        const float underline_y = box.y + box.height - thick;
+        const float width = naui_measure_text(ime.text, (uint32_t)ime.length, font_size).x;
+
+        naui_fill_rect((Naui_Vec2) { start_x, underline_y + (thick - thin) }, (Naui_Vec2) { width, thin }, text_color, 0.0f, NAUI_CORNER_NONE);
+
+        if (ime.target_end > ime.target_start)
+        {
+            const float target_x0 = naui_measure_text(ime.text, (uint32_t)ime.target_start, font_size).x;
+            const float target_x1 = naui_measure_text(ime.text, (uint32_t)ime.target_end, font_size).x;
+            naui_fill_rect((Naui_Vec2) { start_x + target_x0, underline_y }, (Naui_Vec2) { target_x1 - target_x0, thick }, text_color, 0.0f, NAUI_CORNER_NONE);
+        }
+    }
+    else if (draw_data->value->length)
     {
         naui_draw_text(
             (Naui_Vec2) { box.x - draw_data->scroll_x, box.y },
@@ -1436,7 +1509,12 @@ static void uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
     box = _uph_ui_textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
-    const Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size);
+    Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size);
+
+    Naui_ImeComposition ime;
+    if (naui_ime_get_composition(&ime))
+        text_size.x += naui_measure_text(ime.text, (uint32_t)ime.cursor, font_size).x;
+
     const int32_t cursor_width = NAUI_DPI(2);
 
     naui_push_clip_rect(box.x, box.y, box.width + cursor_width, box.height);
@@ -1598,6 +1676,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         }
         else if (active && !(flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE))
         {
+            _uph_ui_textfield_finish_composition(data, true);
             _uph_ui_end_edit(data);
             active = false;
             result = true;
@@ -1636,6 +1715,11 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         const bool ctrl = naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
         const bool shift = naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
 
+        Naui_ImeComposition ime;
+        const bool composing = _uph_ui_textfield_preedit(flags, &ime);
+        if (composing && data->select_active)
+            _uph_ui_textfield_delete_selection(data);
+
         uint32_t codepoint = naui_app_codepoint();
         while (codepoint)
         {
@@ -1650,7 +1734,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             codepoint = naui_app_codepoint();
         }
 
-        if (naui_key_pressed_repeat(NAUI_KEY_BACKSPACE))
+        if (!composing && naui_key_pressed_repeat(NAUI_KEY_BACKSPACE))
         {
             if (data->select_active)
                 _uph_ui_textfield_delete_selection(data);
@@ -1776,8 +1860,15 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
     if (active)
     {
-        const Naui_Vec2 cursor_pos = naui_measure_text(value->data, data->cursor, font_size);
-        const Naui_Vec2 full_pos = naui_measure_text(value->data, value->length, font_size);
+        Naui_Vec2 cursor_pos = naui_measure_text(value->data, data->cursor, font_size);
+        Naui_Vec2 full_pos = naui_measure_text(value->data, value->length, font_size);
+
+        Naui_ImeComposition ime;
+        if (_uph_ui_textfield_preedit(flags, &ime))
+        {
+            cursor_pos.x += naui_measure_text(ime.text, (uint32_t)ime.cursor, font_size).x;
+            full_pos.x += naui_measure_text(ime.text, (uint32_t)ime.length, font_size).x;
+        }
 
         if (cursor_pos.x - data->scroll_x < 0.0f)
             data->scroll_x = cursor_pos.x;
@@ -1790,6 +1881,17 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
     else
     {
         data->scroll_x = 0.0f;
+    }
+
+    if (active && !(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY))
+    {
+        uph_global_widget_state.ime_wanted = true;
+        Leaf_BoundingBox line_box = field_box;
+        line_box.x += (int32_t)(padding_x + text_offset);
+        line_box.width = (int32_t)visible_width;
+        line_box = _uph_ui_textfield_line_box(line_box, font_size);
+        const float caret_x = (float)line_box.x - data->scroll_x + naui_measure_text(value->data, data->cursor, font_size).x;
+        naui_ime_set_cursor_rect((int32_t)caret_x, line_box.y, (int32_t)NAUI_DPI(2), line_box.height);
     }
 
     leaf({
@@ -1807,7 +1909,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        Uph_TextfieldDrawData draw_data = { value, placeholder, data->scroll_x };
+        Uph_TextfieldDrawData draw_data = { value, placeholder, data->scroll_x, data->cursor, active && !(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY) };
 
         if (flags & UPH_UI_TEXTFIELD_FLAG_SEARCH)
         {
@@ -2052,7 +2154,7 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
         if (naui_mouse_down(NAUI_MOUSE_LEFT))
         {
             const int32_t my = naui_mouse_y();
-            const float delta_pixels = (float)(kdata->last_mouse_y - my); // up = increase
+            const float delta_pixels = (float)(kdata->last_mouse_y - my);
             kdata->last_mouse_y = my;
 
             const float fine = naui_key_down(NAUI_KEY_SHIFT) ? UPH_KNOB_FINE_FACTOR : 1.0f;
