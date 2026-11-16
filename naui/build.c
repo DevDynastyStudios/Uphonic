@@ -20,8 +20,12 @@
 	#ifndef _UNICODE
 		#define _UNICODE
 	#endif
+
 	#include <windows.h>
+	#include <objbase.h>
 	#include <shlobj.h>
+	#include <winsock2.h>
+	#include <ws2tcpip.h>
 	#include "vendor/dirent/dirent.h"
 	#include <direct.h>
 #else
@@ -37,6 +41,14 @@
 	#include <dirent.h>
 	#include <fcntl.h>
 	#include <sys/file.h>
+	#include <sys/types.h>
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <netinet/tcp.h>
+	#include <arpa/inet.h>
+	#include <netdb.h>
+	#include <poll.h>
+	#include <errno.h>
 #endif
 
 #include "vendor/stb/stb.c"
@@ -83,6 +95,10 @@
 #include "threading/jobs.h"
 #include "threading/threads.h"
 
+#include "networking/socket.h"
+#include "networking/device.h"
+#include "networking/net.h"
+
 #include "localization/localization.h"
 #include "filesystem/filedialog.h"
 
@@ -112,6 +128,12 @@
 #include "threading/jobs.c"
 #include "threading/thread_win32.c"
 #include "threading/thread_unix.c"
+
+#include "networking/socket_win32.c"
+#include "networking/socket_unix.c"
+#include "networking/socket_common.c"
+#include "networking/device.c"
+#include "networking/net.c"
 
 #include "filesystem/iterator_unix.c"
 #include "filesystem/filesystem_win32.c"
