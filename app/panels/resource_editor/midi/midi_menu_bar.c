@@ -29,69 +29,69 @@ void uph_midi_editor_set_scale(Uph_MidiEditorState *editor, uint32_t scale_index
 
 static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
 {
-	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.edit"), leaf_id("uph_midi_menu_edit"));
+	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.edit"), leaf_id("uph_midi_menu_edit"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.select_all"), leaf_id("uph_midi_menu_select_all"), keybinds->select_all) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.select_all"), leaf_id("uph_midi_menu_select_all"), keybinds->select_all) && pattern)
 		uph_note_select_all(pattern, true);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.deselect"), leaf_id("uph_midi_menu_deselect"), keybinds->deselect) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.deselect"), leaf_id("uph_midi_menu_deselect"), keybinds->deselect) && pattern)
 		uph_note_select_all(pattern, false);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.invert_selection"), leaf_id("uph_midi_menu_invert_selection"), keybinds->invert_selection) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.invert_selection"), leaf_id("uph_midi_menu_invert_selection"), keybinds->invert_selection) && pattern)
 		uph_note_invert_selection(pattern);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.copy"), leaf_id("uph_midi_menu_copy"), keybinds->copy) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.copy"), leaf_id("uph_midi_menu_copy"), keybinds->copy) && pattern)
 		uph_note_copy_selected(pattern);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.cut"), leaf_id("uph_midi_menu_cut"), keybinds->cut) && pattern && uph_note_copy_selected(pattern))
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.cut"), leaf_id("uph_midi_menu_cut"), keybinds->cut) && pattern && uph_note_copy_selected(pattern))
 		uph_note_delete_selected(pattern_index);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.paste"), leaf_id("uph_midi_menu_paste"), keybinds->paste) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.paste"), leaf_id("uph_midi_menu_paste"), keybinds->paste) && pattern)
 		uph_midi_editor_paste(editor);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.duplicate"), leaf_id("uph_midi_menu_duplicate"), keybinds->duplicate) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.duplicate"), leaf_id("uph_midi_menu_duplicate"), keybinds->duplicate) && pattern)
 		uph_note_duplicate_selected(pattern_index);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.delete"), leaf_id("uph_midi_menu_delete"), keybinds->delete_selected) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.edit.delete"), leaf_id("uph_midi_menu_delete"), keybinds->delete_selected) && pattern)
 		uph_note_delete_selected(pattern_index);
 }
 
 static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern)
 {
-	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.tools"), leaf_id("uph_midi_menu_tools"));
+	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.tools"), leaf_id("uph_midi_menu_tools"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.quantize"), leaf_id("uph_midi_menu_quantize"), keybinds->quantize))
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.quantize"), leaf_id("uph_midi_menu_quantize"), keybinds->quantize))
 		uph_midi_editor_quantize(editor);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.legato"), leaf_id("uph_midi_menu_legato"), keybinds->legato) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.legato"), leaf_id("uph_midi_menu_legato"), keybinds->legato) && pattern)
 		uph_note_legato(pattern_index);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.glue"), leaf_id("uph_midi_menu_glue"), keybinds->glue) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.glue"), leaf_id("uph_midi_menu_glue"), keybinds->glue) && pattern)
 		uph_note_glue(pattern_index);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.chop"), leaf_id("uph_midi_menu_chop"), keybinds->chop) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.chop"), leaf_id("uph_midi_menu_chop"), keybinds->chop) && pattern)
 		uph_note_chop(pattern_index, division);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.flip_horizontal"), leaf_id("uph_midi_menu_flip_horizontal"), keybinds->flip_horizontal) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.flip_horizontal"), leaf_id("uph_midi_menu_flip_horizontal"), keybinds->flip_horizontal) && pattern)
 		uph_note_flip(pattern_index, false);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.flip_vertical"), leaf_id("uph_midi_menu_flip_vertical"), keybinds->flip_vertical) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.flip_vertical"), leaf_id("uph_midi_menu_flip_vertical"), keybinds->flip_vertical) && pattern)
 		uph_note_flip(pattern_index, true);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.strum"), leaf_id("uph_midi_menu_strum"), keybinds->strum) && pattern)
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.menu.tools.strum"), leaf_id("uph_midi_menu_strum"), keybinds->strum) && pattern)
 		uph_note_strum(pattern_index, division);
 }
 
 static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
 {
-	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.scale"), leaf_id("uph_midi_menu_scale"));
+	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.scale"), leaf_id("uph_midi_menu_scale"));
 
-	Uph_UIMenuID root_menu = uph_ui_submenu(menu, NAUI_TR("midi.scale.root"), leaf_id("uph_midi_menu_scale_root"));
+	Uph_UIMenuID root_menu = uph_ui_submenu(menu, NAUI_TR("midi.menu.scale.root"), leaf_id("uph_midi_menu_scale_root"));
 	for (uint8_t i = 0; i < UPH_NOTES_PER_OCTAVE; i++)
 	{
 		if (uph_ui_menu_check_item(root_menu, uph_note_pitch_class_name(i), leaf_id_indexed("uph_midi_menu_scale_root_item", i), editor->scale_root == i))
@@ -107,12 +107,12 @@ static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
 
 static void _uph_midi_menu_bar_view(Uph_MidiEditorState *editor)
 {
-	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.view"), leaf_id("uph_midi_menu_view"));
+	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.view"), leaf_id("uph_midi_menu_view"));
 
-	if (uph_ui_menu_check_item(menu, NAUI_TR("midi.view.velocity_lane"), leaf_id("uph_midi_menu_velocity_lane"), editor->velocity_lane.visible))
+	if (uph_ui_menu_check_item(menu, NAUI_TR("midi.menu.view.velocity_lane"), leaf_id("uph_midi_menu_velocity_lane"), editor->velocity_lane.visible))
 		editor->velocity_lane.visible = !editor->velocity_lane.visible;
 
-	if (uph_ui_menu_item(menu, NAUI_TR("midi.view.reset_scroll"), leaf_id("uph_midi_menu_reset_scroll")))
+	if (uph_ui_menu_item(menu, NAUI_TR("midi.menu.view.reset_scroll"), leaf_id("uph_midi_menu_reset_scroll")))
 		uph_midi_editor_reset_scroll();
 }
 

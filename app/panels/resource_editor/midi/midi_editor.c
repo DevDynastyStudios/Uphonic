@@ -556,12 +556,12 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		static const char *const labels[] = { "Velocity", "Pedal" };
+		static const char *const labels[] = { "midi.event.velocity", "midi.event.pedal" };
 		const Leaf_ID ids[] = { tab_id, pedal_tab_id };
 		for (Uph_MidiLaneTab tab = UPH_MIDI_LANE_TAB_VELOCITY; tab <= UPH_MIDI_LANE_TAB_PEDAL; tab++)
 		{
 			const bool active = lane->visible && editor->lane_tab == tab;
-			if (!_uph_midi_editor_tab(labels[tab], ids[tab], active))
+			if (!_uph_midi_editor_tab(NAUI_TR(labels[tab]), ids[tab], active))
 				continue;
 
 			uph_midi_velocity_cancel_drag(lane);
