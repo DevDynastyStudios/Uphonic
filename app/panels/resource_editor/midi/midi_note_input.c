@@ -721,19 +721,7 @@ static void _uph_note_input_begin_erase(Uph_MidiEditorState *editor, Leaf_Boundi
 		return;
 	}
 
-	const bool erase_selection = _uph_note_input_tool(editor) == UPH_ACTION_SELECT && pattern->notes[pressed].selected && uph_note_selected_count(pattern) > 1;
-	if (!erase_selection)
-	{
-		_uph_note_input_erase_note(erase, (uint32_t)pressed);
-		return;
-	}
-
-	Naui_List(Uph_NoteSnapshot) selected = NULL;
-	uph_note_collect_selected(pattern, &selected);
-	for (uint32_t i = (uint32_t)naui_list_len(selected); i > 0; i--)
-		_uph_note_input_erase_note(erase, selected[i - 1].index);
-
-	naui_list_free(selected);
+	_uph_note_input_erase_note(erase, (uint32_t)pressed);
 }
 
 static void _uph_note_input_update_erase(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
@@ -801,6 +789,67 @@ void uph_midi_editor_quantize(Uph_MidiEditorState *editor)
 	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
+static void _uph_note_input_update_move_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
+{
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
+
+	if (naui_keybind_pressed_repeat(keybinds->move_up))
+		uph_note_shift_selected(pattern_index, 0.0, 1);
+
+	else if (naui_keybind_pressed_repeat(keybinds->move_down))
+		uph_note_shift_selected(pattern_index, 0.0, -1);
+
+	else if (naui_keybind_pressed_repeat(keybinds->octave_up))
+		uph_note_shift_selected(pattern_index, 0.0, UPH_NOTES_PER_OCTAVE);
+
+	else if (naui_keybind_pressed_repeat(keybinds->octave_down))
+		uph_note_shift_selected(pattern_index, 0.0, -UPH_NOTES_PER_OCTAVE);
+
+	else if (naui_keybind_pressed_repeat(keybinds->move_left))
+		uph_note_shift_selected(pattern_index, -step, 0);
+
+	else if (naui_keybind_pressed_repeat(keybinds->move_right))
+		uph_note_shift_selected(pattern_index, step, 0);
+}
+
+void uph_midi_editor_paste(const Uph_MidiEditorState *editor)
+{
+	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
+		return;
+
+	const double beat = uph_snap_beat_round(uph_midi_preview_position(), editor->snap_resolution, editor->view.zoom.x);
+	uph_note_paste(uph_state.shared.selected_resource.index, fmax(0.0, beat));
+}
+
+static void _uph_note_input_update_clipboard_keys(const Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern, Uph_ResourceIndex pattern_index)
+{
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+
+	if (naui_keybind_pressed(keybinds->copy))
+		uph_note_copy_selected(pattern);
+
+	else if (naui_keybind_pressed(keybinds->cut) && uph_note_copy_selected(pattern))
+		uph_note_delete_selected(pattern_index);
+
+	else if (naui_keybind_pressed(keybinds->paste))
+		uph_midi_editor_paste(editor);
+}
+
+static void _uph_note_input_update_tool_keys(Uph_MidiEditorState *editor)
+{
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+
+	if (naui_keybind_pressed(keybinds->tool_select))
+		editor->current_action_mode = UPH_ACTION_SELECT;
+
+	else if (naui_keybind_pressed(keybinds->tool_draw))
+		editor->current_action_mode = UPH_ACTION_DRAW;
+
+	else if (naui_keybind_pressed(keybinds->tool_cut))
+		editor->current_action_mode = UPH_ACTION_CUT;
+}
+
 void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 {
 	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->note_input.drag.active || editor->note_input.marquee.active || editor->note_input.erase.active)
@@ -829,23 +878,11 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 	else if (naui_keybind_pressed(keybinds->deselect))
 		uph_note_select_all(pattern, false);
 
+	else if (naui_keybind_pressed(keybinds->invert_selection))
+		uph_note_invert_selection(pattern);
+
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
-	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
-	if (naui_keybind_pressed_repeat(keybinds->note_up))
-		uph_note_shift_selected(pattern_index, 0.0, 1);
-
-	else if (naui_keybind_pressed_repeat(keybinds->note_down))
-		uph_note_shift_selected(pattern_index, 0.0, -1);
-
-	else if (naui_keybind_pressed_repeat(keybinds->note_octave_up))
-		uph_note_shift_selected(pattern_index, 0.0, UPH_NOTES_PER_OCTAVE);
-
-	else if (naui_keybind_pressed_repeat(keybinds->note_octave_down))
-		uph_note_shift_selected(pattern_index, 0.0, -UPH_NOTES_PER_OCTAVE);
-
-	else if (naui_keybind_pressed_repeat(keybinds->note_nudge_left))
-		uph_note_shift_selected(pattern_index, -step, 0);
-
-	else if (naui_keybind_pressed_repeat(keybinds->note_nudge_right))
-		uph_note_shift_selected(pattern_index, step, 0);
+	_uph_note_input_update_move_keys(editor, pattern_index);
+	_uph_note_input_update_clipboard_keys(editor, pattern, pattern_index);
+	_uph_note_input_update_tool_keys(editor);
 }

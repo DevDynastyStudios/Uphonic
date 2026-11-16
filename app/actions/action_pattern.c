@@ -594,6 +594,65 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 	naui_list_free(selected);
 }
 
+static Naui_List(Uph_MidiNote) _uph_note_clipboard;
+
+static bool uph_note_copy_selected(const Uph_MidiPattern *pattern)
+{
+	Naui_List(Uph_NoteSnapshot) selected = NULL;
+	uph_note_collect_selected(pattern, &selected);
+	if (naui_list_len(selected) == 0)
+		return false;
+
+	double first_start = selected[0].note.start_beat;
+	for (uint32_t i = 1; i < (uint32_t)naui_list_len(selected); i++)
+		first_start = fmin(first_start, selected[i].note.start_beat);
+
+	naui_list_free(_uph_note_clipboard);
+	_uph_note_clipboard = NULL;
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
+	{
+		Uph_MidiNote note = selected[i].note;
+		note.start_beat -= first_start;
+		naui_list_push(_uph_note_clipboard, note);
+	}
+
+	naui_list_free(selected);
+	return true;
+}
+
+static void uph_note_paste(Uph_ResourceIndex pattern_index, double beat)
+{
+	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
+	if (!pattern || naui_list_len(_uph_note_clipboard) == 0)
+		return;
+
+	uph_note_select_all(pattern, false);
+
+	Naui_List(Uph_ActionBlockSnapshot) tail = NULL;
+	uph_pattern_collect_tail_blocks(pattern_index, &tail);
+
+	naui_action_group_start(UPH_ACTION_MIDI_NOTES_PASTE_GROUP);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_note_clipboard); i++)
+	{
+		Uph_ActionNoteCreate data = { .pattern_index = pattern_index, .note_index = (uint32_t)naui_list_len(pattern->notes), .note = _uph_note_clipboard[i] };
+		data.note.start_beat += beat;
+		data.note.selected = true;
+		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
+	}
+
+	uph_pattern_stretch_tail_blocks(pattern_index, tail);
+	uph_pattern_commit_tail_blocks(tail);
+
+	naui_action_group_end();
+	naui_list_free(tail);
+}
+
+static void uph_note_invert_selection(Uph_MidiPattern *pattern)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
+		pattern->notes[i].selected = !pattern->notes[i].selected;
+}
+
 static void uph_note_shift_selected(Uph_ResourceIndex pattern_index, double delta_beats, int32_t delta_key)
 {
 	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);

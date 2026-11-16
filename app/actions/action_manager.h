@@ -82,6 +82,7 @@ Uph_Track *uph_action_track_resolve_in(
 );
 
 void uph_action_refresh_block_defaults(void);
+void uph_block_clipboard_clear(void);
 
 void uph_action_resource_removed(
 	Uph_ResourceType type,

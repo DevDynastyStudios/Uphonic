@@ -39,6 +39,18 @@ static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern
 	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.deselect"), leaf_id("uph_midi_menu_deselect"), keybinds->deselect) && pattern)
 		uph_note_select_all(pattern, false);
 
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.invert_selection"), leaf_id("uph_midi_menu_invert_selection"), keybinds->invert_selection) && pattern)
+		uph_note_invert_selection(pattern);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.copy"), leaf_id("uph_midi_menu_copy"), keybinds->copy) && pattern)
+		uph_note_copy_selected(pattern);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.cut"), leaf_id("uph_midi_menu_cut"), keybinds->cut) && pattern && uph_note_copy_selected(pattern))
+		uph_note_delete_selected(pattern_index);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.paste"), leaf_id("uph_midi_menu_paste"), keybinds->paste) && pattern)
+		uph_midi_editor_paste(editor);
+
 	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.edit.duplicate"), leaf_id("uph_midi_menu_duplicate"), keybinds->duplicate) && pattern)
 		uph_note_duplicate_selected(pattern_index);
 

@@ -202,6 +202,7 @@ void uph_action_resource_removed(Uph_ResourceType type, Uph_ResourceIndex index)
 {
 	typeof(uph_state.shared.selected_resource)* selected = &uph_state.shared.selected_resource;
 	selected->renaming = false;
+	uph_block_clipboard_clear();
 	if (selected->type != type)
 		return;
 
@@ -231,6 +232,7 @@ void uph_action_resource_restored(Uph_ResourceType type, Uph_ResourceIndex index
 	uph_state.shared.selected_resource.type = type;
 	uph_state.shared.selected_resource.index = index;
 	uph_state.shared.selected_resource.renaming = false;
+	uph_block_clipboard_clear();
 	uph_action_refresh_block_defaults();
 }
 

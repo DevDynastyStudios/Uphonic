@@ -73,6 +73,7 @@ bool uph_project_create(Naui_String project_name)
 	uph_resources_add_pattern();
 	uph_resources_remove_all_automation();
 	naui_action_clear_history();
+	uph_block_clipboard_clear();
 	uph_autosave_mark_clean();
 
 	uph_state.shared.song_timeline_playhead_position = 0.0;
@@ -325,6 +326,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		project->folder = normalized_load_path;
 		uph_project_sweep_deleted_samples(project);
 		naui_action_clear_history();
+		uph_block_clipboard_clear();
 
 		if (from_autosave)
 		{

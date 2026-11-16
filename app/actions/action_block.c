@@ -446,5 +446,116 @@ static bool uph_block_cut(Uph_ActionTrackRef ref, uint32_t block_index, double c
 	naui_action_group_end();
 	return true;
 }
+static void uph_block_shift_selected(double delta_beats)
+{
+	Naui_List(Uph_ActionBlockSnapshot) selected = NULL;
+	uph_block_collect_all(UPH_RESOURCE_NONE, true, false, 0, &selected);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
+		delta_beats = fmax(delta_beats, -selected[i].block.start_beat);
+
+	if (naui_list_len(selected) == 0 || delta_beats == 0.0)
+	{
+		naui_list_free(selected);
+		return;
+	}
+
+	naui_action_group_start(UPH_ACTION_BLOCKS_MOVE_GROUP);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
+	{
+		const Uph_TimelineBlock* block = &selected[i].block;
+		Uph_ActionBlockTransform data = {
+			.src_track = selected[i].track, .src_index = selected[i].index, .dst_track = selected[i].track, .dst_index = selected[i].index,
+			.old_start = block->start_beat, .old_length = block->length_beats, .old_offset = block->start_offset_beats,
+			.new_start = block->start_beat + delta_beats, .new_length = block->length_beats, .new_offset = block->start_offset_beats
+		};
+		naui_action_execute_stack(UPH_ACTION_BLOCK_MOVE, data);
+	}
+
+	naui_action_group_end();
+	naui_list_free(selected);
+}
+
+static void uph_block_invert_selection_in(Naui_List(Uph_Track) tracks)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
+	{
+		Uph_Track* track = &tracks[t];
+		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
+			track->blocks[b].selected = !track->blocks[b].selected;
+
+		uph_block_invert_selection_in(track->subtracks);
+	}
+}
+
+static void uph_block_invert_selection(void)
+{
+	uph_block_invert_selection_in(uph_state.project.tracks);
+}
+
+#pragma endregion
+
+#pragma region Block Clipboard
+static Naui_List(Uph_ActionBlockSnapshot) _uph_block_clipboard;
+
+void uph_block_clipboard_clear(void)
+{
+	naui_list_free(_uph_block_clipboard);
+	_uph_block_clipboard = NULL;
+}
+
+static bool uph_block_copy_selected(void)
+{
+	Naui_List(Uph_ActionBlockSnapshot) selected = NULL;
+	uph_block_collect_all(UPH_RESOURCE_NONE, true, false, 0, &selected);
+	if (naui_list_len(selected) == 0)
+		return false;
+
+	double first_start = selected[0].block.start_beat;
+	for (uint32_t i = 1; i < (uint32_t)naui_list_len(selected); i++)
+		first_start = fmin(first_start, selected[i].block.start_beat);
+
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
+		selected[i].block.start_beat -= first_start;
+
+	uph_block_clipboard_clear();
+	_uph_block_clipboard = selected;
+	return true;
+}
+
+static bool _uph_block_paste_fits(const Uph_Track *track, Uph_ResourceType type)
+{
+	if (!track)
+		return false;
+
+	if (type == UPH_RESOURCE_AUTOMATION)
+		return track->type == UPH_RESOURCE_AUTOMATION;
+
+	return track->type == UPH_RESOURCE_NONE || track->type == type;
+}
+
+static void uph_block_paste(double beat)
+{
+	const Naui_List(Uph_ActionBlockSnapshot) clipboard = _uph_block_clipboard;
+	if (naui_list_len(clipboard) == 0)
+		return;
+
+	uph_block_select_all(false);
+
+	naui_action_group_start(UPH_ACTION_BLOCKS_PASTE_GROUP);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(clipboard); i++)
+	{
+		const Uph_Track* track = uph_action_track_resolve(clipboard[i].track);
+		if (!_uph_block_paste_fits(track, clipboard[i].block.type))
+			continue;
+
+		Uph_ActionBlockCreate data = { .track = clipboard[i].track, .block_index = (uint32_t)naui_list_len(track->blocks), .block = clipboard[i].block };
+		data.block.start_beat += beat;
+		data.block.selected = true;
+		data.block.visual.lifetime = 0.0f;
+		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
+	}
+
+	naui_action_group_end();
+}
 
 #pragma endregion

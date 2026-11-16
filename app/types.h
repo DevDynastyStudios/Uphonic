@@ -115,12 +115,19 @@ typedef struct Uph_KeybindSettings
 	Naui_Keybind deselect;
 	Naui_Keybind duplicate;
 	Naui_Keybind quantize;
-	Naui_Keybind note_up;
-	Naui_Keybind note_down;
-	Naui_Keybind note_octave_up;
-	Naui_Keybind note_octave_down;
-	Naui_Keybind note_nudge_left;
-	Naui_Keybind note_nudge_right;
+	Naui_Keybind move_up;
+	Naui_Keybind move_down;
+	Naui_Keybind octave_up;
+	Naui_Keybind octave_down;
+	Naui_Keybind move_left;
+	Naui_Keybind move_right;
+	Naui_Keybind copy;
+	Naui_Keybind cut;
+	Naui_Keybind paste;
+	Naui_Keybind invert_selection;
+	Naui_Keybind tool_select;
+	Naui_Keybind tool_draw;
+	Naui_Keybind tool_cut;
 
 	Naui_Keybind automation_nudge_up;
 	Naui_Keybind automation_nudge_down;
