@@ -570,3 +570,13 @@ void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x,
     naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1));
     naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1));
 }
+
+static inline bool uph_ui_ctrl_down(void)
+{
+    return naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
+}
+
+static inline bool uph_ui_shift_down(void)
+{
+    return naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
+}

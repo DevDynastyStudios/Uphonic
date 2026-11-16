@@ -238,12 +238,12 @@ static bool uph_mixer_effect_move_button(const Leaf_ID id, const bool up, const 
 	if (hovered)
 	{
 		bg_color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
-			naui_theme_color("uph_ui_frame_pressed_bg_color") :
-			naui_theme_color("uph_ui_frame_hovered_bg_color");
+			uph_state.colors.ui_frame_pressed_bg :
+			uph_state.colors.ui_frame_hovered_bg;
 	}
 
 	Uph_MixerEffectArrowData arrow = {
-		.color = naui_theme_color(hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color"),
+		.color = hovered ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
 		.up = up,
 		.visible = interactive
 	};
@@ -269,9 +269,9 @@ static bool uph_mixer_effect_power_toggle(bool *enabled, const Leaf_ID id)
 
 	Naui_Color dot_color;
 	if (*enabled)
-		dot_color = naui_theme_color("uph_ui_slider_fill_color");
+		dot_color = uph_state.colors.ui_slider_fill;
 	else
-		dot_color = naui_theme_color(hovered ? "uph_ui_text_color" : "uph_ui_text_disabled_color");
+		dot_color = hovered ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled;
 
 	leaf({
 		.id = id,
@@ -301,12 +301,12 @@ static bool uph_mixer_effect_add_button(const char *label, const Leaf_ID id)
 	if (hovered)
 		naui_set_cursor(NAUI_CURSOR_HAND);
 
-	Naui_Color color = naui_theme_color("uph_ui_frame_bg_color");
+	Naui_Color color = uph_state.colors.ui_frame_bg;
 	if (hovered)
 	{
 		color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
-			naui_theme_color("uph_ui_frame_pressed_bg_color") :
-			naui_theme_color("uph_ui_frame_hovered_bg_color");
+			uph_state.colors.ui_frame_pressed_bg :
+			uph_state.colors.ui_frame_hovered_bg;
 	}
 
 	leaf({
@@ -318,7 +318,7 @@ static bool uph_mixer_effect_add_button(const char *label, const Leaf_ID id)
 	})
 	{
 		leaf_text(label, {
-			.color = naui_theme_color("uph_ui_text_color"),
+			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}
@@ -347,7 +347,7 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 		.id = id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_ROW_HEIGHT)) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_MIXER_EFFECT_ROW_PAD), 0),
-		.color = naui_theme_color("uph_ui_frame_bg_color"),
+		.color = uph_state.colors.ui_frame_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.child_gap = NAUI_DPI(UPH_MIXER_EFFECT_ROW_GAP),
@@ -362,7 +362,7 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 		})
 		{
 			leaf_text(effect->plugin.name.data, {
-				.color = naui_theme_color(effect->enabled ? "uph_ui_text_color" : "uph_ui_text_disabled_color"),
+				.color = effect->enabled ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
 				.font_size = LEAF_SIZE_FIXED(font_size)
 			});
 		}
@@ -410,9 +410,9 @@ static void uph_mixer_render_effect_list(void)
 	Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_effect_list_menu"));
 
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-	const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
-	const Naui_Color text_disabled_color = naui_theme_color("uph_ui_text_disabled_color");
-	const Naui_Color border_color = naui_theme_color("uph_ui_frame_border");
+	const Naui_Color text_color = uph_state.colors.ui_text;
+	const Naui_Color text_disabled_color = uph_state.colors.ui_text_disabled;
+	const Naui_Color border_color = uph_state.colors.ui_frame_border;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	const int32_t rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 
@@ -420,7 +420,7 @@ static void uph_mixer_render_effect_list(void)
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_mixer_effect_list_bg_color"),
+			.color = uph_state.colors.mixer_effect_list_bg,
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 			.clip_children = true
@@ -441,7 +441,7 @@ static void uph_mixer_render_effect_list(void)
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-		.color = naui_theme_color("uph_mixer_effect_list_bg_color"),
+		.color = uph_state.colors.mixer_effect_list_bg,
 		.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 		.clip_children = true
 	})
@@ -587,10 +587,9 @@ static void uph_mixer_render_effect_panel(void)
 static void uph_mixer_draw_db_ruler(Leaf_BoundingBox bounding_box, void *unused)
 {
 	static const float db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
-	const int tick_count = sizeof(db_ticks) / sizeof(db_ticks[0]);
 
 	const int32_t font_size = NAUI_DPI(UPH_MIXER_RULER_FONT_SIZE);
-	const Naui_Color label_color = naui_theme_color("uph_mixer_ruler_color");
+	const Naui_Color label_color = uph_state.colors.mixer_ruler;
 	const int32_t tick_length = NAUI_DPI(4);
 	const int32_t label_gap = NAUI_DPI(3);
 
@@ -674,17 +673,17 @@ static void uph_mixer_draw_fader(Leaf_BoundingBox box, Uph_MixerFaderData *data)
 		naui_set_cursor(NAUI_CURSOR_RESIZE_NS);
 
 	const float track_width = NAUI_DPI(UPH_MIXER_FADER_TRACK_WIDTH);
-	naui_fill_rect((Naui_Vec2){ center_x - track_width * 0.5f, box.y }, (Naui_Vec2){ track_width, box.height }, naui_theme_color("uph_ui_well_bg_color"), track_width * 0.5f, NAUI_CORNER_ALL);
+	naui_fill_rect((Naui_Vec2){ center_x - track_width * 0.5f, box.y }, (Naui_Vec2){ track_width, box.height }, uph_state.colors.ui_well_bg, track_width * 0.5f, NAUI_CORNER_ALL);
 
 	const Naui_Vec2 cap_position = { roundf(center_x - cap_width * 0.5f), roundf(y - cap_height * 0.5f) };
 	const Naui_Vec2 cap_size = { roundf(cap_width), cap_height };
 	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.5f;
 	naui_fill_rect(cap_position, cap_size, data->bg_color, rounding, NAUI_CORNER_ALL);
-	naui_fill_rect(cap_position, cap_size, naui_theme_color(dragging ? "uph_ui_tinted_frame_pressed_bg_color" : hovered ? "uph_ui_tinted_frame_hovered_bg_color" : "uph_ui_tinted_frame_bg_color"), rounding, NAUI_CORNER_ALL);
-	naui_draw_rect(cap_position, cap_size, naui_theme_color("uph_ui_tinted_frame_border"), NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+	naui_fill_rect(cap_position, cap_size, dragging ? uph_state.colors.ui_tinted_frame_pressed_bg : hovered ? uph_state.colors.ui_tinted_frame_hovered_bg : uph_state.colors.ui_tinted_frame_bg, rounding, NAUI_CORNER_ALL);
+	naui_draw_rect(cap_position, cap_size, uph_state.colors.ui_tinted_frame_border, NAUI_DPI(1), rounding, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
 
 	const float line_inset = NAUI_DPI(UPH_MIXER_FADER_LINE_INSET);
-	naui_fill_rect((Naui_Vec2){ cap_position.x + line_inset, roundf(y) }, (Naui_Vec2){ cap_size.x - line_inset * 2.0f, NAUI_DPI(1) }, naui_theme_color("uph_ui_text_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2){ cap_position.x + line_inset, roundf(y) }, (Naui_Vec2){ cap_size.x - line_inset * 2.0f, NAUI_DPI(1) }, uph_state.colors.ui_text, 0.0f, NAUI_CORNER_NONE);
 }
 
 static void uph_mixer_drag_begin(Uph_ActionTrackRef source, bool select_on_release)
@@ -745,7 +744,7 @@ static void uph_mixer_render_name(Uph_Track *track, const Leaf_ID name_id, const
 
 	leaf({ .id = name_id })
 	{
-		leaf_text(track->name.data, { .color = naui_theme_color("uph_ui_text_color"), .font_size = LEAF_SIZE_FIXED(font_size) });
+		leaf_text(track->name.data, { .color = uph_state.colors.ui_text, .font_size = LEAF_SIZE_FIXED(font_size) });
 	}
 }
 
@@ -800,9 +799,9 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 
 	Leaf_Color bg_color;
 	if (tint_track)
-		bg_color = uph_color_mix(naui_theme_color("uph_mixer_track_bg_color"), uph_resources_track_color(tint_track->color_index), selected ? 0.22f : 0.09f);
+		bg_color = uph_color_mix(uph_state.colors.mixer_track_bg, uph_resources_track_color(tint_track->color_index), selected ? 0.22f : 0.09f);
 	else
-		bg_color = selected ? naui_theme_color("uph_mixer_track_selected_bg_color") : naui_theme_color("uph_mixer_track_bg_color");
+		bg_color = selected ? uph_state.colors.mixer_track_selected_bg : uph_state.colors.mixer_track_bg;
 
 	leaf({
 		.id = id,
@@ -816,13 +815,13 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 			.border = {
 				.width = 1,
 				.sides = LEAF_SIDE_LEFT,
-				.color = naui_theme_color("uph_mixer_track_border_color")
+				.color = uph_state.colors.mixer_track_border
 			},
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
 			.child_gap = NAUI_DPI(8)
 		})
 		{
-			const Naui_Color text_color = naui_theme_color("uph_ui_text_color");
+			const Naui_Color text_color = uph_state.colors.ui_text;
 			const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 			if (!is_master)
 			{
@@ -920,15 +919,15 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 				Uph_ActionTrackRef track_ref = uph_action_track_ref(strip);
 				Uph_LevelMeterData meter_data = {
 					.track = track_ref,
-					.low_color = naui_theme_color("uph_mixer_meter_low_color"),
-					.medium_color = naui_theme_color("uph_mixer_meter_medium_color"),
-					.high_color = naui_theme_color("uph_mixer_meter_high_color")
+					.low_color = uph_state.colors.mixer_meter_low,
+					.medium_color = uph_state.colors.mixer_meter_medium,
+					.high_color = uph_state.colors.mixer_meter_high
 				};
 				leaf({
 					.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
 					.custom_draw_data = LEAF_DATA_SLICE(meter_data),
 					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-					.color = naui_theme_color("uph_ui_well_bg_color")
+					.color = uph_state.colors.ui_well_bg
 				});
 				Uph_MixerFaderData fader_data = {
 					.track = track_ref,
@@ -1091,7 +1090,7 @@ static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, 
             .id = header_id,
             .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-            .color = uph_color_mix(naui_theme_color("uph_mixer_track_bg_color"), accent_color, 0.45f),
+            .color = uph_color_mix(uph_state.colors.mixer_track_bg, accent_color, 0.45f),
             .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
             .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(4), LEAF_CORNER_TL | LEAF_CORNER_TR),
             .child_gap = NAUI_DPI(4),
@@ -1122,7 +1121,7 @@ static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, 
                 .child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
             })
             {
-                if (uph_ui_image_button_ex(naui_asset_image(strip->state & UPH_TRACK_MIXER_COLLAPSED ? "uph_icon_arrow_right" : "uph_icon_arrow_down"), collapse_id, (Naui_Vec2) { font_size, font_size }, naui_theme_color("uph_ui_text_color"), LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
+                if (uph_ui_image_button_ex(naui_asset_image(strip->state & UPH_TRACK_MIXER_COLLAPSED ? "uph_icon_arrow_right" : "uph_icon_arrow_down"), collapse_id, (Naui_Vec2) { font_size, font_size }, uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
                     strip->state ^= UPH_TRACK_MIXER_COLLAPSED;
             }
         }
@@ -1361,7 +1360,7 @@ static void uph_mixer_update_drag(void)
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(3)), .height = LEAF_SIZE_FIXED(target.line_height) },
-			.color = naui_theme_color("uph_ui_slider_fill_color"),
+			.color = uph_state.colors.ui_slider_fill,
 			.floating = { .offset = { .x = target.line_x - NAUI_DPI(1.5f), .y = target.line_y } },
 			.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 		});
@@ -1369,14 +1368,14 @@ static void uph_mixer_update_drag(void)
 
 	leaf({
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), NAUI_DPI(4)),
-		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
+		.color = uph_state.colors.ui_dropdown_bg,
 		.floating = { .offset = { .x = mouse.x + NAUI_DPI(12), .y = mouse.y + NAUI_DPI(12) } },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	})
 	{
 		leaf_text(label, {
-			.color = naui_theme_color("uph_ui_text_color"),
+			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}

@@ -15,14 +15,6 @@ Uph_MetronomeState;
 
 static Uph_MetronomeState _uph_metronome_state;
 
-static void _uph_metronome_reset()
-{
-	Uph_MetronomeState *state = &_uph_metronome_state;
-	state->active = false;
-	state->avg_interval = 0.0f;
-	state->count = 0;
-}
-
 static bool _uph_metronome_tap(float *out_bpm)
 {
 	Uph_MetronomeState *state = &_uph_metronome_state;

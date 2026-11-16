@@ -109,14 +109,6 @@ static bool uph_action_track_find(Naui_List(Uph_Track) tracks, const Uph_Track *
 	return false;
 }
 
-Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
-{
-	Uph_ActionTrackRef ref = uph_action_track_ref_root();
-	if (track)
-		uph_action_track_find(uph_state.project.tracks, track, uph_action_track_ref_root(), &ref);
-	return ref;
-}
-
 Uph_Track *uph_action_track_resolve_in(Naui_List(Uph_Track) tracks, Uph_ActionTrackRef ref)
 {
 	if (ref.depth == 0)
@@ -138,6 +130,31 @@ Uph_Track *uph_action_track_resolve_in(Naui_List(Uph_Track) tracks, Uph_ActionTr
 Uph_Track *uph_action_track_resolve(Uph_ActionTrackRef ref)
 {
 	return uph_action_track_resolve_in(uph_state.project.tracks, ref);
+}
+
+Uph_ActionTrackRef uph_action_track_ref(const Uph_Track *track)
+{
+	Uph_ActionTrackRef ref = uph_action_track_ref_root();
+	if (!track)
+		return ref;
+
+	uint32_t depth = 0;
+	for (const Uph_Track *t = track; t; t = t->parent)
+		depth++;
+
+	if (depth <= UPH_ACTION_TRACK_MAX_DEPTH)
+	{
+		ref.depth = (uint8_t)depth;
+		for (const Uph_Track *t = track; t; t = t->parent)
+			ref.path[--depth] = t->index;
+
+		if (uph_action_track_resolve(ref) == track)
+			return ref;
+	}
+
+	ref = uph_action_track_ref_root();
+	uph_action_track_find(uph_state.project.tracks, track, uph_action_track_ref_root(), &ref);
+	return ref;
 }
 
 static Uph_TrackState *uph_action_track_state_ptr(Uph_ActionTrackRef ref)
@@ -250,7 +267,7 @@ bool _uph_action_track_create_execute(void* userdata)
 	Uph_ActionTrackCreate* data = userdata;
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
 
-	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), rand() % naui_list_len(naui_theme_color_list("uph_track_palette")));
+	uph_resources_add_track(naui_string_from_cstr(NAUI_TR("song_timeline.track.title")), rand() % naui_list_len(uph_state.colors.track_palette));
 	data->resource_index = (uint32_t)naui_list_len(uph_state.project.tracks) - 1;
 	data->resource_exists = true;
 
@@ -582,7 +599,7 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	}
 
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
-	uph_resources_add_automation_track(parent, data->name, data->target, param, rand() % naui_list_len(naui_theme_color_list("uph_track_palette")));
+	uph_resources_add_automation_track(parent, data->name, data->target, param, rand() % naui_list_len(uph_state.colors.track_palette));
 	data->index = (uint32_t)naui_list_len(parent->subtracks) - 1;
 	data->resource_exists = true;
 	uph_action_tracks_changed(before, uph_action_track_ref_child(data->parent, data->index), 1);

@@ -111,42 +111,6 @@ void uph_note_map_init_default(Uph_NoteMap *map)
 	}
 }
 
-void uph_note_map_set_range(Uph_NoteMap *map, uint8_t lowest, uint8_t highest)
-{
-	if (highest >= UPH_NOTE_MAP_KEY_COUNT)
-		highest = UPH_NOTE_MAP_KEY_COUNT - 1;
-		
-	if (lowest > highest)
-		lowest = highest;
-
-	map->lowest = lowest;
-	map->highest = highest;
-}
-
-void uph_note_map_set_kind(Uph_NoteMap *map, uint8_t key, Uph_NoteKind kind)
-{
-	if (key < UPH_NOTE_MAP_KEY_COUNT)
-		map->notes[key].kind = kind;
-}
-
-void uph_note_map_set_name(Uph_NoteMap *map, uint8_t key, const char *name)
-{
-	if (key < UPH_NOTE_MAP_KEY_COUNT)
-		snprintf(map->notes[key].name, sizeof(map->notes[key].name), "%s", name ? name : "");
-}
-
-void uph_note_map_set_show_label(Uph_NoteMap *map, uint8_t key, bool show_label)
-{
-	if (key < UPH_NOTE_MAP_KEY_COUNT)
-		map->notes[key].show_label = show_label;
-}
-
-void uph_note_map_set_highlight(Uph_NoteMap *map, uint8_t key, Uph_NoteHighlight highlight)
-{
-	if (key < UPH_NOTE_MAP_KEY_COUNT)
-		map->notes[key].highlight = highlight;
-}
-
 static void _uph_note_map_clear_highlights(Uph_NoteMap *map)
 {
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)

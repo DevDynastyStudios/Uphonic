@@ -70,6 +70,7 @@
 
 #include "plugins/plugin_cache.c"
 
+#include "ui/theme.c"
 #include "ui/layouts.c"
 #include "ui/titlebar.c"
 #include "ui/waveform.c"

@@ -1,6 +1,6 @@
 static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 {
-	const Naui_List(Naui_Color) list = naui_theme_color_list("uph_track_palette");
+	const Naui_List(Naui_Color) list = uph_state.colors.track_palette;
 	return list[color_index % naui_list_len(list)];
 }
 
@@ -119,27 +119,9 @@ static void uph_resources_clear_timeline_blocks_with_resource(Uph_ResourceType t
 	}
 }
 
-static void uph_resources_unload_plugins_recursive(Naui_List(Uph_Track) list)
-{
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(list); i++)
-	{
-		Uph_Track *track = &list[i];
-		uph_resources_unload_plugins_recursive(track->subtracks);
-		uph_plugin_unload(&track->instrument);
-
-		for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
-			uph_plugin_unload(&track->effects[e].plugin);
-	}
-}
-
 #pragma endregion
 
 #pragma region Public API
-
-void uph_resources_unload_all_plugins(void)
-{
-	uph_resources_unload_plugins_recursive(uph_state.project.tracks);
-}
 
 void uph_resources_link_tracks(Naui_List(Uph_Track) tracks)
 {
@@ -941,15 +923,6 @@ bool uph_resources_move_tracks(Naui_List(Uph_TrackPtr) tracks, Uph_Track *dest_g
 	return true;
 }
 
-bool uph_resources_move_track(Uph_Track *track, Uph_Track *dest_group, uint32_t dest_index)
-{
-	Naui_List(Uph_TrackPtr) tracks = NULL;
-	naui_list_push(tracks, track);
-	const bool moved = uph_resources_move_tracks(tracks, dest_group, dest_index, NULL);
-	naui_list_free(tracks);
-	return moved;
-}
-
 #pragma endregion
 
 Uph_ResourceIndex uph_resources_add_sample_data(Uph_SampleData data, Naui_String name)
@@ -987,29 +960,6 @@ void uph_resources_copy_sample(Uph_ResourceIndex sample_index)
 	sample.visual.lifetime = 0.0f;
 	uph_state.project.sample_data[sample.data_index].ref_count++;
 	naui_list_push(uph_state.project.samples, sample);
-}
-
-void uph_resources_remove_sample(Uph_ResourceIndex sample_index)
-{
-	Uph_Sample sample = uph_state.project.samples[sample_index];
-
-	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_SAMPLE, sample_index);
-
-	if (--uph_state.project.sample_data[sample.data_index].ref_count == 0)
-	{
-		naui_list_remove(uph_state.project.sample_data, sample.data_index);
-
-		for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.samples); i++)
-		{
-			if (uph_state.project.samples[i].data_index > sample.data_index)
-				uph_state.project.samples[i].data_index--;
-		}
-	}
-
-	naui_list_remove(uph_state.project.samples, sample_index);
-
-	if (uph_state.shared.selected_resource.index == sample_index)
-		uph_state.shared.selected_resource = (Uph_SelectedResourceState){0};
 }
 
 void uph_resources_add_pattern(void)
@@ -1059,14 +1009,6 @@ void uph_resources_copy_automation(Uph_ResourceIndex automation_index)
 	automation.visual.lifetime = 0.0f;
 	automation.points = naui_list_clone(automation.points);
 	naui_list_push(uph_state.project.automations, automation);
-}
-
-void uph_resources_remove_automation(Uph_ResourceIndex automation_index)
-{
-	uph_resources_clear_timeline_blocks_with_resource(UPH_RESOURCE_AUTOMATION, automation_index);
-	naui_list_remove(uph_state.project.automations, automation_index);
-	if (uph_state.shared.selected_resource.index == automation_index)
-		uph_state.shared.selected_resource = (Uph_SelectedResourceState){0};
 }
 
 void uph_resources_remove_all_automation(void)

@@ -287,8 +287,3 @@ void uph_action_initialize()
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_MIDI_NOTES_ERASE, _uph_action_notes_erase);
 	UPH_REGISTER_ACTION_DESTROY(UPH_ACTION_MIDI_PEDALS_EDIT, _uph_action_pedals_edit);
 }
-
-void uph_action_shutdown()
-{
-	naui_action_clear_history();
-}

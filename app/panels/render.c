@@ -84,7 +84,7 @@ static void _uph_render_row_begin(const char *label)
 		.clip_children = true
 	})
 	leaf_text(label, {
-		.color = naui_theme_color("uph_ui_text_color"),
+		.color = uph_state.colors.ui_text,
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 
@@ -186,7 +186,7 @@ static void _uph_render_options(void)
 		.padding = { .top = NAUI_DPI(6) }
 	})
 	leaf_text(info, {
-		.color = naui_theme_color("naui_panel_text_color"),
+		.color = uph_state.colors.panel_text,
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 }
@@ -310,7 +310,7 @@ static void uph_render_on_update(void)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(18), NAUI_DPI(14)),
-		.color = naui_theme_color("naui_panel_title_bg_color"),
+		.color = uph_state.colors.panel_title_bg,
 		.child_gap = NAUI_DPI(4),
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
@@ -328,7 +328,7 @@ static void uph_render_on_update(void)
 		})
 		{
 			cancel = uph_ui_text_button(NAUI_TR("dialog.cancel"), leaf_id("uph_render_cancel"));
-			start = uph_ui_text_button_ex(NAUI_TR("render.button"), leaf_id("uph_render_start"), naui_theme_color("naui_widget_accent_color"), NAUI_CORNER_ALL);
+			start = uph_ui_text_button_ex(NAUI_TR("render.button"), leaf_id("uph_render_start"), uph_state.colors.widget_accent, NAUI_CORNER_ALL);
 		}
 	}
 

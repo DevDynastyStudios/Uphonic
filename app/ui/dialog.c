@@ -106,12 +106,12 @@ static void _uph_dialog_render_progress(float progress)
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(NAUI_DPI(8)) },
-			.color = naui_theme_color("uph_ui_frame_bg_color"),
+			.color = uph_state.colors.ui_frame_bg,
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
 		})
 		leaf({
 			.size = { .width = LEAF_SIZE_PERCENT(progress), .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_ui_progress_bar_color"),
+			.color = uph_state.colors.ui_progress_bar,
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL)
 		});
 
@@ -120,7 +120,7 @@ static void _uph_dialog_render_progress(float progress)
 			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
 		})
 		leaf_text(percent, {
-			.color = naui_theme_color("uph_ui_text_color"),
+			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}
@@ -140,8 +140,8 @@ static int32_t _uph_dialog_render_buttons(void)
 	{
 		for (int32_t i = 0; i < state->button_count; i++)
 		{
-			const char *color = i == state->default_button ? "naui_widget_accent_color" : "uph_ui_frame_bg_color";
-			if (uph_ui_text_button_ex(state->buttons[i], leaf_id_indexed("uph_dialog_button", (uint32_t)i), naui_theme_color(color), NAUI_CORNER_ALL))
+			const Naui_Color color = i == state->default_button ? uph_state.colors.widget_accent : uph_state.colors.ui_frame_bg;
+			if (uph_ui_text_button_ex(state->buttons[i], leaf_id_indexed("uph_dialog_button", (uint32_t)i), color, NAUI_CORNER_ALL))
 				pressed = i;
 		}
 	}
@@ -172,7 +172,7 @@ void uph_dialog_render(void)
 	state->lifetime = naui_app_animations_enabled() ? NAUI_CLAMP01(state->lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED) : 1.0f;
 
 	const float reveal = naui_ease_out_cubic(state->lifetime);
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	int32_t pressed = -1;
 
@@ -187,10 +187,10 @@ void uph_dialog_render(void)
 	leaf({
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_DIALOG_WIDTH)), .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_ALL(NAUI_DPI(18)),
-		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
+		.color = uph_state.colors.ui_dropdown_bg,
 		.shadow = {
 			.blur_radius = NAUI_DPI(24),
-			.color = naui_theme_color("uph_ui_dropdown_shadow_color")
+			.color = uph_state.colors.ui_dropdown_shadow
 		},
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.child_gap = NAUI_DPI(14),

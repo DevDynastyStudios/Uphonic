@@ -1010,7 +1010,6 @@ static bool uph_io_load_samples(Uph_Project* project, const Naui_Path load_path)
 		Uph_Sample* sample = &project->samples[sample_counter++];
 		Naui_JsonValue* name = naui_json_object_get(value, "name");
 		Naui_JsonValue* time_scale = naui_json_object_get(value, "time_scale");
-		Naui_StringView file_name = naui_file_filename(&sample_path);
 
 		const char* file_name_cstr = naui_json_get_string(jvalue_path, NAUI_TR("samples.default.name"));
 		sample->name = naui_string_from_cstr(naui_json_get_string(name, file_name_cstr));

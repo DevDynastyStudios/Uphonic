@@ -219,16 +219,6 @@ Uph_SongTimelineState;
 
 static Uph_SongTimelineState _uph_song_timeline_state;
 
-static inline bool uph_ui_ctrl_down(void)	// Simply because Naui is broken
-{
-	return naui_key_down(NAUI_KEY_CONTROL) || naui_key_down(NAUI_KEY_LCONTROL) || naui_key_down(NAUI_KEY_RCONTROL);
-}
-
-static inline bool uph_ui_shift_down(void)
-{
-	return naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
-}
-
 static inline Uph_ActionMode uph_song_timeline_tool(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;

@@ -41,11 +41,6 @@ static const char *const _uph_plugin_cache_format_names[UPH_PLUGIN_FORMAT_COUNT]
 	[UPH_PLUGIN_VST2] = "VST2"
 };
 
-static bool _uph_plugin_cache_is_plugin(const Naui_Path path)
-{
-	return uph_plugin_format_from_path(path, NULL);
-}
-
 static bool _uph_plugin_cache_files_contain(const Naui_List(Naui_Path) files, const Naui_Path path)
 {
 	for (size_t i = 0; i < naui_list_len(files); i++)
@@ -62,7 +57,7 @@ static void _uph_plugin_cache_collect(Naui_List(Naui_Path) *files, const Naui_Pa
 	Naui_DirIterator it = naui_dir_iterator_open(folder, "", NULL, false);
 	while (naui_dir_iterator_valid(&it) && !atomic_load(cancel))
 	{
-		if (_uph_plugin_cache_is_plugin(it.entry.path))
+		if (uph_plugin_format_from_path(it.entry.path, NULL))
 		{
 			if (!_uph_plugin_cache_files_contain(*files, it.entry.path))
 				naui_list_push(*files, it.entry.path);

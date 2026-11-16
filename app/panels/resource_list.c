@@ -77,7 +77,7 @@ static void uph_pattern_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const float note_height = fmaxf(slot_height, 1.0f);
     const float x_scale = (furthest_beat > 0.0) ? (box.width / (float)furthest_beat) : 1.0f;
 
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
+    const Leaf_Color fg_color = uph_state.colors.resource_list_item_fg;
     for (uint32_t i = 0; i < note_count; i++)
     {
         const Uph_MidiNote *note = &pattern->notes[i];
@@ -126,7 +126,7 @@ static void uph_sample_list_custom_draw(Leaf_BoundingBox box, void **user_data)
     const double zoom = (double)box.width / (total_beats * time_scale);
     const double start_offset = 0.0;
 
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
+    const Leaf_Color fg_color = uph_state.colors.resource_list_item_fg;
     uph_ui_waveform_zoomable(
         (Naui_Vec2) { box.x, box.y },
         (Naui_Vec2) { box.width, box.height },
@@ -149,7 +149,7 @@ static void uph_automation_list_custom_draw(Leaf_BoundingBox box, void **user_da
     if (length <= 0.0)
         return;
 
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
+    const Leaf_Color fg_color = uph_state.colors.resource_list_item_fg;
     const Leaf_Color fill_color = { fg_color.r, fg_color.g, fg_color.b, (uint8_t)(fg_color.a * 0.3f) };
 
     naui_push_clip_rect(box.x, box.y, box.width, box.height);
@@ -203,7 +203,7 @@ void uph_resource_list_emit_item_shockwave(Uph_ResourceType type, Uph_ResourceIn
     uph_particle_emit_shockwave(
         (Naui_Vec2){ box.x, box.y },
         (Naui_Vec2){ box.width, box.height },
-        uph_color_mix(naui_theme_color("uph_resource_list_item_fg_color"), leaf_rgba(255, 255, 255, 255), 0.35f),
+        uph_color_mix(uph_state.colors.resource_list_item_fg, leaf_rgba(255, 255, 255, 255), 0.35f),
         NAUI_DPI(UPH_UI_FRAME_ROUNDING),
         naui_panel_bounding_box(uph_state.panels.resource_list)
     );
@@ -422,9 +422,9 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
     const float final_scale = 0.94f + naui_ease_out_quint(visual_scale) * 0.06f;
     const int32_t title_padding = NAUI_DPI(2);
     const int32_t rounding = (int32_t)NAUI_DPI(UPH_UI_FRAME_ROUNDING);
-    const Leaf_Color bg_color = naui_theme_color("uph_resource_list_item_bg_color");
-    const Leaf_Color fg_color = naui_theme_color("uph_resource_list_item_fg_color");
-    const Leaf_Color selected_color = naui_theme_color("uph_resource_list_item_selected_border_color");
+    const Leaf_Color bg_color = uph_state.colors.resource_list_item_bg;
+    const Leaf_Color fg_color = uph_state.colors.resource_list_item_fg;
+    const Leaf_Color selected_color = uph_state.colors.resource_list_item_selected_border;
     const Leaf_Color border_color = selected ? selected_color :
         hovered ? leaf_rgba(selected_color.r, selected_color.g, selected_color.b, (uint8_t)(selected_color.a * 0.35f)) :
         LEAF_COLOR_TRANSPARENT;
@@ -474,7 +474,7 @@ bool uph_resource_list_box(Naui_String *name, Leaf_CustomDrawFn content_draw, Le
             else
             {
                 leaf_text(name->data, {
-                    .color = naui_theme_color("uph_resource_list_item_text_color"),
+                    .color = uph_state.colors.resource_list_item_text,
                     .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
                 });
             }
@@ -503,7 +503,7 @@ static void uph_resource_list_render_pending_sample(Uph_PendingSample *pending, 
     if (uph_ui_widget_hovered(id))
         _uph_resource_list_item_hovered = true;
 
-    Naui_Color spinner_color = naui_theme_color("uph_resource_list_item_fg_color");
+    Naui_Color spinner_color = uph_state.colors.resource_list_item_fg;
     uph_resource_list_box(
         &pending->name,
         uph_ui_spinner_custom_draw,
@@ -526,7 +526,7 @@ static void uph_resource_list_render_drag(const void *payload)
 
     const char *icon = resource->type == UPH_RESOURCE_PATTERN ? "uph_icon_piano" :
         resource->type == UPH_RESOURCE_SAMPLE ? "uph_icon_wave" : "uph_icon_automation";
-    uph_drag_label(naui_asset_image(icon), name->data, naui_theme_color("naui_panel_tab_accent_color"));
+    uph_drag_label(naui_asset_image(icon), name->data, uph_state.colors.panel_tab_accent);
 }
 
 static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType type, Uph_UIMenuID context_menu, Leaf_ID id)
@@ -651,9 +651,9 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
         .border = {
             .width = NAUI_DPI(1),
             .sides = LEAF_SIDE_ALL,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = uph_state.colors.ui_frame_border
         },
-        .color = naui_theme_color("uph_resource_list_header_color"),
+        .color = uph_state.colors.resource_list_header,
         .child_alignment = {
             .x = LEAF_ALIGN_X_CENTER,
             .y = LEAF_ALIGN_Y_CENTER
@@ -667,7 +667,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
                 .width = LEAF_SIZE_PERCENT(0.1f),
                 .height = LEAF_SIZE_DERIVED
             },
-            .color = naui_theme_color("uph_ui_text_disabled_color"),
+            .color = uph_state.colors.ui_text_disabled,
             .aspect_ratio = 1.0f
         });
     }
@@ -802,8 +802,8 @@ static void uph_resource_list_on_update(void)
 
     Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_resource_list_context_menu"));
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-    const Naui_Color section_title_text_color = naui_theme_color("uph_resource_list_section_text_color");
-    const Naui_Color section_title_bg_color = naui_theme_color("uph_resource_list_section_bg_color");
+    const Naui_Color section_title_text_color = uph_state.colors.resource_list_section_text;
+    const Naui_Color section_title_bg_color = uph_state.colors.resource_list_section_bg;
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	static float scroll = 0.0f;
 

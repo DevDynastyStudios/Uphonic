@@ -29,18 +29,18 @@ void uph_song_timeline_render_toolbox(void)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
 		.padding = { .top = 1, .bottom = 1 },
-		.color = naui_theme_color("uph_song_timeline_toolbox_border_color")
+		.color = uph_state.colors.song_timeline_toolbox_border
 	})
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_TOOLBOX_PADDING_X), 0.0f),
-		.color = naui_theme_color("uph_song_timeline_toolbox_bg_color"),
+		.color = uph_state.colors.song_timeline_toolbox_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(UPH_TOOLBOX_GROUP_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		const Naui_Color icon_color = naui_theme_color("uph_song_timeline_tool_icon_color");
+		const Naui_Color icon_color = uph_state.colors.song_timeline_tool_icon;
 
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
@@ -51,7 +51,7 @@ void uph_song_timeline_render_toolbox(void)
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
 				leaf_id("uph_song_timeline_play"),
-				naui_theme_color(uph_state.shared.song_timeline_playing ? "uph_song_timeline_pause_icon_color" : "uph_song_timeline_play_icon_color"),
+				uph_state.shared.song_timeline_playing ? uph_state.colors.song_timeline_pause_icon : uph_state.colors.song_timeline_play_icon,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			))
 			{
@@ -61,7 +61,7 @@ void uph_song_timeline_render_toolbox(void)
 			if (uph_ui_toolbox_button_ex(
 				naui_asset_image("uph_icon_stop"),
 				leaf_id("uph_song_timeline_stop"),
-				naui_theme_color("uph_song_timeline_stop_icon_color"),
+				uph_state.colors.song_timeline_stop_icon,
 				NAUI_CORNER_NONE
 			))
 			{
@@ -73,7 +73,7 @@ void uph_song_timeline_render_toolbox(void)
 			if (uph_ui_toolbox_toggle_button_ex(
 				naui_asset_image("uph_icon_mic"),
 				leaf_id("uph_song_timeline_record"),
-				recording ? naui_theme_color("uph_record_armed_color") : icon_color,
+				recording ? uph_state.colors.record_armed : icon_color,
 				NAUI_CORNER_NONE,
 				recording
 			)) _uph_song_timeline_toggle_recording();
@@ -143,7 +143,7 @@ void uph_song_timeline_render_toolbox(void)
 		})
 		{
 			leaf_text("Snap:", {
-				.color = naui_theme_color("uph_ui_text_color"),
+				.color = uph_state.colors.ui_text,
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});
 			leaf({

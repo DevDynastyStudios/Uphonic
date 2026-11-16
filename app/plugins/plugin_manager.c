@@ -3631,11 +3631,6 @@ void uph_plugin_unload(Uph_Plugin *plug)
         uph_audio_engine_start();
 }
 
-static inline long uph_ms_since(float then)
-{
-    return (long)((naui_time() - then) * 1000.0f);
-}
-
 static void _uph_plugin_texture_destroy_deferred(Naui_Texture *texture)
 {
     naui_texture_destroy(*texture);

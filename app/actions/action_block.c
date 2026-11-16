@@ -215,11 +215,6 @@ static uint32_t uph_block_selected_count_in(Naui_List(Uph_Track) tracks)
 	return count;
 }
 
-static uint32_t uph_block_selected_count(void)
-{
-	return uph_block_selected_count_in(uph_state.project.tracks);
-}
-
 static void uph_block_select_all_in(Naui_List(Uph_Track) tracks, bool selected)
 {
 	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)

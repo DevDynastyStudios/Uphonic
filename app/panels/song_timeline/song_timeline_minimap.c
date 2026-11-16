@@ -104,14 +104,14 @@ static void _uph_song_timeline_minimap_draw(Leaf_BoundingBox bbox, void *user_da
 	_uph_song_timeline_minimap_draw_tracks(uph_state.project.tracks, &y, &map);
 
 	const float playhead_x = map.rect.x + (float)(uph_state.shared.song_timeline_playhead_position * map.scale_x);
-	Naui_Color playhead_color = naui_theme_color("uph_song_timeline_playhead_color");
+	Naui_Color playhead_color = uph_state.colors.song_timeline_playhead;
 	playhead_color.a = (uint8_t)(playhead_color.a * 0.6f);
 	naui_draw_line((Naui_Vec2){ playhead_x, map.rect.y }, (Naui_Vec2){ playhead_x, map.rect.y + map.rect.height }, playhead_color, NAUI_DPI(1));
 
 	const Naui_Vec2 thumb_pos = { map.rect.x + (state->scroll.x / state->zoom.x) * map.scale_x, bbox.y };
 	const Naui_Vec2 thumb_size = { fmaxf(NAUI_DPI(6), (_uph_song_timeline_minimap_view_width() / state->zoom.x) * map.scale_x), bbox.height };
 	const bool active = state->minimap.dragging || state->minimap.hovered;
-	Naui_Color fill = naui_theme_color("uph_ui_scrollbar_handle_color");
+	Naui_Color fill = uph_state.colors.ui_scrollbar_handle;
 	Naui_Color outline = fill;
 	fill.a = active ? 110 : 70;
 	outline.a = active ? 255 : 180;
@@ -195,7 +195,7 @@ void uph_song_timeline_render_minimap(void)
 			.id = leaf_id("uph_song_timeline_minimap"),
 			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_minimap_draw,
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_ui_scrollbar_bg_color")
+			.color = uph_state.colors.ui_scrollbar_bg
 		});
 	}
 }
@@ -221,7 +221,7 @@ void uph_song_timeline_render_time_display(void)
 	const char *primary_label = uph_ui_format_time(beat, state->time_display_seconds, primary_text, sizeof(primary_text));
 	const char *secondary_label = uph_ui_format_time(beat, !state->time_display_seconds, secondary_text, sizeof(secondary_text));
 
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text;
 	Leaf_Color dim_color = text_color;
 	dim_color.a = (uint8_t)(text_color.a * 0.6f);
 	Leaf_Color faint_color = text_color;
@@ -237,9 +237,9 @@ void uph_song_timeline_render_time_display(void)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_ALL,
-			.color = naui_theme_color("uph_song_timeline_ruler_border_color")
+			.color = uph_state.colors.song_timeline_ruler_border
 		},
-		.color = naui_theme_color("uph_song_timeline_header_color"),
+		.color = uph_state.colors.song_timeline_header,
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.direction = LEAF_DIRECTION_HORIZONTAL,
 		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT

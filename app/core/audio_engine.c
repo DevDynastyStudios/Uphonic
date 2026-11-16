@@ -86,18 +86,6 @@ static inline double uph_seconds_to_beats(double seconds, float bpm)
     return (seconds / 60.0) * (double)bpm;
 }
 
-static inline double uph_frames_to_beats(uint64_t frames, uint32_t sample_rate, double bpm)
-{
-	double seconds = uph_frames_to_seconds(frames, sample_rate);
-	return uph_seconds_to_beats(seconds, bpm);
-}
-
-static inline double uph_beats_to_frames(double beats, uint32_t sample_rate, double bpm)
-{
-	double seconds = uph_beats_to_seconds(beats, bpm);
-	return uph_seconds_to_frames(seconds, sample_rate);
-}
-
 enum
 {
     UPH_RENDER_RUNNING,
@@ -561,11 +549,6 @@ static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, 
     st->next_out_pos += 1.0;
 }
 
-static bool _uph_sample_follows_tempo(const Uph_Sample *sample)
-{
-    return sample->follow_tempo;
-}
-
 static double _uph_sample_tempo_bpm(const Uph_Sample *sample)
 {
     if (sample->tempo_bpm > 0.0f)
@@ -618,7 +601,7 @@ static void uph_render_sample_block(
     if (first_out_pos + (double)f >= block_length_frames)
         return;
 
-    if (_uph_sample_follows_tempo(sample))
+    if (sample->follow_tempo)
     {
         const double frames_per_beat = 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
         const double offset_frames = block->start_offset_beats * frames_per_beat;
@@ -1275,7 +1258,12 @@ static bool uph_mix_automation_gains(
     float *gains_right
 )
 {
-    if (!ctx->timeline_playing || !uph_track_has_mix_lanes(lanes_owner))
+    if (!ctx->timeline_playing || !lanes_owner)
+        return false;
+
+    const Uph_Track *volume_lane = uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_VOLUME);
+    const Uph_Track *pan_lane = uph_track_find_automation_lane(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_PAN);
+    if (!volume_lane && !pan_lane)
         return false;
 
     const ma_uint32 frame_count = ctx->frame_count;
@@ -1289,11 +1277,11 @@ static bool uph_mix_automation_gains(
         double beat = ctx->buffer_start_beat
             + uph_seconds_to_beats((double)offset / (double)ctx->engine_sample_rate, ctx->bpm);
 
-        float point_volume, point_pan;
-        if (!uph_track_mix_automation_value(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_VOLUME, beat, &point_volume))
-            point_volume = volume;
-        if (!uph_track_mix_automation_value(lanes_owner, UPH_AUTOMATION_TARGET_TRACK_PAN, beat, &point_pan))
-            point_pan = pan;
+        float point_volume = volume, point_pan = pan, value;
+        if (uph_automation_lane_value_at_beat(volume_lane, beat, &value))
+            point_volume = uph_automation_to_volume(value);
+        if (uph_automation_lane_value_at_beat(pan_lane, beat, &value))
+            point_pan = uph_automation_to_pan(value);
 
         float point_left, point_right;
         uph_pan_gains(point_volume, point_pan, &point_left, &point_right);
@@ -1792,7 +1780,7 @@ float uph_sample_gain(const Uph_Sample *sample, const Uph_SampleData *data)
 double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
 {
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (!_uph_sample_follows_tempo(sample) || bpm <= 0.0)
+    if (!sample->follow_tempo || bpm <= 0.0)
         return time_scale;
     return time_scale * _uph_sample_tempo_bpm(sample) / bpm;
 }
@@ -1808,7 +1796,7 @@ double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleD
 
     const double source_seconds = (double)data->frame_count / (double)rate;
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (_uph_sample_follows_tempo(sample))
+    if (sample->follow_tempo)
         return source_seconds * _uph_sample_tempo_bpm(sample) * time_scale / 60.0;
 
     return uph_tempo_seconds_to_beat(uph_tempo_beat_to_seconds(start_beat) + source_seconds * time_scale) - start_beat;
@@ -1817,7 +1805,7 @@ double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleD
 double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_start_beat, double start_offset_beats, double beat)
 {
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
-    if (_uph_sample_follows_tempo(sample))
+    if (sample->follow_tempo)
         return (beat - block_start_beat + start_offset_beats) * 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale);
 
     const double block_start_seconds = uph_tempo_beat_to_seconds(block_start_beat);
@@ -3116,15 +3104,6 @@ static double uph_tracks_end_beat(Naui_List(Uph_Track) tracks)
 double uph_audio_engine_get_song_length_beats(void)
 {
     return uph_tracks_end_beat(uph_state.project.tracks);
-}
-
-double uph_audio_engine_get_song_length_seconds(void)
-{
-    Uph_Project *project = &uph_state.project;
-    if (project->bpm <= 0.0f)
-        return 0.0;
-
-    return uph_tempo_beat_to_seconds(uph_audio_engine_get_song_length_beats());
 }
 
 double uph_audio_engine_get_song_length(void)

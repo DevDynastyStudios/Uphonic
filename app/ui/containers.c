@@ -146,16 +146,8 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     return container;
 }
 
-static void _uph_ui_scrollbar_custom_draw(void)
-{
-    
-}
-
 void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
 {
-    static int frame_counter = 0;
-    frame_counter++;
-
     leaf_end_element();
     leaf_end_element();
 
@@ -174,7 +166,7 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
                 (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_width), LEAF_SIZE_FULL} :
                 (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_width)}
             ),
-            .color = naui_theme_color("uph_ui_scrollbar_bg_color")
+            .color = uph_state.colors.ui_scrollbar_bg
         })
         {
             const float max_scroll = content_size - max_size;
@@ -190,7 +182,7 @@ void uph_ui_end_scroll_container(Uph_UIScrollContainer *container)
                     (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(scrollbar_length)} :
                     (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_length), LEAF_SIZE_FULL}
                 ),
-                .color = naui_theme_color("uph_ui_scrollbar_handle_color"),
+                .color = uph_state.colors.ui_scrollbar_handle,
                 .floating = {
                     .offset = (container->direction == UPH_UI_SCROLL_DIRECTION_VERTICAL ?
                         (Leaf_Vec2){0, handle_offset} :
@@ -228,11 +220,6 @@ typedef struct
 Uph_UIScrollAreaState;
 
 static Uph_UIScrollAreaState _uph_ui_scroll_area_state;
-
-static bool _uph_ui_shift_down(void)
-{
-    return naui_key_down(NAUI_KEY_SHIFT) || naui_key_down(NAUI_KEY_LSHIFT) || naui_key_down(NAUI_KEY_RSHIFT);
-}
 
 static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handle_id, float max_size, float content_size)
 {
@@ -290,7 +277,7 @@ static void _uph_ui_scroll_area_bar(bool vertical, Leaf_ID handle_id, float scro
         .size = vertical ?
             (Leaf_Size){LEAF_SIZE_FIXED(scrollbar_width), LEAF_SIZE_FULL} :
             (Leaf_Size){LEAF_SIZE_GROW, LEAF_SIZE_FIXED(scrollbar_width)},
-        .color = naui_theme_color("uph_ui_scrollbar_bg_color")
+        .color = uph_state.colors.ui_scrollbar_bg
     })
     {
         leaf({
@@ -298,7 +285,7 @@ static void _uph_ui_scroll_area_bar(bool vertical, Leaf_ID handle_id, float scro
             .size = vertical ?
                 (Leaf_Size){LEAF_SIZE_FULL, LEAF_SIZE_FIXED(thumb_length)} :
                 (Leaf_Size){LEAF_SIZE_FIXED(thumb_length), LEAF_SIZE_FULL},
-            .color = naui_theme_color("uph_ui_scrollbar_handle_color"),
+            .color = uph_state.colors.ui_scrollbar_handle,
             .floating = {
                 .offset = vertical ? (Leaf_Vec2){0, handle_offset} : (Leaf_Vec2){handle_offset, 0}
             },
@@ -366,7 +353,7 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
             target = scroll_y;
         else if (leaf_hovered(viewport_id))
         {
-            const bool prefer_x = _uph_ui_shift_down();
+            const bool prefer_x = uph_ui_shift_down();
             const bool can_x = max_scroll_x > 0.0f;
             const bool can_y = max_scroll_y > 0.0f;
             if (prefer_x)
@@ -430,7 +417,7 @@ void uph_ui_end_scroll_area(Uph_UIScrollArea *area)
             {
                 leaf({
                     .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(16)), .height = LEAF_SIZE_FIXED(NAUI_DPI(16)) },
-                    .color = naui_theme_color("uph_ui_scrollbar_bg_color")
+                    .color = uph_state.colors.ui_scrollbar_bg
                 });
             }
         }

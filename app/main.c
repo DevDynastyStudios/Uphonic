@@ -207,7 +207,7 @@ void naui_app_start(void)
 	uph_language_apply();
 	naui_app_set_ui_scale(uph_state.settings.general.ui_scale);
 	naui_app_set_animations_enabled(uph_state.settings.general.animations);
-	naui_load_theme(uph_state.settings.general.theme.data);
+	uph_theme_load(uph_state.settings.general.theme.data);
 	uph_io_load_scales(&uph_state, naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Scales")));
 	cmidi_set_thru_filter(_uph_midi_thru_filter, NULL);
 	uph_audio_engine_init();
@@ -274,7 +274,7 @@ void naui_app_end(void)
 	uph_tempo_map_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Destoying Actions...");
-	uph_action_shutdown();
+	naui_action_clear_history();
 	uph_particles_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");

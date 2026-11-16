@@ -77,11 +77,6 @@ static const char *_uph_automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT
 
 #pragma region Helpers
 
-static inline bool _uph_automation_editor_fine(void)
-{
-	return uph_ui_shift_down();
-}
-
 static inline bool _uph_automation_editor_snap_disabled(void)
 {
 	return uph_ui_shift_down() || naui_key_down(NAUI_KEY_LALT) || naui_key_down(NAUI_KEY_RALT);
@@ -418,7 +413,7 @@ static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor
 
 	const Leaf_BoundingBox box = editor->lane_box;
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
-	const float scale = _uph_automation_editor_fine() ? UPH_AUTOMATION_EDITOR_FINE_SCALE : 1.0f;
+	const float scale = uph_ui_shift_down() ? UPH_AUTOMATION_EDITOR_FINE_SCALE : 1.0f;
 	editor->drag_offset.x += (mouse.x - editor->drag_last_mouse.x) * scale;
 	editor->drag_offset.y += (mouse.y - editor->drag_last_mouse.y) * scale;
 	editor->drag_last_mouse = mouse;
@@ -642,8 +637,8 @@ static void _uph_automation_editor_ruler_draw(Leaf_BoundingBox box, void *user_d
 
 static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
 {
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_disabled_color");
-	const Leaf_Color tick_color = naui_theme_color("uph_automation_editor_grid_beat_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text_disabled;
+	const Leaf_Color tick_color = uph_state.colors.automation_editor_grid_beat;
 	const int32_t font_size = NAUI_DPI(11);
 	const int32_t padding = NAUI_DPI(6);
 
@@ -674,10 +669,10 @@ static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 
 	if (position.y < box.y)
 		position.y = anchor.y + NAUI_DPI(10);
 
-	Leaf_Color background = naui_theme_color("uph_automation_editor_toolbox_bg_color");
+	Leaf_Color background = uph_state.colors.automation_editor_toolbox_bg;
 	background.a = 230;
 	naui_fill_rect(position, size, background, NAUI_DPI(3), NAUI_CORNER_ALL);
-	naui_draw_text((Naui_Vec2) { position.x + padding, position.y + padding }, text, font_size, naui_theme_color("uph_ui_text_color"));
+	naui_draw_text((Naui_Vec2) { position.x + padding, position.y + padding }, text, font_size, uph_state.colors.ui_text);
 }
 
 static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_data)
@@ -692,18 +687,18 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	const float value_top = _uph_automation_editor_value_top(box);
 	const float value_height = _uph_automation_editor_value_height(box);
 
-	Leaf_Color accent_color = naui_theme_color("uph_automation_editor_accent_color");
+	Leaf_Color accent_color = uph_state.colors.automation_editor_accent;
 	accent_color.a = 255;
 	const Leaf_Color fill_color = { accent_color.r, accent_color.g, accent_color.b, 50 };
 	const Leaf_Color dim_color = { accent_color.r, accent_color.g, accent_color.b, 110 };
-	const Leaf_Color guide_color = naui_theme_color("uph_automation_editor_grid_subbeat_color");
-	const Leaf_Color edge_color = naui_theme_color("uph_automation_editor_grid_beat_color");
-	const Leaf_Color lane_color = naui_theme_color("uph_automation_editor_row_bg2_color");
-	const Leaf_Color outline_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color guide_color = uph_state.colors.automation_editor_grid_subbeat;
+	const Leaf_Color edge_color = uph_state.colors.automation_editor_grid_beat;
+	const Leaf_Color lane_color = uph_state.colors.automation_editor_row_bg2;
+	const Leaf_Color outline_color = uph_state.colors.ui_text;
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_automation_editor_row_bg1_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.automation_editor_row_bg1, 0.0f, NAUI_CORNER_NONE);
 	naui_fill_rect((Naui_Vec2) { box.x, value_top }, (Naui_Vec2) { box.width, value_height }, lane_color, 0.0f, NAUI_CORNER_NONE);
 	uph_midi_grid_render_beats(box, view, state->snap_resolution);
 
@@ -799,7 +794,7 @@ static void _uph_automation_editor_render_message(const char *message)
 	})
 	{
 		leaf_text(message, {
-			.color = naui_theme_color("uph_ui_text_disabled_color"),
+			.color = uph_state.colors.ui_text_disabled,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}
@@ -808,7 +803,7 @@ static void _uph_automation_editor_render_message(const char *message)
 static void _uph_automation_editor_render_label(const char *label, bool disabled)
 {
 	leaf_text(label, {
-		.color = naui_theme_color(disabled ? "uph_ui_text_disabled_color" : "uph_ui_text_color"),
+		.color = disabled ? uph_state.colors.ui_text_disabled : uph_state.colors.ui_text,
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 	});
 }
@@ -829,17 +824,17 @@ static void _uph_automation_editor_render_info(const Uph_Automation *automation)
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x * 2), NAUI_DPI(6)),
-		.color = naui_theme_color("uph_automation_editor_toolbox_bg_color"),
+		.color = uph_state.colors.automation_editor_toolbox_bg,
 		.child_gap = NAUI_DPI(2),
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
 		leaf_text(automation->name.data, {
-			.color = naui_theme_color("uph_ui_text_color"),
+			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(font_size + 2))
 		});
 		leaf_text(info, {
-			.color = naui_theme_color("uph_ui_text_disabled_color"),
+			.color = uph_state.colors.ui_text_disabled,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(font_size))
 		});
 	}
@@ -853,9 +848,9 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_BOTTOM,
-			.color = naui_theme_color("uph_automation_editor_ruler_border_color")
+			.color = uph_state.colors.automation_editor_ruler_border
 		},
-		.color = naui_theme_color("uph_automation_editor_toolbox_bg_color"),
+		.color = uph_state.colors.automation_editor_toolbox_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.child_gap = NAUI_DPI(UPH_AUTOMATION_EDITOR_TOOLBAR_FIELD_GAP),
 		.direction = LEAF_DIRECTION_HORIZONTAL
@@ -1021,7 +1016,7 @@ static void _uph_automation_editor_render_entry(Uph_AutomationEditorState *edito
 		.id = leaf_id("uph_automation_editor_entry"),
 		.size = { .width = LEAF_SIZE_FIXED(width), .height = LEAF_SIZE_FIXED(height) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(4), NAUI_DPI(3)),
-		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
+		.color = uph_state.colors.ui_dropdown_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 		.floating = { .offset = { .x = anchor.x + NAUI_DPI(10), .y = anchor.y - height * 0.5f } },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
@@ -1123,15 +1118,15 @@ void uph_automation_editor_update(void)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_BOTTOM,
-			.color = naui_theme_color("uph_automation_editor_ruler_border_color")
+			.color = uph_state.colors.automation_editor_ruler_border
 		},
-		.color = naui_theme_color("uph_automation_editor_ruler_bg_color"),
+		.color = uph_state.colors.automation_editor_ruler_bg,
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_automation_editor_toolbox_bg_color")
+			.color = uph_state.colors.automation_editor_toolbox_bg
 		});
 		leaf({
 			.custom_draw = (Leaf_CustomDrawFn)_uph_automation_editor_ruler_draw,
@@ -1148,7 +1143,7 @@ void uph_automation_editor_update(void)
 		leaf({
 			.custom_draw = (Leaf_CustomDrawFn)_uph_automation_editor_gutter_draw,
 			.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-			.color = naui_theme_color("uph_automation_editor_toolbox_bg_color")
+			.color = uph_state.colors.automation_editor_toolbox_bg
 		});
 		leaf({
 			.id = lane_id,

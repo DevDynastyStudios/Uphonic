@@ -4,9 +4,9 @@ void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float s
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	uph_grid_render_beats(bbox, zoom_x, scroll_x, uph_snap_division(state->snap_resolution, state->zoom.x), (Uph_GridColors){
-		.sub_color = naui_theme_color("uph_song_timeline_grid_subbeat_color"),
-		.beat_color = naui_theme_color("uph_song_timeline_grid_beat_color"),
-		.bar_color = naui_theme_color("uph_song_timeline_grid_bar_color")
+		.sub_color = uph_state.colors.song_timeline_grid_subbeat,
+		.beat_color = uph_state.colors.song_timeline_grid_beat,
+		.bar_color = uph_state.colors.song_timeline_grid_bar
 	});
 }
 
@@ -65,12 +65,12 @@ static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	uph_song_timeline_update_playhead_drag(bbox);
-	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, state->zoom.x, state->scroll.x, uph_state.project.loop_enabled, naui_theme_color("uph_song_timeline_selection_outline_color"));
+	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, state->zoom.x, state->scroll.x, uph_state.project.loop_enabled, uph_state.colors.song_timeline_selection_outline);
 	uph_grid_render_ruler(bbox, state->zoom.x, state->scroll.x, uph_snap_division(state->snap_resolution, state->zoom.x), (Uph_GridColors){
-		.sub_color = naui_theme_color("uph_song_timeline_ruler_grid_subbeat_color"),
-		.beat_color = naui_theme_color("uph_song_timeline_ruler_grid_beat_color"),
-		.bar_color = naui_theme_color("uph_song_timeline_ruler_grid_bar_color"),
-		.number_color = naui_theme_color("uph_song_timeline_ruler_grid_text_color")
+		.sub_color = uph_state.colors.song_timeline_ruler_grid_subbeat,
+		.beat_color = uph_state.colors.song_timeline_ruler_grid_beat,
+		.bar_color = uph_state.colors.song_timeline_ruler_grid_bar,
+		.number_color = uph_state.colors.song_timeline_ruler_grid_text
 	});
 }
 
@@ -101,9 +101,9 @@ void uph_song_timeline_render_top_bar(void)
 				.border = {
 					.width = 1,
 					.sides = LEAF_SIDE_ALL,
-					.color = naui_theme_color("uph_song_timeline_ruler_border_color")
+					.color = uph_state.colors.song_timeline_ruler_border
 				},
-				.color = naui_theme_color("uph_song_timeline_ruler_bg_color")
+				.color = uph_state.colors.song_timeline_ruler_bg
 			});
 		}
 	}
@@ -113,7 +113,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const Naui_Image *playhead_image = naui_asset_image("uph_icon_playhead");
-	const Naui_Color color = naui_theme_color("uph_song_timeline_playhead_color");
+	const Naui_Color color = uph_state.colors.song_timeline_playhead;
 	const int32_t x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
 	const int32_t playhead_size = NAUI_DPI(16);
 	const float playhead_half_size = playhead_size * 0.5f;
@@ -136,7 +136,7 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 	uph_loop_region_render_bounds(
 		&uph_state.project.loop_region,
 		bbox.x + x_offset, bbox.y + NAUI_DPI(UPH_SONG_TIMELINE_TOP_RULER_HEIGHT), bbox.y + bbox.height,
-		state->zoom.x, state->scroll.x, uph_state.project.loop_enabled, naui_theme_color("uph_song_timeline_selection_outline_color")
+		state->zoom.x, state->scroll.x, uph_state.project.loop_enabled, uph_state.colors.song_timeline_selection_outline
 	);
 
 	const Uph_MarqueeState *marquee = &state->marquee;
@@ -163,8 +163,8 @@ void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data
 		const float corner_y = state->panel_bounding_box.y - state->scroll.y + marquee->start_content_y;
 		const Naui_Vec2 top_left = { fminf(corner_x, (float)naui_mouse_x()), fminf(corner_y, (float)naui_mouse_y()) };
 		const Naui_Vec2 size = { fabsf(corner_x - (float)naui_mouse_x()), fabsf(corner_y - (float)naui_mouse_y()) };
-		const Leaf_Color fill_color = naui_theme_color("uph_song_timeline_marquee_color");
-		const Leaf_Color border_color = naui_theme_color("uph_song_timeline_marquee_border_color");
+		const Leaf_Color fill_color = uph_state.colors.song_timeline_marquee;
+		const Leaf_Color border_color = uph_state.colors.song_timeline_marquee_border;
 		naui_fill_rect(top_left, size, fill_color, 0.0f, NAUI_CORNER_NONE);
 		naui_draw_rect(top_left, size, border_color, NAUI_DPI(1), 0.0f, NAUI_CORNER_NONE, NAUI_SIDE_ALL);
 	}

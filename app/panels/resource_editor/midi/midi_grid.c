@@ -1,10 +1,10 @@
 void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_Piano *piano)
 {
 	const float lane_height = uph_midi_view_lane_height(view);
-	const Leaf_Color accidental_color = naui_theme_color("uph_midi_editor_off_scale_lane_color");
-	const Leaf_Color natural_color = naui_theme_color("uph_midi_editor_scale_lane_color");
-	const Leaf_Color pressed_color = naui_theme_color("uph_piano_sharp_pressed_color");
-	const Leaf_Color border_color = naui_theme_color("uph_midi_editor_lane_border_color");
+	const Leaf_Color accidental_color = uph_state.colors.midi_editor_off_scale_lane;
+	const Leaf_Color natural_color = uph_state.colors.midi_editor_scale_lane;
+	const Leaf_Color pressed_color = uph_state.colors.piano_sharp_pressed;
+	const Leaf_Color border_color = uph_state.colors.midi_editor_lane_border;
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -40,18 +40,18 @@ void uph_midi_grid_render_lanes(Leaf_BoundingBox box, const Uph_MidiView *view, 
 void uph_midi_grid_render_beats(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
 	uph_grid_render_beats(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x), (Uph_GridColors){
-		.sub_color = naui_theme_color("uph_midi_editor_grid_subbeat_color"),
-		.beat_color = naui_theme_color("uph_midi_editor_grid_beat_color"),
-		.bar_color = naui_theme_color("uph_midi_editor_grid_bar_color")
+		.sub_color = uph_state.colors.midi_editor_grid_subbeat,
+		.beat_color = uph_state.colors.midi_editor_grid_beat,
+		.bar_color = uph_state.colors.midi_editor_grid_bar
 	});
 }
 
 void uph_midi_grid_render_ruler(Leaf_BoundingBox box, const Uph_MidiView *view, Uph_SnapResolution snap)
 {
 	uph_grid_render_ruler(box, view->zoom.x, view->scroll.x, uph_snap_division(snap, view->zoom.x), (Uph_GridColors){
-		.sub_color = naui_theme_color("uph_midi_editor_ruler_grid_subbeat_color"),
-		.beat_color = naui_theme_color("uph_midi_editor_ruler_grid_beat_color"),
-		.bar_color = naui_theme_color("uph_midi_editor_ruler_grid_bar_color"),
-		.number_color = naui_theme_color("uph_midi_editor_ruler_grid_text_color")
+		.sub_color = uph_state.colors.midi_editor_ruler_grid_subbeat,
+		.beat_color = uph_state.colors.midi_editor_ruler_grid_beat,
+		.bar_color = uph_state.colors.midi_editor_ruler_grid_bar,
+		.number_color = uph_state.colors.midi_editor_ruler_grid_text
 	});
 }

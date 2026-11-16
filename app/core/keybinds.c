@@ -77,17 +77,6 @@ const Uph_KeybindInfo *uph_keybind_infos(uint32_t *out_count)
 	return uph_keybind_info_table;
 }
 
-const Uph_KeybindInfo *uph_keybind_find(const char *id)
-{
-	for (uint32_t i = 0; i < UPH_KEYBIND_COUNT; i++)
-	{
-		if (strcmp(uph_keybind_info_table[i].id, id) == 0)
-			return &uph_keybind_info_table[i];
-	}
-
-	return NULL;
-}
-
 void uph_keybind_reset(const Uph_KeybindInfo *info)
 {
 	*info->chord = info->default_chord;

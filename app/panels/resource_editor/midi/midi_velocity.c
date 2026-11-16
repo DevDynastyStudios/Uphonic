@@ -296,9 +296,9 @@ void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 {
 	const int32_t small_font_size = NAUI_DPI(10);
 	const int32_t padding = NAUI_DPI(6);
-	const Leaf_Color dim_color = naui_theme_color("uph_ui_text_disabled_color");
+	const Leaf_Color dim_color = uph_state.colors.ui_text_disabled;
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_midi_editor_toolbox_bg_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.midi_editor_toolbox_bg, 0.0f, NAUI_CORNER_NONE);
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 	static const int32_t marks[] = { 127, 64, 1 };
@@ -367,10 +367,10 @@ static void _uph_velocity_render_label(Leaf_BoundingBox box, float x, float y, i
 void uph_midi_velocity_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const Uph_VelocityLane *lane = &editor->velocity_lane;
-	const Leaf_Color guide_color = naui_theme_color("uph_midi_editor_grid_subbeat_color");
+	const Leaf_Color guide_color = uph_state.colors.midi_editor_grid_subbeat;
 	const Leaf_Color note_color = uph_midi_view_note_color();
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, naui_theme_color("uph_midi_editor_scale_lane_color"), 0.0f, NAUI_CORNER_NONE);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.midi_editor_scale_lane, 0.0f, NAUI_CORNER_NONE);
 	uph_midi_grid_render_beats(box, &editor->view, editor->snap_resolution);
 
 	static const float guides[] = { 32.0f, 64.0f, 96.0f, 127.0f };

@@ -52,7 +52,6 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 	Uph_AutomationEditState *edit = &state->automation_edit;
 	Uph_Automation *automation = &uph_state.project.automations[automation_index];
 	const float zoom_x = state->zoom.x;
-	const float scroll_x = state->scroll.x;
 	const int32_t point_size = NAUI_DPI(6);
 	const int32_t hit_radius = point_size;
 	const bool is_target_block = (edit->track == track && edit->block_index == block_index);

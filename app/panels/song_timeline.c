@@ -47,7 +47,6 @@ void uph_song_timeline_reset_scroll(void)
 static void uph_song_timeline_on_attach(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	Naui_PanelID panel = naui_panel_current();
 
 	state->scroll = (Naui_Vec2) { 0.0f, 0.0f };
 	state->zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 124.0f };

@@ -223,7 +223,7 @@ static bool _uph_song_timeline_drop_compatible(const Uph_Track *track, Uph_Resou
 static void _uph_song_timeline_emit_rejected_block(Leaf_BoundingBox bbox, double start_beat, double length_beats)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	const Leaf_Color error = naui_theme_color("naui_panel_close_hovered_bg_color");
+	const Leaf_Color error = uph_state.colors.panel_close_hovered_bg;
 	const float zoom = state->zoom.x;
 	const Naui_Vec2 position = { bbox.x + (float)start_beat * zoom - state->scroll.x, bbox.y + 1.0f };
 	const Naui_Vec2 size = { length_beats > 0.0 ? (float)length_beats * zoom : NAUI_DPI(8), bbox.height - 2.0f };
@@ -568,11 +568,11 @@ static void _uph_song_timeline_render_draw_ghost(Leaf_BoundingBox bbox, const Up
 	if (!_uph_song_timeline_draw_resource_ready() || uph_drag_hover(UPH_DRAG_TYPE_RESOURCE) || uph_drag_hover(UPH_DRAG_TYPE_SAMPLE_FILE))
 		return;
 
-	Leaf_Color fill = naui_theme_color("uph_song_timeline_draw_ghost_color");
-	Leaf_Color outline = naui_theme_color("uph_song_timeline_draw_ghost_border_color");
+	Leaf_Color fill = uph_state.colors.song_timeline_draw_ghost;
+	Leaf_Color outline = uph_state.colors.song_timeline_draw_ghost_border;
 	if (!_uph_song_timeline_drop_compatible(track, uph_state.shared.selected_resource.type))
 	{
-		const Leaf_Color reject = naui_theme_color("naui_panel_close_hovered_bg_color");
+		const Leaf_Color reject = uph_state.colors.panel_close_hovered_bg;
 		fill = leaf_rgba(reject.r, reject.g, reject.b, fill.a);
 		outline = leaf_rgba(reject.r, reject.g, reject.b, outline.a);
 	}
@@ -591,12 +591,12 @@ static void _uph_song_timeline_render_draw_ghost(Leaf_BoundingBox bbox, const Up
 
 static void _uph_song_timeline_render_drop_preview(Leaf_BoundingBox bbox, double length_beats)
 {
-	_uph_song_timeline_render_block_ghost(bbox, _uph_song_timeline_drop_beat(bbox), length_beats, naui_theme_color("naui_panel_tab_accent_color"));
+	_uph_song_timeline_render_block_ghost(bbox, _uph_song_timeline_drop_beat(bbox), length_beats, uph_state.colors.panel_tab_accent);
 }
 
 static void _uph_song_timeline_render_rejected_drop_preview(Leaf_BoundingBox bbox, double length_beats)
 {
-	_uph_song_timeline_render_block_ghost(bbox, _uph_song_timeline_drop_beat(bbox), length_beats, naui_theme_color("naui_panel_close_hovered_bg_color"));
+	_uph_song_timeline_render_block_ghost(bbox, _uph_song_timeline_drop_beat(bbox), length_beats, uph_state.colors.panel_close_hovered_bg);
 }
 
 static bool _uph_song_timeline_drop_accepted(const Uph_Track *track, Uph_ResourceType type)
@@ -699,7 +699,7 @@ void uph_song_timeline_render_bottom_drop_overlay(Leaf_BoundingBox bbox, void *d
 	else if (_uph_song_timeline_drag_fits_new_tracks(&state->drag))
 	{
 		const Uph_TimelineBlock *block = &state->drag.track->blocks[state->drag.block_index];
-		_uph_song_timeline_render_block_ghost(row, block->start_beat, block->length_beats, naui_theme_color("naui_panel_tab_accent_color"));
+		_uph_song_timeline_render_block_ghost(row, block->start_beat, block->length_beats, uph_state.colors.panel_tab_accent);
 	}
 
 	naui_pop_clip_rect();
@@ -791,7 +791,7 @@ static void _uph_song_timeline_render_track_timeline_overlay(Leaf_BoundingBox bb
 	naui_fill_rect(
 		(Naui_Vec2){ bbox.x, bbox.y + bbox.height - 1.0f },
 		(Naui_Vec2){ bbox.width, 1.0f },
-		naui_theme_color("uph_song_timeline_row_border_color"),
+		uph_state.colors.song_timeline_row_border,
 		0.0f,
 		NAUI_CORNER_NONE
 	);
@@ -878,8 +878,8 @@ void uph_song_timeline_render_track_timeline(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
 	const uint32_t row_counter = state->visual.row_counter;
-	const Leaf_Color bg_color = row_counter & 1 ? naui_theme_color("uph_song_timeline_row_bg1_color") : naui_theme_color("uph_song_timeline_row_bg2_color");
-	const Leaf_Color border_color = naui_theme_color("uph_song_timeline_border_color");
+	const Leaf_Color bg_color = row_counter & 1 ? uph_state.colors.song_timeline_row_bg1 : uph_state.colors.song_timeline_row_bg2;
+	const Leaf_Color border_color = uph_state.colors.song_timeline_border;
 
 	const int32_t row_height = NAUI_DPI(state->zoom.y);
 	const float row_y = state->panel_bounding_box.y - state->scroll.y + state->visual.row_y;

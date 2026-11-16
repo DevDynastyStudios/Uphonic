@@ -363,11 +363,6 @@ static void uph_asio_read_channel(const void *src, const long type, float *dst, 
 	}
 }
 
-static inline float uph_asio_clamp(const float v)
-{
-	return v < -1.0f ? -1.0f : (v > 1.0f ? 1.0f : v);
-}
-
 static void uph_asio_write_channel(void *dst, const long type, const float *src, const ma_uint32 stride, const long frames)
 {
 	switch (type)
@@ -376,7 +371,7 @@ static void uph_asio_write_channel(void *dst, const long type, const float *src,
 		{
 			int16_t *d = (int16_t*)dst;
 			for (long f = 0; f < frames; f++)
-				d[f] = (int16_t)lrintf(uph_asio_clamp(src[f * stride]) * 32767.0f);
+				d[f] = (int16_t)lrintf(NAUI_CLAMP(src[f * stride], -1.0f, 1.0f) * 32767.0f);
 			break;
 		}
 		case UPH_ASIO_TYPE_INT24_LSB:
@@ -384,7 +379,7 @@ static void uph_asio_write_channel(void *dst, const long type, const float *src,
 			uint8_t *d = (uint8_t*)dst;
 			for (long f = 0; f < frames; f++)
 			{
-				const int32_t v = (int32_t)lrintf(uph_asio_clamp(src[f * stride]) * 8388607.0f);
+				const int32_t v = (int32_t)lrintf(NAUI_CLAMP(src[f * stride], -1.0f, 1.0f) * 8388607.0f);
 				d[f * 3 + 0] = (uint8_t)(v & 0xFF);
 				d[f * 3 + 1] = (uint8_t)((v >> 8) & 0xFF);
 				d[f * 3 + 2] = (uint8_t)((v >> 16) & 0xFF);
@@ -410,7 +405,7 @@ static void uph_asio_write_channel(void *dst, const long type, const float *src,
 			int32_t *d = (int32_t*)dst;
 			const double scale = (double)uph_asio_int32_scale(type) - 1.0;
 			for (long f = 0; f < frames; f++)
-				d[f] = (int32_t)llrint((double)uph_asio_clamp(src[f * stride]) * scale);
+				d[f] = (int32_t)llrint((double)NAUI_CLAMP(src[f * stride], -1.0f, 1.0f) * scale);
 			break;
 		}
 	}

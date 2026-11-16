@@ -162,13 +162,13 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text;
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
 	if (selected)
-		background = naui_theme_color("naui_widget_accent_color");
+		background = uph_state.colors.widget_accent;
 	else if (hovered)
-		background = naui_theme_color("uph_ui_frame_hovered_bg_color");
+		background = uph_state.colors.ui_frame_hovered_bg;
 
 	char name[NAUI_PATH_MAX + 2];
 	snprintf(name, sizeof(name), "%s%s", naui_file_filename(&entry->path).data, entry->is_directory ? "/" : "");
@@ -206,7 +206,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 
 	leaf({
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
-		.color = naui_theme_color("uph_ui_well_bg_color"),
+		.color = uph_state.colors.ui_well_bg,
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.clip_children = true
 	})
@@ -224,7 +224,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 		if (count == 0)
 		{
 			leaf_text(NAUI_TR("file_dialog.empty"), {
-				.color = naui_theme_color("uph_ui_text_color"),
+				.color = uph_state.colors.ui_text,
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 			});
 		}
@@ -268,7 +268,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 {
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID name_id = leaf_id_indexed("uph_file_dialog_name", data->instance);
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	if (data->error_key)

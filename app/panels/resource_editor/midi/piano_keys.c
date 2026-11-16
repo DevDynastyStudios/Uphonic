@@ -66,28 +66,6 @@ static inline void uph_key_bitset_set(Uph_KeyBitset set, uint8_t key, bool press
 	*word = pressed ? (*word | mask) : (*word & ~mask);
 }
 
-static inline void uph_key_bitset_clear(Uph_KeyBitset set)
-{
-	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
-		set[i] = 0;
-}
-
-static inline void uph_key_bitset_copy(Uph_KeyBitset dst, const Uph_KeyBitset src)
-{
-	for (uint32_t i = 0; i < UPH_KEY_BITSET_WORD_COUNT; i++)
-		dst[i] = src[i];
-}
-
-static inline bool uph_key_bitset_was_pressed(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
-{
-	return !uph_key_bitset_get(prev, key) && uph_key_bitset_get(current, key);
-}
-
-static inline bool uph_key_bitset_was_released(const Uph_KeyBitset prev, const Uph_KeyBitset current, uint8_t key)
-{
-	return uph_key_bitset_get(prev, key) && !uph_key_bitset_get(current, key);
-}
-
 static inline Uph_PianoStyle uph_piano_default_style(void)
 {
 	return (Uph_PianoStyle) {
@@ -286,9 +264,9 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 {
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
-	const Leaf_Color natural_color = naui_theme_color("uph_piano_natural_color");
-	const Leaf_Color natural_pressed_color = naui_theme_color("uph_piano_natural_pressed_color");
-	const Leaf_Color border_color = naui_theme_color("uph_piano_natural_border_color");
+	const Leaf_Color natural_color = uph_state.colors.piano_natural;
+	const Leaf_Color natural_pressed_color = uph_state.colors.piano_natural_pressed;
+	const Leaf_Color border_color = uph_state.colors.piano_natural_border;
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -327,8 +305,8 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
 	const int32_t rounding = NAUI_DPI(2);
-	const Leaf_Color border_color = naui_theme_color("uph_piano_sharp_border_color");
-	const Leaf_Color shine_color = naui_theme_color("uph_piano_sharp_shine_color");
+	const Leaf_Color border_color = uph_state.colors.piano_sharp_border;
+	const Leaf_Color shine_color = uph_state.colors.piano_sharp_shine;
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -342,8 +320,8 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 			continue;
 
 		const bool pressed = uph_piano_key_pressed(piano, (uint8_t)key);
-		const Leaf_Color sharp_color = naui_theme_color(pressed ? "uph_piano_sharp_pressed_color" : "uph_piano_sharp_color");
-		const Leaf_Color sharp_gradient = naui_theme_color(pressed ? "uph_piano_sharp_pressed_gradient" : "uph_piano_sharp_gradient");
+		const Leaf_Color sharp_color = pressed ? uph_state.colors.piano_sharp_pressed : uph_state.colors.piano_sharp;
+		const Leaf_Color sharp_gradient = pressed ? uph_state.colors.piano_sharp_pressed_gradient : uph_state.colors.piano_sharp_gradient;
 
 		const Naui_Vec2 position = { box.x, top };
 		const Naui_Vec2 size = { rect.width, bottom - top };
@@ -389,8 +367,8 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 {
 	const Leaf_BoundingBox box = canvas->box;
 	const int32_t font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
-	const Leaf_Color label_color = naui_theme_color("uph_piano_label_color");
-	const Leaf_Color sharp_label_color = naui_theme_color("uph_piano_sharp_label_color");
+	const Leaf_Color label_color = uph_state.colors.piano_label;
+	const Leaf_Color sharp_label_color = uph_state.colors.piano_sharp_label;
 
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
@@ -430,7 +408,7 @@ void uph_piano_render(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_
 	naui_draw_line(
 		(Naui_Vec2) { box.x + box.width, box.y },
 		(Naui_Vec2) { box.x + box.width, box.y + box.height },
-		naui_theme_color("uph_midi_editor_ruler_border_color"),
+		uph_state.colors.midi_editor_ruler_border,
 		NAUI_DPI(2)
 	);
 

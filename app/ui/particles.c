@@ -51,11 +51,6 @@ void uph_particle_emit_shockwave(Naui_Vec2 position, Naui_Vec2 size, Naui_Color 
 	});
 }
 
-void uph_particles_clear(void)
-{
-	naui_list_clear(uph_particles);
-}
-
 void uph_particles_shutdown(void)
 {
 	naui_list_free(uph_particles);

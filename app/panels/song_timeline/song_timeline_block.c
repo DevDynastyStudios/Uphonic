@@ -498,7 +498,7 @@ static void _uph_song_timeline_block_select_instances(Uph_ResourceType type, Uph
 
 static void _uph_song_timeline_block_delete(Uph_ActionTrackRef ref, uint32_t block_index, bool selected)
 {
-	if (selected && uph_block_selected_count() > 1)
+	if (selected && uph_block_selected_count_in(uph_state.project.tracks) > 1)
 	{
 		uph_block_delete_selected();
 		return;

@@ -163,11 +163,6 @@ static void uph_plugin_list_poll_scan(void)
     }
 }
 
-static Naui_Color uph_plugin_list_muted_color(void)
-{
-    return naui_theme_color("naui_panel_text_color");
-}
-
 static void uph_plugin_list_target_bar(void)
 {
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
@@ -183,16 +178,16 @@ static void uph_plugin_list_target_bar(void)
         .border = {
             .width = 1,
             .sides = LEAF_SIDE_BOTTOM,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = uph_state.colors.ui_frame_border
         },
-        .color = uph_color_mix(naui_theme_color("uph_ui_frame_bg_color"), accent, 0.12f),
+        .color = uph_color_mix(uph_state.colors.ui_frame_bg, accent, 0.12f),
         .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
         .child_gap = NAUI_DPI(8),
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
         leaf_text(target == UPH_PLUGIN_LIST_TRACK_INSTRUMENT ? NAUI_TR("plugin.menu.target.instrument") : NAUI_TR("plugin.menu.target.effect"), {
-            .color = uph_plugin_list_muted_color(),
+            .color = uph_state.colors.panel_text,
             .font_size = LEAF_SIZE_FIXED(font_size)
         });
         leaf({
@@ -201,7 +196,7 @@ static void uph_plugin_list_target_bar(void)
             .rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
         });
         leaf_text(!track || track->type == UPH_RESOURCE_MASTER ? NAUI_TR("master.track.title") : track->name.data, {
-            .color = naui_theme_color("uph_ui_text_color"),
+            .color = uph_state.colors.ui_text,
             .font_size = LEAF_SIZE_FIXED(font_size)
         });
     }
@@ -230,7 +225,7 @@ static void uph_plugin_list_status(void)
     })
     {
         leaf_text(text, {
-            .color = uph_plugin_list_muted_color(),
+            .color = uph_state.colors.panel_text,
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
         });
     }
@@ -260,21 +255,21 @@ static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
         [UPH_PLUGIN_VST3] = "VST3",
         [UPH_PLUGIN_VST2] = "VST2"
     };
-    static const char *const colors[UPH_PLUGIN_FORMAT_COUNT] = {
-        [UPH_PLUGIN_CLAP] = "uph_plugin_list_clap_color",
-        [UPH_PLUGIN_VST3] = "uph_plugin_list_vst3_color",
-        [UPH_PLUGIN_VST2] = "uph_plugin_list_vst2_color"
+    const Naui_Color colors[UPH_PLUGIN_FORMAT_COUNT] = {
+        [UPH_PLUGIN_CLAP] = uph_state.colors.plugin_list_clap,
+        [UPH_PLUGIN_VST3] = uph_state.colors.plugin_list_vst3,
+        [UPH_PLUGIN_VST2] = uph_state.colors.plugin_list_vst2
     };
 
     leaf({
         .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(6), NAUI_DPI(2)),
-        .color = naui_theme_color(colors[format]),
+        .color = colors[format],
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL)
     })
     {
         leaf_text(labels[format], {
-            .color = naui_theme_color("uph_plugin_list_text_color"),
+            .color = uph_state.colors.plugin_list_text,
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
         });
     }
@@ -298,9 +293,9 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
 
     Naui_Color color = { 0 };
     if (selected)
-        color = uph_color_mix(naui_theme_color("uph_ui_frame_bg_color"), naui_theme_color("uph_ui_selection_color"), 0.3f);
+        color = uph_color_mix(uph_state.colors.ui_frame_bg, uph_state.colors.ui_selection, 0.3f);
     else if (hovered)
-        color = naui_theme_color("uph_ui_frame_secondary_bg_color");
+        color = uph_state.colors.ui_frame_secondary_bg;
 
     leaf({
         .id = id,
@@ -312,10 +307,10 @@ static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
     {
-        uph_plugin_list_text_cell(info->name.data, LEAF_SIZE_GROW, naui_theme_color("uph_ui_text_color"));
-        uph_plugin_list_text_cell(info->vendor.data, LEAF_SIZE_GROW, uph_plugin_list_muted_color());
+        uph_plugin_list_text_cell(info->name.data, LEAF_SIZE_GROW, uph_state.colors.ui_text);
+        uph_plugin_list_text_cell(info->vendor.data, LEAF_SIZE_GROW, uph_state.colors.panel_text);
         uph_plugin_list_text_cell(info->type == UPH_PLUGIN_INSTRUMENT ? NAUI_TR("plugin.menu.instrument.short") : NAUI_TR("plugin.menu.effect.short"),
-            LEAF_SIZE_FIXED(NAUI_DPI(UPH_PLUGIN_LIST_TYPE_COLUMN)), uph_plugin_list_muted_color());
+            LEAF_SIZE_FIXED(NAUI_DPI(UPH_PLUGIN_LIST_TYPE_COLUMN)), uph_state.colors.panel_text);
         leaf({
             .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_PLUGIN_LIST_FORMAT_COLUMN)), .height = LEAF_SIZE_FIT },
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
@@ -368,7 +363,7 @@ static void uph_plugin_list_main_menu(void)
 {
     Uph_PluginListState *state = &_uph_plugin_list_state;
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const Naui_Color muted_color = uph_plugin_list_muted_color();
+    const Naui_Color muted_color = uph_state.colors.panel_text;
 
     leaf({
         .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
@@ -376,7 +371,7 @@ static void uph_plugin_list_main_menu(void)
         .border = {
             .width = 1,
             .sides = LEAF_SIDE_BOTTOM,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = uph_state.colors.ui_frame_border
         },
         .direction = LEAF_DIRECTION_HORIZONTAL
     })
@@ -439,9 +434,9 @@ static void uph_plugin_list_property(const char *label, const char *value)
         leaf({
             .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
             .clip_children = true
-        }) leaf_text(label, { .color = uph_plugin_list_muted_color(), .font_size = LEAF_SIZE_FIXED(font_size) });
+        }) leaf_text(label, { .color = uph_state.colors.panel_text, .font_size = LEAF_SIZE_FIXED(font_size) });
         if (value)
-            leaf_text(value, { .color = naui_theme_color("uph_ui_text_color"), .font_size = LEAF_SIZE_FIXED(font_size) });
+            leaf_text(value, { .color = uph_state.colors.ui_text, .font_size = LEAF_SIZE_FIXED(font_size) });
     }
 }
 
@@ -450,13 +445,13 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const bool hovered = uph_ui_widget_hovered(id);
 
-    Naui_Color color = naui_theme_color("uph_ui_selection_color");
+    Naui_Color color = uph_state.colors.ui_selection;
     if (hovered)
     {
         naui_set_cursor(NAUI_CURSOR_HAND);
         color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
-            uph_color_mix(color, naui_theme_color("uph_ui_frame_bg_color"), 0.25f) :
-            naui_theme_color("uph_ui_slider_fill_color");
+            uph_color_mix(color, uph_state.colors.ui_frame_bg, 0.25f) :
+            uph_state.colors.ui_slider_fill;
     }
 
     leaf({
@@ -469,7 +464,7 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
     })
     {
         leaf_text(label, {
-            .color = naui_theme_color("uph_plugin_list_text_color"),
+            .color = uph_state.colors.plugin_list_text,
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
         });
     }
@@ -490,9 +485,9 @@ static void uph_plugin_list_current_menu(void)
         .border = {
             .width = 1,
             .sides = LEAF_SIDE_LEFT,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = uph_state.colors.ui_frame_border
         },
-        .color = naui_theme_color("uph_plugin_list_bg_color"),
+        .color = uph_state.colors.plugin_list_bg,
         .child_gap = NAUI_DPI(padding.y * 2),
         .clip_children = true
     })
@@ -503,8 +498,8 @@ static void uph_plugin_list_current_menu(void)
             .clip_children = true
         })
         {
-            leaf_text(info->name.data, { .color = naui_theme_color("uph_ui_text_color"), .font_size = LEAF_SIZE_FIXED((int32_t)(font_size * 1.6f)) });
-            leaf_text(info->vendor.data, { .color = uph_plugin_list_muted_color(), .font_size = LEAF_SIZE_FIXED(font_size) });
+            leaf_text(info->name.data, { .color = uph_state.colors.ui_text, .font_size = LEAF_SIZE_FIXED((int32_t)(font_size * 1.6f)) });
+            leaf_text(info->vendor.data, { .color = uph_state.colors.panel_text, .font_size = LEAF_SIZE_FIXED(font_size) });
         }
         leaf({
             .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
@@ -512,7 +507,7 @@ static void uph_plugin_list_current_menu(void)
             .border = {
                 .width = 1,
                 .sides = LEAF_SIDE_TOP,
-                .color = naui_theme_color("uph_ui_frame_border")
+                .color = uph_state.colors.ui_frame_border
             },
             .child_gap = NAUI_DPI(padding.y)
         })
@@ -527,7 +522,7 @@ static void uph_plugin_list_current_menu(void)
                 leaf({
                     .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
                     .clip_children = true
-                }) leaf_text(NAUI_TR("plugin.menu.format"), { .color = uph_plugin_list_muted_color(), .font_size = LEAF_SIZE_FIXED(font_size) });
+                }) leaf_text(NAUI_TR("plugin.menu.format"), { .color = uph_state.colors.panel_text, .font_size = LEAF_SIZE_FIXED(font_size) });
                 uph_plugin_list_format_badge(info->format);
             }
         }
@@ -573,7 +568,7 @@ void uph_plugin_list_on_update(void)
             .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
             .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
         }) leaf_text(NAUI_TR("plugin.menu.none.detected"), {
-            .color = uph_plugin_list_muted_color(),
+            .color = uph_state.colors.panel_text,
             .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)),
             .wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
         });
@@ -585,7 +580,7 @@ void uph_plugin_list_on_update(void)
         .border = {
             .width = 1,
             .sides = LEAF_SIDE_TOP,
-            .color = naui_theme_color("uph_ui_frame_border")
+            .color = uph_state.colors.ui_frame_border
         },
         .direction = LEAF_DIRECTION_HORIZONTAL
     })

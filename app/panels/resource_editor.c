@@ -10,7 +10,7 @@ static void uph_resource_editor_on_attach(void)
 static void uph_resource_editor_on_detach(void)
 {
 	uph_midi_editor_reset_interaction();
-	uph_sample_editor_release();
+	uph_sample_editor_reset_interaction();
 	uph_automation_editor_reset_interaction();
 }
 
@@ -33,7 +33,7 @@ static void uph_midi_editor_render_empty(const char *message)
 	})
 	{
 		leaf_text(message, {
-			.color = naui_theme_color("uph_ui_text_color"),
+			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 		});
 	}

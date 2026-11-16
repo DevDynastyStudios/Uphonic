@@ -250,7 +250,7 @@ static const char *_uph_song_timeline_track_icon(Uph_ResourceType type)
 
 static Leaf_Color _uph_song_timeline_header_color(const Uph_Track *track)
 {
-	const Leaf_Color base = naui_theme_color("uph_song_timeline_header_color");
+	const Leaf_Color base = uph_state.colors.song_timeline_header;
 	const bool selected = _uph_song_timeline_track_selected(track);
 
 	const Uph_Track *tint = track->type == UPH_RESOURCE_GROUP ? track : track->parent;
@@ -260,7 +260,7 @@ static Leaf_Color _uph_song_timeline_header_color(const Uph_Track *track)
 	if (tint)
 		return uph_color_mix(base, uph_resources_track_color(tint->color_index), selected ? 0.22f : 0.09f);
 
-	return selected ? naui_theme_color("uph_song_timeline_header_selected_color") : base;
+	return selected ? uph_state.colors.song_timeline_header_selected : base;
 }
 
 static Naui_Vec2 _uph_song_timeline_toggle_size(void)
@@ -277,12 +277,12 @@ static Naui_Vec2 _uph_song_timeline_icon_button_size(void)
 
 static bool _uph_song_timeline_icon_button(const char *icon, const char *id, const Uph_Track *track)
 {
-	return uph_ui_image_button_ex(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_icon_button_size(), naui_theme_color("uph_ui_text_color"), LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL);
+	return uph_ui_image_button_ex(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_icon_button_size(), uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL);
 }
 
 static bool _uph_song_timeline_toggle(const char *icon, const char *id, const Uph_Track *track, bool enabled)
 {
-	return uph_ui_image_toggle_button(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_toggle_size(), naui_theme_color("uph_ui_text_color"), enabled);
+	return uph_ui_image_toggle_button(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_toggle_size(), uph_state.colors.ui_text, enabled);
 }
 
 static void _uph_song_timeline_mute_toggle(Uph_Track *track)
@@ -332,7 +332,7 @@ static void _uph_song_timeline_render_color_strip(Uph_Track *track, Uph_UIMenuID
 static void _uph_song_timeline_render_track_name(Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	const Leaf_Color text_color = naui_theme_color("uph_ui_text_color");
+	const Leaf_Color text_color = uph_state.colors.ui_text;
 	const Leaf_ID name_id = leaf_id_indexed("uph_song_timeline_name", (uint64_t)track);
 	const Leaf_ID text_id = _uph_song_timeline_track_name_text_id(track);
 
@@ -389,7 +389,7 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 			leaf({
 				.image = naui_asset_image(icon),
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
-				.color = naui_theme_color("uph_ui_text_color")
+				.color = uph_state.colors.ui_text
 			});
 		}
 
@@ -487,7 +487,7 @@ static void _uph_song_timeline_render_automation_row(Uph_Track *track)
 				.clip_children = true
 			})
 			leaf_text(target_name, {
-				.color = naui_theme_color("uph_ui_text_disabled_color"),
+				.color = uph_state.colors.ui_text_disabled,
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(14))
 			});
 		}
@@ -512,9 +512,9 @@ static void _uph_song_timeline_render_meter(const Uph_Track *track)
 {
 	Uph_LevelMeterData meter_data = {
 		.track = uph_action_track_ref(track),
-		.low_color = naui_theme_color("uph_song_timeline_meter_low_color"),
-		.medium_color = naui_theme_color("uph_song_timeline_meter_medium_color"),
-		.high_color = naui_theme_color("uph_song_timeline_meter_high_color")
+		.low_color = uph_state.colors.song_timeline_meter_low,
+		.medium_color = uph_state.colors.song_timeline_meter_medium,
+		.high_color = uph_state.colors.song_timeline_meter_high
 	};
 	leaf({
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
@@ -522,14 +522,14 @@ static void _uph_song_timeline_render_meter(const Uph_Track *track)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_LEFT,
-			.color = naui_theme_color("uph_song_timeline_header_card_border_color")
+			.color = uph_state.colors.song_timeline_header_card_border
 		}
 	})
 	leaf({
 		.custom_draw = (Leaf_CustomDrawFn)uph_level_meter_draw,
 		.custom_draw_data = LEAF_DATA_SLICE(meter_data),
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TRACK_HEADER_METER_WIDTH)), .height = LEAF_SIZE_FULL },
-		.color = naui_theme_color("uph_ui_well_bg_color")
+		.color = uph_state.colors.ui_well_bg
 	});
 }
 
@@ -590,14 +590,14 @@ static void _uph_song_timeline_render_track_header(Uph_Track *track, float depth
 				.top = inset_top,
 				.bottom = inset_bottom
 			},
-			.color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG)
+			.color = uph_state.colors.panel_body_bg
 		})
 		leaf({
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 			.border = {
 				.width = uph_state.shared.record_track == track ? NAUI_DPI(2) : 1,
 				.sides = LEAF_SIDE_ALL,
-				.color = naui_theme_color(uph_state.shared.record_track == track ? "uph_song_timeline_last_track_border_color" : "uph_song_timeline_header_card_border_color")
+				.color = uph_state.shared.record_track == track ? uph_state.colors.song_timeline_last_track_border : uph_state.colors.song_timeline_header_card_border
 			},
 			.color = _uph_song_timeline_header_color(track),
 			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_TRACK_HEADER_CARD_ROUNDING), LEAF_CORNER_ALL),
@@ -727,16 +727,16 @@ void uph_song_timeline_render_track_plus(void)
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_ALL,
-			.color = naui_theme_color("uph_song_timeline_header_card_border_color")
+			.color = uph_state.colors.song_timeline_header_card_border
 		},
-		.color = naui_theme_color(hovered ? "uph_ui_frame_hovered_bg_color" : "uph_song_timeline_header_color"),
+		.color = hovered ? uph_state.colors.ui_frame_hovered_bg : uph_state.colors.song_timeline_header,
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(6), LEAF_CORNER_BL | LEAF_CORNER_BR)
 	})
 	leaf({
 		.image = naui_asset_image("uph_icon_plus"),
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(13)), .height = LEAF_SIZE_DERIVED },
-		.color = naui_theme_color("uph_ui_text_color"),
+		.color = uph_state.colors.ui_text,
 		.aspect_ratio = 1.0f
 	});
 }
@@ -1057,7 +1057,7 @@ static void _uph_song_timeline_render_drop_line(Uph_TrackDropTarget target)
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FIXED(target.row.width - indent), .height = LEAF_SIZE_FIXED(line_height) },
-		.color = naui_theme_color("uph_ui_slider_fill_color"),
+		.color = uph_state.colors.ui_slider_fill,
 		.floating = { .offset = { .x = target.row.x + indent, .y = line_y - line_height * 0.5f } },
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	});
@@ -1073,13 +1073,13 @@ static void _uph_song_timeline_render_drag_label(const Uph_Track *source, uint32
 
 	leaf({
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), NAUI_DPI(4)),
-		.color = naui_theme_color("uph_ui_dropdown_bg_color"),
+		.color = uph_state.colors.ui_dropdown_bg,
 		.floating = { .offset = { .x = mouse.x + NAUI_DPI(12), .y = mouse.y + NAUI_DPI(12) } },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	})
 	leaf_text(label, {
-		.color = naui_theme_color("uph_ui_text_color"),
+		.color = uph_state.colors.ui_text,
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});
 }
