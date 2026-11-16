@@ -462,6 +462,62 @@ static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool activ
 	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
+static float _uph_midi_editor_lane_reveal_eased(Uph_VelocityLane *lane)
+{
+	const float target = lane->visible ? 1.0f : 0.0f;
+	if (!naui_app_animations_enabled())
+		lane->reveal = target;
+	else if (lane->reveal < target)
+		lane->reveal = NAUI_MIN(lane->reveal + naui_delta_time() * NAUI_UI_ANIM_SPEED, target);
+	else
+		lane->reveal = NAUI_MAX(lane->reveal - naui_delta_time() * NAUI_UI_ANIM_SPEED, target);
+
+	return lane->visible ?
+		naui_ease_out_quint(lane->reveal) :
+		1.0f - naui_ease_out_quint(1.0f - lane->reveal);
+}
+
+static void _uph_midi_editor_render_bottom_lane(const Uph_MidiEditorState *editor, Leaf_ID lane_id, float reveal)
+{
+	if (reveal <= 0.0f)
+		return;
+
+	const int32_t full_height = (int32_t)uph_midi_velocity_lane_height(&editor->velocity_lane);
+
+	leaf({
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED((int32_t)((float)full_height * reveal)) },
+		.clip_children = true
+	})
+	{
+		leaf({
+			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(full_height) },
+			.child_gap = 1.0f,
+			.direction = LEAF_DIRECTION_HORIZONTAL
+		})
+		{
+			leaf({
+				.custom_draw = _uph_midi_editor_velocity_header_draw,
+				.size = { .width = LEAF_SIZE_FIXED(uph_piano_width(&editor->piano)), .height = LEAF_SIZE_FULL }
+			});
+			leaf({
+				.id = lane_id,
+				.custom_draw = _uph_midi_editor_velocity_draw,
+				.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
+			});
+		}
+
+		if (reveal < 1.0f)
+		{
+			leaf({
+				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(full_height) },
+				.color = uph_state.colors.midi_editor_toolbox_bg,
+				.transparency = reveal,
+				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+			});
+		}
+	}
+}
+
 static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID bar_id)
 {
 	Uph_VelocityLane *lane = &editor->velocity_lane;
@@ -492,7 +548,7 @@ static void _uph_midi_editor_render_tab_bar(Uph_MidiEditorState *editor, Leaf_ID
 		.padding = { .left = NAUI_DPI(6), .top = NAUI_DPI(4) },
 		.border = {
 			.width = handle_active ? 2 : 1,
-			.sides = lane->visible ? (LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM) : LEAF_SIDE_TOP,
+			.sides = lane->reveal > 0.0f ? (LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM) : LEAF_SIDE_TOP,
 			.color = border_color
 		},
 		.color = uph_state.colors.midi_editor_toolbox_bg,
@@ -549,6 +605,7 @@ void uph_midi_editor_update(void)
 	const Leaf_ID piano_id = leaf_id("uph_midi_editor_piano");
 	const Leaf_ID velocity_id = leaf_id("uph_midi_editor_velocity");
 	const Leaf_ID splitter_id = leaf_id("uph_midi_editor_velocity_tab_bar");
+	const Leaf_ID area_id = leaf_id("uph_midi_editor_area");
 
 	state->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	state->panel_focused = naui_panel_focused() == naui_panel_current();
@@ -560,6 +617,7 @@ void uph_midi_editor_update(void)
 	state->velocity_lane.hovered = bottom_lane_hovered && state->lane_tab == UPH_MIDI_LANE_TAB_VELOCITY;
 	state->pedal_lane.hovered = bottom_lane_hovered && state->lane_tab == UPH_MIDI_LANE_TAB_PEDAL;
 	state->lanes_bounding_box = leaf_get_bounding_box(lanes_id);
+	state->velocity_lane.area_height = leaf_get_bounding_box(area_id).height;
 
 	if (state->note_input.marquee.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
 		state->note_input.marquee.active = false;
@@ -578,6 +636,7 @@ void uph_midi_editor_update(void)
 	uph_midi_toolbar_render(state);
 
 	leaf({
+		.id = area_id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW }
 	})
 	{
@@ -602,31 +661,13 @@ void uph_midi_editor_update(void)
 			});
 		}
 
+		const float lane_reveal = _uph_midi_editor_lane_reveal_eased(&state->velocity_lane);
 		_uph_midi_editor_render_tab_bar(state, splitter_id);
 
 		if (state->velocity_lane.splitter_hovered || state->velocity_lane.resizing)
 			state->lanes_hovered = false;
 
-		if (state->velocity_lane.visible)
-		{
-			leaf({
-				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(state->velocity_lane.height)) },
-				.child_gap = 1.0f,
-				.direction = LEAF_DIRECTION_HORIZONTAL,
-				.clip_children = true
-			})
-			{
-				leaf({
-					.custom_draw = _uph_midi_editor_velocity_header_draw,
-					.size = { .width = LEAF_SIZE_FIXED(uph_piano_width(&state->piano)), .height = LEAF_SIZE_FULL }
-				});
-				leaf({
-					.id = velocity_id,
-					.custom_draw = _uph_midi_editor_velocity_draw,
-					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
-				});
-			}
-		}
+		_uph_midi_editor_render_bottom_lane(state, velocity_id, lane_reveal);
 
 		leaf({
 			.custom_draw = _uph_midi_editor_playhead_overlay_draw,

@@ -85,9 +85,11 @@ Uph_VelocityDragState;
 typedef struct
 {
 	Uph_VelocityDragState drag;
-	float height;
+	float height_ratio;
+	float area_height;
+	float reveal;
 	float resize_start_mouse_y;
-	float resize_start_height;
+	float resize_start_ratio;
 	int32_t hovered_note;
 	bool resizing;
 	bool visible;

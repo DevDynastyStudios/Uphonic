@@ -1,10 +1,18 @@
 #define UPH_MIDI_EDITOR_DEFAULT_NOTE_VELOCITY 100
-#define UPH_MIDI_EDITOR_VELOCITY_LANE_HEIGHT 110
+#define UPH_MIDI_EDITOR_VELOCITY_LANE_RATIO 0.25f
+#define UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_RATIO 0.7f
 #define UPH_MIDI_EDITOR_VELOCITY_LANE_MIN_HEIGHT 48
-#define UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_HEIGHT 400
 #define UPH_MIDI_EDITOR_VELOCITY_HANDLE_RADIUS 4
 #define UPH_MIDI_EDITOR_VELOCITY_PADDING 6
 #define UPH_MIDI_EDITOR_VELOCITY_MIN 1
+
+#define UPH_MIDI_EDITOR_VELOCITY_HEADER_FONT_SIZE 11
+#define UPH_MIDI_EDITOR_VELOCITY_HEADER_TICK_WIDTH 4
+#define UPH_MIDI_EDITOR_VELOCITY_HEADER_TEXT_MIX 0.45f
+#define UPH_MIDI_EDITOR_VELOCITY_COLUMN_ALPHA 22
+#define UPH_MIDI_EDITOR_VELOCITY_COLUMN_ACTIVE_ALPHA 40
+
+static const float _uph_velocity_guides[] = { 32.0f, 64.0f, 96.0f, 127.0f };
 
 static float _uph_velocity_usable_height(Leaf_BoundingBox box)
 {
@@ -36,9 +44,20 @@ static float _uph_velocity_hit_radius(void)
 
 void uph_midi_velocity_init(Uph_VelocityLane *lane)
 {
-	lane->height = UPH_MIDI_EDITOR_VELOCITY_LANE_HEIGHT;
+	lane->height_ratio = UPH_MIDI_EDITOR_VELOCITY_LANE_RATIO;
 	lane->hovered_note = -1;
 	lane->visible = false;
+}
+
+static inline float _uph_velocity_lane_min_ratio(const Uph_VelocityLane *lane)
+{
+	return fminf((float)NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_LANE_MIN_HEIGHT) / fmaxf(lane->area_height, 1.0f), UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_RATIO);
+}
+
+float uph_midi_velocity_lane_height(const Uph_VelocityLane *lane)
+{
+	const float ratio = NAUI_CLAMP(lane->height_ratio, _uph_velocity_lane_min_ratio(lane), UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_RATIO);
+	return ratio * lane->area_height;
 }
 
 void uph_midi_velocity_cancel_drag(Uph_VelocityLane *lane)
@@ -61,7 +80,7 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorState *editor, bool handle_
 	{
 		lane->resizing = true;
 		lane->resize_start_mouse_y = (float)naui_mouse_y();
-		lane->resize_start_height = lane->height;
+		lane->resize_start_ratio = uph_midi_velocity_lane_height(lane) / fmaxf(lane->area_height, 1.0f);
 	}
 
 	if (lane->splitter_hovered || lane->resizing)
@@ -70,8 +89,8 @@ void uph_midi_velocity_update_splitter(Uph_MidiEditorState *editor, bool handle_
 	if (!lane->resizing)
 		return;
 
-	const float delta = (lane->resize_start_mouse_y - (float)naui_mouse_y()) / NAUI_DPI(1);
-	lane->height = NAUI_CLAMP(lane->resize_start_height + delta, UPH_MIDI_EDITOR_VELOCITY_LANE_MIN_HEIGHT, UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_HEIGHT);
+	const float delta = (lane->resize_start_mouse_y - (float)naui_mouse_y()) / fmaxf(lane->area_height, 1.0f);
+	lane->height_ratio = NAUI_CLAMP(lane->resize_start_ratio + delta, _uph_velocity_lane_min_ratio(lane), UPH_MIDI_EDITOR_VELOCITY_LANE_MAX_RATIO);
 
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 		lane->resizing = false;
@@ -294,9 +313,10 @@ void uph_midi_velocity_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box,
 
 void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 {
-	const int32_t small_font_size = NAUI_DPI(10);
-	const int32_t padding = NAUI_DPI(6);
-	const Leaf_Color dim_color = uph_state.colors.ui_text_disabled;
+	const int32_t small_font_size = NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HEADER_FONT_SIZE);
+	const int32_t tick_width = NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_HEADER_TICK_WIDTH);
+	const int32_t padding = NAUI_DPI(6) + tick_width;
+	const Leaf_Color dim_color = uph_color_mix(uph_state.colors.ui_text, uph_state.colors.ui_text_disabled, UPH_MIDI_EDITOR_VELOCITY_HEADER_TEXT_MIX);
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.midi_editor_toolbox_bg, 0.0f, NAUI_CORNER_NONE);
 
@@ -310,6 +330,12 @@ void uph_midi_velocity_render_header(Leaf_BoundingBox box)
 		const float y = NAUI_CLAMP(_uph_velocity_to_y(box, (float)marks[i]) - size.y * 0.5f, box.y, box.y + box.height - size.y);
 
 		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y }, label, small_font_size, dim_color);
+	}
+
+	for (uint32_t i = 0; i < (uint32_t)(sizeof(_uph_velocity_guides) / sizeof(_uph_velocity_guides[0])); i++)
+	{
+		const float y = _uph_velocity_to_y(box, _uph_velocity_guides[i]);
+		naui_fill_rect((Naui_Vec2) { box.x + box.width - tick_width, y }, (Naui_Vec2) { tick_width, 1.0f }, uph_state.colors.ui_text_disabled, 0.0f, NAUI_CORNER_NONE);
 	}
 	naui_pop_clip_rect();
 }
@@ -326,7 +352,10 @@ static void _uph_velocity_render_note(const Uph_MidiEditorState *editor, Leaf_Bo
 	const Leaf_Color color = note->selected ? LEAF_COLOR_WHITE : uph_midi_view_velocity_color(base_color, note->velocity);
 	Leaf_Color bar_color = color;
 	bar_color.a = 70;
+	Leaf_Color column_color = color;
+	column_color.a = note->selected || hovered ? UPH_MIDI_EDITOR_VELOCITY_COLUMN_ACTIVE_ALPHA : UPH_MIDI_EDITOR_VELOCITY_COLUMN_ALPHA;
 
+	naui_fill_rect((Naui_Vec2) { x, y }, (Naui_Vec2) { width, box.y + box.height - y }, column_color, 0.0f, NAUI_CORNER_NONE);
 	naui_fill_rect((Naui_Vec2) { x, y - NAUI_DPI(1) }, (Naui_Vec2) { width, NAUI_DPI(2) }, bar_color, 0.0f, NAUI_CORNER_NONE);
 	naui_draw_line((Naui_Vec2) { x, box.y + box.height }, (Naui_Vec2) { x, y }, color, NAUI_DPI(1.5f));
 	naui_fill_rect((Naui_Vec2) { x - radius, y - radius }, (Naui_Vec2) { radius * 2.0f, radius * 2.0f }, color, radius, LEAF_CORNER_ALL);
@@ -373,10 +402,9 @@ void uph_midi_velocity_render(const Uph_MidiEditorState *editor, Leaf_BoundingBo
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.midi_editor_scale_lane, 0.0f, NAUI_CORNER_NONE);
 	uph_midi_grid_render_beats(box, &editor->view, editor->snap_resolution);
 
-	static const float guides[] = { 32.0f, 64.0f, 96.0f, 127.0f };
-	for (uint32_t i = 0; i < (uint32_t)(sizeof(guides) / sizeof(guides[0])); i++)
+	for (uint32_t i = 0; i < (uint32_t)(sizeof(_uph_velocity_guides) / sizeof(_uph_velocity_guides[0])); i++)
 	{
-		const float y = _uph_velocity_to_y(box, guides[i]);
+		const float y = _uph_velocity_to_y(box, _uph_velocity_guides[i]);
 		naui_draw_line((Naui_Vec2) { box.x, y }, (Naui_Vec2) { box.x + box.width, y }, guide_color, 1.0f);
 	}
 

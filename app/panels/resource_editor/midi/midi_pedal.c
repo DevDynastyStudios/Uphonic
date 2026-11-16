@@ -1,4 +1,12 @@
 #define UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS 4
+#define UPH_MIDI_EDITOR_PEDAL_ROW_HEIGHT 24
+#define UPH_MIDI_EDITOR_PEDAL_ROW_MIN_HEIGHT 14
+#define UPH_MIDI_EDITOR_PEDAL_ROW_GAP 2
+#define UPH_MIDI_EDITOR_PEDAL_ROW_MARGIN 4
+#define UPH_MIDI_EDITOR_PEDAL_ROW_TEXT_INSET 10
+#define UPH_MIDI_EDITOR_PEDAL_ROW_ACCENT_WIDTH 3
+#define UPH_MIDI_EDITOR_PEDAL_ROW_FONT_SIZE 13
+#define UPH_MIDI_EDITOR_PEDAL_ROW_IDLE_TEXT_MIX 0.45f
 
 static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "Sustain", "Sostenuto", "Soft" };
 
@@ -240,28 +248,37 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 
 void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
-	const int32_t font_size = NAUI_DPI(10);
-	const int32_t padding = NAUI_DPI(6);
-	const int32_t row_height = NAUI_DPI(15);
+	const float margin = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_MARGIN);
+	const float gap = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_GAP);
+	const float fitted_height = (box.height - margin * 2.0f - gap * (float)(UPH_MIDI_PEDAL_COUNT - 1)) / (float)UPH_MIDI_PEDAL_COUNT;
+	const float row_height = NAUI_CLAMP(fitted_height, (float)NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_MIN_HEIGHT), (float)NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_HEIGHT));
+	const int32_t font_size = (int32_t)fminf((float)NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_FONT_SIZE), row_height - NAUI_DPI(2));
+	const float rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
+	const Naui_Vec2 row_size = { box.width - margin * 2.0f, row_height };
+	const Leaf_Color idle_text_color = uph_color_mix(uph_state.colors.ui_text, uph_state.colors.ui_text_disabled, UPH_MIDI_EDITOR_PEDAL_ROW_IDLE_TEXT_MIX);
 
 	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.midi_editor_toolbox_bg, 0.0f, NAUI_CORNER_NONE);
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 	for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
 	{
-		const float y = box.y + padding * 0.5f + row_height * (float)type;
+		const float y = box.y + margin + (row_height + gap) * (float)type;
+		const Naui_Vec2 row_position = { box.x + margin, y };
 		const bool active = editor->pedal_lane.type == type;
 		const bool hovered = editor->panel_hovered && !editor->pedal_lane.drag.active
 			&& mouse_x >= box.x && mouse_x < box.x + box.width && mouse_y >= y && mouse_y < y + row_height;
 
 		if (active || hovered)
-			naui_fill_rect((Naui_Vec2) { box.x + NAUI_DPI(3), y }, (Naui_Vec2) { box.width - NAUI_DPI(6), row_height }, active ? uph_state.colors.ui_frame_pressed_bg : uph_state.colors.ui_frame_hovered_bg, NAUI_DPI(3), LEAF_CORNER_ALL);
+			naui_fill_rect(row_position, row_size, active ? uph_state.colors.ui_frame_pressed_bg : uph_state.colors.ui_frame_hovered_bg, rounding, LEAF_CORNER_ALL);
+
+		if (active)
+			naui_fill_rect(row_position, (Naui_Vec2) { NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_ACCENT_WIDTH), row_height }, uph_midi_view_note_color(), rounding, NAUI_CORNER_TL | NAUI_CORNER_BL);
 
 		const char *label = _uph_pedal_labels[type];
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
-		naui_draw_text((Naui_Vec2) { box.x + box.width - size.x - padding, y + (row_height - size.y) * 0.5f }, label, font_size, active || hovered ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled);
+		naui_draw_text((Naui_Vec2) { row_position.x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_TEXT_INSET), y + (row_height - size.y) * 0.5f }, label, font_size, active || hovered ? uph_state.colors.ui_text : idle_text_color);
 
 		if (hovered)
 		{
