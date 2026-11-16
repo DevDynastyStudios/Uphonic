@@ -115,6 +115,12 @@ typedef struct Uph_KeybindSettings
 	Naui_Keybind deselect;
 	Naui_Keybind duplicate;
 	Naui_Keybind quantize;
+	Naui_Keybind legato;
+	Naui_Keybind glue;
+	Naui_Keybind chop;
+	Naui_Keybind flip_horizontal;
+	Naui_Keybind flip_vertical;
+	Naui_Keybind strum;
 	Naui_Keybind move_up;
 	Naui_Keybind move_down;
 	Naui_Keybind octave_up;

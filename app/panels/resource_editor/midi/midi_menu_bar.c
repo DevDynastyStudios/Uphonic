@@ -58,12 +58,33 @@ static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern
 		uph_note_delete_selected(pattern_index);
 }
 
-static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor)
+static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.tools"), leaf_id("uph_midi_menu_tools"));
+	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
 
-	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.quantize"), leaf_id("uph_midi_menu_quantize"), uph_state.settings.keybinds.quantize))
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.quantize"), leaf_id("uph_midi_menu_quantize"), keybinds->quantize))
 		uph_midi_editor_quantize(editor);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.legato"), leaf_id("uph_midi_menu_legato"), keybinds->legato) && pattern)
+		uph_note_legato(pattern_index);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.glue"), leaf_id("uph_midi_menu_glue"), keybinds->glue) && pattern)
+		uph_note_glue(pattern_index);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.chop"), leaf_id("uph_midi_menu_chop"), keybinds->chop) && pattern)
+		uph_note_chop(pattern_index, division);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.flip_horizontal"), leaf_id("uph_midi_menu_flip_horizontal"), keybinds->flip_horizontal) && pattern)
+		uph_note_flip(pattern_index, false);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.flip_vertical"), leaf_id("uph_midi_menu_flip_vertical"), keybinds->flip_vertical) && pattern)
+		uph_note_flip(pattern_index, true);
+
+	if (uph_ui_menu_shortcut_item(menu, NAUI_TR("midi.tools.strum"), leaf_id("uph_midi_menu_strum"), keybinds->strum) && pattern)
+		uph_note_strum(pattern_index, division);
 }
 
 static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
@@ -133,7 +154,7 @@ void uph_midi_menu_bar_render(Uph_MidiEditorState *editor)
 	})
 	{
 		_uph_midi_menu_bar_edit(editor, pattern);
-		_uph_midi_menu_bar_tools(editor);
+		_uph_midi_menu_bar_tools(editor, pattern);
 		_uph_midi_menu_bar_scale(editor);
 		_uph_midi_menu_bar_view(editor);
 		_uph_midi_menu_bar_render_scale_label(editor);

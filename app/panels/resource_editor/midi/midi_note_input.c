@@ -19,6 +19,8 @@ typedef struct
 	uint8_t initial_key_number;
 	int32_t initial_drag_key_offset;
 	uint32_t note_index;
+	uint32_t clone_start;
+	uint32_t clone_count;
 	Uph_ResourceIndex pattern_index;
 	Naui_List(Uph_NoteSnapshot) group_notes;
 	Naui_List(Uph_ActionBlockSnapshot) tail_blocks;
@@ -208,9 +210,63 @@ static bool _uph_note_input_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float lef
 
 #pragma region Note Drag Actions
 
+static void _uph_note_input_discard_clones(Uph_DraggingNoteState *drag)
+{
+	Uph_MidiPattern *pattern = uph_note_pattern(drag->pattern_index);
+	if (pattern && drag->clone_count > 0 && (uint32_t)naui_list_len(pattern->notes) == drag->clone_start + drag->clone_count)
+	{
+		for (uint32_t i = 0; i < drag->clone_count; i++)
+			naui_list_pop(pattern->notes);
+
+		uph_state.shared.current_pattern_updated = true;
+	}
+
+	drag->clone_count = 0;
+}
+
+static void _uph_note_input_begin_clones(Uph_DraggingNoteState *drag, Uph_MidiPattern *pattern)
+{
+	Uph_MidiNote grabbed = pattern->notes[drag->note_index];
+	grabbed.selected = false;
+
+	drag->clone_start = (uint32_t)naui_list_len(pattern->notes);
+	if (!drag->group)
+		naui_list_push(pattern->notes, grabbed);
+
+	for (uint32_t i = 0; drag->group && i < (uint32_t)naui_list_len(drag->group_notes); i++)
+	{
+		Uph_MidiNote clone = drag->group_notes[i].note;
+		clone.selected = false;
+		naui_list_push(pattern->notes, clone);
+	}
+
+	drag->clone_count = (uint32_t)naui_list_len(pattern->notes) - drag->clone_start;
+}
+
+static void _uph_note_input_commit_clones(Uph_DraggingNoteState *drag, const Uph_MidiPattern *pattern)
+{
+	for (uint32_t i = 0; i < drag->clone_count; i++)
+	{
+		const uint32_t index = drag->clone_start + i;
+		if (index >= (uint32_t)naui_list_len(pattern->notes))
+			break;
+
+		Uph_ActionNoteCreate data = {
+			.pattern_index = drag->pattern_index,
+			.note_index = index,
+			.note = pattern->notes[index],
+			.applied_live = true
+		};
+		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
+	}
+
+	drag->clone_count = 0;
+}
+
 void uph_midi_note_input_cancel_drag(Uph_MidiEditorState *editor)
 {
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
+	_uph_note_input_discard_clones(drag);
 	naui_list_free(drag->group_notes);
 	drag->group_notes = NULL;
 	naui_list_free(drag->tail_blocks);
@@ -285,6 +341,9 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorState *editor, Uph_MidiPatt
 	input->last_note_length = note->length_beats;
 	input->last_note_velocity = note->velocity;
 
+	if (mode == UPH_NOTE_INTERACTION_MOVE && !drag->select_tool && uph_ui_shift_down())
+		_uph_note_input_begin_clones(drag, pattern);
+
 	uph_state.shared.current_pattern_updated = true;
 }
 
@@ -346,10 +405,17 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	const char *transform_action = drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTE_MOVE : UPH_ACTION_MIDI_NOTE_RESIZE;
 
+	if (!drag->moved)
+		_uph_note_input_discard_clones(drag);
+
+	const bool cloning = drag->clone_count > 0;
 	const bool stretched = uph_pattern_stretch_tail_blocks(drag->pattern_index, drag->tail_blocks);
-	const bool tail_group = stretched && !drag->group;
+	const bool tail_group = (stretched || cloning) && !drag->group;
 	if (tail_group)
-		naui_action_group_start(drag->creating ? UPH_ACTION_MIDI_NOTE_CREATE : transform_action);
+	{
+		naui_action_group_start(cloning ? UPH_ACTION_MIDI_NOTES_CLONE_GROUP : drag->creating ? UPH_ACTION_MIDI_NOTE_CREATE : transform_action);
+		_uph_note_input_commit_clones(drag, pattern);
+	}
 
 	if (drag->creating)
 	{
@@ -366,8 +432,9 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 	}
 	else if (drag->group)
 	{
-		bool changed = false;
-		naui_action_group_start(drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTES_MOVE_GROUP : UPH_ACTION_MIDI_NOTES_RESIZE_GROUP);
+		bool changed = cloning;
+		naui_action_group_start(cloning ? UPH_ACTION_MIDI_NOTES_CLONE_GROUP : drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTES_MOVE_GROUP : UPH_ACTION_MIDI_NOTES_RESIZE_GROUP);
+		_uph_note_input_commit_clones(drag, pattern);
 
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_notes); i++)
 		{
@@ -782,7 +849,7 @@ void uph_midi_note_input_update(Uph_MidiEditorState *editor, Leaf_BoundingBox bo
 	_uph_note_input_update_marquee(editor, box, pattern);
 }
 
-void uph_midi_editor_quantize(Uph_MidiEditorState *editor)
+void uph_midi_editor_quantize(const Uph_MidiEditorState *editor)
 {
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_PATTERN)
 		return;
@@ -837,6 +904,33 @@ static void _uph_note_input_update_clipboard_keys(const Uph_MidiEditorState *edi
 		uph_midi_editor_paste(editor);
 }
 
+static void _uph_note_input_update_note_tool_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
+{
+	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
+	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
+
+	if (naui_keybind_pressed(keybinds->quantize))
+		uph_midi_editor_quantize(editor);
+
+	else if (naui_keybind_pressed(keybinds->legato))
+		uph_note_legato(pattern_index);
+
+	else if (naui_keybind_pressed(keybinds->glue))
+		uph_note_glue(pattern_index);
+
+	else if (naui_keybind_pressed(keybinds->chop))
+		uph_note_chop(pattern_index, division);
+
+	else if (naui_keybind_pressed(keybinds->flip_horizontal))
+		uph_note_flip(pattern_index, false);
+
+	else if (naui_keybind_pressed(keybinds->flip_vertical))
+		uph_note_flip(pattern_index, true);
+
+	else if (naui_keybind_pressed(keybinds->strum))
+		uph_note_strum(pattern_index, division);
+}
+
 static void _uph_note_input_update_tool_keys(Uph_MidiEditorState *editor)
 {
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
@@ -873,9 +967,6 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 	else if (naui_keybind_pressed(keybinds->duplicate))
 		uph_note_duplicate_selected(uph_state.shared.selected_resource.index);
 
-	else if (naui_keybind_pressed(keybinds->quantize))
-		uph_midi_editor_quantize(editor);
-
 	else if (naui_keybind_pressed(keybinds->deselect))
 		uph_note_select_all(pattern, false);
 
@@ -885,5 +976,6 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
 	_uph_note_input_update_move_keys(editor, pattern_index);
 	_uph_note_input_update_clipboard_keys(editor, pattern, pattern_index);
+	_uph_note_input_update_note_tool_keys(editor, pattern_index);
 	_uph_note_input_update_tool_keys(editor);
 }
