@@ -828,4 +828,24 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 
 	else if (naui_keybind_pressed(keybinds->deselect))
 		uph_note_select_all(pattern, false);
+
+	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
+	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
+	if (naui_keybind_pressed_repeat(keybinds->note_up))
+		uph_note_shift_selected(pattern_index, 0.0, 1);
+
+	else if (naui_keybind_pressed_repeat(keybinds->note_down))
+		uph_note_shift_selected(pattern_index, 0.0, -1);
+
+	else if (naui_keybind_pressed_repeat(keybinds->note_octave_up))
+		uph_note_shift_selected(pattern_index, 0.0, UPH_NOTES_PER_OCTAVE);
+
+	else if (naui_keybind_pressed_repeat(keybinds->note_octave_down))
+		uph_note_shift_selected(pattern_index, 0.0, -UPH_NOTES_PER_OCTAVE);
+
+	else if (naui_keybind_pressed_repeat(keybinds->note_nudge_left))
+		uph_note_shift_selected(pattern_index, -step, 0);
+
+	else if (naui_keybind_pressed_repeat(keybinds->note_nudge_right))
+		uph_note_shift_selected(pattern_index, step, 0);
 }

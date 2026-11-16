@@ -49,6 +49,12 @@ static const Uph_KeybindInfo uph_keybind_info_table[] =
 	{ "deselect", "settings.shortcuts.deselect", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI | UPH_KB_AUTO, &uph_state.settings.keybinds.deselect, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_ESCAPE) },
 	{ "duplicate", "settings.shortcuts.duplicate", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI, &uph_state.settings.keybinds.duplicate, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_D) },
 	{ "quantize", "settings.shortcuts.quantize", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.quantize, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_Q) },
+	{ "note_up", "settings.shortcuts.note_up", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_up, NAUI_KEYBIND_INIT(NAUI_MOD_SHIFT, NAUI_KEY_UP) },
+	{ "note_down", "settings.shortcuts.note_down", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_down, NAUI_KEYBIND_INIT(NAUI_MOD_SHIFT, NAUI_KEY_DOWN) },
+	{ "note_octave_up", "settings.shortcuts.note_octave_up", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_octave_up, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_UP) },
+	{ "note_octave_down", "settings.shortcuts.note_octave_down", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_octave_down, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_DOWN) },
+	{ "note_nudge_left", "settings.shortcuts.note_nudge_left", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_nudge_left, NAUI_KEYBIND_INIT(NAUI_MOD_SHIFT, NAUI_KEY_LEFT) },
+	{ "note_nudge_right", "settings.shortcuts.note_nudge_right", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.note_nudge_right, NAUI_KEYBIND_INIT(NAUI_MOD_SHIFT, NAUI_KEY_RIGHT) },
 
 	{ "automation_nudge_up", "settings.shortcuts.automation_nudge_up", UPH_KEYBIND_GROUP_AUTOMATION, UPH_KB_AUTO, &uph_state.settings.keybinds.automation_nudge_up, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_UP) },
 	{ "automation_nudge_down", "settings.shortcuts.automation_nudge_down", UPH_KEYBIND_GROUP_AUTOMATION, UPH_KB_AUTO, &uph_state.settings.keybinds.automation_nudge_down, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_DOWN) },

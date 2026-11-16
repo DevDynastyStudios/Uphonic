@@ -115,6 +115,12 @@ typedef struct Uph_KeybindSettings
 	Naui_Keybind deselect;
 	Naui_Keybind duplicate;
 	Naui_Keybind quantize;
+	Naui_Keybind note_up;
+	Naui_Keybind note_down;
+	Naui_Keybind note_octave_up;
+	Naui_Keybind note_octave_down;
+	Naui_Keybind note_nudge_left;
+	Naui_Keybind note_nudge_right;
 
 	Naui_Keybind automation_nudge_up;
 	Naui_Keybind automation_nudge_down;
