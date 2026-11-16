@@ -125,6 +125,9 @@
 	"midi.view.velocity_lane": "ベロシティレーン",
 	"midi.view.reset_scroll": "スクロール位置をリセット",
 
+	"mixer.add_effect": "＋エフェクトを追加",
+	"mixer.no_effects": "エフェクトなし",
+	"mixer.selected": "${0} エフェクト",
 	"mixer.title": "ミキサー",
 
 	"pattern.default.name": "無題のパターン",
@@ -201,6 +204,20 @@
 
 	"sample.default.name": "無題のサンプル",
 	"sample.recording.default.name": "無題の録音",
+
+	"scales.blues": "ブルース",
+	"scales.chromatic": "クロマチック",
+	"scales.dorian": "ドリアン",
+	"scales.harmonic_minor": "ハーモニックマイナー",
+	"scales.locrian": "ロクリアン",
+	"scales.lydian": "リディアン",
+	"scales.major": "メジャー",
+	"scales.major_pentatonic": "メジャーペンタトニック",
+	"scales.melodic_minor": "メロディックマイナー",
+	"scales.minor": "マイナー",
+	"scales.minor_pentatonic": "マイナーペンタトニック",
+	"scales.mixolydian": "ミクソリディアン",
+	"scales.phrygian": "フリジアン",
 
 	"settings.audio.apply": "適用",
 	"settings.audio.asio_control_panel": "ASIO コントロールパネル",

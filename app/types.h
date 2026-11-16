@@ -507,6 +507,7 @@ Uph_SharedState;
 
 typedef struct
 {
+	Naui_String id;
 	Naui_String name;
 	uint16_t mask;
 	int32_t order;

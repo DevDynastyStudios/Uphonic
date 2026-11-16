@@ -1,10 +1,16 @@
 #define UPH_MIDI_MENU_BAR_HEIGHT 30
 
-uint32_t uph_midi_editor_find_scale(const char *name)
+static const char *_uph_midi_scale_display_name(const Uph_Scale *scale)
+{
+	const char *localized = NAUI_TR(scale->id.data);
+	return strcmp(localized, scale->id.data) == 0 ? scale->name.data : localized;
+}
+
+uint32_t uph_midi_editor_find_scale(const char *id)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.scales); i++)
 	{
-		if (naui_string_equals_cstr(uph_state.scales[i].name, name, true))
+		if (naui_string_equals_cstr(uph_state.scales[i].id, id, true))
 			return i;
 	}
 
@@ -61,7 +67,7 @@ static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.scales); i++)
 	{
-		if (uph_ui_menu_check_item(menu, uph_state.scales[i].name.data, leaf_id_indexed("uph_midi_menu_scale_item", i), editor->scale_index == i))
+		if (uph_ui_menu_check_item(menu, _uph_midi_scale_display_name(&uph_state.scales[i]), leaf_id_indexed("uph_midi_menu_scale_item", i), editor->scale_index == i))
 			uph_midi_editor_set_scale(editor, i, editor->scale_root);
 	}
 }
@@ -83,14 +89,19 @@ static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorState *edi
 		return;
 
 	const Uph_Scale *scale = &uph_state.scales[editor->scale_index];
-	const Naui_String label = scale->mask == UPH_SCALE_CHROMATIC_MASK ?
-		scale->name :
-		naui_string_format("%s %s", uph_note_pitch_class_name(editor->scale_root), scale->name.data);
+	const char *scale_name = _uph_midi_scale_display_name(scale);
+	Naui_String rooted_label = { 0 };
+	const char *label = scale_name;
+	if (scale->mask != UPH_SCALE_CHROMATIC_MASK)
+	{
+		rooted_label = naui_string_format("%s %s", uph_note_pitch_class_name(editor->scale_root), scale_name);
+		label = rooted_label.data;
+	}
 
 	leaf({
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 	});
-	leaf_text(label.data, {
+	leaf_text(label, {
 		.color = naui_theme_color("uph_ui_text_color"),
 		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
 	});

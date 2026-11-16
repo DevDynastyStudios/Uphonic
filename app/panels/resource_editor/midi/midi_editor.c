@@ -29,7 +29,7 @@ void uph_midi_editor_init(void)
 	uph_midi_pedal_cancel_drag(&state->pedal_lane);
 	memset(state, 0, sizeof(*state));
 	uph_note_map_init_default(&state->note_map);
-	uph_midi_editor_set_scale(state, uph_midi_editor_find_scale("Major"), 0);
+	uph_midi_editor_set_scale(state, uph_midi_editor_find_scale("scales.major"), 0);
 	uph_piano_init(&state->piano);
 	uph_midi_velocity_init(&state->velocity_lane);
 	uph_midi_pedal_init(&state->pedal_lane);

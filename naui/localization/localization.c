@@ -1,6 +1,7 @@
 #define NAUI_LOCALIZATION_NAME_SIZE 128
 #define NAUI_LOCALIZATION_FOLDER_NAME "Localization"
 #define NAUI_LOCALIZATION_EXTENSION ".lang"
+#define NAUI_LOCALIZATION_MAX_ARG_INDEX 100000
 
 typedef struct
 {
@@ -45,6 +46,61 @@ static void _naui_localization_install(Naui_Language* incoming)
 	_naui_localization_state.current_loaded = true;
 	memset(incoming, 0, sizeof(*incoming));
 }
+
+static char* _naui_localization_interpolate(const char* src, const char** args, int arg_count)
+{
+	const size_t src_len = strlen(src);
+	Naui_StringBuilder builder = NULL;
+	naui_string_builder_reserve(&builder, src_len);
+
+	size_t i = 0;
+	while (i < src_len)
+	{
+		if (src[i] == '{')
+		{
+			size_t end = i + 1;
+			size_t index = 0;
+			while (end < src_len && src[end] >= '0' && src[end] <= '9' && index < NAUI_LOCALIZATION_MAX_ARG_INDEX)
+			{
+				index = index * 10 + (size_t)(src[end] - '0');
+				end++;
+			}
+
+			if (end > i + 1 && end < src_len && src[end] == '}')
+			{
+				if (args && arg_count > 0 && index < (size_t)arg_count && args[index])
+				{
+					Naui_StringView value = { (char*)args[index], strlen(args[index]) };
+					naui_string_builder_append_view(&builder, value);
+				}
+				else
+				{
+					Naui_StringView placeholder = { (char*)(src + i), end - i + 1 };
+					naui_string_builder_append_view(&builder, placeholder);
+				}
+
+				i = end + 1;
+				continue;
+			}
+		}
+
+		naui_string_builder_append_char(&builder, src[i]);
+		i++;
+	}
+
+	const size_t final_len = (size_t)naui_string_builder_len(builder);
+	char* result = (char*)malloc(final_len + 1);
+	if (result)
+	{
+		if (final_len > 0)
+			memcpy(result, builder, final_len);
+
+		result[final_len] = '\0';
+	}
+
+	naui_string_builder_free(&builder);
+	return result;
+}
 #pragma endregion
 
 #pragma region Public API
@@ -53,9 +109,7 @@ bool naui_localization_load_file(const Naui_Path path, Naui_Language* out_langua
 	if (!out_language)
 		return false;
 
-	/* Callers often pass an uninitialized struct, anything a file leaves out (name, region, ...) must not hold garbage. */
 	memset(out_language, 0, sizeof(*out_language));
-
 	const Naui_Path lang_path = naui_path_normalize(path);
 	if (naui_path_is_empty(lang_path))
 		return false;
@@ -299,60 +353,7 @@ char* naui_localization_format(const Naui_Language* language, const char* key, c
 	if (!entry->is_interpolated)
 		return NULL;
 
-	const char* src = entry->value;
-	size_t src_len = strlen(src);
-	Naui_StringBuilder builder = NULL;
-	naui_string_builder_reserve(&builder, src_len);
-	size_t i = 0;
-	while (i < src_len)
-	{
-		if (src[i] == '{')
-		{
-			const char* close = strchr(src + i, '}');
-			if (close)
-			{
-				size_t name_len = (size_t)(close - (src + i + 1));
-				bool matched = false;
-
-				for (int a = 0; a < arg_count; a += 2)
-				{
-					const char* name = args[a];
-					if (name && strlen(name) == name_len && memcmp(name, src + i + 1, name_len) == 0)
-					{
-						Naui_StringView val_view = { (char*)args[a + 1], strlen(args[a + 1]) };
-						naui_string_builder_append_view(&builder, val_view);
-						matched = true;
-						break;
-					}
-				}
-
-				if (!matched)
-				{
-					Naui_StringView placeholder_view = { (char*)(src + i), (size_t)(close - src + 1) - i };
-					naui_string_builder_append_view(&builder, placeholder_view);
-				}
-
-				i = (size_t)(close - src) + 1;
-				continue;
-			}
-		}
-
-		naui_string_builder_append_char(&builder, src[i]);
-		i++;
-	}
-
-	size_t final_len = (size_t)naui_string_builder_len(builder);
-	char* result = (char*)malloc(final_len + 1);
-	if (result)
-	{
-		if (final_len > 0)
-			memcpy(result, builder, final_len);
-
-		result[final_len] = '\0';
-	}
-
-	naui_string_builder_free(&builder);
-	return result;
+	return _naui_localization_interpolate(entry->value, args, arg_count);
 }
 
 void naui_localization_free(Naui_Language* language)

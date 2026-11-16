@@ -125,6 +125,9 @@
 	"midi.view.velocity_lane": "Velocity Lane",
 	"midi.view.reset_scroll": "Reset Scroll",
 
+	"mixer.add_effect": "+ Add Effect",
+	"mixer.no_effects": "No Effects",
+	"mixer.selected": "${0} Effects",
 	"mixer.title": "Mixer",
 
 	"pattern.default.name": "Untitled Pattern",
@@ -201,6 +204,20 @@
 
 	"sample.default.name": "Untitled Sample",
 	"sample.recording.default.name": "Untitled Recording",
+
+	"scales.blues": "Blues",
+	"scales.chromatic": "Chromatic",
+	"scales.dorian": "Dorian",
+	"scales.harmonic_minor": "Harmonic Minor",
+	"scales.locrian": "Locrian",
+	"scales.lydian": "Lydian",
+	"scales.major": "Major",
+	"scales.major_pentatonic": "Major Pentatonic",
+	"scales.melodic_minor": "Melodic Minor",
+	"scales.minor": "Minor",
+	"scales.minor_pentatonic": "Minor Pentatonic",
+	"scales.mixolydian": "Mixolydian",
+	"scales.phrygian": "Phrygian",
 
 	"settings.audio.apply": "Apply",
 	"settings.audio.asio_control_panel": "ASIO Control Panel",

@@ -473,7 +473,16 @@ static void uph_mixer_render_effect_list(void)
 					.color = uph_resources_track_color(strip->color_index),
 					.rounding = LEAF_ROUNDING_FULL(LEAF_CORNER_ALL)
 				});
-				leaf_text(naui_string_format("%s Effects", strip->type == UPH_RESOURCE_MASTER ? NAUI_TR("master.track.title") : strip->name.data).data, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+
+				if (strip->type == UPH_RESOURCE_MASTER)
+					leaf_text(NAUI_TR("master.track.title"), { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+				else
+				{
+					#define _UPH_MIDI_SELECTED "mixer.selected"
+					char* selected_text = NAUI_TR_INTRP(_UPH_MIDI_SELECTED, strip->name.data);	// Optimize this in future
+					leaf_text(selected_text == NULL ? _UPH_MIDI_SELECTED : selected_text, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+					free(selected_text);
+				}
 			}
 		}
 
@@ -484,7 +493,7 @@ static void uph_mixer_render_effect_list(void)
 				.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 			})
 			{
-				leaf_text("No effects", { .color = text_disabled_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+				leaf_text(NAUI_TR("mixer.no_effects"), { .color = text_disabled_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 			}
 		}
 		else
@@ -517,7 +526,7 @@ static void uph_mixer_render_effect_list(void)
 			}
 		})
 		{
-			if (uph_mixer_effect_add_button("+ Add Effect", leaf_id("uph_effect_list_add_effect")))
+			if (uph_mixer_effect_add_button(NAUI_TR("mixer.add_effect"), leaf_id("uph_effect_list_add_effect")))
 			{
 				uph_state.shared.plugin_list_target = UPH_PLUGIN_LIST_TRACK_EFFECT;
 				uph_state.shared.current_plugin_list_track = strip;

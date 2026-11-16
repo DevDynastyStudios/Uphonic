@@ -1,4 +1,9 @@
+// Params: `const char* key`
+// Returns: `const char*`
 #define NAUI_TR(key) naui_localization_get(naui_localization_get_current(), key)
+// Params: `const char* key`, `(const char*)...`
+// Returns: `char*` or `NULL`
+#define NAUI_TR_INTRP(key, ...)naui_localization_format(naui_localization_get_current(), key, (const char*[]){__VA_ARGS__}, (int)(sizeof((const char*[]){__VA_ARGS__}) / sizeof(const char*)))
 
 typedef uint8_t Naui_TextDirection;
 enum

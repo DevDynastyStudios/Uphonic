@@ -1704,7 +1704,8 @@ static bool uph_io_load_scale(const Naui_Path path, Uph_Scale* scale)
 			scale->mask |= (uint16_t)(1u << (interval % 12));
 	}
 
-	scale->name = naui_view_to_string(naui_file_stem(&path));
+	scale->id = naui_view_to_string(naui_file_stem(&path));
+	scale->name = naui_string_from_cstr(scale->id.data);
 	uph_io_read_string(root, "name", &scale->name);
 
 	uph_io_read_int32(root, "order", &scale->order);
@@ -1737,7 +1738,7 @@ static bool uph_io_load_scales(Uph_State* state, const Naui_Path scales_dir)
 
 	const bool loaded = naui_list_len(state->scales) > 0;
 	if (!loaded)
-		naui_list_push(state->scales, ((Uph_Scale){ .name = naui_string_from_cstr("Chromatic"), .mask = UPH_SCALE_CHROMATIC_MASK }));
+		naui_list_push(state->scales, ((Uph_Scale){ .id = naui_string_from_cstr("scales.chromatic"), .name = naui_string_from_cstr("Chromatic"), .mask = UPH_SCALE_CHROMATIC_MASK }));
 
 	qsort(state->scales, naui_list_len(state->scales), sizeof(Uph_Scale), uph_io_scale_compare);
 	return loaded;
