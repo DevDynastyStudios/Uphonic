@@ -1,0 +1,206 @@
+#define UPH_ICONS(X) \
+	X(arrow_down,      "uph_icon_arrow_down") \
+	X(arrow_right,     "uph_icon_arrow_right") \
+	X(automation,      "uph_icon_automation") \
+	X(cut,             "uph_icon_cut") \
+	X(dots,            "uph_icon_dots") \
+	X(draw,            "uph_icon_draw") \
+	X(dropdown,        "uph_icon_dropdown") \
+	X(folder,          "uph_icon_folder") \
+	X(gear,            "uph_icon_gear") \
+	X(headphones,      "uph_icon_headphones") \
+	X(logo_small,      "uph_logo_small") \
+	X(loop,            "uph_icon_loop") \
+	X(metronome,       "uph_icon_metronome") \
+	X(mic,             "uph_icon_mic") \
+	X(mute,            "uph_icon_mute") \
+	X(pause,           "uph_icon_pause") \
+	X(piano,           "uph_icon_piano") \
+	X(play,            "uph_icon_play") \
+	X(playhead,        "uph_icon_playhead") \
+	X(plus,            "uph_icon_plus") \
+	X(reload,          "uph_icon_reload") \
+	X(reset,           "uph_icon_reset") \
+	X(select,          "uph_icon_select") \
+	X(solo,            "uph_icon_solo") \
+	X(stop,            "uph_icon_stop") \
+	X(treble_clef,     "uph_icon_treble-clef") \
+	X(wave,            "uph_icon_wave") \
+	X(window_close,    "naui_icon_close") \
+	X(window_maximize, "naui_icon_maximize") \
+	X(window_minimize, "naui_icon_minimize") \
+	X(zoom,            "uph_icon_zoom") \
+	X(zoom_in,         "uph_icon_zoom_in") \
+	X(zoom_out,        "uph_icon_zoom_out")
+
+typedef struct
+{
+#define X(field, name) Naui_Image *field;
+	UPH_ICONS(X)
+#undef X
+}
+Uph_Icons;
+
+#define UPH_THEME_COLORS(X) \
+	X(panel_body_bg,                      "naui_panel_body_bg_color") \
+	X(panel_title_bg,                     "naui_panel_title_bg_color") \
+	X(panel_title_text,                   "naui_panel_title_text_color") \
+	X(panel_text,                         "naui_panel_text_color") \
+	X(panel_tab_accent,                   "naui_panel_tab_accent_color") \
+	X(panel_button_hovered_bg,            "naui_panel_button_hovered_bg_color") \
+	X(panel_close_hovered_bg,             "naui_panel_close_hovered_bg_color") \
+	X(logo,                               "uph_logo_color") \
+	X(ui_dropdown_shadow,                 "uph_ui_dropdown_shadow_color") \
+	X(ui_dropdown_bg,                     "uph_ui_dropdown_bg_color") \
+	X(ui_scrollbar_bg,                    "uph_ui_scrollbar_bg_color") \
+	X(ui_scrollbar_handle,                "uph_ui_scrollbar_handle_color") \
+	X(ui_text,                            "uph_ui_text_color") \
+	X(ui_text_disabled,                   "uph_ui_text_disabled_color") \
+	X(ui_selection,                       "uph_ui_selection_color") \
+	X(ui_slider_fill,                     "uph_ui_slider_fill_color") \
+	X(ui_progress_bar,                    "uph_ui_progress_bar_color") \
+	X(ui_frame_bg,                        "uph_ui_frame_bg_color") \
+	X(ui_frame_secondary_bg,              "uph_ui_frame_secondary_bg_color") \
+	X(ui_frame_hovered_bg,                "uph_ui_frame_hovered_bg_color") \
+	X(ui_frame_pressed_bg,                "uph_ui_frame_pressed_bg_color") \
+	X(ui_frame_toggled_bg,                "uph_ui_frame_toggled_bg_color") \
+	X(ui_knob_ring,                       "uph_ui_knob_ring_color") \
+	X(ui_tinted_frame_bg,                 "uph_ui_tinted_frame_bg_color") \
+	X(ui_tinted_frame_hovered_bg,         "uph_ui_tinted_frame_hovered_bg_color") \
+	X(ui_tinted_frame_pressed_bg,         "uph_ui_tinted_frame_pressed_bg_color") \
+	X(ui_tinted_knob_track,               "uph_ui_tinted_knob_track_color") \
+	X(ui_tinted_frame_border,             "uph_ui_tinted_frame_border") \
+	X(ui_frame_border,                    "uph_ui_frame_border") \
+	X(ui_well_bg,                         "uph_ui_well_bg_color") \
+	X(song_timeline_border,               "uph_song_timeline_border_color") \
+	X(song_timeline_header,               "uph_song_timeline_header_color") \
+	X(song_timeline_header_selected,      "uph_song_timeline_header_selected_color") \
+	X(song_timeline_toolbox_bg,           "uph_song_timeline_toolbox_bg_color") \
+	X(song_timeline_toolbox_border,       "uph_song_timeline_toolbox_border_color") \
+	X(song_timeline_tool_icon,            "uph_song_timeline_tool_icon_color") \
+	X(song_timeline_play_icon,            "uph_song_timeline_play_icon_color") \
+	X(song_timeline_pause_icon,           "uph_song_timeline_pause_icon_color") \
+	X(song_timeline_stop_icon,            "uph_song_timeline_stop_icon_color") \
+	X(song_timeline_playhead,             "uph_song_timeline_playhead_color") \
+	X(song_timeline_selection_outline,    "uph_song_timeline_selection_outline_color") \
+	X(song_timeline_grid_bar,             "uph_song_timeline_grid_bar_color") \
+	X(song_timeline_grid_beat,            "uph_song_timeline_grid_beat_color") \
+	X(song_timeline_grid_subbeat,         "uph_song_timeline_grid_subbeat_color") \
+	X(song_timeline_ruler_bg,             "uph_song_timeline_ruler_bg_color") \
+	X(song_timeline_ruler_border,         "uph_song_timeline_ruler_border_color") \
+	X(song_timeline_ruler_grid_bar,       "uph_song_timeline_ruler_grid_bar_color") \
+	X(song_timeline_ruler_grid_beat,      "uph_song_timeline_ruler_grid_beat_color") \
+	X(song_timeline_ruler_grid_subbeat,   "uph_song_timeline_ruler_grid_subbeat_color") \
+	X(song_timeline_ruler_grid_text,      "uph_song_timeline_ruler_grid_text_color") \
+	X(song_timeline_row_bg1,              "uph_song_timeline_row_bg1_color") \
+	X(song_timeline_row_bg2,              "uph_song_timeline_row_bg2_color") \
+	X(song_timeline_row_border,           "uph_song_timeline_row_border_color") \
+	X(song_timeline_draw_ghost,           "uph_song_timeline_draw_ghost_color") \
+	X(song_timeline_draw_ghost_border,    "uph_song_timeline_draw_ghost_border_color") \
+	X(song_timeline_marquee,              "uph_song_timeline_marquee_color") \
+	X(song_timeline_marquee_border,       "uph_song_timeline_marquee_border_color") \
+	X(song_timeline_block_text,           "uph_song_timeline_block_text_color") \
+	X(song_timeline_meter_low,            "uph_song_timeline_meter_low_color") \
+	X(song_timeline_meter_medium,         "uph_song_timeline_meter_medium_color") \
+	X(song_timeline_meter_high,           "uph_song_timeline_meter_high_color") \
+	X(song_timeline_header_card_border,   "uph_song_timeline_header_card_border_color") \
+	X(song_timeline_last_track_border,    "uph_song_timeline_last_track_border_color") \
+	X(midi_editor_scale_lane,             "uph_midi_editor_scale_lane_color") \
+	X(midi_editor_off_scale_lane,         "uph_midi_editor_off_scale_lane_color") \
+	X(midi_editor_lane_border,            "uph_midi_editor_lane_border_color") \
+	X(midi_editor_loop_end_overlay,       "uph_midi_editor_loop_end_overlay_color") \
+	X(midi_editor_default_note,           "uph_midi_editor_default_note_color") \
+	X(piano_natural,                      "uph_piano_natural_color") \
+	X(piano_natural_pressed,              "uph_piano_natural_pressed_color") \
+	X(piano_sharp,                        "uph_piano_sharp_color") \
+	X(piano_sharp_gradient,               "uph_piano_sharp_gradient") \
+	X(piano_natural_border,               "uph_piano_natural_border_color") \
+	X(piano_sharp_border,                 "uph_piano_sharp_border_color") \
+	X(piano_sharp_shine,                  "uph_piano_sharp_shine_color") \
+	X(piano_label,                        "uph_piano_label_color") \
+	X(piano_sharp_label,                  "uph_piano_sharp_label_color") \
+	X(piano_sharp_pressed,                "uph_piano_sharp_pressed_color") \
+	X(piano_sharp_pressed_gradient,       "uph_piano_sharp_pressed_gradient") \
+	X(midi_editor_toolbox_bg,             "uph_midi_editor_toolbox_bg_color") \
+	X(midi_editor_toolbox_border,         "uph_midi_editor_toolbox_border_color") \
+	X(midi_editor_tool_icon,              "uph_midi_editor_tool_icon_color") \
+	X(midi_editor_play_icon,              "uph_midi_editor_play_icon_color") \
+	X(midi_editor_pause_icon,             "uph_midi_editor_pause_icon_color") \
+	X(midi_editor_stop_icon,              "uph_midi_editor_stop_icon_color") \
+	X(midi_editor_playhead,               "uph_midi_editor_playhead_color") \
+	X(midi_editor_selection_outline,      "uph_midi_editor_selection_outline_color") \
+	X(midi_editor_marquee,                "uph_midi_editor_marquee_color") \
+	X(midi_editor_marquee_border,         "uph_midi_editor_marquee_border_color") \
+	X(midi_editor_grid_bar,               "uph_midi_editor_grid_bar_color") \
+	X(midi_editor_grid_beat,              "uph_midi_editor_grid_beat_color") \
+	X(midi_editor_grid_subbeat,           "uph_midi_editor_grid_subbeat_color") \
+	X(midi_editor_ruler_bg,               "uph_midi_editor_ruler_bg_color") \
+	X(midi_editor_ruler_border,           "uph_midi_editor_ruler_border_color") \
+	X(midi_editor_ruler_grid_bar,         "uph_midi_editor_ruler_grid_bar_color") \
+	X(midi_editor_ruler_grid_beat,        "uph_midi_editor_ruler_grid_beat_color") \
+	X(midi_editor_ruler_grid_subbeat,     "uph_midi_editor_ruler_grid_subbeat_color") \
+	X(midi_editor_ruler_grid_text,        "uph_midi_editor_ruler_grid_text_color") \
+	X(sample_editor_toolbox_bg,           "uph_sample_editor_toolbox_bg_color") \
+	X(sample_editor_toolbox_border,       "uph_sample_editor_toolbox_border_color") \
+	X(sample_editor_toolbox_separator,    "uph_sample_editor_toolbox_separator_color") \
+	X(sample_editor_tool_icon,            "uph_sample_editor_tool_icon_color") \
+	X(sample_editor_play_icon,            "uph_sample_editor_play_icon_color") \
+	X(sample_editor_pause_icon,           "uph_sample_editor_pause_icon_color") \
+	X(sample_editor_stop_icon,            "uph_sample_editor_stop_icon_color") \
+	X(sample_editor_playhead,             "uph_sample_editor_playhead_color") \
+	X(sample_editor_selection_outline,    "uph_sample_editor_selection_outline_color") \
+	X(sample_editor_grid_bar,             "uph_sample_editor_grid_bar_color") \
+	X(sample_editor_grid_beat,            "uph_sample_editor_grid_beat_color") \
+	X(sample_editor_grid_subbeat,         "uph_sample_editor_grid_subbeat_color") \
+	X(sample_editor_ruler_bg,             "uph_sample_editor_ruler_bg_color") \
+	X(sample_editor_ruler_border,         "uph_sample_editor_ruler_border_color") \
+	X(sample_editor_ruler_grid_bar,       "uph_sample_editor_ruler_grid_bar_color") \
+	X(sample_editor_ruler_grid_beat,      "uph_sample_editor_ruler_grid_beat_color") \
+	X(sample_editor_ruler_grid_subbeat,   "uph_sample_editor_ruler_grid_subbeat_color") \
+	X(sample_editor_ruler_grid_text,      "uph_sample_editor_ruler_grid_text_color") \
+	X(sample_editor_row_bg1,              "uph_sample_editor_row_bg1_color") \
+	X(sample_editor_row_bg2,              "uph_sample_editor_row_bg2_color") \
+	X(sample_editor_accent,               "uph_sample_editor_accent_color") \
+	X(automation_editor_toolbox_bg,       "uph_automation_editor_toolbox_bg_color") \
+	X(automation_editor_grid_beat,        "uph_automation_editor_grid_beat_color") \
+	X(automation_editor_grid_subbeat,     "uph_automation_editor_grid_subbeat_color") \
+	X(automation_editor_ruler_bg,         "uph_automation_editor_ruler_bg_color") \
+	X(automation_editor_ruler_border,     "uph_automation_editor_ruler_border_color") \
+	X(automation_editor_row_bg1,          "uph_automation_editor_row_bg1_color") \
+	X(automation_editor_row_bg2,          "uph_automation_editor_row_bg2_color") \
+	X(automation_editor_accent,           "uph_automation_editor_accent_color") \
+	X(record_armed,                       "uph_record_armed_color") \
+	X(mixer_track_bg,                     "uph_mixer_track_bg_color") \
+	X(mixer_track_selected_bg,            "uph_mixer_track_selected_bg_color") \
+	X(mixer_track_border,                 "uph_mixer_track_border_color") \
+	X(mixer_ruler,                        "uph_mixer_ruler_color") \
+	X(mixer_meter_low,                    "uph_mixer_meter_low_color") \
+	X(mixer_meter_medium,                 "uph_mixer_meter_medium_color") \
+	X(mixer_meter_high,                   "uph_mixer_meter_high_color") \
+	X(mixer_effect_list_bg,               "uph_mixer_effect_list_bg_color") \
+	X(resource_list_section_bg,           "uph_resource_list_section_bg_color") \
+	X(resource_list_section_text,         "uph_resource_list_section_text_color") \
+	X(resource_list_item_bg,              "uph_resource_list_item_bg_color") \
+	X(resource_list_item_selected_border, "uph_resource_list_item_selected_border_color") \
+	X(resource_list_item_fg,              "uph_resource_list_item_fg_color") \
+	X(resource_list_item_text,            "uph_resource_list_item_text_color") \
+	X(resource_list_header,               "uph_resource_list_header_color") \
+	X(sample_browser_item_bg,             "uph_sample_browser_item_bg_color") \
+	X(sample_browser_item_fg,             "uph_sample_browser_item_fg_color") \
+	X(plugin_list_clap,                   "uph_plugin_list_clap_color") \
+	X(plugin_list_vst3,                   "uph_plugin_list_vst3_color") \
+	X(plugin_list_vst2,                   "uph_plugin_list_vst2_color") \
+	X(plugin_list_text,                   "uph_plugin_list_text_color") \
+	X(plugin_list_bg,                     "uph_plugin_list_bg_color") \
+	X(automation_list_section_bg,         "uph_automation_list_section_bg_color") \
+	X(automation_list_section_text,       "uph_automation_list_section_text_color") \
+	X(widget_accent,                      "naui_widget_accent_color")
+
+typedef struct
+{
+#define X(field, key) Naui_Color field;
+	UPH_THEME_COLORS(X)
+#undef X
+	const Naui_List(Naui_Color) track_palette;
+}
+Uph_Colors;

@@ -895,10 +895,10 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
                 .direction = LEAF_DIRECTION_HORIZONTAL
             })
             {
-                if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_mute"), leaf_id_indexed("uph_mixer_mute_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, strip->state & UPH_TRACK_MUTED))
+                if (uph_ui_image_toggle_button(uph_state.icons.mute, leaf_id_indexed("uph_mixer_mute_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, strip->state & UPH_TRACK_MUTED))
                     uph_resources_toggle_track_state(strip, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
 
-				if (!is_master && uph_ui_image_toggle_button(naui_asset_image("uph_icon_solo"), leaf_id_indexed("uph_mixer_solo_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, uph_state.project.soloed_track == strip))
+				if (!is_master && uph_ui_image_toggle_button(uph_state.icons.solo, leaf_id_indexed("uph_mixer_solo_toggle", track_id), (Naui_Vec2) { button_size, button_size }, text_color, uph_state.project.soloed_track == strip))
 				{
 					Uph_ActionTrackSolo data = { .track = uph_action_track_ref(strip) };
 					naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
@@ -965,7 +965,7 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
                 })
                 {
                     if (uph_ui_image_toggle_button(
-                        naui_asset_image("uph_icon_headphones"),
+                        uph_state.icons.headphones,
                         leaf_id_indexed("uph_mixer_monitor_toggle", track_id),
                         (Naui_Vec2) { button_size, button_size },
                         text_color,
@@ -1121,7 +1121,7 @@ static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, 
                 .child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
             })
             {
-                if (uph_ui_image_button_ex(naui_asset_image(strip->state & UPH_TRACK_MIXER_COLLAPSED ? "uph_icon_arrow_right" : "uph_icon_arrow_down"), collapse_id, (Naui_Vec2) { font_size, font_size }, uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
+                if (uph_ui_image_button_ex(strip->state & UPH_TRACK_MIXER_COLLAPSED ? uph_state.icons.arrow_right : uph_state.icons.arrow_down, collapse_id, (Naui_Vec2) { font_size, font_size }, uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL))
                     strip->state ^= UPH_TRACK_MIXER_COLLAPSED;
             }
         }

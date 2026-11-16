@@ -607,7 +607,7 @@ static void _uph_sample_browser_render_drag(const void *payload)
 	const Naui_StringView name = naui_file_filename(path);
 	char label[NAUI_STRING_MAX_SIZE];
 	snprintf(label, sizeof(label), "%.*s", (int)name.length, name.data);
-	uph_drag_label(naui_asset_image("uph_icon_wave"), label, uph_state.colors.panel_tab_accent);
+	uph_drag_label(uph_state.icons.wave, label, uph_state.colors.panel_tab_accent);
 }
 
 static void _uph_sample_browser_stop_on_playback(void)
@@ -870,14 +870,14 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 		if (!searching)
 		{
 			leaf({
-				.image = (void*)naui_asset_image(expanded ? "uph_icon_arrow_down" : "uph_icon_arrow_right"),
+				.image = (void*)(expanded ? uph_state.icons.arrow_down : uph_state.icons.arrow_right),
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 				.color = is_dir && info->child_count > 0 ? muted_color : LEAF_COLOR_TRANSPARENT
 			});
 		}
 
 		leaf({
-			.image = (void*)naui_asset_image(is_dir ? "uph_icon_folder" : "uph_icon_wave"),
+			.image = (void*)(is_dir ? uph_state.icons.folder : uph_state.icons.wave),
 			.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 			.color = is_dir ? muted_color : icon_color
 		});
@@ -964,17 +964,17 @@ static void _uph_sample_browser_toolbar(void)
 	{
 		uph_ui_textfield(&state->filter, leaf_id("uph_sample_browser_search"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("sample_browser.search"));
 
-		if (uph_ui_image_toggle_button(naui_asset_image("uph_icon_headphones"), leaf_id("uph_sample_browser_auto_preview"), (Naui_Vec2){ button_size, button_size }, tint, uph_state.settings.browser.auto_preview))
+		if (uph_ui_image_toggle_button(uph_state.icons.headphones, leaf_id("uph_sample_browser_auto_preview"), (Naui_Vec2){ button_size, button_size }, tint, uph_state.settings.browser.auto_preview))
 		{
 			uph_state.settings.browser.auto_preview = !uph_state.settings.browser.auto_preview;
 			if (!uph_state.settings.browser.auto_preview)
 				uph_audio_engine_preview_stop();
 		}
 
-		if (uph_ui_image_button(naui_asset_image("uph_icon_reload"), leaf_id("uph_sample_browser_rescan"), (Naui_Vec2){ button_size, button_size }, tint))
+		if (uph_ui_image_button(uph_state.icons.reload, leaf_id("uph_sample_browser_rescan"), (Naui_Vec2){ button_size, button_size }, tint))
 			_uph_sample_browser_start_scan();
 
-		if (uph_ui_image_button(naui_asset_image("uph_icon_plus"), leaf_id("uph_sample_browser_add_folder"), (Naui_Vec2){ button_size, button_size }, tint))
+		if (uph_ui_image_button(uph_state.icons.plus, leaf_id("uph_sample_browser_add_folder"), (Naui_Vec2){ button_size, button_size }, tint))
 			_uph_sample_browser_open_folder_dialog();
 	}
 }

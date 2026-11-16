@@ -104,11 +104,6 @@ bool _uph_action_pattern_create_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_create_redo(void* userdata)
-{
-	return _uph_action_pattern_create_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Pattern Delete
@@ -147,11 +142,6 @@ bool _uph_action_pattern_delete_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_delete_redo(void* userdata)
-{
-	return _uph_action_pattern_delete_execute(userdata);
-}
-
 void _uph_action_pattern_delete_destroy(void* userdata)
 {
 	Uph_ActionPatternDelete* data = userdata;
@@ -185,11 +175,6 @@ bool _uph_action_pattern_rename_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_rename_redo(void* userdata)
-{
-	return _uph_action_pattern_rename_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Pattern Duplicate
@@ -217,11 +202,6 @@ bool _uph_action_pattern_duplicate_undo(void* userdata)
 	uph_action_resource_removed(UPH_RESOURCE_PATTERN, data->new_index);
 	data->resource_exists = false;
 	return true;
-}
-
-bool _uph_action_pattern_duplicate_redo(void* userdata)
-{
-	return _uph_action_pattern_duplicate_execute(userdata);
 }
 
 #pragma endregion
@@ -319,11 +299,6 @@ bool _uph_action_note_delete_undo(void* userdata)
 {
 	Uph_ActionNoteDelete* data = userdata;
 	return uph_note_list_insert(data->pattern_index, data->note_index, data->note);
-}
-
-bool _uph_action_note_delete_redo(void* userdata)
-{
-	return _uph_action_note_delete_execute(userdata);
 }
 
 #pragma endregion

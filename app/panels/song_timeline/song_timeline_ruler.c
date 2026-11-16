@@ -112,7 +112,7 @@ void uph_song_timeline_render_top_bar(void)
 void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	const Naui_Image *playhead_image = naui_asset_image("uph_icon_playhead");
+	const Naui_Image *playhead_image = uph_state.icons.playhead;
 	const Naui_Color color = uph_state.colors.song_timeline_playhead;
 	const int32_t x_offset = NAUI_DPI(uph_song_timeline_header_column_width());
 	const int32_t playhead_size = NAUI_DPI(16);

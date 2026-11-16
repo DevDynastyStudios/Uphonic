@@ -148,7 +148,6 @@ static void _uph_song_timeline_minimap_press(Leaf_BoundingBox bbox)
 void uph_song_timeline_update_minimap(void)
 {
 	Uph_SongTimelineState *state = &_uph_song_timeline_state;
-	extern Uph_GlobalWidgetState uph_global_widget_state;
 
 	const Leaf_BoundingBox bbox = leaf_get_bounding_box(leaf_id("uph_song_timeline_minimap"));
 	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };

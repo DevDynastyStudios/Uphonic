@@ -252,7 +252,7 @@ static void _uph_midi_editor_playhead_overlay_draw(Leaf_BoundingBox box, void *u
 	naui_push_clip_rect(lanes.x - NAUI_DPI(1), box.y, lanes.width + NAUI_DPI(1), lanes.y + lanes.height - box.y);
 	naui_draw_line((Naui_Vec2) { x, ruler_bottom - half_size }, (Naui_Vec2) { x, lanes.y + lanes.height }, color, NAUI_DPI(1));
 	naui_draw_image(
-		naui_asset_image("uph_icon_playhead"),
+		uph_state.icons.playhead,
 		(Naui_Vec2) { x - half_size, ruler_bottom - size },
 		(Naui_Vec2) { size, size },
 		color,
@@ -443,7 +443,7 @@ static bool _uph_midi_editor_tab(const char *label, const Leaf_ID id, bool activ
 	{
 		const int32_t icon_size = NAUI_DPI(UPH_MIDI_EDITOR_TAB_ICON_SIZE);
 		leaf({
-			.image = (void*)naui_asset_image(active ? "uph_icon_arrow_down" : "uph_icon_arrow_right"),
+			.image = (void*)(active ? uph_state.icons.arrow_down : uph_state.icons.arrow_right),
 			.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 			.color = text_color
 		});

@@ -294,11 +294,6 @@ bool _uph_action_track_create_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_create_redo(void* userdata)
-{
-	return _uph_action_track_create_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Track Delete
@@ -347,11 +342,6 @@ bool _uph_action_track_delete_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_delete_redo(void* userdata)
-{
-	return _uph_action_track_delete_execute(userdata);
-}
-
 void _uph_action_track_delete_destroy(void* userdata)
 {
 	Uph_ActionTrackDelete* data = userdata;
@@ -389,11 +379,6 @@ bool _uph_action_track_rename_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_rename_redo(void* userdata)
-{
-	return _uph_action_track_rename_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Track Color
@@ -417,11 +402,6 @@ bool _uph_action_track_color_undo(void* userdata)
 
 	track->color_index = data->old_color;
 	return true;
-}
-
-bool _uph_action_track_color_redo(void* userdata)
-{
-	return _uph_action_track_color_execute(userdata);
 }
 
 #pragma endregion
@@ -457,11 +437,6 @@ bool _uph_action_track_state_undo(void* userdata)
 	if (data->cleared_solo)
 		uph_state.project.soloed_track = uph_action_track_resolve(data->track);
 	return true;
-}
-
-bool _uph_action_track_state_redo(void* userdata)
-{
-	return _uph_action_track_state_execute(userdata);
 }
 
 #pragma endregion
@@ -532,11 +507,6 @@ bool _uph_action_track_value_undo(void* userdata)
 {
 	Uph_ActionTrackValue* data = userdata;
 	return uph_action_track_value_set(data, data->old_value);
-}
-
-bool _uph_action_track_value_redo(void* userdata)
-{
-	return _uph_action_track_value_execute(userdata);
 }
 
 void uph_action_track_value_commit(void)
@@ -622,11 +592,6 @@ bool _uph_action_track_automation_create_undo(void* userdata)
 	data->resource_exists = false;
 	uph_action_tracks_changed(before, ref, -1);
 	return true;
-}
-
-bool _uph_action_track_automation_create_redo(void* userdata)
-{
-	return _uph_action_track_automation_create_execute(userdata);
 }
 
 #pragma endregion

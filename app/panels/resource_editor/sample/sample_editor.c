@@ -470,7 +470,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	const Naui_Color playhead_color = uph_state.colors.sample_editor_playhead;
 	naui_draw_line((Naui_Vec2) { playhead_x, box.y + box.height - icon_size * 0.5f }, (Naui_Vec2) { playhead_x, box.y + box.height }, playhead_color, NAUI_DPI(1));
 	naui_draw_image(
-		naui_asset_image("uph_icon_playhead"),
+		uph_state.icons.playhead,
 		(Naui_Vec2) { playhead_x - icon_size * 0.5f, box.y + box.height - icon_size },
 		(Naui_Vec2) { icon_size, icon_size },
 		playhead_color,
@@ -962,28 +962,28 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 			const bool playing = uph_sample_preview_playing();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
+				playing ? uph_state.icons.pause : uph_state.icons.play,
 				leaf_id("uph_sample_editor_play"),
 				playing ? uph_state.colors.sample_editor_pause_icon : uph_state.colors.sample_editor_play_icon,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) _uph_sample_editor_toggle_playback();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_stop"),
+				uph_state.icons.stop,
 				leaf_id("uph_sample_editor_stop"),
 				uph_state.colors.sample_editor_stop_icon,
 				NAUI_CORNER_NONE
 			)) uph_sample_preview_stop();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_reset"),
+				uph_state.icons.reset,
 				leaf_id("uph_sample_editor_reset"),
 				icon_color,
 				NAUI_CORNER_NONE
 			)) uph_sample_preview_seek(0.0);
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_loop"),
+				uph_state.icons.loop,
 				leaf_id("uph_sample_editor_loop"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,
@@ -1000,14 +1000,14 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 		})
 		{
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_zoom_out"),
+				uph_state.icons.zoom_out,
 				leaf_id("uph_sample_editor_zoom_out"),
 				icon_color,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) _uph_sample_editor_set_zoom(editor, editor->frames_per_pixel * UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR);
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_zoom_in"),
+				uph_state.icons.zoom_in,
 				leaf_id("uph_sample_editor_zoom_in"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR
@@ -1173,7 +1173,7 @@ static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorState *edit
 {
 	const int32_t icon_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	if (uph_ui_image_button_ex(
-		naui_asset_image(editor->sidebar_hidden ? "uph_icon_arrow_right" : "uph_icon_arrow_down"),
+		editor->sidebar_hidden ? uph_state.icons.arrow_right : uph_state.icons.arrow_down,
 		leaf_id("uph_sample_editor_sidebar_toggle"),
 		(Naui_Vec2){icon_size, icon_size},
 		uph_state.colors.ui_text,

@@ -235,15 +235,15 @@ static const char *_uph_song_timeline_automation_target_name(const Uph_Track *tr
 	return NULL;
 }
 
-static const char *_uph_song_timeline_track_icon(Uph_ResourceType type)
+static Naui_Image *_uph_song_timeline_track_icon(Uph_ResourceType type)
 {
 	switch (type)
 	{
-		case UPH_RESOURCE_SAMPLE: return "uph_icon_wave";
-		case UPH_RESOURCE_PATTERN: return "uph_icon_piano";
-		case UPH_RESOURCE_AUTOMATION: return "uph_icon_automation";
-		case UPH_RESOURCE_GROUP: return "uph_icon_folder";
-		case UPH_RESOURCE_MASTER: return "uph_icon_headphones";
+		case UPH_RESOURCE_SAMPLE: return uph_state.icons.wave;
+		case UPH_RESOURCE_PATTERN: return uph_state.icons.piano;
+		case UPH_RESOURCE_AUTOMATION: return uph_state.icons.automation;
+		case UPH_RESOURCE_GROUP: return uph_state.icons.folder;
+		case UPH_RESOURCE_MASTER: return uph_state.icons.headphones;
 		default: return NULL;
 	}
 }
@@ -275,25 +275,25 @@ static Naui_Vec2 _uph_song_timeline_icon_button_size(void)
 	return (Naui_Vec2){ size, size };
 }
 
-static bool _uph_song_timeline_icon_button(const char *icon, const char *id, const Uph_Track *track)
+static bool _uph_song_timeline_icon_button(Naui_Image *icon, const char *id, const Uph_Track *track)
 {
-	return uph_ui_image_button_ex(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_icon_button_size(), uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL);
+	return uph_ui_image_button_ex(icon, leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_icon_button_size(), uph_state.colors.ui_text, LEAF_COLOR_TRANSPARENT, NAUI_CORNER_ALL);
 }
 
-static bool _uph_song_timeline_toggle(const char *icon, const char *id, const Uph_Track *track, bool enabled)
+static bool _uph_song_timeline_toggle(Naui_Image *icon, const char *id, const Uph_Track *track, bool enabled)
 {
-	return uph_ui_image_toggle_button(naui_asset_image(icon), leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_toggle_size(), uph_state.colors.ui_text, enabled);
+	return uph_ui_image_toggle_button(icon, leaf_id_indexed(id, (uint64_t)track), _uph_song_timeline_toggle_size(), uph_state.colors.ui_text, enabled);
 }
 
 static void _uph_song_timeline_mute_toggle(Uph_Track *track)
 {
-	if (_uph_song_timeline_toggle("uph_icon_mute", "uph_song_timeline_mute_toggle", track, track->state & UPH_TRACK_MUTED))
+	if (_uph_song_timeline_toggle(uph_state.icons.mute, "uph_song_timeline_mute_toggle", track, track->state & UPH_TRACK_MUTED))
 		uph_resources_toggle_track_state(track, UPH_TRACK_MUTED, UPH_ACTION_TRACK_MUTE);
 }
 
 static void _uph_song_timeline_solo_toggle(Uph_Track *track)
 {
-	if (_uph_song_timeline_toggle("uph_icon_solo", "uph_song_timeline_solo_toggle", track, uph_state.project.soloed_track == track))
+	if (_uph_song_timeline_toggle(uph_state.icons.solo, "uph_song_timeline_solo_toggle", track, uph_state.project.soloed_track == track))
 	{
 		Uph_ActionTrackSolo data = { .track = uph_action_track_ref(track) };
 		naui_action_execute_stack(UPH_ACTION_TRACK_SOLO, data);
@@ -374,7 +374,7 @@ static void _uph_song_timeline_render_track_name(Uph_Track *track)
 
 static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID options_menu, bool compact)
 {
-	const char *icon = _uph_song_timeline_track_icon(track->type);
+	Naui_Image *icon = _uph_song_timeline_track_icon(track->type);
 	const int32_t icon_size = NAUI_DPI(UPH_SONG_TIMELINE_ICON_SIZE);
 
 	leaf({
@@ -387,7 +387,7 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 		if (icon)
 		{
 			leaf({
-				.image = naui_asset_image(icon),
+				.image = icon,
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 				.color = uph_state.colors.ui_text
 			});
@@ -397,7 +397,7 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 
 		if (uph_track_is_folder(track))
 		{
-			const char *arrow = track->state & UPH_TRACK_TIMELINE_COLLAPSED ? "uph_icon_arrow_right" : "uph_icon_arrow_down";
+			Naui_Image *arrow = track->state & UPH_TRACK_TIMELINE_COLLAPSED ? uph_state.icons.arrow_right : uph_state.icons.arrow_down;
 			if (_uph_song_timeline_icon_button(arrow, "uph_song_timeline_collapse", track))
 				track->state ^= UPH_TRACK_TIMELINE_COLLAPSED;
 		}
@@ -410,7 +410,7 @@ static void _uph_song_timeline_render_title_row(Uph_Track *track, Uph_UIMenuID o
 				_uph_song_timeline_solo_toggle(track);
 		}
 
-		if (_uph_song_timeline_icon_button("uph_icon_gear", "uph_song_timeline_options", track))
+		if (_uph_song_timeline_icon_button(uph_state.icons.gear, "uph_song_timeline_options", track))
 			_uph_song_timeline_open_options(track, options_menu);
 	}
 }
@@ -734,7 +734,7 @@ void uph_song_timeline_render_track_plus(void)
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(6), LEAF_CORNER_BL | LEAF_CORNER_BR)
 	})
 	leaf({
-		.image = naui_asset_image("uph_icon_plus"),
+		.image = uph_state.icons.plus,
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(13)), .height = LEAF_SIZE_DERIVED },
 		.color = uph_state.colors.ui_text,
 		.aspect_ratio = 1.0f

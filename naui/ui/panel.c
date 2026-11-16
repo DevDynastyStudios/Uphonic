@@ -63,6 +63,28 @@ typedef struct
 }
 Naui_PanelNodeWrapper;
 
+#define NAUI_PANEL_COLORS(X) \
+    X(dock_guide_hovered,      NAUI_DOCK_GUIDE_HOVERED_COLOR_TAG) \
+    X(dock_guide,              NAUI_DOCK_GUIDE_COLOR_TAG) \
+    X(dock_guide_outline,      NAUI_DOCK_GUIDE_OUTLINE_COLOR_TAG) \
+    X(panel_close_hovered_bg,  NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG) \
+    X(panel_titlebar_text,     NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG) \
+    X(panel_tab_inactive_text, NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG) \
+    X(panel_tab_accent,        NAUI_PANEL_TAB_ACCENT_COLOR_TAG) \
+    X(panel_titlebar_bg,       NAUI_PANEL_TITLEBAR_BG_COLOR_TAG) \
+    X(panel_body_bg,           NAUI_PANEL_BODY_BG_COLOR_TAG) \
+    X(panel_border,            NAUI_PANEL_BORDER_COLOR_TAG) \
+    X(panel_shadow,            NAUI_PANEL_SHADOW_COLOR_TAG) \
+    X(viewport_bg,             NAUI_VIEWPORT_BG_COLOR_TAG)
+
+typedef struct
+{
+#define X(field, tag) Naui_Color field;
+    NAUI_PANEL_COLORS(X)
+#undef X
+}
+Naui_PanelColors;
+
 typedef struct { char *key; Naui_PanelType value; } Naui_PanelTypeMapEntry;
 
 typedef struct
@@ -85,9 +107,18 @@ typedef struct
 
     Naui_Json pending_layout;
     bool has_pending_layout;
+    Naui_PanelColors colors;
 }
 Naui_PanelManager;
 static Naui_PanelManager _naui_panel_manager_state = { 0 };
+
+void naui_panel_refresh_colors(void)
+{
+    Naui_PanelColors *colors = &_naui_panel_manager_state.colors;
+#define X(field, tag) colors->field = naui_theme_color(tag);
+    NAUI_PANEL_COLORS(X)
+#undef X
+}
 
 static Naui_PanelNode *naui_alloc_panel_node(void) { return (Naui_PanelNode*)calloc(1, sizeof(Naui_PanelNode)); }
 static void naui_free_panel_node(Naui_PanelNode *node) { free(node); }
@@ -720,8 +751,8 @@ static inline void naui_render_dock_guide_slot(const char *label, Naui_PanelNode
             (Leaf_Size){LEAF_SIZE_GROW, LEAF_SIZE_DERIVED} :
             (Leaf_Size){LEAF_SIZE_DERIVED, LEAF_SIZE_GROW},
         .color = hovered ?
-            naui_theme_color(NAUI_DOCK_GUIDE_HOVERED_COLOR_TAG) :
-            naui_theme_color(NAUI_DOCK_GUIDE_COLOR_TAG),
+            _naui_panel_manager_state.colors.dock_guide_hovered :
+            _naui_panel_manager_state.colors.dock_guide,
         .rounding = {
             .value = NAUI_DPI(8),
             .corners = LEAF_CORNER_ALL
@@ -729,7 +760,7 @@ static inline void naui_render_dock_guide_slot(const char *label, Naui_PanelNode
         .border = {
             .width = 1.0f,
             .sides = LEAF_SIDE_ALL,
-            .color = naui_theme_color(NAUI_DOCK_GUIDE_OUTLINE_COLOR_TAG)
+            .color = _naui_panel_manager_state.colors.dock_guide_outline
         },
         .aspect_ratio = 1.0f
     });
@@ -816,7 +847,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
         .padding = LEAF_PADDING_AXES(3.0f, 3.0f),
         .child_alignment = {LEAF_ALIGN_X_CENTER, LEAF_ALIGN_Y_CENTER},
         .color = hovered ?
-            naui_theme_color(NAUI_PANEL_CLOSE_HOVERED_BG_COLOR_TAG) :
+            _naui_panel_manager_state.colors.panel_close_hovered_bg :
             LEAF_COLOR_TRANSPARENT,
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(8), LEAF_CORNER_ALL)
     })
@@ -824,7 +855,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
         Naui_Image *icon = naui_asset_image(NAUI_CLOSE_ICON_TAG);
         leaf({
             .size = {LEAF_SIZE_DERIVED, LEAF_SIZE_PERCENT(0.8f)},
-            .color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG),
+            .color = _naui_panel_manager_state.colors.panel_titlebar_text,
             .image = icon,
             .aspect_ratio = 1.0f
         });
@@ -834,7 +865,7 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
 static inline void naui_render_basic_panel_titlebar(Naui_PanelNode *node)
 {
     const int32_t font_size = NAUI_DPI(NAUI_PANEL_FONT_SIZE);
-    const Leaf_Color text_color = naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG);
+    const Leaf_Color text_color = _naui_panel_manager_state.colors.panel_titlebar_text;
     const Naui_Vec2 padding = naui_vec2_scale(NAUI_PANEL_TITLEBAR_PADDING, naui_app_dpi_scale());
 
     leaf({
@@ -878,8 +909,8 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
 
     const bool hovered = !group->occluded && leaf_hovered(id);
     const Leaf_Color text_color = is_active || hovered
-        ? naui_theme_color(NAUI_PANEL_TITLEBAR_TEXT_COLOR_TAG)
-        : naui_theme_color(NAUI_PANEL_TAB_INACTIVE_TEXT_COLOR_TAG);
+        ? _naui_panel_manager_state.colors.panel_titlebar_text
+        : _naui_panel_manager_state.colors.panel_tab_inactive_text;
 
     leaf({
         .id = id,
@@ -895,7 +926,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
             leaf({
                 .positioning = LEAF_POSITIONING_FLOATING_TO_PARENT,
                 .size = {LEAF_SIZE_PERCENT(1.0f), LEAF_SIZE_FIXED(NAUI_DPI(2))},
-                .color = naui_theme_color(NAUI_PANEL_TAB_ACCENT_COLOR_TAG),
+                .color = _naui_panel_manager_state.colors.panel_tab_accent,
                 .floating = {
                     .parent_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM},
                     .self_alignment = {LEAF_ALIGN_X_LEFT, LEAF_ALIGN_Y_BOTTOM}
@@ -954,7 +985,7 @@ static inline float naui_floating_panel_rounding(const Naui_PanelNode *node)
 
 static inline void naui_render_panel_titlebar(Naui_PanelNode *node)
 {
-    const Leaf_Color bg_color = naui_theme_color(NAUI_PANEL_TITLEBAR_BG_COLOR_TAG);
+    const Leaf_Color bg_color = _naui_panel_manager_state.colors.panel_titlebar_bg;
 
     leaf({
         .id = leaf_id_indexed(NAUI_PANEL_TITLEBAR_ID, (Naui_PanelID)node),
@@ -983,7 +1014,7 @@ static inline void naui_render_panel_body(Naui_PanelNode *node)
     leaf({
         .id = leaf_id_indexed(NAUI_PANEL_BODY_ID, (Naui_PanelID)tab),
         .size = {LEAF_SIZE_FULL, LEAF_SIZE_GROW},
-        .color = naui_theme_color(NAUI_PANEL_BODY_BG_COLOR_TAG),
+        .color = _naui_panel_manager_state.colors.panel_body_bg,
         .rounding = { naui_floating_panel_rounding(node), LEAF_CORNER_BL | LEAF_CORNER_BR },
         .clip_children = true
     })
@@ -1000,7 +1031,7 @@ static void naui_render_next_panel_child(Naui_PanelNode *node)
 {
     if (node->children[0])
     {
-        Leaf_Color border_color = naui_theme_color(NAUI_PANEL_BORDER_COLOR_TAG);
+        Leaf_Color border_color = _naui_panel_manager_state.colors.panel_border;
         float border_width = NAUI_PANEL_BORDER_WIDTH;
 
         leaf({
@@ -1068,17 +1099,17 @@ static void naui_render_panel(Naui_PanelNode *node)
         .border = {
             .width = NAUI_PANEL_BORDER_WIDTH,
             .sides = LEAF_SIDE_ALL,
-            .color = naui_theme_color(NAUI_PANEL_BORDER_COLOR_TAG)
+            .color = _naui_panel_manager_state.colors.panel_border
         },
         .shadow = {
             .blur_radius = 32.0f,
-            .color = naui_theme_color(NAUI_PANEL_SHADOW_COLOR_TAG)
+            .color = _naui_panel_manager_state.colors.panel_shadow
         },
         .rounding = {
             NAUI_DPI(NAUI_PANEL_ROUNDING),
             LEAF_CORNER_ALL
         },
-        .color = naui_theme_color(NAUI_PANEL_BORDER_COLOR_TAG),
+        .color = _naui_panel_manager_state.colors.panel_border,
         .clip_children = true
     })
     {
@@ -1095,8 +1126,8 @@ static void naui_render_main_viewport(void)
         .size = {LEAF_SIZE_GROW, LEAF_SIZE_GROW},
         .padding = { .top = node ? (int32_t)NAUI_PANEL_BORDER_WIDTH : 0 },
         .color = node ?
-            naui_theme_color(NAUI_PANEL_BORDER_COLOR_TAG) :
-            naui_theme_color(NAUI_VIEWPORT_BG_COLOR_TAG)
+            _naui_panel_manager_state.colors.panel_border :
+            _naui_panel_manager_state.colors.viewport_bg
     })
     {
         if (node)
@@ -1130,7 +1161,7 @@ static void naui_render_dock_guide_area(void)
         .positioning = LEAF_POSITIONING_FLOATING_TO_ROOT,
         .size = {LEAF_SIZE_FIXED(_naui_panel_manager_state.dock_guide_area.width), LEAF_SIZE_FIXED(_naui_panel_manager_state.dock_guide_area.height)},
         .floating.offset = {_naui_panel_manager_state.dock_guide_area.x, _naui_panel_manager_state.dock_guide_area.y},
-        .color = naui_theme_color(NAUI_DOCK_GUIDE_HOVERED_COLOR_TAG)
+        .color = _naui_panel_manager_state.colors.dock_guide_hovered
     });
 }
 

@@ -72,8 +72,6 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
     const float max_scroll = content_size - max_size;
     const bool this_drag = drag_active && drag_id.value == scroll_id.value;
 
-    extern Uph_GlobalWidgetState uph_global_widget_state;
-
     if (max_scroll > 0.0f)
     {
         const float thumb_travel = max_size - (float)_uph_ui_thumb_length(max_size, content_size);
@@ -224,7 +222,6 @@ static Uph_UIScrollAreaState _uph_ui_scroll_area_state;
 static bool _uph_ui_scroll_area_axis(bool vertical, float *scroll, Leaf_ID handle_id, float max_size, float content_size)
 {
     Uph_UIScrollAreaState *state = &_uph_ui_scroll_area_state;
-    extern Uph_GlobalWidgetState uph_global_widget_state;
 
     const float max_scroll = content_size - max_size;
     const bool this_drag = state->drag.active && state->drag.id.value == handle_id.value;

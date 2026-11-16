@@ -14,6 +14,7 @@
 #include <vendor/clap/clap.h>
 #include <vendor/vestige/vestige.h>
 
+#include "ui/assets.h"
 #include "types.h"
 
 #include "core/midi_manager.h"
@@ -70,11 +71,19 @@
 
 #include "plugins/plugin_cache.c"
 
-#include "ui/theme.c"
+#include "ui/assets.c"
 #include "ui/layouts.c"
 #include "ui/titlebar.c"
 #include "ui/waveform.c"
 #include "ui/automation_curve.c"
+#include "ui/widgets/widgets_common.c"
+#include "ui/widgets/widgets_menu.c"
+#include "ui/widgets/widgets_button.c"
+#include "ui/widgets/widgets_textfield.c"
+#include "ui/widgets/widgets_scalar.c"
+#include "ui/widgets/widgets_dropdown.c"
+#include "ui/widgets/widgets_knob.c"
+#include "ui/widgets/widgets_transport.c"
 #include "ui/widgets.c"
 #include "ui/cursors.c"
 #include "ui/drag.c"

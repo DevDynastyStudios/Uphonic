@@ -98,11 +98,6 @@ bool _uph_action_sample_delete_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_sample_delete_redo(void* userdata)
-{
-	return _uph_action_sample_delete_execute(userdata);
-}
-
 void _uph_action_sample_delete_destroy(void* userdata)
 {
 	Uph_ActionSampleDelete* data = userdata;
@@ -134,11 +129,6 @@ bool _uph_action_sample_rename_undo(void* userdata)
 
 	uph_state.project.samples[data->resource_index].name = data->old_name;
 	return true;
-}
-
-bool _uph_action_sample_rename_redo(void* userdata)
-{
-	return _uph_action_sample_rename_execute(userdata);
 }
 
 #pragma endregion
@@ -173,11 +163,6 @@ bool _uph_action_sample_duplicate_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_sample_duplicate_redo(void* userdata)
-{
-	return _uph_action_sample_duplicate_execute(userdata);
-}
-
 #pragma endregion
 
 
@@ -204,11 +189,6 @@ bool _uph_action_sample_edit_undo(void* userdata)
 {
 	Uph_ActionSampleEdit* data = userdata;
 	return _uph_action_sample_edit_apply(data, &data->old_settings);
-}
-
-bool _uph_action_sample_edit_redo(void* userdata)
-{
-	return _uph_action_sample_edit_execute(userdata);
 }
 
 #pragma endregion

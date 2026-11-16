@@ -524,9 +524,9 @@ static void uph_resource_list_render_drag(const void *payload)
     if (!name)
         return;
 
-    const char *icon = resource->type == UPH_RESOURCE_PATTERN ? "uph_icon_piano" :
-        resource->type == UPH_RESOURCE_SAMPLE ? "uph_icon_wave" : "uph_icon_automation";
-    uph_drag_label(naui_asset_image(icon), name->data, uph_state.colors.panel_tab_accent);
+    Naui_Image *icon = resource->type == UPH_RESOURCE_PATTERN ? uph_state.icons.piano :
+        resource->type == UPH_RESOURCE_SAMPLE ? uph_state.icons.wave : uph_state.icons.automation;
+    uph_drag_label(icon, name->data, uph_state.colors.panel_tab_accent);
 }
 
 static void uph_resource_list_render_resource(uint32_t index, Uph_ResourceType type, Uph_UIMenuID context_menu, Leaf_ID id)
@@ -662,7 +662,7 @@ void uph_resource_list_plus_box(Uph_ResourceType type, Leaf_ID id)
         .aspect_ratio = 2.2f
     }) {
         leaf({
-            .image = naui_asset_image("uph_icon_plus"),
+            .image = uph_state.icons.plus,
             .size = {
                 .width = LEAF_SIZE_PERCENT(0.1f),
                 .height = LEAF_SIZE_DERIVED
@@ -824,7 +824,7 @@ static void uph_resource_list_on_update(void)
         leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT }, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER }, .child_gap = NAUI_DPI(4), .direction = LEAF_DIRECTION_HORIZONTAL }, )
 		{
 			leaf({
-				.image = (void*)naui_asset_image("uph_icon_piano"),
+				.image = (void*)uph_state.icons.piano,
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 				.color = section_title_text_color
 			});
@@ -850,7 +850,7 @@ static void uph_resource_list_on_update(void)
         leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT }, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER }, .child_gap = NAUI_DPI(4), .direction = LEAF_DIRECTION_HORIZONTAL }, )
 		{
 			leaf({
-				.image = (void*)naui_asset_image("uph_icon_wave"),
+				.image = (void*)uph_state.icons.wave,
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 				.color = section_title_text_color
 			});
@@ -878,7 +878,7 @@ static void uph_resource_list_on_update(void)
         leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT }, .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)), .color = section_title_bg_color, .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER }, .child_gap = NAUI_DPI(4), .direction = LEAF_DIRECTION_HORIZONTAL }, )
 		{
 			leaf({
-				.image = (void*)naui_asset_image("uph_icon_automation"),
+				.image = (void*)uph_state.icons.automation,
 				.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
 				.color = section_title_text_color
 			});

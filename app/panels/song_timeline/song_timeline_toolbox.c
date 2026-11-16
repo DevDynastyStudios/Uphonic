@@ -49,7 +49,7 @@ void uph_song_timeline_render_toolbox(void)
 		})
 		{
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image(uph_state.shared.song_timeline_playing ? "uph_icon_pause" : "uph_icon_play"),
+				uph_state.shared.song_timeline_playing ? uph_state.icons.pause : uph_state.icons.play,
 				leaf_id("uph_song_timeline_play"),
 				uph_state.shared.song_timeline_playing ? uph_state.colors.song_timeline_pause_icon : uph_state.colors.song_timeline_play_icon,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
@@ -59,7 +59,7 @@ void uph_song_timeline_render_toolbox(void)
 			}
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_stop"),
+				uph_state.icons.stop,
 				leaf_id("uph_song_timeline_stop"),
 				uph_state.colors.song_timeline_stop_icon,
 				NAUI_CORNER_NONE
@@ -71,7 +71,7 @@ void uph_song_timeline_render_toolbox(void)
 
 			const bool recording = uph_state.shared.song_timeline_recording;
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_mic"),
+				uph_state.icons.mic,
 				leaf_id("uph_song_timeline_record"),
 				recording ? uph_state.colors.record_armed : icon_color,
 				NAUI_CORNER_NONE,
@@ -79,7 +79,7 @@ void uph_song_timeline_render_toolbox(void)
 			)) _uph_song_timeline_toggle_recording();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_reset"),
+				uph_state.icons.reset,
 				leaf_id("uph_song_timeline_reset"),
 				icon_color,
 				NAUI_CORNER_NONE
@@ -90,7 +90,7 @@ void uph_song_timeline_render_toolbox(void)
 			}
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_loop"),
+				uph_state.icons.loop,
 				leaf_id("uph_song_timeline_loop"),
 				icon_color,
 				NAUI_CORNER_NONE,
@@ -98,7 +98,7 @@ void uph_song_timeline_render_toolbox(void)
 			)) uph_state.project.loop_enabled = !uph_state.project.loop_enabled;
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_playhead"),
+				uph_state.icons.playhead,
 				leaf_id("uph_song_timeline_follow_playhead"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,
@@ -112,7 +112,7 @@ void uph_song_timeline_render_toolbox(void)
 		})
 		{
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_select"),
+				uph_state.icons.select,
 				leaf_id("uph_song_timeline_select"),
 				icon_color,
 				NAUI_CORNER_TL | NAUI_CORNER_BL,
@@ -120,7 +120,7 @@ void uph_song_timeline_render_toolbox(void)
 			)) state->current_action_mode = UPH_ACTION_SELECT;
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_draw"),
+				uph_state.icons.draw,
 				leaf_id("uph_song_timeline_draw"),
 				icon_color,
 				NAUI_CORNER_NONE,
@@ -128,7 +128,7 @@ void uph_song_timeline_render_toolbox(void)
 			)) state->current_action_mode = UPH_ACTION_DRAW;
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_cut"),
+				uph_state.icons.cut,
 				leaf_id("uph_song_timeline_cut"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,

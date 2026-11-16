@@ -213,6 +213,7 @@ void naui_app_start(void)
 	uph_audio_engine_init();
 	uph_ui_widgets_init();
 	uph_ui_cursors_init();
+	uph_icons_load();
 	uph_plugin_modules_init();
 	naui_jobs_init(UPH_JOB_THREAD_COUNT, UPH_JOB_CAPACITY);
  

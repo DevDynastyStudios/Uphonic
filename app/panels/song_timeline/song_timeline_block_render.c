@@ -182,7 +182,7 @@ static void _uph_song_timeline_render_block_menu_button(Leaf_BoundingBox box, Up
 
 	const int32_t padding = NAUI_DPI(3);
 	naui_draw_image(
-		naui_asset_image("uph_icon_dots"),
+		uph_state.icons.dots,
 		(Naui_Vec2){ box.x + padding, box.y + padding },
 		(Naui_Vec2){ box.width - padding * 2.0f, box.height - padding * 2.0f },
 		leaf_rgba(c.r, c.g, c.b, (uint8_t)icon_alpha),

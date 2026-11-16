@@ -90,14 +90,14 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			const bool playing = uph_midi_preview_playing();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image(playing ? "uph_icon_pause" : "uph_icon_play"),
+				playing ? uph_state.icons.pause : uph_state.icons.play,
 				leaf_id("uph_midi_editor_play"),
 				playing ? uph_state.colors.midi_editor_pause_icon : uph_state.colors.midi_editor_play_icon,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
 			)) uph_midi_editor_toggle_playback();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_stop"),
+				uph_state.icons.stop,
 				leaf_id("uph_midi_editor_stop"),
 				uph_state.colors.midi_editor_stop_icon,
 				NAUI_CORNER_NONE
@@ -105,7 +105,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 
 			const bool recording = uph_midi_recorder_pattern_armed();
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_mic"),
+				uph_state.icons.mic,
 				leaf_id("uph_midi_editor_record"),
 				recording ? uph_state.colors.record_armed : icon_color,
 				NAUI_CORNER_NONE,
@@ -113,14 +113,14 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			)) uph_midi_editor_toggle_recording();
 
 			if (uph_ui_toolbox_button_ex(
-				naui_asset_image("uph_icon_reset"),
+				uph_state.icons.reset,
 				leaf_id("uph_midi_editor_reset"),
 				icon_color,
 				NAUI_CORNER_NONE
 			)) uph_midi_preview_seek(0.0);
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_loop"),
+				uph_state.icons.loop,
 				leaf_id("uph_midi_editor_loop"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,
@@ -134,7 +134,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 		})
 		{
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_select"),
+				uph_state.icons.select,
 				leaf_id("uph_midi_editor_select"),
 				icon_color,
 				NAUI_CORNER_TL | NAUI_CORNER_BL,
@@ -142,7 +142,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			)) *action_mode = UPH_ACTION_SELECT;
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_draw"),
+				uph_state.icons.draw,
 				leaf_id("uph_midi_editor_draw"),
 				icon_color,
 				NAUI_CORNER_NONE,
@@ -150,7 +150,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			)) *action_mode = UPH_ACTION_DRAW;
 
 			if (uph_ui_toolbox_toggle_button_ex(
-				naui_asset_image("uph_icon_cut"),
+				uph_state.icons.cut,
 				leaf_id("uph_midi_editor_cut"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR,

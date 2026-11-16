@@ -298,11 +298,6 @@ bool _uph_action_block_delete_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_block_delete_redo(void* userdata)
-{
-	return _uph_action_block_delete_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Block Move / Resize
@@ -353,11 +348,6 @@ bool _uph_action_block_relink_undo(void* userdata)
 {
 	Uph_ActionBlockRelink* data = userdata;
 	return uph_block_set_resource(data->track, data->block_index, data->old_resource_index);
-}
-
-bool _uph_action_block_relink_redo(void* userdata)
-{
-	return _uph_action_block_relink_execute(userdata);
 }
 
 #pragma endregion

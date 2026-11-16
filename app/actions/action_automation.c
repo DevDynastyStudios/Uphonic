@@ -61,11 +61,6 @@ bool _uph_action_automation_create_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_create_redo(void* userdata)
-{
-	return _uph_action_automation_create_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Automation Delete
@@ -102,11 +97,6 @@ bool _uph_action_automation_delete_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_delete_redo(void* userdata)
-{
-	return _uph_action_automation_delete_execute(userdata);
-}
-
 void _uph_action_automation_delete_destroy(void* userdata)
 {
 	Uph_ActionAutomationDelete* data = userdata;
@@ -140,11 +130,6 @@ bool _uph_action_automation_rename_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_rename_redo(void* userdata)
-{
-	return _uph_action_automation_rename_execute(userdata);
-}
-
 #pragma endregion
 
 #pragma region Automation Duplicate
@@ -172,11 +157,6 @@ bool _uph_action_automation_duplicate_undo(void* userdata)
 	uph_action_resource_removed(UPH_RESOURCE_AUTOMATION, data->new_index);
 	data->resource_exists = false;
 	return true;
-}
-
-bool _uph_action_automation_duplicate_redo(void* userdata)
-{
-	return _uph_action_automation_duplicate_execute(userdata);
 }
 
 #pragma endregion
@@ -258,11 +238,6 @@ bool _uph_action_automation_point_delete_undo(void* userdata)
 {
 	Uph_ActionAutomationPointDelete* data = userdata;
 	return uph_automation_point_insert(data->automation_index, data->point_index, data->point);
-}
-
-bool _uph_action_automation_point_delete_redo(void* userdata)
-{
-	return _uph_action_automation_point_delete_execute(userdata);
 }
 
 bool _uph_action_automation_point_move_execute(void* userdata)
