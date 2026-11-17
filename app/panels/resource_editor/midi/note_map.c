@@ -79,9 +79,9 @@ static inline Uph_NoteKind uph_note_map_kind_at(const Uph_NoteMap *map, int32_t 
 	return map->notes[key].kind;
 }
 
-static const char *const _uph_note_pitch_class_names[UPH_NOTES_PER_OCTAVE] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+static const char *const uph__note_pitch_class_names[UPH_NOTES_PER_OCTAVE] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
-static const Uph_NoteKind _uph_note_pitch_class_kinds[UPH_NOTES_PER_OCTAVE] =
+static const Uph_NoteKind uph__note_pitch_class_kinds[UPH_NOTES_PER_OCTAVE] =
 {
 	UPH_NOTE_KIND_NATURAL, UPH_NOTE_KIND_ACCIDENTAL,	// C  C#
 	UPH_NOTE_KIND_NATURAL, UPH_NOTE_KIND_ACCIDENTAL,	// D  D#
@@ -104,14 +104,14 @@ void uph_note_map_init_default(Uph_NoteMap *map)
 		const int32_t octave = key / UPH_NOTES_PER_OCTAVE + UPH_NOTE_OCTAVE_OFFSET;
 
 		Uph_NoteDef *def = &map->notes[key];
-		snprintf(def->name, sizeof(def->name), "%s%d", _uph_note_pitch_class_names[pitch_class], octave);
-		def->kind = _uph_note_pitch_class_kinds[pitch_class];
+		snprintf(def->name, sizeof(def->name), "%s%d", uph__note_pitch_class_names[pitch_class], octave);
+		def->kind = uph__note_pitch_class_kinds[pitch_class];
 		def->highlight = UPH_NOTE_HIGHLIGHT_NONE;
 		def->show_label = pitch_class == 0;
 	}
 }
 
-static void _uph_note_map_clear_highlights(Uph_NoteMap *map)
+static void uph__note_map_clear_highlights(Uph_NoteMap *map)
 {
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)
 		map->notes[key].highlight = UPH_NOTE_HIGHLIGHT_NONE;
@@ -121,10 +121,10 @@ static void _uph_note_map_clear_highlights(Uph_NoteMap *map)
 
 const char *uph_note_pitch_class_name(uint8_t pitch_class)
 {
-	return _uph_note_pitch_class_names[pitch_class % UPH_NOTES_PER_OCTAVE];
+	return uph__note_pitch_class_names[pitch_class % UPH_NOTES_PER_OCTAVE];
 }
 
-static bool _uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key)
+static bool uph__scale_contains(uint16_t mask, uint8_t root, uint8_t key)
 {
 	const uint32_t degree = ((uint32_t)key + UPH_NOTES_PER_OCTAVE - root % UPH_NOTES_PER_OCTAVE) % UPH_NOTES_PER_OCTAVE;
 	return (mask >> degree) & 1u;
@@ -132,7 +132,7 @@ static bool _uph_scale_contains(uint16_t mask, uint8_t root, uint8_t key)
 
 void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root)
 {
-	_uph_note_map_clear_highlights(map);
+	uph__note_map_clear_highlights(map);
 	map->scale_active = true;
 
 	for (uint32_t key = 0; key < UPH_NOTE_MAP_KEY_COUNT; key++)
@@ -140,7 +140,7 @@ void uph_note_map_apply_scale(Uph_NoteMap *map, uint16_t mask, uint8_t root)
 		const bool is_root = key % UPH_NOTES_PER_OCTAVE == root % UPH_NOTES_PER_OCTAVE;
 		map->notes[key].show_label = is_root;
 
-		if (!_uph_scale_contains(mask, root, (uint8_t)key))
+		if (!uph__scale_contains(mask, root, (uint8_t)key))
 			continue;
 
 		map->notes[key].highlight = is_root ? UPH_NOTE_HIGHLIGHT_ROOT : UPH_NOTE_HIGHLIGHT_SCALE;

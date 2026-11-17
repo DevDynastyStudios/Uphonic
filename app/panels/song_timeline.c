@@ -2,7 +2,7 @@ NAUI_PANEL(uph_song_timeline)
 
 void uph_song_timeline_invalidate_tracks(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	naui_list_free(state->drag.group_blocks);
 	state->drag.group_blocks = NULL;
 	state->drag.active = false;
@@ -39,14 +39,14 @@ void uph_song_timeline_invalidate_tracks(void)
 
 void uph_song_timeline_reset_scroll(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	state->scroll = (Naui_Vec2) { 0.0f, 0.0f };
 }
 
 #pragma region Panel Events
 static void uph_song_timeline_on_attach(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 
 	state->scroll = (Naui_Vec2) { 0.0f, 0.0f };
 	state->zoom = (Naui_Vec2) { NAUI_DPI(64.0f), 124.0f };
@@ -57,7 +57,7 @@ static void uph_song_timeline_on_attach(void)
 
 static void uph_song_timeline_on_detach(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	uph_particles_free(&state->particles);
 }
 
@@ -73,9 +73,9 @@ static void uph_song_timeline_on_close(void)
 
 
 
-static void _uph_song_timeline_follow_playhead(void)
+static void uph__song_timeline_follow_playhead(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	if (!state->follow_playhead || !uph_state.shared.song_timeline_playing)
 	{
 		state->follow.anchored = false;
@@ -98,7 +98,7 @@ static void _uph_song_timeline_follow_playhead(void)
 
 static void uph_song_timeline_on_update(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const Leaf_ID track_section_id = leaf_id("uph_song_timeline_section");
 	const Leaf_ID content_area_id = leaf_id("uph_song_timeline_content");
 
@@ -157,7 +157,7 @@ static void uph_song_timeline_on_update(void)
 	
 	uph_song_timeline_update_minimap();
 	uph_song_timeline_update_input();
-	_uph_song_timeline_follow_playhead();
+	uph__song_timeline_follow_playhead();
 	state->visual.snap_track_motion = state->visual.zoom_y != state->zoom.y;
 	state->visual.zoom_y = state->zoom.y;
 	uph_song_timeline_update_selection_keys();

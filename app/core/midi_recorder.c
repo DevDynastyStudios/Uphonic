@@ -52,11 +52,11 @@ typedef struct
 }
 Uph_MidiRecorderState;
 
-static Uph_MidiRecorderState _uph_midi_recorder_state;
+static Uph_MidiRecorderState uph__midi_recorder_state;
 
 static void uph_midi_record_ring_push(Uph_MidiRecordEvent event)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	uint32_t tail = atomic_load_explicit(&state->ring.tail, memory_order_relaxed);
 	uint32_t head = atomic_load_explicit(&state->ring.head, memory_order_acquire);
 	if ((uint32_t)(tail - head) >= UPH_MIDI_RECORD_RING_CAPACITY)
@@ -68,12 +68,12 @@ static void uph_midi_record_ring_push(Uph_MidiRecordEvent event)
 
 bool uph_midi_recorder_pattern_armed(void)
 {
-	return atomic_load_explicit(&_uph_midi_recorder_state.pattern_take.armed, memory_order_relaxed);
+	return atomic_load_explicit(&uph__midi_recorder_state.pattern_take.armed, memory_order_relaxed);
 }
 
 void uph_midi_recorder_set_pattern_armed(bool armed)
 {
-	atomic_store_explicit(&_uph_midi_recorder_state.pattern_take.armed, armed, memory_order_relaxed);
+	atomic_store_explicit(&uph__midi_recorder_state.pattern_take.armed, armed, memory_order_relaxed);
 }
 
 static bool uph_midi_record_accepts_input(void)
@@ -83,7 +83,7 @@ static bool uph_midi_record_accepts_input(void)
 
 void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	if (key > 127)
 		return;
 
@@ -105,7 +105,7 @@ void uph_midi_recorder_input(bool note_on, uint8_t key, uint8_t velocity)
 
 void uph_midi_recorder_pedal_input(uint8_t cc, uint8_t value)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	Uph_MidiPedalType type;
 	if (!uph_midi_pedal_from_cc(cc, &type))
 		return;
@@ -126,17 +126,17 @@ void uph_midi_recorder_pedal_input(uint8_t cc, uint8_t value)
 
 uint8_t uph_midi_recorder_pedal_value(Uph_MidiPedalType type)
 {
-	return type < UPH_MIDI_PEDAL_COUNT ? atomic_load_explicit(&_uph_midi_recorder_state.live_pedals[type], memory_order_relaxed) : 0;
+	return type < UPH_MIDI_PEDAL_COUNT ? atomic_load_explicit(&uph__midi_recorder_state.live_pedals[type], memory_order_relaxed) : 0;
 }
 
 bool uph_midi_recorder_key_held(uint8_t key)
 {
-	return key < 128 && atomic_load_explicit(&_uph_midi_recorder_state.live_held_keys[key], memory_order_relaxed);
+	return key < 128 && atomic_load_explicit(&uph__midi_recorder_state.live_held_keys[key], memory_order_relaxed);
 }
 
 static uint32_t uph_midi_record_ring_drain(Uph_MidiRecordEvent *out, uint32_t max_events)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	uint32_t head = atomic_load_explicit(&state->ring.head, memory_order_relaxed);
 	uint32_t tail = atomic_load_explicit(&state->ring.tail, memory_order_acquire);
 
@@ -156,7 +156,7 @@ static uint32_t uph_midi_record_ring_drain(Uph_MidiRecordEvent *out, uint32_t ma
 
 static void uph_midi_record_close_note(uint32_t open_index, double end_beat)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	Uph_MidiRecordOpenNote open = state->open_notes[open_index];
 	state->open_notes[open_index] = state->open_notes[--state->open_note_count];
 	end_beat += open.clock_offset;
@@ -184,7 +184,7 @@ static void uph_midi_record_close_note(uint32_t open_index, double end_beat)
 
 static void uph_midi_record_close_pattern_notes(uint32_t pattern_index, double end_beat)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	for (uint32_t i = 0; i < state->open_note_count; )
 	{
 		if (state->open_notes[i].pattern_index == pattern_index)
@@ -196,7 +196,7 @@ static void uph_midi_record_close_pattern_notes(uint32_t pattern_index, double e
 
 static void uph_midi_record_drop_pattern_notes(uint32_t pattern_index)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	for (uint32_t i = 0; i < state->open_note_count; )
 	{
 		if (state->open_notes[i].pattern_index == pattern_index)
@@ -215,7 +215,7 @@ static void uph_midi_record_note_on(
 	uint8_t velocity
 )
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	for (uint32_t i = 0; i < state->open_note_count; i++)
 	{
 		if (state->open_notes[i].pattern_index == pattern_index && state->open_notes[i].key == key)
@@ -275,7 +275,7 @@ static void uph_midi_record_pedal(Uph_MidiPattern *pattern, double local_beat, U
 
 static void uph_midi_record_note_off(uint32_t pattern_index, const Uph_TimelineBlock *block, double beat, uint8_t key)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	for (uint32_t i = 0; i < state->open_note_count; i++)
 	{
 		if (state->open_notes[i].pattern_index == pattern_index && state->open_notes[i].key == key)
@@ -314,7 +314,7 @@ static void uph_midi_record_begin_take(Uph_Track *track, double start_beat)
 
 void uph_midi_recorder_finish_take(Uph_Track *track)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK)
 		return;
 
@@ -348,7 +348,7 @@ static void uph_midi_record_tracks(
 	float bpm
 )
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	Uph_Project *project = &uph_state.project;
 
 	for (uint64_t i = 0; i < naui_list_len(tracks); i++)
@@ -428,7 +428,7 @@ static void uph_midi_record_tracks(
 
 void uph_midi_recorder_process(double buffer_start_beat, uint32_t frame_count, uint32_t sample_rate, float bpm, bool playing)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	if (!playing || bpm <= 0.0f)
 	{
 		if (!uph_midi_recorder_pattern_armed())
@@ -448,7 +448,7 @@ void uph_midi_recorder_process(double buffer_start_beat, uint32_t frame_count, u
 
 bool uph_midi_recorder_note_recording(uint32_t pattern_index, uint32_t note_index)
 {
-	const Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	const Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	if (!state->pattern_take.active || state->pattern_take.pattern_index != pattern_index)
 		return false;
 
@@ -462,7 +462,7 @@ bool uph_midi_recorder_note_recording(uint32_t pattern_index, uint32_t note_inde
 
 static void uph_midi_record_finish_pattern_take(void)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	if (!state->pattern_take.active)
 		return;
 
@@ -481,7 +481,7 @@ static double uph_midi_record_pattern_local_beat(const Uph_MidiPreviewRange *ran
 
 static void uph_midi_record_pattern_note_on(Uph_MidiPattern *pattern, double local_beat, double clock_beat, uint8_t key, uint8_t velocity)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	const uint32_t pattern_index = state->pattern_take.pattern_index;
 	for (uint32_t i = 0; i < state->open_note_count; i++)
 	{
@@ -518,7 +518,7 @@ static void uph_midi_record_pattern_note_on(Uph_MidiPattern *pattern, double loc
 
 static void uph_midi_record_pattern_note_off(double clock_beat, uint8_t key)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	for (uint32_t i = 0; i < state->open_note_count; i++)
 	{
 		if (state->open_notes[i].pattern_index == state->pattern_take.pattern_index && state->open_notes[i].key == key)
@@ -531,7 +531,7 @@ static void uph_midi_record_pattern_note_off(double clock_beat, uint8_t key)
 
 void uph_midi_recorder_process_pattern(uint32_t frame_count, uint32_t sample_rate, float bpm)
 {
-	Uph_MidiRecorderState *state = &_uph_midi_recorder_state;
+	Uph_MidiRecorderState *state = &uph__midi_recorder_state;
 	Uph_Project *project = &uph_state.project;
 
 	Uph_MidiPreviewRange range;

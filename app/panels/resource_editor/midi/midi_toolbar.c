@@ -8,7 +8,7 @@ typedef struct
 }
 Uph_MidiToolbarVoices;
 
-static void _uph_midi_toolbar_collect_voices(Naui_List(Uph_Track) tracks, Uph_MidiToolbarVoices *voices)
+static void uph__midi_toolbar_collect_voices(Naui_List(Uph_Track) tracks, Uph_MidiToolbarVoices *voices)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks) && voices->count < UPH_MIDI_TOOLBAR_MAX_VOICES; i++)
 	{
@@ -20,14 +20,14 @@ static void _uph_midi_toolbar_collect_voices(Naui_List(Uph_Track) tracks, Uph_Mi
 			voices->count++;
 		}
 
-		_uph_midi_toolbar_collect_voices(track->subtracks, voices);
+		uph__midi_toolbar_collect_voices(track->subtracks, voices);
 	}
 }
 
-static void _uph_midi_toolbar_render_voice(void)
+static void uph__midi_toolbar_render_voice(void)
 {
 	Uph_MidiToolbarVoices voices = { .names = { "None" } };
-	_uph_midi_toolbar_collect_voices(uph_state.project.tracks, &voices);
+	uph__midi_toolbar_collect_voices(uph_state.project.tracks, &voices);
 
 	const Uph_Track *current = uph_midi_preview_voice();
 	uint32_t selected = 0;
@@ -173,6 +173,6 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 				.child_alignment = { .x = LEAF_ALIGN_Y_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 			}) uph_ui_snap_dropdown(snap_resolution, leaf_id("uph_midi_editor_snap"));
 		}
-		_uph_midi_toolbar_render_voice();
+		uph__midi_toolbar_render_voice();
 	}
 }

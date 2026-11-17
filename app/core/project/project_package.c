@@ -18,7 +18,7 @@ typedef struct
 }
 Uph_ExportFile;
 
-static bool _uph_is_audio_extension(const Naui_StringView extension)
+static bool uph__is_audio_extension(const Naui_StringView extension)
 {
 	for (const char **audio = uph_audio_engine_extensions; *audio; audio++)
 	{
@@ -30,7 +30,7 @@ static bool _uph_is_audio_extension(const Naui_StringView extension)
 }
 
 // Adds a file, or replaces the one already there with the same archive path
-static void _uph_export_set(Naui_List(Uph_ExportFile) *files, const Naui_Path relative, const Naui_Path source)
+static void uph__export_set(Naui_List(Uph_ExportFile) *files, const Naui_Path relative, const Naui_Path source)
 {
 	for (size_t i = 0; i < naui_list_len(*files); i++)
 	{
@@ -45,7 +45,7 @@ static void _uph_export_set(Naui_List(Uph_ExportFile) *files, const Naui_Path re
 	naui_list_push(*files, file);
 }
 
-static void _uph_export_collect(Naui_List(Uph_ExportFile) *files, const Naui_Path folder)
+static void uph__export_collect(Naui_List(Uph_ExportFile) *files, const Naui_Path folder)
 {
 	Naui_List(Naui_DirEntry) entries = naui_directory_filter_recursive(folder, NULL, NULL);
 	for (size_t i = 0; i < naui_list_len(entries); i++)
@@ -67,25 +67,25 @@ static void _uph_export_collect(Naui_List(Uph_ExportFile) *files, const Naui_Pat
 				*c = '/';
 		}
 
-		_uph_export_set(files, name, entries[i].path);
+		uph__export_set(files, name, entries[i].path);
 	}
 
 	naui_directory_filter_free(entries);
 }
 
-static bool _uph_export_file_is_unused_sample(const Uph_Project *project, const Naui_Path relative)
+static bool uph__export_file_is_unused_sample(const Uph_Project *project, const Naui_Path relative)
 {
 	const size_t folder_length = strlen(UPH_IO_FOLDER_SAMPLES) + 1;
 	if (strncmp(relative.data, UPH_IO_FOLDER_SAMPLES "/", folder_length) != 0 || strchr(relative.data + folder_length, '/'))
 		return false;
 
-	if (!_uph_is_audio_extension(naui_file_extension(&relative)))
+	if (!uph__is_audio_extension(naui_file_extension(&relative)))
 		return false;
 
 	return !uph_project_references_sample_file(project, relative.data + folder_length);
 }
 
-static bool _uph_export_file_is_unused_pattern(Naui_List(Naui_String) defined_patterns, const Naui_Path relative)
+static bool uph__export_file_is_unused_pattern(Naui_List(Naui_String) defined_patterns, const Naui_Path relative)
 {
 	const size_t folder_length = strlen(UPH_IO_FOLDER_PATTERNS) + 1;
 	if (strncmp(relative.data, UPH_IO_FOLDER_PATTERNS "/", folder_length) != 0 || strchr(relative.data + folder_length, '/'))
@@ -94,7 +94,7 @@ static bool _uph_export_file_is_unused_pattern(Naui_List(Naui_String) defined_pa
 	return uph_project_is_midi_extension(naui_file_extension(&relative)) && !uph_project_names_contain(defined_patterns, relative.data + folder_length);
 }
 
-static void _uph_project_write_origin(const Naui_Path folder, const Uph_FileSignature signature, const Naui_Path uph_path)
+static void uph__project_write_origin(const Naui_Path folder, const Uph_FileSignature signature, const Naui_Path uph_path)
 {
 	char text[NAUI_PATH_MAX + 64];
 	const int length = snprintf(text, sizeof(text), "%llu %llu\n%s\n", (unsigned long long)signature.size, (unsigned long long)signature.hash, uph_path.data);
@@ -102,7 +102,7 @@ static void _uph_project_write_origin(const Naui_Path folder, const Uph_FileSign
 		naui_file_write_all(naui_path_join(folder, NAUI_PATH(UPH_ORIGIN_FILE)), text, (size_t)length);
 }
 
-static bool _uph_project_find_unpacked_copy(const Uph_FileSignature signature, Naui_Path *out_folder)
+static bool uph__project_find_unpacked_copy(const Uph_FileSignature signature, Naui_Path *out_folder)
 {
 	Naui_List(Naui_DirEntry) entries = naui_directory_filter(UPHONIC_WORKSPACE_FOLDER, NULL, NULL);
 	bool found = false;
@@ -133,7 +133,7 @@ static bool _uph_project_find_unpacked_copy(const Uph_FileSignature signature, N
 }
 
 // Export the project as it is right now
-static bool _uph_project_export_uph(Uph_Project *project, const Naui_Path output_path)
+static bool uph__project_export_uph(Uph_Project *project, const Naui_Path output_path)
 {
 	naui_log(NAUI_LOG_INFO, "Making UPH file: %s", output_path.data);
 
@@ -156,9 +156,9 @@ static bool _uph_project_export_uph(Uph_Project *project, const Naui_Path output
 	Naui_List(Naui_String) defined_patterns = uph_io_defined_pattern_files(naui_path_join(temp_save, NAUI_PATH(UPH_IO_FOLDER_PATTERNS)));
 
 	Naui_List(Uph_ExportFile) files = NULL;
-	_uph_export_collect(&files, canonical_save);
+	uph__export_collect(&files, canonical_save);
 	if (naui_path_exists(temp_save))
-		_uph_export_collect(&files, temp_save);
+		uph__export_collect(&files, temp_save);
 
 	naui_path_unlock(canonical_save);
 
@@ -173,7 +173,7 @@ static bool _uph_project_export_uph(Uph_Project *project, const Naui_Path output
 
 	for (size_t i = 0; success && i < naui_list_len(files); i++)
 	{
-		if (_uph_export_file_is_unused_sample(project, files[i].relative) || _uph_export_file_is_unused_pattern(defined_patterns, files[i].relative))
+		if (uph__export_file_is_unused_sample(project, files[i].relative) || uph__export_file_is_unused_pattern(defined_patterns, files[i].relative))
 		{
 			naui_log(NAUI_LOG_INFO, "Leaving unused file out of the export: %s", files[i].relative.data);
 			continue;
@@ -211,7 +211,7 @@ bool uph_project_extract_uph(const Naui_Path uph_path, Naui_Path *out_folder, bo
 
 	Uph_FileSignature signature = {0};
 	const bool has_signature = uph_file_signature(uph_path, &signature);
-	if (has_signature && _uph_project_find_unpacked_copy(signature, out_folder))
+	if (has_signature && uph__project_find_unpacked_copy(signature, out_folder))
 	{
 		*out_reused = true;
 		return true;
@@ -253,7 +253,7 @@ bool uph_project_extract_uph(const Naui_Path uph_path, Naui_Path *out_folder, bo
 	naui_file_delete(naui_path_join(folder, NAUI_PATH(UPH_PENDING_DELETE_FILE)));
 	naui_file_delete(naui_path_join(folder, NAUI_PATH(UPH_RECOVERY_LOCK_FILE)));
 	if (has_signature)
-		_uph_project_write_origin(folder, signature, uph_path);
+		uph__project_write_origin(folder, signature, uph_path);
 
 	*out_folder = folder;
 	return true;
@@ -264,7 +264,7 @@ bool uph_project_export(Uph_Project* project, const Naui_Path output_path, Uph_E
 	uph_project_flush_pending_samples(true);
 
 	if (format == UPH_EXPORT_UPH)
-		return _uph_project_export_uph(project, output_path);
+		return uph__project_export_uph(project, output_path);
 	else if (format == UPH_EXPORT_WAV)
 	{
 		double length = uph_audio_engine_get_song_length_beats();

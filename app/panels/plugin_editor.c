@@ -20,7 +20,7 @@ NAUI_PANEL_WITH_DATA(uph_plugin_editor, Uph_PluginEditorData)
 
 #define UPH_PLUGIN_EDITOR_TITLEBAR_GUESS 32
 
-static void _uph_plugin_editor_reset_fit(Uph_PluginEditorData *data)
+static void uph__plugin_editor_reset_fit(Uph_PluginEditorData *data)
 {
     data->chrome = (Naui_Vec2){ FLT_MAX, FLT_MAX };
     data->size_history_count = 0;
@@ -30,7 +30,7 @@ static void uph_plugin_editor_on_attach(void)
 {
     Uph_PluginEditorData *data = (Uph_PluginEditorData*)naui_panel_current_data();
     memset(data, 0, sizeof(Uph_PluginEditorData));
-    _uph_plugin_editor_reset_fit(data);
+    uph__plugin_editor_reset_fit(data);
 }
 
 static void uph_plugin_editor_on_detach(void) {}
@@ -40,19 +40,19 @@ static void uph_plugin_editor_on_close(void)
 {
     Uph_PluginEditorData *data = (Uph_PluginEditorData*)naui_panel_current_data();
     data->buttons_down = 0;
-    _uph_plugin_editor_reset_fit(data);
+    uph__plugin_editor_reset_fit(data);
     if (data->handle)
         uph_plugin_gui_closed(data->handle);
 }
 
-static void _uph_plugin_editor_draw(Leaf_BoundingBox box, Uph_PluginEditorDrawData *draw)
+static void uph__plugin_editor_draw(Leaf_BoundingBox box, Uph_PluginEditorDrawData *draw)
 {
     if (!draw->texture)
         return;
     naui_draw_texture(draw->texture, (Naui_Vec2){ floorf(box.x), floorf(box.y) }, (Naui_Vec2){ (float)draw->width, (float)draw->height }, (Leaf_Color){ 255, 255, 255, 255 });
 }
 
-static void _uph_plugin_editor_fit(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
+static void uph__plugin_editor_fit(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
 {
     if (data->size_history_count < 2)
         return;
@@ -73,7 +73,7 @@ static void _uph_plugin_editor_fit(Uph_PluginEditorData *data, Naui_PanelID pane
         naui_panel_set_size(panel, target);
 }
 
-static void _uph_plugin_editor_track_size(Uph_PluginEditorData *data, Naui_PanelID panel)
+static void uph__plugin_editor_track_size(Uph_PluginEditorData *data, Naui_PanelID panel)
 {
     data->size_history[1] = data->size_history[0];
     data->size_history[0] = naui_panel_size(panel);
@@ -81,7 +81,7 @@ static void _uph_plugin_editor_track_size(Uph_PluginEditorData *data, Naui_Panel
         data->size_history_count++;
 }
 
-static void _uph_plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
+static void uph__plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
 {
     const int32_t x = naui_mouse_x() - (int32_t)floorf(body.x);
     const int32_t y = naui_mouse_y() - (int32_t)floorf(body.y);
@@ -137,21 +137,21 @@ static void uph_plugin_editor_on_update(void)
     draw.texture = uph_plugin_gui_texture(data->handle, &draw.width, &draw.height);
 
     leaf({
-        .custom_draw = (Leaf_CustomDrawFn)_uph_plugin_editor_draw,
+        .custom_draw = (Leaf_CustomDrawFn)uph__plugin_editor_draw,
         .custom_draw_data = LEAF_DATA_SLICE(draw),
         .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL }
     }) {}
 
     if (body.width <= 0.0f || body.height <= 0.0f)
     {
-        _uph_plugin_editor_track_size(data, panel);
+        uph__plugin_editor_track_size(data, panel);
         return;
     }
 
-    _uph_plugin_editor_fit(data, panel, body);
-    _uph_plugin_editor_track_size(data, panel);
+    uph__plugin_editor_fit(data, panel, body);
+    uph__plugin_editor_track_size(data, panel);
     uph_plugin_gui_set_origin(data->handle, (int32_t)floorf(body.x), (int32_t)floorf(body.y));
-    _uph_plugin_editor_forward_input(data, panel, body);
+    uph__plugin_editor_forward_input(data, panel, body);
 }
 
 Naui_PanelID uph_plugin_editor_create(Uph_PluginInternalHandle *handle)

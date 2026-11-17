@@ -1,4 +1,4 @@
-static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color bg_color, Leaf_SizeAxis width, bool tinted)
+static bool uph__ui_text_button(const char *string, const Leaf_ID id, Naui_Color bg_color, Leaf_SizeAxis width, bool tinted)
 {
     const Leaf_Color hovered_bg_color = tinted ? uph_state.colors.ui_tinted_frame_hovered_bg : uph_state.colors.ui_frame_hovered_bg;
     const Leaf_Color pressed_bg_color = tinted ? uph_state.colors.ui_tinted_frame_pressed_bg : uph_state.colors.ui_frame_pressed_bg;
@@ -23,12 +23,12 @@ static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color
     }
     else color = bg_color;
     
-    const float frame_height = _uph_ui_frame_height();
+    const float frame_height = uph__ui_frame_height();
     leaf({
         .id = id,
         .size = { .width = width, .height = UPH_UI_SIZE_EXACT(frame_height) },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
-        .border = bg_color.a > 0 ? _uph_ui_border(border_color) : (Leaf_Border){0},
+        .border = bg_color.a > 0 ? uph__ui_border(border_color) : (Leaf_Border){0},
         .color = color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
@@ -44,12 +44,12 @@ static bool _uph_ui_text_button(const char *string, const Leaf_ID id, Naui_Color
 
 bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    return _uph_ui_text_button(string, id, bg_color, LEAF_SIZE_FIT_MIN(_uph_ui_frame_height()), false);
+    return uph__ui_text_button(string, id, bg_color, LEAF_SIZE_FIT_MIN(uph__ui_frame_height()), false);
 }
 
 bool uph_ui_tinted_text_button_full(const char *string, const Leaf_ID id)
 {
-    return _uph_ui_text_button(string, id, uph_state.colors.ui_tinted_frame_bg, LEAF_SIZE_FULL, true);
+    return uph__ui_text_button(string, id, uph_state.colors.ui_tinted_frame_bg, LEAF_SIZE_FULL, true);
 }
 
 bool uph_ui_text_button(const char *string, const Leaf_ID id)
@@ -57,13 +57,13 @@ bool uph_ui_text_button(const char *string, const Leaf_ID id)
     return uph_ui_text_button_ex(string, id, uph_state.colors.ui_frame_bg, NAUI_CORNER_ALL);
 }
 
-static Naui_Vec2 _uph_ui_icon_frame(Naui_Vec2 size)
+static Naui_Vec2 uph__ui_icon_frame(Naui_Vec2 size)
 {
     const float padding = NAUI_DPI(UPH_UI_FRAME_PADDING.y);
-    return (Naui_Vec2){ NAUI_MAX(_uph_ui_frame_height(), size.x + padding), NAUI_MAX(_uph_ui_frame_height(), size.y + padding) };
+    return (Naui_Vec2){ NAUI_MAX(uph__ui_frame_height(), size.x + padding), NAUI_MAX(uph__ui_frame_height(), size.y + padding) };
 }
 
-static bool _uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Vec2 frame, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)
+static bool uph__ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Vec2 frame, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)
 {
     const bool overlay = bg_color.a == 0;
     const Leaf_Color hovered_bg_color = overlay ? (Leaf_Color) { 255, 255, 255, 36 } : uph_state.colors.ui_frame_hovered_bg;
@@ -88,7 +88,7 @@ static bool _uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui
     leaf({
         .id = id,
         .size = { .width = UPH_UI_SIZE_EXACT(frame.x), .height = UPH_UI_SIZE_EXACT(frame.y) },
-        .border = overlay ? (Leaf_Border){0} : _uph_ui_segment_border(uph_state.colors.ui_frame_border, corners),
+        .border = overlay ? (Leaf_Border){0} : uph__ui_segment_border(uph_state.colors.ui_frame_border, corners),
         .color = color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
@@ -105,10 +105,10 @@ static bool _uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui
 
 bool uph_ui_image_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners)
 {
-    return _uph_ui_image_button(image, id, size, _uph_ui_icon_frame(size), tint, bg_color, corners);
+    return uph__ui_image_button(image, id, size, uph__ui_icon_frame(size), tint, bg_color, corners);
 }
 
-static Naui_Vec2 _uph_ui_toolbox_frame(void)
+static Naui_Vec2 uph__ui_toolbox_frame(void)
 {
     const float size = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE) + NAUI_DPI(UPH_TOOLBOX_BUTTON_PADDING) * 2.0f;
     return (Naui_Vec2){ size, size };
@@ -117,7 +117,7 @@ static Naui_Vec2 _uph_ui_toolbox_frame(void)
 bool uph_ui_toolbox_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, Naui_CornerFlags corners)
 {
     const float icon = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-    return _uph_ui_image_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, uph_state.colors.ui_frame_bg, corners);
+    return uph__ui_image_button(image, id, (Naui_Vec2){ icon, icon }, uph__ui_toolbox_frame(), tint, uph_state.colors.ui_frame_bg, corners);
 }
 
 bool uph_ui_image_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint)
@@ -143,12 +143,12 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
 
     Leaf_Color color = enabled ? pressed_bg_color : (hovered ? hovered_bg_color : bg_color);
     
-    const float frame_height = _uph_ui_frame_height();
+    const float frame_height = uph__ui_frame_height();
     leaf({
         .id = id,
         .size = { .width = LEAF_SIZE_FIT_MIN(frame_height), .height = UPH_UI_SIZE_EXACT(frame_height) },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
-        .border = _uph_ui_frame_border(),
+        .border = uph__ui_frame_border(),
         .color = color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
@@ -166,7 +166,7 @@ bool uph_ui_text_toggle_button(const char *string, const Leaf_ID id, bool enable
     return false;
 }
 
-static bool _uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Vec2 frame, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled, bool tinted, const Naui_Color *enabled_bg_color)
+static bool uph__ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Vec2 frame, Naui_Color tint, Naui_Color bg_color, Naui_CornerFlags corners, bool enabled, bool tinted, const Naui_Color *enabled_bg_color)
 {
     const Leaf_Color hovered_bg_color = tinted ? uph_state.colors.ui_tinted_frame_hovered_bg : uph_state.colors.ui_frame_hovered_bg;
     const Leaf_Color theme_pressed_bg_color = tinted ? uph_state.colors.ui_tinted_frame_pressed_bg : uph_state.colors.ui_frame_pressed_bg;
@@ -187,7 +187,7 @@ static bool _uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID i
     leaf({
         .id = id,
         .size = { .width = UPH_UI_SIZE_EXACT(frame.x), .height = UPH_UI_SIZE_EXACT(frame.y) },
-        .border = (bg_color.a > 0 || enabled) ? _uph_ui_segment_border(border_color, corners) : (Leaf_Border){0},
+        .border = (bg_color.a > 0 || enabled) ? uph__ui_segment_border(border_color, corners) : (Leaf_Border){0},
         .color = color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), corners)
@@ -208,13 +208,13 @@ static bool _uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID i
 
 bool uph_ui_image_toggle_button(const Naui_Image *image, const Leaf_ID id, Naui_Vec2 size, Naui_Color tint, bool enabled)
 {
-    return _uph_ui_image_toggle_button(image, id, size, _uph_ui_icon_frame(size), tint, uph_state.colors.ui_tinted_frame_bg, NAUI_CORNER_ALL, enabled, true, NULL);
+    return uph__ui_image_toggle_button(image, id, size, uph__ui_icon_frame(size), tint, uph_state.colors.ui_tinted_frame_bg, NAUI_CORNER_ALL, enabled, true, NULL);
 }
 
 bool uph_ui_toolbox_toggle_button_ex(const Naui_Image *image, const Leaf_ID id, Naui_Color tint, Naui_CornerFlags corners, bool enabled)
 {
     const float icon = NAUI_DPI(UPH_TOOLBOX_ICON_SIZE);
-    return _uph_ui_image_toggle_button(image, id, (Naui_Vec2){ icon, icon }, _uph_ui_toolbox_frame(), tint, uph_state.colors.ui_frame_bg, corners, enabled, false, NULL);
+    return uph__ui_image_toggle_button(image, id, (Naui_Vec2){ icon, icon }, uph__ui_toolbox_frame(), tint, uph_state.colors.ui_frame_bg, corners, enabled, false, NULL);
 }
 
 bool uph_ui_checkbox(bool *value, const Leaf_ID id)
@@ -225,7 +225,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
     const Leaf_Color hovered_bg_color = uph_state.colors.ui_frame_hovered_bg;
     const Leaf_Color check_color = uph_state.colors.ui_slider_fill;
 
-    const float size = _uph_ui_frame_height() * 0.7f;
+    const float size = uph__ui_frame_height() * 0.7f;
     const float rounding = UPH_UI_FRAME_ROUNDING;
 
     if (hovered)
@@ -234,7 +234,7 @@ bool uph_ui_checkbox(bool *value, const Leaf_ID id)
     leaf({
         .id = id,
         .size = { .width = UPH_UI_SIZE_EXACT(size), .height = UPH_UI_SIZE_EXACT(size) },
-        .border = _uph_ui_frame_border(),
+        .border = uph__ui_frame_border(),
         .color = hovered ? hovered_bg_color : bg_color,
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })

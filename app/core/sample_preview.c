@@ -9,20 +9,20 @@ typedef struct
 }
 Uph_SamplePreviewState;
 
-static Uph_SamplePreviewState _uph_sample_preview_state;
+static Uph_SamplePreviewState uph__sample_preview_state;
 
 #pragma region Main thread control
 
 void uph_sample_preview_play(Uph_ResourceIndex sample_index)
 {
-	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &uph__sample_preview_state;
 	state->sample_index = sample_index;
 	state->playing = true;
 }
 
 void uph_sample_preview_pause(void)
 {
-	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &uph__sample_preview_state;
 	state->playing = false;
 }
 
@@ -34,29 +34,29 @@ void uph_sample_preview_stop(void)
 
 void uph_sample_preview_seek(double beat)
 {
-	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &uph__sample_preview_state;
 	state->position = fmax(0.0, beat);
 }
 
 void uph_sample_preview_set_loop(bool loop)
 {
-	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &uph__sample_preview_state;
 	state->loop = loop;
 }
 
 bool uph_sample_preview_looping(void)
 {
-	return _uph_sample_preview_state.loop;
+	return uph__sample_preview_state.loop;
 }
 
 bool uph_sample_preview_playing(void)
 {
-	return _uph_sample_preview_state.playing;
+	return uph__sample_preview_state.playing;
 }
 
 double uph_sample_preview_position(void)
 {
-	return _uph_sample_preview_state.position;
+	return uph__sample_preview_state.position;
 }
 
 double uph_sample_preview_length(const Uph_Sample *sample, const Uph_SampleData *data)
@@ -70,7 +70,7 @@ double uph_sample_preview_length(const Uph_Sample *sample, const Uph_SampleData 
 
 void uph_sample_preview_mix(float *out, uint32_t frame_count, uint32_t sample_rate, float bpm, bool timeline_playing)
 {
-	Uph_SamplePreviewState *state = &_uph_sample_preview_state;
+	Uph_SamplePreviewState *state = &uph__sample_preview_state;
 
 	if (state->playing && timeline_playing)
 		state->playing = false;

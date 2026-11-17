@@ -81,7 +81,7 @@ typedef struct
 } Uph_ActionNotesErase;
 
 #pragma region Pattern Create
-bool _uph_action_pattern_create_execute(void* userdata)
+bool uph__action_pattern_create_execute(void* userdata)
 {
 	Uph_ActionResourceCreate* data = userdata;
 	uph_resources_add_pattern();
@@ -91,7 +91,7 @@ bool _uph_action_pattern_create_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_create_undo(void* userdata)
+bool uph__action_pattern_create_undo(void* userdata)
 {
 	Uph_ActionResourceCreate* data = userdata;
 	if (!data->resource_exists || data->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -107,7 +107,7 @@ bool _uph_action_pattern_create_undo(void* userdata)
 #pragma endregion
 
 #pragma region Pattern Delete
-bool _uph_action_pattern_delete_execute(void* userdata)
+bool uph__action_pattern_delete_execute(void* userdata)
 {
 	Uph_ActionPatternDelete* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -127,7 +127,7 @@ bool _uph_action_pattern_delete_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_delete_undo(void* userdata)
+bool uph__action_pattern_delete_undo(void* userdata)
 {
 	Uph_ActionPatternDelete* data = userdata;
 	if (!data->deleted || data->resource_index > (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -142,7 +142,7 @@ bool _uph_action_pattern_delete_undo(void* userdata)
 	return true;
 }
 
-void _uph_action_pattern_delete_destroy(void* userdata)
+void uph__action_pattern_delete_destroy(void* userdata)
 {
 	Uph_ActionPatternDelete* data = userdata;
 	if (data->deleted)
@@ -155,7 +155,7 @@ void _uph_action_pattern_delete_destroy(void* userdata)
 #pragma endregion
 
 #pragma region Pattern Rename
-bool _uph_action_pattern_rename_execute(void* userdata)
+bool uph__action_pattern_rename_execute(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -165,7 +165,7 @@ bool _uph_action_pattern_rename_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_rename_undo(void* userdata)
+bool uph__action_pattern_rename_undo(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -178,7 +178,7 @@ bool _uph_action_pattern_rename_undo(void* userdata)
 #pragma endregion
 
 #pragma region Pattern Duplicate
-bool _uph_action_pattern_duplicate_execute(void* userdata)
+bool uph__action_pattern_duplicate_execute(void* userdata)
 {
 	Uph_ActionPatternDuplicate* data = userdata;
 	if (data->source_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -191,7 +191,7 @@ bool _uph_action_pattern_duplicate_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_pattern_duplicate_undo(void* userdata)
+bool uph__action_pattern_duplicate_undo(void* userdata)
 {
 	Uph_ActionPatternDuplicate* data = userdata;
 	if (!data->resource_exists || data->new_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
@@ -258,7 +258,7 @@ static bool uph_note_apply(Uph_ResourceIndex pattern_index, uint32_t note_index,
 #pragma endregion
 
 #pragma region Note Create
-bool _uph_action_note_create_execute(void* userdata)
+bool uph__action_note_create_execute(void* userdata)
 {
 	Uph_ActionNoteCreate* data = userdata;
 	if (data->applied_live)
@@ -270,13 +270,13 @@ bool _uph_action_note_create_execute(void* userdata)
 	return uph_note_list_insert(data->pattern_index, data->note_index, data->note);
 }
 
-bool _uph_action_note_create_undo(void* userdata)
+bool uph__action_note_create_undo(void* userdata)
 {
 	Uph_ActionNoteCreate* data = userdata;
 	return uph_note_list_take(data->pattern_index, data->note_index, &data->note);
 }
 
-bool _uph_action_note_create_redo(void* userdata)
+bool uph__action_note_create_redo(void* userdata)
 {
 	Uph_ActionNoteCreate* data = userdata;
 	return uph_note_list_insert(data->pattern_index, data->note_index, data->note);
@@ -285,7 +285,7 @@ bool _uph_action_note_create_redo(void* userdata)
 #pragma endregion
 
 #pragma region Note Delete
-bool _uph_action_note_delete_execute(void* userdata)
+bool uph__action_note_delete_execute(void* userdata)
 {
 	Uph_ActionNoteDelete* data = userdata;
 	if (!uph_note_list_take(data->pattern_index, data->note_index, &data->note))
@@ -295,7 +295,7 @@ bool _uph_action_note_delete_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_note_delete_undo(void* userdata)
+bool uph__action_note_delete_undo(void* userdata)
 {
 	Uph_ActionNoteDelete* data = userdata;
 	return uph_note_list_insert(data->pattern_index, data->note_index, data->note);
@@ -304,7 +304,7 @@ bool _uph_action_note_delete_undo(void* userdata)
 #pragma endregion
 
 #pragma region Notes Erase
-static bool _uph_action_notes_erase_apply(Uph_ActionNotesErase* data)
+static bool uph__action_notes_erase_apply(Uph_ActionNotesErase* data)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(data->erased); i++)
 	{
@@ -318,7 +318,7 @@ static bool _uph_action_notes_erase_apply(Uph_ActionNotesErase* data)
 	return true;
 }
 
-bool _uph_action_notes_erase_execute(void* userdata)
+bool uph__action_notes_erase_execute(void* userdata)
 {
 	Uph_ActionNotesErase* data = userdata;
 	if (data->applied_live)
@@ -327,10 +327,10 @@ bool _uph_action_notes_erase_execute(void* userdata)
 		return uph_note_pattern(data->pattern_index) != NULL;
 	}
 
-	return _uph_action_notes_erase_apply(data);
+	return uph__action_notes_erase_apply(data);
 }
 
-bool _uph_action_notes_erase_undo(void* userdata)
+bool uph__action_notes_erase_undo(void* userdata)
 {
 	Uph_ActionNotesErase* data = userdata;
 	for (uint32_t i = (uint32_t)naui_list_len(data->erased); i > 0; i--)
@@ -342,12 +342,12 @@ bool _uph_action_notes_erase_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_notes_erase_redo(void* userdata)
+bool uph__action_notes_erase_redo(void* userdata)
 {
-	return _uph_action_notes_erase_apply(userdata);
+	return uph__action_notes_erase_apply(userdata);
 }
 
-void _uph_action_notes_erase_destroy(void* userdata)
+void uph__action_notes_erase_destroy(void* userdata)
 {
 	Uph_ActionNotesErase* data = userdata;
 	naui_list_free(data->erased);
@@ -357,7 +357,7 @@ void _uph_action_notes_erase_destroy(void* userdata)
 #pragma endregion
 
 #pragma region Note Move / Resize
-bool _uph_action_note_transform_execute(void* userdata)
+bool uph__action_note_transform_execute(void* userdata)
 {
 	Uph_ActionNoteTransform* data = userdata;
 	if (data->applied_live)
@@ -369,13 +369,13 @@ bool _uph_action_note_transform_execute(void* userdata)
 	return uph_note_apply(data->pattern_index, data->note_index, data->new_start, data->new_length, data->new_key);
 }
 
-bool _uph_action_note_transform_undo(void* userdata)
+bool uph__action_note_transform_undo(void* userdata)
 {
 	Uph_ActionNoteTransform* data = userdata;
 	return uph_note_apply(data->pattern_index, data->note_index, data->old_start, data->old_length, data->old_key);
 }
 
-bool _uph_action_note_transform_redo(void* userdata)
+bool uph__action_note_transform_redo(void* userdata)
 {
 	Uph_ActionNoteTransform* data = userdata;
 	return uph_note_apply(data->pattern_index, data->note_index, data->new_start, data->new_length, data->new_key);
@@ -395,7 +395,7 @@ static bool uph_note_apply_velocity(Uph_ResourceIndex pattern_index, uint32_t no
 	return true;
 }
 
-bool _uph_action_note_velocity_execute(void* userdata)
+bool uph__action_note_velocity_execute(void* userdata)
 {
 	Uph_ActionNoteVelocity* data = userdata;
 	if (data->applied_live)
@@ -407,13 +407,13 @@ bool _uph_action_note_velocity_execute(void* userdata)
 	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->new_velocity);
 }
 
-bool _uph_action_note_velocity_undo(void* userdata)
+bool uph__action_note_velocity_undo(void* userdata)
 {
 	Uph_ActionNoteVelocity* data = userdata;
 	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->old_velocity);
 }
 
-bool _uph_action_note_velocity_redo(void* userdata)
+bool uph__action_note_velocity_redo(void* userdata)
 {
 	Uph_ActionNoteVelocity* data = userdata;
 	return uph_note_apply_velocity(data->pattern_index, data->note_index, data->new_velocity);
@@ -594,7 +594,7 @@ static void uph_note_duplicate_selected(Uph_ResourceIndex pattern_index)
 	naui_list_free(selected);
 }
 
-static Naui_List(Uph_MidiNote) _uph_note_clipboard;
+static Naui_List(Uph_MidiNote) uph__note_clipboard;
 
 static bool uph_note_copy_selected(const Uph_MidiPattern *pattern)
 {
@@ -607,13 +607,13 @@ static bool uph_note_copy_selected(const Uph_MidiPattern *pattern)
 	for (uint32_t i = 1; i < (uint32_t)naui_list_len(selected); i++)
 		first_start = fmin(first_start, selected[i].note.start_beat);
 
-	naui_list_free(_uph_note_clipboard);
-	_uph_note_clipboard = NULL;
+	naui_list_free(uph__note_clipboard);
+	uph__note_clipboard = NULL;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(selected); i++)
 	{
 		Uph_MidiNote note = selected[i].note;
 		note.start_beat -= first_start;
-		naui_list_push(_uph_note_clipboard, note);
+		naui_list_push(uph__note_clipboard, note);
 	}
 
 	naui_list_free(selected);
@@ -623,7 +623,7 @@ static bool uph_note_copy_selected(const Uph_MidiPattern *pattern)
 static void uph_note_paste(Uph_ResourceIndex pattern_index, double beat)
 {
 	Uph_MidiPattern* pattern = uph_note_pattern(pattern_index);
-	if (!pattern || naui_list_len(_uph_note_clipboard) == 0)
+	if (!pattern || naui_list_len(uph__note_clipboard) == 0)
 		return;
 
 	uph_note_select_all(pattern, false);
@@ -632,9 +632,9 @@ static void uph_note_paste(Uph_ResourceIndex pattern_index, double beat)
 	uph_pattern_collect_tail_blocks(pattern_index, &tail);
 
 	naui_action_group_start(UPH_ACTION_MIDI_NOTES_PASTE_GROUP);
-	for (uint32_t i = 0; i < (uint32_t)naui_list_len(_uph_note_clipboard); i++)
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph__note_clipboard); i++)
 	{
-		Uph_ActionNoteCreate data = { .pattern_index = pattern_index, .note_index = (uint32_t)naui_list_len(pattern->notes), .note = _uph_note_clipboard[i] };
+		Uph_ActionNoteCreate data = { .pattern_index = pattern_index, .note_index = (uint32_t)naui_list_len(pattern->notes), .note = uph__note_clipboard[i] };
 		data.note.start_beat += beat;
 		data.note.selected = true;
 		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
@@ -751,7 +751,7 @@ static bool uph_note_quantize(Uph_ResourceIndex pattern_index, Uph_SnapResolutio
 #define UPH_NOTE_STRUM_GRID_RATIO 0.25
 #define UPH_NOTE_STRUM_MAX_LENGTH_RATIO 0.5
 
-static int _uph_note_snapshot_compare_start(const void *a, const void *b)
+static int uph__note_snapshot_compare_start(const void *a, const void *b)
 {
 	const Uph_NoteSnapshot *left = a;
 	const Uph_NoteSnapshot *right = b;
@@ -764,17 +764,17 @@ static int _uph_note_snapshot_compare_start(const void *a, const void *b)
 	return (left->index > right->index) - (left->index < right->index);
 }
 
-static int _uph_note_snapshot_compare_key(const void *a, const void *b)
+static int uph__note_snapshot_compare_key(const void *a, const void *b)
 {
 	const Uph_NoteSnapshot *left = a;
 	const Uph_NoteSnapshot *right = b;
 	if (left->note.key_number != right->note.key_number)
 		return left->note.key_number < right->note.key_number ? -1 : 1;
 
-	return _uph_note_snapshot_compare_start(a, b);
+	return uph__note_snapshot_compare_start(a, b);
 }
 
-static int _uph_note_index_compare_descending(const void *a, const void *b)
+static int uph__note_index_compare_descending(const void *a, const void *b)
 {
 	const uint32_t left = *(const uint32_t *)a;
 	const uint32_t right = *(const uint32_t *)b;
@@ -849,7 +849,7 @@ static bool uph_note_legato(Uph_ResourceIndex pattern_index)
 		return false;
 
 	Naui_List(Uph_NoteSnapshot) before = NULL;
-	uph_note_collect_targets(pattern, &before, _uph_note_snapshot_compare_start);
+	uph_note_collect_targets(pattern, &before, uph__note_snapshot_compare_start);
 	Naui_List(Uph_NoteSnapshot) after = uph_note_snapshots_copy(before);
 
 	const uint32_t count = (uint32_t)naui_list_len(before);
@@ -887,7 +887,7 @@ static bool uph_note_flip(Uph_ResourceIndex pattern_index, bool vertical)
 		return false;
 
 	Naui_List(Uph_NoteSnapshot) before = NULL;
-	uph_note_collect_targets(pattern, &before, _uph_note_snapshot_compare_start);
+	uph_note_collect_targets(pattern, &before, uph__note_snapshot_compare_start);
 	Naui_List(Uph_NoteSnapshot) after = uph_note_snapshots_copy(before);
 
 	const uint32_t count = (uint32_t)naui_list_len(before);
@@ -929,7 +929,7 @@ static bool uph_note_strum(Uph_ResourceIndex pattern_index, double division)
 		return false;
 
 	Naui_List(Uph_NoteSnapshot) before = NULL;
-	uph_note_collect_targets(pattern, &before, _uph_note_snapshot_compare_start);
+	uph_note_collect_targets(pattern, &before, uph__note_snapshot_compare_start);
 	Naui_List(Uph_NoteSnapshot) after = uph_note_snapshots_copy(before);
 
 	const uint32_t count = (uint32_t)naui_list_len(before);
@@ -972,7 +972,7 @@ static bool uph_note_glue(Uph_ResourceIndex pattern_index)
 		return false;
 
 	Naui_List(Uph_NoteSnapshot) targets = NULL;
-	uph_note_collect_targets(pattern, &targets, _uph_note_snapshot_compare_key);
+	uph_note_collect_targets(pattern, &targets, uph__note_snapshot_compare_key);
 
 	Naui_List(uint32_t) absorbed = NULL;
 	bool changed = false;
@@ -1009,7 +1009,7 @@ static bool uph_note_glue(Uph_ResourceIndex pattern_index)
 
 	if (changed)
 	{
-		qsort(absorbed, (size_t)naui_list_len(absorbed), sizeof(uint32_t), _uph_note_index_compare_descending);
+		qsort(absorbed, (size_t)naui_list_len(absorbed), sizeof(uint32_t), uph__note_index_compare_descending);
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(absorbed); i++)
 		{
 			Uph_ActionNoteDelete data = { .pattern_index = pattern_index, .note_index = absorbed[i] };
@@ -1031,7 +1031,7 @@ static bool uph_note_chop(Uph_ResourceIndex pattern_index, double division)
 		return false;
 
 	Naui_List(Uph_NoteSnapshot) targets = NULL;
-	uph_note_collect_targets(pattern, &targets, _uph_note_snapshot_compare_start);
+	uph_note_collect_targets(pattern, &targets, uph__note_snapshot_compare_start);
 
 	bool changed = false;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(targets); i++)
@@ -1120,7 +1120,7 @@ static bool uph_pedals_apply(Uph_ResourceIndex pattern_index, Naui_List(Uph_Midi
 	return true;
 }
 
-bool _uph_action_pedals_edit_execute(void* userdata)
+bool uph__action_pedals_edit_execute(void* userdata)
 {
 	Uph_ActionPedalsEdit* data = userdata;
 	if (data->applied_live)
@@ -1132,19 +1132,19 @@ bool _uph_action_pedals_edit_execute(void* userdata)
 	return uph_pedals_apply(data->pattern_index, data->new_pedals);
 }
 
-bool _uph_action_pedals_edit_undo(void* userdata)
+bool uph__action_pedals_edit_undo(void* userdata)
 {
 	Uph_ActionPedalsEdit* data = userdata;
 	return uph_pedals_apply(data->pattern_index, data->old_pedals);
 }
 
-bool _uph_action_pedals_edit_redo(void* userdata)
+bool uph__action_pedals_edit_redo(void* userdata)
 {
 	Uph_ActionPedalsEdit* data = userdata;
 	return uph_pedals_apply(data->pattern_index, data->new_pedals);
 }
 
-void _uph_action_pedals_edit_destroy(void* userdata)
+void uph__action_pedals_edit_destroy(void* userdata)
 {
 	Uph_ActionPedalsEdit* data = userdata;
 	naui_list_free(data->old_pedals);

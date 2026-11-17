@@ -23,11 +23,11 @@ typedef struct
 }
 Uph_DragState;
 
-static Uph_DragState _uph_drag_state;
+static Uph_DragState uph__drag_state;
 
 void uph_drag_begin(const char *type, const void *payload, size_t size, Uph_DragRenderFn render)
 {
-	Uph_DragState *state = &_uph_drag_state;
+	Uph_DragState *state = &uph__drag_state;
 	if (!type || size > UPH_DRAG_PAYLOAD_MAX)
 		return;
 
@@ -42,20 +42,20 @@ void uph_drag_begin(const char *type, const void *payload, size_t size, Uph_Drag
 	state->phase = UPH_DRAG_PRESSED;
 }
 
-static const void *_uph_drag_payload_in(Uph_DragPhase phase, const char *type)
+static const void *uph__drag_payload_in(Uph_DragPhase phase, const char *type)
 {
-	return _uph_drag_state.phase == phase && type && strcmp(_uph_drag_state.type, type) == 0 ? _uph_drag_state.payload : NULL;
+	return uph__drag_state.phase == phase && type && strcmp(uph__drag_state.type, type) == 0 ? uph__drag_state.payload : NULL;
 }
 
 const void *uph_drag_hover(const char *type)
 {
-	return _uph_drag_payload_in(UPH_DRAG_DRAGGING, type);
+	return uph__drag_payload_in(UPH_DRAG_DRAGGING, type);
 }
 
 const void *uph_drag_drop(const char *type)
 {
-	Uph_DragState *state = &_uph_drag_state;
-	const void *payload = _uph_drag_payload_in(UPH_DRAG_DROPPED, type);
+	Uph_DragState *state = &uph__drag_state;
+	const void *payload = uph__drag_payload_in(UPH_DRAG_DROPPED, type);
 	if (payload)
 		state->phase = UPH_DRAG_NONE;
 	return payload;
@@ -103,7 +103,7 @@ void uph_drag_label(const Naui_Image *icon, const char *text, Naui_Color accent)
 
 void uph_drag_flush(void)
 {
-	Uph_DragState *state = &_uph_drag_state;
+	Uph_DragState *state = &uph__drag_state;
 	if (state->phase == UPH_DRAG_DROPPED || state->phase == UPH_DRAG_NONE)
 	{
 		state->phase = UPH_DRAG_NONE;

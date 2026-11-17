@@ -13,11 +13,11 @@ typedef struct
 }
 Uph_MetronomeState;
 
-static Uph_MetronomeState _uph_metronome_state;
+static Uph_MetronomeState uph__metronome_state;
 
-static bool _uph_metronome_tap(float *out_bpm)
+static bool uph__metronome_tap(float *out_bpm)
 {
-	Uph_MetronomeState *state = &_uph_metronome_state;
+	Uph_MetronomeState *state = &uph__metronome_state;
 	const float current_time = naui_time();
 
 	if (!state->active)

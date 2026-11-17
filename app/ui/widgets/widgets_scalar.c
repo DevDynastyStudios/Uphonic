@@ -1,4 +1,4 @@
-static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
+static bool uph__ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
 {
     Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
     static Naui_String edit_buffer;
@@ -16,7 +16,7 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
         else
             edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
 
-        _uph_ui_begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
+        uph__ui_begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
         tdata->target_number = value;
 
         text_editing = true;
@@ -113,8 +113,8 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     leaf({
         .id = id,
         .size = {
-            .width = vertical ? UPH_UI_SIZE_EXACT(_uph_ui_frame_height()) : LEAF_SIZE_GROW,
-            .height = vertical ? LEAF_SIZE_GROW : UPH_UI_SIZE_EXACT(_uph_ui_frame_height())
+            .width = vertical ? UPH_UI_SIZE_EXACT(uph__ui_frame_height()) : LEAF_SIZE_GROW,
+            .height = vertical ? LEAF_SIZE_GROW : UPH_UI_SIZE_EXACT(uph__ui_frame_height())
         }
     })
     {
@@ -171,7 +171,7 @@ static bool _uph_ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     return result;
 }
 
-static bool _uph_ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, float speed, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UIDragFlags flags)
+static bool uph__ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, float speed, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UIDragFlags flags)
 {
     Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
     Uph_DragData *ddata = &uph_global_widget_state.drag_data;
@@ -195,7 +195,7 @@ static bool _uph_ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
         else
             edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
 
-        _uph_ui_begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
+        uph__ui_begin_text_edit(tdata, id, &edit_buffer, edit_buffer.length);
         tdata->target_number = value;
         ddata->id.value = 0;
 
@@ -313,10 +313,10 @@ static bool _uph_ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
         .id = id,
         .size = {
             .width = LEAF_SIZE_GROW,
-            .height = frameless ? LEAF_SIZE_FIT : UPH_UI_SIZE_EXACT(_uph_ui_frame_height())
+            .height = frameless ? LEAF_SIZE_FIT : UPH_UI_SIZE_EXACT(uph__ui_frame_height())
         },
         .padding = frameless ? (Leaf_Padding){0} : LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
-        .border = frameless ? (Leaf_Border){0} : _uph_ui_border(tinted ? uph_state.colors.ui_tinted_frame_border : uph_state.colors.ui_frame_border),
+        .border = frameless ? (Leaf_Border){0} : uph__ui_border(tinted ? uph_state.colors.ui_tinted_frame_border : uph_state.colors.ui_frame_border),
         .color = frameless ? LEAF_COLOR_TRANSPARENT : color,
         .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
@@ -334,17 +334,17 @@ static bool _uph_ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
 
 bool uph_ui_drag_float(float *value, const Leaf_ID id, float speed, float min, float max, const char *format, Uph_UIDragFlags flags)
 {
-    return _uph_ui_drag_scalar(id, value, true, speed, min, max, 0, 0, format, flags);
+    return uph__ui_drag_scalar(id, value, true, speed, min, max, 0, 0, format, flags);
 }
 
 bool uph_ui_drag_int(int32_t *value, const Leaf_ID id, float speed, int32_t min, int32_t max, const char *format, Uph_UIDragFlags flags)
 {
-    return _uph_ui_drag_scalar(id, value, false, speed, 0.0f, 0.0f, min, max, format, flags);
+    return uph__ui_drag_scalar(id, value, false, speed, 0.0f, 0.0f, min, max, format, flags);
 }
 
 bool uph_ui_slider_float_ex(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
 {
-    return _uph_ui_slider_scalar(id, value, true, min, max, 0, 0, format, flags, handle_color, fill_color);
+    return uph__ui_slider_scalar(id, value, true, min, max, 0, 0, format, flags, handle_color, fill_color);
 }
 
 bool uph_ui_slider_float(float *value, const Leaf_ID id, float min, float max, const char *format, Uph_UISliderFlags flags)
@@ -354,5 +354,5 @@ bool uph_ui_slider_float(float *value, const Leaf_ID id, float min, float max, c
 
 bool uph_ui_slider_int(int32_t *value, const Leaf_ID id, int32_t min, int32_t max, const char *format, Uph_UISliderFlags flags)
 {
-    return _uph_ui_slider_scalar(id, value, false, 0.0f, 0.0f, min, max, format, flags, uph_state.colors.panel_body_bg, uph_state.colors.ui_slider_fill);
+    return uph__ui_slider_scalar(id, value, false, 0.0f, 0.0f, min, max, format, flags, uph_state.colors.panel_body_bg, uph_state.colors.ui_slider_fill);
 }

@@ -2,7 +2,7 @@
 
 void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	uph_grid_render_beats(bbox, zoom_x, scroll_x, uph_snap_division(state->snap_resolution, state->zoom.x), (Uph_GridColors){
 		.sub_color = uph_state.colors.song_timeline_grid_subbeat,
 		.beat_color = uph_state.colors.song_timeline_grid_beat,
@@ -12,7 +12,7 @@ void uph_song_timeline_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float s
 
 static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	Uph_PlayheadDragState *drag = &state->playhead_drag;
 
 	const bool mouse_over_ruler = uph_song_timeline_vec4_contains_vec2(
@@ -63,7 +63,7 @@ static void uph_song_timeline_update_playhead_drag(Leaf_BoundingBox bbox)
 
 static void uph_song_timeline_render_top_ruler(Leaf_BoundingBox bbox, void *user_data)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	uph_song_timeline_update_playhead_drag(bbox);
 	uph_loop_region_render_ruler(&uph_state.project.loop_region, bbox, state->zoom.x, state->scroll.x, uph_state.project.loop_enabled, uph_state.colors.song_timeline_selection_outline);
 	uph_grid_render_ruler(bbox, state->zoom.x, state->scroll.x, uph_snap_division(state->snap_resolution, state->zoom.x), (Uph_GridColors){
@@ -111,7 +111,7 @@ void uph_song_timeline_render_top_bar(void)
 
 void uph_song_timeline_render_playhead_overlay(Leaf_BoundingBox bbox, void *data)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const Naui_Image *playhead_image = uph_state.icons.playhead;
 	const Naui_Color color = uph_state.colors.song_timeline_playhead;
 	const int32_t x_offset = NAUI_DPI(uph_song_timeline_header_column_width());

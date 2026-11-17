@@ -600,7 +600,7 @@ static bool uph_io_save_track_plugins(const Uph_Track* track, const Naui_Path tr
 	return saved;
 }
 
-static const char *const _uph_io_plugin_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
+static const char *const uph__io_plugin_format_names[UPH_PLUGIN_FORMAT_COUNT] = {
 	[UPH_PLUGIN_CLAP] = "clap",
 	[UPH_PLUGIN_VST3] = "vst3",
 	[UPH_PLUGIN_VST2] = "vst2"
@@ -610,7 +610,7 @@ static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Up
 {
 	naui_json_set_string(json, object, "path", naui_path_normalize(plugin->file_path).data);
 	naui_json_set_string(json, object, "name", plugin->name.data);
-	naui_json_set_string(json, object, "format", _uph_io_plugin_format_names[plugin->format]);
+	naui_json_set_string(json, object, "format", uph__io_plugin_format_names[plugin->format]);
 
 	const Naui_Path state_file = naui_path_join(state_dir, naui_path_from_cstr(state_name));
 	if (plugin->loaded && uph_plugin_save_state(plugin, state_file))
@@ -1127,7 +1127,7 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	Uph_PluginFormat format = UPH_PLUGIN_CLAP;
 	for (Uph_PluginFormat f = 0; f < UPH_PLUGIN_FORMAT_COUNT; f++)
 	{
-		if (strcmp(format_name, _uph_io_plugin_format_names[f]) == 0)
+		if (strcmp(format_name, uph__io_plugin_format_names[f]) == 0)
 			format = f;
 	}
 

@@ -33,7 +33,7 @@ typedef struct
 }
 Uph_MidiPreviewState;
 
-static Uph_MidiPreviewState _uph_midi_preview_state = { .loop = true };
+static Uph_MidiPreviewState uph__midi_preview_state = { .loop = true };
 
 #pragma region Voice
 
@@ -42,25 +42,25 @@ bool uph_midi_preview_is_voice_candidate(const Uph_Track *track)
 	return track && track->type == UPH_RESOURCE_PATTERN && track->instrument.loaded;
 }
 
-static bool _uph_midi_preview_track_in(Naui_List(Uph_Track) tracks, const Uph_Track *track)
+static bool uph__midi_preview_track_in(Naui_List(Uph_Track) tracks, const Uph_Track *track)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
-		if (&tracks[i] == track || _uph_midi_preview_track_in(tracks[i].subtracks, track))
+		if (&tracks[i] == track || uph__midi_preview_track_in(tracks[i].subtracks, track))
 			return true;
 	}
 
 	return false;
 }
 
-static Uph_Track *_uph_midi_preview_first_candidate(Naui_List(Uph_Track) tracks)
+static Uph_Track *uph__midi_preview_first_candidate(Naui_List(Uph_Track) tracks)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
 	{
 		if (uph_midi_preview_is_voice_candidate(&tracks[i]))
 			return &tracks[i];
 
-		Uph_Track *found = _uph_midi_preview_first_candidate(tracks[i].subtracks);
+		Uph_Track *found = uph__midi_preview_first_candidate(tracks[i].subtracks);
 		if (found)
 			return found;
 	}
@@ -70,7 +70,7 @@ static Uph_Track *_uph_midi_preview_first_candidate(Naui_List(Uph_Track) tracks)
 
 void uph_midi_preview_set_voice(Uph_Track *track)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->none_chosen = track == NULL;
 	state->voice_ref = uph_action_track_ref(track);
 	state->voice = track;
@@ -78,32 +78,32 @@ void uph_midi_preview_set_voice(Uph_Track *track)
 
 Uph_Track *uph_midi_preview_voice(void)
 {
-	return _uph_midi_preview_state.voice;
+	return uph__midi_preview_state.voice;
 }
 
 void uph_midi_preview_set_voice_monitoring(bool monitoring)
 {
-	atomic_store_explicit(&_uph_midi_preview_state.voice_monitoring, monitoring, memory_order_relaxed);
+	atomic_store_explicit(&uph__midi_preview_state.voice_monitoring, monitoring, memory_order_relaxed);
 }
 
 bool uph_midi_preview_voice_monitoring(void)
 {
-	return atomic_load_explicit(&_uph_midi_preview_state.voice_monitoring, memory_order_relaxed) && _uph_midi_preview_state.voice;
+	return atomic_load_explicit(&uph__midi_preview_state.voice_monitoring, memory_order_relaxed) && uph__midi_preview_state.voice;
 }
 
 void uph_midi_preview_refresh_voice(void)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	Uph_Track *refreshed = state->voice;
 
-	if (refreshed && !_uph_midi_preview_track_in(uph_state.project.tracks, refreshed))
+	if (refreshed && !uph__midi_preview_track_in(uph_state.project.tracks, refreshed))
 		refreshed = uph_action_track_resolve(state->voice_ref);
 
 	if (!uph_midi_preview_is_voice_candidate(refreshed))
 		refreshed = NULL;
 
 	if (!refreshed && !state->none_chosen)
-		refreshed = _uph_midi_preview_first_candidate(uph_state.project.tracks);
+		refreshed = uph__midi_preview_first_candidate(uph_state.project.tracks);
 
 	if (refreshed)
 		state->voice_ref = uph_action_track_ref(refreshed);
@@ -117,7 +117,7 @@ void uph_midi_preview_refresh_voice(void)
 
 void uph_midi_preview_note_on(uint8_t key, uint8_t velocity)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (key >= 128)
 		return;
 
@@ -127,27 +127,27 @@ void uph_midi_preview_note_on(uint8_t key, uint8_t velocity)
 
 void uph_midi_preview_note_off(uint8_t key)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (key < 128)
 		state->audition_held[key] = false;
 }
 
 void uph_midi_preview_play(Uph_ResourceIndex pattern_index)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->pattern_index = pattern_index;
 	state->playing = true;
 }
 
 void uph_midi_preview_pause(void)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->playing = false;
 }
 
 void uph_midi_preview_seek(double beat)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->position = fmax(0.0, beat);
 }
 
@@ -159,23 +159,23 @@ void uph_midi_preview_stop(void)
 
 void uph_midi_preview_set_loop(bool loop)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->loop = loop;
 }
 
 bool uph_midi_preview_looping(void)
 {
-	return _uph_midi_preview_state.loop;
+	return uph__midi_preview_state.loop;
 }
 
 bool uph_midi_preview_playing(void)
 {
-	return _uph_midi_preview_state.playing;
+	return uph__midi_preview_state.playing;
 }
 
 double uph_midi_preview_position(void)
 {
-	return _uph_midi_preview_state.position;
+	return uph__midi_preview_state.position;
 }
 
 double uph_midi_preview_loop_length(const Uph_MidiPattern *pattern)
@@ -190,7 +190,7 @@ double uph_midi_preview_loop_length(const Uph_MidiPattern *pattern)
 
 void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, float bpm, bool timeline_playing)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	state->buffer_playing = false;
 
 	if (state->playing && timeline_playing)
@@ -247,7 +247,7 @@ void uph_midi_preview_begin_buffer(uint32_t frame_count, uint32_t sample_rate, f
 
 bool uph_midi_preview_playback_range(const Uph_Track *track, Uph_MidiPreviewRange *range)
 {
-	const Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	const Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (!state->buffer_playing || !track || track != state->voice)
 		return false;
 
@@ -257,7 +257,7 @@ bool uph_midi_preview_playback_range(const Uph_Track *track, Uph_MidiPreviewRang
 
 bool uph_midi_preview_buffer_range(Uph_MidiPreviewRange *range)
 {
-	const Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	const Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (!state->buffer_playing)
 		return false;
 
@@ -267,7 +267,7 @@ bool uph_midi_preview_buffer_range(Uph_MidiPreviewRange *range)
 
 void uph_midi_preview_queue_audition(Uph_Track *track, bool should_be_held[128])
 {
-	const Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	const Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (!track || track != state->voice)
 		return;
 
@@ -284,7 +284,7 @@ void uph_midi_preview_queue_audition(Uph_Track *track, bool should_be_held[128])
 
 void uph_midi_preview_end_buffer(void)
 {
-	Uph_MidiPreviewState *state = &_uph_midi_preview_state;
+	Uph_MidiPreviewState *state = &uph__midi_preview_state;
 	if (!state->buffer_playing)
 		return;
 

@@ -26,7 +26,7 @@ typedef struct
     bool skipped_stale_frame;
 }
 Naui_AppState;
-static Naui_AppState _naui_app_state = {
+static Naui_AppState naui__app_state = {
     .ui_scale = 1.0f
 };
 
@@ -115,9 +115,9 @@ static void render_leaf_cmd_list(const Leaf_RenderCmdList *list)
     naui_set_opacity(1.0f);
 }
 
-static void __naui_app_render(void)
+static void _naui__app_render(void)
 {
-    Naui_AppState *state = &_naui_app_state;
+    Naui_AppState *state = &naui__app_state;
 
     state->frame_stale = false;
     leaf_begin_frame(mgapp_width(), mgapp_height());
@@ -139,53 +139,53 @@ static void __naui_app_render(void)
     naui_renderer_end();
 }
 
-static void __naui_app_event(const mgapp_event* event)
+static void _naui__app_event(const mgapp_event* event)
 {
     if (event->type == MGAPP_EVENT_RESIZE)
         naui_renderer_resize(event->window.width, event->window.height);
-    _naui_app_state.events.event((const Naui_AppEventData*)event);
+    naui__app_state.events.event((const Naui_AppEventData*)event);
 }
 
-static void __naui_app_start(void)
+static void _naui__app_start(void)
 {
     naui_renderer_initialize();
     naui_asset_manager_load_images(naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Images")).data);
     naui_themes_initialize();
     leaf_init();
     leaf_set_measure_text(measure_text_bridge);
-    naui_arena_init(&_naui_app_state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
-    _naui_app_state.events.start();
-    __naui_app_render();
+    naui_arena_init(&naui__app_state.deferred_arg_arena, NAUI_BASE_DEFERRED_ARG_ARENA_SIZE);
+    naui__app_state.events.start();
+    _naui__app_render();
     mgapp_show(true);
 }
 
-static void __naui_app_end(void)
+static void _naui__app_end(void)
 {
-    _naui_app_state.events.end();
+    naui__app_state.events.end();
     leaf_shutdown();
     naui_renderer_shutdown();
     naui_themes_shutdown();
-    naui_list_free(_naui_app_state.deferred_entries);
-    naui_arena_free(&_naui_app_state.deferred_arg_arena);
+    naui_list_free(naui__app_state.deferred_entries);
+    naui_arena_free(&naui__app_state.deferred_arg_arena);
 }
 
 static inline void naui_process_deferred(void)
 {
-    if (naui_list_len(_naui_app_state.deferred_entries) > 0)
+    if (naui_list_len(naui__app_state.deferred_entries) > 0)
     {
-        for (uint32_t i = 0; i < (uint32_t)naui_list_len(_naui_app_state.deferred_entries); i++)
-            _naui_app_state.deferred_entries[i].event(_naui_app_state.deferred_entries[i].data);
-        naui_list_clear(_naui_app_state.deferred_entries);
-        naui_arena_reset(&_naui_app_state.deferred_arg_arena);
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(naui__app_state.deferred_entries); i++)
+            naui__app_state.deferred_entries[i].event(naui__app_state.deferred_entries[i].data);
+        naui_list_clear(naui__app_state.deferred_entries);
+        naui_arena_reset(&naui__app_state.deferred_arg_arena);
     }
 }
 
-static void __naui_app_update(void)
+static void _naui__app_update(void)
 {
     naui_process_deferred();
     naui_input_update();
 	naui_keybind_update();
-    __naui_app_render();
+    _naui__app_render();
 }
 
 void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
@@ -195,7 +195,7 @@ void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
     
     if (data_size)
     {
-        entry.data = naui_arena_alloc(&_naui_app_state.deferred_arg_arena, data_size);
+        entry.data = naui_arena_alloc(&naui__app_state.deferred_arg_arena, data_size);
         memcpy(entry.data, data, data_size);
     }
     else
@@ -203,7 +203,7 @@ void naui_defer(Naui_DeferredEvent event, void *data, size_t data_size)
         entry.data = NULL;
     }
     
-    naui_list_push(_naui_app_state.deferred_entries, entry);
+    naui_list_push(naui__app_state.deferred_entries, entry);
 }
 
 int32_t naui_app_width(void)
@@ -228,11 +228,11 @@ void naui_app_cancel_close(void)
 
 void naui_app_relaunch(void)
 {
-    _naui_app_state.relaunch = true;
+    naui__app_state.relaunch = true;
     mgapp_close();
 }
 
-static void _naui_app_spawn_self(void)
+static void naui__app_spawn_self(void)
 {
 #if NAUI_WINDOWS
     wchar_t path[32768];
@@ -306,27 +306,27 @@ float naui_app_dpi_scale(void)
 
 float naui_app_get_ui_scale(void)
 {
-    return _naui_app_state.ui_scale;
+    return naui__app_state.ui_scale;
 }
 
 void naui_app_set_ui_scale(float value)
 {
-    _naui_app_state.ui_scale = value;
+    naui__app_state.ui_scale = value;
 }
 
 bool naui_app_animations_enabled(void)
 {
-    return _naui_app_state.animations_enabled;
+    return naui__app_state.animations_enabled;
 }
 
 void naui_app_set_animations_enabled(bool enabled)
 {
-    _naui_app_state.animations_enabled = enabled;
+    naui__app_state.animations_enabled = enabled;
 }
 
 void naui_app_stale_frame(void)
 {
-    _naui_app_state.frame_stale = true;
+    naui__app_state.frame_stale = true;
 }
 
 void naui_app_set_clipboard(const char *text)
@@ -352,10 +352,10 @@ void naui_app_run(
     Naui_AppOtherEvent event
 )
 {
-    _naui_app_state.events.start = start;
-    _naui_app_state.events.end = end;
-    _naui_app_state.events.update = update;
-    _naui_app_state.events.event = event;
+    naui__app_state.events.start = start;
+    naui__app_state.events.end = end;
+    naui__app_state.events.update = update;
+    naui__app_state.events.event = event;
 
     mgapp_run(&(mgapp_init_info){
         .title = title,
@@ -364,13 +364,13 @@ void naui_app_run(
             MGAPP_FLAG_HIDE_WINDOW |
             MGAPP_FLAG_ENABLE_FILE_DROPS,
         .events = {
-            .start = __naui_app_start,
-            .end = __naui_app_end,
-            .update = __naui_app_update,
-            .event = __naui_app_event
+            .start = _naui__app_start,
+            .end = _naui__app_end,
+            .update = _naui__app_update,
+            .event = _naui__app_event
         }
     });
 
-    if (_naui_app_state.relaunch)
-        _naui_app_spawn_self();
+    if (naui__app_state.relaunch)
+        naui__app_spawn_self();
 }

@@ -7,9 +7,9 @@ typedef struct
 	Naui_Keybind capture;
 }
 Naui_KeybindState;
-static Naui_KeybindState _naui_keybind_state;
+static Naui_KeybindState naui__keybind_state;
 
-static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_names[] =
+static const struct { Naui_KeyMods mod; const char *name; } naui__mod_names[] =
 {
 	{ NAUI_MOD_CTRL,	"Ctrl" },
 	{ NAUI_MOD_SUPER,	NAUI_KEY_SUPER_NAME },
@@ -17,7 +17,7 @@ static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_names[] =
 	{ NAUI_MOD_SHIFT,	"Shift" }
 };
 
-static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_aliases[] =
+static const struct { Naui_KeyMods mod; const char *name; } naui__mod_aliases[] =
 {
 	{ NAUI_MOD_CTRL,	"Control" },
 	{ NAUI_MOD_SUPER,	"Super" },
@@ -30,7 +30,7 @@ static const struct { Naui_KeyMods mod; const char *name; } _naui_mod_aliases[] 
 	{ NAUI_MOD_PRIMARY,	"Primary" }
 };
 
-static Naui_KeyMods _naui_key_mods(void)
+static Naui_KeyMods naui__key_mods(void)
 {
 	Naui_KeyMods mods = NAUI_MOD_NONE;
 
@@ -46,7 +46,7 @@ static Naui_KeyMods _naui_key_mods(void)
 	return mods;
 }
 
-static Naui_KeyMods _naui_key_own_mod(Naui_Key key)
+static Naui_KeyMods naui__key_own_mod(Naui_Key key)
 {
 	switch (key)
 	{
@@ -58,12 +58,12 @@ static Naui_KeyMods _naui_key_own_mod(Naui_Key key)
 	}
 }
 
-static bool _naui_key_is_modifier(Naui_Key key)
+static bool naui__key_is_modifier(Naui_Key key)
 {
-	return _naui_key_own_mod(key) != NAUI_MOD_NONE;
+	return naui__key_own_mod(key) != NAUI_MOD_NONE;
 }
 
-static bool _naui_key_held(Naui_Key key)
+static bool naui__key_held(Naui_Key key)
 {
 	return naui_key_down(key) || naui_key_pressed(key) || naui_key_released(key);
 }
@@ -77,7 +77,7 @@ uint32_t naui_keybind_key_count(Naui_Keybind keybind)
 	return count;
 }
 
-static bool _naui_keybind_has_key(Naui_Keybind keybind, Naui_Key key)
+static bool naui__keybind_has_key(Naui_Keybind keybind, Naui_Key key)
 {
 	const uint32_t count = naui_keybind_key_count(keybind);
 	for (uint32_t i = 0; i < count; i++)
@@ -89,12 +89,12 @@ static bool _naui_keybind_has_key(Naui_Keybind keybind, Naui_Key key)
 	return false;
 }
 
-static Naui_KeyMods _naui_keybind_own_mods(Naui_Keybind keybind)
+static Naui_KeyMods naui__keybind_own_mods(Naui_Keybind keybind)
 {
 	Naui_KeyMods own = NAUI_MOD_NONE;
 	const uint32_t count = naui_keybind_key_count(keybind);
 	for (uint32_t i = 0; i < count; i++)
-		own |= _naui_key_own_mod(keybind.keys[i]);
+		own |= naui__key_own_mod(keybind.keys[i]);
 
 	return own;
 }
@@ -107,39 +107,39 @@ bool naui_keybind_equal(Naui_Keybind a, Naui_Keybind b)
 
 	for (uint32_t i = 0; i < count; i++)
 	{
-		if (!_naui_keybind_has_key(b, a.keys[i]))
+		if (!naui__keybind_has_key(b, a.keys[i]))
 			return false;
 	}
 
 	return true;
 }
 
-static bool _naui_keybind_active(Naui_Keybind keybind)
+static bool naui__keybind_active(Naui_Keybind keybind)
 {
 	if (!naui_keybind_valid(keybind))
 		return false;
 
-	const Naui_KeybindState *state = &_naui_keybind_state;
+	const Naui_KeybindState *state = &naui__keybind_state;
 	if (state->disabled || state->frame_blocked || state->capturing || state->capture_pending)
 		return false;
 
-	const Naui_KeyMods own = _naui_keybind_own_mods(keybind);
-	if ((_naui_key_mods() & ~own) != (keybind.mods & ~own))
+	const Naui_KeyMods own = naui__keybind_own_mods(keybind);
+	if ((naui__key_mods() & ~own) != (keybind.mods & ~own))
 		return false;
 
 	for (uint32_t key = 1; key < NAUI_KEY_MAX; key++)
 	{
-		if (_naui_key_is_modifier((Naui_Key)key) || !naui_key_name((Naui_Key)key))
+		if (naui__key_is_modifier((Naui_Key)key) || !naui_key_name((Naui_Key)key))
 			continue;
 
-		if (_naui_key_held((Naui_Key)key) != _naui_keybind_has_key(keybind, (Naui_Key)key))
+		if (naui__key_held((Naui_Key)key) != naui__keybind_has_key(keybind, (Naui_Key)key))
 			return false;
 	}
 
 	const uint32_t count = naui_keybind_key_count(keybind);
 	for (uint32_t i = 0; i < count; i++)
 	{
-		if (!_naui_key_held(keybind.keys[i]))
+		if (!naui__key_held(keybind.keys[i]))
 			return false;
 	}
 
@@ -148,7 +148,7 @@ static bool _naui_keybind_active(Naui_Keybind keybind)
 
 bool naui_keybind_down(Naui_Keybind keybind)
 {
-	if (!_naui_keybind_active(keybind))
+	if (!naui__keybind_active(keybind))
 		return false;
 
 	const uint32_t count = naui_keybind_key_count(keybind);
@@ -163,7 +163,7 @@ bool naui_keybind_down(Naui_Keybind keybind)
 
 bool naui_keybind_pressed(Naui_Keybind keybind)
 {
-	if (!_naui_keybind_active(keybind))
+	if (!naui__keybind_active(keybind))
 		return false;
 
 	const uint32_t count = naui_keybind_key_count(keybind);
@@ -178,7 +178,7 @@ bool naui_keybind_pressed(Naui_Keybind keybind)
 
 bool naui_keybind_pressed_repeat(Naui_Keybind keybind)
 {
-	if (!_naui_keybind_active(keybind))
+	if (!naui__keybind_active(keybind))
 		return false;
 
 	const uint32_t count = naui_keybind_key_count(keybind);
@@ -193,7 +193,7 @@ bool naui_keybind_pressed_repeat(Naui_Keybind keybind)
 
 bool naui_keybind_released(Naui_Keybind keybind)
 {
-	if (!_naui_keybind_active(keybind))
+	if (!naui__keybind_active(keybind))
 		return false;
 
 	const uint32_t count = naui_keybind_key_count(keybind);
@@ -208,12 +208,12 @@ bool naui_keybind_released(Naui_Keybind keybind)
 
 void naui_keybind_set_enabled(bool enabled)
 {
-	_naui_keybind_state.disabled = !enabled;
+	naui__keybind_state.disabled = !enabled;
 }
 
 void naui_keybind_capture_begin(void)
 {
-	Naui_KeybindState *state = &_naui_keybind_state;
+	Naui_KeybindState *state = &naui__keybind_state;
 	state->capture_pending = true;
 	state->capturing = false;
 	state->capture = NAUI_KEYBIND_NONE;
@@ -221,7 +221,7 @@ void naui_keybind_capture_begin(void)
 
 void naui_keybind_capture_cancel(void)
 {
-	Naui_KeybindState *state = &_naui_keybind_state;
+	Naui_KeybindState *state = &naui__keybind_state;
 	if (state->capture_pending || state->capturing)
 		state->frame_blocked = true;
 
@@ -232,17 +232,17 @@ void naui_keybind_capture_cancel(void)
 
 bool naui_keybind_capturing(void)
 {
-	return _naui_keybind_state.capture_pending || _naui_keybind_state.capturing;
+	return naui__keybind_state.capture_pending || naui__keybind_state.capturing;
 }
 
 Naui_Keybind naui_keybind_capture_progress(void)
 {
-	return _naui_keybind_state.capture;
+	return naui__keybind_state.capture;
 }
 
 bool naui_keybind_capture(Naui_Keybind *out)
 {
-	Naui_KeybindState *state = &_naui_keybind_state;
+	Naui_KeybindState *state = &naui__keybind_state;
 	if (!state->capturing)
 		return false;
 
@@ -253,7 +253,7 @@ bool naui_keybind_capture(Naui_Keybind *out)
 			continue;
 
 		any_down |= naui_key_down((Naui_Key)key);
-		if (_naui_key_is_modifier((Naui_Key)key) || !naui_key_pressed((Naui_Key)key) || _naui_keybind_has_key(state->capture, (Naui_Key)key))
+		if (naui__key_is_modifier((Naui_Key)key) || !naui_key_pressed((Naui_Key)key) || naui__keybind_has_key(state->capture, (Naui_Key)key))
 			continue;
 
 		const uint32_t count = naui_keybind_key_count(state->capture);
@@ -262,7 +262,7 @@ bool naui_keybind_capture(Naui_Keybind *out)
 	}
 
 	if (naui_keybind_valid(state->capture))
-		state->capture.mods |= _naui_key_mods();
+		state->capture.mods |= naui__key_mods();
 
 	if (any_down || !naui_keybind_valid(state->capture))
 		return false;
@@ -276,7 +276,7 @@ bool naui_keybind_capture(Naui_Keybind *out)
 	return true;
 }
 
-static bool _naui_keybind_name_equal(const char *a, size_t a_length, const char *b)
+static bool naui__keybind_name_equal(const char *a, size_t a_length, const char *b)
 {
 	const size_t b_length = strlen(b);
 	if (a_length != b_length)
@@ -291,7 +291,7 @@ static bool _naui_keybind_name_equal(const char *a, size_t a_length, const char 
 	return true;
 }
 
-static Naui_Key _naui_key_from_name(const char *name, size_t length)
+static Naui_Key naui__key_from_name(const char *name, size_t length)
 {
 	if (!name || length == 0)
 		return 0;
@@ -299,36 +299,36 @@ static Naui_Key _naui_key_from_name(const char *name, size_t length)
 	for (uint32_t key = 1; key < NAUI_KEY_MAX; key++)
 	{
 		const char *key_name = naui_key_name((Naui_Key)key);
-		if (key_name && _naui_keybind_name_equal(name, length, key_name))
+		if (key_name && naui__keybind_name_equal(name, length, key_name))
 			return (Naui_Key)key;
 	}
 
-	if (_naui_keybind_name_equal(name, length, "Alt") || _naui_keybind_name_equal(name, length, "Option"))
+	if (naui__keybind_name_equal(name, length, "Alt") || naui__keybind_name_equal(name, length, "Option"))
 		return NAUI_KEY_ALT;
-	if (_naui_keybind_name_equal(name, length, "Esc"))
+	if (naui__keybind_name_equal(name, length, "Esc"))
 		return NAUI_KEY_ESCAPE;
-	if (_naui_keybind_name_equal(name, length, "Del"))
+	if (naui__keybind_name_equal(name, length, "Del"))
 		return NAUI_KEY_DELETE;
-	if (_naui_keybind_name_equal(name, length, "Return"))
+	if (naui__keybind_name_equal(name, length, "Return"))
 		return NAUI_KEY_ENTER;
-	if (_naui_keybind_name_equal(name, length, "Plus"))
+	if (naui__keybind_name_equal(name, length, "Plus"))
 		return NAUI_KEY_EQUAL;
 
 	return 0;
 }
 
-static Naui_KeyMods _naui_mod_from_name(const char *name, size_t length)
+static Naui_KeyMods naui__mod_from_name(const char *name, size_t length)
 {
-	for (size_t i = 0; i < sizeof(_naui_mod_names) / sizeof(_naui_mod_names[0]); i++)
+	for (size_t i = 0; i < sizeof(naui__mod_names) / sizeof(naui__mod_names[0]); i++)
 	{
-		if (_naui_keybind_name_equal(name, length, _naui_mod_names[i].name))
-			return _naui_mod_names[i].mod;
+		if (naui__keybind_name_equal(name, length, naui__mod_names[i].name))
+			return naui__mod_names[i].mod;
 	}
 
-	for (size_t i = 0; i < sizeof(_naui_mod_aliases) / sizeof(_naui_mod_aliases[0]); i++)
+	for (size_t i = 0; i < sizeof(naui__mod_aliases) / sizeof(naui__mod_aliases[0]); i++)
 	{
-		if (_naui_keybind_name_equal(name, length, _naui_mod_aliases[i].name))
-			return _naui_mod_aliases[i].mod;
+		if (naui__keybind_name_equal(name, length, naui__mod_aliases[i].name))
+			return naui__mod_aliases[i].mod;
 	}
 
 	return NAUI_MOD_NONE;
@@ -347,11 +347,11 @@ uint32_t naui_keybind_names(Naui_Keybind keybind, const char *out[NAUI_KEYBIND_M
 	}
 
 	uint32_t name_count = 0;
-	const Naui_KeyMods own = _naui_keybind_own_mods(keybind);
-	for (size_t i = 0; i < sizeof(_naui_mod_names) / sizeof(_naui_mod_names[0]); i++)
+	const Naui_KeyMods own = naui__keybind_own_mods(keybind);
+	for (size_t i = 0; i < sizeof(naui__mod_names) / sizeof(naui__mod_names[0]); i++)
 	{
-		if ((keybind.mods & _naui_mod_names[i].mod) && !(own & _naui_mod_names[i].mod))
-			out[name_count++] = _naui_mod_names[i].name;
+		if ((keybind.mods & naui__mod_names[i].mod) && !(own & naui__mod_names[i].mod))
+			out[name_count++] = naui__mod_names[i].name;
 	}
 
 	for (uint32_t i = 0; i < count; i++)
@@ -401,12 +401,12 @@ bool naui_keybind_from_string(const char *text, Naui_Keybind *out)
 		{
 			const char *plus = strchr(end, '+');
 			const size_t length = plus ? (size_t)(plus - cursor) : strlen(cursor);
-			const Naui_KeyMods mod = plus ? _naui_mod_from_name(cursor, length) : NAUI_MOD_NONE;
-			const Naui_Key key = mod ? 0 : _naui_key_from_name(cursor, length);
+			const Naui_KeyMods mod = plus ? naui__mod_from_name(cursor, length) : NAUI_MOD_NONE;
+			const Naui_Key key = mod ? 0 : naui__key_from_name(cursor, length);
 
 			if (mod || key)
 			{
-				if (key && !_naui_keybind_has_key(keybind, key))
+				if (key && !naui__keybind_has_key(keybind, key))
 				{
 					if (count >= NAUI_KEYBIND_MAX_KEYS)
 						return false;
@@ -434,7 +434,7 @@ bool naui_keybind_from_string(const char *text, Naui_Keybind *out)
 
 void naui_keybind_update(void)
 {
-	Naui_KeybindState *state = &_naui_keybind_state;
+	Naui_KeybindState *state = &naui__keybind_state;
 	state->frame_blocked = false;
 
 	if (state->capture_pending)

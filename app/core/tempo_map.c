@@ -27,9 +27,9 @@ typedef struct
 }
 Uph_TempoMapState;
 
-static Uph_TempoMapState _uph_tempo_map_state = { 0 };
+static Uph_TempoMapState uph__tempo_map_state = { 0 };
 
-static float _uph_tempo_from_automation(float value)
+static float uph__tempo_from_automation(float value)
 {
     const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
     return UPH_TEMPO_MIN_BPM + clamped * (UPH_TEMPO_MAX_BPM - UPH_TEMPO_MIN_BPM);
@@ -53,7 +53,7 @@ Uph_Track *uph_tempo_find_lane(void)
 
 bool uph_tempo_lane_active(void)
 {
-    return atomic_load(&_uph_tempo_map_state.current) != NULL;
+    return atomic_load(&uph__tempo_map_state.current) != NULL;
 }
 
 static float uph_tempo_base_bpm(void)
@@ -71,7 +71,7 @@ static bool uph_tempo_block_value(const Uph_TimelineBlock *block, double beat, f
     if (!uph_automation_value_at_beat(&uph_state.project.automations[block->resource_index], (beat - block->start_beat) + block->start_offset_beats, &value))
         return false;
 
-    *out_bpm = _uph_tempo_from_automation(value);
+    *out_bpm = uph__tempo_from_automation(value);
     return true;
 }
 
@@ -204,7 +204,7 @@ static Uph_TempoMap *uph_tempo_map_build(const Uph_Track *lane, float base)
 
 static bool uph_tempo_map_try_release_retired(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     if (!state->retired)
         return true;
 
@@ -220,7 +220,7 @@ static bool uph_tempo_map_try_release_retired(void)
 
 static void uph_tempo_map_publish(Uph_TempoMap *map)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     Uph_TempoMap *old = atomic_exchange(&state->current, map);
     state->retired = old;
     state->retired_after = atomic_load(&state->callbacks_started);
@@ -229,7 +229,7 @@ static void uph_tempo_map_publish(Uph_TempoMap *map)
 
 void uph_tempo_map_update(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     if (!uph_tempo_map_try_release_retired())
         return;
 
@@ -257,7 +257,7 @@ void uph_tempo_map_update(void)
 
 void uph_tempo_map_shutdown(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     uph_tempo_map_free(atomic_exchange(&state->current, NULL));
     uph_tempo_map_free(state->retired);
     state->retired = NULL;
@@ -266,19 +266,19 @@ void uph_tempo_map_shutdown(void)
 
 void uph_tempo_map_audio_begin(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     atomic_fetch_add(&state->callbacks_started, 1);
 }
 
 void uph_tempo_map_audio_end(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     atomic_fetch_add(&state->callbacks_finished, 1);
 }
 
 float uph_tempo_bpm_at(double beat)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     const Uph_TempoMap *map = atomic_load(&state->current);
     if (!map)
         return uph_tempo_base_bpm();
@@ -295,7 +295,7 @@ float uph_tempo_bpm_at(double beat)
 
 double uph_tempo_beat_to_seconds(double beat)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     const Uph_TempoMap *map = atomic_load(&state->current);
     if (!map)
         return beat * 60.0 / (double)uph_tempo_base_bpm();
@@ -313,7 +313,7 @@ double uph_tempo_beat_to_seconds(double beat)
 
 double uph_tempo_seconds_to_beat(double seconds)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     const Uph_TempoMap *map = atomic_load(&state->current);
     if (!map)
         return seconds * (double)uph_tempo_base_bpm() / 60.0;
@@ -345,13 +345,13 @@ double uph_tempo_beat_after_seconds(double beat, double seconds)
 
 void uph_tempo_set_current_bpm(float bpm)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     atomic_store(&state->current_bpm, bpm);
 }
 
 float uph_tempo_current_bpm(void)
 {
-    Uph_TempoMapState *state = &_uph_tempo_map_state;
+    Uph_TempoMapState *state = &uph__tempo_map_state;
     const float bpm = atomic_load(&state->current_bpm);
     return bpm > 0.0f ? bpm : uph_tempo_base_bpm();
 }

@@ -8,7 +8,7 @@ static inline float uph_level_meter_fraction(float db)
 	return NAUI_CLAMP(normalized, 0.0f, 1.0f);
 }
 
-static void _uph_level_meter_draw_half(Leaf_BoundingBox bounding_box, float x, float width, float clip_x, float clip_width, float fraction, Naui_Color low_color, Naui_Color medium_color, Naui_Color high_color)
+static void uph__level_meter_draw_half(Leaf_BoundingBox bounding_box, float x, float width, float clip_x, float clip_width, float fraction, Naui_Color low_color, Naui_Color medium_color, Naui_Color high_color)
 {
 	if (fraction <= 0.0f)
 		return;
@@ -78,13 +78,13 @@ void uph_level_meter_draw(Leaf_BoundingBox bounding_box, Uph_LevelMeterData *dat
 	const Naui_Color high_color = data->high_color;
 
 	const float half_width = bounding_box.width * 0.5f;
-	_uph_level_meter_draw_half(
+	uph__level_meter_draw_half(
 		bounding_box, bounding_box.x, half_width,
 		bounding_box.x, half_width - gap,
 		left_fraction, low_color, medium_color, high_color
 	);
 
-	_uph_level_meter_draw_half(
+	uph__level_meter_draw_half(
 		bounding_box, bounding_box.x + half_width, half_width,
 		bounding_box.x + half_width + gap, half_width - gap,
 		right_fraction, low_color, medium_color, high_color

@@ -20,26 +20,26 @@ typedef struct
 	Naui_Path default_path;
 }
 Naui_FileDialogState;
-static Naui_FileDialogState _naui_file_dialog_state;
+static Naui_FileDialogState naui__file_dialog_state;
 
 #pragma region Helpers
 
-static void _naui_dialog_copy_text(char *dest, size_t dest_size, const char *source)
+static void naui__dialog_copy_text(char *dest, size_t dest_size, const char *source)
 {
 	snprintf(dest, dest_size, "%s", source ? source : "");
 }
 
-static bool _naui_dialog_is_separator(char c)
+static bool naui__dialog_is_separator(char c)
 {
 	return c == '/' || c == '\\';
 }
 
-static bool _naui_dialog_is_folder(const Naui_Path path)
+static bool naui__dialog_is_folder(const Naui_Path path)
 {
 	return path.data[0] && naui_path_exists(path) && naui_path_is_directory(path);
 }
 
-static int _naui_dialog_compare_names(const char *a, const char *b)
+static int naui__dialog_compare_names(const char *a, const char *b)
 {
 	for (;; a++, b++)
 	{
@@ -53,28 +53,28 @@ static int _naui_dialog_compare_names(const char *a, const char *b)
 	}
 }
 
-static const char *_naui_dialog_entry_name(const Naui_DirEntry *entry)
+static const char *naui__dialog_entry_name(const Naui_DirEntry *entry)
 {
 	return naui_file_filename(&entry->path).data;
 }
 
-static int _naui_dialog_compare_entries(const void *left, const void *right)
+static int naui__dialog_compare_entries(const void *left, const void *right)
 {
 	const Naui_DirEntry *a = (const Naui_DirEntry*)left;
 	const Naui_DirEntry *b = (const Naui_DirEntry*)right;
 	if (a->is_directory != b->is_directory)
 		return a->is_directory ? -1 : 1;
 
-	return _naui_dialog_compare_names(_naui_dialog_entry_name(a), _naui_dialog_entry_name(b));
+	return naui__dialog_compare_names(naui__dialog_entry_name(a), naui__dialog_entry_name(b));
 }
 
-static const char *_naui_dialog_extension(const char *file_name)
+static const char *naui__dialog_extension(const char *file_name)
 {
 	const char *dot = strrchr(file_name, '.');
 	return (dot && dot != file_name) ? dot : "";
 }
 
-static bool _naui_dialog_valid_file_name(const char *name)
+static bool naui__dialog_valid_file_name(const char *name)
 {
 	if (!name[0] || strcmp(name, ".") == 0 || strcmp(name, "..") == 0)
 		return false;
@@ -89,18 +89,18 @@ static bool _naui_dialog_valid_file_name(const char *name)
 	return last != ' ' && last != '.';
 }
 
-static void _naui_dialog_set_text(Naui_String *string, const char *text)
+static void naui__dialog_set_text(Naui_String *string, const char *text)
 {
 	*string = naui_string_from_cstr(text ? text : "");
 }
 
-static const char *_naui_dialog_trimmed_name(const Naui_Dialog *dialog, char *out, size_t out_size)
+static const char *naui__dialog_trimmed_name(const Naui_Dialog *dialog, char *out, size_t out_size)
 {
 	const char *start = dialog->name.data;
 	while (*start == ' ')
 		start++;
 
-	_naui_dialog_copy_text(out, out_size, start);
+	naui__dialog_copy_text(out, out_size, start);
 	size_t length = strlen(out);
 	while (length > 0 && out[length - 1] == ' ')
 		out[--length] = '\0';
@@ -112,51 +112,51 @@ static const char *_naui_dialog_trimmed_name(const Naui_Dialog *dialog, char *ou
 
 #pragma region Remembered Folders
 
-static void _naui_dialog_remember(const char *key, Naui_DialogMode mode, const Naui_Path directory)
+static void naui__dialog_remember(const char *key, Naui_DialogMode mode, const Naui_Path directory)
 {
 	if ((int)mode >= 0 && mode < NAUI_DIALOG_MODE_COUNT)
-		_naui_file_dialog_state.remembered_by_mode[mode] = directory;
+		naui__file_dialog_state.remembered_by_mode[mode] = directory;
 
-	for (uint32_t i = 0; i < _naui_file_dialog_state.remembered_by_key_count; i++)
+	for (uint32_t i = 0; i < naui__file_dialog_state.remembered_by_key_count; i++)
 	{
-		if (strcmp(_naui_file_dialog_state.remembered_by_key[i].key, key) == 0)
+		if (strcmp(naui__file_dialog_state.remembered_by_key[i].key, key) == 0)
 		{
-			_naui_file_dialog_state.remembered_by_key[i].directory = directory;
+			naui__file_dialog_state.remembered_by_key[i].directory = directory;
 			return;
 		}
 	}
 
 	uint32_t slot;
-	if (_naui_file_dialog_state.remembered_by_key_count < NAUI_DIALOG_MAX_REMEMBERED)
-		slot = _naui_file_dialog_state.remembered_by_key_count++;
+	if (naui__file_dialog_state.remembered_by_key_count < NAUI_DIALOG_MAX_REMEMBERED)
+		slot = naui__file_dialog_state.remembered_by_key_count++;
 	else
 	{
-		slot = _naui_file_dialog_state.remembered_by_key_next;
-		_naui_file_dialog_state.remembered_by_key_next = (_naui_file_dialog_state.remembered_by_key_next + 1) % NAUI_DIALOG_MAX_REMEMBERED;
+		slot = naui__file_dialog_state.remembered_by_key_next;
+		naui__file_dialog_state.remembered_by_key_next = (naui__file_dialog_state.remembered_by_key_next + 1) % NAUI_DIALOG_MAX_REMEMBERED;
 	}
 
-	_naui_dialog_copy_text(_naui_file_dialog_state.remembered_by_key[slot].key, NAUI_DIALOG_KEY_MAX, key);
-	_naui_file_dialog_state.remembered_by_key[slot].directory = directory;
+	naui__dialog_copy_text(naui__file_dialog_state.remembered_by_key[slot].key, NAUI_DIALOG_KEY_MAX, key);
+	naui__file_dialog_state.remembered_by_key[slot].directory = directory;
 }
 
-static Naui_Path _naui_dialog_pick_start_dir(const char *key, Naui_DialogMode mode)
+static Naui_Path naui__dialog_pick_start_dir(const char *key, Naui_DialogMode mode)
 {
-	if (_naui_file_dialog_state.default_path.data[0])
+	if (naui__file_dialog_state.default_path.data[0])
 	{
-		const Naui_Path path = _naui_file_dialog_state.default_path;
-		_naui_file_dialog_state.default_path = (Naui_Path){0};
-		if (_naui_dialog_is_folder(path))
+		const Naui_Path path = naui__file_dialog_state.default_path;
+		naui__file_dialog_state.default_path = (Naui_Path){0};
+		if (naui__dialog_is_folder(path))
 			return path;
 	}
 
-	for (uint32_t i = 0; i < _naui_file_dialog_state.remembered_by_key_count; i++)
+	for (uint32_t i = 0; i < naui__file_dialog_state.remembered_by_key_count; i++)
 	{
-		if (strcmp(_naui_file_dialog_state.remembered_by_key[i].key, key) == 0 && _naui_dialog_is_folder(_naui_file_dialog_state.remembered_by_key[i].directory))
-			return _naui_file_dialog_state.remembered_by_key[i].directory;
+		if (strcmp(naui__file_dialog_state.remembered_by_key[i].key, key) == 0 && naui__dialog_is_folder(naui__file_dialog_state.remembered_by_key[i].directory))
+			return naui__file_dialog_state.remembered_by_key[i].directory;
 	}
 
-	if ((int)mode >= 0 && mode < NAUI_DIALOG_MODE_COUNT && _naui_dialog_is_folder(_naui_file_dialog_state.remembered_by_mode[mode]))
-		return _naui_file_dialog_state.remembered_by_mode[mode];
+	if ((int)mode >= 0 && mode < NAUI_DIALOG_MODE_COUNT && naui__dialog_is_folder(naui__file_dialog_state.remembered_by_mode[mode]))
+		return naui__file_dialog_state.remembered_by_mode[mode];
 
 	return naui_directory_get(NAUI_DIR_WORKING);
 }
@@ -170,10 +170,10 @@ bool naui_dialog_matches_filter(const Naui_Dialog *dialog, const char *file_name
 	if (dialog->filter_count == 0)
 		return true;
 
-	const char *extension = _naui_dialog_extension(file_name);
+	const char *extension = naui__dialog_extension(file_name);
 	for (uint32_t i = 0; i < dialog->filter_count; i++)
 	{
-		if (_naui_dialog_compare_names(extension, dialog->filters[i]) == 0)
+		if (naui__dialog_compare_names(extension, dialog->filters[i]) == 0)
 			return true;
 	}
 
@@ -201,7 +201,7 @@ void naui_dialog_refresh(Naui_Dialog *dialog)
 			if (dialog->mode == NAUI_DIALOG_OPEN_FOLDER)
 				continue;
 
-			if (!naui_dialog_matches_filter(dialog, _naui_dialog_entry_name(&entry)))
+			if (!naui_dialog_matches_filter(dialog, naui__dialog_entry_name(&entry)))
 				continue;
 		}
 
@@ -211,7 +211,7 @@ void naui_dialog_refresh(Naui_Dialog *dialog)
 
 	const size_t count = naui_list_len(dialog->entries);
 	if (count > 1)
-		qsort(dialog->entries, count, sizeof(Naui_DirEntry), _naui_dialog_compare_entries);
+		qsort(dialog->entries, count, sizeof(Naui_DirEntry), naui__dialog_compare_entries);
 
 	if (previous_selection.data[0])
 	{
@@ -238,15 +238,15 @@ void naui_dialog_set_show_hidden(Naui_Dialog *dialog, bool show_hidden)
 
 bool naui_dialog_navigate(Naui_Dialog *dialog, const Naui_Path folder)
 {
-	if (!_naui_dialog_is_folder(folder))
+	if (!naui__dialog_is_folder(folder))
 		return false;
 
 	dialog->current_dir = naui_path_normalize(folder);
-	_naui_dialog_set_text(&dialog->path_text, dialog->current_dir.data);
+	naui__dialog_set_text(&dialog->path_text, dialog->current_dir.data);
 	dialog->selected_index = -1;
 
 	if (dialog->mode != NAUI_DIALOG_SAVE_FILE)
-		_naui_dialog_set_text(&dialog->name, "");
+		naui__dialog_set_text(&dialog->name, "");
 
 	naui_dialog_refresh(dialog);
 	return true;
@@ -272,16 +272,16 @@ void naui_dialog_select(Naui_Dialog *dialog, int32_t entry_index)
 	dialog->selected_index = entry_index;
 	const Naui_DirEntry *entry = &dialog->entries[entry_index];
 	if (!entry->is_directory || dialog->mode == NAUI_DIALOG_OPEN_FOLDER || dialog->mode == NAUI_DIALOG_OPEN_ANY)
-		_naui_dialog_set_text(&dialog->name, _naui_dialog_entry_name(entry));
+		naui__dialog_set_text(&dialog->name, naui__dialog_entry_name(entry));
 }
 
 bool naui_dialog_commit_path_text(Naui_Dialog *dialog)
 {
 	char text[NAUI_STRING_MAX_SIZE];
-	_naui_dialog_copy_text(text, sizeof(text), dialog->path_text.data);
+	naui__dialog_copy_text(text, sizeof(text), dialog->path_text.data);
 
 	size_t length = strlen(text);
-	while (length > 1 && _naui_dialog_is_separator(text[length - 1]))
+	while (length > 1 && naui__dialog_is_separator(text[length - 1]))
 	{
 		text[--length] = '\0';
 	}
@@ -307,7 +307,7 @@ bool naui_dialog_commit_path_text(Naui_Dialog *dialog)
 		}
 	}
 
-	_naui_dialog_set_text(&dialog->path_text, dialog->current_dir.data);
+	naui__dialog_set_text(&dialog->path_text, dialog->current_dir.data);
 	return false;
 }
 
@@ -315,7 +315,7 @@ bool naui_dialog_commit_path_text(Naui_Dialog *dialog)
 
 #pragma region Finishing
 
-static void _naui_dialog_finish(Naui_Dialog* dialog, const Naui_Path* picked, bool cancelled)
+static void naui__dialog_finish(Naui_Dialog* dialog, const Naui_Path* picked, bool cancelled)
 {
 	Naui_DialogResult result = {
 		.paths = picked,
@@ -326,11 +326,11 @@ static void _naui_dialog_finish(Naui_Dialog* dialog, const Naui_Path* picked, bo
 	void *user_data = dialog->user_data;
 
 	if (!cancelled)
-		_naui_dialog_remember(dialog->key, dialog->mode, dialog->current_dir);
+		naui__dialog_remember(dialog->key, dialog->mode, dialog->current_dir);
 
 	dialog->state &= ~NAUI_DIALOG_STATE_OPEN;
-	if (_naui_file_dialog_state.renderer && _naui_file_dialog_state.renderer->end)
-		_naui_file_dialog_state.renderer->end(dialog);
+	if (naui__file_dialog_state.renderer && naui__file_dialog_state.renderer->end)
+		naui__file_dialog_state.renderer->end(dialog);
 
 	naui_list_free(dialog->entries);
 	memset(dialog, 0, sizeof(*dialog));
@@ -341,13 +341,13 @@ static void _naui_dialog_finish(Naui_Dialog* dialog, const Naui_Path* picked, bo
 
 void naui_dialog_cancel(Naui_Dialog* dialog)
 {
-	_naui_dialog_finish(dialog, NULL, true);
+	naui__dialog_finish(dialog, NULL, true);
 }
 
 Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_overwrite)
 {
 	char name[NAUI_STRING_MAX_SIZE];
-	_naui_dialog_trimmed_name(dialog, name, sizeof(name));
+	naui__dialog_trimmed_name(dialog, name, sizeof(name));
 
 	if (dialog->mode == NAUI_DIALOG_OPEN_FOLDER)
 	{
@@ -355,7 +355,7 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 		if (dialog->selected_index >= 0 && dialog->selected_index < (int32_t)naui_list_len(dialog->entries))
 			target = dialog->entries[dialog->selected_index].path;
 
-		_naui_dialog_finish(dialog, &target, false);
+		naui__dialog_finish(dialog, &target, false);
 		return NAUI_DIALOG_CONFIRM_DONE;
 	}
 
@@ -364,7 +364,7 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 		Naui_Path target = dialog->current_dir;
 		if (name[0])
 		{
-			if (!_naui_dialog_valid_file_name(name))
+			if (!naui__dialog_valid_file_name(name))
 				return NAUI_DIALOG_CONFIRM_INVALID_NAME;
 
 			target = naui_path_normalize(naui_path_join(dialog->current_dir, naui_path_from_cstr(name)));
@@ -372,7 +372,7 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 				return NAUI_DIALOG_CONFIRM_NOT_FOUND;
 		}
 
-		_naui_dialog_finish(dialog, &target, false);
+		naui__dialog_finish(dialog, &target, false);
 		return NAUI_DIALOG_CONFIRM_DONE;
 	}
 
@@ -389,7 +389,7 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 			return NAUI_DIALOG_CONFIRM_NOTHING_SELECTED;
 		}
 
-		if (!_naui_dialog_valid_file_name(name))
+		if (!naui__dialog_valid_file_name(name))
 			return NAUI_DIALOG_CONFIRM_INVALID_NAME;
 
 		const Naui_Path target = naui_path_normalize(naui_path_join(dialog->current_dir, naui_path_from_cstr(name)));
@@ -402,14 +402,14 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 			return NAUI_DIALOG_CONFIRM_NAVIGATED;
 		}
 
-		_naui_dialog_finish(dialog, &target, false);
+		naui__dialog_finish(dialog, &target, false);
 		return NAUI_DIALOG_CONFIRM_DONE;
 	}
 
 	if (!name[0])
 		return NAUI_DIALOG_CONFIRM_NOTHING_SELECTED;
 
-	if (!_naui_dialog_valid_file_name(name))
+	if (!naui__dialog_valid_file_name(name))
 		return NAUI_DIALOG_CONFIRM_INVALID_NAME;
 
 	if (dialog->filter_count > 0 && !naui_dialog_matches_filter(dialog, name))
@@ -431,7 +431,7 @@ Naui_DialogConfirmResult naui_dialog_confirm(Naui_Dialog *dialog, bool allow_ove
 			return NAUI_DIALOG_CONFIRM_NEEDS_OVERWRITE;
 	}
 
-	_naui_dialog_finish(dialog, &target, false);
+	naui__dialog_finish(dialog, &target, false);
 	return NAUI_DIALOG_CONFIRM_DONE;
 }
 
@@ -455,9 +455,9 @@ Naui_DialogConfirmResult naui_dialog_activate(Naui_Dialog *dialog, int32_t entry
 
 #pragma region Opening
 
-static Naui_Dialog *_naui_dialog_open(Naui_DialogMode mode, const char *key, const char **filters, Naui_DialogCallback callback, void *user_data, const char *title, const char *confirm_label)
+static Naui_Dialog *naui__dialog_open(Naui_DialogMode mode, const char *key, const char **filters, Naui_DialogCallback callback, void *user_data, const char *title, const char *confirm_label)
 {
-	if (!key || !key[0] || !_naui_file_dialog_state.renderer || !_naui_file_dialog_state.renderer->begin)
+	if (!key || !key[0] || !naui__file_dialog_state.renderer || !naui__file_dialog_state.renderer->begin)
 	{
 		naui_log(NAUI_LOG_ERROR, "Can't open dialog: no key or no dialog renderer registered");
 		return NULL;
@@ -469,9 +469,9 @@ static Naui_Dialog *_naui_dialog_open(Naui_DialogMode mode, const char *key, con
 	Naui_Dialog *dialog = NULL;
 	for (uint32_t i = 0; i < NAUI_MAX_DIALOGS; i++)
 	{
-		if (!_naui_file_dialog_state.dialogs[i]._in_use)
+		if (!naui__file_dialog_state.dialogs[i]._in_use)
 		{
-			dialog = &_naui_file_dialog_state.dialogs[i];
+			dialog = &naui__file_dialog_state.dialogs[i];
 			break;
 		}
 	}
@@ -489,14 +489,14 @@ static Naui_Dialog *_naui_dialog_open(Naui_DialogMode mode, const char *key, con
 	dialog->selected_index = -1;
 	dialog->callback = callback;
 	dialog->user_data = user_data;
-	_naui_dialog_copy_text(dialog->key, sizeof(dialog->key), key);
-	_naui_dialog_copy_text(dialog->title, sizeof(dialog->title), title);
-	_naui_dialog_copy_text(dialog->confirm_label, sizeof(dialog->confirm_label), confirm_label);
+	naui__dialog_copy_text(dialog->key, sizeof(dialog->key), key);
+	naui__dialog_copy_text(dialog->title, sizeof(dialog->title), title);
+	naui__dialog_copy_text(dialog->confirm_label, sizeof(dialog->confirm_label), confirm_label);
 
 	for (uint32_t i = 0; filters && filters[i] && dialog->filter_count < NAUI_DIALOG_MAX_FILTERS; i++)
-		_naui_dialog_copy_text(dialog->filters[dialog->filter_count++], NAUI_DIALOG_FILTER_MAX, filters[i]);
+		naui__dialog_copy_text(dialog->filters[dialog->filter_count++], NAUI_DIALOG_FILTER_MAX, filters[i]);
 
-	naui_dialog_navigate(dialog, _naui_dialog_pick_start_dir(key, mode));
+	naui_dialog_navigate(dialog, naui__dialog_pick_start_dir(key, mode));
 	if (!dialog->current_dir.data[0])
 	{
 		naui_list_free(dialog->entries);
@@ -504,7 +504,7 @@ static Naui_Dialog *_naui_dialog_open(Naui_DialogMode mode, const char *key, con
 		return NULL;
 	}
 
-	if (!_naui_file_dialog_state.renderer->begin(dialog))
+	if (!naui__file_dialog_state.renderer->begin(dialog))
 	{
 		naui_log(NAUI_LOG_ERROR, "Dialog renderer couldn't show \"%s\"", key);
 		naui_list_free(dialog->entries);
@@ -517,30 +517,30 @@ static Naui_Dialog *_naui_dialog_open(Naui_DialogMode mode, const char *key, con
 
 bool naui_dialog_open_file(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
 {
-	return _naui_dialog_open(NAUI_DIALOG_OPEN_FILE, key, filters, callback, user_data, "Open File", "Open") != NULL;
+	return naui__dialog_open(NAUI_DIALOG_OPEN_FILE, key, filters, callback, user_data, "Open File", "Open") != NULL;
 }
 
 bool naui_dialog_save_file(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
 {
-	return _naui_dialog_open(NAUI_DIALOG_SAVE_FILE, key, filters, callback, user_data, "Save File", "Save") != NULL;
+	return naui__dialog_open(NAUI_DIALOG_SAVE_FILE, key, filters, callback, user_data, "Save File", "Save") != NULL;
 }
 
 bool naui_dialog_open_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
 {
-	return _naui_dialog_open(NAUI_DIALOG_OPEN_FOLDER, key, filters, callback, user_data, "Select Folder", "Select") != NULL;
+	return naui__dialog_open(NAUI_DIALOG_OPEN_FOLDER, key, filters, callback, user_data, "Select Folder", "Select") != NULL;
 }
 
 bool naui_dialog_open_file_or_folder(const char *key, const char **filters, Naui_DialogCallback callback, void *user_data)
 {
-	return _naui_dialog_open(NAUI_DIALOG_OPEN_ANY, key, filters, callback, user_data, "Open", "Open") != NULL;
+	return naui__dialog_open(NAUI_DIALOG_OPEN_ANY, key, filters, callback, user_data, "Open", "Open") != NULL;
 }
 
 Naui_Dialog *naui_dialog_find(const char *key)
 {
 	for (uint32_t i = 0; key && i < NAUI_MAX_DIALOGS; i++)
 	{
-		if (_naui_file_dialog_state.dialogs[i]._in_use && strcmp(_naui_file_dialog_state.dialogs[i].key, key) == 0)
-			return &_naui_file_dialog_state.dialogs[i];
+		if (naui__file_dialog_state.dialogs[i]._in_use && strcmp(naui__file_dialog_state.dialogs[i].key, key) == 0)
+			return &naui__file_dialog_state.dialogs[i];
 	}
 
 	return NULL;
@@ -550,35 +550,35 @@ void naui_dialog_confirm_label_set(const char *key, const char *confirm_label)
 {
 	Naui_Dialog *dialog = naui_dialog_find(key);
 	if (dialog)
-		_naui_dialog_copy_text(dialog->confirm_label, sizeof(dialog->confirm_label), confirm_label);
+		naui__dialog_copy_text(dialog->confirm_label, sizeof(dialog->confirm_label), confirm_label);
 }
 
 void naui_dialog_title_set(const char *key, const char *title)
 {
 	Naui_Dialog *dialog = naui_dialog_find(key);
 	if (dialog)
-		_naui_dialog_copy_text(dialog->title, sizeof(dialog->title), title);
+		naui__dialog_copy_text(dialog->title, sizeof(dialog->title), title);
 }
 
 void naui_dialog_name_set(const char *key, const char *name)
 {
 	Naui_Dialog *dialog = naui_dialog_find(key);
 	if (dialog)
-		_naui_dialog_set_text(&dialog->name, name);
+		naui__dialog_set_text(&dialog->name, name);
 }
 
 bool naui_dialog_default_path_set(const Naui_Path path)
 {
-	if (!_naui_dialog_is_folder(path))
+	if (!naui__dialog_is_folder(path))
 		return false;
 
-	_naui_file_dialog_state.default_path = path;
+	naui__file_dialog_state.default_path = path;
 	return true;
 }
 
 void naui_dialog_set_renderer(const Naui_DialogRenderer *renderer)
 {
-	_naui_file_dialog_state.renderer = renderer;
+	naui__file_dialog_state.renderer = renderer;
 }
 
 #pragma endregion

@@ -34,7 +34,7 @@ Naui_Curve;
 
 #pragma region Bezier
 
-static inline double _naui_bezier_axis(const double p1, const double p2, const double t)
+static inline double naui__bezier_axis(const double p1, const double p2, const double t)
 {
 	const double a = 1.0 + 3.0 * p1 - 3.0 * p2;
 	const double b = 3.0 * p2 - 6.0 * p1;
@@ -42,7 +42,7 @@ static inline double _naui_bezier_axis(const double p1, const double p2, const d
 	return ((a * t + b) * t + c) * t;
 }
 
-static inline double _naui_bezier_axis_slope(const double p1, const double p2, const double t)
+static inline double naui__bezier_axis_slope(const double p1, const double p2, const double t)
 {
 	const double a = 1.0 + 3.0 * p1 - 3.0 * p2;
 	const double b = 3.0 * p2 - 6.0 * p1;
@@ -67,14 +67,14 @@ static inline float naui_cubic_bezier(const float x1_in, const float y1_in, cons
 	double t = x;
 	for (int32_t i = 0; i < 8; i++)
 	{
-		const double error = _naui_bezier_axis(x1, x2, t) - x;
-		const double slope = _naui_bezier_axis_slope(x1, x2, t);
+		const double error = naui__bezier_axis(x1, x2, t) - x;
+		const double slope = naui__bezier_axis_slope(x1, x2, t);
 
 		if (slope < 1e-2)
 			break;
 
 		if (fabs(error) < 1e-9)
-			return (float)_naui_bezier_axis(y1, y2, t);
+			return (float)naui__bezier_axis(y1, y2, t);
 
 		t -= error / slope;
 	}
@@ -84,7 +84,7 @@ static inline float naui_cubic_bezier(const float x1_in, const float y1_in, cons
 	t = x;
 	for (int32_t i = 0; i < 48; i++)
 	{
-		if (_naui_bezier_axis(x1, x2, t) < x)
+		if (naui__bezier_axis(x1, x2, t) < x)
 			low = t;
 		else
 			high = t;
@@ -92,7 +92,7 @@ static inline float naui_cubic_bezier(const float x1_in, const float y1_in, cons
 		t = (low + high) * 0.5;
 	}
 
-	return (float)_naui_bezier_axis(y1, y2, t);
+	return (float)naui__bezier_axis(y1, y2, t);
 }
 
 #pragma endregion

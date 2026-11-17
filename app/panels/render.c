@@ -31,21 +31,21 @@ typedef struct
 	float progress;
 }
 Uph_ProjectRenderState;
-static Uph_ProjectRenderState _uph_project_render_state = {
+static Uph_ProjectRenderState uph__project_render_state = {
 	.range = UPH_RENDER_RANGE_SONG,
 	.bit_depth = UPH_RENDER_BIT_DEPTH_24,
 	.dither = true
 };
 
-static bool _uph_render_loop_valid(void)
+static bool uph__render_loop_valid(void)
 {
 	const Uph_LoopRegion *loop = &uph_state.project.loop_region;
 	return loop->end > loop->start;
 }
 
-static Uph_RenderSettings _uph_render_settings(void)
+static Uph_RenderSettings uph__render_settings(void)
 {
-	const Uph_ProjectRenderState *state = &_uph_project_render_state;
+	const Uph_ProjectRenderState *state = &uph__project_render_state;
 	Uph_RenderSettings settings = {
 		.tail_seconds = state->tail_seconds,
 		.sample_rate = uph_render_sample_rates[state->sample_rate_index],
@@ -55,7 +55,7 @@ static Uph_RenderSettings _uph_render_settings(void)
 		.dither = state->dither
 	};
 
-	if (state->range == UPH_RENDER_RANGE_LOOP && _uph_render_loop_valid())
+	if (state->range == UPH_RENDER_RANGE_LOOP && uph__render_loop_valid())
 	{
 		settings.start_beat = uph_state.project.loop_region.start;
 		settings.end_beat = uph_state.project.loop_region.end;
@@ -69,7 +69,7 @@ static Uph_RenderSettings _uph_render_settings(void)
 	return settings;
 }
 
-static void _uph_render_row_begin(const char *label)
+static void uph__render_row_begin(const char *label)
 {
 	leaf_begin_element((Leaf_ElementConfig){
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_RENDER_ROW_HEIGHT)) },
@@ -96,22 +96,22 @@ static void _uph_render_row_begin(const char *label)
 	});
 }
 
-static void _uph_render_row_end(void)
+static void uph__render_row_end(void)
 {
 	leaf_end_element();
 	leaf_end_element();
 }
 
 #define UPH_RENDER_ROW(label) \
-	for (int uph_render_row_once = (_uph_render_row_begin(label), 1); \
+	for (int uph_render_row_once = (uph__render_row_begin(label), 1); \
 		 uph_render_row_once; \
-		 uph_render_row_once = (_uph_render_row_end(), 0))
+		 uph_render_row_once = (uph__render_row_end(), 0))
 
-static void _uph_render_options(void)
+static void uph__render_options(void)
 {
-	Uph_ProjectRenderState *state = &_uph_project_render_state;
+	Uph_ProjectRenderState *state = &uph__project_render_state;
 
-	const bool loop_valid = _uph_render_loop_valid();
+	const bool loop_valid = uph__render_loop_valid();
 	if (!loop_valid)
 		state->range = UPH_RENDER_RANGE_SONG;
 
@@ -166,7 +166,7 @@ static void _uph_render_options(void)
 		}
 	}
 
-	const Uph_RenderSettings settings = _uph_render_settings();
+	const Uph_RenderSettings settings = uph__render_settings();
 	const double seconds = settings.end_beat > settings.start_beat
 		? uph_tempo_beat_to_seconds(settings.end_beat) - uph_tempo_beat_to_seconds(settings.start_beat) + settings.tail_seconds
 		: 0.0;
@@ -191,7 +191,7 @@ static void _uph_render_options(void)
 	});
 }
 
-static void _uph_render_failed(void)
+static void uph__render_failed(void)
 {
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("render.failed.title"),
@@ -202,21 +202,21 @@ static void _uph_render_failed(void)
 	});
 }
 
-static void _uph_render_progress_closed(int32_t button, void *user_data)
+static void uph__render_progress_closed(int32_t button, void *user_data)
 {
 	uph_audio_engine_render_cancel();
 }
 
-static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+static void uph__render_path_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
-	Uph_ProjectRenderState *state = &_uph_project_render_state;
+	Uph_ProjectRenderState *state = &uph__project_render_state;
 	if (is_cancelled || result->count == 0)
 		return;
 
-	const Uph_RenderSettings settings = _uph_render_settings();
+	const Uph_RenderSettings settings = uph__render_settings();
 	if (!uph_audio_engine_render_begin(result->paths[0].data, &settings))
 	{
-		_uph_render_failed();
+		uph__render_failed();
 		return;
 	}
 
@@ -227,14 +227,14 @@ static void _uph_render_path_picked(const Naui_DialogResult *result, void *user_
 		.buttons = { NAUI_TR("dialog.cancel") },
 		.default_button = -1,
 		.cancel_button = 0,
-		.callback = _uph_render_progress_closed,
+		.callback = uph__render_progress_closed,
 		.progress = &state->progress
 	});
 }
 
 void uph_render_update(void)
 {
-	Uph_ProjectRenderState *state = &_uph_project_render_state;
+	Uph_ProjectRenderState *state = &uph__project_render_state;
 	if (!uph_audio_engine_render_active())
 		return;
 
@@ -246,12 +246,12 @@ void uph_render_update(void)
 
 	uph_dialog_close();
 	if (status == UPH_RENDER_STATUS_FAILED)
-		_uph_render_failed();
+		uph__render_failed();
 }
 
-static void _uph_render_start(void)
+static void uph__render_start(void)
 {
-	const Uph_RenderSettings settings = _uph_render_settings();
+	const Uph_RenderSettings settings = uph__render_settings();
 	if (settings.end_beat - settings.start_beat < NAUI_EPSILON)
 	{
 		uph_dialog_open(&(Uph_DialogConfig){
@@ -264,7 +264,7 @@ static void _uph_render_start(void)
 		return;
 	}
 
-	if (!naui_dialog_save_file(UPH_RENDER_FILE_DIALOG_KEY, NAUI_EXTENSIONS(".wav"), _uph_render_path_picked, NULL))
+	if (!naui_dialog_save_file(UPH_RENDER_FILE_DIALOG_KEY, NAUI_EXTENSIONS(".wav"), uph__render_path_picked, NULL))
 		return;
 
 	Naui_String name = uph_state.project.title;
@@ -316,7 +316,7 @@ static void uph_render_on_update(void)
 		.clip_children = true
 	})
 	{
-		_uph_render_options();
+		uph__render_options();
 
 		leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW } });
 
@@ -336,5 +336,5 @@ static void uph_render_on_update(void)
 		naui_panel_close(this);
 
 	if (start)
-		_uph_render_start();
+		uph__render_start();
 }

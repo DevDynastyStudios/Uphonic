@@ -20,7 +20,7 @@ typedef WSAPOLLFD net_pollfd;
 	#define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
 #endif
 
-static bool _naui_net_platform_init(void)
+static bool naui__net_platform_init(void)
 {
 	WSADATA data;
 
@@ -30,42 +30,42 @@ static bool _naui_net_platform_init(void)
 	return true;
 }
 
-static void _naui_net_platform_shutdown(void)
+static void naui__net_platform_shutdown(void)
 {
 	WSACleanup();
 }
 
-static void _naui_net_native_close(net_native handle)
+static void naui__net_native_close(net_native handle)
 {
 	closesocket(handle);
 }
 
-static bool _naui_net_native_set_nonblocking(net_native handle)
+static bool naui__net_native_set_nonblocking(net_native handle)
 {
 	u_long enable = 1;
 	return ioctlsocket(handle, FIONBIO, &enable) == 0;
 }
 
-static void _naui_net_native_udp_fixups(net_native handle)
+static void naui__net_native_udp_fixups(net_native handle)
 {
 	BOOL disable = FALSE;
 	DWORD returned = 0;
 	WSAIoctl(handle, SIO_UDP_CONNRESET, &disable, sizeof(disable), NULL, 0, &returned, NULL, NULL);
 }
 
-static void _naui_net_native_tcp_fixups(net_native handle)
+static void naui__net_native_tcp_fixups(net_native handle)
 {
 	(void)handle;
 }
 
-static void _naui_net_native_apply_reuse(net_native handle, bool reuse)
+static void naui__net_native_apply_reuse(net_native handle, bool reuse)
 {
 	(void)reuse;
 	BOOL exclusive = TRUE;
 	setsockopt(handle, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&exclusive, sizeof(exclusive));
 }
 
-static bool _naui_net_native_is_transient_accept_error(int error)
+static bool naui__net_native_is_transient_accept_error(int error)
 {
 	(void)error;
 	return false;

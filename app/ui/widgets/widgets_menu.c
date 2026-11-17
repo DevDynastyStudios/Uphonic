@@ -1,4 +1,4 @@
-static void _uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
+static void uph__ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
 {
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Leaf_Color text_color = uph_state.colors.ui_text;
@@ -22,7 +22,7 @@ static void _uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
             const float box_size = font_size * 0.85f;
             leaf({
                 .size = { .width = LEAF_SIZE_FIXED(box_size), .height = LEAF_SIZE_FIXED(box_size) },
-                .border = _uph_ui_frame_border(),
+                .border = uph__ui_frame_border(),
                 .color = uph_state.colors.ui_frame_bg,
                 .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.75f, NAUI_CORNER_ALL)
             })
@@ -67,7 +67,7 @@ static void _uph_ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
     }
 }
 
-static bool _uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
+static bool uph__ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
 {
     if (leaf_hovered(node->element_id))
         return true;
@@ -76,7 +76,7 @@ static bool _uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
         Uph_UIMenuNode *current_child = node->first_child;
         while (current_child)
         {
-            if (_uph_ui_menu_dropdown_hovered(current_child))
+            if (uph__ui_menu_dropdown_hovered(current_child))
                 return true;
             current_child = current_child->next_sibling;
         }
@@ -84,15 +84,15 @@ static bool _uph_ui_menu_dropdown_hovered(Uph_UIMenuNode *node)
     return false;
 }
 
-static bool _uph_ui_menu_dropdown_children_hovered(Uph_UIMenuNode *menu)
+static bool uph__ui_menu_dropdown_children_hovered(Uph_UIMenuNode *menu)
 {
     for (Uph_UIMenuNode *child = menu->first_child; child; child = child->next_sibling)
-        if (_uph_ui_menu_dropdown_hovered(child))
+        if (uph__ui_menu_dropdown_hovered(child))
             return true;
     return false;
 }
 
-static void _uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset, float reveal)
+static void uph__ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Vec2 position_offset, float reveal)
 {
     position_offset.y += (1.0f - reveal) * NAUI_DPI(-4);
 
@@ -113,18 +113,18 @@ static void _uph_ui_render_menu_dropdown_recursive(Uph_UIMenuNode *node, Naui_Ve
     {
         while (node)
         {
-            if (_uph_ui_menu_dropdown_hovered(node))
+            if (uph__ui_menu_dropdown_hovered(node))
             {
                 Leaf_BoundingBox bbox = leaf_get_bounding_box(node->element_id);
-                _uph_ui_render_menu_dropdown_recursive(node->first_child, (Naui_Vec2){bbox.x + bbox.width, bbox.y}, 1.0f);
+                uph__ui_render_menu_dropdown_recursive(node->first_child, (Naui_Vec2){bbox.x + bbox.width, bbox.y}, 1.0f);
             }
-            _uph_ui_render_menu_dropdown_child(node);
+            uph__ui_render_menu_dropdown_child(node);
             node = node->next_sibling;
         }
     }
 }
 
-static Uph_UIMenuNode *_uph_ui_menu_root(Uph_GlobalWidgetState *data, const Leaf_ID element_id)
+static Uph_UIMenuNode *uph__ui_menu_root(Uph_GlobalWidgetState *data, const Leaf_ID element_id)
 {
     Uph_UIMenuNode *menu = naui_arena_alloc(&data->menu_arena, sizeof(Uph_UIMenuNode));
     menu->element_id = element_id;
@@ -133,7 +133,7 @@ static Uph_UIMenuNode *_uph_ui_menu_root(Uph_GlobalWidgetState *data, const Leaf
     return menu;
 }
 
-static void _uph_ui_open_menu(Uph_GlobalWidgetState *data, Uph_UIMenuNode *menu, bool context)
+static void uph__ui_open_menu(Uph_GlobalWidgetState *data, Uph_UIMenuNode *menu, bool context)
 {
     data->current_open_menu = menu;
     data->open_menu_key = menu->element_id.value;
@@ -142,18 +142,18 @@ static void _uph_ui_open_menu(Uph_GlobalWidgetState *data, Uph_UIMenuNode *menu,
     data->visual.menu_lifetime = 0.0f;
 }
 
-static void _uph_ui_close_menu(Uph_GlobalWidgetState *data)
+static void uph__ui_close_menu(Uph_GlobalWidgetState *data)
 {
     data->current_open_menu = NULL;
     data->open_menu_key = 0;
 }
 
-static bool _uph_ui_menu_is_open(const Uph_GlobalWidgetState *data, const Uph_UIMenuNode *menu)
+static bool uph__ui_menu_is_open(const Uph_GlobalWidgetState *data, const Uph_UIMenuNode *menu)
 {
     return data->open_menu_key != 0 && menu->element_id.value == data->open_menu_key;
 }
 
-static void _uph_ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
+static void uph__ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
 {
     data->menu_dropdown_hovered = false;
     if (data->current_open_menu)
@@ -169,7 +169,7 @@ static void _uph_ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
             leaf({
                 .id = id,
                 .padding = LEAF_PADDING_ALL(NAUI_DPI(padding.x + 2)),
-                .border = _uph_ui_frame_border(),
+                .border = uph__ui_frame_border(),
                 .color = uph_state.colors.ui_dropdown_bg,
                 .floating = {
                     .offset = { .x = data->current_context_menu_position.x, .y = data->current_context_menu_position.y + (1.0f - reveal) * NAUI_DPI(-4) }
@@ -185,7 +185,7 @@ static void _uph_ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
 
             if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !leaf_hovered(id))
             {
-                _uph_ui_close_menu(data);
+                uph__ui_close_menu(data);
                 return;
             }
 
@@ -196,28 +196,28 @@ static void _uph_ui_render_menu_dropdown(Uph_GlobalWidgetState *data)
         Uph_UIMenuNode *current_node = data->current_open_menu->first_child;
         if (!current_node)
         {
-            _uph_ui_close_menu(data);
+            uph__ui_close_menu(data);
             return;
         }
 
         naui_panel_occlude_all();
 
-        data->menu_dropdown_hovered = _uph_ui_menu_dropdown_children_hovered(data->current_open_menu);
+        data->menu_dropdown_hovered = uph__ui_menu_dropdown_children_hovered(data->current_open_menu);
 
-        if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !_uph_ui_menu_dropdown_hovered(data->current_open_menu))
+        if (data->menu_opened_last_frame && naui_any_mouse_pressed() && !uph__ui_menu_dropdown_hovered(data->current_open_menu))
         {
-            _uph_ui_close_menu(data);
+            uph__ui_close_menu(data);
             return;
         }
 
         if (!data->is_current_menu_context)
         {
             Leaf_BoundingBox bbox = leaf_get_bounding_box(data->current_open_menu->element_id);
-            _uph_ui_render_menu_dropdown_recursive(current_node, (Naui_Vec2){bbox.x, bbox.y + bbox.height}, naui_ease_out_cubic(data->visual.menu_lifetime));
+            uph__ui_render_menu_dropdown_recursive(current_node, (Naui_Vec2){bbox.x, bbox.y + bbox.height}, naui_ease_out_cubic(data->visual.menu_lifetime));
         }
         else
         {
-            _uph_ui_render_menu_dropdown_recursive(current_node, data->current_context_menu_position, naui_ease_out_cubic(data->visual.menu_lifetime));
+            uph__ui_render_menu_dropdown_recursive(current_node, data->current_context_menu_position, naui_ease_out_cubic(data->visual.menu_lifetime));
         }
 
         data->menu_opened_last_frame = true;
@@ -228,7 +228,7 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
 
-    Uph_UIMenuNode *menu = _uph_ui_menu_root(data, element_id);
+    Uph_UIMenuNode *menu = uph__ui_menu_root(data, element_id);
 
     const bool blocked_by_dropdown = data->open_menu_key != 0 && data->menu_dropdown_hovered;
     bool hovered = !blocked_by_dropdown && uph_ui_widget_hovered(element_id);
@@ -239,9 +239,9 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (data->open_menu_key != 0)
-                _uph_ui_close_menu(data);
+                uph__ui_close_menu(data);
             else
-                _uph_ui_open_menu(data, menu, false);
+                uph__ui_open_menu(data, menu, false);
         }
         else if (!data->is_current_menu_context && data->open_menu_key != 0)
         {
@@ -256,7 +256,7 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
     leaf({
         .id = element_id,
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
-        .color = (_uph_ui_menu_is_open(data, menu) || hovered) ?
+        .color = (uph__ui_menu_is_open(data, menu) || hovered) ?
             uph_state.colors.ui_frame_hovered_bg : LEAF_COLOR_TRANSPARENT,
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
     })
@@ -273,14 +273,14 @@ Uph_UIMenuID uph_ui_menu(const char *name, const Leaf_ID element_id)
 Uph_UIMenuID uph_ui_context_menu(const Leaf_ID id)
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
-    Uph_UIMenuNode *menu = _uph_ui_menu_root(data, id);
+    Uph_UIMenuNode *menu = uph__ui_menu_root(data, id);
     return (Uph_UIMenuID)menu;
 }
 
 Uph_UIMenuID uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(Uph_UIMenuID menu_id))
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
-    Uph_UIMenuNode *menu = _uph_ui_menu_root(data, id);
+    Uph_UIMenuNode *menu = uph__ui_menu_root(data, id);
     menu->deferred_render = custom_render;
     return (Uph_UIMenuID)menu;
 }
@@ -288,7 +288,7 @@ Uph_UIMenuID uph_ui_context_menu_custom(const Leaf_ID id, void (*custom_render)(
 void uph_ui_open_context_menu(Uph_UIMenuID menu)
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
-    _uph_ui_open_menu(data, (Uph_UIMenuNode*)menu, true);
+    uph__ui_open_menu(data, (Uph_UIMenuNode*)menu, true);
     data->current_context_menu_position = (Naui_Vec2){naui_mouse_x(), naui_mouse_y()};
 }
 
@@ -297,7 +297,7 @@ bool uph_ui_any_menu_open(void)
     return uph_global_widget_state.open_menu_key != 0;
 }
 
-static void _uph_ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
+static void uph__ui_append_menu_child(Uph_UIMenuNode *parent, Uph_UIMenuNode *child)
 {
     if (!parent->first_child)
     {
@@ -324,7 +324,7 @@ Uph_UIMenuID uph_ui_submenu(Uph_UIMenuID parent_id, const char *name, const Leaf
     memcpy(menu->text, name, name_length);
     menu->text[name_length] = '\0';
 
-    _uph_ui_append_menu_child(parent, menu);
+    uph__ui_append_menu_child(parent, menu);
 
     return (Uph_UIMenuID)menu;
 }
@@ -341,7 +341,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     item->text = naui_arena_alloc(&data->menu_arena, name_length + 1);
     memcpy(item->text, name, name_length);
     item->text[name_length] = '\0';
-    _uph_ui_append_menu_child(parent, item);
+    uph__ui_append_menu_child(parent, item);
 
     bool hovered = leaf_hovered(element_id);
 
@@ -351,7 +351,7 @@ bool uph_ui_menu_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID elem
     bool result;
     if (hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT))
     {
-        _uph_ui_close_menu(&uph_global_widget_state);
+        uph__ui_close_menu(&uph_global_widget_state);
         result = true;
     }
     else result = false;

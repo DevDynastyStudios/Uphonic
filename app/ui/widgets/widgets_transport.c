@@ -5,7 +5,7 @@ typedef struct
 }
 Uph_UITriangleDrawData;
 
-static void _uph_ui_triangle_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_triangle_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_UITriangleDrawData *data = (const Uph_UITriangleDrawData*)user_data;
 
@@ -25,19 +25,19 @@ static void _uph_ui_triangle_draw(Leaf_BoundingBox box, void *user_data)
     naui_fill_polygon(points, 3, data->color);
 }
 
-static Leaf_Color _uph_ui_dim_text_color(void)
+static Leaf_Color uph__ui_dim_text_color(void)
 {
     Leaf_Color color = uph_state.colors.ui_text;
     color.a = (uint8_t)(color.a * 0.6f);
     return color;
 }
 
-static float _uph_ui_tall_frame_height(void)
+static float uph__ui_tall_frame_height(void)
 {
-    return _uph_ui_frame_height() + NAUI_DPI(8);
+    return uph__ui_frame_height() + NAUI_DPI(8);
 }
 
-static bool _uph_ui_triangle_button(const Leaf_ID id, bool up, float width, float height, Naui_CornerFlags corners)
+static bool uph__ui_triangle_button(const Leaf_ID id, bool up, float width, float height, Naui_CornerFlags corners)
 {
     const bool hovered = uph_ui_widget_hovered(id);
     if (hovered)
@@ -48,13 +48,13 @@ static bool _uph_ui_triangle_button(const Leaf_ID id, bool up, float width, floa
         background = naui_mouse_down(NAUI_MOUSE_LEFT) ? uph_state.colors.ui_frame_pressed_bg : uph_state.colors.ui_frame_hovered_bg;
 
     Uph_UITriangleDrawData draw_data = {
-        .color = hovered ? uph_state.colors.ui_text : _uph_ui_dim_text_color(),
+        .color = hovered ? uph_state.colors.ui_text : uph__ui_dim_text_color(),
         .up = up
     };
 
     leaf({
         .id = id,
-        .custom_draw = _uph_ui_triangle_draw,
+        .custom_draw = uph__ui_triangle_draw,
         .custom_draw_data = LEAF_DATA_SLICE(draw_data),
         .size = { .width = LEAF_SIZE_FIXED(width), .height = LEAF_SIZE_FIXED(height) },
         .color = background,
@@ -64,16 +64,16 @@ static bool _uph_ui_triangle_button(const Leaf_ID id, bool up, float width, floa
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
-static void _uph_ui_frame_icon(Naui_Image *image, float size)
+static void uph__ui_frame_icon(Naui_Image *image, float size)
 {
     leaf({
         .image = image,
         .size = { .width = LEAF_SIZE_FIXED(size), .height = LEAF_SIZE_FIXED(size) },
-        .color = _uph_ui_dim_text_color()
+        .color = uph__ui_dim_text_color()
     });
 }
 
-static void _uph_ui_frame_divider(float height)
+static void uph__ui_frame_divider(float height)
 {
     Leaf_Color color = uph_state.colors.ui_text;
     color.a = (uint8_t)(color.a * 0.12f);
@@ -87,7 +87,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
 {
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const float frame_height = _uph_ui_tall_frame_height();
+    const float frame_height = uph__ui_tall_frame_height();
     const int32_t arrow_width = NAUI_DPI(16);
     const float arrow_height = (frame_height - NAUI_DPI(6)) * 0.5f;
     const float icon_size = font_size * 1.15f;
@@ -99,7 +99,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
     {
         naui_set_cursor(NAUI_CURSOR_HAND);
         float tapped_bpm;
-        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && _uph_metronome_tap(&tapped_bpm))
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && uph__metronome_tap(&tapped_bpm))
         {
             *value = NAUI_CLAMP(roundf(tapped_bpm * 100.0f) / 100.0f, min, max);
             changed = true;
@@ -114,7 +114,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
         .id = leaf_id(id),
         .size = { .width = LEAF_SIZE_FIT, .height = UPH_UI_SIZE_EXACT(frame_height) },
         .padding = { .left = NAUI_DPI(3), .right = NAUI_DPI(3) },
-        .border = _uph_ui_frame_border(),
+        .border = uph__ui_frame_border(),
         .color = uph_state.colors.ui_frame_bg,
         .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
@@ -139,7 +139,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
                 leaf({
                     .image = uph_state.icons.metronome,
                     .size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
-                    .color = tap_hovered ? uph_state.colors.ui_text : _uph_ui_dim_text_color()
+                    .color = tap_hovered ? uph_state.colors.ui_text : uph__ui_dim_text_color()
                 });
             }
 
@@ -153,25 +153,25 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
                     changed = true;
 
                 leaf_text("BPM", {
-                    .color = _uph_ui_dim_text_color(),
+                    .color = uph__ui_dim_text_color(),
                     .font_size = LEAF_SIZE_FIXED(font_size * 0.72f)
                 });
             }
         }
 
-        _uph_ui_frame_divider(frame_height - NAUI_DPI(12));
+        uph__ui_frame_divider(frame_height - NAUI_DPI(12));
 
         leaf({
             .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
             .direction = LEAF_DIRECTION_VERTICAL
         })
         {
-            if (_uph_ui_triangle_button(leaf_id_indexed(id, 1), true, arrow_width, arrow_height, NAUI_CORNER_TL | NAUI_CORNER_TR))
+            if (uph__ui_triangle_button(leaf_id_indexed(id, 1), true, arrow_width, arrow_height, NAUI_CORNER_TL | NAUI_CORNER_TR))
             {
                 *value = NAUI_CLAMP(floorf(*value) + 1.0f, min, max);
                 changed = true;
             }
-            if (_uph_ui_triangle_button(leaf_id_indexed(id, 2), false, arrow_width, arrow_height, NAUI_CORNER_BL | NAUI_CORNER_BR))
+            if (uph__ui_triangle_button(leaf_id_indexed(id, 2), false, arrow_width, arrow_height, NAUI_CORNER_BL | NAUI_CORNER_BR))
             {
                 *value = NAUI_CLAMP(ceilf(*value) - 1.0f, min, max);
                 changed = true;
@@ -221,15 +221,15 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
     const Leaf_ID frame_id = leaf_id(id);
     const Leaf_ID denominator_id = leaf_id_indexed(id, 1);
     const Leaf_ID arrow_id = leaf_id_indexed(id, 2);
-    Uph_UIMenuNode *menu = _uph_ui_menu_root(data, frame_id);
+    Uph_UIMenuNode *menu = uph__ui_menu_root(data, frame_id);
 
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const float frame_height = _uph_ui_tall_frame_height();
+    const float frame_height = uph__ui_tall_frame_height();
     const Leaf_Color text_color = uph_state.colors.ui_text;
     bool changed = false;
 
-    const bool was_open = _uph_ui_menu_is_open(data, menu);
+    const bool was_open = uph__ui_menu_is_open(data, menu);
     const bool denominator_hovered = uph_ui_widget_hovered(denominator_id) || (was_open && leaf_hovered(denominator_id));
     const bool arrow_hovered = uph_ui_widget_hovered(arrow_id) || (was_open && leaf_hovered(arrow_id));
     if (denominator_hovered || arrow_hovered)
@@ -238,12 +238,12 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (was_open)
-                _uph_ui_close_menu(data);
+                uph__ui_close_menu(data);
             else
-                _uph_ui_open_menu(data, menu, false);
+                uph__ui_open_menu(data, menu, false);
         }
     }
-    const bool open = _uph_ui_menu_is_open(data, menu);
+    const bool open = uph__ui_menu_is_open(data, menu);
 
     char denominator_text[8];
     snprintf(denominator_text, sizeof(denominator_text), "%u", (unsigned)signature->denominator);
@@ -255,7 +255,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
         arrow_background = uph_state.colors.ui_frame_hovered_bg;
 
     Uph_UITriangleDrawData arrow_data = {
-        .color = (open || arrow_hovered) ? text_color : _uph_ui_dim_text_color(),
+        .color = (open || arrow_hovered) ? text_color : uph__ui_dim_text_color(),
         .up = false
     };
 
@@ -263,7 +263,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
         .id = frame_id,
         .size = { .width = LEAF_SIZE_FIT, .height = UPH_UI_SIZE_EXACT(frame_height) },
         .padding = { .left = NAUI_DPI(padding.x), .right = NAUI_DPI(3) },
-        .border = _uph_ui_frame_border(),
+        .border = uph__ui_frame_border(),
         .color = uph_state.colors.ui_frame_bg,
         .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
@@ -278,7 +278,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
             .direction = LEAF_DIRECTION_HORIZONTAL
         })
         {
-            _uph_ui_frame_icon(uph_state.icons.treble_clef, font_size * 1.9f);
+            uph__ui_frame_icon(uph_state.icons.treble_clef, font_size * 1.9f);
 
             leaf({
                 .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(16)), .height = LEAF_SIZE_FIT },
@@ -303,11 +303,11 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
             }
         }
 
-        _uph_ui_frame_divider(frame_height - NAUI_DPI(12));
+        uph__ui_frame_divider(frame_height - NAUI_DPI(12));
 
         leaf({
             .id = arrow_id,
-            .custom_draw = _uph_ui_triangle_draw,
+            .custom_draw = uph__ui_triangle_draw,
             .custom_draw_data = LEAF_DATA_SLICE(arrow_data),
             .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(16)), .height = LEAF_SIZE_FIXED(frame_height - NAUI_DPI(6)) },
             .color = arrow_background,

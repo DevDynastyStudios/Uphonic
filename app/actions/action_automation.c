@@ -38,7 +38,7 @@ typedef struct
 } Uph_ActionAutomationPointMove;
 
 #pragma region Automation Create
-bool _uph_action_automation_create_execute(void* userdata)
+bool uph__action_automation_create_execute(void* userdata)
 {
 	Uph_ActionResourceCreate* data = userdata;
 	uph_resources_add_automation();
@@ -48,7 +48,7 @@ bool _uph_action_automation_create_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_create_undo(void* userdata)
+bool uph__action_automation_create_undo(void* userdata)
 {
 	Uph_ActionResourceCreate* data = userdata;
 	if (!data->resource_exists || data->resource_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -64,7 +64,7 @@ bool _uph_action_automation_create_undo(void* userdata)
 #pragma endregion
 
 #pragma region Automation Delete
-bool _uph_action_automation_delete_execute(void* userdata)
+bool uph__action_automation_delete_execute(void* userdata)
 {
 	Uph_ActionAutomationDelete* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -83,7 +83,7 @@ bool _uph_action_automation_delete_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_delete_undo(void* userdata)
+bool uph__action_automation_delete_undo(void* userdata)
 {
 	Uph_ActionAutomationDelete* data = userdata;
 	if (!data->deleted || data->resource_index > (uint32_t)naui_list_len(uph_state.project.automations))
@@ -97,7 +97,7 @@ bool _uph_action_automation_delete_undo(void* userdata)
 	return true;
 }
 
-void _uph_action_automation_delete_destroy(void* userdata)
+void uph__action_automation_delete_destroy(void* userdata)
 {
 	Uph_ActionAutomationDelete* data = userdata;
 	if (data->deleted)
@@ -110,7 +110,7 @@ void _uph_action_automation_delete_destroy(void* userdata)
 #pragma endregion
 
 #pragma region Automation Rename
-bool _uph_action_automation_rename_execute(void* userdata)
+bool uph__action_automation_rename_execute(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -120,7 +120,7 @@ bool _uph_action_automation_rename_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_rename_undo(void* userdata)
+bool uph__action_automation_rename_undo(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -133,7 +133,7 @@ bool _uph_action_automation_rename_undo(void* userdata)
 #pragma endregion
 
 #pragma region Automation Duplicate
-bool _uph_action_automation_duplicate_execute(void* userdata)
+bool uph__action_automation_duplicate_execute(void* userdata)
 {
 	Uph_ActionAutomationDuplicate* data = userdata;
 	if (data->source_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -146,7 +146,7 @@ bool _uph_action_automation_duplicate_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_automation_duplicate_undo(void* userdata)
+bool uph__action_automation_duplicate_undo(void* userdata)
 {
 	Uph_ActionAutomationDuplicate* data = userdata;
 	if (!data->resource_exists || data->new_index >= (uint32_t)naui_list_len(uph_state.project.automations))
@@ -204,7 +204,7 @@ static bool uph_automation_point_set(Uph_ResourceIndex automation_index, uint32_
 	return true;
 }
 
-bool _uph_action_automation_point_create_execute(void* userdata)
+bool uph__action_automation_point_create_execute(void* userdata)
 {
 	Uph_ActionAutomationPointCreate* data = userdata;
 	if (data->applied_live)
@@ -216,31 +216,31 @@ bool _uph_action_automation_point_create_execute(void* userdata)
 	return uph_automation_point_insert(data->automation_index, data->point_index, data->point);
 }
 
-bool _uph_action_automation_point_create_undo(void* userdata)
+bool uph__action_automation_point_create_undo(void* userdata)
 {
 	Uph_ActionAutomationPointCreate* data = userdata;
 	return uph_automation_point_take(data->automation_index, data->point_index, &data->point);
 }
 
-bool _uph_action_automation_point_create_redo(void* userdata)
+bool uph__action_automation_point_create_redo(void* userdata)
 {
 	Uph_ActionAutomationPointCreate* data = userdata;
 	return uph_automation_point_insert(data->automation_index, data->point_index, data->point);
 }
 
-bool _uph_action_automation_point_delete_execute(void* userdata)
+bool uph__action_automation_point_delete_execute(void* userdata)
 {
 	Uph_ActionAutomationPointDelete* data = userdata;
 	return uph_automation_point_take(data->automation_index, data->point_index, &data->point);
 }
 
-bool _uph_action_automation_point_delete_undo(void* userdata)
+bool uph__action_automation_point_delete_undo(void* userdata)
 {
 	Uph_ActionAutomationPointDelete* data = userdata;
 	return uph_automation_point_insert(data->automation_index, data->point_index, data->point);
 }
 
-bool _uph_action_automation_point_move_execute(void* userdata)
+bool uph__action_automation_point_move_execute(void* userdata)
 {
 	Uph_ActionAutomationPointMove* data = userdata;
 	if (data->applied_live)
@@ -252,13 +252,13 @@ bool _uph_action_automation_point_move_execute(void* userdata)
 	return uph_automation_point_set(data->automation_index, data->point_index, data->new_point);
 }
 
-bool _uph_action_automation_point_move_undo(void* userdata)
+bool uph__action_automation_point_move_undo(void* userdata)
 {
 	Uph_ActionAutomationPointMove* data = userdata;
 	return uph_automation_point_set(data->automation_index, data->point_index, data->old_point);
 }
 
-bool _uph_action_automation_point_move_redo(void* userdata)
+bool uph__action_automation_point_move_redo(void* userdata)
 {
 	Uph_ActionAutomationPointMove* data = userdata;
 	return uph_automation_point_set(data->automation_index, data->point_index, data->new_point);

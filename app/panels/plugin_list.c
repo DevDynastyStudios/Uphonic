@@ -29,7 +29,7 @@ typedef struct
 }
 Uph_PluginListState;
 
-static Uph_PluginListState _uph_plugin_list_state = { 0 };
+static Uph_PluginListState uph__plugin_list_state = { 0 };
 
 static bool uph_plugin_list_ensure_selection(void);
 
@@ -43,7 +43,7 @@ static void uph_plugin_list_prefetch_job(void *data, char *err_buf, size_t err_s
 
 static void uph_plugin_list_cancel_load(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     Uph_PluginListLoad *load = &state->load;
     if (!load->active)
         return;
@@ -58,7 +58,7 @@ static void uph_plugin_list_cancel_load(void)
 
 void uph_plugin_list_on_attach(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const Naui_PanelID panel_id = naui_panel_current();
     naui_panel_enable_flags(panel_id, NAUI_PANEL_FLAG_NO_DOCK | NAUI_PANEL_FLAG_NO_UNDOCK);
     if (!uph_plugin_cache_read(&state->plugin_infos))
@@ -78,7 +78,7 @@ void uph_plugin_list_on_open(void)
 
 void uph_plugin_list_on_close(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     uph_plugin_list_cancel_load();
     state->filter = (Naui_String){0};
 }
@@ -105,7 +105,7 @@ static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
 // Load plugins on the main thread only plz
 static void uph_plugin_list_load(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     Uph_PluginListLoad *load = &state->load;
     if (load->active || !uph_plugin_list_ensure_selection())
         return;
@@ -123,7 +123,7 @@ static void uph_plugin_list_load(void)
 
 static bool uph_plugin_list_update_load(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     Uph_PluginListLoad *load = &state->load;
     if (!load->active)
         return false;
@@ -145,7 +145,7 @@ static bool uph_plugin_list_update_load(void)
 
 static void uph_plugin_list_poll_scan(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const bool had_selection = state->current_plugin_index < (int32_t)naui_list_len(state->plugin_infos);
     const Naui_Path selected = had_selection ? naui_path_normalize(state->plugin_infos[state->current_plugin_index].path) : (Naui_Path){ 0 };
 
@@ -204,7 +204,7 @@ static void uph_plugin_list_target_bar(void)
 
 static void uph_plugin_list_status(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     static char text[256];
     text[0] = '\0';
 
@@ -277,7 +277,7 @@ static void uph_plugin_list_format_badge(const Uph_PluginFormat format)
 
 static void uph_plugin_list_item(const Uph_PluginInfo *info, uint32_t item_index)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Leaf_ID id = leaf_id_indexed("uph_plugin_list_item", item_index);
     const bool hovered = uph_ui_widget_hovered(id);
@@ -331,7 +331,7 @@ static bool uph_plugin_list_matches_target(const Uph_PluginInfo *info)
 
 static bool uph_plugin_list_ensure_selection(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const int32_t count = (int32_t)naui_list_len(state->plugin_infos);
     if (state->current_plugin_index >= 0 && state->current_plugin_index < count && uph_plugin_list_matches_target(&state->plugin_infos[state->current_plugin_index]))
         return true;
@@ -349,7 +349,7 @@ static bool uph_plugin_list_ensure_selection(void)
 
 static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     if (!uph_plugin_list_matches_target(info))
         return false;
 
@@ -361,7 +361,7 @@ static bool uph_plugin_list_matches_filter(const Uph_PluginInfo *info)
 
 static void uph_plugin_list_main_menu(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Naui_Color muted_color = uph_state.colors.panel_text;
 
@@ -474,7 +474,7 @@ static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
 
 static void uph_plugin_list_current_menu(void)
 {
-    Uph_PluginListState *state = &_uph_plugin_list_state;
+    Uph_PluginListState *state = &uph__plugin_list_state;
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const Uph_PluginInfo *info = &state->plugin_infos[state->current_plugin_index];
@@ -534,7 +534,7 @@ static void uph_plugin_list_current_menu(void)
 
 void uph_plugin_list_on_update(void)
 {
-	Uph_PluginListState *state = &_uph_plugin_list_state;
+	Uph_PluginListState *state = &uph__plugin_list_state;
     uph_plugin_list_poll_scan();
 
     if (uph_plugin_list_update_load())

@@ -1,6 +1,6 @@
-static void _uph_song_timeline_render_midi_pattern(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, double start_offset, Leaf_BoundingBox visible_bbox, Uph_MidiPattern* pattern)
+static void uph__song_timeline_render_midi_pattern(Naui_Vec2 position, Naui_Vec2 size, Naui_Color color, double start_offset, Leaf_BoundingBox visible_bbox, Uph_MidiPattern* pattern)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const uint32_t note_count = (uint32_t)naui_list_len(pattern->notes);
 	if (note_count == 0)
 		return;
@@ -54,7 +54,7 @@ static void uph_song_timeline_render_automation(
 	Uph_Automation* automation
 )
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const uint32_t point_count = (uint32_t)naui_list_len(automation->points);
 	const float zoom_x = state->zoom.x;
 	if (point_count == 0)
@@ -99,9 +99,9 @@ typedef struct
 }
 Uph_BlockContentDrawData;
 
-static void _uph_song_timeline_render_block_content(Leaf_BoundingBox box, Uph_BlockContentDrawData *data)
+static void uph__song_timeline_render_block_content(Leaf_BoundingBox box, Uph_BlockContentDrawData *data)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const Uph_TimelineBlock *block = &data->block;
 	const Naui_Vec2 position = { box.x, box.y };
 	const Naui_Vec2 size = { box.width, box.height };
@@ -122,7 +122,7 @@ static void _uph_song_timeline_render_block_content(Leaf_BoundingBox box, Uph_Bl
 	}
 	else if (block->type == UPH_RESOURCE_PATTERN)
 	{
-		_uph_song_timeline_render_midi_pattern(
+		uph__song_timeline_render_midi_pattern(
 			position,
 			size,
 			data->color,
@@ -144,7 +144,7 @@ static void _uph_song_timeline_render_block_content(Leaf_BoundingBox box, Uph_Bl
 	}
 }
 
-static const char *_uph_song_timeline_block_name(const Uph_TimelineBlock *block)
+static const char *uph__song_timeline_block_name(const Uph_TimelineBlock *block)
 {
 	if (block->type == UPH_RESOURCE_SAMPLE)
 		return uph_state.project.samples[block->resource_index].name.data;
@@ -165,7 +165,7 @@ typedef struct
 }
 Uph_BlockMenuButtonDrawData;
 
-static void _uph_song_timeline_render_block_menu_button(Leaf_BoundingBox box, Uph_BlockMenuButtonDrawData *data)
+static void uph__song_timeline_render_block_menu_button(Leaf_BoundingBox box, Uph_BlockMenuButtonDrawData *data)
 {
 	const Naui_Color c = data->text_color;
 	const float icon_alpha = (float)c.a;
@@ -191,9 +191,9 @@ static void _uph_song_timeline_render_block_menu_button(Leaf_BoundingBox box, Up
 	);
 }
 
-static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2 size, Naui_Color color, const Uph_TimelineBlock *block, bool show_menu_button, bool menu_button_hovered)
+static void uph__song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2 size, Naui_Color color, const Uph_TimelineBlock *block, bool show_menu_button, bool menu_button_hovered)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const float anim_offset = (naui_ease_out_quint(block->visual.lifetime) - 1.0f) * NAUI_DPI(8);
 	const Naui_Vec2 anim_size = {
 		fmaxf(size.x + anim_offset + 0.5f, 0.0f),
@@ -253,14 +253,14 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 			.clip_children = true
 		})
 		{
-			leaf_text(_uph_song_timeline_block_name(block), {
+			leaf_text(uph__song_timeline_block_name(block), {
 				.color = text_color,
 				.font_size = LEAF_SIZE_FIXED(font_size)
 			});
 		}
 
 		leaf({
-			.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_block_content,
+			.custom_draw = (Leaf_CustomDrawFn)uph__song_timeline_render_block_content,
 			.custom_draw_data = LEAF_DATA_SLICE(content_data),
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
 			.color = leaf_rgba(color.r, color.g, color.b, 60),
@@ -271,7 +271,7 @@ static void _uph_song_timeline_render_timeline_block(Naui_Vec2 offset, Naui_Vec2
 		{
 			Uph_BlockMenuButtonDrawData button_data = { .text_color = text_color, .hovered = menu_button_hovered };
 			leaf({
-				.custom_draw = (Leaf_CustomDrawFn)_uph_song_timeline_render_block_menu_button,
+				.custom_draw = (Leaf_CustomDrawFn)uph__song_timeline_render_block_menu_button,
 				.custom_draw_data = LEAF_DATA_SLICE(button_data),
 				.size = { .width = LEAF_SIZE_FIXED((int32_t)menu_button.z), .height = LEAF_SIZE_FIXED((int32_t)menu_button.w) },
 				.floating = { .offset = { .x = menu_button.x, .y = menu_button.y } },
@@ -315,7 +315,7 @@ void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_Ti
 	if (!naui_app_animations_enabled() || !track || naui_panel_closed(uph_state.panels.song_timeline))
 		return;
 
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const Leaf_BoundingBox section = state->panel_bounding_box;
 	const float timeline_x = section.x + NAUI_DPI(uph_song_timeline_header_column_width());
 
@@ -330,7 +330,7 @@ void uph_song_timeline_emit_block_shockwave(const Uph_Track *track, const Uph_Ti
 
 void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	Naui_List(Uph_TimelineBlock) blocks = track->blocks;
 	const float zoom_x = state->zoom.x;
 	const float scroll_x = state->scroll.x;
@@ -350,7 +350,7 @@ void uph_song_timeline_render_track_timeline_blocks(Uph_Track *track)
 			continue;
 
 		blocks[i].visual.lifetime = naui_app_animations_enabled() ? NAUI_MIN(blocks[i].visual.lifetime + naui_delta_time() * NAUI_UI_ANIM_SPEED, 1.0f) : 1.0f;
-		_uph_song_timeline_render_timeline_block(
+		uph__song_timeline_render_timeline_block(
 			(Naui_Vec2) { zoom_x * (float)blocks[i].start_beat - scroll_x, 0.0f },
 			(Naui_Vec2) { zoom_x * (float)blocks[i].length_beats, row_height },
 			color,

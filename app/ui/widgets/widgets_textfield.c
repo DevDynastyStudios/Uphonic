@@ -1,9 +1,9 @@
-static bool _uph_ui_is_word_char(char c)
+static bool uph__ui_is_word_char(char c)
 {
     return (unsigned char)c >= 0x80 || isalnum((unsigned char)c) || c == '_';
 }
 
-static void _uph_ui_textfield_finish_composition(Uph_TextfieldData *data, bool commit)
+static void uph__ui_textfield_finish_composition(Uph_TextfieldData *data, bool commit)
 {
     Naui_ImeComposition ime;
     if (!naui_ime_get_composition(&ime))
@@ -34,9 +34,9 @@ static void _uph_ui_textfield_finish_composition(Uph_TextfieldData *data, bool c
     naui_ime_cancel();
 }
 
-static void _uph_ui_begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
+static void uph__ui_begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, Naui_String *value, size_t cursor)
 {
-    _uph_ui_textfield_finish_composition(data, true);
+    uph__ui_textfield_finish_composition(data, true);
 
     data->id = id;
     data->mode = UPH_UI_EDIT_MODE_TEXT;
@@ -48,9 +48,9 @@ static void _uph_ui_begin_text_edit(Uph_TextfieldData *data, const Leaf_ID id, N
     data->scroll_x = 0.0f;
 }
 
-static void _uph_ui_end_edit(Uph_TextfieldData *data)
+static void uph__ui_end_edit(Uph_TextfieldData *data)
 {
-    _uph_ui_textfield_finish_composition(data, false);
+    uph__ui_textfield_finish_composition(data, false);
 
     data->id.value = 0;
     data->mode = UPH_UI_EDIT_MODE_NONE;
@@ -59,33 +59,33 @@ static void _uph_ui_end_edit(Uph_TextfieldData *data)
     data->select_active = false;
 }
 
-static size_t _uph_ui_prev_word(const Naui_String *value, size_t cursor)
+static size_t uph__ui_prev_word(const Naui_String *value, size_t cursor)
 {
     if (cursor == 0)
         return 0;
 
     size_t i = cursor;
-    while (i > 0 && !_uph_ui_is_word_char(value->data[i - 1]))
+    while (i > 0 && !uph__ui_is_word_char(value->data[i - 1]))
         --i;
-    while (i > 0 && _uph_ui_is_word_char(value->data[i - 1]))
+    while (i > 0 && uph__ui_is_word_char(value->data[i - 1]))
         --i;
     return i;
 }
 
-static size_t _uph_ui_next_word(const Naui_String *value, size_t cursor)
+static size_t uph__ui_next_word(const Naui_String *value, size_t cursor)
 {
     if (cursor >= value->length)
         return value->length;
 
     size_t i = cursor;
-    while (i < value->length && !_uph_ui_is_word_char(value->data[i]))
+    while (i < value->length && !uph__ui_is_word_char(value->data[i]))
         ++i;
-    while (i < value->length && _uph_ui_is_word_char(value->data[i]))
+    while (i < value->length && uph__ui_is_word_char(value->data[i]))
         ++i;
     return i;
 }
 
-static void _uph_ui_textfield_delete_selection(Uph_TextfieldData *data)
+static void uph__ui_textfield_delete_selection(Uph_TextfieldData *data)
 {
     if (!data->select_active)
         return;
@@ -98,7 +98,7 @@ static void _uph_ui_textfield_delete_selection(Uph_TextfieldData *data)
     data->select_active = false;
 }
 
-static bool _uph_ui_char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags, const Naui_String *value, size_t cursor)
+static bool uph__ui_char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags, const Naui_String *value, size_t cursor)
 {
     if (!(flags & UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY))
         return true;
@@ -120,7 +120,7 @@ static bool _uph_ui_char_allowed(uint32_t codepoint, Uph_UITextFieldFlags flags,
     return false;
 }
 
-static size_t _uph_ui_cursor_from_x(const Naui_String *value, float local_x, float font_size)
+static size_t uph__ui_cursor_from_x(const Naui_String *value, float local_x, float font_size)
 {
     if (local_x <= 0.0f)
         return 0;
@@ -145,7 +145,7 @@ static size_t _uph_ui_cursor_from_x(const Naui_String *value, float local_x, flo
     return best;
 }
 
-static Leaf_BoundingBox _uph_ui_textfield_line_box(Leaf_BoundingBox box, float font_size)
+static Leaf_BoundingBox uph__ui_textfield_line_box(Leaf_BoundingBox box, float font_size)
 {
     const float line_height = NAUI_MIN(naui_measure_text("Ag", 2, font_size).y, box.height);
     box.y += (int32_t)roundf(((float)box.height - line_height) * 0.5f);
@@ -153,12 +153,12 @@ static Leaf_BoundingBox _uph_ui_textfield_line_box(Leaf_BoundingBox box, float f
     return box;
 }
 
-static void _uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_TextfieldDrawData *draw_data = (Uph_TextfieldDrawData*)user_data;
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
     const Leaf_BoundingBox clip = box;
-    box = _uph_ui_textfield_line_box(box, font_size);
+    box = uph__ui_textfield_line_box(box, font_size);
 
     Naui_ImeComposition ime = { 0 };
     const bool has_preedit = draw_data->composing && naui_ime_get_composition(&ime);
@@ -210,7 +210,7 @@ static void _uph_ui_textfield_text_draw(Leaf_BoundingBox box, void *user_data)
     naui_pop_clip_rect();
 }
 
-static void _uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_TextfieldData* data = (Uph_TextfieldData*)user_data;
 
@@ -218,7 +218,7 @@ static void _uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_da
         return;
 
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-    box = _uph_ui_textfield_line_box(box, font_size);
+    box = uph__ui_textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
     size_t lo = NAUI_MIN(data->cursor, data->select_start);
@@ -238,12 +238,12 @@ static void _uph_ui_textfield_selection_draw(Leaf_BoundingBox box, void *user_da
     naui_pop_clip_rect();
 }
 
-static void _uph_ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_textfield_cursor(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_TextfieldData* data = (Uph_TextfieldData*)user_data;
 
     const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-    box = _uph_ui_textfield_line_box(box, font_size);
+    box = uph__ui_textfield_line_box(box, font_size);
     const float draw_x = box.x - data->scroll_x;
 
     Naui_Vec2 text_size = naui_measure_text(data->target_string->data, data->cursor, font_size);
@@ -282,7 +282,7 @@ bool uph_ui_textfield_active(const Leaf_ID id)
     return data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT;
 }
 
-static void _uph_ui_textfield_copy_selection(const Uph_TextfieldData *data)
+static void uph__ui_textfield_copy_selection(const Uph_TextfieldData *data)
 {
     if (!data->select_active || data->select_start == data->cursor)
         return;
@@ -297,13 +297,13 @@ static void _uph_ui_textfield_copy_selection(const Uph_TextfieldData *data)
     s->data[hi] = saved;
 }
 
-static void _uph_ui_textfield_paste(Uph_TextfieldData *data, Naui_String *value, Uph_UITextFieldFlags flags)
+static void uph__ui_textfield_paste(Uph_TextfieldData *data, Naui_String *value, Uph_UITextFieldFlags flags)
 {
     const char *clip = naui_app_get_clipboard();
     if (!clip || !*clip)
         return;
 
-    _uph_ui_textfield_delete_selection(data);
+    uph__ui_textfield_delete_selection(data);
 
     const size_t clip_length = strlen(clip);
     size_t i = 0;
@@ -321,7 +321,7 @@ static void _uph_ui_textfield_paste(Uph_TextfieldData *data, Naui_String *value,
         if (codepoint < 0x20 || codepoint == 0x7F)
             continue;
 
-        if (!_uph_ui_char_allowed(codepoint, flags, value, data->cursor))
+        if (!uph__ui_char_allowed(codepoint, flags, value, data->cursor))
             continue;
 
         const size_t inserted = naui_string_insert_codepoint(value, data->cursor, codepoint);
@@ -332,12 +332,12 @@ static void _uph_ui_textfield_paste(Uph_TextfieldData *data, Naui_String *value,
     }
 }
 
-static void _uph_ui_textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawData *draw_data, bool active)
+static void uph__ui_textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawData *draw_data, bool active)
 {
     if (active)
     {
         leaf({
-            .custom_draw = _uph_ui_textfield_selection_draw,
+            .custom_draw = uph__ui_textfield_selection_draw,
             .custom_draw_data = LEAF_DATA_SLICE(*data),
             .size = {
                 .width = LEAF_SIZE_FULL,
@@ -352,7 +352,7 @@ static void _uph_ui_textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawD
     }
 
     leaf({
-        .custom_draw = _uph_ui_textfield_text_draw,
+        .custom_draw = uph__ui_textfield_text_draw,
         .custom_draw_data = LEAF_DATA_SLICE(*draw_data),
         .size = {
             .width = LEAF_SIZE_FULL,
@@ -366,7 +366,7 @@ static void _uph_ui_textfield_layers(Uph_TextfieldData *data, Uph_TextfieldDrawD
     });
 
     leaf({
-        .custom_draw = active ? _uph_ui_textfield_cursor : NULL,
+        .custom_draw = active ? uph__ui_textfield_cursor : NULL,
         .custom_draw_data = LEAF_DATA_SLICE(*data),
         .size = {
             .width = LEAF_SIZE_FULL,
@@ -394,7 +394,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
 
     if (!active && (flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE) && data->id.value == 0)
     {
-        _uph_ui_begin_text_edit(data, id, value, value->length);
+        uph__ui_begin_text_edit(data, id, value, value->length);
         active = true;
     }
 
@@ -408,13 +408,13 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
             Leaf_BoundingBox box = leaf_get_bounding_box(id);
             float local_x = (float)naui_mouse_x() - box.x - text_offset + (active ? data->scroll_x : 0.0f);
 
-            _uph_ui_begin_text_edit(data, id, value, _uph_ui_cursor_from_x(value, local_x, font_size));
+            uph__ui_begin_text_edit(data, id, value, uph__ui_cursor_from_x(value, local_x, font_size));
             active = true;
         }
         else if (active && !(flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE))
         {
-            _uph_ui_textfield_finish_composition(data, true);
-            _uph_ui_end_edit(data);
+            uph__ui_textfield_finish_composition(data, true);
+            uph__ui_end_edit(data);
             active = false;
             result = true;
         }
@@ -436,7 +436,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         Leaf_BoundingBox box = leaf_get_bounding_box(id);
         float local_x = (float)naui_mouse_x() - box.x - text_offset + data->scroll_x;
 
-        size_t new_cursor = _uph_ui_cursor_from_x(value, local_x, font_size);
+        size_t new_cursor = uph__ui_cursor_from_x(value, local_x, font_size);
         if (!data->select_active)
         {
             data->select_start = data->cursor;
@@ -455,16 +455,16 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         Naui_ImeComposition ime;
         const bool composing = naui_ime_get_composition(&ime);
         if (composing && data->select_active)
-            _uph_ui_textfield_delete_selection(data);
+            uph__ui_textfield_delete_selection(data);
 
         uint32_t codepoint = naui_app_codepoint();
         while (codepoint)
         {
             if (codepoint != '\b' && codepoint != 0x7F && codepoint != '\t' && codepoint != '\x1b' && codepoint >= 0x20)
             {
-                if (_uph_ui_char_allowed(codepoint, flags, value, data->cursor))
+                if (uph__ui_char_allowed(codepoint, flags, value, data->cursor))
                 {
-                    _uph_ui_textfield_delete_selection(data);
+                    uph__ui_textfield_delete_selection(data);
                     data->cursor += naui_string_insert_codepoint(value, data->cursor, codepoint);
                 }
             }
@@ -474,10 +474,10 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         if (!composing && naui_key_pressed_repeat(NAUI_KEY_BACKSPACE))
         {
             if (data->select_active)
-                _uph_ui_textfield_delete_selection(data);
+                uph__ui_textfield_delete_selection(data);
             else if (data->cursor > 0)
             {
-                size_t remove_from = ctrl ? _uph_ui_prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
+                size_t remove_from = ctrl ? uph__ui_prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
                 naui_string_remove(value, remove_from, data->cursor - remove_from);
                 data->cursor = remove_from;
             }
@@ -485,27 +485,27 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         else if (naui_key_pressed_repeat(NAUI_KEY_DELETE))
         {
             if (data->select_active)
-                _uph_ui_textfield_delete_selection(data);
+                uph__ui_textfield_delete_selection(data);
             else if (data->cursor < value->length)
             {
-                size_t remove_to = ctrl ? _uph_ui_next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
+                size_t remove_to = ctrl ? uph__ui_next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
                 naui_string_remove(value, data->cursor, remove_to - data->cursor);
             }
         }
         else if (naui_key_pressed(NAUI_KEY_ENTER))
         {
-            _uph_ui_end_edit(data);
+            uph__ui_end_edit(data);
             active = false;
             result = true;
         }
         else if (naui_key_pressed(NAUI_KEY_ESCAPE) && !(flags & UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE))
         {
-            _uph_ui_end_edit(data);
+            uph__ui_end_edit(data);
             active = false;
         }
         else if (naui_key_pressed(NAUI_KEY_LEFT))
         {
-            size_t new_cursor = ctrl ? _uph_ui_prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
+            size_t new_cursor = ctrl ? uph__ui_prev_word(value, data->cursor) : naui_string_prev_char(value, data->cursor);
             if (shift)
             {
                 if (!data->select_active)
@@ -523,7 +523,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         }
         else if (naui_key_pressed(NAUI_KEY_RIGHT))
         {
-            size_t new_cursor = ctrl ? _uph_ui_next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
+            size_t new_cursor = ctrl ? uph__ui_next_word(value, data->cursor) : naui_string_next_char(value, data->cursor);
             if (shift)
             {
                 if (!data->select_active)
@@ -573,16 +573,16 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         }
         else if (ctrl && naui_key_pressed(NAUI_KEY_C))
         {
-            _uph_ui_textfield_copy_selection(data);
+            uph__ui_textfield_copy_selection(data);
         }
         else if (ctrl && naui_key_pressed(NAUI_KEY_X))
         {
-            _uph_ui_textfield_copy_selection(data);
-            _uph_ui_textfield_delete_selection(data);
+            uph__ui_textfield_copy_selection(data);
+            uph__ui_textfield_delete_selection(data);
         }
         else if (ctrl && naui_key_pressed(NAUI_KEY_V))
         {
-            _uph_ui_textfield_paste(data, value, flags);
+            uph__ui_textfield_paste(data, value, flags);
         }
     }
 
@@ -626,7 +626,7 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         Leaf_BoundingBox line_box = field_box;
         line_box.x += (int32_t)(padding_x + text_offset);
         line_box.width = (int32_t)visible_width;
-        line_box = _uph_ui_textfield_line_box(line_box, font_size);
+        line_box = uph__ui_textfield_line_box(line_box, font_size);
         const float caret_x = naui_measure_text(value->data, data->cursor, font_size).x - data->scroll_x;
         naui_ime_set_area(line_box.x, line_box.y, line_box.width, line_box.height, (int32_t)caret_x);
     }
@@ -635,10 +635,10 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
         .id = id,
         .size = {
             .width = LEAF_SIZE_GROW,
-            .height = inline_field ? LEAF_SIZE_FIXED(font_size) : UPH_UI_SIZE_EXACT(_uph_ui_frame_height())
+            .height = inline_field ? LEAF_SIZE_FIXED(font_size) : UPH_UI_SIZE_EXACT(uph__ui_frame_height())
         },
         .padding = LEAF_PADDING_AXES(padding_x, padding_y),
-        .border = inline_field ? (Leaf_Border){0} : _uph_ui_border(active ? uph_state.colors.panel_tab_accent : (tinted ? uph_state.colors.ui_tinted_frame_border : uph_state.colors.ui_frame_border)),
+        .border = inline_field ? (Leaf_Border){0} : uph__ui_border(active ? uph_state.colors.panel_tab_accent : (tinted ? uph_state.colors.ui_tinted_frame_border : uph_state.colors.ui_frame_border)),
         .color = tinted ? uph_state.colors.ui_tinted_frame_bg : uph_state.colors.ui_frame_bg,
         .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL),
@@ -659,10 +659,10 @@ bool uph_ui_textfield(Naui_String* value, const Leaf_ID id, Uph_UITextFieldFlags
                 .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
             })
             {
-                _uph_ui_textfield_layers(data, &draw_data, active);
+                uph__ui_textfield_layers(data, &draw_data, active);
             }
         }
-        else _uph_ui_textfield_layers(data, &draw_data, active);
+        else uph__ui_textfield_layers(data, &draw_data, active);
     }
 
     if (data->id.value == id.value && data->mode == UPH_UI_EDIT_MODE_TEXT)

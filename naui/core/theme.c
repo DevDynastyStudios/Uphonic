@@ -10,7 +10,7 @@ typedef struct
     Naui_Arena key_arena;
 }
 Naui_ThemeState;
-static Naui_ThemeState _naui_theme_state;
+static Naui_ThemeState naui__theme_state;
 
 static Naui_Color naui_color_from_hex(const char *hex)
 {
@@ -39,18 +39,18 @@ static Naui_Color naui_color_from_hex(const char *hex)
 
 void naui_panel_refresh_colors(void);
 
-void naui_themes_initialize(void) { naui_arena_init(&_naui_theme_state.key_arena, NAUI_THEME_KEY_SCRATCH_SIZE); }
-void naui_themes_shutdown(void) { naui_arena_free(&_naui_theme_state.key_arena); }
+void naui_themes_initialize(void) { naui_arena_init(&naui__theme_state.key_arena, NAUI_THEME_KEY_SCRATCH_SIZE); }
+void naui_themes_shutdown(void) { naui_arena_free(&naui__theme_state.key_arena); }
 
 void naui_load_theme(const char *file_name)
 {
-    for (ptrdiff_t i = 0; i < naui_strmap_len(_naui_theme_state.color_list_map); i++)
-        naui_list_free(_naui_theme_state.color_list_map[i].value);
+    for (ptrdiff_t i = 0; i < naui_strmap_len(naui__theme_state.color_list_map); i++)
+        naui_list_free(naui__theme_state.color_list_map[i].value);
 
-    naui_strmap_free(_naui_theme_state.color_list_map);
-    naui_strmap_free(_naui_theme_state.color_map);
+    naui_strmap_free(naui__theme_state.color_list_map);
+    naui_strmap_free(naui__theme_state.color_map);
 
-    naui_arena_reset(&_naui_theme_state.key_arena);
+    naui_arena_reset(&naui__theme_state.key_arena);
 
     char final_file_name[64];
     snprintf(final_file_name, sizeof(final_file_name), "%s.json", file_name);
@@ -59,14 +59,14 @@ void naui_load_theme(const char *file_name)
 
     NAUI_JSON_FOREACH(json.root, key, val)
     {
-        char *key_str = (char*)naui_arena_alloc(&_naui_theme_state.key_arena, 64);
+        char *key_str = (char*)naui_arena_alloc(&naui__theme_state.key_arena, 64);
         naui_json_copy_cstr(key, key_str, 64);
 
         if (val->type == NAUI_JSON_STRING)
         {
             char value_str[16];
             naui_json_copy_cstr(val, value_str, sizeof(value_str));
-            naui_strmap_put(_naui_theme_state.color_map, key_str, naui_color_from_hex(value_str));
+            naui_strmap_put(naui__theme_state.color_map, key_str, naui_color_from_hex(value_str));
         }
         else if (val->type == NAUI_JSON_ARRAY)
         {
@@ -82,7 +82,7 @@ void naui_load_theme(const char *file_name)
                 );
                 naui_list_push(list, naui_color_from_hex(value_str));
             }
-            naui_strmap_put(_naui_theme_state.color_list_map, key_str, list);
+            naui_strmap_put(naui__theme_state.color_list_map, key_str, list);
         }
     }
 	
@@ -92,17 +92,17 @@ void naui_load_theme(const char *file_name)
 
 Naui_Color naui_theme_color(const char *name)
 {
-    return naui_strmap_get(_naui_theme_state.color_map, name);
+    return naui_strmap_get(naui__theme_state.color_map, name);
 }
 
 bool naui_theme_has(const char *name)
 {
     return
-        naui_strmap_get_index(_naui_theme_state.color_map, name) >= 0 ||
-        naui_strmap_get_index(_naui_theme_state.color_list_map, name) >= 0;
+        naui_strmap_get_index(naui__theme_state.color_map, name) >= 0 ||
+        naui_strmap_get_index(naui__theme_state.color_list_map, name) >= 0;
 }
 
 const Naui_List(Naui_Color) naui_theme_color_list(const char *name)
 {
-    return naui_strmap_get(_naui_theme_state.color_list_map, name);
+    return naui_strmap_get(naui__theme_state.color_list_map, name);
 }

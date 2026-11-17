@@ -238,45 +238,45 @@ void uph_action_resource_restored(Uph_ResourceType type, Uph_ResourceIndex index
 
 void uph_action_initialize()
 {
-	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_CREATE, _uph_action_pattern_create);
-	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_DELETE, _uph_action_pattern_delete, .destroy = _uph_action_pattern_delete_destroy);
-	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_RENAME, _uph_action_pattern_rename);
-	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_DUPLICATE, _uph_action_pattern_duplicate);
+	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_CREATE, uph__action_pattern_create);
+	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_DELETE, uph__action_pattern_delete, .destroy = uph__action_pattern_delete_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_RENAME, uph__action_pattern_rename);
+	UPH_REGISTER_ACTION(UPH_ACTION_PATTERN_DUPLICATE, uph__action_pattern_duplicate);
 
-	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_DELETE, _uph_action_sample_delete, .destroy = _uph_action_sample_delete_destroy);
-	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_RENAME, _uph_action_sample_rename);
-	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_DUPLICATE, _uph_action_sample_duplicate);
-	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_EDIT, _uph_action_sample_edit);
+	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_DELETE, uph__action_sample_delete, .destroy = uph__action_sample_delete_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_RENAME, uph__action_sample_rename);
+	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_DUPLICATE, uph__action_sample_duplicate);
+	UPH_REGISTER_ACTION(UPH_ACTION_SAMPLE_EDIT, uph__action_sample_edit);
 
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_CREATE, _uph_action_track_create);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_DELETE, _uph_action_track_delete, .destroy = _uph_action_track_delete_destroy);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_AUTOMATION_CREATE, _uph_action_track_automation_create);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_RENAME, _uph_action_track_rename);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_COLOR, _uph_action_track_color);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_MUTE, _uph_action_track_state);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_SOLO, _uph_action_track_solo, .redo = _uph_action_track_solo_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_VOLUME, _uph_action_track_value);
-	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_PAN, _uph_action_track_value);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_CREATE, uph__action_track_create);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_DELETE, uph__action_track_delete, .destroy = uph__action_track_delete_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_AUTOMATION_CREATE, uph__action_track_automation_create);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_RENAME, uph__action_track_rename);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_COLOR, uph__action_track_color);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_MUTE, uph__action_track_state);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_SOLO, uph__action_track_solo, .redo = uph__action_track_solo_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_VOLUME, uph__action_track_value);
+	UPH_REGISTER_ACTION(UPH_ACTION_TRACK_PAN, uph__action_track_value);
 
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_CREATE, _uph_action_automation_create);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_DELETE, _uph_action_automation_delete, .destroy = _uph_action_automation_delete_destroy);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_RENAME, _uph_action_automation_rename);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_DUPLICATE, _uph_action_automation_duplicate);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_CREATE, _uph_action_automation_point_create, .redo = _uph_action_automation_point_create_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_DELETE, _uph_action_automation_point_delete);
-	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_MOVE, _uph_action_automation_point_move, .redo = _uph_action_automation_point_move_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_CREATE, uph__action_automation_create);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_DELETE, uph__action_automation_delete, .destroy = uph__action_automation_delete_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_RENAME, uph__action_automation_rename);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_DUPLICATE, uph__action_automation_duplicate);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_CREATE, uph__action_automation_point_create, .redo = uph__action_automation_point_create_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_DELETE, uph__action_automation_point_delete);
+	UPH_REGISTER_ACTION(UPH_ACTION_AUTOMATION_POINT_MOVE, uph__action_automation_point_move, .redo = uph__action_automation_point_move_redo);
 
-	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_CREATE, _uph_action_block_create, .redo = _uph_action_block_create_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_DELETE, _uph_action_block_delete);
-	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_MOVE, _uph_action_block_transform, .redo = _uph_action_block_transform_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RESIZE, _uph_action_block_transform, .redo = _uph_action_block_transform_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RELINK, _uph_action_block_relink);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_CREATE, uph__action_block_create, .redo = uph__action_block_create_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_DELETE, uph__action_block_delete);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_MOVE, uph__action_block_transform, .redo = uph__action_block_transform_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RESIZE, uph__action_block_transform, .redo = uph__action_block_transform_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_BLOCK_RELINK, uph__action_block_relink);
 
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_CREATE, _uph_action_note_create, .redo = _uph_action_note_create_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_DELETE, _uph_action_note_delete);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_MOVE, _uph_action_note_transform, .redo = _uph_action_note_transform_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_RESIZE, _uph_action_note_transform, .redo = _uph_action_note_transform_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_VELOCITY, _uph_action_note_velocity, .redo = _uph_action_note_velocity_redo);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTES_ERASE, _uph_action_notes_erase, .redo = _uph_action_notes_erase_redo, .destroy = _uph_action_notes_erase_destroy);
-	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_PEDALS_EDIT, _uph_action_pedals_edit, .redo = _uph_action_pedals_edit_redo, .destroy = _uph_action_pedals_edit_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_CREATE, uph__action_note_create, .redo = uph__action_note_create_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_DELETE, uph__action_note_delete);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_MOVE, uph__action_note_transform, .redo = uph__action_note_transform_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_RESIZE, uph__action_note_transform, .redo = uph__action_note_transform_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTE_VELOCITY, uph__action_note_velocity, .redo = uph__action_note_velocity_redo);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_NOTES_ERASE, uph__action_notes_erase, .redo = uph__action_notes_erase_redo, .destroy = uph__action_notes_erase_destroy);
+	UPH_REGISTER_ACTION(UPH_ACTION_MIDI_PEDALS_EDIT, uph__action_pedals_edit, .redo = uph__action_pedals_edit_redo, .destroy = uph__action_pedals_edit_destroy);
 }

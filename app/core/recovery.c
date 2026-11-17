@@ -1,40 +1,40 @@
 #define UPH_RECOVERY_AUTOSAVE_MARKER ".autosave"
 
-static Naui_Path _uph_recovery_locked_folder;
+static Naui_Path uph__recovery_locked_folder;
 
-static Naui_Path _uph_recovery_lock_file(const Naui_Path project_folder)
+static Naui_Path uph__recovery_lock_file(const Naui_Path project_folder)
 {
 	return naui_path_join(project_folder, NAUI_PATH(UPH_RECOVERY_LOCK_FILE));
 }
 
-static Naui_Path _uph_recovery_temp_folder(const Naui_Path project_folder)
+static Naui_Path uph__recovery_temp_folder(const Naui_Path project_folder)
 {
 	return naui_path_join(project_folder, NAUI_PATH(UPH_PATH_TEMP));
 }
 
-static Naui_Path _uph_recovery_marker(const Naui_Path project_folder)
+static Naui_Path uph__recovery_marker(const Naui_Path project_folder)
 {
-	return naui_path_join(_uph_recovery_temp_folder(project_folder), NAUI_PATH(UPH_RECOVERY_AUTOSAVE_MARKER));
+	return naui_path_join(uph__recovery_temp_folder(project_folder), NAUI_PATH(UPH_RECOVERY_AUTOSAVE_MARKER));
 }
 
 #define UPH_RECOVERY_EXTERNAL_LIST "external_projects.txt"
 
-static Naui_Path _uph_recovery_external_file(void)
+static Naui_Path uph__recovery_external_file(void)
 {
 	return naui_path_join(UPHONIC_FOLDER, NAUI_PATH(UPH_RECOVERY_EXTERNAL_LIST));
 }
 
-static bool _uph_recovery_in_workspace(const Naui_Path folder)
+static bool uph__recovery_in_workspace(const Naui_Path folder)
 {
 	return strcmp(naui_path_normalize(naui_path_parent(folder)).data, naui_path_normalize(UPHONIC_WORKSPACE_FOLDER).data) == 0;
 }
 
-static Naui_List(Naui_Path) _uph_recovery_external_read(void)
+static Naui_List(Naui_Path) uph__recovery_external_read(void)
 {
 	Naui_List(Naui_Path) list = NULL;
 
 	size_t size = 0;
-	char *text = naui_file_read_all(_uph_recovery_external_file(), &size);
+	char *text = naui_file_read_all(uph__recovery_external_file(), &size);
 	if (!text)
 		return list;
 
@@ -57,9 +57,9 @@ static Naui_List(Naui_Path) _uph_recovery_external_read(void)
 	return list;
 }
 
-static void _uph_recovery_external_write(const Naui_List(Naui_Path) list)
+static void uph__recovery_external_write(const Naui_List(Naui_Path) list)
 {
-	const Naui_Path file = _uph_recovery_external_file();
+	const Naui_Path file = uph__recovery_external_file();
 	if (naui_list_len(list) == 0)
 	{
 		if (naui_path_exists(file))
@@ -85,12 +85,12 @@ static void _uph_recovery_external_write(const Naui_List(Naui_Path) list)
 	free(text);
 }
 
-static void _uph_recovery_external_add(const Naui_Path folder)
+static void uph__recovery_external_add(const Naui_Path folder)
 {
-	if (_uph_recovery_in_workspace(folder))
+	if (uph__recovery_in_workspace(folder))
 		return;
 
-	Naui_List(Naui_Path) list = _uph_recovery_external_read();
+	Naui_List(Naui_Path) list = uph__recovery_external_read();
 	bool listed = false;
 	for (size_t i = 0; i < naui_list_len(list) && !listed; i++)
 		listed = strcmp(list[i].data, folder.data) == 0;
@@ -98,7 +98,7 @@ static void _uph_recovery_external_add(const Naui_Path folder)
 	if (!listed)
 	{
 		naui_list_push(list, folder);
-		_uph_recovery_external_write(list);
+		uph__recovery_external_write(list);
 	}
 
 	naui_list_free(list);
@@ -107,47 +107,47 @@ static void _uph_recovery_external_add(const Naui_Path folder)
 bool uph_recovery_acquire_lock(const Naui_Path project_folder)
 {
 	const Naui_Path folder = naui_path_normalize(project_folder);
-	if (_uph_recovery_locked_folder.data[0] && strcmp(_uph_recovery_locked_folder.data, folder.data) == 0)
+	if (uph__recovery_locked_folder.data[0] && strcmp(uph__recovery_locked_folder.data, folder.data) == 0)
 		return true;
 
 	uph_recovery_release_lock();
 	if (!naui_directories_create(folder) || !naui_path_lock(folder))
 		return false;
 
-	_uph_recovery_locked_folder = folder;
-	_uph_recovery_external_add(folder);
+	uph__recovery_locked_folder = folder;
+	uph__recovery_external_add(folder);
 	return true;
 }
 
 void uph_recovery_release_lock(void)
 {
-	if (!_uph_recovery_locked_folder.data[0])
+	if (!uph__recovery_locked_folder.data[0])
 		return;
 
-	naui_path_unlock(_uph_recovery_locked_folder);
-	naui_file_delete(_uph_recovery_lock_file(_uph_recovery_locked_folder));
-	_uph_recovery_locked_folder = (Naui_Path){0};
+	naui_path_unlock(uph__recovery_locked_folder);
+	naui_file_delete(uph__recovery_lock_file(uph__recovery_locked_folder));
+	uph__recovery_locked_folder = (Naui_Path){0};
 }
 
 bool uph_recovery_project_crashed(const Naui_Path project_folder)
 {
-	return naui_path_exists(_uph_recovery_lock_file(project_folder)) && !naui_path_is_locked(project_folder);
+	return naui_path_exists(uph__recovery_lock_file(project_folder)) && !naui_path_is_locked(project_folder);
 }
 
-static void _uph_recovery_clear_crash(const Naui_Path project_folder)
+static void uph__recovery_clear_crash(const Naui_Path project_folder)
 {
 	if (uph_recovery_project_crashed(project_folder))
-		naui_file_delete(_uph_recovery_lock_file(project_folder));
+		naui_file_delete(uph__recovery_lock_file(project_folder));
 }
 
 bool uph_recovery_has_autosave(const Naui_Path project_folder)
 {
-	return naui_path_exists(_uph_recovery_marker(project_folder));
+	return naui_path_exists(uph__recovery_marker(project_folder));
 }
 
 void uph_recovery_discard_autosave(const Naui_Path project_folder)
 {
-	const Naui_Path temp_folder = _uph_recovery_temp_folder(project_folder);
+	const Naui_Path temp_folder = uph__recovery_temp_folder(project_folder);
 	if (naui_path_exists(temp_folder))
 		naui_directory_remove_all(temp_folder);
 }
@@ -158,7 +158,7 @@ void uph_recovery_discard_project(const Naui_Path project_folder)
 	if (naui_path_exists(naui_path_join(folder, NAUI_PATH(UPH_IO_FILE_PROJECT))))
 	{
 		uph_recovery_discard_autosave(folder);
-		_uph_recovery_clear_crash(folder);
+		uph__recovery_clear_crash(folder);
 		return;
 	}
 
@@ -166,7 +166,7 @@ void uph_recovery_discard_project(const Naui_Path project_folder)
 	if (strcmp(naui_path_normalize(naui_path_parent(folder)).data, workspace.data) != 0)
 		return;
 
-	if (_uph_recovery_locked_folder.data[0] && strcmp(_uph_recovery_locked_folder.data, folder.data) == 0)
+	if (uph__recovery_locked_folder.data[0] && strcmp(uph__recovery_locked_folder.data, folder.data) == 0)
 		uph_recovery_release_lock();
 
 	naui_directory_remove_all(folder);
@@ -174,7 +174,7 @@ void uph_recovery_discard_project(const Naui_Path project_folder)
 
 void uph_recovery_invalidate_autosave(const Naui_Path project_folder)
 {
-	const Naui_Path marker = _uph_recovery_marker(project_folder);
+	const Naui_Path marker = uph__recovery_marker(project_folder);
 	if (naui_path_exists(marker))
 		naui_file_delete(marker);
 }
@@ -183,13 +183,13 @@ void uph_recovery_commit_autosave(const Naui_Path project_folder)
 {
 	char text[32];
 	const int length = snprintf(text, sizeof(text), "%llu", (unsigned long long)naui_unix_time());
-	naui_file_write_all(_uph_recovery_marker(project_folder), text, (size_t)length);
+	naui_file_write_all(uph__recovery_marker(project_folder), text, (size_t)length);
 }
 
-static uint64_t _uph_recovery_autosave_time(const Naui_Path project_folder)
+static uint64_t uph__recovery_autosave_time(const Naui_Path project_folder)
 {
 	size_t size = 0;
-	char *text = naui_file_read_all(_uph_recovery_marker(project_folder), &size);
+	char *text = naui_file_read_all(uph__recovery_marker(project_folder), &size);
 	if (!text)
 		return 0;
 
@@ -214,11 +214,11 @@ bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Nau
 
 		if (!uph_recovery_has_autosave(folder))
 		{
-			_uph_recovery_clear_crash(folder);
+			uph__recovery_clear_crash(folder);
 			continue;
 		}
 
-		const uint64_t autosave_time = _uph_recovery_autosave_time(folder);
+		const uint64_t autosave_time = uph__recovery_autosave_time(folder);
 		if (!found || autosave_time > best_time)
 		{
 			*out_project_folder = folder;
@@ -228,7 +228,7 @@ bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Nau
 	}
 
 	naui_directory_filter_free(entries);
-	Naui_List(Naui_Path) external = _uph_recovery_external_read();
+	Naui_List(Naui_Path) external = uph__recovery_external_read();
 	bool pruned = false;
 	for (size_t i = naui_list_len(external); i > 0; i--)
 	{
@@ -238,7 +238,7 @@ bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Nau
 		{
 			if (uph_recovery_has_autosave(folder))
 			{
-				const uint64_t autosave_time = _uph_recovery_autosave_time(folder);
+				const uint64_t autosave_time = uph__recovery_autosave_time(folder);
 				if (!found || autosave_time > best_time)
 				{
 					*out_project_folder = folder;
@@ -248,7 +248,7 @@ bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Nau
 			}
 			else
 			{
-				_uph_recovery_clear_crash(folder);
+				uph__recovery_clear_crash(folder);
 				keep = false;
 			}
 		}
@@ -261,7 +261,7 @@ bool uph_recovery_find_recoverable_project(const Naui_Path workspace_folder, Nau
 	}
 
 	if (pruned)
-		_uph_recovery_external_write(external);
+		uph__recovery_external_write(external);
 
 	naui_list_free(external);
 	return found;

@@ -8,23 +8,23 @@
 #define UPH_MIDI_EDITOR_PEDAL_ROW_FONT_SIZE 13
 #define UPH_MIDI_EDITOR_PEDAL_ROW_IDLE_TEXT_MIX 0.45f
 
-static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "midi.pedal.sustain", "midi.pedal.sostenuto", "midi.pedal.soft" };
+static const char *const uph__pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "midi.pedal.sustain", "midi.pedal.sostenuto", "midi.pedal.soft" };
 
-static float _uph_pedal_usable_height(Leaf_BoundingBox box)
+static float uph__pedal_usable_height(Leaf_BoundingBox box)
 {
 	return fmaxf(1.0f, box.height - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_PADDING) * 2.0f);
 }
 
-static float _uph_pedal_to_y(Leaf_BoundingBox box, float value)
+static float uph__pedal_to_y(Leaf_BoundingBox box, float value)
 {
 	const float bottom = box.y + box.height - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_PADDING);
-	return bottom - _uph_pedal_usable_height(box) * (value / 127.0f);
+	return bottom - uph__pedal_usable_height(box) * (value / 127.0f);
 }
 
-static uint8_t _uph_pedal_from_y(Leaf_BoundingBox box, float y)
+static uint8_t uph__pedal_from_y(Leaf_BoundingBox box, float y)
 {
 	const float bottom = box.y + box.height - NAUI_DPI(UPH_MIDI_EDITOR_VELOCITY_PADDING);
-	const float t = (bottom - y) / _uph_pedal_usable_height(box);
+	const float t = (bottom - y) / uph__pedal_usable_height(box);
 	return (uint8_t)NAUI_CLAMP((int32_t)lroundf(t * 127.0f), 0, 127);
 }
 
@@ -46,7 +46,7 @@ void uph_midi_pedal_cancel_drag(Uph_PedalLane *lane)
 
 #pragma region Input
 
-static int32_t _uph_pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
+static int32_t uph__pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern)
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
@@ -61,7 +61,7 @@ static int32_t _uph_pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_Bound
 			continue;
 
 		const float dx = uph_midi_view_beat_to_x(&editor->view, box, pedal->beat) - mouse_x;
-		const float dy = _uph_pedal_to_y(box, (float)pedal->value) - mouse_y;
+		const float dy = uph__pedal_to_y(box, (float)pedal->value) - mouse_y;
 		const float distance = sqrtf(dx * dx + dy * dy);
 		if (distance <= radius && distance < best_distance)
 		{
@@ -73,7 +73,7 @@ static int32_t _uph_pedal_hit_test(const Uph_MidiEditorState *editor, Leaf_Bound
 	return best;
 }
 
-static uint32_t _uph_pedal_resort(Naui_List(Uph_MidiPedalEvent) pedals, uint32_t index)
+static uint32_t uph__pedal_resort(Naui_List(Uph_MidiPedalEvent) pedals, uint32_t index)
 {
 	const uint32_t count = (uint32_t)naui_list_len(pedals);
 	while (index > 0 && pedals[index - 1].beat > pedals[index].beat)
@@ -93,7 +93,7 @@ static uint32_t _uph_pedal_resort(Naui_List(Uph_MidiPedalEvent) pedals, uint32_t
 	return index;
 }
 
-static bool _uph_pedal_lists_equal(Naui_List(Uph_MidiPedalEvent) a, Naui_List(Uph_MidiPedalEvent) b)
+static bool uph__pedal_lists_equal(Naui_List(Uph_MidiPedalEvent) a, Naui_List(Uph_MidiPedalEvent) b)
 {
 	if (naui_list_len(a) != naui_list_len(b))
 		return false;
@@ -107,9 +107,9 @@ static bool _uph_pedal_lists_equal(Naui_List(Uph_MidiPedalEvent) a, Naui_List(Up
 	return true;
 }
 
-static void _uph_pedal_commit(Uph_ResourceIndex pattern_index, Uph_MidiPattern *pattern, Naui_List(Uph_MidiPedalEvent) originals)
+static void uph__pedal_commit(Uph_ResourceIndex pattern_index, Uph_MidiPattern *pattern, Naui_List(Uph_MidiPedalEvent) originals)
 {
-	if (_uph_pedal_lists_equal(originals, pattern->pedals))
+	if (uph__pedal_lists_equal(originals, pattern->pedals))
 	{
 		naui_list_free(originals);
 		return;
@@ -131,12 +131,12 @@ static void _uph_pedal_commit(Uph_ResourceIndex pattern_index, Uph_MidiPattern *
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static double _uph_pedal_mouse_beat(const Uph_MidiEditorState *editor, Leaf_BoundingBox box)
+static double uph__pedal_mouse_beat(const Uph_MidiEditorState *editor, Leaf_BoundingBox box)
 {
 	return uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
 }
 
-static void _uph_pedal_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
+static void uph__pedal_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, int32_t hovered)
 {
 	Uph_PedalLane *lane = &editor->pedal_lane;
 	Uph_PedalDragState *drag = &lane->drag;
@@ -147,7 +147,7 @@ static void _uph_pedal_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, 
 	drag->initial_mouse = (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() };
 	drag->active = true;
 
-	const double mouse_beat = _uph_pedal_mouse_beat(editor, box);
+	const double mouse_beat = uph__pedal_mouse_beat(editor, box);
 	if (hovered >= 0)
 	{
 		drag->index = (uint32_t)hovered;
@@ -157,19 +157,19 @@ static void _uph_pedal_begin(Uph_MidiEditorState *editor, Leaf_BoundingBox box, 
 
 	const Uph_MidiPedalEvent pedal = {
 		.beat = fmax(0.0, uph_snap_beat_round(mouse_beat, editor->snap_resolution, editor->view.zoom.x)),
-		.value = _uph_pedal_from_y(box, (float)naui_mouse_y()),
+		.value = uph__pedal_from_y(box, (float)naui_mouse_y()),
 		.type = lane->type
 	};
 
 	naui_list_push(pattern->pedals, pedal);
-	drag->index = _uph_pedal_resort(pattern->pedals, (uint32_t)naui_list_len(pattern->pedals) - 1);
+	drag->index = uph__pedal_resort(pattern->pedals, (uint32_t)naui_list_len(pattern->pedals) - 1);
 	drag->grab_beat_offset = mouse_beat - pedal.beat;
 	drag->created = true;
 	drag->moved = true;
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static void _uph_pedal_apply_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__pedal_apply_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_PedalDragState *drag = &editor->pedal_lane.drag;
 	if (drag->index >= (uint32_t)naui_list_len(pattern->pedals))
@@ -184,19 +184,19 @@ static void _uph_pedal_apply_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 		drag->moved = true;
 	}
 
-	const double beat = _uph_pedal_mouse_beat(editor, box) - drag->grab_beat_offset;
+	const double beat = uph__pedal_mouse_beat(editor, box) - drag->grab_beat_offset;
 	Uph_MidiPedalEvent *pedal = &pattern->pedals[drag->index];
 	pedal->beat = fmax(0.0, uph_snap_beat_round(beat, editor->snap_resolution, editor->view.zoom.x));
-	pedal->value = _uph_pedal_from_y(box, (float)naui_mouse_y());
-	drag->index = _uph_pedal_resort(pattern->pedals, drag->index);
+	pedal->value = uph__pedal_from_y(box, (float)naui_mouse_y());
+	drag->index = uph__pedal_resort(pattern->pedals, drag->index);
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static void _uph_pedal_delete(Uph_MidiPattern *pattern, uint32_t index)
+static void uph__pedal_delete(Uph_MidiPattern *pattern, uint32_t index)
 {
 	Naui_List(Uph_MidiPedalEvent) originals = naui_list_clone(pattern->pedals);
 	naui_list_remove(pattern->pedals, index);
-	_uph_pedal_commit(uph_state.shared.selected_resource.index, pattern, originals);
+	uph__pedal_commit(uph_state.shared.selected_resource.index, pattern, originals);
 }
 
 void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
@@ -213,13 +213,13 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 		if (!lane->hovered || editor->velocity_lane.resizing || editor->note_input.drag.active || editor->note_input.marquee.active)
 			return;
 
-		const int32_t hovered = _uph_pedal_hit_test(editor, box, pattern);
+		const int32_t hovered = uph__pedal_hit_test(editor, box, pattern);
 		lane->hovered_event = hovered;
 		naui_set_cursor(hovered >= 0 ? NAUI_CURSOR_RESIZE_ALL : NAUI_CURSOR_CROSSHAIR);
 
 		if (hovered >= 0 && naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 		{
-			_uph_pedal_delete(pattern, (uint32_t)hovered);
+			uph__pedal_delete(pattern, (uint32_t)hovered);
 			lane->hovered_event = -1;
 			return;
 		}
@@ -227,16 +227,16 @@ void uph_midi_pedal_update(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Up
 		if (!naui_mouse_pressed(NAUI_MOUSE_LEFT))
 			return;
 
-		_uph_pedal_begin(editor, box, pattern, hovered);
+		uph__pedal_begin(editor, box, pattern, hovered);
 	}
 
-	_uph_pedal_apply_drag(editor, box, pattern);
+	uph__pedal_apply_drag(editor, box, pattern);
 	lane->hovered_event = (int32_t)drag->index;
 	naui_set_cursor(NAUI_CURSOR_RESIZE_ALL);
 
 	if (!naui_mouse_down(NAUI_MOUSE_LEFT))
 	{
-		_uph_pedal_commit(drag->pattern_index, pattern, drag->originals);
+		uph__pedal_commit(drag->pattern_index, pattern, drag->originals);
 		drag->originals = NULL;
 		uph_midi_pedal_cancel_drag(lane);
 	}
@@ -276,7 +276,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 		if (active)
 			naui_fill_rect(row_position, (Naui_Vec2) { NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_ACCENT_WIDTH), row_height }, uph_midi_view_note_color(), rounding, NAUI_CORNER_TL | NAUI_CORNER_BL);
 
-		const char *label = NAUI_TR(_uph_pedal_labels[type]);
+		const char *label = NAUI_TR(uph__pedal_labels[type]);
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 		naui_draw_text((Naui_Vec2) { row_position.x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_TEXT_INSET), y + (row_height - size.y) * 0.5f }, label, font_size, active || hovered ? uph_state.colors.ui_text : idle_text_color);
 
@@ -290,10 +290,10 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 	naui_pop_clip_rect();
 }
 
-static void _uph_pedal_render_steps(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Uph_MidiPedalType type, Leaf_Color color, bool fill)
+static void uph__pedal_render_steps(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Uph_MidiPedalType type, Leaf_Color color, bool fill)
 {
 	const float end_x = uph_midi_view_beat_to_x(&editor->view, box, uph_midi_preview_loop_length(pattern));
-	const float bottom = _uph_pedal_to_y(box, 0.0f);
+	const float bottom = uph__pedal_to_y(box, 0.0f);
 	float x = box.x;
 	float y = bottom;
 
@@ -319,7 +319,7 @@ static void _uph_pedal_render_steps(const Uph_MidiEditorState *editor, Leaf_Boun
 		if (last)
 			break;
 
-		const float next_y = _uph_pedal_to_y(box, (float)pattern->pedals[i].value);
+		const float next_y = uph__pedal_to_y(box, (float)pattern->pedals[i].value);
 		if (next_x >= box.x && next_x <= box.x + box.width)
 			naui_draw_line((Naui_Vec2) { next_x, y }, (Naui_Vec2) { next_x, next_y }, color, NAUI_DPI(1.5f));
 
@@ -328,7 +328,7 @@ static void _uph_pedal_render_steps(const Uph_MidiEditorState *editor, Leaf_Boun
 	}
 }
 
-static void _uph_pedal_render_label(Leaf_BoundingBox box, float x, float y, int32_t value)
+static void uph__pedal_render_label(Leaf_BoundingBox box, float x, float y, int32_t value)
 {
 	char label[8];
 	snprintf(label, sizeof(label), "%d", (int)value);
@@ -359,7 +359,7 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 	static const float guides[] = { 0.0f, 64.0f, 127.0f };
 	for (uint32_t i = 0; i < (uint32_t)(sizeof(guides) / sizeof(guides[0])); i++)
 	{
-		const float y = _uph_pedal_to_y(box, guides[i]);
+		const float y = uph__pedal_to_y(box, guides[i]);
 		naui_draw_line((Naui_Vec2) { box.x, y }, (Naui_Vec2) { box.x + box.width, y }, guide_color, 1.0f);
 	}
 
@@ -371,9 +371,9 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 	for (Uph_MidiPedalType type = 0; type < UPH_MIDI_PEDAL_COUNT; type++)
 	{
 		if (type != lane->type)
-			_uph_pedal_render_steps(editor, box, pattern, type, dim_color, false);
+			uph__pedal_render_steps(editor, box, pattern, type, dim_color, false);
 	}
-	_uph_pedal_render_steps(editor, box, pattern, lane->type, color, true);
+	uph__pedal_render_steps(editor, box, pattern, lane->type, color, true);
 
 	const int32_t radius = NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_HANDLE_RADIUS);
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->pedals); i++)
@@ -386,7 +386,7 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 		if (x + radius < box.x || x - radius > box.x + box.width)
 			continue;
 
-		const float y = _uph_pedal_to_y(box, (float)pedal->value);
+		const float y = uph__pedal_to_y(box, (float)pedal->value);
 		const bool hovered = (int32_t)i == lane->hovered_event;
 		naui_fill_rect((Naui_Vec2) { x - radius, y - radius }, (Naui_Vec2) { radius * 2.0f, radius * 2.0f }, hovered ? LEAF_COLOR_WHITE : color, radius, LEAF_CORNER_ALL);
 
@@ -401,7 +401,7 @@ void uph_midi_pedal_render(const Uph_MidiEditorState *editor, Leaf_BoundingBox b
 				LEAF_CORNER_ALL,
 				NAUI_SIDE_ALL
 			);
-			_uph_pedal_render_label(box, x, y, pedal->value);
+			uph__pedal_render_label(box, x, y, pedal->value);
 		}
 	}
 }

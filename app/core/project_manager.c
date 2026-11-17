@@ -1,4 +1,4 @@
-static void _uph_project_default_shared_state()
+static void uph__project_default_shared_state()
 {
 	uph_state.shared.song_timeline_playing = false;
 	uph_midi_recorder_set_pattern_armed(false);
@@ -7,13 +7,13 @@ static void _uph_project_default_shared_state()
 	uph_state.shared.song_timeline_current_block_length = uph_time_signature_bar_length();
 }
 
-static void _uph_project_adopt_folder_files(Uph_Project *project, const Naui_Path project_folder)
+static void uph__project_adopt_folder_files(Uph_Project *project, const Naui_Path project_folder)
 {
 	uph_project_adopt_sample_files(project, project_folder);
 	uph_project_adopt_pattern_files(project, project_folder);
 }
 
-static void _uph_project_close(Uph_Project *project)
+static void uph__project_close(Uph_Project *project)
 {
 	uph_project_flush_pending_samples(false);
 
@@ -35,7 +35,7 @@ bool uph_project_create(Naui_String project_name)
 	const Naui_Path old_folder = uph_project_get_path(&uph_state.project);
 	const bool discard_old = !naui_string_is_empty(uph_state.project.title) && !uph_project_has_been_saved(&uph_state.project);
 
-	_uph_project_close(&uph_state.project);
+	uph__project_close(&uph_state.project);
 	if (discard_old && naui_path_exists(old_folder))
 	{
 		uph_recovery_release_lock();
@@ -77,7 +77,7 @@ bool uph_project_create(Naui_String project_name)
 	uph_autosave_mark_clean();
 
 	uph_state.shared.song_timeline_playhead_position = 0.0;
-	_uph_project_default_shared_state();
+	uph__project_default_shared_state();
 	uph_state.shared.record_track = uph_resources_first_recordable_track(uph_state.project.tracks);
 	uph_song_timeline_reset_scroll();
 	uph_midi_editor_reset_scroll();
@@ -142,7 +142,7 @@ bool uph_project_has_been_saved(const Uph_Project* project)
 
 #pragma region Save As
 
-static Naui_String _uph_project_clean_name(const char *name)
+static Naui_String uph__project_clean_name(const char *name)
 {
 	char buffer[NAUI_STRING_MAX_SIZE];
 	snprintf(buffer, sizeof(buffer), "%s", name ? name : "");
@@ -177,7 +177,7 @@ static Naui_String _uph_project_clean_name(const char *name)
 	return clean;
 }
 
-static void _uph_project_adopt_new_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+static void uph__project_adopt_new_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
 {
 	uph_audio_engine_lock();
 	project->title = naui_view_to_string(naui_file_filename(&new_folder));
@@ -189,7 +189,7 @@ static void _uph_project_adopt_new_folder(Uph_Project *project, const Naui_Path 
 		naui_log(NAUI_LOG_WARNING, "Project may be open in another Uphonic instance: %s", new_folder.data);
 }
 
-static bool _uph_project_move_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+static bool uph__project_move_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
 {
 	uph_recovery_release_lock();
 	if (!naui_directory_rename(old_folder, new_folder))
@@ -205,11 +205,11 @@ static bool _uph_project_move_to_folder(Uph_Project *project, const Naui_Path ol
 		naui_directory_remove_all(old_folder);
 	}
 
-	_uph_project_adopt_new_folder(project, old_folder, new_folder);
+	uph__project_adopt_new_folder(project, old_folder, new_folder);
 	return true;
 }
 
-static bool _uph_project_copy_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
+static bool uph__project_copy_to_folder(Uph_Project *project, const Naui_Path old_folder, const Naui_Path new_folder)
 {
 	uph_recovery_release_lock();
 	if (!naui_directory_merge(old_folder, new_folder, NAUI_FILE_COPY_OVERRIDE))
@@ -224,7 +224,7 @@ static bool _uph_project_copy_to_folder(Uph_Project *project, const Naui_Path ol
 	if (naui_path_exists(origin))
 		naui_file_delete(origin);
 
-	_uph_project_adopt_new_folder(project, old_folder, new_folder);
+	uph__project_adopt_new_folder(project, old_folder, new_folder);
 	return true;
 }
 
@@ -232,7 +232,7 @@ bool uph_project_save_as(Uph_Project* project, const Naui_Path destination)
 {
 	uph_project_flush_pending_samples(true);
 
-	const Naui_String clean_name = _uph_project_clean_name(naui_view_to_string(naui_file_filename(&destination)).data);
+	const Naui_String clean_name = uph__project_clean_name(naui_view_to_string(naui_file_filename(&destination)).data);
 	if (clean_name.length == 0)
 		return false;
 
@@ -243,7 +243,7 @@ bool uph_project_save_as(Uph_Project* project, const Naui_Path destination)
 	if (uph_project_names_equal(chosen_folder.data, naui_path_normalize(old_folder).data))
 		return uph_project_save(project, UPH_SAVE_TYPE_CANONICAL);
 
-	if (_uph_path_is_inside(chosen_folder, old_folder))
+	if (uph__path_is_inside(chosen_folder, old_folder))
 	{
 		naui_log(NAUI_LOG_ERROR, "Can't save a project inside its own folder: %s", chosen_folder.data);
 		return false;
@@ -262,8 +262,8 @@ bool uph_project_save_as(Uph_Project* project, const Naui_Path destination)
 		return false;
 
 	const bool relocated = moving ?
-		_uph_project_move_to_folder(project, old_folder, new_folder) :
-		_uph_project_copy_to_folder(project, old_folder, new_folder);
+		uph__project_move_to_folder(project, old_folder, new_folder) :
+		uph__project_copy_to_folder(project, old_folder, new_folder);
 
 	if (!relocated)
 		return false;
@@ -298,7 +298,7 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		return true;
 	}
 
-	_uph_project_close(project);
+	uph__project_close(project);
 	uph_project_clear_adopted_samples();
 
 	uph_audio_engine_stop_all_notes();
@@ -335,11 +335,11 @@ bool uph_project_load(Uph_Project* project, const Naui_Path project_path)
 		}
 		else
 		{
-			_uph_project_adopt_folder_files(project, normalized_load_path);
+			uph__project_adopt_folder_files(project, normalized_load_path);
 			uph_autosave_mark_clean();
 		}
 
-		_uph_project_default_shared_state();
+		uph__project_default_shared_state();
 		uph_state.shared.song_timeline_playhead_position = 0.0;
 		uph_song_timeline_reset_scroll();
 		uph_midi_editor_reset_scroll();

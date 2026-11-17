@@ -24,7 +24,7 @@ typedef struct
 } Uph_ActionSampleDuplicate;
 
 #pragma region Sample Delete
-bool _uph_action_sample_delete_execute(void* userdata)
+bool uph__action_sample_delete_execute(void* userdata)
 {
 	Uph_ActionSampleDelete* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.samples))
@@ -66,7 +66,7 @@ bool _uph_action_sample_delete_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_sample_delete_undo(void* userdata)
+bool uph__action_sample_delete_undo(void* userdata)
 {
 	Uph_ActionSampleDelete* data = userdata;
 	if (!data->deleted || data->resource_index > (uint32_t)naui_list_len(uph_state.project.samples))
@@ -98,7 +98,7 @@ bool _uph_action_sample_delete_undo(void* userdata)
 	return true;
 }
 
-void _uph_action_sample_delete_destroy(void* userdata)
+void uph__action_sample_delete_destroy(void* userdata)
 {
 	Uph_ActionSampleDelete* data = userdata;
 	if (data->deleted && data->data_removed)
@@ -111,7 +111,7 @@ void _uph_action_sample_delete_destroy(void* userdata)
 #pragma endregion
 
 #pragma region Sample Rename
-bool _uph_action_sample_rename_execute(void* userdata)
+bool uph__action_sample_rename_execute(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.samples))
@@ -121,7 +121,7 @@ bool _uph_action_sample_rename_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_sample_rename_undo(void* userdata)
+bool uph__action_sample_rename_undo(void* userdata)
 {
 	Uph_ActionResourceRename* data = userdata;
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.samples))
@@ -134,7 +134,7 @@ bool _uph_action_sample_rename_undo(void* userdata)
 #pragma endregion
 
 #pragma region Sample Duplicate
-bool _uph_action_sample_duplicate_execute(void* userdata)
+bool uph__action_sample_duplicate_execute(void* userdata)
 {
 	Uph_ActionSampleDuplicate* data = userdata;
 	if (data->source_index >= (uint32_t)naui_list_len(uph_state.project.samples))
@@ -147,7 +147,7 @@ bool _uph_action_sample_duplicate_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_sample_duplicate_undo(void* userdata)
+bool uph__action_sample_duplicate_undo(void* userdata)
 {
 	Uph_ActionSampleDuplicate* data = userdata;
 	if (!data->resource_exists || data->new_index >= (uint32_t)naui_list_len(uph_state.project.samples))
@@ -167,7 +167,7 @@ bool _uph_action_sample_duplicate_undo(void* userdata)
 
 
 #pragma region Sample Edit
-static bool _uph_action_sample_edit_apply(const Uph_ActionSampleEdit* data, const Uph_ActionSampleSettings* settings)
+static bool uph__action_sample_edit_apply(const Uph_ActionSampleEdit* data, const Uph_ActionSampleSettings* settings)
 {
 	if (data->resource_index >= (uint32_t)naui_list_len(uph_state.project.samples))
 		return false;
@@ -179,16 +179,16 @@ static bool _uph_action_sample_edit_apply(const Uph_ActionSampleEdit* data, cons
 	return true;
 }
 
-bool _uph_action_sample_edit_execute(void* userdata)
+bool uph__action_sample_edit_execute(void* userdata)
 {
 	Uph_ActionSampleEdit* data = userdata;
-	return _uph_action_sample_edit_apply(data, &data->new_settings);
+	return uph__action_sample_edit_apply(data, &data->new_settings);
 }
 
-bool _uph_action_sample_edit_undo(void* userdata)
+bool uph__action_sample_edit_undo(void* userdata)
 {
 	Uph_ActionSampleEdit* data = userdata;
-	return _uph_action_sample_edit_apply(data, &data->old_settings);
+	return uph__action_sample_edit_apply(data, &data->old_settings);
 }
 
 #pragma endregion

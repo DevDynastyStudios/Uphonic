@@ -7,13 +7,13 @@ void uph_ui_widgets_init(void)
 void uph_ui_widgets_flush(void)
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
-    _uph_ui_render_menu_dropdown(data);
+    uph__ui_render_menu_dropdown(data);
     if (!data->current_open_menu)
         data->open_menu_key = 0;
     data->current_open_menu = NULL;
 
     if (data->textfield_data.mode != UPH_UI_EDIT_MODE_NONE && !data->textfield_submitted_this_frame)
-        _uph_ui_end_edit(&data->textfield_data);
+        uph__ui_end_edit(&data->textfield_data);
     data->textfield_submitted_this_frame = false;
 
     naui_ime_set_mode(data->ime_mode);
@@ -82,7 +82,7 @@ int32_t uph_ui_track_color_palette(const Uph_Track *track)
                             if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
                             {
                                 picked = (int32_t)index;
-                                _uph_ui_close_menu(&uph_global_widget_state);
+                                uph__ui_close_menu(&uph_global_widget_state);
                             }
                         }
 

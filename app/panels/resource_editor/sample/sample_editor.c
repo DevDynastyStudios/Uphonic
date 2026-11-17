@@ -82,11 +82,11 @@ typedef struct
 }
 Uph_SampleEditorState;
 
-static Uph_SampleEditorState _uph_sample_editor_state;
+static Uph_SampleEditorState uph__sample_editor_state;
 
 #pragma region Edit
 
-static void _uph_sample_editor_track_edit(Uph_SampleEditorState *editor, Uph_ResourceIndex index, const Uph_ActionSampleSettings *before, const Uph_Sample *sample)
+static void uph__sample_editor_track_edit(Uph_SampleEditorState *editor, Uph_ResourceIndex index, const Uph_ActionSampleSettings *before, const Uph_Sample *sample)
 {
 	if (editor->edit_active)
 		return;
@@ -100,7 +100,7 @@ static void _uph_sample_editor_track_edit(Uph_SampleEditorState *editor, Uph_Res
 	editor->edit_before = *before;
 }
 
-static void _uph_sample_editor_commit_edit(Uph_SampleEditorState *editor)
+static void uph__sample_editor_commit_edit(Uph_SampleEditorState *editor)
 {
 	if (!editor->edit_active)
 		return;
@@ -123,7 +123,7 @@ static void _uph_sample_editor_commit_edit(Uph_SampleEditorState *editor)
 
 #pragma region View
 
-static void _uph_sample_editor_view_resolve(Uph_SampleEditorState *editor, double width)
+static void uph__sample_editor_view_resolve(Uph_SampleEditorState *editor, double width)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	if (!source->valid || width < 1.0)
@@ -154,22 +154,22 @@ static void _uph_sample_editor_view_resolve(Uph_SampleEditorState *editor, doubl
 	editor->start_frame = NAUI_CLAMP(editor->start_frame, 0.0, max_start);
 }
 
-static inline uint64_t _uph_sample_editor_source_frame(const Uph_SampleEditorSource *source, uint64_t frame)
+static inline uint64_t uph__sample_editor_source_frame(const Uph_SampleEditorSource *source, uint64_t frame)
 {
 	return source->reversed ? source->frame_count - 1 - frame : frame;
 }
 
-static inline float _uph_sample_editor_frame_to_x(const Uph_SampleEditorState *editor, Leaf_BoundingBox box, double frame)
+static inline float uph__sample_editor_frame_to_x(const Uph_SampleEditorState *editor, Leaf_BoundingBox box, double frame)
 {
 	return box.x + (float)((frame - editor->start_frame) / editor->frames_per_pixel);
 }
 
-static void _uph_sample_editor_update_input(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
+static void uph__sample_editor_update_input(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	if (!editor->source.valid || box.width < 1.0f)
 		return;
 
-	_uph_sample_editor_view_resolve(editor, box.width);
+	uph__sample_editor_view_resolve(editor, box.width);
 
 	const bool hovered = editor->wave_hovered;
 	const float wheel = (float)naui_mouse_scroll_delta();
@@ -212,7 +212,7 @@ static void _uph_sample_editor_update_input(Uph_SampleEditorState *editor, Leaf_
 			editor->panning = false;
 	}
 
-	_uph_sample_editor_view_resolve(editor, box.width);
+	uph__sample_editor_view_resolve(editor, box.width);
 
 	if (editor->wave_hovered)
 	{
@@ -221,7 +221,7 @@ static void _uph_sample_editor_update_input(Uph_SampleEditorState *editor, Leaf_
 	}
 }
 
-static double _uph_sample_editor_fit_frames_per_pixel(const Uph_SampleEditorState *editor)
+static double uph__sample_editor_fit_frames_per_pixel(const Uph_SampleEditorState *editor)
 {
 	const double width = editor->wave_box.width;
 	if (width < 1.0)
@@ -230,7 +230,7 @@ static double _uph_sample_editor_fit_frames_per_pixel(const Uph_SampleEditorStat
 	return fmax((double)editor->source.frame_count / width, UPH_SAMPLE_EDITOR_MIN_FRAMES_PER_PIXEL);
 }
 
-static void _uph_sample_editor_set_zoom(Uph_SampleEditorState *editor, double frames_per_pixel)
+static void uph__sample_editor_set_zoom(Uph_SampleEditorState *editor, double frames_per_pixel)
 {
 	const double width = editor->wave_box.width;
 	if (!editor->source.valid || width < 1.0)
@@ -240,10 +240,10 @@ static void _uph_sample_editor_set_zoom(Uph_SampleEditorState *editor, double fr
 	editor->fit = false;
 	editor->frames_per_pixel = frames_per_pixel;
 	editor->start_frame = center - width * frames_per_pixel * 0.5;
-	_uph_sample_editor_view_resolve(editor, width);
+	uph__sample_editor_view_resolve(editor, width);
 }
 
-static double _uph_sample_editor_playhead_frame(const Uph_SampleEditorState *editor)
+static double uph__sample_editor_playhead_frame(const Uph_SampleEditorState *editor)
 {
 	if (editor->playback_length <= 0.0)
 		return 0.0;
@@ -252,7 +252,7 @@ static double _uph_sample_editor_playhead_frame(const Uph_SampleEditorState *edi
 	return t * (double)editor->source.frame_count;
 }
 
-static void _uph_sample_editor_toggle_playback(void)
+static void uph__sample_editor_toggle_playback(void)
 {
 	if (uph_sample_preview_playing())
 	{
@@ -265,7 +265,7 @@ static void _uph_sample_editor_toggle_playback(void)
 	uph_sample_preview_play(uph_state.shared.selected_resource.index);
 }
 
-static void _uph_sample_editor_update_playhead_drag(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
+static void uph__sample_editor_update_playhead_drag(Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	const float mouse_x = (float)naui_mouse_x();
 	const float mouse_y = (float)naui_mouse_y();
@@ -298,7 +298,7 @@ static void _uph_sample_editor_update_playhead_drag(Uph_SampleEditorState *edito
 
 #pragma region Formatting
 
-static void _uph_sample_editor_format_time(char *out, size_t size, double seconds, int32_t decimals)
+static void uph__sample_editor_format_time(char *out, size_t size, double seconds, int32_t decimals)
 {
 	if (seconds < 0.0)
 		seconds = 0.0;
@@ -320,7 +320,7 @@ static void _uph_sample_editor_format_time(char *out, size_t size, double second
 		snprintf(out, size, "%lld:%02lld", (long long)minutes, (long long)secs);
 }
 
-static double _uph_sample_editor_major_step(double pixels_per_second)
+static double uph__sample_editor_major_step(double pixels_per_second)
 {
 	const double min_seconds = (double)NAUI_DPI(UPH_SAMPLE_EDITOR_LABEL_SPACING) / pixels_per_second;
 	const double magnitude = pow(10.0, floor(log10(min_seconds)));
@@ -334,20 +334,20 @@ static double _uph_sample_editor_major_step(double pixels_per_second)
 	return magnitude * 10.0;
 }
 
-static int32_t _uph_sample_editor_step_decimals(double step)
+static int32_t uph__sample_editor_step_decimals(double step)
 {
 	if (step >= 1.0 - 1e-9)
 		return 0;
 	return (int32_t)ceil(-log10(step) - 1e-9);
 }
 
-static uint32_t _uph_sample_editor_step_subdivisions(double step)
+static uint32_t uph__sample_editor_step_subdivisions(double step)
 {
 	const double magnitude = pow(10.0, floor(log10(step) + 1e-9));
 	return lround(step / magnitude) == 2 ? 4 : 5;
 }
 
-static const char *_uph_sample_editor_file_name(const char *path)
+static const char *uph__sample_editor_file_name(const char *path)
 {
 	const char *name = path;
 	for (const char *c = path; *c; c++)
@@ -362,7 +362,7 @@ static const char *_uph_sample_editor_file_name(const char *path)
 
 #pragma region Draw callbacks
 
-static Uph_Sample *_uph_sample_editor_current_sample(void)
+static Uph_Sample *uph__sample_editor_current_sample(void)
 {
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 	if (uph_state.shared.selected_resource.type != UPH_RESOURCE_SAMPLE || index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.samples))
@@ -371,34 +371,34 @@ static Uph_Sample *_uph_sample_editor_current_sample(void)
 	return &uph_state.project.samples[index];
 }
 
-static float _uph_sample_editor_seconds_zoom(const Uph_SampleEditorState *editor)
+static float uph__sample_editor_seconds_zoom(const Uph_SampleEditorState *editor)
 {
 	return (float)((double)editor->source.sample_rate / editor->frames_per_pixel);
 }
 
-static float _uph_sample_editor_seconds_scroll(const Uph_SampleEditorState *editor)
+static float uph__sample_editor_seconds_scroll(const Uph_SampleEditorState *editor)
 {
 	return (float)(editor->start_frame / editor->frames_per_pixel);
 }
 
-static double _uph_sample_editor_minor_step(const Uph_SampleEditorState *editor)
+static double uph__sample_editor_minor_step(const Uph_SampleEditorState *editor)
 {
-	const double step = _uph_sample_editor_major_step((double)editor->source.sample_rate / editor->frames_per_pixel);
-	return step / (double)_uph_sample_editor_step_subdivisions(step);
+	const double step = uph__sample_editor_major_step((double)editor->source.sample_rate / editor->frames_per_pixel);
+	return step / (double)uph__sample_editor_step_subdivisions(step);
 }
 
-static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_SampleEditorState *state = &_uph_sample_editor_state;
+	Uph_SampleEditorState *state = &uph__sample_editor_state;
 	const Uph_SampleEditorSource *source = &state->source;
 	if (!source->valid)
 		return;
 
-	_uph_sample_editor_view_resolve(state, box.width);
+	uph__sample_editor_view_resolve(state, box.width);
 
-	Uph_Sample *sample = _uph_sample_editor_current_sample();
-	const float zoom = _uph_sample_editor_seconds_zoom(state);
-	const float scroll = _uph_sample_editor_seconds_scroll(state);
+	Uph_Sample *sample = uph__sample_editor_current_sample();
+	const float zoom = uph__sample_editor_seconds_zoom(state);
+	const float scroll = uph__sample_editor_seconds_scroll(state);
 
 	bool loop_busy = false;
 	if (sample)
@@ -406,7 +406,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 		const Uph_ActionSampleSettings before = uph_action_sample_settings_capture(sample);
 		loop_busy = uph_loop_region_update(
 			&sample->loop_region, &state->loop_drag, box,
-			zoom, scroll, _uph_sample_editor_minor_step(state),
+			zoom, scroll, uph__sample_editor_minor_step(state),
 			!state->playhead_dragging && state->panel_hovered
 		);
 		if (state->loop_drag.created)
@@ -414,14 +414,14 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 			state->loop_drag.created = false;
 			uph_sample_preview_set_loop(true);
 		}
-		_uph_sample_editor_track_edit(state, uph_state.shared.selected_resource.index, &before, sample);
+		uph__sample_editor_track_edit(state, uph_state.shared.selected_resource.index, &before, sample);
 		uph_loop_region_render_ruler(&sample->loop_region, box, zoom, scroll, uph_sample_preview_looping(), uph_state.colors.sample_editor_selection_outline);
 	}
 	else
 		state->loop_drag.mode = UPH_LOOP_DRAG_NONE;
 
 	if (!loop_busy)
-		_uph_sample_editor_update_playhead_drag(state, box);
+		uph__sample_editor_update_playhead_drag(state, box);
 
 	const Leaf_Color sub_color = uph_state.colors.sample_editor_ruler_grid_subbeat;
 	const Leaf_Color bar_color = uph_state.colors.sample_editor_ruler_grid_bar;
@@ -429,10 +429,10 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 
 	const double sample_rate = (double)source->sample_rate;
 	const double fpp = state->frames_per_pixel;
-	const double step = _uph_sample_editor_major_step(sample_rate / fpp);
-	const uint32_t subdivisions = _uph_sample_editor_step_subdivisions(step);
+	const double step = uph__sample_editor_major_step(sample_rate / fpp);
+	const uint32_t subdivisions = uph__sample_editor_step_subdivisions(step);
 	const double minor_step = step / (double)subdivisions;
-	const int32_t decimals = _uph_sample_editor_step_decimals(step);
+	const int32_t decimals = uph__sample_editor_step_decimals(step);
 	const bool draw_minor = (minor_step * sample_rate / fpp) >= 4.0;
 
 	const double time_start = state->start_frame / sample_rate;
@@ -448,7 +448,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 			continue;
 
 		const double time = (double)i * minor_step;
-		const float x = _uph_sample_editor_frame_to_x(state, box, time * sample_rate);
+		const float x = uph__sample_editor_frame_to_x(state, box, time * sample_rate);
 
 		naui_draw_line(
 			(Naui_Vec2) { x, box.y + box.height * (is_major ? 0.4f : 0.6f) },
@@ -460,12 +460,12 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 		if (is_major)
 		{
 			char label[32];
-			_uph_sample_editor_format_time(label, sizeof(label), time, decimals);
+			uph__sample_editor_format_time(label, sizeof(label), time, decimals);
 			naui_draw_text((Naui_Vec2) { x + 4.0f, box.y + box.height * 0.4f }, label, NAUI_DPI(13), number_color);
 		}
 	}
 
-	const float playhead_x = _uph_sample_editor_frame_to_x(state, box, _uph_sample_editor_playhead_frame(state));
+	const float playhead_x = uph__sample_editor_frame_to_x(state, box, uph__sample_editor_playhead_frame(state));
 	const int32_t icon_size = NAUI_DPI(16);
 	const Naui_Color playhead_color = uph_state.colors.sample_editor_playhead;
 	naui_draw_line((Naui_Vec2) { playhead_x, box.y + box.height - icon_size * 0.5f }, (Naui_Vec2) { playhead_x, box.y + box.height }, playhead_color, NAUI_DPI(1));
@@ -480,7 +480,7 @@ static void _uph_sample_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 	naui_pop_clip_rect();
 }
 
-static void _uph_sample_editor_draw_grid(const Uph_SampleEditorState *editor, Leaf_BoundingBox box)
+static void uph__sample_editor_draw_grid(const Uph_SampleEditorState *editor, Leaf_BoundingBox box)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	const Leaf_Color major_color = uph_state.colors.sample_editor_grid_bar;
@@ -488,8 +488,8 @@ static void _uph_sample_editor_draw_grid(const Uph_SampleEditorState *editor, Le
 
 	const double sample_rate = (double)source->sample_rate;
 	const double fpp = editor->frames_per_pixel;
-	const double step = _uph_sample_editor_major_step(sample_rate / fpp);
-	const uint32_t subdivisions = _uph_sample_editor_step_subdivisions(step);
+	const double step = uph__sample_editor_major_step(sample_rate / fpp);
+	const uint32_t subdivisions = uph__sample_editor_step_subdivisions(step);
 	const double minor_step = step / (double)subdivisions;
 	const bool draw_minor = (minor_step * sample_rate / fpp) >= 6.0;
 
@@ -504,12 +504,12 @@ static void _uph_sample_editor_draw_grid(const Uph_SampleEditorState *editor, Le
 		if (!is_major && !draw_minor)
 			continue;
 
-		const float x = _uph_sample_editor_frame_to_x(editor, box, (double)i * minor_step * sample_rate);
+		const float x = uph__sample_editor_frame_to_x(editor, box, (double)i * minor_step * sample_rate);
 		naui_draw_line((Naui_Vec2) { x, box.y }, (Naui_Vec2) { x, box.y + box.height }, is_major ? major_color : minor_color, 1.0f);
 	}
 }
 
-static void _uph_sample_editor_draw_channel(const Uph_SampleEditorState *editor, uint32_t channel, Leaf_BoundingBox lane, Leaf_Color color)
+static void uph__sample_editor_draw_channel(const Uph_SampleEditorState *editor, uint32_t channel, Leaf_BoundingBox lane, Leaf_Color color)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 	const Naui_List(Uph_ChannelPeak) peaks = source->data->channel_peaks;
@@ -540,9 +540,9 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorState *editor,
 		Naui_Vec2 previous = { 0.0f, 0.0f };
 		for (int64_t i = first; i <= last; i++)
 		{
-			const float amplitude = source->frames[_uph_sample_editor_source_frame(source, (uint64_t)i) * channels + channel] * editor->gain;
+			const float amplitude = source->frames[uph__sample_editor_source_frame(source, (uint64_t)i) * channels + channel] * editor->gain;
 			const float v = NAUI_CLAMP(amplitude, -1.0f, 1.0f);
-			const Naui_Vec2 point = { _uph_sample_editor_frame_to_x(editor, lane, (double)i), mid_y - v * half };
+			const Naui_Vec2 point = { uph__sample_editor_frame_to_x(editor, lane, (double)i), mid_y - v * half };
 
 			if (draw_stems)
 				naui_draw_line((Naui_Vec2) { point.x, mid_y }, point, stem_color, 1.0f);
@@ -646,7 +646,7 @@ static void _uph_sample_editor_draw_channel(const Uph_SampleEditorState *editor,
 	}
 }
 
-static Leaf_BoundingBox _uph_sample_editor_lane_box(Leaf_BoundingBox box, uint32_t channel, uint32_t channels)
+static Leaf_BoundingBox uph__sample_editor_lane_box(Leaf_BoundingBox box, uint32_t channel, uint32_t channels)
 {
 	const float lane_height = box.height / (float)channels;
 	const int32_t lane_top = (int32_t)roundf((float)box.y + lane_height * (float)channel);
@@ -654,9 +654,9 @@ static Leaf_BoundingBox _uph_sample_editor_lane_box(Leaf_BoundingBox box, uint32
 	return (Leaf_BoundingBox) { box.x, lane_top, box.width, lane_bottom - lane_top };
 }
 
-static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
 {
-	const Uph_SampleEditorState *state = &_uph_sample_editor_state;
+	const Uph_SampleEditorState *state = &uph__sample_editor_state;
 	const Uph_SampleEditorSource *source = &state->source;
 	if (!source->valid)
 		return;
@@ -674,7 +674,7 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 
 	for (uint32_t c = 0; c < channels; c++)
 	{
-		const Leaf_BoundingBox lane = _uph_sample_editor_lane_box(box, c, channels);
+		const Leaf_BoundingBox lane = uph__sample_editor_lane_box(box, c, channels);
 		const float mid_y = lane.y + lane.height * 0.5f;
 		const float half = fmaxf(1.0f, (lane.height - padding * 2.0f) * 0.5f);
 		const bool compact = half < NAUI_DPI(36);
@@ -713,14 +713,14 @@ static void _uph_sample_editor_gutter_draw(Leaf_BoundingBox box, void *user_data
 	naui_pop_clip_rect();
 }
 
-static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_SampleEditorState *state = &_uph_sample_editor_state;
+	Uph_SampleEditorState *state = &uph__sample_editor_state;
 	const Uph_SampleEditorSource *source = &state->source;
 	if (!source->valid)
 		return;
 
-	_uph_sample_editor_view_resolve(state, box.width);
+	uph__sample_editor_view_resolve(state, box.width);
 
 	const uint32_t channels = source->channels;
 	const float lane_height = box.height / (float)channels;
@@ -742,13 +742,13 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 		);
 	}
 
-	_uph_sample_editor_draw_grid(state, box);
+	uph__sample_editor_draw_grid(state, box);
 
 	const int32_t padding = NAUI_DPI(UPH_SAMPLE_EDITOR_LANE_PADDING);
 	const float guide_amplitude = uph_db_to_linear(-6.0f);
 	for (uint32_t c = 0; c < channels; c++)
 	{
-		const Leaf_BoundingBox lane = _uph_sample_editor_lane_box(box, c, channels);
+		const Leaf_BoundingBox lane = uph__sample_editor_lane_box(box, c, channels);
 		const float mid_y = lane.y + lane.height * 0.5f;
 		const float half = fmaxf(1.0f, (lane.height - padding * 2.0f) * 0.5f);
 
@@ -756,13 +756,13 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 		naui_draw_line((Naui_Vec2) { lane.x, mid_y + half * guide_amplitude }, (Naui_Vec2) { lane.x + lane.width, mid_y + half * guide_amplitude }, guide_color, 1.0f);
 		naui_draw_line((Naui_Vec2) { lane.x, mid_y }, (Naui_Vec2) { lane.x + lane.width, mid_y }, zero_color, 1.0f);
 
-		_uph_sample_editor_draw_channel(state, c, lane, accent_color);
+		uph__sample_editor_draw_channel(state, c, lane, accent_color);
 
 		if (c > 0)
 			naui_draw_line((Naui_Vec2) { lane.x, lane.y }, (Naui_Vec2) { lane.x + lane.width, lane.y }, zero_color, 1.0f);
 	}
 
-	const float end_x = _uph_sample_editor_frame_to_x(state, box, (double)source->frame_count);
+	const float end_x = uph__sample_editor_frame_to_x(state, box, (double)source->frame_count);
 	if (end_x < box.x + box.width)
 	{
 		const float shade_x = fmaxf(end_x, box.x);
@@ -770,16 +770,16 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 		naui_draw_line((Naui_Vec2) { end_x, box.y }, (Naui_Vec2) { end_x, box.y + box.height }, accent_color, 1.0f);
 	}
 
-	const Uph_Sample *loop_sample = _uph_sample_editor_current_sample();
+	const Uph_Sample *loop_sample = uph__sample_editor_current_sample();
 	if (loop_sample)
-		uph_loop_region_render_bounds(&loop_sample->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), _uph_sample_editor_seconds_zoom(state), _uph_sample_editor_seconds_scroll(state), uph_sample_preview_looping(), uph_state.colors.sample_editor_selection_outline);
+		uph_loop_region_render_bounds(&loop_sample->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), uph__sample_editor_seconds_zoom(state), uph__sample_editor_seconds_scroll(state), uph_sample_preview_looping(), uph_state.colors.sample_editor_selection_outline);
 
-	const float playhead_x = _uph_sample_editor_frame_to_x(state, box, _uph_sample_editor_playhead_frame(state));
+	const float playhead_x = uph__sample_editor_frame_to_x(state, box, uph__sample_editor_playhead_frame(state));
 	naui_draw_line((Naui_Vec2) { playhead_x, box.y }, (Naui_Vec2) { playhead_x, box.y + box.height }, uph_state.colors.sample_editor_playhead, NAUI_DPI(1));
 
 	if (state->wave_hovered && !state->panning)
 	{
-		const float x = _uph_sample_editor_frame_to_x(state, box, (double)state->hover_frame);
+		const float x = uph__sample_editor_frame_to_x(state, box, (double)state->hover_frame);
 		Leaf_Color cursor_color = uph_state.colors.ui_text;
 		cursor_color.a = (uint8_t)(cursor_color.a / 3);
 		naui_draw_line((Naui_Vec2) { x, box.y }, (Naui_Vec2) { x, box.y + box.height }, cursor_color, 1.0f);
@@ -792,7 +792,7 @@ static void _uph_sample_editor_wave_draw(Leaf_BoundingBox box, void *user_data)
 
 #pragma region Layout
 
-static void _uph_sample_editor_render_message(const char *message)
+static void uph__sample_editor_render_message(const char *message)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
@@ -806,7 +806,7 @@ static void _uph_sample_editor_render_message(const char *message)
 	}
 }
 
-static void _uph_sample_editor_render_label(const char *label)
+static void uph__sample_editor_render_label(const char *label)
 {
 	leaf_text(label, {
 		.color = uph_state.colors.ui_text,
@@ -814,28 +814,28 @@ static void _uph_sample_editor_render_label(const char *label)
 	});
 }
 
-#define _uph_sample_editor_sidebar_row(label) \
+#define uph__sample_editor_sidebar_row(label) \
 	leaf({ \
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FRAME_HEIGHT)) }, \
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER }, \
 		.child_gap = NAUI_DPI(8), \
 		.direction = LEAF_DIRECTION_HORIZONTAL \
 	}) \
-	for (bool _row_once = (_uph_sample_editor_sidebar_label(label), true); _row_once; _row_once = false) \
+	for (bool _row_once = (uph__sample_editor_sidebar_label(label), true); _row_once; _row_once = false) \
 	leaf({ \
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_CONTROL_WIDTH)), .height = LEAF_SIZE_FULL }, \
 		.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER } \
 	})
 
-static void _uph_sample_editor_sidebar_label(const char *label)
+static void uph__sample_editor_sidebar_label(const char *label)
 {
 	leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT } })
 	{
-		_uph_sample_editor_render_label(label);
+		uph__sample_editor_render_label(label);
 	}
 }
 
-static double _uph_sample_editor_time_from_scale(uint32_t unit, double scale, double seconds, double bpm)
+static double uph__sample_editor_time_from_scale(uint32_t unit, double scale, double seconds, double bpm)
 {
 	switch (unit)
 	{
@@ -846,7 +846,7 @@ static double _uph_sample_editor_time_from_scale(uint32_t unit, double scale, do
 	}
 }
 
-static double _uph_sample_editor_time_to_scale(uint32_t unit, double value, double seconds, double bpm)
+static double uph__sample_editor_time_to_scale(uint32_t unit, double value, double seconds, double bpm)
 {
 	switch (unit)
 	{
@@ -857,7 +857,7 @@ static double _uph_sample_editor_time_to_scale(uint32_t unit, double value, doub
 	}
 }
 
-static void _uph_sample_editor_render_time_scale(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void uph__sample_editor_render_time_scale(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
 	static const char *units[UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT] = {
 		"Ratio",
@@ -887,8 +887,8 @@ static void _uph_sample_editor_render_time_scale(Uph_SampleEditorState *editor, 
 	const uint32_t unit = editor->time_unit < UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT ? editor->time_unit : UPH_SAMPLE_EDITOR_TIME_UNIT_RATIO;
 	const double scale = uph_sample_effective_time_scale(sample, bpm);
 
-	double min_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, seconds, bpm);
-	double max_value = _uph_sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX, seconds, bpm);
+	double min_value = uph__sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, seconds, bpm);
+	double max_value = uph__sample_editor_time_from_scale(unit, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX, seconds, bpm);
 	if (min_value > max_value)
 	{
 		const double swap = min_value;
@@ -903,27 +903,27 @@ static void _uph_sample_editor_render_time_scale(Uph_SampleEditorState *editor, 
 		"uph_sample_editor_time_bpm"
 	};
 
-	editor->time_value = (float)_uph_sample_editor_time_from_scale(unit, scale, seconds, bpm);
-	_uph_sample_editor_sidebar_row("Time")
+	editor->time_value = (float)uph__sample_editor_time_from_scale(unit, scale, seconds, bpm);
+	uph__sample_editor_sidebar_row("Time")
 	{
 		if (uph_ui_drag_float(&editor->time_value, leaf_id(ids[unit]), speeds[unit], (float)min_value, (float)max_value, formats[unit], UPH_UI_DRAG_FLAG_CLAMPED)
 			&& editor->time_value > 0.0f)
 		{
-			const double new_scale = _uph_sample_editor_time_to_scale(unit, (double)editor->time_value, seconds, bpm);
+			const double new_scale = uph__sample_editor_time_to_scale(unit, (double)editor->time_value, seconds, bpm);
 			sample->tempo_bpm = (float)bpm;
 			sample->time_scale = (float)NAUI_CLAMP(new_scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
 		}
 	}
 
 	uint32_t selected = unit;
-	_uph_sample_editor_sidebar_row("Time unit")
+	uph__sample_editor_sidebar_row("Time unit")
 	{
 		if (uph_ui_dropdown(units, seconds > 0.0 ? UPH_SAMPLE_EDITOR_TIME_UNIT_COUNT : 1, &selected, leaf_id("uph_sample_editor_time_unit")))
 			editor->time_unit = selected;
 	}
 }
 
-static void _uph_sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMode mode, bool follow_tempo)
+static void uph__sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMode mode, bool follow_tempo)
 {
 	const double bpm = uph_state.project.bpm > 0.0f ? (double)uph_state.project.bpm : 120.0;
 	const double scale = uph_sample_effective_time_scale(sample, bpm);
@@ -934,7 +934,7 @@ static void _uph_sample_editor_set_tempo_follow(Uph_Sample *sample, Uph_SampleMo
 	sample->time_scale = (float)NAUI_CLAMP(scale, UPH_SAMPLE_EDITOR_TIME_SCALE_MIN, UPH_SAMPLE_EDITOR_TIME_SCALE_MAX);
 }
 
-static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
+static void uph__sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 
@@ -966,7 +966,7 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 				leaf_id("uph_sample_editor_play"),
 				playing ? uph_state.colors.sample_editor_pause_icon : uph_state.colors.sample_editor_play_icon,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
-			)) _uph_sample_editor_toggle_playback();
+			)) uph__sample_editor_toggle_playback();
 
 			if (uph_ui_toolbox_button_ex(
 				uph_state.icons.stop,
@@ -1004,14 +1004,14 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 				leaf_id("uph_sample_editor_zoom_out"),
 				icon_color,
 				NAUI_CORNER_TL | NAUI_CORNER_BL
-			)) _uph_sample_editor_set_zoom(editor, editor->frames_per_pixel * UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR);
+			)) uph__sample_editor_set_zoom(editor, editor->frames_per_pixel * UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR);
 
 			if (uph_ui_toolbox_button_ex(
 				uph_state.icons.zoom_in,
 				leaf_id("uph_sample_editor_zoom_in"),
 				icon_color,
 				NAUI_CORNER_TR | NAUI_CORNER_BR
-			)) _uph_sample_editor_set_zoom(editor, editor->frames_per_pixel / UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR);
+			)) uph__sample_editor_set_zoom(editor, editor->frames_per_pixel / UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR);
 		}
 
 		leaf({ .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(8)), .height = LEAF_SIZE_FULL } });
@@ -1027,7 +1027,7 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 				editor->fit = true;
 
 			if (uph_ui_text_button_ex("1:1", leaf_id("uph_sample_editor_zoom_one"), bg_color, NAUI_CORNER_ALL))
-				_uph_sample_editor_set_zoom(editor, 1.0);
+				uph__sample_editor_set_zoom(editor, 1.0);
 		}
 
 		leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL } });
@@ -1036,10 +1036,10 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 		{
 			const double sample_rate = (double)source->sample_rate;
 			char total[32];
-			_uph_sample_editor_format_time(total, sizeof(total), (double)source->frame_count / sample_rate, 3);
+			uph__sample_editor_format_time(total, sizeof(total), (double)source->frame_count / sample_rate, 3);
 
 			char current[32];
-			_uph_sample_editor_format_time(current, sizeof(current), _uph_sample_editor_playhead_frame(editor) / sample_rate, 3);
+			uph__sample_editor_format_time(current, sizeof(current), uph__sample_editor_playhead_frame(editor) / sample_rate, 3);
 
 			char length[40];
 			snprintf(length, sizeof(length), "/ %s", total);
@@ -1064,7 +1064,7 @@ static void _uph_sample_editor_render_toolbar(Uph_SampleEditorState *editor)
 	}
 }
 
-static void _uph_sample_editor_render_heading(const char *title)
+static void uph__sample_editor_render_heading(const char *title)
 {
 	leaf_text(title, {
 		.color = uph_state.colors.ui_text,
@@ -1073,7 +1073,7 @@ static void _uph_sample_editor_render_heading(const char *title)
 	});
 }
 
-static void _uph_sample_editor_render_separator(void)
+static void uph__sample_editor_render_separator(void)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(1) },
@@ -1081,7 +1081,7 @@ static void _uph_sample_editor_render_separator(void)
 	});
 }
 
-static void _uph_sample_editor_render_property(const char *label, const char *value)
+static void uph__sample_editor_render_property(const char *label, const char *value)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
@@ -1106,7 +1106,7 @@ static void _uph_sample_editor_render_property(const char *label, const char *va
 	}
 }
 
-static void _uph_sample_editor_format_db(char *out, size_t size, double amplitude)
+static void uph__sample_editor_format_db(char *out, size_t size, double amplitude)
 {
 	if (amplitude <= 1e-9)
 		snprintf(out, size, "-inf dB");
@@ -1114,26 +1114,26 @@ static void _uph_sample_editor_format_db(char *out, size_t size, double amplitud
 		snprintf(out, size, "%.1f dB", 20.0 * log10(amplitude));
 }
 
-static void _uph_sample_editor_render_properties(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
+static void uph__sample_editor_render_properties(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
 
 	char sample_rate[32], channels[16], length[32], frames[32], peak[24], rms[24], original_rate[32], file[256];
 	snprintf(sample_rate, sizeof(sample_rate), "%u Hz", source->sample_rate);
 	snprintf(channels, sizeof(channels), "%s", source->channels == 1 ? "Mono" : "Stereo");
-	_uph_sample_editor_format_time(length, sizeof(length), (double)source->frame_count / (double)source->sample_rate, 3);
+	uph__sample_editor_format_time(length, sizeof(length), (double)source->frame_count / (double)source->sample_rate, 3);
 	snprintf(frames, sizeof(frames), "%llu", (unsigned long long)source->frame_count);
 
 	const uint64_t sample_count = source->frame_count * source->channels;
-	_uph_sample_editor_format_db(peak, sizeof(peak), (double)data->peak * editor->gain);
-	_uph_sample_editor_format_db(rms, sizeof(rms), sample_count ? sqrt(data->sum_squares / (double)sample_count) * editor->gain : 0.0);
+	uph__sample_editor_format_db(peak, sizeof(peak), (double)data->peak * editor->gain);
+	uph__sample_editor_format_db(rms, sizeof(rms), sample_count ? sqrt(data->sum_squares / (double)sample_count) * editor->gain : 0.0);
 
 	if (data->original_sample_rate)
 		snprintf(original_rate, sizeof(original_rate), "%u Hz", data->original_sample_rate);
 	else
 		snprintf(original_rate, sizeof(original_rate), "-");
 
-	const char *file_name = _uph_sample_editor_file_name(data->file_path.data);
+	const char *file_name = uph__sample_editor_file_name(data->file_path.data);
 	snprintf(file, sizeof(file), "%s", file_name[0] ? file_name : "Recorded");
 
 	leaf({
@@ -1150,26 +1150,26 @@ static void _uph_sample_editor_render_properties(const Uph_SampleEditorState *ed
 		.clip_children = true
 	})
 	{
-		_uph_sample_editor_render_heading("Properties");
+		uph__sample_editor_render_heading("Properties");
 
 		leaf({ .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT }, .child_gap = NAUI_DPI(12), .direction = LEAF_DIRECTION_HORIZONTAL })
 		{
-			_uph_sample_editor_render_property("Sample Rate", sample_rate);
-			_uph_sample_editor_render_property("Channels", channels);
-			_uph_sample_editor_render_property("Length", length);
-			_uph_sample_editor_render_property("Frames", frames);
+			uph__sample_editor_render_property("Sample Rate", sample_rate);
+			uph__sample_editor_render_property("Channels", channels);
+			uph__sample_editor_render_property("Length", length);
+			uph__sample_editor_render_property("Frames", frames);
 		}
 		leaf({ .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT }, .child_gap = NAUI_DPI(12), .direction = LEAF_DIRECTION_HORIZONTAL })
 		{
-			_uph_sample_editor_render_property("Peak", peak);
-			_uph_sample_editor_render_property("RMS", rms);
-			_uph_sample_editor_render_property("Source Rate", original_rate);
-			_uph_sample_editor_render_property("File", file);
+			uph__sample_editor_render_property("Peak", peak);
+			uph__sample_editor_render_property("RMS", rms);
+			uph__sample_editor_render_property("Source Rate", original_rate);
+			uph__sample_editor_render_property("File", file);
 		}
 	}
 }
 
-static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorState *editor)
+static void uph__sample_editor_render_sidebar_toggle(Uph_SampleEditorState *editor)
 {
 	const int32_t icon_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 	if (uph_ui_image_button_ex(
@@ -1182,12 +1182,12 @@ static void _uph_sample_editor_render_sidebar_toggle(Uph_SampleEditorState *edit
 	)) editor->sidebar_hidden = !editor->sidebar_hidden;
 }
 
-static float _uph_sample_editor_sidebar_toggle_width(void)
+static float uph__sample_editor_sidebar_toggle_width(void)
 {
 	return NAUI_MAX(leaf_get_bounding_box(leaf_id("uph_sample_editor_sidebar_toggle")).width, NAUI_DPI(UPH_UI_FRAME_HEIGHT));
 }
 
-static void _uph_sample_editor_render_sidebar_panel(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
@@ -1206,23 +1206,23 @@ static void _uph_sample_editor_render_sidebar_panel(Uph_SampleEditorState *edito
 		{
 			leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT } })
 			{
-				_uph_sample_editor_render_heading(sample->name.data);
+				uph__sample_editor_render_heading(sample->name.data);
 			}
-			leaf({ .size = { .width = LEAF_SIZE_FIXED((int32_t)_uph_sample_editor_sidebar_toggle_width()), .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FRAME_HEIGHT)) } });
+			leaf({ .size = { .width = LEAF_SIZE_FIXED((int32_t)uph__sample_editor_sidebar_toggle_width()), .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FRAME_HEIGHT)) } });
 		}
-		_uph_sample_editor_render_separator();
+		uph__sample_editor_render_separator();
 
 		leaf_text("Playback", {
 			.color = uph_state.colors.ui_text_disabled,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE - 1))
 		});
 
-		_uph_sample_editor_sidebar_row("Pitch")
+		uph__sample_editor_sidebar_row("Pitch")
 		{
 			uph_ui_drag_int(&sample->pitch, leaf_id("uph_sample_editor_pitch"), 1, -1200, 1200, "%i", UPH_UI_DRAG_FLAG_CLAMPED);
 		}
 
-		_uph_sample_editor_render_time_scale(editor, sample, source);
+		uph__sample_editor_render_time_scale(editor, sample, source);
 
 		static const char *sample_modes[] = {
 			"Resample",
@@ -1230,46 +1230,46 @@ static void _uph_sample_editor_render_sidebar_panel(Uph_SampleEditorState *edito
 		};
 
 		uint32_t mode = (uint32_t)sample->mode;
-		_uph_sample_editor_sidebar_row("Mode")
+		uph__sample_editor_sidebar_row("Mode")
 		{
 			if (uph_ui_dropdown(sample_modes, 2, &mode, leaf_id("uph_sample_editor_mode")))
-				_uph_sample_editor_set_tempo_follow(sample, (Uph_SampleMode)mode, sample->follow_tempo);
+				uph__sample_editor_set_tempo_follow(sample, (Uph_SampleMode)mode, sample->follow_tempo);
 		}
 
-		_uph_sample_editor_sidebar_row("Follow tempo")
+		uph__sample_editor_sidebar_row("Follow tempo")
 		{
 			bool follow_tempo = sample->follow_tempo;
 			if (uph_ui_checkbox(&follow_tempo, leaf_id("uph_sample_editor_follow_tempo")))
-				_uph_sample_editor_set_tempo_follow(sample, sample->mode, follow_tempo);
+				uph__sample_editor_set_tempo_follow(sample, sample->mode, follow_tempo);
 		}
 
-		_uph_sample_editor_sidebar_row("Reverse")
+		uph__sample_editor_sidebar_row("Reverse")
 		{
 			uph_ui_checkbox(&sample->reversed, leaf_id("uph_sample_editor_reversed"));
 		}
 
-		_uph_sample_editor_render_separator();
+		uph__sample_editor_render_separator();
 
 		leaf_text("Level", {
 			.color = uph_state.colors.ui_text_disabled,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE - 1))
 		});
 
-		_uph_sample_editor_sidebar_row("Gain")
+		uph__sample_editor_sidebar_row("Gain")
 		{
 			float gain_db = NAUI_CLAMP(uph_linear_to_db(sample->gain), UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX);
 			if (uph_ui_drag_float(&gain_db, leaf_id("uph_sample_editor_gain"), 0.1f, UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX, "%.2f dB", UPH_UI_DRAG_FLAG_CLAMPED))
 				sample->gain = uph_db_to_linear(gain_db);
 		}
 
-		_uph_sample_editor_sidebar_row("Normalize")
+		uph__sample_editor_sidebar_row("Normalize")
 		{
 			uph_ui_checkbox(&sample->normalized, leaf_id("uph_sample_editor_normalized"));
 		}
 	}
 }
 
-static float _uph_sample_editor_sidebar_collapse_eased(Uph_SampleEditorState *editor)
+static float uph__sample_editor_sidebar_collapse_eased(Uph_SampleEditorState *editor)
 {
 	const float target = editor->sidebar_hidden ? 1.0f : 0.0f;
 	if (!naui_app_animations_enabled())
@@ -1284,9 +1284,9 @@ static float _uph_sample_editor_sidebar_collapse_eased(Uph_SampleEditorState *ed
 		1.0f - naui_ease_out_quint(1.0f - editor->sidebar_collapse);
 }
 
-static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void uph__sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
-	const float collapse = _uph_sample_editor_sidebar_collapse_eased(editor);
+	const float collapse = uph__sample_editor_sidebar_collapse_eased(editor);
 	const Leaf_Border border = {
 		.width = 1,
 		.sides = LEAF_SIDE_RIGHT,
@@ -1304,7 +1304,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			.direction = LEAF_DIRECTION_VERTICAL
 		})
 		{
-			_uph_sample_editor_render_sidebar_toggle(editor);
+			uph__sample_editor_render_sidebar_toggle(editor);
 		}
 		return;
 	}
@@ -1312,7 +1312,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 	const float section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
 	const float strip_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING);
 	const float full_width = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH) + section_padding * 2.0f;
-	const float strip_width = strip_padding * 2.0f + _uph_sample_editor_sidebar_toggle_width();
+	const float strip_width = strip_padding * 2.0f + uph__sample_editor_sidebar_toggle_width();
 	const float width = full_width + (strip_width - full_width) * collapse;
 	const float toggle_margin = section_padding + (strip_padding - section_padding) * collapse;
 
@@ -1328,7 +1328,7 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			.transparency = collapse
 		})
 		{
-			_uph_sample_editor_render_sidebar_panel(editor, sample, source);
+			uph__sample_editor_render_sidebar_panel(editor, sample, source);
 		}
 
 		leaf({
@@ -1341,12 +1341,12 @@ static void _uph_sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
 		})
 		{
-			_uph_sample_editor_render_sidebar_toggle(editor);
+			uph__sample_editor_render_sidebar_toggle(editor);
 		}
 	}
 }
 
-static void _uph_sample_editor_render_status_item(const char *text, bool separator)
+static void uph__sample_editor_render_status_item(const char *text, bool separator)
 {
 	const Leaf_Color dim_color = uph_state.colors.ui_text_disabled;
 	if (separator)
@@ -1363,19 +1363,19 @@ static void _uph_sample_editor_render_status_item(const char *text, bool separat
 	});
 }
 
-static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
+static void uph__sample_editor_render_status_bar(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
 {
 	const Uph_SampleEditorSource *source = &editor->source;
-	const char *file_name = _uph_sample_editor_file_name(data->file_path.data);
+	const char *file_name = uph__sample_editor_file_name(data->file_path.data);
 
 	char readout[128] = { 0 };
 	if (editor->wave_hovered)
 	{
 		const uint64_t frame = editor->hover_frame;
 		char time[32];
-		_uph_sample_editor_format_time(time, sizeof(time), (double)frame / (double)source->sample_rate, 3);
+		uph__sample_editor_format_time(time, sizeof(time), (double)frame / (double)source->sample_rate, 3);
 		int32_t length = snprintf(readout, sizeof(readout), "%s   Frame %llu", time, (unsigned long long)frame);
-		const uint64_t src_frame = _uph_sample_editor_source_frame(source, frame);
+		const uint64_t src_frame = uph__sample_editor_source_frame(source, frame);
 		if (source->channels == 1)
 			snprintf(readout + length, sizeof(readout) - (size_t)length, "   %+.4f", source->frames[src_frame]);
 		else
@@ -1384,7 +1384,7 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *ed
 
 	char sample_rate[32], zoom[32];
 	snprintf(sample_rate, sizeof(sample_rate), "%u Hz", source->sample_rate);
-	const double fit_fpp = _uph_sample_editor_fit_frames_per_pixel(editor);
+	const double fit_fpp = uph__sample_editor_fit_frames_per_pixel(editor);
 	snprintf(zoom, sizeof(zoom), "Zoom: %.0f%%", editor->frames_per_pixel > 0.0 && fit_fpp > 0.0 ? fit_fpp / editor->frames_per_pixel * 100.0 : 100.0);
 
 	leaf({
@@ -1410,11 +1410,11 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *ed
 		leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL } });
 
 		if (readout[0])
-			_uph_sample_editor_render_status_item(readout, false);
+			uph__sample_editor_render_status_item(readout, false);
 
-		_uph_sample_editor_render_status_item(sample_rate, readout[0] != 0);
-		_uph_sample_editor_render_status_item(source->channels == 1 ? "Mono" : "Stereo", true);
-		_uph_sample_editor_render_status_item(zoom, true);
+		uph__sample_editor_render_status_item(sample_rate, readout[0] != 0);
+		uph__sample_editor_render_status_item(source->channels == 1 ? "Mono" : "Stereo", true);
+		uph__sample_editor_render_status_item(zoom, true);
 	}
 }
 
@@ -1422,15 +1422,15 @@ static void _uph_sample_editor_render_status_bar(const Uph_SampleEditorState *ed
 
 void uph_sample_editor_init(void)
 {
-	Uph_SampleEditorState *state = &_uph_sample_editor_state;
+	Uph_SampleEditorState *state = &uph__sample_editor_state;
 	memset(state, 0, sizeof(*state));
 	state->fit = true;
 }
 
 void uph_sample_editor_reset_interaction(void)
 {
-	Uph_SampleEditorState *state = &_uph_sample_editor_state;
-	_uph_sample_editor_commit_edit(state);
+	Uph_SampleEditorState *state = &uph__sample_editor_state;
+	uph__sample_editor_commit_edit(state);
 	state->panning = false;
 	state->wave_hovered = false;
 	state->has_last_sample = false;
@@ -1441,17 +1441,17 @@ void uph_sample_editor_reset_interaction(void)
 
 void uph_sample_editor_update(void)
 {
-	Uph_SampleEditorState *state = &_uph_sample_editor_state;
+	Uph_SampleEditorState *state = &uph__sample_editor_state;
 	Uph_Project *project = &uph_state.project;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 
 	if (state->edit_active && (state->edit_index != index || (!naui_mouse_down(NAUI_MOUSE_LEFT) && !uph_ui_any_textfield_active())))
-		_uph_sample_editor_commit_edit(state);
+		uph__sample_editor_commit_edit(state);
 
 	if (index >= (Uph_ResourceIndex)naui_list_len(project->samples))
 	{
 		uph_sample_editor_reset_interaction();
-		_uph_sample_editor_render_message("No sample is selected.");
+		uph__sample_editor_render_message("No sample is selected.");
 		return;
 	}
 
@@ -1463,7 +1463,7 @@ void uph_sample_editor_update(void)
 	if (!data)
 	{
 		uph_sample_editor_reset_interaction();
-		_uph_sample_editor_render_message("This sample has no audio data.");
+		uph__sample_editor_render_message("This sample has no audio data.");
 		return;
 	}
 
@@ -1490,16 +1490,16 @@ void uph_sample_editor_update(void)
 	state->playback_length = uph_sample_preview_length(sample, data);
 
 	if (naui_panel_focused() == uph_state.panels.resource_editor && naui_keybind_pressed(uph_state.settings.keybinds.play_pause) && !uph_ui_any_menu_open() && !uph_ui_any_textfield_active())
-		_uph_sample_editor_toggle_playback();
+		uph__sample_editor_toggle_playback();
 
 
 	const Leaf_ID wave_id = leaf_id("uph_sample_editor_wave");
 	state->wave_box = leaf_get_bounding_box(wave_id);
 	state->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	state->wave_hovered = source->valid && leaf_hovered(wave_id) && state->panel_hovered;
-	_uph_sample_editor_update_input(state, state->wave_box);
+	uph__sample_editor_update_input(state, state->wave_box);
 
-	_uph_sample_editor_render_toolbar(state);
+	uph__sample_editor_render_toolbar(state);
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
@@ -1508,8 +1508,8 @@ void uph_sample_editor_update(void)
 	})
 	{
 		const Uph_ActionSampleSettings before = uph_action_sample_settings_capture(sample);
-		_uph_sample_editor_render_sidebar(state, sample, source);
-		_uph_sample_editor_track_edit(state, index, &before, sample);
+		uph__sample_editor_render_sidebar(state, sample, source);
+		uph__sample_editor_track_edit(state, index, &before, sample);
 
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
@@ -1517,7 +1517,7 @@ void uph_sample_editor_update(void)
 		})
 		{
 			if (!source->valid)
-				_uph_sample_editor_render_message("Nothing to display yet.");
+				uph__sample_editor_render_message("Nothing to display yet.");
 			else
 			{
 				const int32_t ruler_height = (int32_t)NAUI_DPI(UPH_SAMPLE_EDITOR_RULER_HEIGHT);
@@ -1533,7 +1533,7 @@ void uph_sample_editor_update(void)
 						.color = uph_state.colors.sample_editor_toolbox_bg
 					});
 					leaf({
-						.custom_draw = _uph_sample_editor_ruler_draw,
+						.custom_draw = uph__sample_editor_ruler_draw,
 						.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(ruler_height - 2) },
 						.border = {
 							.width = 1,
@@ -1551,20 +1551,20 @@ void uph_sample_editor_update(void)
 				})
 				{
 					leaf({
-						.custom_draw = _uph_sample_editor_gutter_draw,
+						.custom_draw = uph__sample_editor_gutter_draw,
 						.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL }
 					});
 					leaf({
 						.id = wave_id,
-						.custom_draw = _uph_sample_editor_wave_draw,
+						.custom_draw = uph__sample_editor_wave_draw,
 						.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 					});
 				}
 
-				_uph_sample_editor_render_properties(state, data);
+				uph__sample_editor_render_properties(state, data);
 			}
 		}
 	}
 
-	_uph_sample_editor_render_status_bar(state, data);
+	uph__sample_editor_render_status_bar(state, data);
 }

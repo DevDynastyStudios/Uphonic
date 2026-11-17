@@ -22,21 +22,21 @@ typedef struct
 }
 Uph_DialogState;
 
-static Uph_DialogState _uph_dialog_state;
+static Uph_DialogState uph__dialog_state;
 
-static void _uph_dialog_copy(char *dest, size_t dest_size, const char *source)
+static void uph__dialog_copy(char *dest, size_t dest_size, const char *source)
 {
 	snprintf(dest, dest_size, "%s", source ? source : "");
 }
 
-static int32_t _uph_dialog_valid_button(int32_t button)
+static int32_t uph__dialog_valid_button(int32_t button)
 {
-	return button >= 0 && button < _uph_dialog_state.button_count ? button : -1;
+	return button >= 0 && button < uph__dialog_state.button_count ? button : -1;
 }
 
 bool uph_dialog_open(const Uph_DialogConfig *config)
 {
-	Uph_DialogState *state = &_uph_dialog_state;
+	Uph_DialogState *state = &uph__dialog_state;
 	if (state->open || !config || !config->buttons[0])
 		return false;
 
@@ -51,38 +51,38 @@ bool uph_dialog_open(const Uph_DialogConfig *config)
 
 	while (state->button_count < UPH_DIALOG_MAX_BUTTONS && config->buttons[state->button_count])
 	{
-		_uph_dialog_copy(state->buttons[state->button_count], sizeof(state->buttons[0]), config->buttons[state->button_count]);
+		uph__dialog_copy(state->buttons[state->button_count], sizeof(state->buttons[0]), config->buttons[state->button_count]);
 		state->button_count++;
 	}
 
-	_uph_dialog_copy(state->title, sizeof(state->title), config->title);
-	_uph_dialog_copy(state->message, sizeof(state->message), config->message);
-	_uph_dialog_copy(state->input_placeholder, sizeof(state->input_placeholder), config->input_placeholder);
+	uph__dialog_copy(state->title, sizeof(state->title), config->title);
+	uph__dialog_copy(state->message, sizeof(state->message), config->message);
+	uph__dialog_copy(state->input_placeholder, sizeof(state->input_placeholder), config->input_placeholder);
 
-	state->default_button = _uph_dialog_valid_button(config->default_button);
-	state->cancel_button = _uph_dialog_valid_button(config->cancel_button);
+	state->default_button = uph__dialog_valid_button(config->default_button);
+	state->cancel_button = uph__dialog_valid_button(config->cancel_button);
 	return true;
 }
 
 bool uph_dialog_is_open(void)
 {
-	return _uph_dialog_state.open;
+	return uph__dialog_state.open;
 }
 
 void uph_dialog_close(void)
 {
-	Uph_DialogState *state = &_uph_dialog_state;
+	Uph_DialogState *state = &uph__dialog_state;
 	*state = (Uph_DialogState){0};
 }
 
 bool uph_dialog_blocks_input(void)
 {
-	return _uph_dialog_state.open && !_uph_dialog_state.drawing;
+	return uph__dialog_state.open && !uph__dialog_state.drawing;
 }
 
-static void _uph_dialog_finish(int32_t button)
+static void uph__dialog_finish(int32_t button)
 {
-	Uph_DialogState *state = &_uph_dialog_state;
+	Uph_DialogState *state = &uph__dialog_state;
 	const Uph_DialogCallback callback = state->callback;
 	void *user_data = state->user_data;
 	uph_dialog_close();
@@ -91,7 +91,7 @@ static void _uph_dialog_finish(int32_t button)
 		callback(button, user_data);
 }
 
-static void _uph_dialog_render_progress(float progress)
+static void uph__dialog_render_progress(float progress)
 {
 	const int32_t rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
 	char percent[16];
@@ -126,9 +126,9 @@ static void _uph_dialog_render_progress(float progress)
 	}
 }
 
-static int32_t _uph_dialog_render_buttons(void)
+static int32_t uph__dialog_render_buttons(void)
 {
-	const Uph_DialogState *state = &_uph_dialog_state;
+	const Uph_DialogState *state = &uph__dialog_state;
 	int32_t pressed = -1;
 
 	leaf({
@@ -149,9 +149,9 @@ static int32_t _uph_dialog_render_buttons(void)
 	return pressed;
 }
 
-static int32_t _uph_dialog_key_button(void)
+static int32_t uph__dialog_key_button(void)
 {
-	const Uph_DialogState *state = &_uph_dialog_state;
+	const Uph_DialogState *state = &uph__dialog_state;
 	if (state->default_button >= 0 && naui_key_pressed(NAUI_KEY_ENTER))
 		return state->default_button;
 
@@ -163,7 +163,7 @@ static int32_t _uph_dialog_key_button(void)
 
 void uph_dialog_render(void)
 {
-	Uph_DialogState *state = &_uph_dialog_state;
+	Uph_DialogState *state = &uph__dialog_state;
 	if (!state->open)
 		return;
 
@@ -225,9 +225,9 @@ void uph_dialog_render(void)
 		}
 
 		if (state->progress)
-			_uph_dialog_render_progress(NAUI_CLAMP01(*state->progress));
+			uph__dialog_render_progress(NAUI_CLAMP01(*state->progress));
 
-		pressed = _uph_dialog_render_buttons();
+		pressed = uph__dialog_render_buttons();
 	}
 
 	state->drawing = false;
@@ -238,8 +238,8 @@ void uph_dialog_render(void)
 	}
 
 	if (pressed < 0)
-		pressed = _uph_dialog_key_button();
+		pressed = uph__dialog_key_button();
 
 	if (pressed >= 0)
-		_uph_dialog_finish(pressed);
+		uph__dialog_finish(pressed);
 }

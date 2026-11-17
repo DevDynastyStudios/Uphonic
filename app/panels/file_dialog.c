@@ -23,7 +23,7 @@ typedef struct
 }
 Uph_FileDialogState;
 
-static Uph_FileDialogState _uph_file_dialog_state;
+static Uph_FileDialogState uph__file_dialog_state;
 
 typedef struct
 {
@@ -42,7 +42,7 @@ Uph_FileDialogActions;
 
 #pragma region Helpers
 
-static void _uph_file_dialog_format_size(size_t size, char *out, size_t out_size)
+static void uph__file_dialog_format_size(size_t size, char *out, size_t out_size)
 {
 	if (size < 1024)
 		snprintf(out, out_size, "%u B", (unsigned)size);
@@ -54,7 +54,7 @@ static void _uph_file_dialog_format_size(size_t size, char *out, size_t out_size
 		snprintf(out, out_size, "%.2f GB", (double)size / (1024.0 * 1024.0 * 1024.0));
 }
 
-static void _uph_file_dialog_filter_text(const Naui_Dialog *dialog, char *out, size_t out_size)
+static void uph__file_dialog_filter_text(const Naui_Dialog *dialog, char *out, size_t out_size)
 {
 	out[0] = '\0';
 	for (uint32_t i = 0; i < dialog->filter_count; i++)
@@ -64,9 +64,9 @@ static void _uph_file_dialog_filter_text(const Naui_Dialog *dialog, char *out, s
 	}
 }
 
-static void _uph_file_dialog_overwrite_result(int32_t button, void *user_data)
+static void uph__file_dialog_overwrite_result(int32_t button, void *user_data)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	(void)user_data;
 	if (button != 0)
 		return;
@@ -76,9 +76,9 @@ static void _uph_file_dialog_overwrite_result(int32_t button, void *user_data)
 		naui_dialog_confirm(dialog, true);
 }
 
-static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_DialogConfirmResult result)
+static void uph__file_dialog_handle_result(Uph_FileDialogData *data, Naui_DialogConfirmResult result)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	data->error_key = NULL;
 
 	switch (result)
@@ -95,7 +95,7 @@ static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_Dialog
 				.buttons = { NAUI_TR("file_dialog.overwrite.replace"), NAUI_TR("dialog.cancel") },
 				.default_button = -1,
 				.cancel_button = 1,
-				.callback = _uph_file_dialog_overwrite_result
+				.callback = uph__file_dialog_overwrite_result
 			});
 			break;
 
@@ -117,7 +117,7 @@ static void _uph_file_dialog_handle_result(Uph_FileDialogData *data, Naui_Dialog
 
 #pragma region UI
 
-static void _uph_file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActions *actions, const char *label, const Naui_Path path, uint64_t index)
+static void uph__file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActions *actions, const char *label, const Naui_Path path, uint64_t index)
 {
 	if (!path.data[0] || !naui_path_is_directory(path))
 		return;
@@ -129,7 +129,7 @@ static void _uph_file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActio
 	}
 }
 
-static void _uph_file_dialog_sidebar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
+static void uph__file_dialog_sidebar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(130)), .height = LEAF_SIZE_GROW },
@@ -137,13 +137,13 @@ static void _uph_file_dialog_sidebar(Uph_FileDialogData *data, Uph_FileDialogAct
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
-		_uph_file_dialog_place(data, actions, NAUI_TR("file_dialog.places.home"), naui_directory_get(NAUI_DIR_HOME), 1);
-		_uph_file_dialog_place(data, actions, NAUI_TR("file_dialog.places.downloads"), naui_directory_get(NAUI_DIR_DOWNLOADS), 2);
-		_uph_file_dialog_place(data, actions, NAUI_TR("file_dialog.places.projects"), UPHONIC_WORKSPACE_FOLDER, 3);
+		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.home"), naui_directory_get(NAUI_DIR_HOME), 1);
+		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.downloads"), naui_directory_get(NAUI_DIR_DOWNLOADS), 2);
+		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.projects"), UPHONIC_WORKSPACE_FOLDER, 3);
 	}
 }
 
-static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions *actions, const Naui_DirEntry *entry, int32_t index)
+static void uph__file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions *actions, const Naui_DirEntry *entry, int32_t index)
 {
 	const Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID row_id = leaf_id_indexed("uph_file_dialog_row", data->instance * 65599u + (uint64_t)index);
@@ -194,13 +194,13 @@ static void _uph_file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 		if (!entry->is_directory)
 		{
 			char size_text[32];
-			_uph_file_dialog_format_size(entry->size, size_text, sizeof(size_text));
+			uph__file_dialog_format_size(entry->size, size_text, sizeof(size_text));
 			leaf_text(size_text, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 		}
 	}
 }
 
-static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
+static void uph__file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	const Naui_Dialog *dialog = data->dialog;
 
@@ -219,7 +219,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 
 		const uint32_t count = (uint32_t)naui_list_len(dialog->entries);
 		for (uint32_t i = 0; i < count; i++)
-			_uph_file_dialog_row(data, actions, &dialog->entries[i], (int32_t)i);
+			uph__file_dialog_row(data, actions, &dialog->entries[i], (int32_t)i);
 
 		if (count == 0)
 		{
@@ -233,7 +233,7 @@ static void _uph_file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogAction
 	}
 }
 
-static void _uph_file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
+static void uph__file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID path_id = leaf_id_indexed("uph_file_dialog_path", data->instance);
@@ -264,7 +264,7 @@ static void _uph_file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogAct
 	}
 }
 
-static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
+static void uph__file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID name_id = leaf_id_indexed("uph_file_dialog_name", data->instance);
@@ -289,7 +289,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 			actions->confirm = true;
 
 		char filters[NAUI_DIALOG_MAX_FILTERS * (NAUI_DIALOG_FILTER_MAX + 2)];
-		_uph_file_dialog_filter_text(dialog, filters, sizeof(filters));
+		uph__file_dialog_filter_text(dialog, filters, sizeof(filters));
 		if (filters[0])
 			leaf_text(filters, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 
@@ -301,7 +301,7 @@ static void _uph_file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 	}
 }
 
-static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
+static void uph__file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	Naui_Dialog *dialog = data->dialog;
 
@@ -359,13 +359,13 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 			if (result == NAUI_DIALOG_CONFIRM_NAVIGATED)
 				data->scroll = 0.0f;
 
-			_uph_file_dialog_handle_result(data, result);
+			uph__file_dialog_handle_result(data, result);
 			return;
 		}
 	}
 
 	if (actions->confirm)
-		_uph_file_dialog_handle_result(data, naui_dialog_confirm(dialog, false));
+		uph__file_dialog_handle_result(data, naui_dialog_confirm(dialog, false));
 }
 
 #pragma endregion
@@ -374,7 +374,7 @@ static void _uph_file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 
 static void uph_file_dialog_on_attach(void)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	memset(data, 0, sizeof(*data));
 	data->dialog = state->pending;
@@ -400,7 +400,7 @@ static void uph_file_dialog_on_open(void)
 
 static void uph_file_dialog_on_close(void)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	if (state->recentering)
 		return;
 
@@ -427,7 +427,7 @@ static void uph_file_dialog_on_update(void)
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
-		_uph_file_dialog_top_bar(data, &actions);
+		uph__file_dialog_top_bar(data, &actions);
 
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
@@ -435,11 +435,11 @@ static void uph_file_dialog_on_update(void)
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			_uph_file_dialog_sidebar(data, &actions);
-			_uph_file_dialog_list(data, &actions);
+			uph__file_dialog_sidebar(data, &actions);
+			uph__file_dialog_list(data, &actions);
 		}
 
-		_uph_file_dialog_footer(data, &actions);
+		uph__file_dialog_footer(data, &actions);
 	}
 
 	const bool typing = uph_ui_textfield_active(leaf_id_indexed("uph_file_dialog_path", data->instance)) || uph_ui_textfield_active(leaf_id_indexed("uph_file_dialog_name", data->instance));
@@ -448,7 +448,7 @@ static void uph_file_dialog_on_update(void)
 	else
 		data->dialog->state &= ~NAUI_DIALOG_STATE_EDITING;
 
-	_uph_file_dialog_apply(data, &actions);
+	uph__file_dialog_apply(data, &actions);
 }
 
 #pragma endregion
@@ -457,7 +457,7 @@ static void uph_file_dialog_on_update(void)
 
 static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	uint32_t slot = 0;
 	while (slot < NAUI_MAX_DIALOGS && state->panel_owners[slot])
 		slot++;
@@ -487,7 +487,7 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 
 static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 {
-	Uph_FileDialogState *state = &_uph_file_dialog_state;
+	Uph_FileDialogState *state = &uph__file_dialog_state;
 	for (uint32_t i = 0; i < NAUI_MAX_DIALOGS; i++)
 	{
 		if (state->panel_owners[i] != dialog)
@@ -505,14 +505,14 @@ static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 	}
 }
 
-static const Naui_DialogRenderer _uph_file_dialog_renderer = {
+static const Naui_DialogRenderer uph__file_dialog_renderer = {
 	.begin = uph_file_dialog_renderer_begin,
 	.end = uph_file_dialog_renderer_end
 };
 
 void uph_file_dialog_register(void)
 {
-	naui_dialog_set_renderer(&_uph_file_dialog_renderer);
+	naui_dialog_set_renderer(&uph__file_dialog_renderer);
 }
 
 #pragma endregion

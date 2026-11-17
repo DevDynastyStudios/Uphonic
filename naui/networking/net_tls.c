@@ -105,12 +105,12 @@ typedef struct
 	NetBuffer out[NET_TLS_LEVEL_COUNT];
 } NetTls;
 
-static NetReader _naui_net_reader(const uint8_t* data, size_t size)
+static NetReader naui__net_reader(const uint8_t* data, size_t size)
 {
 	return (NetReader){ data, size, true };
 }
 
-static const uint8_t* _naui_net_read_bytes(NetReader* reader, size_t size)
+static const uint8_t* naui__net_read_bytes(NetReader* reader, size_t size)
 {
 	if (!reader->ok || reader->left < size)
 	{
@@ -125,9 +125,9 @@ static const uint8_t* _naui_net_read_bytes(NetReader* reader, size_t size)
 	return p;
 }
 
-static uint32_t _naui_net_read_uint(NetReader* reader, size_t bytes)
+static uint32_t naui__net_read_uint(NetReader* reader, size_t bytes)
 {
-	const uint8_t* p = _naui_net_read_bytes(reader, bytes);
+	const uint8_t* p = naui__net_read_bytes(reader, bytes);
 	uint32_t value = 0;
 	for (size_t i = 0; p && i < bytes; i++)
 	{
@@ -137,32 +137,32 @@ static uint32_t _naui_net_read_uint(NetReader* reader, size_t bytes)
 	return value;
 }
 
-static NetReader _naui_net_read_block(NetReader* reader, size_t length_bytes)
+static NetReader naui__net_read_block(NetReader* reader, size_t length_bytes)
 {
-	size_t size = _naui_net_read_uint(reader, length_bytes);
-	const uint8_t* p = _naui_net_read_bytes(reader, size);
+	size_t size = naui__net_read_uint(reader, length_bytes);
+	const uint8_t* p = naui__net_read_bytes(reader, size);
 	return (NetReader){ p, p ? size : 0, p != NULL };
 }
 
-static bool _naui_net_reader_done(const NetReader* reader)
+static bool naui__net_reader_done(const NetReader* reader)
 {
 	return reader->ok && reader->left == 0;
 }
 
-static void _naui_net_write_uint(NetBuffer* buffer, uint32_t value, size_t bytes)
+static void naui__net_write_uint(NetBuffer* buffer, uint32_t value, size_t bytes)
 {
 	uint8_t encoded[4];
-	_naui_net_put_u32(encoded, value);
-	_naui_net_buffer_append(buffer, encoded + 4 - bytes, bytes);
+	naui__net_put_u32(encoded, value);
+	naui__net_buffer_append(buffer, encoded + 4 - bytes, bytes);
 }
 
-static size_t _naui_net_write_block_begin(NetBuffer* buffer, size_t length_bytes)
+static size_t naui__net_write_block_begin(NetBuffer* buffer, size_t length_bytes)
 {
-	_naui_net_write_uint(buffer, 0, length_bytes);
+	naui__net_write_uint(buffer, 0, length_bytes);
 	return buffer->size;
 }
 
-static void _naui_net_write_block_end(NetBuffer* buffer, size_t mark, size_t length_bytes)
+static void naui__net_write_block_end(NetBuffer* buffer, size_t mark, size_t length_bytes)
 {
 	if (buffer->size < mark)
 		return;
@@ -174,14 +174,14 @@ static void _naui_net_write_block_end(NetBuffer* buffer, size_t mark, size_t len
 	}
 }
 
-static void _naui_net_write_extension(NetBuffer* buffer, uint16_t type, const void* data, size_t size)
+static void naui__net_write_extension(NetBuffer* buffer, uint16_t type, const void* data, size_t size)
 {
-	_naui_net_write_uint(buffer, type, 2);
-	_naui_net_write_uint(buffer, (uint32_t)size, 2);
-	_naui_net_buffer_append(buffer, data, size);
+	naui__net_write_uint(buffer, type, 2);
+	naui__net_write_uint(buffer, (uint32_t)size, 2);
+	naui__net_buffer_append(buffer, data, size);
 }
 
-static bool _naui_net_tls_fail(NetTls* tls, uint8_t alert)
+static bool naui__net_tls_fail(NetTls* tls, uint8_t alert)
 {
 	if (!tls->alert)
 		tls->alert = alert;
@@ -189,96 +189,96 @@ static bool _naui_net_tls_fail(NetTls* tls, uint8_t alert)
 	return false;
 }
 
-static void _naui_net_tls_free(NetTls* tls)
+static void naui__net_tls_free(NetTls* tls)
 {
 	for (int i = 0; i < NET_TLS_LEVEL_COUNT; i++)
 	{
-		_naui_net_buffer_free(&tls->out[i]);
+		naui__net_buffer_free(&tls->out[i]);
 	}
 
-	_naui_net_wipe(tls, sizeof(*tls));
+	naui__net_wipe(tls, sizeof(*tls));
 }
 
-static void _naui_net_tls_init(NetTls* tls, bool server, const uint8_t seed[NET_ED25519_KEY_SIZE], const uint8_t public_key[NET_ED25519_KEY_SIZE])
+static void naui__net_tls_init(NetTls* tls, bool server, const uint8_t seed[NET_ED25519_KEY_SIZE], const uint8_t public_key[NET_ED25519_KEY_SIZE])
 {
 	memset(tls, 0, sizeof(*tls));
 	tls->server = server;
 	tls->state = server ? NET_TLS_WAIT_CLIENT_HELLO : NET_TLS_WAIT_SERVER_HELLO;
 	memcpy(tls->seed, seed, NET_ED25519_KEY_SIZE);
 	memcpy(tls->public_key, public_key, NET_ED25519_KEY_SIZE);
-	_naui_net_sha256_init(&tls->transcript);
+	naui__net_sha256_init(&tls->transcript);
 }
 
-static bool _naui_net_tls_emit(NetTls* tls, NetTlsLevel level, uint8_t type, const NetBuffer* body)
+static bool naui__net_tls_emit(NetTls* tls, NetTlsLevel level, uint8_t type, const NetBuffer* body)
 {
 	uint8_t header[4];
-	_naui_net_put_u32(header, (uint32_t)body->size);
+	naui__net_put_u32(header, (uint32_t)body->size);
 	header[0] = type;
 
-	_naui_net_sha256_update(&tls->transcript, header, sizeof(header));
-	_naui_net_sha256_update(&tls->transcript, body->data, body->size);
-	if (!_naui_net_buffer_append(&tls->out[level], header, sizeof(header)) || !_naui_net_buffer_append(&tls->out[level], body->data, body->size))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
+	naui__net_sha256_update(&tls->transcript, header, sizeof(header));
+	naui__net_sha256_update(&tls->transcript, body->data, body->size);
+	if (!naui__net_buffer_append(&tls->out[level], header, sizeof(header)) || !naui__net_buffer_append(&tls->out[level], body->data, body->size))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
 
 	return true;
 }
 
-static void _naui_net_tls_derive(const uint8_t secret[NET_SHA256_SIZE], const char* label, const uint8_t hash[NET_SHA256_SIZE], uint8_t out[NET_SHA256_SIZE])
+static void naui__net_tls_derive(const uint8_t secret[NET_SHA256_SIZE], const char* label, const uint8_t hash[NET_SHA256_SIZE], uint8_t out[NET_SHA256_SIZE])
 {
-	_naui_net_hkdf_expand_label(secret, label, hash, NET_SHA256_SIZE, out, NET_SHA256_SIZE);
+	naui__net_hkdf_expand_label(secret, label, hash, NET_SHA256_SIZE, out, NET_SHA256_SIZE);
 }
 
-static bool _naui_net_tls_derive_handshake_keys(NetTls* tls, const uint8_t peer_share[NET_X25519_SIZE])
+static bool naui__net_tls_derive_handshake_keys(NetTls* tls, const uint8_t peer_share[NET_X25519_SIZE])
 {
 	uint8_t shared[NET_X25519_SIZE];
 	uint8_t zero[NET_SHA256_SIZE] = { 0 };
-	_naui_net_x25519(shared, tls->ecdh_secret, peer_share);
-	_naui_net_wipe(tls->ecdh_secret, sizeof(tls->ecdh_secret));
-	if (_naui_net_ct_equal(shared, zero, sizeof(shared)))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
+	naui__net_x25519(shared, tls->ecdh_secret, peer_share);
+	naui__net_wipe(tls->ecdh_secret, sizeof(tls->ecdh_secret));
+	if (naui__net_ct_equal(shared, zero, sizeof(shared)))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
 
 	uint8_t empty_hash[NET_SHA256_SIZE];
 	uint8_t early[NET_SHA256_SIZE];
 	uint8_t derived[NET_SHA256_SIZE];
 	uint8_t hash[NET_SHA256_SIZE];
 
-	_naui_net_sha256(NULL, 0, empty_hash);
-	_naui_net_hkdf_extract(zero, sizeof(zero), zero, sizeof(zero), early);
-	_naui_net_tls_derive(early, "derived", empty_hash, derived);
-	_naui_net_hkdf_extract(derived, sizeof(derived), shared, sizeof(shared), tls->secret);
+	naui__net_sha256(NULL, 0, empty_hash);
+	naui__net_hkdf_extract(zero, sizeof(zero), zero, sizeof(zero), early);
+	naui__net_tls_derive(early, "derived", empty_hash, derived);
+	naui__net_hkdf_extract(derived, sizeof(derived), shared, sizeof(shared), tls->secret);
 
-	_naui_net_sha256_final(&tls->transcript, hash);
-	_naui_net_tls_derive(tls->secret, "c hs traffic", hash, tls->client_handshake);
-	_naui_net_tls_derive(tls->secret, "s hs traffic", hash, tls->server_handshake);
+	naui__net_sha256_final(&tls->transcript, hash);
+	naui__net_tls_derive(tls->secret, "c hs traffic", hash, tls->client_handshake);
+	naui__net_tls_derive(tls->secret, "s hs traffic", hash, tls->server_handshake);
 
-	_naui_net_tls_derive(tls->secret, "derived", empty_hash, derived);
-	_naui_net_hkdf_extract(derived, sizeof(derived), zero, sizeof(zero), tls->secret);
+	naui__net_tls_derive(tls->secret, "derived", empty_hash, derived);
+	naui__net_hkdf_extract(derived, sizeof(derived), zero, sizeof(zero), tls->secret);
 
-	_naui_net_wipe(shared, sizeof(shared));
-	_naui_net_wipe(derived, sizeof(derived));
+	naui__net_wipe(shared, sizeof(shared));
+	naui__net_wipe(derived, sizeof(derived));
 	tls->handshake_keys_ready = true;
 	return true;
 }
 
-static void _naui_net_tls_derive_application_keys(NetTls* tls)
+static void naui__net_tls_derive_application_keys(NetTls* tls)
 {
 	uint8_t hash[NET_SHA256_SIZE];
-	_naui_net_sha256_final(&tls->transcript, hash);
-	_naui_net_tls_derive(tls->secret, "c ap traffic", hash, tls->client_application);
-	_naui_net_tls_derive(tls->secret, "s ap traffic", hash, tls->server_application);
-	_naui_net_wipe(tls->secret, sizeof(tls->secret));
+	naui__net_sha256_final(&tls->transcript, hash);
+	naui__net_tls_derive(tls->secret, "c ap traffic", hash, tls->client_application);
+	naui__net_tls_derive(tls->secret, "s ap traffic", hash, tls->server_application);
+	naui__net_wipe(tls->secret, sizeof(tls->secret));
 	tls->application_keys_ready = true;
 }
 
-static void _naui_net_tls_finished_mac(const uint8_t traffic_secret[NET_SHA256_SIZE], const uint8_t hash[NET_SHA256_SIZE], uint8_t out[NET_SHA256_SIZE])
+static void naui__net_tls_finished_mac(const uint8_t traffic_secret[NET_SHA256_SIZE], const uint8_t hash[NET_SHA256_SIZE], uint8_t out[NET_SHA256_SIZE])
 {
 	uint8_t key[NET_SHA256_SIZE];
-	_naui_net_hkdf_expand_label(traffic_secret, "finished", NULL, 0, key, sizeof(key));
-	_naui_net_hmac_sha256(key, sizeof(key), hash, NET_SHA256_SIZE, out);
-	_naui_net_wipe(key, sizeof(key));
+	naui__net_hkdf_expand_label(traffic_secret, "finished", NULL, 0, key, sizeof(key));
+	naui__net_hmac_sha256(key, sizeof(key), hash, NET_SHA256_SIZE, out);
+	naui__net_wipe(key, sizeof(key));
 }
 
-static size_t _naui_net_tls_signed_content(bool server, const uint8_t hash[NET_SHA256_SIZE], uint8_t out[200])
+static size_t naui__net_tls_signed_content(bool server, const uint8_t hash[NET_SHA256_SIZE], uint8_t out[200])
 {
 	const char* label = server ? "TLS 1.3, server CertificateVerify" : "TLS 1.3, client CertificateVerify";
 	size_t label_size = strlen(label);
@@ -289,7 +289,7 @@ static size_t _naui_net_tls_signed_content(bool server, const uint8_t hash[NET_S
 	return 65 + label_size + NET_SHA256_SIZE;
 }
 
-static void _naui_net_tls_build_certificate(const NetTls* tls, uint8_t out[NET_TLS_CERTIFICATE_SIZE])
+static void naui__net_tls_build_certificate(const NetTls* tls, uint8_t out[NET_TLS_CERTIFICATE_SIZE])
 {
 	static const uint8_t prefix[] =
 	{
@@ -321,61 +321,61 @@ static void _naui_net_tls_build_certificate(const NetTls* tls, uint8_t out[NET_T
 	size_t body_end = n;
 	memcpy(out + n, middle, sizeof(middle));
 	n += sizeof(middle);
-	_naui_net_ed25519_sign(tls->seed, tls->public_key, out + 3, body_end - 3, out + n);
+	naui__net_ed25519_sign(tls->seed, tls->public_key, out + 3, body_end - 3, out + n);
 }
 
-static bool _naui_net_der_next(NetReader* reader, uint8_t* tag, NetReader* content)
+static bool naui__net_der_next(NetReader* reader, uint8_t* tag, NetReader* content)
 {
-	*tag = (uint8_t)_naui_net_read_uint(reader, 1);
-	size_t size = _naui_net_read_uint(reader, 1);
+	*tag = (uint8_t)naui__net_read_uint(reader, 1);
+	size_t size = naui__net_read_uint(reader, 1);
 	if (size & 0x80)
 	{
 		size_t length_bytes = size & 0x7f;
 		if (length_bytes == 0 || length_bytes > 3)
 			return false;
 
-		size = _naui_net_read_uint(reader, length_bytes);
+		size = naui__net_read_uint(reader, length_bytes);
 	}
 
-	const uint8_t* p = _naui_net_read_bytes(reader, size);
-	*content = _naui_net_reader(p, p ? size : 0);
+	const uint8_t* p = naui__net_read_bytes(reader, size);
+	*content = naui__net_reader(p, p ? size : 0);
 	return p != NULL;
 }
 
-static bool _naui_net_tls_certificate_key(const uint8_t* der, size_t size, uint8_t key[NET_ED25519_KEY_SIZE])
+static bool naui__net_tls_certificate_key(const uint8_t* der, size_t size, uint8_t key[NET_ED25519_KEY_SIZE])
 {
 	static const uint8_t ed25519_oid[] = { 0x06, 0x03, 0x2b, 0x65, 0x70 };
 
-	NetReader outer = _naui_net_reader(der, size);
+	NetReader outer = naui__net_reader(der, size);
 	NetReader certificate, body, field, algorithm, bits;
 	uint8_t tag;
 
-	if (!_naui_net_der_next(&outer, &tag, &certificate) || tag != 0x30)
+	if (!naui__net_der_next(&outer, &tag, &certificate) || tag != 0x30)
 		return false;
 
-	if (!_naui_net_der_next(&certificate, &tag, &body) || tag != 0x30)
+	if (!naui__net_der_next(&certificate, &tag, &body) || tag != 0x30)
 		return false;
 
-	if (!_naui_net_der_next(&body, &tag, &field))
+	if (!naui__net_der_next(&body, &tag, &field))
 		return false;
 
 	int skip = tag == 0xa0 ? 5 : 4;
 	for (int i = 0; i < skip; i++)
 	{
-		if (!_naui_net_der_next(&body, &tag, &field))
+		if (!naui__net_der_next(&body, &tag, &field))
 			return false;
 	}
 
-	if (!_naui_net_der_next(&body, &tag, &field) || tag != 0x30)
+	if (!naui__net_der_next(&body, &tag, &field) || tag != 0x30)
 		return false;
 
-	if (!_naui_net_der_next(&field, &tag, &algorithm) || tag != 0x30)
+	if (!naui__net_der_next(&field, &tag, &algorithm) || tag != 0x30)
 		return false;
 
 	if (algorithm.left != sizeof(ed25519_oid) || memcmp(algorithm.p, ed25519_oid, sizeof(ed25519_oid)) != 0)
 		return false;
 
-	if (!_naui_net_der_next(&field, &tag, &bits) || tag != 0x03)
+	if (!naui__net_der_next(&field, &tag, &bits) || tag != 0x03)
 		return false;
 
 	if (bits.left != 1 + NET_ED25519_KEY_SIZE || bits.p[0] != 0)
@@ -385,108 +385,108 @@ static bool _naui_net_tls_certificate_key(const uint8_t* der, size_t size, uint8
 	return true;
 }
 
-static bool _naui_net_tls_send_certificate(NetTls* tls)
+static bool naui__net_tls_send_certificate(NetTls* tls)
 {
 	NetBuffer body = { 0 };
 	uint8_t certificate[NET_TLS_CERTIFICATE_SIZE];
-	_naui_net_tls_build_certificate(tls, certificate);
+	naui__net_tls_build_certificate(tls, certificate);
 
-	_naui_net_write_uint(&body, (uint32_t)tls->request_context_size, 1);
-	_naui_net_buffer_append(&body, tls->request_context, tls->request_context_size);
-	size_t list = _naui_net_write_block_begin(&body, 3);
-	_naui_net_write_uint(&body, sizeof(certificate), 3);
-	_naui_net_buffer_append(&body, certificate, sizeof(certificate));
-	_naui_net_write_uint(&body, 0, 2);
-	_naui_net_write_block_end(&body, list, 3);
+	naui__net_write_uint(&body, (uint32_t)tls->request_context_size, 1);
+	naui__net_buffer_append(&body, tls->request_context, tls->request_context_size);
+	size_t list = naui__net_write_block_begin(&body, 3);
+	naui__net_write_uint(&body, sizeof(certificate), 3);
+	naui__net_buffer_append(&body, certificate, sizeof(certificate));
+	naui__net_write_uint(&body, 0, 2);
+	naui__net_write_block_end(&body, list, 3);
 
-	bool ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE, &body);
-	_naui_net_buffer_free(&body);
+	bool ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE, &body);
+	naui__net_buffer_free(&body);
 	if (!ok)
 		return false;
 
 	uint8_t hash[NET_SHA256_SIZE];
 	uint8_t content[200];
 	uint8_t signature[NET_ED25519_SIGNATURE_SIZE];
-	_naui_net_sha256_final(&tls->transcript, hash);
-	size_t content_size = _naui_net_tls_signed_content(tls->server, hash, content);
-	_naui_net_ed25519_sign(tls->seed, tls->public_key, content, content_size, signature);
+	naui__net_sha256_final(&tls->transcript, hash);
+	size_t content_size = naui__net_tls_signed_content(tls->server, hash, content);
+	naui__net_ed25519_sign(tls->seed, tls->public_key, content, content_size, signature);
 
-	_naui_net_write_uint(&body, NET_TLS_SIGNATURE_ED25519, 2);
-	_naui_net_write_uint(&body, sizeof(signature), 2);
-	_naui_net_buffer_append(&body, signature, sizeof(signature));
-	ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE_VERIFY, &body);
-	_naui_net_buffer_free(&body);
+	naui__net_write_uint(&body, NET_TLS_SIGNATURE_ED25519, 2);
+	naui__net_write_uint(&body, sizeof(signature), 2);
+	naui__net_buffer_append(&body, signature, sizeof(signature));
+	ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE_VERIFY, &body);
+	naui__net_buffer_free(&body);
 	return ok;
 }
 
-static bool _naui_net_tls_send_finished(NetTls* tls)
+static bool naui__net_tls_send_finished(NetTls* tls)
 {
 	uint8_t hash[NET_SHA256_SIZE];
 	uint8_t mac[NET_SHA256_SIZE];
-	_naui_net_sha256_final(&tls->transcript, hash);
-	_naui_net_tls_finished_mac(tls->server ? tls->server_handshake : tls->client_handshake, hash, mac);
+	naui__net_sha256_final(&tls->transcript, hash);
+	naui__net_tls_finished_mac(tls->server ? tls->server_handshake : tls->client_handshake, hash, mac);
 
 	NetBuffer body = { 0 };
-	_naui_net_buffer_append(&body, mac, sizeof(mac));
-	bool ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_FINISHED, &body);
-	_naui_net_buffer_free(&body);
+	naui__net_buffer_append(&body, mac, sizeof(mac));
+	bool ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_FINISHED, &body);
+	naui__net_buffer_free(&body);
 	return ok;
 }
 
-static bool _naui_net_tls_start(NetTls* tls)
+static bool naui__net_tls_start(NetTls* tls)
 {
 	uint8_t random[32];
 	uint8_t share[NET_X25519_SIZE];
-	if (!_naui_net_random_bytes(random, sizeof(random)) || !_naui_net_random_bytes(tls->ecdh_secret, sizeof(tls->ecdh_secret)))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
+	if (!naui__net_random_bytes(random, sizeof(random)) || !naui__net_random_bytes(tls->ecdh_secret, sizeof(tls->ecdh_secret)))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
 
-	_naui_net_x25519_public(share, tls->ecdh_secret);
+	naui__net_x25519_public(share, tls->ecdh_secret);
 
 	NetBuffer body = { 0 };
-	_naui_net_write_uint(&body, 0x0303, 2);
-	_naui_net_buffer_append(&body, random, sizeof(random));
-	_naui_net_write_uint(&body, 0, 1);
-	_naui_net_write_uint(&body, 2, 2);
-	_naui_net_write_uint(&body, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2);
-	_naui_net_write_uint(&body, 0x0100, 2);
+	naui__net_write_uint(&body, 0x0303, 2);
+	naui__net_buffer_append(&body, random, sizeof(random));
+	naui__net_write_uint(&body, 0, 1);
+	naui__net_write_uint(&body, 2, 2);
+	naui__net_write_uint(&body, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2);
+	naui__net_write_uint(&body, 0x0100, 2);
 
-	size_t extensions = _naui_net_write_block_begin(&body, 2);
-	_naui_net_write_extension(&body, NET_TLS_EXT_SUPPORTED_VERSIONS, (uint8_t[]){ 2, 0x03, 0x04 }, 3);
-	_naui_net_write_extension(&body, NET_TLS_EXT_SUPPORTED_GROUPS, (uint8_t[]){ 0, 2, 0x00, 0x1d }, 4);
-	_naui_net_write_extension(&body, NET_TLS_EXT_SIGNATURE_ALGORITHMS, (uint8_t[]){ 0, 2, 0x08, 0x07 }, 4);
+	size_t extensions = naui__net_write_block_begin(&body, 2);
+	naui__net_write_extension(&body, NET_TLS_EXT_SUPPORTED_VERSIONS, (uint8_t[]){ 2, 0x03, 0x04 }, 3);
+	naui__net_write_extension(&body, NET_TLS_EXT_SUPPORTED_GROUPS, (uint8_t[]){ 0, 2, 0x00, 0x1d }, 4);
+	naui__net_write_extension(&body, NET_TLS_EXT_SIGNATURE_ALGORITHMS, (uint8_t[]){ 0, 2, 0x08, 0x07 }, 4);
 
 	uint8_t key_share[38] = { 0, 36, 0x00, 0x1d, 0, 32 };
 	memcpy(key_share + 6, share, sizeof(share));
-	_naui_net_write_extension(&body, NET_TLS_EXT_KEY_SHARE, key_share, sizeof(key_share));
+	naui__net_write_extension(&body, NET_TLS_EXT_KEY_SHARE, key_share, sizeof(key_share));
 
 	uint8_t alpn[3 + sizeof(NET_TLS_ALPN) - 1] = { 0, sizeof(NET_TLS_ALPN), sizeof(NET_TLS_ALPN) - 1 };
 	memcpy(alpn + 3, NET_TLS_ALPN, sizeof(NET_TLS_ALPN) - 1);
-	_naui_net_write_extension(&body, NET_TLS_EXT_ALPN, alpn, sizeof(alpn));
-	_naui_net_write_extension(&body, NET_TLS_EXT_QUIC_PARAMS, tls->local_params, tls->local_params_size);
-	_naui_net_write_block_end(&body, extensions, 2);
+	naui__net_write_extension(&body, NET_TLS_EXT_ALPN, alpn, sizeof(alpn));
+	naui__net_write_extension(&body, NET_TLS_EXT_QUIC_PARAMS, tls->local_params, tls->local_params_size);
+	naui__net_write_block_end(&body, extensions, 2);
 
-	bool ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_INITIAL, NET_TLS_CLIENT_HELLO, &body);
-	_naui_net_buffer_free(&body);
+	bool ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_INITIAL, NET_TLS_CLIENT_HELLO, &body);
+	naui__net_buffer_free(&body);
 	return ok;
 }
 
-static bool _naui_net_tls_list_contains(NetReader list, uint32_t wanted, size_t item_bytes)
+static bool naui__net_tls_list_contains(NetReader list, uint32_t wanted, size_t item_bytes)
 {
 	while (list.ok && list.left > 0)
 	{
-		if (_naui_net_read_uint(&list, item_bytes) == wanted && list.ok)
+		if (naui__net_read_uint(&list, item_bytes) == wanted && list.ok)
 			return true;
 	}
 
 	return false;
 }
 
-static bool _naui_net_tls_alpn_matches(NetReader extension)
+static bool naui__net_tls_alpn_matches(NetReader extension)
 {
-	NetReader list = _naui_net_read_block(&extension, 2);
+	NetReader list = naui__net_read_block(&extension, 2);
 	while (list.ok && list.left > 0)
 	{
-		NetReader name = _naui_net_read_block(&list, 1);
+		NetReader name = naui__net_read_block(&list, 1);
 		if (name.ok && name.left == sizeof(NET_TLS_ALPN) - 1 && memcmp(name.p, NET_TLS_ALPN, name.left) == 0)
 			return true;
 	}
@@ -494,7 +494,7 @@ static bool _naui_net_tls_alpn_matches(NetReader extension)
 	return false;
 }
 
-static bool _naui_net_tls_store_peer_params(NetTls* tls, NetReader extension)
+static bool naui__net_tls_store_peer_params(NetTls* tls, NetReader extension)
 {
 	if (extension.left > sizeof(tls->peer_params))
 		return false;
@@ -504,19 +504,19 @@ static bool _naui_net_tls_store_peer_params(NetTls* tls, NetReader extension)
 	return true;
 }
 
-static bool _naui_net_tls_on_client_hello(NetTls* tls, NetReader body)
+static bool naui__net_tls_on_client_hello(NetTls* tls, NetReader body)
 {
-	_naui_net_read_uint(&body, 2);
-	_naui_net_read_bytes(&body, 32);
-	NetReader session = _naui_net_read_block(&body, 1);
-	NetReader suites = _naui_net_read_block(&body, 2);
-	NetReader compression = _naui_net_read_block(&body, 1);
-	NetReader extensions = _naui_net_read_block(&body, 2);
-	if (!_naui_net_reader_done(&body) || !session.ok || !suites.ok || !compression.ok || session.left > 32)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	naui__net_read_uint(&body, 2);
+	naui__net_read_bytes(&body, 32);
+	NetReader session = naui__net_read_block(&body, 1);
+	NetReader suites = naui__net_read_block(&body, 2);
+	NetReader compression = naui__net_read_block(&body, 1);
+	NetReader extensions = naui__net_read_block(&body, 2);
+	if (!naui__net_reader_done(&body) || !session.ok || !suites.ok || !compression.ok || session.left > 32)
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
-	if (!_naui_net_tls_list_contains(suites, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
+	if (!naui__net_tls_list_contains(suites, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
 
 	bool version_ok = false;
 	bool signature_ok = false;
@@ -526,26 +526,26 @@ static bool _naui_net_tls_on_client_hello(NetTls* tls, NetReader body)
 
 	while (extensions.left > 0)
 	{
-		uint32_t type = _naui_net_read_uint(&extensions, 2);
-		NetReader extension = _naui_net_read_block(&extensions, 2);
+		uint32_t type = naui__net_read_uint(&extensions, 2);
+		NetReader extension = naui__net_read_block(&extensions, 2);
 		if (!extension.ok)
-			return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+			return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 		if (type == NET_TLS_EXT_SUPPORTED_VERSIONS)
-			version_ok = _naui_net_tls_list_contains(_naui_net_read_block(&extension, 1), NET_TLS_VERSION_13, 2);
+			version_ok = naui__net_tls_list_contains(naui__net_read_block(&extension, 1), NET_TLS_VERSION_13, 2);
 		else if (type == NET_TLS_EXT_SIGNATURE_ALGORITHMS)
-			signature_ok = _naui_net_tls_list_contains(_naui_net_read_block(&extension, 2), NET_TLS_SIGNATURE_ED25519, 2);
+			signature_ok = naui__net_tls_list_contains(naui__net_read_block(&extension, 2), NET_TLS_SIGNATURE_ED25519, 2);
 		else if (type == NET_TLS_EXT_ALPN)
-			alpn_ok = _naui_net_tls_alpn_matches(extension);
+			alpn_ok = naui__net_tls_alpn_matches(extension);
 		else if (type == NET_TLS_EXT_QUIC_PARAMS)
-			params_ok = _naui_net_tls_store_peer_params(tls, extension);
+			params_ok = naui__net_tls_store_peer_params(tls, extension);
 		else if (type == NET_TLS_EXT_KEY_SHARE)
 		{
-			NetReader shares = _naui_net_read_block(&extension, 2);
+			NetReader shares = naui__net_read_block(&extension, 2);
 			while (shares.ok && shares.left > 0)
 			{
-				uint32_t group = _naui_net_read_uint(&shares, 2);
-				NetReader share = _naui_net_read_block(&shares, 2);
+				uint32_t group = naui__net_read_uint(&shares, 2);
+				NetReader share = naui__net_read_block(&shares, 2);
 				if (share.ok && group == NET_TLS_GROUP_X25519 && share.left == NET_X25519_SIZE)
 					peer_share = share.p;
 			}
@@ -553,168 +553,168 @@ static bool _naui_net_tls_on_client_hello(NetTls* tls, NetReader body)
 	}
 
 	if (!version_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_PROTOCOL_VERSION);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_PROTOCOL_VERSION);
 
 	if (!alpn_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_NO_APPLICATION_PROTOCOL);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_NO_APPLICATION_PROTOCOL);
 
 	if (!params_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_MISSING_EXTENSION);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_MISSING_EXTENSION);
 
 	if (!signature_ok || !peer_share)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
 
 	uint8_t random[32];
 	uint8_t share[NET_X25519_SIZE];
-	if (!_naui_net_random_bytes(random, sizeof(random)) || !_naui_net_random_bytes(tls->ecdh_secret, sizeof(tls->ecdh_secret)))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
+	if (!naui__net_random_bytes(random, sizeof(random)) || !naui__net_random_bytes(tls->ecdh_secret, sizeof(tls->ecdh_secret)))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_INTERNAL_ERROR);
 
-	_naui_net_x25519_public(share, tls->ecdh_secret);
+	naui__net_x25519_public(share, tls->ecdh_secret);
 
 	NetBuffer out = { 0 };
-	_naui_net_write_uint(&out, 0x0303, 2);
-	_naui_net_buffer_append(&out, random, sizeof(random));
-	_naui_net_write_uint(&out, (uint32_t)session.left, 1);
-	_naui_net_buffer_append(&out, session.p, session.left);
-	_naui_net_write_uint(&out, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2);
-	_naui_net_write_uint(&out, 0, 1);
+	naui__net_write_uint(&out, 0x0303, 2);
+	naui__net_buffer_append(&out, random, sizeof(random));
+	naui__net_write_uint(&out, (uint32_t)session.left, 1);
+	naui__net_buffer_append(&out, session.p, session.left);
+	naui__net_write_uint(&out, NET_TLS_SUITE_CHACHA20_POLY1305_SHA256, 2);
+	naui__net_write_uint(&out, 0, 1);
 
-	size_t block = _naui_net_write_block_begin(&out, 2);
-	_naui_net_write_extension(&out, NET_TLS_EXT_SUPPORTED_VERSIONS, (uint8_t[]){ 0x03, 0x04 }, 2);
+	size_t block = naui__net_write_block_begin(&out, 2);
+	naui__net_write_extension(&out, NET_TLS_EXT_SUPPORTED_VERSIONS, (uint8_t[]){ 0x03, 0x04 }, 2);
 	uint8_t key_share[36] = { 0x00, 0x1d, 0, 32 };
 	memcpy(key_share + 4, share, sizeof(share));
-	_naui_net_write_extension(&out, NET_TLS_EXT_KEY_SHARE, key_share, sizeof(key_share));
-	_naui_net_write_block_end(&out, block, 2);
+	naui__net_write_extension(&out, NET_TLS_EXT_KEY_SHARE, key_share, sizeof(key_share));
+	naui__net_write_block_end(&out, block, 2);
 
-	bool ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_INITIAL, NET_TLS_SERVER_HELLO, &out);
-	_naui_net_buffer_free(&out);
-	if (!ok || !_naui_net_tls_derive_handshake_keys(tls, peer_share))
+	bool ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_INITIAL, NET_TLS_SERVER_HELLO, &out);
+	naui__net_buffer_free(&out);
+	if (!ok || !naui__net_tls_derive_handshake_keys(tls, peer_share))
 		return false;
 
-	block = _naui_net_write_block_begin(&out, 2);
+	block = naui__net_write_block_begin(&out, 2);
 	uint8_t alpn[3 + sizeof(NET_TLS_ALPN) - 1] = { 0, sizeof(NET_TLS_ALPN), sizeof(NET_TLS_ALPN) - 1 };
 	memcpy(alpn + 3, NET_TLS_ALPN, sizeof(NET_TLS_ALPN) - 1);
-	_naui_net_write_extension(&out, NET_TLS_EXT_ALPN, alpn, sizeof(alpn));
-	_naui_net_write_extension(&out, NET_TLS_EXT_QUIC_PARAMS, tls->local_params, tls->local_params_size);
-	_naui_net_write_block_end(&out, block, 2);
-	ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_ENCRYPTED_EXTENSIONS, &out);
-	_naui_net_buffer_free(&out);
+	naui__net_write_extension(&out, NET_TLS_EXT_ALPN, alpn, sizeof(alpn));
+	naui__net_write_extension(&out, NET_TLS_EXT_QUIC_PARAMS, tls->local_params, tls->local_params_size);
+	naui__net_write_block_end(&out, block, 2);
+	ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_ENCRYPTED_EXTENSIONS, &out);
+	naui__net_buffer_free(&out);
 	if (!ok)
 		return false;
 
-	_naui_net_write_uint(&out, 0, 1);
-	block = _naui_net_write_block_begin(&out, 2);
-	_naui_net_write_extension(&out, NET_TLS_EXT_SIGNATURE_ALGORITHMS, (uint8_t[]){ 0, 2, 0x08, 0x07 }, 4);
-	_naui_net_write_block_end(&out, block, 2);
-	ok = _naui_net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE_REQUEST, &out);
-	_naui_net_buffer_free(&out);
-	if (!ok || !_naui_net_tls_send_certificate(tls) || !_naui_net_tls_send_finished(tls))
+	naui__net_write_uint(&out, 0, 1);
+	block = naui__net_write_block_begin(&out, 2);
+	naui__net_write_extension(&out, NET_TLS_EXT_SIGNATURE_ALGORITHMS, (uint8_t[]){ 0, 2, 0x08, 0x07 }, 4);
+	naui__net_write_block_end(&out, block, 2);
+	ok = naui__net_tls_emit(tls, NET_TLS_LEVEL_HANDSHAKE, NET_TLS_CERTIFICATE_REQUEST, &out);
+	naui__net_buffer_free(&out);
+	if (!ok || !naui__net_tls_send_certificate(tls) || !naui__net_tls_send_finished(tls))
 		return false;
 
-	_naui_net_tls_derive_application_keys(tls);
+	naui__net_tls_derive_application_keys(tls);
 	tls->state = NET_TLS_WAIT_CERTIFICATE;
 	return true;
 }
 
-static bool _naui_net_tls_on_server_hello(NetTls* tls, NetReader body)
+static bool naui__net_tls_on_server_hello(NetTls* tls, NetReader body)
 {
-	uint32_t version = _naui_net_read_uint(&body, 2);
-	_naui_net_read_bytes(&body, 32);
-	NetReader session = _naui_net_read_block(&body, 1);
-	uint32_t suite = _naui_net_read_uint(&body, 2);
-	uint32_t compression = _naui_net_read_uint(&body, 1);
-	NetReader extensions = _naui_net_read_block(&body, 2);
-	if (!_naui_net_reader_done(&body) || !session.ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	uint32_t version = naui__net_read_uint(&body, 2);
+	naui__net_read_bytes(&body, 32);
+	NetReader session = naui__net_read_block(&body, 1);
+	uint32_t suite = naui__net_read_uint(&body, 2);
+	uint32_t compression = naui__net_read_uint(&body, 1);
+	NetReader extensions = naui__net_read_block(&body, 2);
+	if (!naui__net_reader_done(&body) || !session.ok)
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 	if (version != 0x0303 || session.left != 0 || suite != NET_TLS_SUITE_CHACHA20_POLY1305_SHA256 || compression != 0)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
 
 	bool version_ok = false;
 	const uint8_t* peer_share = NULL;
 	while (extensions.left > 0)
 	{
-		uint32_t type = _naui_net_read_uint(&extensions, 2);
-		NetReader extension = _naui_net_read_block(&extensions, 2);
+		uint32_t type = naui__net_read_uint(&extensions, 2);
+		NetReader extension = naui__net_read_block(&extensions, 2);
 		if (!extension.ok)
-			return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+			return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 		if (type == NET_TLS_EXT_SUPPORTED_VERSIONS)
-			version_ok = _naui_net_read_uint(&extension, 2) == NET_TLS_VERSION_13 && _naui_net_reader_done(&extension);
+			version_ok = naui__net_read_uint(&extension, 2) == NET_TLS_VERSION_13 && naui__net_reader_done(&extension);
 		else if (type == NET_TLS_EXT_KEY_SHARE)
 		{
-			uint32_t group = _naui_net_read_uint(&extension, 2);
-			NetReader share = _naui_net_read_block(&extension, 2);
-			if (_naui_net_reader_done(&extension) && share.ok && group == NET_TLS_GROUP_X25519 && share.left == NET_X25519_SIZE)
+			uint32_t group = naui__net_read_uint(&extension, 2);
+			NetReader share = naui__net_read_block(&extension, 2);
+			if (naui__net_reader_done(&extension) && share.ok && group == NET_TLS_GROUP_X25519 && share.left == NET_X25519_SIZE)
 				peer_share = share.p;
 		}
 	}
 
 	if (!version_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_PROTOCOL_VERSION);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_PROTOCOL_VERSION);
 
 	if (!peer_share)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
 
-	if (!_naui_net_tls_derive_handshake_keys(tls, peer_share))
+	if (!naui__net_tls_derive_handshake_keys(tls, peer_share))
 		return false;
 
 	tls->state = NET_TLS_WAIT_ENCRYPTED_EXTENSIONS;
 	return true;
 }
 
-static bool _naui_net_tls_on_encrypted_extensions(NetTls* tls, NetReader body)
+static bool naui__net_tls_on_encrypted_extensions(NetTls* tls, NetReader body)
 {
-	NetReader extensions = _naui_net_read_block(&body, 2);
-	if (!_naui_net_reader_done(&body))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	NetReader extensions = naui__net_read_block(&body, 2);
+	if (!naui__net_reader_done(&body))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 	bool alpn_ok = false;
 	bool params_ok = false;
 	while (extensions.left > 0)
 	{
-		uint32_t type = _naui_net_read_uint(&extensions, 2);
-		NetReader extension = _naui_net_read_block(&extensions, 2);
+		uint32_t type = naui__net_read_uint(&extensions, 2);
+		NetReader extension = naui__net_read_block(&extensions, 2);
 		if (!extension.ok)
-			return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+			return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 		if (type == NET_TLS_EXT_ALPN)
-			alpn_ok = _naui_net_tls_alpn_matches(extension);
+			alpn_ok = naui__net_tls_alpn_matches(extension);
 		else if (type == NET_TLS_EXT_QUIC_PARAMS)
-			params_ok = _naui_net_tls_store_peer_params(tls, extension);
+			params_ok = naui__net_tls_store_peer_params(tls, extension);
 	}
 
 	if (!alpn_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_NO_APPLICATION_PROTOCOL);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_NO_APPLICATION_PROTOCOL);
 
 	if (!params_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_MISSING_EXTENSION);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_MISSING_EXTENSION);
 
 	tls->state = NET_TLS_WAIT_CERTIFICATE;
 	return true;
 }
 
-static bool _naui_net_tls_on_certificate_request(NetTls* tls, NetReader body)
+static bool naui__net_tls_on_certificate_request(NetTls* tls, NetReader body)
 {
-	NetReader context = _naui_net_read_block(&body, 1);
-	NetReader extensions = _naui_net_read_block(&body, 2);
-	if (!_naui_net_reader_done(&body) || !context.ok || tls->certificate_requested)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	NetReader context = naui__net_read_block(&body, 1);
+	NetReader extensions = naui__net_read_block(&body, 2);
+	if (!naui__net_reader_done(&body) || !context.ok || tls->certificate_requested)
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 	bool signature_ok = false;
 	while (extensions.left > 0)
 	{
-		uint32_t type = _naui_net_read_uint(&extensions, 2);
-		NetReader extension = _naui_net_read_block(&extensions, 2);
+		uint32_t type = naui__net_read_uint(&extensions, 2);
+		NetReader extension = naui__net_read_block(&extensions, 2);
 		if (!extension.ok)
-			return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+			return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 		if (type == NET_TLS_EXT_SIGNATURE_ALGORITHMS)
-			signature_ok = _naui_net_tls_list_contains(_naui_net_read_block(&extension, 2), NET_TLS_SIGNATURE_ED25519, 2);
+			signature_ok = naui__net_tls_list_contains(naui__net_read_block(&extension, 2), NET_TLS_SIGNATURE_ED25519, 2);
 	}
 
 	if (!signature_ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_HANDSHAKE_FAILURE);
 
 	memcpy(tls->request_context, context.p, context.left);
 	tls->request_context_size = context.left;
@@ -722,57 +722,57 @@ static bool _naui_net_tls_on_certificate_request(NetTls* tls, NetReader body)
 	return true;
 }
 
-static bool _naui_net_tls_on_certificate(NetTls* tls, NetReader body)
+static bool naui__net_tls_on_certificate(NetTls* tls, NetReader body)
 {
-	NetReader context = _naui_net_read_block(&body, 1);
-	NetReader list = _naui_net_read_block(&body, 3);
-	if (!_naui_net_reader_done(&body) || !context.ok || context.left != 0)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	NetReader context = naui__net_read_block(&body, 1);
+	NetReader list = naui__net_read_block(&body, 3);
+	if (!naui__net_reader_done(&body) || !context.ok || context.left != 0)
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 	if (list.left == 0)
-		return _naui_net_tls_fail(tls, tls->server ? NET_TLS_ALERT_CERTIFICATE_REQUIRED : NET_TLS_ALERT_DECODE_ERROR);
+		return naui__net_tls_fail(tls, tls->server ? NET_TLS_ALERT_CERTIFICATE_REQUIRED : NET_TLS_ALERT_DECODE_ERROR);
 
-	NetReader certificate = _naui_net_read_block(&list, 3);
-	if (!certificate.ok || !_naui_net_tls_certificate_key(certificate.p, certificate.left, tls->peer_key))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_BAD_CERTIFICATE);
+	NetReader certificate = naui__net_read_block(&list, 3);
+	if (!certificate.ok || !naui__net_tls_certificate_key(certificate.p, certificate.left, tls->peer_key))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_BAD_CERTIFICATE);
 
 	tls->state = NET_TLS_WAIT_CERTIFICATE_VERIFY;
 	return true;
 }
 
-static bool _naui_net_tls_on_certificate_verify(NetTls* tls, NetReader body, const uint8_t hash[NET_SHA256_SIZE])
+static bool naui__net_tls_on_certificate_verify(NetTls* tls, NetReader body, const uint8_t hash[NET_SHA256_SIZE])
 {
-	uint32_t algorithm = _naui_net_read_uint(&body, 2);
-	NetReader signature = _naui_net_read_block(&body, 2);
-	if (!_naui_net_reader_done(&body) || !signature.ok)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
+	uint32_t algorithm = naui__net_read_uint(&body, 2);
+	NetReader signature = naui__net_read_block(&body, 2);
+	if (!naui__net_reader_done(&body) || !signature.ok)
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECODE_ERROR);
 
 	if (algorithm != NET_TLS_SIGNATURE_ED25519 || signature.left != NET_ED25519_SIGNATURE_SIZE)
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_ILLEGAL_PARAMETER);
 
 	uint8_t content[200];
-	size_t content_size = _naui_net_tls_signed_content(!tls->server, hash, content);
-	if (!_naui_net_ed25519_verify(tls->peer_key, content, content_size, signature.p))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECRYPT_ERROR);
+	size_t content_size = naui__net_tls_signed_content(!tls->server, hash, content);
+	if (!naui__net_ed25519_verify(tls->peer_key, content, content_size, signature.p))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECRYPT_ERROR);
 
 	tls->state = NET_TLS_WAIT_FINISHED;
 	return true;
 }
 
-static bool _naui_net_tls_on_finished(NetTls* tls, NetReader body, const uint8_t hash[NET_SHA256_SIZE])
+static bool naui__net_tls_on_finished(NetTls* tls, NetReader body, const uint8_t hash[NET_SHA256_SIZE])
 {
 	uint8_t mac[NET_SHA256_SIZE];
-	_naui_net_tls_finished_mac(tls->server ? tls->client_handshake : tls->server_handshake, hash, mac);
-	if (body.left != sizeof(mac) || !_naui_net_ct_equal(body.p, mac, sizeof(mac)))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_DECRYPT_ERROR);
+	naui__net_tls_finished_mac(tls->server ? tls->client_handshake : tls->server_handshake, hash, mac);
+	if (body.left != sizeof(mac) || !naui__net_ct_equal(body.p, mac, sizeof(mac)))
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_DECRYPT_ERROR);
 
 	if (!tls->server)
 	{
-		_naui_net_tls_derive_application_keys(tls);
-		if (tls->certificate_requested && !_naui_net_tls_send_certificate(tls))
+		naui__net_tls_derive_application_keys(tls);
+		if (tls->certificate_requested && !naui__net_tls_send_certificate(tls))
 			return false;
 
-		if (!_naui_net_tls_send_finished(tls))
+		if (!naui__net_tls_send_finished(tls))
 			return false;
 	}
 
@@ -781,47 +781,47 @@ static bool _naui_net_tls_on_finished(NetTls* tls, NetReader body, const uint8_t
 	return true;
 }
 
-static bool _naui_net_tls_receive(NetTls* tls, NetTlsLevel level, const uint8_t* message, size_t size)
+static bool naui__net_tls_receive(NetTls* tls, NetTlsLevel level, const uint8_t* message, size_t size)
 {
 	uint8_t type = message[0];
-	NetReader body = _naui_net_reader(message + 4, size - 4);
+	NetReader body = naui__net_reader(message + 4, size - 4);
 
 	if (tls->state == NET_TLS_DONE)
 	{
 		if (level == NET_TLS_LEVEL_APPLICATION && !tls->server && type == NET_TLS_NEW_SESSION_TICKET)
 			return true;
 
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
 	}
 
 	bool initial = tls->state == NET_TLS_WAIT_CLIENT_HELLO || tls->state == NET_TLS_WAIT_SERVER_HELLO;
 	if (level != (initial ? NET_TLS_LEVEL_INITIAL : NET_TLS_LEVEL_HANDSHAKE))
-		return _naui_net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
+		return naui__net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
 
 	uint8_t hash[NET_SHA256_SIZE];
-	_naui_net_sha256_final(&tls->transcript, hash);
-	_naui_net_sha256_update(&tls->transcript, message, size);
+	naui__net_sha256_final(&tls->transcript, hash);
+	naui__net_sha256_update(&tls->transcript, message, size);
 
 	if (tls->state == NET_TLS_WAIT_CLIENT_HELLO && type == NET_TLS_CLIENT_HELLO)
-		return _naui_net_tls_on_client_hello(tls, body);
+		return naui__net_tls_on_client_hello(tls, body);
 
 	if (tls->state == NET_TLS_WAIT_SERVER_HELLO && type == NET_TLS_SERVER_HELLO)
-		return _naui_net_tls_on_server_hello(tls, body);
+		return naui__net_tls_on_server_hello(tls, body);
 
 	if (tls->state == NET_TLS_WAIT_ENCRYPTED_EXTENSIONS && type == NET_TLS_ENCRYPTED_EXTENSIONS)
-		return _naui_net_tls_on_encrypted_extensions(tls, body);
+		return naui__net_tls_on_encrypted_extensions(tls, body);
 
 	if (tls->state == NET_TLS_WAIT_CERTIFICATE && type == NET_TLS_CERTIFICATE_REQUEST && !tls->server)
-		return _naui_net_tls_on_certificate_request(tls, body);
+		return naui__net_tls_on_certificate_request(tls, body);
 
 	if (tls->state == NET_TLS_WAIT_CERTIFICATE && type == NET_TLS_CERTIFICATE)
-		return _naui_net_tls_on_certificate(tls, body);
+		return naui__net_tls_on_certificate(tls, body);
 
 	if (tls->state == NET_TLS_WAIT_CERTIFICATE_VERIFY && type == NET_TLS_CERTIFICATE_VERIFY)
-		return _naui_net_tls_on_certificate_verify(tls, body, hash);
+		return naui__net_tls_on_certificate_verify(tls, body, hash);
 
 	if (tls->state == NET_TLS_WAIT_FINISHED && type == NET_TLS_FINISHED)
-		return _naui_net_tls_on_finished(tls, body, hash);
+		return naui__net_tls_on_finished(tls, body, hash);
 
-	return _naui_net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
+	return naui__net_tls_fail(tls, NET_TLS_ALERT_UNEXPECTED_MESSAGE);
 }

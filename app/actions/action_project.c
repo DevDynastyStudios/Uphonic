@@ -3,14 +3,14 @@ typedef struct
 
 } Uph_ActionProjectSettings;
 
-bool _uph_action_project_create_execute(void* userdata)
+bool uph__action_project_create_execute(void* userdata)
 {
 	//Uph_ActionPatternCreate* data = userdata;
 	
 	return true;
 }
 
-bool _uph_action_project_create_undo(void* userdata)
+bool uph__action_project_create_undo(void* userdata)
 {
 	//Uph_ActionPatternCreate* data = userdata;
 	//if (!data->resource_exists)
@@ -21,7 +21,7 @@ bool _uph_action_project_create_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_project_create_redo(void* userdata)
+bool uph__action_project_create_redo(void* userdata)
 {
-	return _uph_action_pattern_create_execute(userdata);
+	return uph__action_pattern_create_execute(userdata);
 }

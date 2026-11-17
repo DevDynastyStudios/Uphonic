@@ -1,9 +1,9 @@
 #define NET_MAX_IO_CHUNK ((size_t)1 << 30)
 #define NET_POLL_STACK_ITEMS 64
 
-static int _naui_net_sockets_refcount = 0;
+static int naui__net_sockets_refcount = 0;
 
-static bool _naui_net_to_sockaddr(const Naui_Address* address, Naui_AddressFamily socket_family, struct sockaddr_storage* storage, net_socklen* out_len)
+static bool naui__net_to_sockaddr(const Naui_Address* address, Naui_AddressFamily socket_family, struct sockaddr_storage* storage, net_socklen* out_len)
 {
 	memset(storage, 0, sizeof(*storage));
 
@@ -48,7 +48,7 @@ static bool _naui_net_to_sockaddr(const Naui_Address* address, Naui_AddressFamil
 	return true;
 }
 
-static bool _naui_net_from_sockaddr(const struct sockaddr* sa, Naui_Address* out)
+static bool naui__net_from_sockaddr(const struct sockaddr* sa, Naui_Address* out)
 {
 	memset(out, 0, sizeof(*out));
 
@@ -75,34 +75,34 @@ static bool _naui_net_from_sockaddr(const struct sockaddr* sa, Naui_Address* out
 	return false;
 }
 
-static net_native _naui_net_native_of(const Naui_Socket* sock)
+static net_native naui__net_native_of(const Naui_Socket* sock)
 {
 	return (net_native)sock->handle;
 }
 
-static void _naui_net_refresh_local_address(Naui_Socket* sock)
+static void naui__net_refresh_local_address(Naui_Socket* sock)
 {
 	struct sockaddr_storage storage;
 	net_socklen len = (net_socklen)sizeof(storage);
 
-	if (getsockname(_naui_net_native_of(sock), (struct sockaddr*)&storage, &len) == 0)
-		_naui_net_from_sockaddr((const struct sockaddr*)&storage, &sock->address);
+	if (getsockname(naui__net_native_of(sock), (struct sockaddr*)&storage, &len) == 0)
+		naui__net_from_sockaddr((const struct sockaddr*)&storage, &sock->address);
 }
 
-static void _naui_net_apply_options(net_native handle, Naui_SocketType type)
+static void naui__net_apply_options(net_native handle, Naui_SocketType type)
 {
 	if (type == NAUI_SOCKET_TCP)
 	{
 		int on = 1;
 		setsockopt(handle, IPPROTO_TCP, TCP_NODELAY, (const char*)&on, sizeof(on));
-		_naui_net_native_tcp_fixups(handle);
+		naui__net_native_tcp_fixups(handle);
 		return;
 	}
 
-	_naui_net_native_udp_fixups(handle);
+	naui__net_native_udp_fixups(handle);
 }
 
-static bool _naui_net_parse_port(const char* text, uint16_t* out)
+static bool naui__net_parse_port(const char* text, uint16_t* out)
 {
 	if (!text || !*text)
 		return false;
@@ -202,7 +202,7 @@ bool naui_address_parse(Naui_Address* out, const char* text)
 	Naui_Address address;
 	memset(&address, 0, sizeof(address));
 
-	if (port_text && !_naui_net_parse_port(port_text, &address.port))
+	if (port_text && !naui__net_parse_port(port_text, &address.port))
 		return false;
 
 	char* percent = strchr(host, '%');
@@ -263,7 +263,7 @@ bool naui_address_resolve(Naui_Address* out, const char* host, uint16_t port)
 	for (struct addrinfo* it = results; it && !found; it = it->ai_next)
 	{
 		Naui_Address address;
-		if (_naui_net_from_sockaddr(it->ai_addr, &address))
+		if (naui__net_from_sockaddr(it->ai_addr, &address))
 		{
 			address.port = port;
 			*out = address;
@@ -337,21 +337,21 @@ void naui_address_normalize(Naui_Address* address)
 
 bool naui_sockets_init(void)
 {
-	if (_naui_net_sockets_refcount == 0 && !_naui_net_platform_init())
+	if (naui__net_sockets_refcount == 0 && !naui__net_platform_init())
 		return false;
 
-	_naui_net_sockets_refcount++;
+	naui__net_sockets_refcount++;
 	return true;
 }
 
 void naui_sockets_shutdown(void)
 {
-	if (_naui_net_sockets_refcount <= 0)
+	if (naui__net_sockets_refcount <= 0)
 		return;
 
-	_naui_net_sockets_refcount--;
-	if (_naui_net_sockets_refcount == 0)
-		_naui_net_platform_shutdown();
+	naui__net_sockets_refcount--;
+	if (naui__net_sockets_refcount == 0)
+		naui__net_platform_shutdown();
 }
 
 bool naui_socket_is_valid(const Naui_Socket* sock)
@@ -375,9 +375,9 @@ bool naui_socket_open(Naui_Socket* sock, Naui_SocketType type, Naui_AddressFamil
 	if (handle == NET_NATIVE_INVALID)
 		return false;
 
-	if (!_naui_net_native_set_nonblocking(handle))
+	if (!naui__net_native_set_nonblocking(handle))
 	{
-		_naui_net_native_close(handle);
+		naui__net_native_close(handle);
 		return false;
 	}
 
@@ -387,7 +387,7 @@ bool naui_socket_open(Naui_Socket* sock, Naui_SocketType type, Naui_AddressFamil
 		setsockopt(handle, IPPROTO_IPV6, IPV6_V6ONLY, (const char*)&v6_only, sizeof(v6_only));
 	}
 
-	_naui_net_apply_options(handle, type);
+	naui__net_apply_options(handle, type);
 	sock->handle = (intptr_t)handle;
 	sock->type = type;
 	sock->family = family;
@@ -399,7 +399,7 @@ void naui_socket_close(Naui_Socket* sock)
 	if (!naui_socket_is_valid(sock))
 		return;
 
-	_naui_net_native_close(_naui_net_native_of(sock));
+	naui__net_native_close(naui__net_native_of(sock));
 	*sock = NAUI_SOCKET_NULL;
 }
 
@@ -411,17 +411,17 @@ bool naui_socket_bind(Naui_Socket* sock, const Naui_Address* address, bool reuse
 	if (!address)
 		return false;
 
-	_naui_net_native_apply_reuse(_naui_net_native_of(sock), reuse);
+	naui__net_native_apply_reuse(naui__net_native_of(sock), reuse);
 	struct sockaddr_storage storage;
 	net_socklen len = 0;
 
-	if (!_naui_net_to_sockaddr(address, sock->family, &storage, &len))
+	if (!naui__net_to_sockaddr(address, sock->family, &storage, &len))
 		return false;
 
-	if (bind(_naui_net_native_of(sock), (struct sockaddr*)&storage, len) != 0)
+	if (bind(naui__net_native_of(sock), (struct sockaddr*)&storage, len) != 0)
 		return false;
 
-	_naui_net_refresh_local_address(sock);
+	naui__net_refresh_local_address(sock);
 	return true;
 }
 
@@ -433,7 +433,7 @@ bool naui_socket_listen(Naui_Socket* sock, int32_t backlog)
 	if (sock->type != NAUI_SOCKET_TCP)
 		return false;
 
-	if (listen(_naui_net_native_of(sock), backlog > 0 ? backlog : 16) != 0)
+	if (listen(naui__net_native_of(sock), backlog > 0 ? backlog : 16) != 0)
 		return false;
 
 	sock->flags |= NAUI_SOCKET_FLAG_LISTENING;
@@ -450,7 +450,7 @@ Naui_NetResult naui_socket_accept(Naui_Socket* listener, Naui_Socket* out_client
 
 	struct sockaddr_storage storage;
 	net_socklen len = (net_socklen)sizeof(storage);
-	net_native handle = accept(_naui_net_native_of(listener), (struct sockaddr*)&storage, &len);
+	net_native handle = accept(naui__net_native_of(listener), (struct sockaddr*)&storage, &len);
 
 	if (handle == NET_NATIVE_INVALID)
 	{
@@ -461,26 +461,26 @@ Naui_NetResult naui_socket_accept(Naui_Socket* listener, Naui_Socket* out_client
 		if (NET_ERR_INTERRUPTED(error))
 			return NAUI_NET_WOULD_BLOCK;
 
-		if (_naui_net_native_is_transient_accept_error(error))
+		if (naui__net_native_is_transient_accept_error(error))
 			return NAUI_NET_WOULD_BLOCK;
 
 		return NAUI_NET_ERROR;
 	}
 
-	if (!_naui_net_native_set_nonblocking(handle))
+	if (!naui__net_native_set_nonblocking(handle))
 	{
-		_naui_net_native_close(handle);
+		naui__net_native_close(handle);
 		return NAUI_NET_ERROR;
 	}
 
-	_naui_net_apply_options(handle, NAUI_SOCKET_TCP);
+	naui__net_apply_options(handle, NAUI_SOCKET_TCP);
 	*out_client = NAUI_SOCKET_NULL;
 	out_client->handle = (intptr_t)handle;
 	out_client->type = NAUI_SOCKET_TCP;
 	out_client->family = listener->family;
-	_naui_net_refresh_local_address(out_client);
+	naui__net_refresh_local_address(out_client);
 
-	if (out_peer && !_naui_net_from_sockaddr((const struct sockaddr*)&storage, out_peer))
+	if (out_peer && !naui__net_from_sockaddr((const struct sockaddr*)&storage, out_peer))
 		memset(out_peer, 0, sizeof(*out_peer));
 
 	return NAUI_NET_OK;
@@ -497,12 +497,12 @@ Naui_NetResult naui_socket_connect(Naui_Socket* sock, const Naui_Address* addres
 	struct sockaddr_storage storage;
 	net_socklen len = 0;
 
-	if (!_naui_net_to_sockaddr(address, sock->family, &storage, &len))
+	if (!naui__net_to_sockaddr(address, sock->family, &storage, &len))
 		return NAUI_NET_ERROR;
 
-	if (connect(_naui_net_native_of(sock), (struct sockaddr*)&storage, len) == 0)
+	if (connect(naui__net_native_of(sock), (struct sockaddr*)&storage, len) == 0)
 	{
-		_naui_net_refresh_local_address(sock);
+		naui__net_refresh_local_address(sock);
 		return NAUI_NET_OK;
 	}
 
@@ -516,13 +516,13 @@ Naui_NetResult naui_socket_connect_finish(Naui_Socket* sock)
 
 	int error = 0;
 	net_socklen len = (net_socklen)sizeof(error);
-	if (getsockopt(_naui_net_native_of(sock), SOL_SOCKET, SO_ERROR, (char*)&error, &len) != 0)
+	if (getsockopt(naui__net_native_of(sock), SOL_SOCKET, SO_ERROR, (char*)&error, &len) != 0)
 		return NAUI_NET_ERROR;
 
 	if (error != 0)
 		return NAUI_NET_ERROR;
 
-	_naui_net_refresh_local_address(sock);
+	naui__net_refresh_local_address(sock);
 	return NAUI_NET_OK;
 }
 
@@ -542,7 +542,7 @@ Naui_NetResult naui_socket_send(Naui_Socket* sock, const void* data, size_t size
 
 	while (true)
 	{
-		long count = (long)send(_naui_net_native_of(sock), (const char*)data, (int)size, NET_SEND_FLAGS);
+		long count = (long)send(naui__net_native_of(sock), (const char*)data, (int)size, NET_SEND_FLAGS);
 		if (count >= 0)
 		{
 			if (out_count)
@@ -581,7 +581,7 @@ Naui_NetResult naui_socket_recv(Naui_Socket* sock, void* buffer, size_t size, si
 
 	while (true)
 	{
-		long count = (long)recv(_naui_net_native_of(sock), (char*)buffer, (int)size, 0);
+		long count = (long)recv(naui__net_native_of(sock), (char*)buffer, (int)size, 0);
 		if (count > 0)
 		{
 			if (out_count)
@@ -615,7 +615,7 @@ Naui_NetResult naui_socket_sendto(Naui_Socket* sock, const void* data, size_t si
 	struct sockaddr_storage storage;
 	net_socklen len = 0;
 
-	if (!_naui_net_to_sockaddr(to, sock->family, &storage, &len))
+	if (!naui__net_to_sockaddr(to, sock->family, &storage, &len))
 		return NAUI_NET_ERROR;
 
 	if (size > NET_MAX_IO_CHUNK)
@@ -623,7 +623,7 @@ Naui_NetResult naui_socket_sendto(Naui_Socket* sock, const void* data, size_t si
 
 	while (true)
 	{
-		long count = (long)sendto(_naui_net_native_of(sock), (const char*)data, (int)size, NET_SEND_FLAGS, (struct sockaddr*)&storage, len);
+		long count = (long)sendto(naui__net_native_of(sock), (const char*)data, (int)size, NET_SEND_FLAGS, (struct sockaddr*)&storage, len);
 		if (count >= 0)
 		{
 			if (out_count)
@@ -658,14 +658,14 @@ Naui_NetResult naui_socket_recvfrom(Naui_Socket* sock, void* buffer, size_t size
 	{
 		struct sockaddr_storage storage;
 		net_socklen len = (net_socklen)sizeof(storage);
-		long count = (long)recvfrom(_naui_net_native_of(sock), (char*)buffer, (int)size, 0, (struct sockaddr*)&storage, &len);
+		long count = (long)recvfrom(naui__net_native_of(sock), (char*)buffer, (int)size, 0, (struct sockaddr*)&storage, &len);
 
 		if (count >= 0)
 		{
 			if (out_count)
 				*out_count = (size_t)count;
 
-			if (out_from && !_naui_net_from_sockaddr((const struct sockaddr*)&storage, out_from))
+			if (out_from && !naui__net_from_sockaddr((const struct sockaddr*)&storage, out_from))
 				memset(out_from, 0, sizeof(*out_from));
 
 			return NAUI_NET_OK;
@@ -722,7 +722,7 @@ int32_t naui_socket_poll(Naui_PollItem* items, size_t count, int32_t timeout_ms)
 			continue;
 
 		memset(&fds[used], 0, sizeof(fds[used]));
-		fds[used].fd = _naui_net_native_of(items[i].sock);
+		fds[used].fd = naui__net_native_of(items[i].sock);
 
 		if (items[i].want & NAUI_POLL_READ)
 			fds[used].events |= POLLIN;

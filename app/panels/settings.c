@@ -120,7 +120,7 @@ typedef struct
 }
 Uph_SettingsState;
 
-static Uph_SettingsState _uph_settings_state;
+static Uph_SettingsState uph__settings_state;
 
 static const uint32_t uph_settings_sample_rates[] = { 44100, 48000, 88200, 96000, 176400, 192000 };
 static const char *const uph_settings_sample_rate_labels[] = { "44.1 kHz", "48 kHz", "88.2 kHz", "96 kHz", "176.4 kHz", "192 kHz" };
@@ -610,7 +610,7 @@ static const cmidi_device_t *uph_settings_find_midi_device(const Uph_SettingsMid
 // Opens the ports named in the settings. A non connected device is skipped and its name stays saved.
 void uph_settings_open_midi_ports(const bool use_first_device)
 {
-	Uph_SettingsState *state = &_uph_settings_state;
+	Uph_SettingsState *state = &uph__settings_state;
 	Uph_MIDISettings *midi = &uph_state.settings.midi;
 
 	uph_settings_refresh_midi_devices(state);
@@ -1492,12 +1492,12 @@ static bool uph_settings_row_button(const char *text, const Leaf_ID id, const bo
 	if (enabled)
 		return uph_ui_text_button(text, id);
 
-	const float frame_height = _uph_ui_frame_height();
+	const float frame_height = uph__ui_frame_height();
 	leaf({
 		.id = id,
 		.size = { .width = LEAF_SIZE_FIT_MIN(frame_height), .height = UPH_UI_SIZE_EXACT(frame_height) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_UI_FRAME_PADDING.x), 0),
-		.border = _uph_ui_frame_border(),
+		.border = uph__ui_frame_border(),
 		.color = uph_state.colors.ui_frame_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 		.transparency = 0.6f,
@@ -1518,9 +1518,9 @@ static void uph_settings_keycap(const char *name)
 {
 	const float inset = NAUI_DPI(UPH_SETTINGS_KEYCAP_INSET);
 	leaf({
-		.size = { .width = LEAF_SIZE_FIT, .height = UPH_UI_SIZE_EXACT(_uph_ui_frame_height() - inset * 2.0f) },
+		.size = { .width = LEAF_SIZE_FIT, .height = UPH_UI_SIZE_EXACT(uph__ui_frame_height() - inset * 2.0f) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SETTINGS_KEYCAP_PADDING), 0),
-		.border = _uph_ui_frame_border(),
+		.border = uph__ui_frame_border(),
 		.color = uph_state.colors.ui_well_bg,
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING) * 0.75f, NAUI_CORNER_ALL)
@@ -1557,12 +1557,12 @@ static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool ca
 	else if (hovered)
 		color = uph_state.colors.ui_frame_hovered_bg;
 
-	const float frame_height = _uph_ui_frame_height();
+	const float frame_height = uph__ui_frame_height();
 	leaf({
 		.id = id,
 		.size = { .width = LEAF_SIZE_FIT_MIN(NAUI_DPI(UPH_SETTINGS_CHORD_WIDTH)), .height = UPH_UI_SIZE_EXACT(frame_height) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(label ? UPH_UI_FRAME_PADDING.x : UPH_SETTINGS_KEYCAP_INSET), 0),
-		.border = _uph_ui_frame_border(),
+		.border = uph__ui_frame_border(),
 		.color = color,
 		.child_gap = NAUI_DPI(UPH_SETTINGS_KEYCAP_INSET),
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
@@ -1784,14 +1784,14 @@ static void uph_settings_on_detach(void)
 
 static void uph_settings_on_open(void)
 {
-	Uph_SettingsState *state = &_uph_settings_state;
+	Uph_SettingsState *state = &uph__settings_state;
 	uph_settings_refresh_all(state);
 	state->was_opened = true;
 }
 
 static void uph_settings_on_close(void)
 {
-	Uph_SettingsState *state = &_uph_settings_state;
+	Uph_SettingsState *state = &uph__settings_state;
 	uph_settings_cancel_keybind_capture(state);
 
 	if (state->was_opened)
@@ -1800,7 +1800,7 @@ static void uph_settings_on_close(void)
 
 static void uph_settings_on_update(void)
 {
-	Uph_SettingsState *state = &_uph_settings_state;
+	Uph_SettingsState *state = &uph__settings_state;
 	if (!state->lists_ready)
 		uph_settings_refresh_all(state);
 

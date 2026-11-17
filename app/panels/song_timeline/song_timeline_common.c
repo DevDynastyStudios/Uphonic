@@ -218,11 +218,11 @@ typedef struct
 }
 Uph_SongTimelineState;
 
-static Uph_SongTimelineState _uph_song_timeline_state;
+static Uph_SongTimelineState uph__song_timeline_state;
 
 static inline Uph_ActionMode uph_song_timeline_tool(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	if (state->current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
 		return UPH_ACTION_SELECT;
 
@@ -273,7 +273,7 @@ static uint32_t uph_song_timeline_track_depth(const Uph_Track *track)
 
 static float uph_song_timeline_header_depth_width(void)
 {
-	return _uph_song_timeline_state.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
+	return uph__song_timeline_state.max_track_depth * UPH_SONG_TIMELINE_DEPTH_INDENT;
 }
 
 static float uph_song_timeline_header_column_width(void)
@@ -283,7 +283,7 @@ static float uph_song_timeline_header_column_width(void)
 
 static float uph_song_timeline_max_scroll_y(void)
 {
-	return fmaxf(0.0f, _uph_song_timeline_state.content_height - _uph_song_timeline_state.zoom.y);
+	return fmaxf(0.0f, uph__song_timeline_state.content_height - uph__song_timeline_state.zoom.y);
 }
 
 static inline float uph_song_timeline_block_title_height(void)
@@ -293,7 +293,7 @@ static inline float uph_song_timeline_block_title_height(void)
 
 static inline float uph_song_timeline_block_title_bar_height(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const float measured = state->block_menu.measured_title_height;
 	return measured > 0.0f ? measured : uph_song_timeline_block_title_height();
 }

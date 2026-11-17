@@ -113,7 +113,7 @@ static inline bool uph_loop_region_valid(const Uph_LoopRegion *region)
 	return region->end > region->start;
 }
 
-static void _uph_grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data)
+static void uph__grid_lines(float origin_x, float width, float zoom_x, float scroll_x, double division, Uph_GridLineFn fn, void *user_data)
 {
     const double beat_length = uph_time_signature_beat_length();
     const int64_t beats_per_bar = (int64_t)llround(uph_time_signature_bar_length() / beat_length);
@@ -173,7 +173,7 @@ typedef struct
 }
 Uph_GridStyle;
 
-static void _uph_grid_draw_beat_line(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data)
+static void uph__grid_draw_beat_line(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data)
 {
     const Uph_GridStyle *style = user_data;
     if (x < style->bbox.x || x > style->bbox.x + style->bbox.width)
@@ -183,7 +183,7 @@ static void _uph_grid_draw_beat_line(float x, Uph_GridLineKind kind, int64_t bar
     naui_draw_line((Naui_Vec2){x, style->bbox.y}, (Naui_Vec2){x, style->bbox.y + style->bbox.height}, color, 1.0f);
 }
 
-static void _uph_grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data)
+static void uph__grid_draw_ruler_line(float x, Uph_GridLineKind kind, int64_t bar_index, void *user_data)
 {
     const Uph_GridStyle *style = user_data;
     const Leaf_BoundingBox bbox = style->bbox;
@@ -216,7 +216,7 @@ void uph_grid_render_beats(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, 
 {
     Uph_GridStyle style = { .bbox = bbox, .colors = colors };
 
-    _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_beat_line, &style);
+    uph__grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, uph__grid_draw_beat_line, &style);
 }
 
 void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, double division, Uph_GridColors colors)
@@ -224,7 +224,7 @@ void uph_grid_render_ruler(Leaf_BoundingBox bbox, float zoom_x, float scroll_x, 
     Uph_GridStyle style = { .bbox = bbox, .colors = colors };
 
     naui_push_clip_rect(bbox.x - 0.5f, bbox.y, bbox.width, bbox.height);
-    _uph_grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, _uph_grid_draw_ruler_line, &style);
+    uph__grid_lines(bbox.x, bbox.width, zoom_x, scroll_x, division, uph__grid_draw_ruler_line, &style);
     naui_pop_clip_rect();
 }
 
@@ -268,7 +268,7 @@ bool uph_midi_pedal_from_cc(uint8_t cc, Uph_MidiPedalType *out_type)
     return false;
 }
 
-static int _uph_midi_pedal_compare(const void *a, const void *b)
+static int uph__midi_pedal_compare(const void *a, const void *b)
 {
     const Uph_MidiPedalEvent *left = a;
     const Uph_MidiPedalEvent *right = b;
@@ -282,9 +282,9 @@ void uph_midi_pedals_sort(Naui_List(Uph_MidiPedalEvent) pedals)
     const size_t count = naui_list_len(pedals);
     for (size_t i = 1; i < count; i++)
     {
-        if (_uph_midi_pedal_compare(&pedals[i - 1], &pedals[i]) > 0)
+        if (uph__midi_pedal_compare(&pedals[i - 1], &pedals[i]) > 0)
         {
-            qsort(pedals, count, sizeof(Uph_MidiPedalEvent), _uph_midi_pedal_compare);
+            qsort(pedals, count, sizeof(Uph_MidiPedalEvent), uph__midi_pedal_compare);
             return;
         }
     }
@@ -431,7 +431,7 @@ float uph_automation_to_pan(float value)
 #define UPH_LOOP_REGION_HANDLE_WIDTH 5
 #define UPH_LOOP_REGION_STRIP 0.4f
 
-static float _uph_loop_region_x(float origin_x, float zoom_x, float scroll_x, double beat)
+static float uph__loop_region_x(float origin_x, float zoom_x, float scroll_x, double beat)
 {
     return origin_x + (float)(beat * zoom_x) - scroll_x;
 }
@@ -454,8 +454,8 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
         Uph_LoopRegionDragMode hover = UPH_LOOP_DRAG_NONE;
         if (uph_loop_region_valid(region))
         {
-            const float start_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
-            const float end_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
+            const float start_x = uph__loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
+            const float end_x = uph__loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
             const int32_t handle = NAUI_DPI(UPH_LOOP_REGION_HANDLE_WIDTH);
             const bool in_strip = mouse_y < bbox.y + bbox.height * UPH_LOOP_REGION_STRIP;
 
@@ -535,7 +535,7 @@ bool uph_loop_region_update(Uph_LoopRegion *region, Uph_LoopRegionDrag *drag, Le
     return true;
 }
 
-static Leaf_Color _uph_loop_region_color(Leaf_Color color, bool enabled, uint8_t alpha)
+static Leaf_Color uph__loop_region_color(Leaf_Color color, bool enabled, uint8_t alpha)
 {
     color.a = enabled ? alpha : (uint8_t)(alpha / 3);
     return color;
@@ -546,15 +546,15 @@ void uph_loop_region_render_ruler(const Uph_LoopRegion *region, Leaf_BoundingBox
     if (!uph_loop_region_valid(region))
         return;
 
-    const float start_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
-    const float end_x = _uph_loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
+    const float start_x = uph__loop_region_x((float)bbox.x, zoom_x, scroll_x, region->start);
+    const float end_x = uph__loop_region_x((float)bbox.x, zoom_x, scroll_x, region->end);
     const float strip_height = bbox.height * UPH_LOOP_REGION_STRIP;
 
     naui_push_clip_rect(bbox.x, bbox.y, bbox.width, bbox.height);
-    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, _uph_loop_region_color(outline_color, enabled, 30), 0.0f, NAUI_CORNER_NONE);
-    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, _uph_loop_region_color(outline_color, enabled, 170), 0.0f, NAUI_CORNER_NONE);
-    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, _uph_loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
-    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, _uph_loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, bbox.height }, uph__loop_region_color(outline_color, enabled, 30), 0.0f, NAUI_CORNER_NONE);
+    naui_fill_rect((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ end_x - start_x, strip_height }, uph__loop_region_color(outline_color, enabled, 170), 0.0f, NAUI_CORNER_NONE);
+    naui_draw_line((Naui_Vec2){ start_x, bbox.y }, (Naui_Vec2){ start_x, bbox.y + bbox.height }, uph__loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
+    naui_draw_line((Naui_Vec2){ end_x, bbox.y }, (Naui_Vec2){ end_x, bbox.y + bbox.height }, uph__loop_region_color(outline_color, enabled, 220), NAUI_DPI(1));
     naui_pop_clip_rect();
 }
 
@@ -563,9 +563,9 @@ void uph_loop_region_render_bounds(const Uph_LoopRegion *region, float origin_x,
     if (!uph_loop_region_valid(region))
         return;
 
-    const float start_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->start);
-    const float end_x = _uph_loop_region_x(origin_x, zoom_x, scroll_x, region->end);
-    const Leaf_Color color = _uph_loop_region_color(outline_color, enabled, 110);
+    const float start_x = uph__loop_region_x(origin_x, zoom_x, scroll_x, region->start);
+    const float end_x = uph__loop_region_x(origin_x, zoom_x, scroll_x, region->end);
+    const Leaf_Color color = uph__loop_region_color(outline_color, enabled, 110);
 
     naui_draw_line((Naui_Vec2){ start_x, top }, (Naui_Vec2){ start_x, bottom }, color, NAUI_DPI(1));
     naui_draw_line((Naui_Vec2){ end_x, top }, (Naui_Vec2){ end_x, bottom }, color, NAUI_DPI(1));

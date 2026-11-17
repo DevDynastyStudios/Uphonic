@@ -90,7 +90,7 @@ typedef struct
 }
 Uph_SampleBrowserState;
 
-static Uph_SampleBrowserState _uph_sample_browser_state = {
+static Uph_SampleBrowserState uph__sample_browser_state = {
 	.selected = UPH_SAMPLE_BROWSER_NONE,
 	.context_node = UPH_SAMPLE_BROWSER_NONE,
 	.pressed_node = UPH_SAMPLE_BROWSER_NONE
@@ -98,7 +98,7 @@ static Uph_SampleBrowserState _uph_sample_browser_state = {
 
 #pragma region Index
 
-static uint32_t _uph_sample_browser_pool_push(Uph_SampleBrowserIndex *index, const char *text, size_t length)
+static uint32_t uph__sample_browser_pool_push(Uph_SampleBrowserIndex *index, const char *text, size_t length)
 {
 	const uint32_t needed = index->pool_size + (uint32_t)length + 1;
 	if (needed > index->pool_capacity)
@@ -122,24 +122,24 @@ static uint32_t _uph_sample_browser_pool_push(Uph_SampleBrowserIndex *index, con
 	return offset;
 }
 
-static void _uph_sample_browser_index_free(Uph_SampleBrowserIndex *index)
+static void uph__sample_browser_index_free(Uph_SampleBrowserIndex *index)
 {
 	naui_list_free(index->nodes);
 	free(index->pool);
 	*index = (Uph_SampleBrowserIndex){ 0 };
 }
 
-static const char *_uph_sample_browser_node_path(const Uph_SampleBrowserIndex *index, uint32_t node)
+static const char *uph__sample_browser_node_path(const Uph_SampleBrowserIndex *index, uint32_t node)
 {
 	return index->pool + index->nodes[node].path;
 }
 
-static const char *_uph_sample_browser_node_name(const Uph_SampleBrowserIndex *index, uint32_t node)
+static const char *uph__sample_browser_node_name(const Uph_SampleBrowserIndex *index, uint32_t node)
 {
 	return index->pool + index->nodes[node].name;
 }
 
-static int _uph_sample_browser_compare_nocase(const char *a, const char *b)
+static int uph__sample_browser_compare_nocase(const char *a, const char *b)
 {
 	while (*a && tolower((unsigned char)*a) == tolower((unsigned char)*b))
 	{
@@ -150,7 +150,7 @@ static int _uph_sample_browser_compare_nocase(const char *a, const char *b)
 	return tolower((unsigned char)*a) - tolower((unsigned char)*b);
 }
 
-static bool _uph_sample_browser_is_audio(const char *name)
+static bool uph__sample_browser_is_audio(const char *name)
 {
 	const char *dot = strrchr(name, '.');
 	if (!dot)
@@ -158,24 +158,24 @@ static bool _uph_sample_browser_is_audio(const char *name)
 
 	for (const char **ext = uph_audio_engine_extensions; *ext; ext++)
 	{
-		if (_uph_sample_browser_compare_nocase(dot, *ext) == 0)
+		if (uph__sample_browser_compare_nocase(dot, *ext) == 0)
 			return true;
 	}
 
 	return false;
 }
 
-static int _uph_sample_browser_entry_compare(const void *a, const void *b)
+static int uph__sample_browser_entry_compare(const void *a, const void *b)
 {
 	const Uph_SampleBrowserEntry *left = a;
 	const Uph_SampleBrowserEntry *right = b;
 	if (left->is_directory != right->is_directory)
 		return left->is_directory ? -1 : 1;
 
-	return _uph_sample_browser_compare_nocase(left->name, right->name);
+	return uph__sample_browser_compare_nocase(left->name, right->name);
 }
 
-static bool _uph_sample_browser_push_node(Uph_SampleBrowserIndex *index, const char *path, size_t path_length, size_t name_start, uint32_t parent, uint16_t depth, Uph_SampleBrowserNodeFlags flags)
+static bool uph__sample_browser_push_node(Uph_SampleBrowserIndex *index, const char *path, size_t path_length, size_t name_start, uint32_t parent, uint16_t depth, Uph_SampleBrowserNodeFlags flags)
 {
 	if ((uint32_t)naui_list_len(index->nodes) >= UPH_SAMPLE_BROWSER_MAX_NODES)
 	{
@@ -183,7 +183,7 @@ static bool _uph_sample_browser_push_node(Uph_SampleBrowserIndex *index, const c
 		return false;
 	}
 
-	const uint32_t offset = _uph_sample_browser_pool_push(index, path, path_length);
+	const uint32_t offset = uph__sample_browser_pool_push(index, path, path_length);
 	if (offset == UPH_SAMPLE_BROWSER_NONE)
 		return false;
 
@@ -204,9 +204,9 @@ static bool _uph_sample_browser_push_node(Uph_SampleBrowserIndex *index, const c
 	return true;
 }
 
-static void _uph_sample_browser_scan_directory(Uph_SampleBrowserIndex *index, uint32_t node_index, Naui_List(uint32_t) *stack)
+static void uph__sample_browser_scan_directory(Uph_SampleBrowserIndex *index, uint32_t node_index, Naui_List(uint32_t) *stack)
 {
-	const Naui_Path path = naui_path_from_cstr(_uph_sample_browser_node_path(index, node_index));
+	const Naui_Path path = naui_path_from_cstr(uph__sample_browser_node_path(index, node_index));
 	const uint16_t depth = index->nodes[node_index].depth;
 	Naui_List(Uph_SampleBrowserEntry) entries = NULL;
 
@@ -215,7 +215,7 @@ static void _uph_sample_browser_scan_directory(Uph_SampleBrowserIndex *index, ui
 	{
 		const Naui_StringView name = naui_file_filename(&it.entry.path);
 		const bool usable = name.length > 0 && name.data[0] != '.' &&
-			(it.entry.is_directory || _uph_sample_browser_is_audio(name.data));
+			(it.entry.is_directory || uph__sample_browser_is_audio(name.data));
 
 		if (usable)
 		{
@@ -235,7 +235,7 @@ static void _uph_sample_browser_scan_directory(Uph_SampleBrowserIndex *index, ui
 
 	const uint32_t entry_count = (uint32_t)naui_list_len(entries);
 	if (entry_count > 1)
-		qsort(entries, entry_count, sizeof(entries[0]), _uph_sample_browser_entry_compare);
+		qsort(entries, entry_count, sizeof(entries[0]), uph__sample_browser_entry_compare);
 
 	const size_t parent_length = strlen(path.data);
 	const bool needs_separator = parent_length > 0 && path.data[parent_length - 1] != '/' && path.data[parent_length - 1] != '\\';
@@ -250,7 +250,7 @@ static void _uph_sample_browser_scan_directory(Uph_SampleBrowserIndex *index, ui
 		{
 			const size_t name_start = parent_length + (needs_separator ? 1 : 0);
 			const Uph_SampleBrowserNodeFlags flags = entries[i].is_directory ? UPH_SAMPLE_BROWSER_NODE_DIR : 0;
-			if (_uph_sample_browser_push_node(index, child, (size_t)written, name_start, node_index, (uint16_t)(depth + 1), flags))
+			if (uph__sample_browser_push_node(index, child, (size_t)written, name_start, node_index, (uint16_t)(depth + 1), flags))
 				child_count++;
 		}
 		free(entries[i].name);
@@ -271,7 +271,7 @@ static void _uph_sample_browser_scan_directory(Uph_SampleBrowserIndex *index, ui
 	}
 }
 
-static void _uph_sample_browser_scan_job(void *data, char *err_buf, size_t err_size)
+static void uph__sample_browser_scan_job(void *data, char *err_buf, size_t err_size)
 {
 	(void)err_buf;
 	(void)err_size;
@@ -284,7 +284,7 @@ static void _uph_sample_browser_scan_job(void *data, char *err_buf, size_t err_s
 		const Naui_StringView name = naui_file_filename(&folder);
 		const size_t length = strlen(folder.data);
 		const size_t name_start = name.length > 0 ? (size_t)(name.data - folder.data) : 0;
-		_uph_sample_browser_push_node(index, folder.data, length, name_start, UPH_SAMPLE_BROWSER_NONE, 0, UPH_SAMPLE_BROWSER_NODE_DIR | UPH_SAMPLE_BROWSER_NODE_ROOT);
+		uph__sample_browser_push_node(index, folder.data, length, name_start, UPH_SAMPLE_BROWSER_NONE, 0, UPH_SAMPLE_BROWSER_NODE_DIR | UPH_SAMPLE_BROWSER_NODE_ROOT);
 	}
 
 	index->root_count = (uint32_t)naui_list_len(index->nodes);
@@ -296,22 +296,22 @@ static void _uph_sample_browser_scan_job(void *data, char *err_buf, size_t err_s
 	while (naui_list_len(stack) > 0 && !atomic_load_explicit(&scan->cancel, memory_order_relaxed))
 	{
 		const uint32_t node = naui_list_pop(stack);
-		_uph_sample_browser_scan_directory(index, node, &stack);
+		uph__sample_browser_scan_directory(index, node, &stack);
 	}
 
 	naui_list_free(stack);
 }
 
-static void _uph_sample_browser_scan_free(Uph_SampleBrowserScan *scan)
+static void uph__sample_browser_scan_free(Uph_SampleBrowserScan *scan)
 {
 	naui_list_free(scan->folders);
-	_uph_sample_browser_index_free(&scan->result);
+	uph__sample_browser_index_free(&scan->result);
 	free(scan);
 }
 
-static void _uph_sample_browser_cancel_scan(void)
+static void uph__sample_browser_cancel_scan(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	if (!state->scan)
 		return;
 
@@ -319,14 +319,14 @@ static void _uph_sample_browser_cancel_scan(void)
 	if (naui_job_is_valid(state->scan_job))
 		naui_job_wait(state->scan_job);
 
-	_uph_sample_browser_scan_free(state->scan);
+	uph__sample_browser_scan_free(state->scan);
 	state->scan = NULL;
 	state->scan_job = NAUI_JOB_INVALID;
 }
 
-static void _uph_sample_browser_start_scan(void)
+static void uph__sample_browser_start_scan(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	if (state->scan)
 	{
 		state->rescan_requested = true;
@@ -344,10 +344,10 @@ static void _uph_sample_browser_start_scan(void)
 
 	atomic_init(&scan->cancel, false);
 
-	if (naui_job_submit(&state->scan_job, _uph_sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&state->scan_job, uph__sample_browser_scan_job, scan) != NAUI_JOB_SUBMIT_OK)
 	{
 		naui_log(NAUI_LOG_WARNING, "Sample browser: couldn't queue folder scan");
-		_uph_sample_browser_scan_free(scan);
+		uph__sample_browser_scan_free(scan);
 		state->scan_job = NAUI_JOB_INVALID;
 		return;
 	}
@@ -355,20 +355,20 @@ static void _uph_sample_browser_start_scan(void)
 	state->scan = scan;
 }
 
-static uint32_t _uph_sample_browser_find_path(const Uph_SampleBrowserIndex *index, const char *path)
+static uint32_t uph__sample_browser_find_path(const Uph_SampleBrowserIndex *index, const char *path)
 {
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(index->nodes); i++)
 	{
-		if (strcmp(_uph_sample_browser_node_path(index, i), path) == 0)
+		if (strcmp(uph__sample_browser_node_path(index, i), path) == 0)
 			return i;
 	}
 
 	return UPH_SAMPLE_BROWSER_NONE;
 }
 
-static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
+static void uph__sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	Uph_SampleBrowserIndex *old = &state->index;
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(old->nodes); i++)
@@ -376,16 +376,16 @@ static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 		if (!(old->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
 			continue;
 
-		const uint32_t match = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, i));
+		const uint32_t match = uph__sample_browser_find_path(fresh, uph__sample_browser_node_path(old, i));
 		if (match != UPH_SAMPLE_BROWSER_NONE)
 			fresh->nodes[match].flags |= UPH_SAMPLE_BROWSER_NODE_EXPANDED;
 	}
 
 	uint32_t selected = UPH_SAMPLE_BROWSER_NONE;
 	if (state->selected < (uint32_t)naui_list_len(old->nodes))
-		selected = _uph_sample_browser_find_path(fresh, _uph_sample_browser_node_path(old, state->selected));
+		selected = uph__sample_browser_find_path(fresh, uph__sample_browser_node_path(old, state->selected));
 
-	_uph_sample_browser_index_free(old);
+	uph__sample_browser_index_free(old);
 	*old = *fresh;
 	*fresh = (Uph_SampleBrowserIndex){ 0 };
 
@@ -394,9 +394,9 @@ static void _uph_sample_browser_adopt_index(Uph_SampleBrowserIndex *fresh)
 	state->rows_dirty = true;
 }
 
-static void _uph_sample_browser_poll_scan(void)
+static void uph__sample_browser_poll_scan(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	Uph_SampleBrowserScan *scan = state->scan;
 	if (!scan || !naui_job_is_done(state->scan_job))
 		return;
@@ -407,19 +407,19 @@ static void _uph_sample_browser_poll_scan(void)
 	if (scan->result.truncated)
 		naui_log(NAUI_LOG_WARNING, "Sample browser: index truncated at %u entries", UPH_SAMPLE_BROWSER_MAX_NODES);
 
-	_uph_sample_browser_adopt_index(&scan->result);
-	_uph_sample_browser_scan_free(scan);
+	uph__sample_browser_adopt_index(&scan->result);
+	uph__sample_browser_scan_free(scan);
 	state->scan = NULL;
 
 	if (state->rescan_requested)
-		_uph_sample_browser_start_scan();
+		uph__sample_browser_start_scan();
 }
 
 #pragma endregion
 
 #pragma region Folders
 
-static void _uph_sample_browser_add_folder(const Naui_Path folder)
+static void uph__sample_browser_add_folder(const Naui_Path folder)
 {
 	Uph_BrowserSettings *browser = &uph_state.settings.browser;
 	const Naui_Path path = naui_path_normalize(folder);
@@ -434,10 +434,10 @@ static void _uph_sample_browser_add_folder(const Naui_Path folder)
 
 	naui_list_push(browser->folders, path);
 	uph_settings_save();
-	_uph_sample_browser_start_scan();
+	uph__sample_browser_start_scan();
 }
 
-static void _uph_sample_browser_remove_folder(const char *path)
+static void uph__sample_browser_remove_folder(const char *path)
 {
 	Uph_BrowserSettings *browser = &uph_state.settings.browser;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(browser->folders); i++)
@@ -447,23 +447,23 @@ static void _uph_sample_browser_remove_folder(const char *path)
 
 		naui_list_remove(browser->folders, i);
 		uph_settings_save();
-		_uph_sample_browser_start_scan();
+		uph__sample_browser_start_scan();
 		return;
 	}
 }
 
-static void _uph_sample_browser_folder_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
+static void uph__sample_browser_folder_picked(const Naui_DialogResult *result, void *user_data, bool is_cancelled)
 {
 	(void)user_data;
 	if (is_cancelled || result->count == 0)
 		return;
 
-	_uph_sample_browser_add_folder(result->paths[0]);
+	uph__sample_browser_add_folder(result->paths[0]);
 }
 
-static void _uph_sample_browser_open_folder_dialog(void)
+static void uph__sample_browser_open_folder_dialog(void)
 {
-	if (!naui_dialog_open_folder(UPH_SAMPLE_BROWSER_ADD_FOLDER_DIALOG_KEY, NULL, _uph_sample_browser_folder_picked, NULL))
+	if (!naui_dialog_open_folder(UPH_SAMPLE_BROWSER_ADD_FOLDER_DIALOG_KEY, NULL, uph__sample_browser_folder_picked, NULL))
 		return;
 
 	naui_dialog_title_set(UPH_SAMPLE_BROWSER_ADD_FOLDER_DIALOG_KEY, NAUI_TR("sample_browser.add_folder"));
@@ -473,7 +473,7 @@ static void _uph_sample_browser_open_folder_dialog(void)
 
 #pragma region Preview
 
-static void _uph_sample_browser_load_job(void *data, char *err_buf, size_t err_size)
+static void uph__sample_browser_load_job(void *data, char *err_buf, size_t err_size)
 {
 	(void)err_buf;
 	(void)err_size;
@@ -481,15 +481,15 @@ static void _uph_sample_browser_load_job(void *data, char *err_buf, size_t err_s
 	load->source = uph_audio_engine_preview_open(load->path);
 }
 
-static void _uph_sample_browser_start_load(const Naui_Path path)
+static void uph__sample_browser_start_load(const Naui_Path path)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	Uph_SampleBrowserLoad *load = calloc(1, sizeof(Uph_SampleBrowserLoad));
 	if (!load)
 		return;
 
 	load->path = path;
-	if (naui_job_submit(&state->load_job, _uph_sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
+	if (naui_job_submit(&state->load_job, uph__sample_browser_load_job, load) != NAUI_JOB_SUBMIT_OK)
 	{
 		free(load);
 		state->load_job = NAUI_JOB_INVALID;
@@ -499,9 +499,9 @@ static void _uph_sample_browser_start_load(const Naui_Path path)
 	state->load = load;
 }
 
-static void _uph_sample_browser_preview(const char *path)
+static void uph__sample_browser_preview(const char *path)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Naui_Path target = naui_path_from_cstr(path);
 	uph_audio_engine_preview_stop();
 
@@ -520,12 +520,12 @@ static void _uph_sample_browser_preview(const char *path)
 		return;
 	}
 
-	_uph_sample_browser_start_load(target);
+	uph__sample_browser_start_load(target);
 }
 
-static void _uph_sample_browser_poll_load(void)
+static void uph__sample_browser_poll_load(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	Uph_SampleBrowserLoad *load = state->load;
 	if (!load || !naui_job_is_done(state->load_job))
 		return;
@@ -550,11 +550,11 @@ static void _uph_sample_browser_poll_load(void)
 	if (stale)
 	{
 		state->load_next_pending = false;
-		_uph_sample_browser_preview(state->load_next.data);
+		uph__sample_browser_preview(state->load_next.data);
 	}
 }
 
-static void _uph_sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_PreviewInfo *info)
+static void uph__sample_browser_waveform_draw(Leaf_BoundingBox box, const Uph_PreviewInfo *info)
 {
 	if (!info->peaks || box.width <= 1.0f || box.height <= 1.0f)
 		return;
@@ -601,7 +601,7 @@ bool uph_sample_browser_add_to_project(const Naui_Path path, Uph_SampleLoadedFn 
 
 #pragma region Drag
 
-static void _uph_sample_browser_render_drag(const void *payload)
+static void uph__sample_browser_render_drag(const void *payload)
 {
 	const Naui_Path *path = payload;
 	const Naui_StringView name = naui_file_filename(path);
@@ -610,9 +610,9 @@ static void _uph_sample_browser_render_drag(const void *payload)
 	uph_drag_label(uph_state.icons.wave, label, uph_state.colors.panel_tab_accent);
 }
 
-static void _uph_sample_browser_stop_on_playback(void)
+static void uph__sample_browser_stop_on_playback(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	static bool was_playing;
 	const bool playing = uph_state.shared.song_timeline_playing || uph_midi_preview_playing();
 	if (playing && !was_playing)
@@ -628,16 +628,16 @@ static void _uph_sample_browser_stop_on_playback(void)
 
 void uph_sample_browser_end_frame(void)
 {
-	_uph_sample_browser_stop_on_playback();
-	_uph_sample_browser_poll_scan();
-	_uph_sample_browser_poll_load();
+	uph__sample_browser_stop_on_playback();
+	uph__sample_browser_poll_scan();
+	uph__sample_browser_poll_load();
 }
 
 #pragma endregion
 
 #pragma region Rows
 
-static bool _uph_sample_browser_contains(const char *haystack, const char *needle, size_t needle_length)
+static bool uph__sample_browser_contains(const char *haystack, const char *needle, size_t needle_length)
 {
 	if (needle_length == 0)
 		return true;
@@ -655,7 +655,7 @@ static bool _uph_sample_browser_contains(const char *haystack, const char *needl
 	return false;
 }
 
-static bool _uph_sample_browser_matches(const char *name, const char *query)
+static bool uph__sample_browser_matches(const char *name, const char *query)
 {
 	const char *word = query;
 	while (*word)
@@ -667,7 +667,7 @@ static bool _uph_sample_browser_matches(const char *name, const char *query)
 		while (*end && *end != ' ')
 			end++;
 
-		if (end > word && !_uph_sample_browser_contains(name, word, (size_t)(end - word)))
+		if (end > word && !uph__sample_browser_contains(name, word, (size_t)(end - word)))
 			return false;
 
 		word = end;
@@ -676,9 +676,9 @@ static bool _uph_sample_browser_matches(const char *name, const char *query)
 	return true;
 }
 
-static bool _uph_sample_browser_searching(void)
+static bool uph__sample_browser_searching(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	for (size_t i = 0; i < state->filter.length; i++)
 	{
 		if (state->filter.data[i] != ' ')
@@ -688,9 +688,9 @@ static bool _uph_sample_browser_searching(void)
 	return false;
 }
 
-static void _uph_sample_browser_push_tree(uint32_t node)
+static void uph__sample_browser_push_tree(uint32_t node)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Uph_SampleBrowserIndex *index = &state->index;
 	naui_list_push(state->rows, node);
 
@@ -699,35 +699,35 @@ static void _uph_sample_browser_push_tree(uint32_t node)
 		return;
 
 	for (uint32_t i = 0; i < info->child_count; i++)
-		_uph_sample_browser_push_tree(info->first_child + i);
+		uph__sample_browser_push_tree(info->first_child + i);
 }
 
-static void _uph_sample_browser_rebuild_rows(void)
+static void uph__sample_browser_rebuild_rows(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Uph_SampleBrowserIndex *index = &state->index;
 	naui_list_clear(state->rows);
 
-	if (_uph_sample_browser_searching())
+	if (uph__sample_browser_searching())
 	{
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(index->nodes); i++)
 		{
-			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && _uph_sample_browser_matches(_uph_sample_browser_node_name(index, i), state->filter.data))
+			if (!(index->nodes[i].flags & UPH_SAMPLE_BROWSER_NODE_DIR) && uph__sample_browser_matches(uph__sample_browser_node_name(index, i), state->filter.data))
 				naui_list_push(state->rows, i);
 		}
 	}
 	else
 	{
 		for (uint32_t i = 0; i < index->root_count; i++)
-			_uph_sample_browser_push_tree(i);
+			uph__sample_browser_push_tree(i);
 	}
 
 	state->rows_dirty = false;
 }
 
-static int32_t _uph_sample_browser_row_of(uint32_t node)
+static int32_t uph__sample_browser_row_of(uint32_t node)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->rows); i++)
 	{
 		if (state->rows[i] == node)
@@ -737,14 +737,14 @@ static int32_t _uph_sample_browser_row_of(uint32_t node)
 	return -1;
 }
 
-static bool _uph_sample_browser_is_dir(uint32_t node)
+static bool uph__sample_browser_is_dir(uint32_t node)
 {
-	return node < (uint32_t)naui_list_len(_uph_sample_browser_state.index.nodes) && (_uph_sample_browser_state.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_DIR);
+	return node < (uint32_t)naui_list_len(uph__sample_browser_state.index.nodes) && (uph__sample_browser_state.index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_DIR);
 }
 
-static void _uph_sample_browser_set_expanded(uint32_t node, bool expanded)
+static void uph__sample_browser_set_expanded(uint32_t node, bool expanded)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	Uph_SampleBrowserNode *info = &state->index.nodes[node];
 	const bool was_expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
 	if (was_expanded == expanded)
@@ -754,29 +754,29 @@ static void _uph_sample_browser_set_expanded(uint32_t node, bool expanded)
 	state->rows_dirty = true;
 }
 
-static void _uph_sample_browser_select(uint32_t node, bool preview)
+static void uph__sample_browser_select(uint32_t node, bool preview)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	state->selected = node;
-	if (preview && !_uph_sample_browser_is_dir(node) && uph_state.settings.browser.auto_preview)
-		_uph_sample_browser_preview(_uph_sample_browser_node_path(&state->index, node));
+	if (preview && !uph__sample_browser_is_dir(node) && uph_state.settings.browser.auto_preview)
+		uph__sample_browser_preview(uph__sample_browser_node_path(&state->index, node));
 }
 
-static void _uph_sample_browser_activate(uint32_t node)
+static void uph__sample_browser_activate(uint32_t node)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
-	if (_uph_sample_browser_is_dir(node))
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
+	if (uph__sample_browser_is_dir(node))
 	{
-		_uph_sample_browser_set_expanded(node, !(state->index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
+		uph__sample_browser_set_expanded(node, !(state->index.nodes[node].flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED));
 		return;
 	}
 
-	uph_sample_browser_add_to_project(naui_path_from_cstr(_uph_sample_browser_node_path(&state->index, node)), NULL, NULL);
+	uph_sample_browser_add_to_project(naui_path_from_cstr(uph__sample_browser_node_path(&state->index, node)), NULL, NULL);
 }
 
-static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t out_size)
+static void uph__sample_browser_relative_folder(uint32_t node, char *out, size_t out_size)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Uph_SampleBrowserIndex *index = &state->index;
 	out[0] = '\0';
 
@@ -788,21 +788,21 @@ static void _uph_sample_browser_relative_folder(uint32_t node, char *out, size_t
 	while (index->nodes[root].parent != UPH_SAMPLE_BROWSER_NONE)
 		root = index->nodes[root].parent;
 
-	const char *parent_path = _uph_sample_browser_node_path(index, parent);
-	const char *root_name = _uph_sample_browser_node_name(index, root);
-	const size_t root_offset = (size_t)(root_name - _uph_sample_browser_node_path(index, root));
+	const char *parent_path = uph__sample_browser_node_path(index, parent);
+	const char *root_name = uph__sample_browser_node_name(index, root);
+	const size_t root_offset = (size_t)(root_name - uph__sample_browser_node_path(index, root));
 	snprintf(out, out_size, "%s", parent_path + root_offset);
 }
 
-static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bool searching, float row_height)
+static void uph__sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bool searching, float row_height)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Uph_SampleBrowserIndex *index = &state->index;
 	const Uph_SampleBrowserNode *info = &index->nodes[node];
 	const bool is_dir = (info->flags & UPH_SAMPLE_BROWSER_NODE_DIR) != 0;
 	const bool expanded = (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED) != 0;
 	const bool selected = state->selected == node;
-	const bool previewing = !is_dir && strcmp(state->previewing.data, _uph_sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
+	const bool previewing = !is_dir && strcmp(state->previewing.data, uph__sample_browser_node_path(index, node)) == 0 && uph_audio_engine_preview_playing();
 	const Leaf_ID row_id = leaf_id_indexed("uph_sample_browser_row", node);
 	const bool hovered = uph_ui_widget_hovered(row_id);
 
@@ -814,15 +814,15 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			if (is_dir)
 			{
 				state->selected = node;
-				_uph_sample_browser_set_expanded(node, !expanded);
+				uph__sample_browser_set_expanded(node, !expanded);
 			}
 			else
 			{
-				_uph_sample_browser_select(node, false);
+				uph__sample_browser_select(node, false);
 				state->pressed_node = node;
 				state->press_mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
-				const Naui_Path path = naui_path_from_cstr(_uph_sample_browser_node_path(index, node));
-				uph_drag_begin(UPH_DRAG_TYPE_SAMPLE_FILE, &path, sizeof(path), _uph_sample_browser_render_drag);
+				const Naui_Path path = naui_path_from_cstr(uph__sample_browser_node_path(index, node));
+				uph_drag_begin(UPH_DRAG_TYPE_SAMPLE_FILE, &path, sizeof(path), uph__sample_browser_render_drag);
 			}
 		}
 		else if (naui_mouse_released(NAUI_MOUSE_LEFT) && state->pressed_node == node)
@@ -831,7 +831,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			const float dy = (float)naui_mouse_y() - state->press_mouse.y;
 			const int32_t threshold = NAUI_DPI(UPH_SAMPLE_BROWSER_CLICK_THRESHOLD);
 			if (dx * dx + dy * dy < threshold * threshold)
-				_uph_sample_browser_select(node, true);
+				uph__sample_browser_select(node, true);
 			state->pressed_node = UPH_SAMPLE_BROWSER_NONE;
 		}
 		else if (naui_mouse_pressed(NAUI_MOUSE_RIGHT))
@@ -882,7 +882,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 			.color = is_dir ? muted_color : icon_color
 		});
 
-		leaf_text(_uph_sample_browser_node_name(index, node), {
+		leaf_text(uph__sample_browser_node_name(index, node), {
 			.color = text_color,
 			.font_size = LEAF_SIZE_FIXED(font_size)
 		});
@@ -890,7 +890,7 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 		if (searching)
 		{
 			char folder[NAUI_PATH_MAX];
-			_uph_sample_browser_relative_folder(node, folder, sizeof(folder));
+			uph__sample_browser_relative_folder(node, folder, sizeof(folder));
 			leaf_text(folder, {
 				.color = muted_color,
 				.font_size = LEAF_SIZE_FIXED(font_size)
@@ -905,10 +905,10 @@ static void _uph_sample_browser_row(uint32_t node, Uph_UIMenuID context_menu, bo
 
 static void uph_sample_browser_on_attach(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	state->rows_dirty = true;
 	if (naui_list_len(uph_state.settings.browser.folders) > 0)
-		_uph_sample_browser_start_scan();
+		uph__sample_browser_start_scan();
 }
 
 static void uph_sample_browser_on_detach(void)
@@ -928,8 +928,8 @@ static void uph_sample_browser_on_close(void)
 
 void uph_sample_browser_shutdown(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
-	_uph_sample_browser_cancel_scan();
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
+	uph__sample_browser_cancel_scan();
 
 	if (state->load)
 	{
@@ -942,14 +942,14 @@ void uph_sample_browser_shutdown(void)
 		state->load_job = NAUI_JOB_INVALID;
 	}
 
-	_uph_sample_browser_index_free(&state->index);
+	uph__sample_browser_index_free(&state->index);
 	naui_list_free(state->rows);
 	state->rows = NULL;
 }
 
-static void _uph_sample_browser_toolbar(void)
+static void uph__sample_browser_toolbar(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	const int32_t button_size = NAUI_DPI(16);
 	const Leaf_Color tint = uph_state.colors.ui_text;
@@ -972,14 +972,14 @@ static void _uph_sample_browser_toolbar(void)
 		}
 
 		if (uph_ui_image_button(uph_state.icons.reload, leaf_id("uph_sample_browser_rescan"), (Naui_Vec2){ button_size, button_size }, tint))
-			_uph_sample_browser_start_scan();
+			uph__sample_browser_start_scan();
 
 		if (uph_ui_image_button(uph_state.icons.plus, leaf_id("uph_sample_browser_add_folder"), (Naui_Vec2){ button_size, button_size }, tint))
-			_uph_sample_browser_open_folder_dialog();
+			uph__sample_browser_open_folder_dialog();
 	}
 }
 
-static void _uph_sample_browser_preview_strip(void)
+static void uph__sample_browser_preview_strip(void)
 {
 	Uph_PreviewInfo info;
 	if (!uph_audio_engine_preview_info(&info))
@@ -1034,7 +1034,7 @@ static void _uph_sample_browser_preview_strip(void)
 
 		leaf({
 			.id = waveform_id,
-			.custom_draw = (Leaf_CustomDrawFn)_uph_sample_browser_waveform_draw,
+			.custom_draw = (Leaf_CustomDrawFn)uph__sample_browser_waveform_draw,
 			.custom_draw_data = LEAF_DATA_SLICE(info),
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_BROWSER_WAVEFORM_HEIGHT)) },
 			.color = uph_state.colors.sample_browser_item_bg,
@@ -1043,7 +1043,7 @@ static void _uph_sample_browser_preview_strip(void)
 	}
 }
 
-static void _uph_sample_browser_empty_state(void)
+static void uph__sample_browser_empty_state(void)
 {
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	leaf({
@@ -1061,18 +1061,18 @@ static void _uph_sample_browser_empty_state(void)
 		});
 
 		if (uph_ui_text_button(NAUI_TR("sample_browser.add_folder"), leaf_id("uph_sample_browser_empty_add")))
-			_uph_sample_browser_open_folder_dialog();
+			uph__sample_browser_open_folder_dialog();
 	}
 }
 
-static void _uph_sample_browser_status(void)
+static void uph__sample_browser_status(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	char status[128];
 	if (state->scan)
 		snprintf(status, sizeof(status), "%s", NAUI_TR("sample_browser.indexing"));
-	else if (_uph_sample_browser_searching())
+	else if (uph__sample_browser_searching())
 		snprintf(status, sizeof(status), "%u / %u", (uint32_t)naui_list_len(state->rows), state->index.file_count);
 	else
 		snprintf(status, sizeof(status), "%u", state->index.file_count);
@@ -1093,9 +1093,9 @@ static void _uph_sample_browser_status(void)
 	}
 }
 
-static void _uph_sample_browser_keyboard(void)
+static void uph__sample_browser_keyboard(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	if (naui_panel_focused() != uph_state.panels.sample_browser || uph_ui_any_menu_open())
 		return;
 
@@ -1104,8 +1104,8 @@ static void _uph_sample_browser_keyboard(void)
 		return;
 
 	const uint32_t node = state->selected;
-	const int32_t current = _uph_sample_browser_row_of(state->selected);
-	const bool searching = _uph_sample_browser_searching();
+	const int32_t current = uph__sample_browser_row_of(state->selected);
+	const bool searching = uph__sample_browser_searching();
 
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 	const bool down = naui_keybind_pressed(keybinds->browser_down);
@@ -1113,18 +1113,18 @@ static void _uph_sample_browser_keyboard(void)
 	{
 		int32_t next = current < 0 ? 0 : current + (down ? 1 : -1);
 		next = NAUI_CLAMP(next, 0, row_count - 1);
-		_uph_sample_browser_select(state->rows[next], true);
+		uph__sample_browser_select(state->rows[next], true);
 		state->scroll_to_selected = true;
 	}
 	else if (current < 0)
 		return;
-	else if (naui_keybind_pressed(keybinds->browser_expand) && !searching && _uph_sample_browser_is_dir(node))
-		_uph_sample_browser_set_expanded(node, true);
+	else if (naui_keybind_pressed(keybinds->browser_expand) && !searching && uph__sample_browser_is_dir(node))
+		uph__sample_browser_set_expanded(node, true);
 	else if (naui_keybind_pressed(keybinds->browser_collapse) && !searching)
 	{
 		const Uph_SampleBrowserNode *info = &state->index.nodes[node];
-		if (_uph_sample_browser_is_dir(node) && (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
-			_uph_sample_browser_set_expanded(node, false);
+		if (uph__sample_browser_is_dir(node) && (info->flags & UPH_SAMPLE_BROWSER_NODE_EXPANDED))
+			uph__sample_browser_set_expanded(node, false);
 		else if (info->parent != UPH_SAMPLE_BROWSER_NONE)
 		{
 			state->selected = info->parent;
@@ -1132,25 +1132,25 @@ static void _uph_sample_browser_keyboard(void)
 		}
 	}
 	else if (naui_keybind_pressed(keybinds->browser_activate))
-		_uph_sample_browser_activate(node);
-	else if (naui_keybind_pressed(keybinds->browser_preview) && !_uph_sample_browser_is_dir(node))
+		uph__sample_browser_activate(node);
+	else if (naui_keybind_pressed(keybinds->browser_preview) && !uph__sample_browser_is_dir(node))
 	{
 		if (uph_audio_engine_preview_playing())
 			uph_audio_engine_preview_stop();
 		else
-			_uph_sample_browser_preview(_uph_sample_browser_node_path(&state->index, node));
+			uph__sample_browser_preview(uph__sample_browser_node_path(&state->index, node));
 	}
 }
 
-static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
+static void uph__sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 	const uint32_t node = state->context_node;
 	if (node >= (uint32_t)naui_list_len(state->index.nodes))
 		return;
 
 	const Uph_SampleBrowserNode info = state->index.nodes[node];
-	const char *path = _uph_sample_browser_node_path(&state->index, node);
+	const char *path = uph__sample_browser_node_path(&state->index, node);
 
 	if (!(info.flags & UPH_SAMPLE_BROWSER_NODE_DIR))
 	{
@@ -1158,22 +1158,22 @@ static void _uph_sample_browser_context_menu_items(Uph_UIMenuID context_menu)
 			uph_sample_browser_add_to_project(naui_path_from_cstr(path), NULL, NULL);
 
 		if (uph_ui_menu_item(context_menu, NAUI_TR("sample_browser.preview"), leaf_id("uph_sample_browser_menu_preview")))
-			_uph_sample_browser_preview(path);
+			uph__sample_browser_preview(path);
 	}
 
 	if (info.flags & UPH_SAMPLE_BROWSER_NODE_ROOT)
 	{
 		if (uph_ui_menu_item(context_menu, NAUI_TR("sample_browser.remove_folder"), leaf_id("uph_sample_browser_menu_remove")))
-			_uph_sample_browser_remove_folder(path);
+			uph__sample_browser_remove_folder(path);
 	}
 
 	if (uph_ui_menu_item(context_menu, NAUI_TR("sample_browser.rescan"), leaf_id("uph_sample_browser_menu_rescan")))
-		_uph_sample_browser_start_scan();
+		uph__sample_browser_start_scan();
 }
 
 static void uph_sample_browser_on_update(void)
 {
-	Uph_SampleBrowserState *state = &_uph_sample_browser_state;
+	Uph_SampleBrowserState *state = &uph__sample_browser_state;
 
 	if (!naui_strings_equal(state->filter, state->applied_filter, true))
 	{
@@ -1183,26 +1183,26 @@ static void uph_sample_browser_on_update(void)
 	}
 
 	if (state->rows_dirty)
-		_uph_sample_browser_rebuild_rows();
+		uph__sample_browser_rebuild_rows();
 
-	_uph_sample_browser_keyboard();
+	uph__sample_browser_keyboard();
 
 	if (state->rows_dirty)
-		_uph_sample_browser_rebuild_rows();
+		uph__sample_browser_rebuild_rows();
 
 	Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_sample_browser_context_menu"));
 
-	_uph_sample_browser_toolbar();
-	_uph_sample_browser_preview_strip();
+	uph__sample_browser_toolbar();
+	uph__sample_browser_preview_strip();
 
 	if (naui_list_len(uph_state.settings.browser.folders) == 0)
 	{
-		_uph_sample_browser_empty_state();
-		_uph_sample_browser_context_menu_items(context_menu);
+		uph__sample_browser_empty_state();
+		uph__sample_browser_context_menu_items(context_menu);
 		return;
 	}
 
-	const bool searching = _uph_sample_browser_searching();
+	const bool searching = uph__sample_browser_searching();
 	const uint32_t row_count = (uint32_t)naui_list_len(state->rows);
 	const Leaf_ID scroll_id = leaf_id("uph_sample_browser_scrollbar");
 	const int32_t row_height = NAUI_DPI(UPH_SAMPLE_BROWSER_ROW_HEIGHT);
@@ -1212,7 +1212,7 @@ static void uph_sample_browser_on_update(void)
 
 	if (state->scroll_to_selected)
 	{
-		const int32_t row = _uph_sample_browser_row_of(state->selected);
+		const int32_t row = uph__sample_browser_row_of(state->selected);
 		if (row >= 0)
 		{
 			const float top = (float)row * row_height;
@@ -1241,7 +1241,7 @@ static void uph_sample_browser_on_update(void)
 			leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED((float)first * row_height) } });
 
 		for (uint32_t i = first; i < last; i++)
-			_uph_sample_browser_row(state->rows[i], context_menu, searching, row_height);
+			uph__sample_browser_row(state->rows[i], context_menu, searching, row_height);
 
 		if (last < row_count)
 			leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED((float)(row_count - last) * row_height) } });
@@ -1263,8 +1263,8 @@ static void uph_sample_browser_on_update(void)
 	}
 	uph_ui_end_scroll_container(&scroll_container);
 
-	_uph_sample_browser_status();
-	_uph_sample_browser_context_menu_items(context_menu);
+	uph__sample_browser_status();
+	uph__sample_browser_context_menu_items(context_menu);
 }
 
 #pragma endregion

@@ -1,4 +1,4 @@
-static char* _naui_find_last_char(Naui_StringView sv, char c)
+static char* naui__find_last_char(Naui_StringView sv, char c)
 {
 	for (size_t i = sv.length; i > 0; i--)
 	{
@@ -30,7 +30,7 @@ Naui_StringView naui_file_filename(const Naui_Path* path)
 Naui_StringView naui_file_stem(const Naui_Path* path)
 {
 	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = _naui_find_last_char(filename, '.');
+	const char* dot = naui__find_last_char(filename, '.');
 
 	if (!dot || dot == filename.data)
 		return filename;
@@ -41,7 +41,7 @@ Naui_StringView naui_file_stem(const Naui_Path* path)
 Naui_StringView naui_file_extension(const Naui_Path* path)
 {
 	Naui_StringView filename = naui_file_filename(path);
-	const char* dot = _naui_find_last_char(filename, '.');
+	const char* dot = naui__find_last_char(filename, '.');
 
 	if (!dot || dot == filename.data)
 		return (Naui_StringView){ 0 };

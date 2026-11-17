@@ -118,12 +118,12 @@ Uph_GlobalWidgetState uph_global_widget_state = { 0 };
 
 #define UPH_UI_SIZE_EXACT(v) (Leaf_SizeAxis){ .type = LEAF_SIZE_TYPE_FIXED, .size.min_max = { .min = (v), .max = (v) } }
 
-static float _uph_ui_frame_height(void)
+static float uph__ui_frame_height(void)
 {
     return NAUI_DPI(UPH_UI_FRAME_HEIGHT);
 }
 
-static Leaf_Border _uph_ui_border(const Leaf_Color color)
+static Leaf_Border uph__ui_border(const Leaf_Color color)
 {
     return (Leaf_Border){
         .width = (int32_t)NAUI_MAX(1.0f, NAUI_DPI(1)),
@@ -132,9 +132,9 @@ static Leaf_Border _uph_ui_border(const Leaf_Color color)
     };
 }
 
-static Leaf_Border _uph_ui_segment_border(const Leaf_Color color, const Naui_CornerFlags corners)
+static Leaf_Border uph__ui_segment_border(const Leaf_Color color, const Naui_CornerFlags corners)
 {
-    Leaf_Border border = _uph_ui_border(color);
+    Leaf_Border border = uph__ui_border(color);
     border.sides = LEAF_SIDE_TOP | LEAF_SIDE_BOTTOM;
 
     if (corners & (NAUI_CORNER_TL | NAUI_CORNER_BL))
@@ -146,9 +146,9 @@ static Leaf_Border _uph_ui_segment_border(const Leaf_Color color, const Naui_Cor
     return border;
 }
 
-static Leaf_Border _uph_ui_frame_border(void)
+static Leaf_Border uph__ui_frame_border(void)
 {
-    return _uph_ui_border(uph_state.colors.ui_frame_border);
+    return uph__ui_border(uph_state.colors.ui_frame_border);
 }
 
 bool uph_ui_widget_hovered(const Leaf_ID id)

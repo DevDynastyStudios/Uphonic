@@ -11,7 +11,7 @@ typedef struct
 }
 Uph_AutomationListState;
 
-static Uph_AutomationListState _uph_automation_list_state = { 0 };
+static Uph_AutomationListState uph__automation_list_state = { 0 };
 
 void uph_automation_list_on_attach(void)
 {
@@ -32,14 +32,14 @@ void uph_automation_list_on_open(void)
 
 void uph_automation_list_on_close(void)
 {
-    Uph_AutomationListState *state = &_uph_automation_list_state;
+    Uph_AutomationListState *state = &uph__automation_list_state;
     uph_song_timeline_cancel_automation_drop();
     state->filter = (Naui_String){0};
 }
 
 static bool uph_automation_list_matches_filter(const Uph_PluginParam *param, const Uph_Plugin *plugin)
 {
-    Uph_AutomationListState *state = &_uph_automation_list_state;
+    Uph_AutomationListState *state = &uph__automation_list_state;
     if (state->filter.length == 0)
         return true;
 
@@ -188,7 +188,7 @@ Uph_AutomationListTarget;
 
 static bool uph_automation_list_track_target_visible(const Uph_Track *track, Uph_AutomationTarget target, const char *name)
 {
-    Uph_AutomationListState *state = &_uph_automation_list_state;
+    Uph_AutomationListState *state = &uph__automation_list_state;
     if (track && uph_resources_track_has_automation_target(track, target))
         return false;
 
@@ -243,7 +243,7 @@ static bool uph_automation_list_render_track_params(const Uph_Track *track, Uph_
 
 void uph_automation_list_on_update(void)
 {
-	Uph_AutomationListState *state = &_uph_automation_list_state;
+	Uph_AutomationListState *state = &uph__automation_list_state;
     Uph_Track *track = uph_state.shared.current_automation_list_track;
     if (!track)
         return;

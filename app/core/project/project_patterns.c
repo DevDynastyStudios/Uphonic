@@ -1,4 +1,4 @@
-static const char *_uph_midi_extensions[] = { ".mid", ".midi", ".rmi", ".kar", NULL };
+static const char *uph__midi_extensions[] = { ".mid", ".midi", ".rmi", ".kar", NULL };
 
 typedef struct
 {
@@ -9,7 +9,7 @@ typedef struct
 }
 Uph_MidiNoteKey;
 
-static int _uph_midi_note_key_compare(const void *a, const void *b)
+static int uph__midi_note_key_compare(const void *a, const void *b)
 {
 	const Uph_MidiNoteKey *left = a;
 	const Uph_MidiNoteKey *right = b;
@@ -29,7 +29,7 @@ static int _uph_midi_note_key_compare(const void *a, const void *b)
 	return 0;
 }
 
-static Uph_MidiNoteKey *_uph_midi_pattern_keys(const Uph_MidiPattern *pattern)
+static Uph_MidiNoteKey *uph__midi_pattern_keys(const Uph_MidiPattern *pattern)
 {
 	const size_t count = naui_list_len(pattern->notes);
 	Uph_MidiNoteKey *keys = malloc(sizeof(Uph_MidiNoteKey) * (count > 0 ? count : 1));
@@ -47,11 +47,11 @@ static Uph_MidiNoteKey *_uph_midi_pattern_keys(const Uph_MidiPattern *pattern)
 		};
 	}
 
-	qsort(keys, count, sizeof(Uph_MidiNoteKey), _uph_midi_note_key_compare);
+	qsort(keys, count, sizeof(Uph_MidiNoteKey), uph__midi_note_key_compare);
 	return keys;
 }
 
-static bool _uph_midi_note_keys_equal(const Uph_MidiNoteKey *a, const Uph_MidiNoteKey *b, size_t count)
+static bool uph__midi_note_keys_equal(const Uph_MidiNoteKey *a, const Uph_MidiNoteKey *b, size_t count)
 {
 	for (size_t i = 0; i < count; i++)
 	{
@@ -63,7 +63,7 @@ static bool _uph_midi_note_keys_equal(const Uph_MidiNoteKey *a, const Uph_MidiNo
 	return true;
 }
 
-static bool _uph_midi_pedals_equal(const Uph_MidiPattern *a, const Uph_MidiPattern *b)
+static bool uph__midi_pedals_equal(const Uph_MidiPattern *a, const Uph_MidiPattern *b)
 {
 	const size_t count = naui_list_len(a->pedals);
 	if (naui_list_len(b->pedals) != count)
@@ -80,7 +80,7 @@ static bool _uph_midi_pedals_equal(const Uph_MidiPattern *a, const Uph_MidiPatte
 	return true;
 }
 
-static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, const Uph_MidiPattern *incoming)
+static int32_t uph__project_find_duplicate_pattern(const Uph_Project *project, const Uph_MidiPattern *incoming)
 {
 	const size_t count = naui_list_len(incoming->notes);
 	if (count == 0)
@@ -91,14 +91,14 @@ static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, c
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(project->midi_patterns) && found < 0; i++)
 	{
-		if (naui_list_len(project->midi_patterns[i].notes) != count || !_uph_midi_pedals_equal(&project->midi_patterns[i], incoming))
+		if (naui_list_len(project->midi_patterns[i].notes) != count || !uph__midi_pedals_equal(&project->midi_patterns[i], incoming))
 			continue;
 
-		if (!incoming_keys && !(incoming_keys = _uph_midi_pattern_keys(incoming)))
+		if (!incoming_keys && !(incoming_keys = uph__midi_pattern_keys(incoming)))
 			break;
 
-		Uph_MidiNoteKey *existing_keys = _uph_midi_pattern_keys(&project->midi_patterns[i]);
-		if (existing_keys && _uph_midi_note_keys_equal(incoming_keys, existing_keys, count))
+		Uph_MidiNoteKey *existing_keys = uph__midi_pattern_keys(&project->midi_patterns[i]);
+		if (existing_keys && uph__midi_note_keys_equal(incoming_keys, existing_keys, count))
 			found = (int32_t)i;
 
 		free(existing_keys);
@@ -110,7 +110,7 @@ static int32_t _uph_project_find_duplicate_pattern(const Uph_Project *project, c
 
 bool uph_project_is_midi_extension(const Naui_StringView extension)
 {
-	for (const char **midi = _uph_midi_extensions; *midi; midi++)
+	for (const char **midi = uph__midi_extensions; *midi; midi++)
 	{
 		if (naui_string_view_equals_cstr(extension, *midi, false))
 			return true;
@@ -129,7 +129,7 @@ bool uph_project_add_pattern_file(Uph_Project *project, const Naui_Path file_pat
 		return false;
 	}
 
-	const int32_t duplicate = _uph_project_find_duplicate_pattern(project, &pattern);
+	const int32_t duplicate = uph__project_find_duplicate_pattern(project, &pattern);
 	if (duplicate >= 0)
 	{
 		naui_log(NAUI_LOG_INFO, "Skipping MIDI file, identical pattern already in project: %s", project->midi_patterns[duplicate].name.data);
@@ -150,7 +150,7 @@ bool uph_project_add_pattern_file(Uph_Project *project, const Naui_Path file_pat
 void uph_project_adopt_pattern_files(Uph_Project *project, const Naui_Path project_folder)
 {
 	const Naui_Path patterns_dir = naui_path_join(project_folder, NAUI_PATH(UPH_IO_FOLDER_PATTERNS));
-	Naui_List(Naui_DirEntry) files = naui_directory_filter(patterns_dir, NULL, _uph_midi_extensions);
+	Naui_List(Naui_DirEntry) files = naui_directory_filter(patterns_dir, NULL, uph__midi_extensions);
 	if (!files)
 		return;
 
@@ -172,7 +172,7 @@ void uph_project_adopt_pattern_files(Uph_Project *project, const Naui_Path proje
 			continue;
 		}
 
-		if (_uph_project_find_duplicate_pattern(project, &pattern) >= 0)
+		if (uph__project_find_duplicate_pattern(project, &pattern) >= 0)
 		{
 			naui_log(NAUI_LOG_INFO, "Not adding MIDI file, an identical pattern is already in the project: %s", file.data);
 			uph_midi_pattern_free_events(&pattern);

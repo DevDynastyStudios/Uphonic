@@ -31,7 +31,7 @@ typedef struct
 
 typedef int64_t NetField[16];
 
-static void _naui_net_put_u32(uint8_t* p, uint32_t value)
+static void naui__net_put_u32(uint8_t* p, uint32_t value)
 {
 	p[0] = (uint8_t)(value >> 24);
 	p[1] = (uint8_t)(value >> 16);
@@ -39,7 +39,7 @@ static void _naui_net_put_u32(uint8_t* p, uint32_t value)
 	p[3] = (uint8_t)value;
 }
 
-static uint32_t _naui_net_get_u32(const uint8_t* p)
+static uint32_t naui__net_get_u32(const uint8_t* p)
 {
 	return
 		((uint32_t)p[0] << 24) |
@@ -48,25 +48,25 @@ static uint32_t _naui_net_get_u32(const uint8_t* p)
 		(uint32_t)p[3];
 }
 
-static void _naui_net_put_u64(uint8_t* p, uint64_t value)
+static void naui__net_put_u64(uint8_t* p, uint64_t value)
 {
-	_naui_net_put_u32(p, (uint32_t)(value >> 32));
-	_naui_net_put_u32(p + 4, (uint32_t)value);
+	naui__net_put_u32(p, (uint32_t)(value >> 32));
+	naui__net_put_u32(p + 4, (uint32_t)value);
 }
 
-static uint64_t _naui_net_get_u64(const uint8_t* p)
+static uint64_t naui__net_get_u64(const uint8_t* p)
 {
-	return ((uint64_t)_naui_net_get_u32(p) << 32) | (uint64_t)_naui_net_get_u32(p + 4);
+	return ((uint64_t)naui__net_get_u32(p) << 32) | (uint64_t)naui__net_get_u32(p + 4);
 }
 
-static void _naui_net_wipe(void* data, size_t size)
+static void naui__net_wipe(void* data, size_t size)
 {
 	volatile uint8_t* p = (volatile uint8_t*)data;
 	while (size--)
 		*p++ = 0;
 }
 
-static bool _naui_net_ct_equal(const void* a, const void* b, size_t size)
+static bool naui__net_ct_equal(const void* a, const void* b, size_t size)
 {
 	const uint8_t* x = (const uint8_t*)a;
 	const uint8_t* y = (const uint8_t*)b;
@@ -79,7 +79,7 @@ static bool _naui_net_ct_equal(const void* a, const void* b, size_t size)
 	return diff == 0;
 }
 
-static bool _naui_net_random_bytes(void* out, size_t size)
+static bool naui__net_random_bytes(void* out, size_t size)
 {
 #if NAUI_WINDOWS
 
@@ -120,12 +120,12 @@ static bool _naui_net_random_bytes(void* out, size_t size)
 #endif
 }
 
-static uint32_t _naui_net_load32_le(const uint8_t* p)
+static uint32_t naui__net_load32_le(const uint8_t* p)
 {
 	return (uint32_t)p[0] | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
-static void _naui_net_store32_le(uint8_t* p, uint32_t value)
+static void naui__net_store32_le(uint8_t* p, uint32_t value)
 {
 	p[0] = (uint8_t)value;
 	p[1] = (uint8_t)(value >> 8);
@@ -133,22 +133,22 @@ static void _naui_net_store32_le(uint8_t* p, uint32_t value)
 	p[3] = (uint8_t)(value >> 24);
 }
 
-static uint32_t _naui_net_rotr32(uint32_t x, int n)
+static uint32_t naui__net_rotr32(uint32_t x, int n)
 {
 	return (x >> n) | (x << (32 - n));
 }
 
-static uint32_t _naui_net_rotl32(uint32_t x, int n)
+static uint32_t naui__net_rotl32(uint32_t x, int n)
 {
 	return (x << n) | (x >> (32 - n));
 }
 
-static uint64_t _naui_net_rotr64(uint64_t x, int n)
+static uint64_t naui__net_rotr64(uint64_t x, int n)
 {
 	return (x >> n) | (x << (64 - n));
 }
 
-static const uint32_t _naui_net_sha256_k[64] =
+static const uint32_t naui__net_sha256_k[64] =
 {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
 	0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -160,18 +160,18 @@ static const uint32_t _naui_net_sha256_k[64] =
 	0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
 };
 
-static void _naui_net_sha256_compress(NetSha256* sha, const uint8_t* block)
+static void naui__net_sha256_compress(NetSha256* sha, const uint8_t* block)
 {
 	uint32_t w[64];
 	for (int i = 0; i < 16; i++)
 	{
-		w[i] = _naui_net_get_u32(block + i * 4);
+		w[i] = naui__net_get_u32(block + i * 4);
 	}
 
 	for (int i = 16; i < 64; i++)
 	{
-		uint32_t s0 = _naui_net_rotr32(w[i - 15], 7) ^ _naui_net_rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
-		uint32_t s1 = _naui_net_rotr32(w[i - 2], 17) ^ _naui_net_rotr32(w[i - 2], 19) ^ (w[i - 2] >> 10);
+		uint32_t s0 = naui__net_rotr32(w[i - 15], 7) ^ naui__net_rotr32(w[i - 15], 18) ^ (w[i - 15] >> 3);
+		uint32_t s1 = naui__net_rotr32(w[i - 2], 17) ^ naui__net_rotr32(w[i - 2], 19) ^ (w[i - 2] >> 10);
 		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 	}
 
@@ -179,10 +179,10 @@ static void _naui_net_sha256_compress(NetSha256* sha, const uint8_t* block)
 	memcpy(v, sha->state, sizeof(v));
 	for (int i = 0; i < 64; i++)
 	{
-		uint32_t s1 = _naui_net_rotr32(v[4], 6) ^ _naui_net_rotr32(v[4], 11) ^ _naui_net_rotr32(v[4], 25);
+		uint32_t s1 = naui__net_rotr32(v[4], 6) ^ naui__net_rotr32(v[4], 11) ^ naui__net_rotr32(v[4], 25);
 		uint32_t ch = (v[4] & v[5]) ^ (~v[4] & v[6]);
-		uint32_t t1 = v[7] + s1 + ch + _naui_net_sha256_k[i] + w[i];
-		uint32_t s0 = _naui_net_rotr32(v[0], 2) ^ _naui_net_rotr32(v[0], 13) ^ _naui_net_rotr32(v[0], 22);
+		uint32_t t1 = v[7] + s1 + ch + naui__net_sha256_k[i] + w[i];
+		uint32_t s0 = naui__net_rotr32(v[0], 2) ^ naui__net_rotr32(v[0], 13) ^ naui__net_rotr32(v[0], 22);
 		uint32_t maj = (v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]);
 		uint32_t t2 = s0 + maj;
 
@@ -202,7 +202,7 @@ static void _naui_net_sha256_compress(NetSha256* sha, const uint8_t* block)
 	}
 }
 
-static void _naui_net_sha256_init(NetSha256* sha)
+static void naui__net_sha256_init(NetSha256* sha)
 {
 	static const uint32_t initial[8] =
 	{
@@ -214,7 +214,7 @@ static void _naui_net_sha256_init(NetSha256* sha)
 	sha->used = 0;
 }
 
-static void _naui_net_sha256_update(NetSha256* sha, const void* data, size_t size)
+static void naui__net_sha256_update(NetSha256* sha, const void* data, size_t size)
 {
 	const uint8_t* p = (const uint8_t*)data;
 	sha->length += size;
@@ -230,34 +230,34 @@ static void _naui_net_sha256_update(NetSha256* sha, const void* data, size_t siz
 		size -= take;
 		if (sha->used == sizeof(sha->block))
 		{
-			_naui_net_sha256_compress(sha, sha->block);
+			naui__net_sha256_compress(sha, sha->block);
 			sha->used = 0;
 		}
 	}
 }
 
-static void _naui_net_sha256_final(const NetSha256* sha, uint8_t out[NET_SHA256_SIZE])
+static void naui__net_sha256_final(const NetSha256* sha, uint8_t out[NET_SHA256_SIZE])
 {
 	NetSha256 copy = *sha;
 	uint8_t tail[72] = { 0x80 };
 	size_t pad = (copy.used < 56 ? 56 : 120) - copy.used;
-	_naui_net_put_u64(tail + pad, copy.length * 8);
-	_naui_net_sha256_update(&copy, tail, pad + 8);
+	naui__net_put_u64(tail + pad, copy.length * 8);
+	naui__net_sha256_update(&copy, tail, pad + 8);
 	for (int i = 0; i < 8; i++)
 	{
-		_naui_net_put_u32(out + i * 4, copy.state[i]);
+		naui__net_put_u32(out + i * 4, copy.state[i]);
 	}
 }
 
-static void _naui_net_sha256(const void* data, size_t size, uint8_t out[NET_SHA256_SIZE])
+static void naui__net_sha256(const void* data, size_t size, uint8_t out[NET_SHA256_SIZE])
 {
 	NetSha256 sha;
-	_naui_net_sha256_init(&sha);
-	_naui_net_sha256_update(&sha, data, size);
-	_naui_net_sha256_final(&sha, out);
+	naui__net_sha256_init(&sha);
+	naui__net_sha256_update(&sha, data, size);
+	naui__net_sha256_final(&sha, out);
 }
 
-static const uint64_t _naui_net_sha512_k[80] =
+static const uint64_t naui__net_sha512_k[80] =
 {
 	0x428a2f98d728ae22ull, 0x7137449123ef65cdull, 0xb5c0fbcfec4d3b2full, 0xe9b5dba58189dbbcull,
 	0x3956c25bf348b538ull, 0x59f111f1b605d019ull, 0x923f82a4af194f9bull, 0xab1c5ed5da6d8118ull,
@@ -281,18 +281,18 @@ static const uint64_t _naui_net_sha512_k[80] =
 	0x4cc5d4becb3e42b6ull, 0x597f299cfc657e2aull, 0x5fcb6fab3ad6faecull, 0x6c44198c4a475817ull,
 };
 
-static void _naui_net_sha512_compress(NetSha512* sha, const uint8_t* block)
+static void naui__net_sha512_compress(NetSha512* sha, const uint8_t* block)
 {
 	uint64_t w[80];
 	for (int i = 0; i < 16; i++)
 	{
-		w[i] = _naui_net_get_u64(block + i * 8);
+		w[i] = naui__net_get_u64(block + i * 8);
 	}
 
 	for (int i = 16; i < 80; i++)
 	{
-		uint64_t s0 = _naui_net_rotr64(w[i - 15], 1) ^ _naui_net_rotr64(w[i - 15], 8) ^ (w[i - 15] >> 7);
-		uint64_t s1 = _naui_net_rotr64(w[i - 2], 19) ^ _naui_net_rotr64(w[i - 2], 61) ^ (w[i - 2] >> 6);
+		uint64_t s0 = naui__net_rotr64(w[i - 15], 1) ^ naui__net_rotr64(w[i - 15], 8) ^ (w[i - 15] >> 7);
+		uint64_t s1 = naui__net_rotr64(w[i - 2], 19) ^ naui__net_rotr64(w[i - 2], 61) ^ (w[i - 2] >> 6);
 		w[i] = w[i - 16] + s0 + w[i - 7] + s1;
 	}
 
@@ -300,10 +300,10 @@ static void _naui_net_sha512_compress(NetSha512* sha, const uint8_t* block)
 	memcpy(v, sha->state, sizeof(v));
 	for (int i = 0; i < 80; i++)
 	{
-		uint64_t s1 = _naui_net_rotr64(v[4], 14) ^ _naui_net_rotr64(v[4], 18) ^ _naui_net_rotr64(v[4], 41);
+		uint64_t s1 = naui__net_rotr64(v[4], 14) ^ naui__net_rotr64(v[4], 18) ^ naui__net_rotr64(v[4], 41);
 		uint64_t ch = (v[4] & v[5]) ^ (~v[4] & v[6]);
-		uint64_t t1 = v[7] + s1 + ch + _naui_net_sha512_k[i] + w[i];
-		uint64_t s0 = _naui_net_rotr64(v[0], 28) ^ _naui_net_rotr64(v[0], 34) ^ _naui_net_rotr64(v[0], 39);
+		uint64_t t1 = v[7] + s1 + ch + naui__net_sha512_k[i] + w[i];
+		uint64_t s0 = naui__net_rotr64(v[0], 28) ^ naui__net_rotr64(v[0], 34) ^ naui__net_rotr64(v[0], 39);
 		uint64_t maj = (v[0] & v[1]) ^ (v[0] & v[2]) ^ (v[1] & v[2]);
 		uint64_t t2 = s0 + maj;
 
@@ -323,7 +323,7 @@ static void _naui_net_sha512_compress(NetSha512* sha, const uint8_t* block)
 	}
 }
 
-static void _naui_net_sha512_init(NetSha512* sha)
+static void naui__net_sha512_init(NetSha512* sha)
 {
 	static const uint64_t initial[8] =
 	{
@@ -336,7 +336,7 @@ static void _naui_net_sha512_init(NetSha512* sha)
 	sha->used = 0;
 }
 
-static void _naui_net_sha512_update(NetSha512* sha, const void* data, size_t size)
+static void naui__net_sha512_update(NetSha512* sha, const void* data, size_t size)
 {
 	const uint8_t* p = (const uint8_t*)data;
 	sha->length += size;
@@ -352,30 +352,30 @@ static void _naui_net_sha512_update(NetSha512* sha, const void* data, size_t siz
 		size -= take;
 		if (sha->used == sizeof(sha->block))
 		{
-			_naui_net_sha512_compress(sha, sha->block);
+			naui__net_sha512_compress(sha, sha->block);
 			sha->used = 0;
 		}
 	}
 }
 
-static void _naui_net_sha512_final(NetSha512* sha, uint8_t out[NET_SHA512_SIZE])
+static void naui__net_sha512_final(NetSha512* sha, uint8_t out[NET_SHA512_SIZE])
 {
 	uint8_t tail[144] = { 0x80 };
 	size_t pad = (sha->used < 112 ? 112 : 240) - sha->used;
 	uint64_t bits = sha->length * 8;
-	_naui_net_put_u64(tail + pad + 8, bits);
-	_naui_net_sha512_update(sha, tail, pad + 16);
+	naui__net_put_u64(tail + pad + 8, bits);
+	naui__net_sha512_update(sha, tail, pad + 16);
 	for (int i = 0; i < 8; i++)
 	{
-		_naui_net_put_u64(out + i * 8, sha->state[i]);
+		naui__net_put_u64(out + i * 8, sha->state[i]);
 	}
 }
 
-static void _naui_net_hmac_sha256(const uint8_t* key, size_t key_size, const void* data, size_t size, uint8_t out[NET_SHA256_SIZE])
+static void naui__net_hmac_sha256(const uint8_t* key, size_t key_size, const void* data, size_t size, uint8_t out[NET_SHA256_SIZE])
 {
 	uint8_t block[64] = { 0 };
 	if (key_size > sizeof(block))
-		_naui_net_sha256(key, key_size, block);
+		naui__net_sha256(key, key_size, block);
 	else
 		memcpy(block, key, key_size);
 
@@ -387,31 +387,31 @@ static void _naui_net_hmac_sha256(const uint8_t* key, size_t key_size, const voi
 
 	uint8_t inner[NET_SHA256_SIZE];
 	NetSha256 sha;
-	_naui_net_sha256_init(&sha);
-	_naui_net_sha256_update(&sha, pad, sizeof(pad));
-	_naui_net_sha256_update(&sha, data, size);
-	_naui_net_sha256_final(&sha, inner);
+	naui__net_sha256_init(&sha);
+	naui__net_sha256_update(&sha, pad, sizeof(pad));
+	naui__net_sha256_update(&sha, data, size);
+	naui__net_sha256_final(&sha, inner);
 
 	for (size_t i = 0; i < sizeof(pad); i++)
 	{
 		pad[i] = block[i] ^ 0x5c;
 	}
 
-	_naui_net_sha256_init(&sha);
-	_naui_net_sha256_update(&sha, pad, sizeof(pad));
-	_naui_net_sha256_update(&sha, inner, sizeof(inner));
-	_naui_net_sha256_final(&sha, out);
+	naui__net_sha256_init(&sha);
+	naui__net_sha256_update(&sha, pad, sizeof(pad));
+	naui__net_sha256_update(&sha, inner, sizeof(inner));
+	naui__net_sha256_final(&sha, out);
 
-	_naui_net_wipe(block, sizeof(block));
-	_naui_net_wipe(pad, sizeof(pad));
+	naui__net_wipe(block, sizeof(block));
+	naui__net_wipe(pad, sizeof(pad));
 }
 
-static void _naui_net_hkdf_extract(const uint8_t* salt, size_t salt_size, const uint8_t* ikm, size_t ikm_size, uint8_t out[NET_SHA256_SIZE])
+static void naui__net_hkdf_extract(const uint8_t* salt, size_t salt_size, const uint8_t* ikm, size_t ikm_size, uint8_t out[NET_SHA256_SIZE])
 {
-	_naui_net_hmac_sha256(salt, salt_size, ikm, ikm_size, out);
+	naui__net_hmac_sha256(salt, salt_size, ikm, ikm_size, out);
 }
 
-static void _naui_net_hkdf_expand_label(const uint8_t secret[NET_SHA256_SIZE], const char* label, const uint8_t* context, size_t context_size, uint8_t* out, size_t out_size)
+static void naui__net_hkdf_expand_label(const uint8_t secret[NET_SHA256_SIZE], const char* label, const uint8_t* context, size_t context_size, uint8_t* out, size_t out_size)
 {
 	uint8_t info[128];
 	size_t label_size = strlen(label);
@@ -432,29 +432,29 @@ static void _naui_net_hkdf_expand_label(const uint8_t secret[NET_SHA256_SIZE], c
 	info[n++] = 1;
 
 	uint8_t block[NET_SHA256_SIZE];
-	_naui_net_hmac_sha256(secret, NET_SHA256_SIZE, info, n, block);
+	naui__net_hmac_sha256(secret, NET_SHA256_SIZE, info, n, block);
 	memcpy(out, block, out_size);
-	_naui_net_wipe(block, sizeof(block));
+	naui__net_wipe(block, sizeof(block));
 }
 
 #define NET_CHACHA_QUARTER(a, b, c, d) \
-	a += b; d = _naui_net_rotl32(d ^ a, 16); \
-	c += d; b = _naui_net_rotl32(b ^ c, 12); \
-	a += b; d = _naui_net_rotl32(d ^ a, 8); \
-	c += d; b = _naui_net_rotl32(b ^ c, 7)
+	a += b; d = naui__net_rotl32(d ^ a, 16); \
+	c += d; b = naui__net_rotl32(b ^ c, 12); \
+	a += b; d = naui__net_rotl32(d ^ a, 8); \
+	c += d; b = naui__net_rotl32(b ^ c, 7)
 
-static void _naui_net_chacha20_block(const uint8_t key[32], uint32_t counter, const uint8_t nonce[12], uint8_t out[64])
+static void naui__net_chacha20_block(const uint8_t key[32], uint32_t counter, const uint8_t nonce[12], uint8_t out[64])
 {
 	uint32_t s[16] = { 0x61707865, 0x3320646e, 0x79622d32, 0x6b206574 };
 	for (int i = 0; i < 8; i++)
 	{
-		s[4 + i] = _naui_net_load32_le(key + i * 4);
+		s[4 + i] = naui__net_load32_le(key + i * 4);
 	}
 
 	s[12] = counter;
-	s[13] = _naui_net_load32_le(nonce);
-	s[14] = _naui_net_load32_le(nonce + 4);
-	s[15] = _naui_net_load32_le(nonce + 8);
+	s[13] = naui__net_load32_le(nonce);
+	s[14] = naui__net_load32_le(nonce + 4);
+	s[15] = naui__net_load32_le(nonce + 8);
 
 	uint32_t x[16];
 	memcpy(x, s, sizeof(x));
@@ -472,16 +472,16 @@ static void _naui_net_chacha20_block(const uint8_t key[32], uint32_t counter, co
 
 	for (int i = 0; i < 16; i++)
 	{
-		_naui_net_store32_le(out + i * 4, x[i] + s[i]);
+		naui__net_store32_le(out + i * 4, x[i] + s[i]);
 	}
 }
 
-static void _naui_net_chacha20_xor(const uint8_t key[32], uint32_t counter, const uint8_t nonce[12], const uint8_t* in, uint8_t* out, size_t size)
+static void naui__net_chacha20_xor(const uint8_t key[32], uint32_t counter, const uint8_t nonce[12], const uint8_t* in, uint8_t* out, size_t size)
 {
 	uint8_t block[64];
 	while (size > 0)
 	{
-		_naui_net_chacha20_block(key, counter++, nonce, block);
+		naui__net_chacha20_block(key, counter++, nonce, block);
 		size_t take = size < sizeof(block) ? size : sizeof(block);
 		for (size_t i = 0; i < take; i++)
 		{
@@ -493,33 +493,33 @@ static void _naui_net_chacha20_xor(const uint8_t key[32], uint32_t counter, cons
 		size -= take;
 	}
 
-	_naui_net_wipe(block, sizeof(block));
+	naui__net_wipe(block, sizeof(block));
 }
 
-static void _naui_net_poly1305_init(NetPoly1305* poly, const uint8_t key[32])
+static void naui__net_poly1305_init(NetPoly1305* poly, const uint8_t key[32])
 {
-	poly->r[0] = _naui_net_load32_le(key) & 0x3ffffff;
-	poly->r[1] = (_naui_net_load32_le(key + 3) >> 2) & 0x3ffff03;
-	poly->r[2] = (_naui_net_load32_le(key + 6) >> 4) & 0x3ffc0ff;
-	poly->r[3] = (_naui_net_load32_le(key + 9) >> 6) & 0x3f03fff;
-	poly->r[4] = (_naui_net_load32_le(key + 12) >> 8) & 0x00fffff;
+	poly->r[0] = naui__net_load32_le(key) & 0x3ffffff;
+	poly->r[1] = (naui__net_load32_le(key + 3) >> 2) & 0x3ffff03;
+	poly->r[2] = (naui__net_load32_le(key + 6) >> 4) & 0x3ffc0ff;
+	poly->r[3] = (naui__net_load32_le(key + 9) >> 6) & 0x3f03fff;
+	poly->r[4] = (naui__net_load32_le(key + 12) >> 8) & 0x00fffff;
 	memset(poly->h, 0, sizeof(poly->h));
 	for (int i = 0; i < 4; i++)
 	{
-		poly->pad[i] = _naui_net_load32_le(key + 16 + i * 4);
+		poly->pad[i] = naui__net_load32_le(key + 16 + i * 4);
 	}
 }
 
-static void _naui_net_poly1305_block(NetPoly1305* poly, const uint8_t block[16])
+static void naui__net_poly1305_block(NetPoly1305* poly, const uint8_t block[16])
 {
 	uint32_t r0 = poly->r[0], r1 = poly->r[1], r2 = poly->r[2], r3 = poly->r[3], r4 = poly->r[4];
 	uint32_t s1 = r1 * 5, s2 = r2 * 5, s3 = r3 * 5, s4 = r4 * 5;
 
-	uint32_t h0 = poly->h[0] + (_naui_net_load32_le(block) & 0x3ffffff);
-	uint32_t h1 = poly->h[1] + ((_naui_net_load32_le(block + 3) >> 2) & 0x3ffffff);
-	uint32_t h2 = poly->h[2] + ((_naui_net_load32_le(block + 6) >> 4) & 0x3ffffff);
-	uint32_t h3 = poly->h[3] + ((_naui_net_load32_le(block + 9) >> 6) & 0x3ffffff);
-	uint32_t h4 = poly->h[4] + ((_naui_net_load32_le(block + 12) >> 8) | (1u << 24));
+	uint32_t h0 = poly->h[0] + (naui__net_load32_le(block) & 0x3ffffff);
+	uint32_t h1 = poly->h[1] + ((naui__net_load32_le(block + 3) >> 2) & 0x3ffffff);
+	uint32_t h2 = poly->h[2] + ((naui__net_load32_le(block + 6) >> 4) & 0x3ffffff);
+	uint32_t h3 = poly->h[3] + ((naui__net_load32_le(block + 9) >> 6) & 0x3ffffff);
+	uint32_t h4 = poly->h[4] + ((naui__net_load32_le(block + 12) >> 8) | (1u << 24));
 
 	uint64_t d0 = (uint64_t)h0 * r0 + (uint64_t)h1 * s4 + (uint64_t)h2 * s3 + (uint64_t)h3 * s2 + (uint64_t)h4 * s1;
 	uint64_t d1 = (uint64_t)h0 * r1 + (uint64_t)h1 * r0 + (uint64_t)h2 * s4 + (uint64_t)h3 * s3 + (uint64_t)h4 * s2;
@@ -547,11 +547,11 @@ static void _naui_net_poly1305_block(NetPoly1305* poly, const uint8_t block[16])
 	poly->h[4] = h4;
 }
 
-static void _naui_net_poly1305_padded(NetPoly1305* poly, const uint8_t* data, size_t size)
+static void naui__net_poly1305_padded(NetPoly1305* poly, const uint8_t* data, size_t size)
 {
 	while (size >= 16)
 	{
-		_naui_net_poly1305_block(poly, data);
+		naui__net_poly1305_block(poly, data);
 		data += 16;
 		size -= 16;
 	}
@@ -560,11 +560,11 @@ static void _naui_net_poly1305_padded(NetPoly1305* poly, const uint8_t* data, si
 	{
 		uint8_t block[16] = { 0 };
 		memcpy(block, data, size);
-		_naui_net_poly1305_block(poly, block);
+		naui__net_poly1305_block(poly, block);
 	}
 }
 
-static void _naui_net_poly1305_final(NetPoly1305* poly, uint8_t tag[16])
+static void naui__net_poly1305_final(NetPoly1305* poly, uint8_t tag[16])
 {
 	uint32_t h0 = poly->h[0], h1 = poly->h[1], h2 = poly->h[2], h3 = poly->h[3], h4 = poly->h[4];
 
@@ -603,36 +603,36 @@ static void _naui_net_poly1305_final(NetPoly1305* poly, uint8_t tag[16])
 	h3 = (h3 >> 18) | (h4 << 8);
 
 	uint64_t f = (uint64_t)h0 + poly->pad[0];
-	_naui_net_store32_le(tag, (uint32_t)f);
+	naui__net_store32_le(tag, (uint32_t)f);
 	f = (uint64_t)h1 + poly->pad[1] + (f >> 32);
-	_naui_net_store32_le(tag + 4, (uint32_t)f);
+	naui__net_store32_le(tag + 4, (uint32_t)f);
 	f = (uint64_t)h2 + poly->pad[2] + (f >> 32);
-	_naui_net_store32_le(tag + 8, (uint32_t)f);
+	naui__net_store32_le(tag + 8, (uint32_t)f);
 	f = (uint64_t)h3 + poly->pad[3] + (f >> 32);
-	_naui_net_store32_le(tag + 12, (uint32_t)f);
+	naui__net_store32_le(tag + 12, (uint32_t)f);
 
-	_naui_net_wipe(poly, sizeof(*poly));
+	naui__net_wipe(poly, sizeof(*poly));
 }
 
-static void _naui_net_chacha20_poly1305_tag(const uint8_t key[32], const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* cipher, size_t size, uint8_t tag[16])
+static void naui__net_chacha20_poly1305_tag(const uint8_t key[32], const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* cipher, size_t size, uint8_t tag[16])
 {
 	uint8_t block[64];
-	_naui_net_chacha20_block(key, 0, nonce, block);
+	naui__net_chacha20_block(key, 0, nonce, block);
 
 	NetPoly1305 poly;
-	_naui_net_poly1305_init(&poly, block);
-	_naui_net_poly1305_padded(&poly, aad, aad_size);
-	_naui_net_poly1305_padded(&poly, cipher, size);
+	naui__net_poly1305_init(&poly, block);
+	naui__net_poly1305_padded(&poly, aad, aad_size);
+	naui__net_poly1305_padded(&poly, cipher, size);
 
 	uint8_t lengths[16] = { 0 };
-	_naui_net_store32_le(lengths, (uint32_t)aad_size);
-	_naui_net_store32_le(lengths + 8, (uint32_t)size);
-	_naui_net_poly1305_block(&poly, lengths);
-	_naui_net_poly1305_final(&poly, tag);
-	_naui_net_wipe(block, sizeof(block));
+	naui__net_store32_le(lengths, (uint32_t)aad_size);
+	naui__net_store32_le(lengths + 8, (uint32_t)size);
+	naui__net_poly1305_block(&poly, lengths);
+	naui__net_poly1305_final(&poly, tag);
+	naui__net_wipe(block, sizeof(block));
 }
 
-static const uint8_t _naui_net_aes_sbox[256] =
+static const uint8_t naui__net_aes_sbox[256] =
 {
 	0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
 	0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -652,12 +652,12 @@ static const uint8_t _naui_net_aes_sbox[256] =
 	0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16,
 };
 
-static uint8_t _naui_net_aes_double(uint8_t x)
+static uint8_t naui__net_aes_double(uint8_t x)
 {
 	return (uint8_t)((x << 1) ^ ((x >> 7) * 0x1b));
 }
 
-static void _naui_net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
+static void naui__net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16], uint8_t out[16])
 {
 	uint8_t round_keys[176];
 	memcpy(round_keys, key, 16);
@@ -670,11 +670,11 @@ static void _naui_net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16]
 		if (i % 16 == 0)
 		{
 			uint8_t first = t[0];
-			t[0] = _naui_net_aes_sbox[t[1]] ^ rcon;
-			t[1] = _naui_net_aes_sbox[t[2]];
-			t[2] = _naui_net_aes_sbox[t[3]];
-			t[3] = _naui_net_aes_sbox[first];
-			rcon = _naui_net_aes_double(rcon);
+			t[0] = naui__net_aes_sbox[t[1]] ^ rcon;
+			t[1] = naui__net_aes_sbox[t[2]];
+			t[2] = naui__net_aes_sbox[t[3]];
+			t[3] = naui__net_aes_sbox[first];
+			rcon = naui__net_aes_double(rcon);
 		}
 
 		for (int j = 0; j < 4; j++)
@@ -694,7 +694,7 @@ static void _naui_net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16]
 		uint8_t t[16];
 		for (int i = 0; i < 16; i++)
 		{
-			t[i] = _naui_net_aes_sbox[s[(i + (i % 4) * 4) % 16]];
+			t[i] = naui__net_aes_sbox[s[(i + (i % 4) * 4) % 16]];
 		}
 
 		if (round < 10)
@@ -703,10 +703,10 @@ static void _naui_net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16]
 			{
 				uint8_t all = t[c] ^ t[c + 1] ^ t[c + 2] ^ t[c + 3];
 				uint8_t first = t[c];
-				s[c] = t[c] ^ all ^ _naui_net_aes_double(t[c] ^ t[c + 1]);
-				s[c + 1] = t[c + 1] ^ all ^ _naui_net_aes_double(t[c + 1] ^ t[c + 2]);
-				s[c + 2] = t[c + 2] ^ all ^ _naui_net_aes_double(t[c + 2] ^ t[c + 3]);
-				s[c + 3] = t[c + 3] ^ all ^ _naui_net_aes_double(t[c + 3] ^ first);
+				s[c] = t[c] ^ all ^ naui__net_aes_double(t[c] ^ t[c + 1]);
+				s[c + 1] = t[c + 1] ^ all ^ naui__net_aes_double(t[c + 1] ^ t[c + 2]);
+				s[c + 2] = t[c + 2] ^ all ^ naui__net_aes_double(t[c + 2] ^ t[c + 3]);
+				s[c + 3] = t[c + 3] ^ all ^ naui__net_aes_double(t[c + 3] ^ first);
 			}
 		}
 		else
@@ -723,7 +723,7 @@ static void _naui_net_aes128_encrypt(const uint8_t key[16], const uint8_t in[16]
 	memcpy(out, s, 16);
 }
 
-static void _naui_net_ghash_multiply(uint8_t x[16], const uint8_t h[16])
+static void naui__net_ghash_multiply(uint8_t x[16], const uint8_t h[16])
 {
 	uint8_t z[16] = { 0 };
 	uint8_t v[16];
@@ -753,7 +753,7 @@ static void _naui_net_ghash_multiply(uint8_t x[16], const uint8_t h[16])
 	memcpy(x, z, 16);
 }
 
-static void _naui_net_ghash_update(uint8_t y[16], const uint8_t h[16], const uint8_t* data, size_t size)
+static void naui__net_ghash_update(uint8_t y[16], const uint8_t h[16], const uint8_t* data, size_t size)
 {
 	while (size > 0)
 	{
@@ -763,13 +763,13 @@ static void _naui_net_ghash_update(uint8_t y[16], const uint8_t h[16], const uin
 			y[i] ^= data[i];
 		}
 
-		_naui_net_ghash_multiply(y, h);
+		naui__net_ghash_multiply(y, h);
 		data += take;
 		size -= take;
 	}
 }
 
-static void _naui_net_aes128_gcm_xor(const uint8_t key[16], const uint8_t nonce[12], const uint8_t* in, uint8_t* out, size_t size)
+static void naui__net_aes128_gcm_xor(const uint8_t key[16], const uint8_t nonce[12], const uint8_t* in, uint8_t* out, size_t size)
 {
 	uint8_t counter[16];
 	uint8_t block[16];
@@ -778,8 +778,8 @@ static void _naui_net_aes128_gcm_xor(const uint8_t key[16], const uint8_t nonce[
 	uint32_t index = 2;
 	while (size > 0)
 	{
-		_naui_net_put_u32(counter + 12, index++);
-		_naui_net_aes128_encrypt(key, counter, block);
+		naui__net_put_u32(counter + 12, index++);
+		naui__net_aes128_encrypt(key, counter, block);
 		size_t take = size < 16 ? size : 16;
 		for (size_t i = 0; i < take; i++)
 		{
@@ -792,45 +792,45 @@ static void _naui_net_aes128_gcm_xor(const uint8_t key[16], const uint8_t nonce[
 	}
 }
 
-static void _naui_net_aes128_gcm_tag(const uint8_t key[16], const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* cipher, size_t size, uint8_t tag[16])
+static void naui__net_aes128_gcm_tag(const uint8_t key[16], const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* cipher, size_t size, uint8_t tag[16])
 {
 	uint8_t zero[16] = { 0 };
 	uint8_t h[16];
-	_naui_net_aes128_encrypt(key, zero, h);
+	naui__net_aes128_encrypt(key, zero, h);
 
 	uint8_t y[16] = { 0 };
-	_naui_net_ghash_update(y, h, aad, aad_size);
-	_naui_net_ghash_update(y, h, cipher, size);
+	naui__net_ghash_update(y, h, aad, aad_size);
+	naui__net_ghash_update(y, h, cipher, size);
 
 	uint8_t lengths[16];
-	_naui_net_put_u64(lengths, (uint64_t)aad_size * 8);
-	_naui_net_put_u64(lengths + 8, (uint64_t)size * 8);
-	_naui_net_ghash_update(y, h, lengths, sizeof(lengths));
+	naui__net_put_u64(lengths, (uint64_t)aad_size * 8);
+	naui__net_put_u64(lengths + 8, (uint64_t)size * 8);
+	naui__net_ghash_update(y, h, lengths, sizeof(lengths));
 
 	uint8_t counter[16];
 	memcpy(counter, nonce, 12);
-	_naui_net_put_u32(counter + 12, 1);
-	_naui_net_aes128_encrypt(key, counter, tag);
+	naui__net_put_u32(counter + 12, 1);
+	naui__net_aes128_encrypt(key, counter, tag);
 	for (int i = 0; i < 16; i++)
 	{
 		tag[i] ^= y[i];
 	}
 }
 
-static void _naui_net_aead_seal(bool aes, const uint8_t* key, const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* in, size_t size, uint8_t* out)
+static void naui__net_aead_seal(bool aes, const uint8_t* key, const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* in, size_t size, uint8_t* out)
 {
 	if (aes)
 	{
-		_naui_net_aes128_gcm_xor(key, nonce, in, out, size);
-		_naui_net_aes128_gcm_tag(key, nonce, aad, aad_size, out, size, out + size);
+		naui__net_aes128_gcm_xor(key, nonce, in, out, size);
+		naui__net_aes128_gcm_tag(key, nonce, aad, aad_size, out, size, out + size);
 		return;
 	}
 
-	_naui_net_chacha20_xor(key, 1, nonce, in, out, size);
-	_naui_net_chacha20_poly1305_tag(key, nonce, aad, aad_size, out, size, out + size);
+	naui__net_chacha20_xor(key, 1, nonce, in, out, size);
+	naui__net_chacha20_poly1305_tag(key, nonce, aad, aad_size, out, size, out + size);
 }
 
-static bool _naui_net_aead_open(bool aes, const uint8_t* key, const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* in, size_t size, uint8_t* out)
+static bool naui__net_aead_open(bool aes, const uint8_t* key, const uint8_t nonce[12], const uint8_t* aad, size_t aad_size, const uint8_t* in, size_t size, uint8_t* out)
 {
 	if (size < NET_AEAD_TAG_SIZE)
 		return false;
@@ -838,67 +838,67 @@ static bool _naui_net_aead_open(bool aes, const uint8_t* key, const uint8_t nonc
 	size -= NET_AEAD_TAG_SIZE;
 	uint8_t tag[NET_AEAD_TAG_SIZE];
 	if (aes)
-		_naui_net_aes128_gcm_tag(key, nonce, aad, aad_size, in, size, tag);
+		naui__net_aes128_gcm_tag(key, nonce, aad, aad_size, in, size, tag);
 	else
-		_naui_net_chacha20_poly1305_tag(key, nonce, aad, aad_size, in, size, tag);
+		naui__net_chacha20_poly1305_tag(key, nonce, aad, aad_size, in, size, tag);
 
-	if (!_naui_net_ct_equal(tag, in + size, NET_AEAD_TAG_SIZE))
+	if (!naui__net_ct_equal(tag, in + size, NET_AEAD_TAG_SIZE))
 		return false;
 
 	if (aes)
-		_naui_net_aes128_gcm_xor(key, nonce, in, out, size);
+		naui__net_aes128_gcm_xor(key, nonce, in, out, size);
 	else
-		_naui_net_chacha20_xor(key, 1, nonce, in, out, size);
+		naui__net_chacha20_xor(key, 1, nonce, in, out, size);
 
 	return true;
 }
 
-static const NetField _naui_net_field_zero = { 0 };
-static const NetField _naui_net_field_one = { 1 };
-static const NetField _naui_net_field_121665 = { 0xdb41, 1 };
+static const NetField naui__net_field_zero = { 0 };
+static const NetField naui__net_field_one = { 1 };
+static const NetField naui__net_field_121665 = { 0xdb41, 1 };
 
-static const NetField _naui_net_ed_d =
+static const NetField naui__net_ed_d =
 {
 	0x78a3, 0x1359, 0x4dca, 0x75eb, 0xd8ab, 0x4141, 0x0a4d, 0x0070,
 	0xe898, 0x7779, 0x4079, 0x8cc7, 0xfe73, 0x2b6f, 0x6cee, 0x5203,
 };
 
-static const NetField _naui_net_ed_d2 =
+static const NetField naui__net_ed_d2 =
 {
 	0xf159, 0x26b2, 0x9b94, 0xebd6, 0xb156, 0x8283, 0x149a, 0x00e0,
 	0xd130, 0xeef3, 0x80f2, 0x198e, 0xfce7, 0x56df, 0xd9dc, 0x2406,
 };
 
-static const NetField _naui_net_ed_x =
+static const NetField naui__net_ed_x =
 {
 	0xd51a, 0x8f25, 0x2d60, 0xc956, 0xa7b2, 0x9525, 0xc760, 0x692c,
 	0xdc5c, 0xfdd6, 0xe231, 0xc0a4, 0x53fe, 0xcd6e, 0x36d3, 0x2169,
 };
 
-static const NetField _naui_net_ed_y =
+static const NetField naui__net_ed_y =
 {
 	0x6658, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666,
 	0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666, 0x6666,
 };
 
-static const NetField _naui_net_ed_sqrt_m1 =
+static const NetField naui__net_ed_sqrt_m1 =
 {
 	0xa0b0, 0x4a0e, 0x1b27, 0xc4ee, 0xe478, 0xad2f, 0x1806, 0x2f43,
 	0xd7a7, 0x3dfb, 0x0099, 0x2b4d, 0xdf0b, 0x4fc1, 0x2480, 0x2b83,
 };
 
-static const uint8_t _naui_net_ed_order[32] =
+static const uint8_t naui__net_ed_order[32] =
 {
 	0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10,
 };
 
-static void _naui_net_field_copy(NetField out, const NetField in)
+static void naui__net_field_copy(NetField out, const NetField in)
 {
 	memcpy(out, in, sizeof(NetField));
 }
 
-static void _naui_net_field_carry(NetField o)
+static void naui__net_field_carry(NetField o)
 {
 	for (int i = 0; i < 16; i++)
 	{
@@ -909,7 +909,7 @@ static void _naui_net_field_carry(NetField o)
 	}
 }
 
-static void _naui_net_field_select(NetField p, NetField q, int swap)
+static void naui__net_field_select(NetField p, NetField q, int swap)
 {
 	int64_t mask = ~((int64_t)swap - 1);
 	for (int i = 0; i < 16; i++)
@@ -920,14 +920,14 @@ static void _naui_net_field_select(NetField p, NetField q, int swap)
 	}
 }
 
-static void _naui_net_field_pack(uint8_t out[32], const NetField in)
+static void naui__net_field_pack(uint8_t out[32], const NetField in)
 {
 	NetField m;
 	NetField t;
-	_naui_net_field_copy(t, in);
-	_naui_net_field_carry(t);
-	_naui_net_field_carry(t);
-	_naui_net_field_carry(t);
+	naui__net_field_copy(t, in);
+	naui__net_field_carry(t);
+	naui__net_field_carry(t);
+	naui__net_field_carry(t);
 
 	for (int j = 0; j < 2; j++)
 	{
@@ -941,7 +941,7 @@ static void _naui_net_field_pack(uint8_t out[32], const NetField in)
 		m[15] = t[15] - 0x7fff - ((m[14] >> 16) & 1);
 		int borrow = (int)((m[15] >> 16) & 1);
 		m[14] &= 0xffff;
-		_naui_net_field_select(t, m, 1 - borrow);
+		naui__net_field_select(t, m, 1 - borrow);
 	}
 
 	for (int i = 0; i < 16; i++)
@@ -951,7 +951,7 @@ static void _naui_net_field_pack(uint8_t out[32], const NetField in)
 	}
 }
 
-static void _naui_net_field_unpack(NetField out, const uint8_t in[32])
+static void naui__net_field_unpack(NetField out, const uint8_t in[32])
 {
 	for (int i = 0; i < 16; i++)
 	{
@@ -961,7 +961,7 @@ static void _naui_net_field_unpack(NetField out, const uint8_t in[32])
 	out[15] &= 0x7fff;
 }
 
-static void _naui_net_field_add(NetField o, const NetField a, const NetField b)
+static void naui__net_field_add(NetField o, const NetField a, const NetField b)
 {
 	for (int i = 0; i < 16; i++)
 	{
@@ -969,7 +969,7 @@ static void _naui_net_field_add(NetField o, const NetField a, const NetField b)
 	}
 }
 
-static void _naui_net_field_sub(NetField o, const NetField a, const NetField b)
+static void naui__net_field_sub(NetField o, const NetField a, const NetField b)
 {
 	for (int i = 0; i < 16; i++)
 	{
@@ -977,7 +977,7 @@ static void _naui_net_field_sub(NetField o, const NetField a, const NetField b)
 	}
 }
 
-static void _naui_net_field_mul(NetField o, const NetField a, const NetField b)
+static void naui__net_field_mul(NetField o, const NetField a, const NetField b)
 {
 	int64_t t[31] = { 0 };
 	for (int i = 0; i < 16; i++)
@@ -994,60 +994,60 @@ static void _naui_net_field_mul(NetField o, const NetField a, const NetField b)
 	}
 
 	memcpy(o, t, sizeof(NetField));
-	_naui_net_field_carry(o);
-	_naui_net_field_carry(o);
+	naui__net_field_carry(o);
+	naui__net_field_carry(o);
 }
 
-static void _naui_net_field_square(NetField o, const NetField a)
+static void naui__net_field_square(NetField o, const NetField a)
 {
-	_naui_net_field_mul(o, a, a);
+	naui__net_field_mul(o, a, a);
 }
 
-static void _naui_net_field_invert(NetField o, const NetField in)
+static void naui__net_field_invert(NetField o, const NetField in)
 {
 	NetField c;
-	_naui_net_field_copy(c, in);
+	naui__net_field_copy(c, in);
 	for (int a = 253; a >= 0; a--)
 	{
-		_naui_net_field_square(c, c);
+		naui__net_field_square(c, c);
 		if (a != 2 && a != 4)
-			_naui_net_field_mul(c, c, in);
+			naui__net_field_mul(c, c, in);
 	}
 
-	_naui_net_field_copy(o, c);
+	naui__net_field_copy(o, c);
 }
 
-static void _naui_net_field_pow2523(NetField o, const NetField in)
+static void naui__net_field_pow2523(NetField o, const NetField in)
 {
 	NetField c;
-	_naui_net_field_copy(c, in);
+	naui__net_field_copy(c, in);
 	for (int a = 250; a >= 0; a--)
 	{
-		_naui_net_field_square(c, c);
+		naui__net_field_square(c, c);
 		if (a != 1)
-			_naui_net_field_mul(c, c, in);
+			naui__net_field_mul(c, c, in);
 	}
 
-	_naui_net_field_copy(o, c);
+	naui__net_field_copy(o, c);
 }
 
-static bool _naui_net_field_equal(const NetField a, const NetField b)
+static bool naui__net_field_equal(const NetField a, const NetField b)
 {
 	uint8_t c[32];
 	uint8_t d[32];
-	_naui_net_field_pack(c, a);
-	_naui_net_field_pack(d, b);
-	return _naui_net_ct_equal(c, d, 32);
+	naui__net_field_pack(c, a);
+	naui__net_field_pack(d, b);
+	return naui__net_ct_equal(c, d, 32);
 }
 
-static uint8_t _naui_net_field_parity(const NetField a)
+static uint8_t naui__net_field_parity(const NetField a)
 {
 	uint8_t d[32];
-	_naui_net_field_pack(d, a);
+	naui__net_field_pack(d, a);
 	return d[0] & 1;
 }
 
-static void _naui_net_x25519(uint8_t out[32], const uint8_t scalar[32], const uint8_t point[32])
+static void naui__net_x25519(uint8_t out[32], const uint8_t scalar[32], const uint8_t point[32])
 {
 	uint8_t z[32];
 	NetField x, a, b, c, d, e, f;
@@ -1056,122 +1056,122 @@ static void _naui_net_x25519(uint8_t out[32], const uint8_t scalar[32], const ui
 	z[31] = (z[31] & 127) | 64;
 	z[0] &= 248;
 
-	_naui_net_field_unpack(x, point);
-	_naui_net_field_copy(b, x);
-	_naui_net_field_copy(a, _naui_net_field_one);
-	_naui_net_field_copy(d, _naui_net_field_one);
-	_naui_net_field_copy(c, _naui_net_field_zero);
+	naui__net_field_unpack(x, point);
+	naui__net_field_copy(b, x);
+	naui__net_field_copy(a, naui__net_field_one);
+	naui__net_field_copy(d, naui__net_field_one);
+	naui__net_field_copy(c, naui__net_field_zero);
 
 	for (int i = 254; i >= 0; i--)
 	{
 		int bit = (z[i >> 3] >> (i & 7)) & 1;
-		_naui_net_field_select(a, b, bit);
-		_naui_net_field_select(c, d, bit);
-		_naui_net_field_add(e, a, c);
-		_naui_net_field_sub(a, a, c);
-		_naui_net_field_add(c, b, d);
-		_naui_net_field_sub(b, b, d);
-		_naui_net_field_square(d, e);
-		_naui_net_field_square(f, a);
-		_naui_net_field_mul(a, c, a);
-		_naui_net_field_mul(c, b, e);
-		_naui_net_field_add(e, a, c);
-		_naui_net_field_sub(a, a, c);
-		_naui_net_field_square(b, a);
-		_naui_net_field_sub(c, d, f);
-		_naui_net_field_mul(a, c, _naui_net_field_121665);
-		_naui_net_field_add(a, a, d);
-		_naui_net_field_mul(c, c, a);
-		_naui_net_field_mul(a, d, f);
-		_naui_net_field_mul(d, b, x);
-		_naui_net_field_square(b, e);
-		_naui_net_field_select(a, b, bit);
-		_naui_net_field_select(c, d, bit);
+		naui__net_field_select(a, b, bit);
+		naui__net_field_select(c, d, bit);
+		naui__net_field_add(e, a, c);
+		naui__net_field_sub(a, a, c);
+		naui__net_field_add(c, b, d);
+		naui__net_field_sub(b, b, d);
+		naui__net_field_square(d, e);
+		naui__net_field_square(f, a);
+		naui__net_field_mul(a, c, a);
+		naui__net_field_mul(c, b, e);
+		naui__net_field_add(e, a, c);
+		naui__net_field_sub(a, a, c);
+		naui__net_field_square(b, a);
+		naui__net_field_sub(c, d, f);
+		naui__net_field_mul(a, c, naui__net_field_121665);
+		naui__net_field_add(a, a, d);
+		naui__net_field_mul(c, c, a);
+		naui__net_field_mul(a, d, f);
+		naui__net_field_mul(d, b, x);
+		naui__net_field_square(b, e);
+		naui__net_field_select(a, b, bit);
+		naui__net_field_select(c, d, bit);
 	}
 
-	_naui_net_field_invert(c, c);
-	_naui_net_field_mul(a, a, c);
-	_naui_net_field_pack(out, a);
-	_naui_net_wipe(z, sizeof(z));
+	naui__net_field_invert(c, c);
+	naui__net_field_mul(a, a, c);
+	naui__net_field_pack(out, a);
+	naui__net_wipe(z, sizeof(z));
 }
 
-static void _naui_net_x25519_public(uint8_t out[32], const uint8_t scalar[32])
+static void naui__net_x25519_public(uint8_t out[32], const uint8_t scalar[32])
 {
 	static const uint8_t base[32] = { 9 };
-	_naui_net_x25519(out, scalar, base);
+	naui__net_x25519(out, scalar, base);
 }
 
-static void _naui_net_ed_add(NetField p[4], NetField q[4])
+static void naui__net_ed_add(NetField p[4], NetField q[4])
 {
 	NetField a, b, c, d, t, e, f, g, h;
 
-	_naui_net_field_sub(a, p[1], p[0]);
-	_naui_net_field_sub(t, q[1], q[0]);
-	_naui_net_field_mul(a, a, t);
-	_naui_net_field_add(b, p[0], p[1]);
-	_naui_net_field_add(t, q[0], q[1]);
-	_naui_net_field_mul(b, b, t);
-	_naui_net_field_mul(c, p[3], q[3]);
-	_naui_net_field_mul(c, c, _naui_net_ed_d2);
-	_naui_net_field_mul(d, p[2], q[2]);
-	_naui_net_field_add(d, d, d);
-	_naui_net_field_sub(e, b, a);
-	_naui_net_field_sub(f, d, c);
-	_naui_net_field_add(g, d, c);
-	_naui_net_field_add(h, b, a);
+	naui__net_field_sub(a, p[1], p[0]);
+	naui__net_field_sub(t, q[1], q[0]);
+	naui__net_field_mul(a, a, t);
+	naui__net_field_add(b, p[0], p[1]);
+	naui__net_field_add(t, q[0], q[1]);
+	naui__net_field_mul(b, b, t);
+	naui__net_field_mul(c, p[3], q[3]);
+	naui__net_field_mul(c, c, naui__net_ed_d2);
+	naui__net_field_mul(d, p[2], q[2]);
+	naui__net_field_add(d, d, d);
+	naui__net_field_sub(e, b, a);
+	naui__net_field_sub(f, d, c);
+	naui__net_field_add(g, d, c);
+	naui__net_field_add(h, b, a);
 
-	_naui_net_field_mul(p[0], e, f);
-	_naui_net_field_mul(p[1], h, g);
-	_naui_net_field_mul(p[2], g, f);
-	_naui_net_field_mul(p[3], e, h);
+	naui__net_field_mul(p[0], e, f);
+	naui__net_field_mul(p[1], h, g);
+	naui__net_field_mul(p[2], g, f);
+	naui__net_field_mul(p[3], e, h);
 }
 
-static void _naui_net_ed_swap(NetField p[4], NetField q[4], int swap)
+static void naui__net_ed_swap(NetField p[4], NetField q[4], int swap)
 {
 	for (int i = 0; i < 4; i++)
 	{
-		_naui_net_field_select(p[i], q[i], swap);
+		naui__net_field_select(p[i], q[i], swap);
 	}
 }
 
-static void _naui_net_ed_pack(uint8_t out[32], NetField p[4])
+static void naui__net_ed_pack(uint8_t out[32], NetField p[4])
 {
 	NetField tx, ty, zi;
-	_naui_net_field_invert(zi, p[2]);
-	_naui_net_field_mul(tx, p[0], zi);
-	_naui_net_field_mul(ty, p[1], zi);
-	_naui_net_field_pack(out, ty);
-	out[31] ^= _naui_net_field_parity(tx) << 7;
+	naui__net_field_invert(zi, p[2]);
+	naui__net_field_mul(tx, p[0], zi);
+	naui__net_field_mul(ty, p[1], zi);
+	naui__net_field_pack(out, ty);
+	out[31] ^= naui__net_field_parity(tx) << 7;
 }
 
-static void _naui_net_ed_scalar_mul(NetField p[4], NetField q[4], const uint8_t scalar[32])
+static void naui__net_ed_scalar_mul(NetField p[4], NetField q[4], const uint8_t scalar[32])
 {
-	_naui_net_field_copy(p[0], _naui_net_field_zero);
-	_naui_net_field_copy(p[1], _naui_net_field_one);
-	_naui_net_field_copy(p[2], _naui_net_field_one);
-	_naui_net_field_copy(p[3], _naui_net_field_zero);
+	naui__net_field_copy(p[0], naui__net_field_zero);
+	naui__net_field_copy(p[1], naui__net_field_one);
+	naui__net_field_copy(p[2], naui__net_field_one);
+	naui__net_field_copy(p[3], naui__net_field_zero);
 
 	for (int i = 255; i >= 0; i--)
 	{
 		int bit = (scalar[i / 8] >> (i & 7)) & 1;
-		_naui_net_ed_swap(p, q, bit);
-		_naui_net_ed_add(q, p);
-		_naui_net_ed_add(p, p);
-		_naui_net_ed_swap(p, q, bit);
+		naui__net_ed_swap(p, q, bit);
+		naui__net_ed_add(q, p);
+		naui__net_ed_add(p, p);
+		naui__net_ed_swap(p, q, bit);
 	}
 }
 
-static void _naui_net_ed_scalar_base(NetField p[4], const uint8_t scalar[32])
+static void naui__net_ed_scalar_base(NetField p[4], const uint8_t scalar[32])
 {
 	NetField q[4];
-	_naui_net_field_copy(q[0], _naui_net_ed_x);
-	_naui_net_field_copy(q[1], _naui_net_ed_y);
-	_naui_net_field_copy(q[2], _naui_net_field_one);
-	_naui_net_field_mul(q[3], _naui_net_ed_x, _naui_net_ed_y);
-	_naui_net_ed_scalar_mul(p, q, scalar);
+	naui__net_field_copy(q[0], naui__net_ed_x);
+	naui__net_field_copy(q[1], naui__net_ed_y);
+	naui__net_field_copy(q[2], naui__net_field_one);
+	naui__net_field_mul(q[3], naui__net_ed_x, naui__net_ed_y);
+	naui__net_ed_scalar_mul(p, q, scalar);
 }
 
-static void _naui_net_ed_reduce_wide(uint8_t out[32], int64_t x[64])
+static void naui__net_ed_reduce_wide(uint8_t out[32], int64_t x[64])
 {
 	for (int i = 63; i >= 32; i--)
 	{
@@ -1179,7 +1179,7 @@ static void _naui_net_ed_reduce_wide(uint8_t out[32], int64_t x[64])
 		int j;
 		for (j = i - 32; j < i - 12; j++)
 		{
-			x[j] += carry - 16 * x[i] * _naui_net_ed_order[j - (i - 32)];
+			x[j] += carry - 16 * x[i] * naui__net_ed_order[j - (i - 32)];
 			carry = (x[j] + 128) >> 8;
 			x[j] -= carry * 256;
 		}
@@ -1191,14 +1191,14 @@ static void _naui_net_ed_reduce_wide(uint8_t out[32], int64_t x[64])
 	int64_t carry = 0;
 	for (int j = 0; j < 32; j++)
 	{
-		x[j] += carry - (x[31] >> 4) * _naui_net_ed_order[j];
+		x[j] += carry - (x[31] >> 4) * naui__net_ed_order[j];
 		carry = x[j] >> 8;
 		x[j] &= 255;
 	}
 
 	for (int j = 0; j < 32; j++)
 	{
-		x[j] -= carry * _naui_net_ed_order[j];
+		x[j] -= carry * naui__net_ed_order[j];
 	}
 
 	for (int i = 0; i < 32; i++)
@@ -1208,7 +1208,7 @@ static void _naui_net_ed_reduce_wide(uint8_t out[32], int64_t x[64])
 	}
 }
 
-static void _naui_net_ed_reduce(uint8_t hash[64])
+static void naui__net_ed_reduce(uint8_t hash[64])
 {
 	int64_t x[64];
 	for (int i = 0; i < 64; i++)
@@ -1217,31 +1217,31 @@ static void _naui_net_ed_reduce(uint8_t hash[64])
 	}
 
 	memset(hash, 0, 64);
-	_naui_net_ed_reduce_wide(hash, x);
+	naui__net_ed_reduce_wide(hash, x);
 }
 
-static void _naui_net_ed_expand_seed(const uint8_t seed[32], uint8_t expanded[64])
+static void naui__net_ed_expand_seed(const uint8_t seed[32], uint8_t expanded[64])
 {
 	NetSha512 sha;
-	_naui_net_sha512_init(&sha);
-	_naui_net_sha512_update(&sha, seed, 32);
-	_naui_net_sha512_final(&sha, expanded);
+	naui__net_sha512_init(&sha);
+	naui__net_sha512_update(&sha, seed, 32);
+	naui__net_sha512_final(&sha, expanded);
 	expanded[0] &= 248;
 	expanded[31] &= 127;
 	expanded[31] |= 64;
 }
 
-static void _naui_net_ed25519_public(const uint8_t seed[32], uint8_t public_key[32])
+static void naui__net_ed25519_public(const uint8_t seed[32], uint8_t public_key[32])
 {
 	uint8_t expanded[64];
 	NetField p[4];
-	_naui_net_ed_expand_seed(seed, expanded);
-	_naui_net_ed_scalar_base(p, expanded);
-	_naui_net_ed_pack(public_key, p);
-	_naui_net_wipe(expanded, sizeof(expanded));
+	naui__net_ed_expand_seed(seed, expanded);
+	naui__net_ed_scalar_base(p, expanded);
+	naui__net_ed_pack(public_key, p);
+	naui__net_wipe(expanded, sizeof(expanded));
 }
 
-static void _naui_net_ed25519_sign(const uint8_t seed[32], const uint8_t public_key[32], const uint8_t* message, size_t size, uint8_t signature[64])
+static void naui__net_ed25519_sign(const uint8_t seed[32], const uint8_t public_key[32], const uint8_t* message, size_t size, uint8_t signature[64])
 {
 	uint8_t expanded[64];
 	uint8_t r[64];
@@ -1249,22 +1249,22 @@ static void _naui_net_ed25519_sign(const uint8_t seed[32], const uint8_t public_
 	NetField p[4];
 	NetSha512 sha;
 
-	_naui_net_ed_expand_seed(seed, expanded);
+	naui__net_ed_expand_seed(seed, expanded);
 
-	_naui_net_sha512_init(&sha);
-	_naui_net_sha512_update(&sha, expanded + 32, 32);
-	_naui_net_sha512_update(&sha, message, size);
-	_naui_net_sha512_final(&sha, r);
-	_naui_net_ed_reduce(r);
-	_naui_net_ed_scalar_base(p, r);
-	_naui_net_ed_pack(signature, p);
+	naui__net_sha512_init(&sha);
+	naui__net_sha512_update(&sha, expanded + 32, 32);
+	naui__net_sha512_update(&sha, message, size);
+	naui__net_sha512_final(&sha, r);
+	naui__net_ed_reduce(r);
+	naui__net_ed_scalar_base(p, r);
+	naui__net_ed_pack(signature, p);
 
-	_naui_net_sha512_init(&sha);
-	_naui_net_sha512_update(&sha, signature, 32);
-	_naui_net_sha512_update(&sha, public_key, 32);
-	_naui_net_sha512_update(&sha, message, size);
-	_naui_net_sha512_final(&sha, h);
-	_naui_net_ed_reduce(h);
+	naui__net_sha512_init(&sha);
+	naui__net_sha512_update(&sha, signature, 32);
+	naui__net_sha512_update(&sha, public_key, 32);
+	naui__net_sha512_update(&sha, message, size);
+	naui__net_sha512_final(&sha, h);
+	naui__net_ed_reduce(h);
 
 	int64_t x[64] = { 0 };
 	for (int i = 0; i < 32; i++)
@@ -1280,67 +1280,67 @@ static void _naui_net_ed25519_sign(const uint8_t seed[32], const uint8_t public_
 		}
 	}
 
-	_naui_net_ed_reduce_wide(signature + 32, x);
-	_naui_net_wipe(expanded, sizeof(expanded));
-	_naui_net_wipe(r, sizeof(r));
-	_naui_net_wipe(x, sizeof(x));
+	naui__net_ed_reduce_wide(signature + 32, x);
+	naui__net_wipe(expanded, sizeof(expanded));
+	naui__net_wipe(r, sizeof(r));
+	naui__net_wipe(x, sizeof(x));
 }
 
-static bool _naui_net_ed_unpack_negated(NetField r[4], const uint8_t p[32])
+static bool naui__net_ed_unpack_negated(NetField r[4], const uint8_t p[32])
 {
 	NetField t, chk, num, den, den2, den4, den6;
 
-	_naui_net_field_copy(r[2], _naui_net_field_one);
-	_naui_net_field_unpack(r[1], p);
-	_naui_net_field_square(num, r[1]);
-	_naui_net_field_mul(den, num, _naui_net_ed_d);
-	_naui_net_field_sub(num, num, r[2]);
-	_naui_net_field_add(den, r[2], den);
+	naui__net_field_copy(r[2], naui__net_field_one);
+	naui__net_field_unpack(r[1], p);
+	naui__net_field_square(num, r[1]);
+	naui__net_field_mul(den, num, naui__net_ed_d);
+	naui__net_field_sub(num, num, r[2]);
+	naui__net_field_add(den, r[2], den);
 
-	_naui_net_field_square(den2, den);
-	_naui_net_field_square(den4, den2);
-	_naui_net_field_mul(den6, den4, den2);
-	_naui_net_field_mul(t, den6, num);
-	_naui_net_field_mul(t, t, den);
+	naui__net_field_square(den2, den);
+	naui__net_field_square(den4, den2);
+	naui__net_field_mul(den6, den4, den2);
+	naui__net_field_mul(t, den6, num);
+	naui__net_field_mul(t, t, den);
 
-	_naui_net_field_pow2523(t, t);
-	_naui_net_field_mul(t, t, num);
-	_naui_net_field_mul(t, t, den);
-	_naui_net_field_mul(t, t, den);
-	_naui_net_field_mul(r[0], t, den);
+	naui__net_field_pow2523(t, t);
+	naui__net_field_mul(t, t, num);
+	naui__net_field_mul(t, t, den);
+	naui__net_field_mul(t, t, den);
+	naui__net_field_mul(r[0], t, den);
 
-	_naui_net_field_square(chk, r[0]);
-	_naui_net_field_mul(chk, chk, den);
-	if (!_naui_net_field_equal(chk, num))
-		_naui_net_field_mul(r[0], r[0], _naui_net_ed_sqrt_m1);
+	naui__net_field_square(chk, r[0]);
+	naui__net_field_mul(chk, chk, den);
+	if (!naui__net_field_equal(chk, num))
+		naui__net_field_mul(r[0], r[0], naui__net_ed_sqrt_m1);
 
-	_naui_net_field_square(chk, r[0]);
-	_naui_net_field_mul(chk, chk, den);
-	if (!_naui_net_field_equal(chk, num))
+	naui__net_field_square(chk, r[0]);
+	naui__net_field_mul(chk, chk, den);
+	if (!naui__net_field_equal(chk, num))
 		return false;
 
-	if (_naui_net_field_parity(r[0]) == (p[31] >> 7))
-		_naui_net_field_sub(r[0], _naui_net_field_zero, r[0]);
+	if (naui__net_field_parity(r[0]) == (p[31] >> 7))
+		naui__net_field_sub(r[0], naui__net_field_zero, r[0]);
 
-	_naui_net_field_mul(r[3], r[0], r[1]);
+	naui__net_field_mul(r[3], r[0], r[1]);
 	return true;
 }
 
-static bool _naui_net_ed_scalar_is_canonical(const uint8_t s[32])
+static bool naui__net_ed_scalar_is_canonical(const uint8_t s[32])
 {
 	for (int i = 31; i >= 0; i--)
 	{
-		if (s[i] < _naui_net_ed_order[i])
+		if (s[i] < naui__net_ed_order[i])
 			return true;
 
-		if (s[i] > _naui_net_ed_order[i])
+		if (s[i] > naui__net_ed_order[i])
 			return false;
 	}
 
 	return false;
 }
 
-static bool _naui_net_ed25519_verify(const uint8_t public_key[32], const uint8_t* message, size_t size, const uint8_t signature[64])
+static bool naui__net_ed25519_verify(const uint8_t public_key[32], const uint8_t* message, size_t size, const uint8_t signature[64])
 {
 	NetField p[4];
 	NetField q[4];
@@ -1348,22 +1348,22 @@ static bool _naui_net_ed25519_verify(const uint8_t public_key[32], const uint8_t
 	uint8_t check[32];
 	NetSha512 sha;
 
-	if (!_naui_net_ed_scalar_is_canonical(signature + 32))
+	if (!naui__net_ed_scalar_is_canonical(signature + 32))
 		return false;
 
-	if (!_naui_net_ed_unpack_negated(q, public_key))
+	if (!naui__net_ed_unpack_negated(q, public_key))
 		return false;
 
-	_naui_net_sha512_init(&sha);
-	_naui_net_sha512_update(&sha, signature, 32);
-	_naui_net_sha512_update(&sha, public_key, 32);
-	_naui_net_sha512_update(&sha, message, size);
-	_naui_net_sha512_final(&sha, h);
-	_naui_net_ed_reduce(h);
+	naui__net_sha512_init(&sha);
+	naui__net_sha512_update(&sha, signature, 32);
+	naui__net_sha512_update(&sha, public_key, 32);
+	naui__net_sha512_update(&sha, message, size);
+	naui__net_sha512_final(&sha, h);
+	naui__net_ed_reduce(h);
 
-	_naui_net_ed_scalar_mul(p, q, h);
-	_naui_net_ed_scalar_base(q, signature + 32);
-	_naui_net_ed_add(p, q);
-	_naui_net_ed_pack(check, p);
-	return _naui_net_ct_equal(check, signature, 32);
+	naui__net_ed_scalar_mul(p, q, h);
+	naui__net_ed_scalar_base(q, signature + 32);
+	naui__net_ed_add(p, q);
+	naui__net_ed_pack(check, p);
+	return naui__net_ct_equal(check, signature, 32);
 }

@@ -1,6 +1,6 @@
 #define UPH_MIDI_MENU_BAR_HEIGHT 30
 
-static const char *_uph_midi_scale_display_name(const Uph_Scale *scale)
+static const char *uph__midi_scale_display_name(const Uph_Scale *scale)
 {
 	const char *localized = NAUI_TR(scale->id.data);
 	return strcmp(localized, scale->id.data) == 0 ? scale->name.data : localized;
@@ -27,7 +27,7 @@ void uph_midi_editor_set_scale(Uph_MidiEditorState *editor, uint32_t scale_index
 	uph_note_map_apply_scale(&editor->note_map, uph_state.scales[scale_index].mask, editor->scale_root);
 }
 
-static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
+static void uph__midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.edit"), leaf_id("uph_midi_menu_edit"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
@@ -58,7 +58,7 @@ static void _uph_midi_menu_bar_edit(Uph_MidiEditorState *editor, Uph_MidiPattern
 		uph_note_delete_selected(pattern_index);
 }
 
-static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern)
+static void uph__midi_menu_bar_tools(Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.tools"), leaf_id("uph_midi_menu_tools"));
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
@@ -87,7 +87,7 @@ static void _uph_midi_menu_bar_tools(Uph_MidiEditorState *editor, const Uph_Midi
 		uph_note_strum(pattern_index, division);
 }
 
-static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
+static void uph__midi_menu_bar_scale(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.scale"), leaf_id("uph_midi_menu_scale"));
 
@@ -100,12 +100,12 @@ static void _uph_midi_menu_bar_scale(Uph_MidiEditorState *editor)
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.scales); i++)
 	{
-		if (uph_ui_menu_check_item(menu, _uph_midi_scale_display_name(&uph_state.scales[i]), leaf_id_indexed("uph_midi_menu_scale_item", i), editor->scale_index == i))
+		if (uph_ui_menu_check_item(menu, uph__midi_scale_display_name(&uph_state.scales[i]), leaf_id_indexed("uph_midi_menu_scale_item", i), editor->scale_index == i))
 			uph_midi_editor_set_scale(editor, i, editor->scale_root);
 	}
 }
 
-static void _uph_midi_menu_bar_view(Uph_MidiEditorState *editor)
+static void uph__midi_menu_bar_view(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.view"), leaf_id("uph_midi_menu_view"));
 
@@ -116,13 +116,13 @@ static void _uph_midi_menu_bar_view(Uph_MidiEditorState *editor)
 		uph_midi_editor_reset_scroll();
 }
 
-static void _uph_midi_menu_bar_render_scale_label(const Uph_MidiEditorState *editor)
+static void uph__midi_menu_bar_render_scale_label(const Uph_MidiEditorState *editor)
 {
 	if (editor->scale_index >= (uint32_t)naui_list_len(uph_state.scales))
 		return;
 
 	const Uph_Scale *scale = &uph_state.scales[editor->scale_index];
-	const char *scale_name = _uph_midi_scale_display_name(scale);
+	const char *scale_name = uph__midi_scale_display_name(scale);
 	Naui_String rooted_label = { 0 };
 	const char *label = scale_name;
 	if (scale->mask != UPH_SCALE_CHROMATIC_MASK)
@@ -153,10 +153,10 @@ void uph_midi_menu_bar_render(Uph_MidiEditorState *editor)
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		_uph_midi_menu_bar_edit(editor, pattern);
-		_uph_midi_menu_bar_tools(editor, pattern);
-		_uph_midi_menu_bar_scale(editor);
-		_uph_midi_menu_bar_view(editor);
-		_uph_midi_menu_bar_render_scale_label(editor);
+		uph__midi_menu_bar_edit(editor, pattern);
+		uph__midi_menu_bar_tools(editor, pattern);
+		uph__midi_menu_bar_scale(editor);
+		uph__midi_menu_bar_view(editor);
+		uph__midi_menu_bar_render_scale_label(editor);
 	}
 }

@@ -1,11 +1,11 @@
-static void _uph_song_timeline_toggle_recording(void)
+static void uph__song_timeline_toggle_recording(void)
 {
 	uph_state.shared.song_timeline_recording = !uph_state.shared.song_timeline_recording;
 }
 
 void uph_song_timeline_update_record_track(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	Uph_SharedState *shared = &uph_state.shared;
 	const bool rolling = shared->song_timeline_recording && shared->song_timeline_playing;
 	const bool started = rolling && !state->record_rolling;
@@ -18,13 +18,13 @@ void uph_song_timeline_update_record_track(void)
 	naui_action_execute_stack(UPH_ACTION_TRACK_CREATE, (Uph_ActionTrackCreate){0});
 
 	Uph_Track *track = uph_action_track_resolve(track_ref);
-	_uph_song_timeline_select_track(track);
+	uph__song_timeline_select_track(track);
 	shared->record_track = track;
 }
 
 void uph_song_timeline_render_toolbox(void)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
@@ -76,7 +76,7 @@ void uph_song_timeline_render_toolbox(void)
 				recording ? uph_state.colors.record_armed : icon_color,
 				NAUI_CORNER_NONE,
 				recording
-			)) _uph_song_timeline_toggle_recording();
+			)) uph__song_timeline_toggle_recording();
 
 			if (uph_ui_toolbox_button_ex(
 				uph_state.icons.reset,

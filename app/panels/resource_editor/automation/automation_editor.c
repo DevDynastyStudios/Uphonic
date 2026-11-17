@@ -67,9 +67,9 @@ typedef struct
 }
 Uph_AutomationEditorState;
 
-static Uph_AutomationEditorState _uph_automation_editor_state;
+static Uph_AutomationEditorState uph__automation_editor_state;
 
-static const char *_uph_automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT] = {
+static const char *uph__automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT] = {
 	"Curve",
 	"S-Curve",
 	"Step"
@@ -77,40 +77,40 @@ static const char *_uph_automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT
 
 #pragma region Helpers
 
-static inline bool _uph_automation_editor_snap_disabled(void)
+static inline bool uph__automation_editor_snap_disabled(void)
 {
 	return uph_ui_shift_down() || naui_key_down(NAUI_KEY_LALT) || naui_key_down(NAUI_KEY_RALT);
 }
 
-static inline float _uph_automation_editor_value_top(Leaf_BoundingBox box)
+static inline float uph__automation_editor_value_top(Leaf_BoundingBox box)
 {
 	return box.y + NAUI_DPI(UPH_AUTOMATION_EDITOR_LANE_PADDING);
 }
 
-static inline float _uph_automation_editor_value_height(Leaf_BoundingBox box)
+static inline float uph__automation_editor_value_height(Leaf_BoundingBox box)
 {
 	return fmaxf(1.0f, box.height - NAUI_DPI(UPH_AUTOMATION_EDITOR_LANE_PADDING) * 2.0f);
 }
 
-static inline float _uph_automation_editor_value_to_y(Leaf_BoundingBox box, float value)
+static inline float uph__automation_editor_value_to_y(Leaf_BoundingBox box, float value)
 {
-	return _uph_automation_editor_value_top(box) + (1.0f - value) * _uph_automation_editor_value_height(box);
+	return uph__automation_editor_value_top(box) + (1.0f - value) * uph__automation_editor_value_height(box);
 }
 
-static inline float _uph_automation_editor_y_to_value(Leaf_BoundingBox box, float y)
+static inline float uph__automation_editor_y_to_value(Leaf_BoundingBox box, float y)
 {
-	return NAUI_CLAMP01(1.0f - (y - _uph_automation_editor_value_top(box)) / _uph_automation_editor_value_height(box));
+	return NAUI_CLAMP01(1.0f - (y - uph__automation_editor_value_top(box)) / uph__automation_editor_value_height(box));
 }
 
-static inline Naui_Vec2 _uph_automation_editor_point_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_AutomationPoint *point)
+static inline Naui_Vec2 uph__automation_editor_point_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_AutomationPoint *point)
 {
 	return (Naui_Vec2) {
 		uph_midi_view_beat_to_x(&editor->view, box, point->beat),
-		_uph_automation_editor_value_to_y(box, point->value)
+		uph__automation_editor_value_to_y(box, point->value)
 	};
 }
 
-static Uph_Automation *_uph_automation_editor_current(const Uph_AutomationEditorState *editor)
+static Uph_Automation *uph__automation_editor_current(const Uph_AutomationEditorState *editor)
 {
 	if (!editor->has_automation || editor->automation_index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.automations))
 		return NULL;
@@ -118,7 +118,7 @@ static Uph_Automation *_uph_automation_editor_current(const Uph_AutomationEditor
 	return &uph_state.project.automations[editor->automation_index];
 }
 
-static bool _uph_automation_editor_handle_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_Automation *automation, uint32_t segment, Naui_Vec2 *out)
+static bool uph__automation_editor_handle_position(const Uph_AutomationEditorState *editor, Leaf_BoundingBox box, const Uph_Automation *automation, uint32_t segment, Naui_Vec2 *out)
 {
 	if (segment + 1 >= (uint32_t)naui_list_len(automation->points))
 		return false;
@@ -136,12 +136,12 @@ static bool _uph_automation_editor_handle_position(const Uph_AutomationEditorSta
 	const double mid_beat = (from->beat + to->beat) * 0.5;
 	*out = (Naui_Vec2) {
 		uph_midi_view_beat_to_x(&editor->view, box, mid_beat),
-		_uph_automation_editor_value_to_y(box, uph_automation_segment_value(from, to, mid_beat))
+		uph__automation_editor_value_to_y(box, uph_automation_segment_value(from, to, mid_beat))
 	};
 	return true;
 }
 
-static int32_t _uph_automation_editor_segment_at(const Uph_Automation *automation, double beat)
+static int32_t uph__automation_editor_segment_at(const Uph_Automation *automation, double beat)
 {
 	const uint32_t count = (uint32_t)naui_list_len(automation->points);
 	for (uint32_t i = 0; i + 1 < count; i++)
@@ -152,7 +152,7 @@ static int32_t _uph_automation_editor_segment_at(const Uph_Automation *automatio
 	return -1;
 }
 
-static double _uph_automation_editor_clamp_beat(const Uph_Automation *automation, uint32_t index, double beat)
+static double uph__automation_editor_clamp_beat(const Uph_Automation *automation, uint32_t index, double beat)
 {
 	if (index == 0)
 		return automation->points[0].beat;
@@ -164,15 +164,15 @@ static double _uph_automation_editor_clamp_beat(const Uph_Automation *automation
 	return fmax(beat, 0.0);
 }
 
-static double _uph_automation_editor_snap(const Uph_AutomationEditorState *editor, double beat)
+static double uph__automation_editor_snap(const Uph_AutomationEditorState *editor, double beat)
 {
-	if (_uph_automation_editor_snap_disabled())
+	if (uph__automation_editor_snap_disabled())
 		return beat;
 
 	return uph_snap_beat_round(beat, editor->snap_resolution, editor->view.zoom.x);
 }
 
-static bool _uph_automation_editor_fields_text_active(void)
+static bool uph__automation_editor_fields_text_active(void)
 {
 	return uph_ui_textfield_active(leaf_id("uph_automation_editor_beat"))
 		|| uph_ui_textfield_active(leaf_id("uph_automation_editor_value"))
@@ -183,7 +183,7 @@ static bool _uph_automation_editor_fields_text_active(void)
 
 #pragma region Edits
 
-static void _uph_automation_editor_commit_move(Uph_ResourceIndex automation_index, uint32_t point_index, Uph_AutomationPoint old_point, Uph_AutomationPoint new_point)
+static void uph__automation_editor_commit_move(Uph_ResourceIndex automation_index, uint32_t point_index, Uph_AutomationPoint old_point, Uph_AutomationPoint new_point)
 {
 	if (old_point.beat == new_point.beat && old_point.value == new_point.value && old_point.tension == new_point.tension && old_point.curve == new_point.curve)
 		return;
@@ -198,7 +198,7 @@ static void _uph_automation_editor_commit_move(Uph_ResourceIndex automation_inde
 	naui_action_execute_stack(UPH_ACTION_AUTOMATION_POINT_MOVE, data);
 }
 
-static void _uph_automation_editor_delete_point(Uph_AutomationEditorState *editor, uint32_t index)
+static void uph__automation_editor_delete_point(Uph_AutomationEditorState *editor, uint32_t index)
 {
 	Uph_ActionAutomationPointDelete data = { .automation_index = editor->automation_index, .point_index = index };
 	naui_action_execute_stack(UPH_ACTION_AUTOMATION_POINT_DELETE, data);
@@ -212,37 +212,37 @@ static void _uph_automation_editor_delete_point(Uph_AutomationEditorState *edito
 	editor->hovered_handle = -1;
 }
 
-static void _uph_automation_editor_set_curve(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, Uph_AutomationCurve curve, float tension)
+static void uph__automation_editor_set_curve(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, Uph_AutomationCurve curve, float tension)
 {
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint old_point = *point;
 	point->curve = curve;
 	point->tension = tension;
-	_uph_automation_editor_commit_move(editor->automation_index, index, old_point, *point);
+	uph__automation_editor_commit_move(editor->automation_index, index, old_point, *point);
 }
 
-static void _uph_automation_editor_set_value(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, float value)
+static void uph__automation_editor_set_value(Uph_AutomationEditorState *editor, Uph_Automation *automation, uint32_t index, float value)
 {
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint old_point = *point;
 	point->value = NAUI_CLAMP01(value);
-	_uph_automation_editor_commit_move(editor->automation_index, index, old_point, *point);
+	uph__automation_editor_commit_move(editor->automation_index, index, old_point, *point);
 }
 
-static void _uph_automation_editor_open_entry(Uph_AutomationEditorState *editor, uint32_t index)
+static void uph__automation_editor_open_entry(Uph_AutomationEditorState *editor, uint32_t index)
 {
 	editor->entry_active = true;
 	editor->entry_index = (int32_t)index;
 	editor->entry_text = naui_string_from_cstr("");
 }
 
-static void _uph_automation_editor_close_entry(Uph_AutomationEditorState *editor)
+static void uph__automation_editor_close_entry(Uph_AutomationEditorState *editor)
 {
 	editor->entry_active = false;
 	editor->entry_index = -1;
 }
 
-static void _uph_automation_editor_begin_drag(Uph_AutomationEditorState *editor, const Uph_Automation *automation, uint32_t index, Uph_AutomationDragMode mode, bool creating)
+static void uph__automation_editor_begin_drag(Uph_AutomationEditorState *editor, const Uph_Automation *automation, uint32_t index, Uph_AutomationDragMode mode, bool creating)
 {
 	editor->drag_mode = mode;
 	editor->drag_index = (int32_t)index;
@@ -252,7 +252,7 @@ static void _uph_automation_editor_begin_drag(Uph_AutomationEditorState *editor,
 	editor->drag_offset = (Naui_Vec2) { 0.0f, 0.0f };
 }
 
-static void _uph_automation_editor_finish_drag(Uph_AutomationEditorState *editor)
+static void uph__automation_editor_finish_drag(Uph_AutomationEditorState *editor)
 {
 	const Uph_AutomationDragMode mode = editor->drag_mode;
 	const int32_t index = editor->drag_index;
@@ -261,7 +261,7 @@ static void _uph_automation_editor_finish_drag(Uph_AutomationEditorState *editor
 	editor->drag_index = -1;
 	editor->drag_creating = false;
 
-	Uph_Automation *automation = _uph_automation_editor_current(editor);
+	Uph_Automation *automation = uph__automation_editor_current(editor);
 	if (mode == UPH_AUTOMATION_DRAG_NONE || !automation || index < 0 || (uint32_t)index >= (uint32_t)naui_list_len(automation->points))
 		return;
 
@@ -278,27 +278,27 @@ static void _uph_automation_editor_finish_drag(Uph_AutomationEditorState *editor
 		return;
 	}
 
-	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)index, editor->drag_initial, point);
+	uph__automation_editor_commit_move(editor->automation_index, (uint32_t)index, editor->drag_initial, point);
 }
 
-static void _uph_automation_editor_commit_fields(Uph_AutomationEditorState *editor)
+static void uph__automation_editor_commit_fields(Uph_AutomationEditorState *editor)
 {
 	if (!editor->field_editing)
 		return;
 
 	editor->field_editing = false;
-	Uph_Automation *automation = _uph_automation_editor_current(editor);
+	Uph_Automation *automation = uph__automation_editor_current(editor);
 	if (!automation || editor->field_index < 0 || (uint32_t)editor->field_index >= (uint32_t)naui_list_len(automation->points))
 		return;
 
-	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)editor->field_index, editor->field_initial, automation->points[editor->field_index]);
+	uph__automation_editor_commit_move(editor->automation_index, (uint32_t)editor->field_index, editor->field_initial, automation->points[editor->field_index]);
 }
 
 #pragma endregion
 
 #pragma region Input
 
-static void _uph_automation_editor_update_view(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
+static void uph__automation_editor_update_view(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
 {
 	Uph_MidiView *view = &editor->view;
 	const Leaf_BoundingBox box = editor->lane_box;
@@ -351,7 +351,7 @@ static void _uph_automation_editor_update_view(Uph_AutomationEditorState *editor
 	view->scroll.x = fmaxf(0.0f, view->scroll.x);
 }
 
-static void _uph_automation_editor_update_hover(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
+static void uph__automation_editor_update_hover(Uph_AutomationEditorState *editor, const Uph_Automation *automation)
 {
 	editor->hovered_point = -1;
 	editor->hovered_handle = -1;
@@ -366,7 +366,7 @@ static void _uph_automation_editor_update_hover(Uph_AutomationEditorState *edito
 	float best = radius * radius;
 	for (uint32_t i = 0; i < count; i++)
 	{
-		const Naui_Vec2 position = _uph_automation_editor_point_position(editor, box, &automation->points[i]);
+		const Naui_Vec2 position = uph__automation_editor_point_position(editor, box, &automation->points[i]);
 		const float dx = mouse.x - position.x;
 		const float dy = mouse.y - position.y;
 		const float distance = dx * dx + dy * dy;
@@ -384,7 +384,7 @@ static void _uph_automation_editor_update_hover(Uph_AutomationEditorState *edito
 	for (uint32_t i = 0; i + 1 < count; i++)
 	{
 		Naui_Vec2 position;
-		if (!_uph_automation_editor_handle_position(editor, box, automation, i, &position))
+		if (!uph__automation_editor_handle_position(editor, box, automation, i, &position))
 			continue;
 
 		const float dx = mouse.x - position.x;
@@ -398,7 +398,7 @@ static void _uph_automation_editor_update_hover(Uph_AutomationEditorState *edito
 	}
 }
 
-static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+static void uph__automation_editor_update_drag(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	const uint32_t count = (uint32_t)naui_list_len(automation->points);
 	const int32_t index = editor->drag_index;
@@ -418,14 +418,14 @@ static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor
 	editor->drag_offset.y += (mouse.y - editor->drag_last_mouse.y) * scale;
 	editor->drag_last_mouse = mouse;
 
-	const float value_height = _uph_automation_editor_value_height(box);
+	const float value_height = uph__automation_editor_value_height(box);
 	Uph_AutomationPoint *point = &automation->points[index];
 
 	if (editor->drag_mode == UPH_AUTOMATION_DRAG_POINT)
 	{
 		point->value = NAUI_CLAMP01(editor->drag_initial.value - editor->drag_offset.y / value_height);
-		const double beat = _uph_automation_editor_snap(editor, editor->drag_initial.beat + (double)editor->drag_offset.x / editor->view.zoom.x);
-		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, beat);
+		const double beat = uph__automation_editor_snap(editor, editor->drag_initial.beat + (double)editor->drag_offset.x / editor->view.zoom.x);
+		point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, beat);
 		naui_set_cursor(NAUI_CURSOR_HAND);
 	}
 	else
@@ -442,14 +442,14 @@ static void _uph_automation_editor_update_drag(Uph_AutomationEditorState *editor
 	if (editor->drag_mode == UPH_AUTOMATION_DRAG_TENSION && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
 		point->tension = 0.0f;
 
-	_uph_automation_editor_finish_drag(editor);
+	uph__automation_editor_finish_drag(editor);
 }
 
-static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID point_menu, Uph_UIMenuID segment_menu)
+static void uph__automation_editor_update_mouse(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID point_menu, Uph_UIMenuID segment_menu)
 {
 	if (editor->drag_mode != UPH_AUTOMATION_DRAG_NONE)
 	{
-		_uph_automation_editor_update_drag(editor, automation);
+		uph__automation_editor_update_drag(editor, automation);
 		return;
 	}
 
@@ -457,7 +457,7 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 	{
 		const bool pressed = naui_mouse_pressed(NAUI_MOUSE_LEFT) || naui_mouse_pressed(NAUI_MOUSE_RIGHT);
 		if (pressed && !leaf_hovered(leaf_id("uph_automation_editor_entry")))
-			_uph_automation_editor_close_entry(editor);
+			uph__automation_editor_close_entry(editor);
 
 		return;
 	}
@@ -479,18 +479,18 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 		if (editor->hovered_point >= 0)
 		{
 			editor->selected_point = editor->hovered_point;
-			_uph_automation_editor_begin_drag(editor, automation, (uint32_t)editor->hovered_point, UPH_AUTOMATION_DRAG_POINT, false);
+			uph__automation_editor_begin_drag(editor, automation, (uint32_t)editor->hovered_point, UPH_AUTOMATION_DRAG_POINT, false);
 			return;
 		}
 
 		if (editor->hovered_handle >= 0)
 		{
-			_uph_automation_editor_begin_drag(editor, automation, (uint32_t)editor->hovered_handle, UPH_AUTOMATION_DRAG_TENSION, false);
+			uph__automation_editor_begin_drag(editor, automation, (uint32_t)editor->hovered_handle, UPH_AUTOMATION_DRAG_TENSION, false);
 			return;
 		}
 
 		const uint32_t count = (uint32_t)naui_list_len(automation->points);
-		const double beat = fmax(0.0, _uph_automation_editor_snap(editor, uph_midi_view_x_to_beat(&editor->view, box, mouse_x)));
+		const double beat = fmax(0.0, uph__automation_editor_snap(editor, uph_midi_view_x_to_beat(&editor->view, box, mouse_x)));
 
 		uint32_t insert_index = count;
 		for (uint32_t i = 0; i < count; i++)
@@ -502,13 +502,13 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 			}
 		}
 
-		Uph_AutomationPoint point = { .beat = beat, .value = _uph_automation_editor_y_to_value(box, mouse_y) };
+		Uph_AutomationPoint point = { .beat = beat, .value = uph__automation_editor_y_to_value(box, mouse_y) };
 		if (insert_index > 0)
 			point.curve = automation->points[insert_index - 1].curve;
 
 		naui_list_insert(automation->points, point, insert_index);
 		editor->selected_point = (int32_t)insert_index;
-		_uph_automation_editor_begin_drag(editor, automation, insert_index, UPH_AUTOMATION_DRAG_POINT, true);
+		uph__automation_editor_begin_drag(editor, automation, insert_index, UPH_AUTOMATION_DRAG_POINT, true);
 		return;
 	}
 
@@ -524,7 +524,7 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 
 		const int32_t segment = editor->hovered_handle >= 0
 			? editor->hovered_handle
-			: _uph_automation_editor_segment_at(automation, uph_midi_view_x_to_beat(&editor->view, box, mouse_x));
+			: uph__automation_editor_segment_at(automation, uph_midi_view_x_to_beat(&editor->view, box, mouse_x));
 
 		if (segment >= 0)
 		{
@@ -534,9 +534,9 @@ static void _uph_automation_editor_update_mouse(Uph_AutomationEditorState *edito
 	}
 }
 
-static void _uph_automation_editor_update_keys(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+static void uph__automation_editor_update_keys(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
-	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->drag_mode != UPH_AUTOMATION_DRAG_NONE || editor->entry_active || _uph_automation_editor_fields_text_active())
+	if (naui_panel_focused() != uph_state.panels.resource_editor || editor->drag_mode != UPH_AUTOMATION_DRAG_NONE || editor->entry_active || uph__automation_editor_fields_text_active())
 		return;
 
 	const int32_t index = editor->selected_point;
@@ -545,7 +545,7 @@ static void _uph_automation_editor_update_keys(Uph_AutomationEditorState *editor
 
 	if (naui_keybind_pressed(uph_state.settings.keybinds.delete_selected))
 	{
-		_uph_automation_editor_delete_point(editor, (uint32_t)index);
+		uph__automation_editor_delete_point(editor, (uint32_t)index);
 		return;
 	}
 
@@ -565,35 +565,35 @@ static void _uph_automation_editor_update_keys(Uph_AutomationEditorState *editor
 	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_down))
 		point->value = NAUI_CLAMP01(point->value - UPH_AUTOMATION_EDITOR_NUDGE);
 	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_right))
-		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step);
+		point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step);
 	if (naui_keybind_pressed_repeat(keybinds->automation_nudge_left))
-		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step);
+		point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step);
 
 	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_up))
 		point->value = NAUI_CLAMP01(point->value + UPH_AUTOMATION_EDITOR_FINE_NUDGE);
 	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_down))
 		point->value = NAUI_CLAMP01(point->value - UPH_AUTOMATION_EDITOR_FINE_NUDGE);
 	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_right))
-		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step * 0.25);
+		point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, point->beat + step * 0.25);
 	if (naui_keybind_pressed_repeat(keybinds->automation_fine_nudge_left))
-		point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step * 0.25);
+		point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, point->beat - step * 0.25);
 
-	_uph_automation_editor_commit_move(editor->automation_index, (uint32_t)index, old_point, *point);
+	uph__automation_editor_commit_move(editor->automation_index, (uint32_t)index, old_point, *point);
 }
 
-static void _uph_automation_editor_update_point_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
+static void uph__automation_editor_update_point_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
 {
 	const int32_t index = editor->menu_point;
 	const bool valid = index >= 0 && (uint32_t)index < (uint32_t)naui_list_len(automation->points);
 
 	if (uph_ui_menu_item(menu, "Remove", leaf_id("uph_automation_editor_point_remove")) && valid)
 	{
-		_uph_automation_editor_delete_point(editor, (uint32_t)index);
+		uph__automation_editor_delete_point(editor, (uint32_t)index);
 		return;
 	}
 
 	if (uph_ui_menu_item(menu, "Set value", leaf_id("uph_automation_editor_point_set")) && valid)
-		_uph_automation_editor_open_entry(editor, (uint32_t)index);
+		uph__automation_editor_open_entry(editor, (uint32_t)index);
 
 	if (uph_ui_menu_item(menu, "Copy value", leaf_id("uph_automation_editor_point_copy")) && valid)
 	{
@@ -606,36 +606,36 @@ static void _uph_automation_editor_update_point_menu(Uph_AutomationEditorState *
 		char label[32];
 		snprintf(label, sizeof(label), "Paste value (%.3f)", editor->clipboard_value);
 		if (uph_ui_menu_item(menu, label, leaf_id("uph_automation_editor_point_paste")) && valid)
-			_uph_automation_editor_set_value(editor, automation, (uint32_t)index, editor->clipboard_value);
+			uph__automation_editor_set_value(editor, automation, (uint32_t)index, editor->clipboard_value);
 	}
 }
 
-static void _uph_automation_editor_update_segment_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
+static void uph__automation_editor_update_segment_menu(Uph_AutomationEditorState *editor, Uph_Automation *automation, Uph_UIMenuID menu)
 {
 	const int32_t segment = editor->menu_segment;
 	const bool valid = segment >= 0 && (uint32_t)segment + 1 < (uint32_t)naui_list_len(automation->points);
 
 	for (uint32_t c = 0; c < UPH_AUTOMATION_CURVE_COUNT; c++)
 	{
-		if (uph_ui_menu_item(menu, _uph_automation_editor_curve_names[c], leaf_id_indexed("uph_automation_editor_curve_item", c)) && valid)
-			_uph_automation_editor_set_curve(editor, automation, (uint32_t)segment, (Uph_AutomationCurve)c, automation->points[segment].tension);
+		if (uph_ui_menu_item(menu, uph__automation_editor_curve_names[c], leaf_id_indexed("uph_automation_editor_curve_item", c)) && valid)
+			uph__automation_editor_set_curve(editor, automation, (uint32_t)segment, (Uph_AutomationCurve)c, automation->points[segment].tension);
 	}
 
 	if (uph_ui_menu_item(menu, "Reset tension", leaf_id("uph_automation_editor_reset_tension")) && valid)
-		_uph_automation_editor_set_curve(editor, automation, (uint32_t)segment, automation->points[segment].curve, 0.0f);
+		uph__automation_editor_set_curve(editor, automation, (uint32_t)segment, automation->points[segment].curve, 0.0f);
 }
 
 #pragma endregion
 
 #pragma region Draw callbacks
 
-static void _uph_automation_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__automation_editor_ruler_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_AutomationEditorState *state = &_uph_automation_editor_state;
+	Uph_AutomationEditorState *state = &uph__automation_editor_state;
 	uph_midi_grid_render_ruler(box, &state->view, state->snap_resolution);
 }
 
-static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
 {
 	const Leaf_Color text_color = uph_state.colors.ui_text_disabled;
 	const Leaf_Color tick_color = uph_state.colors.automation_editor_grid_beat;
@@ -645,7 +645,7 @@ static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_
 	for (uint32_t i = 0; i <= UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS; i++)
 	{
 		const float value = (float)i / (float)UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS;
-		const float y = _uph_automation_editor_value_to_y(box, value);
+		const float y = uph__automation_editor_value_to_y(box, value);
 
 		char label[16];
 		snprintf(label, sizeof(label), "%.2f", value);
@@ -656,7 +656,7 @@ static void _uph_automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_
 	}
 }
 
-static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 anchor, const char *text)
+static void uph__automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 anchor, const char *text)
 {
 	const int32_t font_size = NAUI_DPI(12);
 	const int32_t padding = NAUI_DPI(5);
@@ -675,17 +675,17 @@ static void _uph_automation_editor_draw_readout(Leaf_BoundingBox box, Naui_Vec2 
 	naui_draw_text((Naui_Vec2) { position.x + padding, position.y + padding }, text, font_size, uph_state.colors.ui_text);
 }
 
-static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__automation_editor_lane_draw(Leaf_BoundingBox box, void *user_data)
 {
-	Uph_AutomationEditorState *state = &_uph_automation_editor_state;
-	const Uph_Automation *automation = _uph_automation_editor_current(state);
+	Uph_AutomationEditorState *state = &uph__automation_editor_state;
+	const Uph_Automation *automation = uph__automation_editor_current(state);
 	if (!automation)
 		return;
 
 	const Uph_MidiView *view = &state->view;
 	const uint32_t count = (uint32_t)naui_list_len(automation->points);
-	const float value_top = _uph_automation_editor_value_top(box);
-	const float value_height = _uph_automation_editor_value_height(box);
+	const float value_top = uph__automation_editor_value_top(box);
+	const float value_height = uph__automation_editor_value_height(box);
 
 	Leaf_Color accent_color = uph_state.colors.automation_editor_accent;
 	accent_color.a = 255;
@@ -704,7 +704,7 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 
 	for (uint32_t i = 0; i <= UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS; i++)
 	{
-		const float y = _uph_automation_editor_value_to_y(box, (float)i / (float)UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS);
+		const float y = uph__automation_editor_value_to_y(box, (float)i / (float)UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS);
 		const bool edge = i == 0 || i == UPH_AUTOMATION_EDITOR_VALUE_DIVISIONS;
 		naui_draw_line((Naui_Vec2) { box.x, y }, (Naui_Vec2) { box.x + box.width, y }, edge ? edge_color : guide_color, 1.0f);
 	}
@@ -719,8 +719,8 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	const int32_t line_width = NAUI_DPI(UPH_AUTOMATION_EDITOR_LINE_WIDTH);
 	if (count > 0)
 	{
-		const Naui_Vec2 first = _uph_automation_editor_point_position(state, box, &automation->points[0]);
-		const Naui_Vec2 last = _uph_automation_editor_point_position(state, box, &automation->points[count - 1]);
+		const Naui_Vec2 first = uph__automation_editor_point_position(state, box, &automation->points[0]);
+		const Naui_Vec2 last = uph__automation_editor_point_position(state, box, &automation->points[count - 1]);
 		if (first.x > box.x)
 			naui_draw_line((Naui_Vec2) { box.x, first.y }, first, dim_color, 1.0f);
 		if (last.x < box.x + box.width)
@@ -733,7 +733,7 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	for (uint32_t i = 0; i + 1 < count; i++)
 	{
 		Naui_Vec2 position;
-		if (!_uph_automation_editor_handle_position(state, box, automation, i, &position))
+		if (!uph__automation_editor_handle_position(state, box, automation, i, &position))
 			continue;
 
 		const bool active = state->hovered_handle == (int32_t)i || (state->drag_mode == UPH_AUTOMATION_DRAG_TENSION && state->drag_index == (int32_t)i);
@@ -745,7 +745,7 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	const int32_t point_size = NAUI_DPI(UPH_AUTOMATION_EDITOR_POINT_SIZE);
 	for (uint32_t i = 0; i < count; i++)
 	{
-		const Naui_Vec2 position = _uph_automation_editor_point_position(state, box, &automation->points[i]);
+		const Naui_Vec2 position = uph__automation_editor_point_position(state, box, &automation->points[i]);
 		if (position.x < box.x - point_size || position.x > box.x + box.width + point_size)
 			continue;
 
@@ -766,16 +766,16 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	{
 		const Uph_AutomationPoint *point = &automation->points[point_index];
 		snprintf(text, sizeof(text), "Beat %.3f  |  %.3f", point->beat, point->value);
-		_uph_automation_editor_draw_readout(box, _uph_automation_editor_point_position(state, box, point), text);
+		uph__automation_editor_draw_readout(box, uph__automation_editor_point_position(state, box, point), text);
 	}
 	else if (handle_index >= 0 && (uint32_t)handle_index + 1 < count)
 	{
 		const Uph_AutomationPoint *point = &automation->points[handle_index];
 		Naui_Vec2 position;
-		if (_uph_automation_editor_handle_position(state, box, automation, (uint32_t)handle_index, &position))
+		if (uph__automation_editor_handle_position(state, box, automation, (uint32_t)handle_index, &position))
 		{
-			snprintf(text, sizeof(text), "%s  |  Tension %+.2f", _uph_automation_editor_curve_names[point->curve], point->tension);
-			_uph_automation_editor_draw_readout(box, position, text);
+			snprintf(text, sizeof(text), "%s  |  Tension %+.2f", uph__automation_editor_curve_names[point->curve], point->tension);
+			uph__automation_editor_draw_readout(box, position, text);
 		}
 	}
 
@@ -786,7 +786,7 @@ static void _uph_automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 
 #pragma region Layout
 
-static void _uph_automation_editor_render_message(const char *message)
+static void uph__automation_editor_render_message(const char *message)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
@@ -800,7 +800,7 @@ static void _uph_automation_editor_render_message(const char *message)
 	}
 }
 
-static void _uph_automation_editor_render_label(const char *label, bool disabled)
+static void uph__automation_editor_render_label(const char *label, bool disabled)
 {
 	leaf_text(label, {
 		.color = disabled ? uph_state.colors.ui_text_disabled : uph_state.colors.ui_text,
@@ -808,7 +808,7 @@ static void _uph_automation_editor_render_label(const char *label, bool disabled
 	});
 }
 
-static void _uph_automation_editor_render_info(const Uph_Automation *automation)
+static void uph__automation_editor_render_info(const Uph_Automation *automation)
 {
 	const float font_size = UPH_UI_FONT_SIZE;
 
@@ -840,7 +840,7 @@ static void _uph_automation_editor_render_info(const Uph_Automation *automation)
 	}
 }
 
-static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+static void uph__automation_editor_render_toolbar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_HEIGHT)) },
@@ -863,7 +863,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			_uph_automation_editor_render_label("Snap", false);
+			uph__automation_editor_render_label("Snap", false);
 			leaf({
 				.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(60)), .height = LEAF_SIZE_FULL },
 				.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
@@ -889,7 +889,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 			})
 			{
 				float beat = (float)point->beat;
-				_uph_automation_editor_render_label("Beat", index == 0);
+				uph__automation_editor_render_label("Beat", index == 0);
 				leaf({
 					.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(80)), .height = LEAF_SIZE_FULL },
 					.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
@@ -897,7 +897,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 				{
 					if (uph_ui_drag_float(&beat, leaf_id("uph_automation_editor_beat"), 0.01f, 0.0f, 100000.0f, "%.3f", UPH_UI_DRAG_FLAG_CLAMPED))
 					{
-						point->beat = _uph_automation_editor_clamp_beat(automation, (uint32_t)index, (double)beat);
+						point->beat = uph__automation_editor_clamp_beat(automation, (uint32_t)index, (double)beat);
 						changed = true;
 					}
 				}
@@ -911,7 +911,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 			})
 			{
 				float value = point->value;
-				_uph_automation_editor_render_label("Value", false);
+				uph__automation_editor_render_label("Value", false);
 				leaf({
 					.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(80)), .height = LEAF_SIZE_FULL },
 					.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
@@ -935,13 +935,13 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 				})
 				{
 					uint32_t curve = (uint32_t)point->curve;
-					_uph_automation_editor_render_label("Curve", false);
+					uph__automation_editor_render_label("Curve", false);
 					leaf({
 						.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(80)), .height = LEAF_SIZE_FULL },
 						.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 					})
 					{
-						if (uph_ui_dropdown(_uph_automation_editor_curve_names, UPH_AUTOMATION_CURVE_COUNT, &curve, leaf_id("uph_automation_editor_curve")))
+						if (uph_ui_dropdown(uph__automation_editor_curve_names, UPH_AUTOMATION_CURVE_COUNT, &curve, leaf_id("uph_automation_editor_curve")))
 						{
 							point->curve = (Uph_AutomationCurve)curve;
 							changed = true;
@@ -959,7 +959,7 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 					})
 					{
 						float tension = point->tension;
-						_uph_automation_editor_render_label("Tension", false);
+						uph__automation_editor_render_label("Tension", false);
 						leaf({
 							.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(80)), .height = LEAF_SIZE_FULL },
 							.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
@@ -984,15 +984,15 @@ static void _uph_automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 		}
 		else
 		{
-			_uph_automation_editor_render_label("Select a point to edit it precisely.", true);
+			uph__automation_editor_render_label("Select a point to edit it precisely.", true);
 		}
 	}
 
-	if (editor->field_editing && !naui_mouse_down(NAUI_MOUSE_LEFT) && !_uph_automation_editor_fields_text_active())
-		_uph_automation_editor_commit_fields(editor);
+	if (editor->field_editing && !naui_mouse_down(NAUI_MOUSE_LEFT) && !uph__automation_editor_fields_text_active())
+		uph__automation_editor_commit_fields(editor);
 }
 
-static void _uph_automation_editor_render_entry(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+static void uph__automation_editor_render_entry(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	if (!editor->entry_active)
 		return;
@@ -1000,11 +1000,11 @@ static void _uph_automation_editor_render_entry(Uph_AutomationEditorState *edito
 	const int32_t index = editor->entry_index;
 	if (index < 0 || (uint32_t)index >= (uint32_t)naui_list_len(automation->points) || naui_key_pressed(NAUI_KEY_ESCAPE))
 	{
-		_uph_automation_editor_close_entry(editor);
+		uph__automation_editor_close_entry(editor);
 		return;
 	}
 
-	const Naui_Vec2 anchor = _uph_automation_editor_point_position(editor, editor->lane_box, &automation->points[index]);
+	const Naui_Vec2 anchor = uph__automation_editor_point_position(editor, editor->lane_box, &automation->points[index]);
 	const int32_t width = NAUI_DPI(90);
 	const int32_t height = NAUI_DPI(26);
 
@@ -1030,16 +1030,16 @@ static void _uph_automation_editor_render_entry(Uph_AutomationEditorState *edito
 		return;
 
 	if (editor->entry_text.length > 0)
-		_uph_automation_editor_set_value(editor, automation, (uint32_t)index, (float)atof(editor->entry_text.data));
+		uph__automation_editor_set_value(editor, automation, (uint32_t)index, (float)atof(editor->entry_text.data));
 
-	_uph_automation_editor_close_entry(editor);
+	uph__automation_editor_close_entry(editor);
 }
 
 #pragma endregion
 
 void uph_automation_editor_init(void)
 {
-	Uph_AutomationEditorState *state = &_uph_automation_editor_state;
+	Uph_AutomationEditorState *state = &uph__automation_editor_state;
 	memset(state, 0, sizeof(*state));
 	state->view.zoom = (Naui_Vec2) { NAUI_DPI(100), NAUI_DPI(30) };
 	state->snap_resolution = UPH_SNAP_LINE;
@@ -1056,10 +1056,10 @@ void uph_automation_editor_init(void)
 
 void uph_automation_editor_reset_interaction(void)
 {
-	Uph_AutomationEditorState *state = &_uph_automation_editor_state;
-	_uph_automation_editor_finish_drag(state);
-	_uph_automation_editor_commit_fields(state);
-	_uph_automation_editor_close_entry(state);
+	Uph_AutomationEditorState *state = &uph__automation_editor_state;
+	uph__automation_editor_finish_drag(state);
+	uph__automation_editor_commit_fields(state);
+	uph__automation_editor_close_entry(state);
 	state->panning = false;
 	state->lane_hovered = false;
 	state->hovered_point = -1;
@@ -1069,13 +1069,13 @@ void uph_automation_editor_reset_interaction(void)
 
 void uph_automation_editor_update(void)
 {
-	Uph_AutomationEditorState *state = &_uph_automation_editor_state;
+	Uph_AutomationEditorState *state = &uph__automation_editor_state;
 	const Uph_ResourceIndex index = uph_state.shared.selected_resource.index;
 
 	if (index >= (Uph_ResourceIndex)naui_list_len(uph_state.project.automations))
 	{
 		uph_automation_editor_reset_interaction();
-		_uph_automation_editor_render_message("No automation is selected.");
+		uph__automation_editor_render_message("No automation is selected.");
 		return;
 	}
 
@@ -1101,15 +1101,15 @@ void uph_automation_editor_update(void)
 
 	const Uph_UIMenuID point_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_point_menu"));
 	const Uph_UIMenuID segment_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_segment_menu"));
-	_uph_automation_editor_update_view(state, automation);
-	_uph_automation_editor_update_hover(state, automation);
-	_uph_automation_editor_update_mouse(state, automation, point_menu, segment_menu);
-	_uph_automation_editor_update_keys(state, automation);
-	_uph_automation_editor_update_point_menu(state, automation, point_menu);
-	_uph_automation_editor_update_segment_menu(state, automation, segment_menu);
+	uph__automation_editor_update_view(state, automation);
+	uph__automation_editor_update_hover(state, automation);
+	uph__automation_editor_update_mouse(state, automation, point_menu, segment_menu);
+	uph__automation_editor_update_keys(state, automation);
+	uph__automation_editor_update_point_menu(state, automation, point_menu);
+	uph__automation_editor_update_segment_menu(state, automation, segment_menu);
 
-	_uph_automation_editor_render_info(automation);
-	_uph_automation_editor_render_toolbar(state, automation);
+	uph__automation_editor_render_info(automation);
+	uph__automation_editor_render_toolbar(state, automation);
 
 	const int32_t gutter_width = NAUI_DPI(UPH_AUTOMATION_EDITOR_GUTTER_WIDTH);
 	const int32_t ruler_height = (int32_t)NAUI_DPI(UPH_AUTOMATION_EDITOR_RULER_HEIGHT);
@@ -1129,7 +1129,7 @@ void uph_automation_editor_update(void)
 			.color = uph_state.colors.automation_editor_toolbox_bg
 		});
 		leaf({
-			.custom_draw = (Leaf_CustomDrawFn)_uph_automation_editor_ruler_draw,
+			.custom_draw = (Leaf_CustomDrawFn)uph__automation_editor_ruler_draw,
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 		});
 	}
@@ -1141,16 +1141,16 @@ void uph_automation_editor_update(void)
 	})
 	{
 		leaf({
-			.custom_draw = (Leaf_CustomDrawFn)_uph_automation_editor_gutter_draw,
+			.custom_draw = (Leaf_CustomDrawFn)uph__automation_editor_gutter_draw,
 			.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
 			.color = uph_state.colors.automation_editor_toolbox_bg
 		});
 		leaf({
 			.id = lane_id,
-			.custom_draw = (Leaf_CustomDrawFn)_uph_automation_editor_lane_draw,
+			.custom_draw = (Leaf_CustomDrawFn)uph__automation_editor_lane_draw,
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
 		});
 	}
 
-	_uph_automation_editor_render_entry(state, automation);
+	uph__automation_editor_render_entry(state, automation);
 }

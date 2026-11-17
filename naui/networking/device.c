@@ -1,12 +1,12 @@
 bool naui_device_key_generate(Naui_DeviceKey* out)
 {
-	return out && _naui_net_random_bytes(out->bytes, sizeof(out->bytes));
+	return out && naui__net_random_bytes(out->bytes, sizeof(out->bytes));
 }
 
 Naui_DeviceId naui_device_id_from_key(const Naui_DeviceKey* key)
 {
 	Naui_DeviceId id;
-	_naui_net_ed25519_public(key->bytes, id.bytes);
+	naui__net_ed25519_public(key->bytes, id.bytes);
 	return id;
 }
 
@@ -43,7 +43,7 @@ void naui_device_id_format(Naui_DeviceId id, char* buf)
 	buf[NAUI_DEVICE_ID_SIZE * 2] = 0;
 }
 
-static int _naui_device_hex_value(char c)
+static int naui__device_hex_value(char c)
 {
 	if (c >= '0' && c <= '9') return c - '0';
 	if (c >= 'a' && c <= 'f') return c - 'a' + 10;
@@ -59,8 +59,8 @@ bool naui_device_id_parse(Naui_DeviceId* out, const char* text)
 	Naui_DeviceId id;
 	for (size_t i = 0; i < NAUI_DEVICE_ID_SIZE; ++i)
 	{
-		int hi = _naui_device_hex_value(text[i * 2 + 0]);
-		int lo = _naui_device_hex_value(text[i * 2 + 1]);
+		int hi = naui__device_hex_value(text[i * 2 + 0]);
+		int lo = naui__device_hex_value(text[i * 2 + 1]);
 		if (hi < 0 || lo < 0)
 			return false;
 

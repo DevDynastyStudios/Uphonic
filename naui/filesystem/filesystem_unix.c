@@ -14,7 +14,7 @@ typedef struct
 	char* dir_cache[NAUI_DIR_MAX_COUNT];
 }
 Naui_FilesystemState;
-static Naui_FilesystemState _naui_filesystem_state;
+static Naui_FilesystemState naui__filesystem_state;
 
 static Naui_Path path_empty(void)
 {
@@ -41,7 +41,7 @@ static bool is_separator(char c)
 
 typedef struct { FILE* fp; } Naui_FileInternal;
 
-static Naui_FileInternal* _naui_file_internal(const Naui_FileHandle* handle)
+static Naui_FileInternal* naui__file_internal(const Naui_FileHandle* handle)
 {
 	return (Naui_FileInternal*)(void*)handle->_opaque;
 }
@@ -86,7 +86,7 @@ static bool match_extensions(const char* name, const char** exts, int ext_count)
 	return false;
 }
 
-static void _naui_filter_recursive_impl(const char* path, const char* filter, const char** extensions, int ext_count, Naui_List(Naui_DirEntry)* list)
+static void naui__filter_recursive_impl(const char* path, const char* filter, const char** extensions, int ext_count, Naui_List(Naui_DirEntry)* list)
 {
 	DIR* dir = opendir(path);
 	if (!dir)
@@ -112,7 +112,7 @@ static void _naui_filter_recursive_impl(const char* path, const char* filter, co
 			de.is_directory = true;
 			de.size = 0;
 			naui_list_push(*list, de);
-			_naui_filter_recursive_impl(child, filter, extensions, ext_count, list);
+			naui__filter_recursive_impl(child, filter, extensions, ext_count, list);
 		}
 		else
 		{
@@ -133,7 +133,7 @@ static void _naui_filter_recursive_impl(const char* path, const char* filter, co
 	closedir(dir);
 }
 
-static void _naui_resolve_lock_target(const char* path, char* out)
+static void naui__resolve_lock_target(const char* path, char* out)
 {
 	struct stat st;
 	if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
@@ -166,7 +166,7 @@ bool naui_file_open(Naui_FileHandle* handle, const Naui_Path path, Naui_FileMode
 			return false;
 	}
 
-	Naui_FileInternal* fi = _naui_file_internal(handle);
+	Naui_FileInternal* fi = naui__file_internal(handle);
 	fi->fp = fopen(path.data, m);
 	return fi->fp != NULL;
 }
@@ -176,7 +176,7 @@ size_t naui_file_read(const Naui_FileHandle* handle, void* restrict buffer, size
 	if (!handle || !buffer)
 		return 0;
 
-	Naui_FileInternal* fi = _naui_file_internal(handle);
+	Naui_FileInternal* fi = naui__file_internal(handle);
 	if (!fi->fp)
 		return 0;
 
@@ -188,7 +188,7 @@ size_t naui_file_write(const Naui_FileHandle* handle, const void* restrict buffe
 	if (!handle || !buffer)
 		return 0;
 
-	Naui_FileInternal* fi = _naui_file_internal(handle);
+	Naui_FileInternal* fi = naui__file_internal(handle);
 	if (!fi->fp)
 		return 0;
 
@@ -200,7 +200,7 @@ bool naui_file_seek(Naui_FileHandle* handle, long offset, int origin)
 	if (!handle)
 		return false;
 
-	Naui_FileInternal* fi = _naui_file_internal(handle);
+	Naui_FileInternal* fi = naui__file_internal(handle);
 	if (!fi->fp)
 		return false;
 
@@ -212,7 +212,7 @@ bool naui_file_is_valid(const Naui_FileHandle* handle)
 	if (!handle)
 		return false;
 
-	return _naui_file_internal(handle)->fp != NULL;
+	return naui__file_internal(handle)->fp != NULL;
 }
 
 void naui_file_close(Naui_FileHandle* handle)
@@ -220,7 +220,7 @@ void naui_file_close(Naui_FileHandle* handle)
 	if (!handle)
 		return;
 
-	Naui_FileInternal* fi = _naui_file_internal(handle);
+	Naui_FileInternal* fi = naui__file_internal(handle);
 	if (fi->fp)
 	{
 		fclose(fi->fp);
@@ -331,7 +331,7 @@ bool naui_directory_remove(const Naui_Path path)
 	return rmdir(path.data) == 0;
 }
 
-static bool _naui_remove_all_recursive(const char* path)
+static bool naui__remove_all_recursive(const char* path)
 {
 	DIR* dir = opendir(path);
 	if (!dir)
@@ -347,7 +347,7 @@ static bool _naui_remove_all_recursive(const char* path)
 		char child[NAUI_PATH_MAX];
 		snprintf(child, sizeof(child), "%s/%s", path, entry->d_name);
 		struct stat st;
-		ok &= (stat(child, &st) == 0 && S_ISDIR(st.st_mode)) ? _naui_remove_all_recursive(child) : (remove(child) == 0);
+		ok &= (stat(child, &st) == 0 && S_ISDIR(st.st_mode)) ? naui__remove_all_recursive(child) : (remove(child) == 0);
 	}
 
 	closedir(dir);
@@ -360,7 +360,7 @@ bool naui_directory_remove_all(const Naui_Path path)
 	if (path.data[0] == '\0')
 		return false;
 
-	return _naui_remove_all_recursive(path.data);
+	return naui__remove_all_recursive(path.data);
 }
 
 Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, const char* filter, const char** extensions)
@@ -379,7 +379,7 @@ Naui_List(Naui_DirEntry) naui_directory_filter_recursive(const Naui_Path path, c
 		}
 	}
 
-	_naui_filter_recursive_impl(path.data, filter, extensions, ext_count, &list);
+	naui__filter_recursive_impl(path.data, filter, extensions, ext_count, &list);
 	return list;
 }
 
@@ -401,19 +401,19 @@ static char* heap_dup(const char* s)
 	return copy;
 }
 
-static void _naui_dir_cache_set(Naui_Dir directory, const char* value)
+static void naui__dir_cache_set(Naui_Dir directory, const char* value)
 {
 	if (directory >= NAUI_DIR_MAX_COUNT || !value || !value[0])
 		return;
 
-	free(_naui_filesystem_state.dir_cache[directory]);
-	_naui_filesystem_state.dir_cache[directory] = heap_dup(value);
+	free(naui__filesystem_state.dir_cache[directory]);
+	naui__filesystem_state.dir_cache[directory] = heap_dup(value);
 }
 
 Naui_Path naui_directory_get(const Naui_Dir directory)
 {
-	if (directory < NAUI_DIR_MAX_COUNT && _naui_filesystem_state.dir_cache[directory])
-		return path_from(_naui_filesystem_state.dir_cache[directory]);
+	if (directory < NAUI_DIR_MAX_COUNT && naui__filesystem_state.dir_cache[directory])
+		return path_from(naui__filesystem_state.dir_cache[directory]);
 
 	char resolved[NAUI_PATH_MAX] = {0};
 
@@ -551,7 +551,7 @@ Naui_Path naui_directory_get(const Naui_Dir directory)
 			return path_empty();
 	}
 
-	_naui_dir_cache_set(directory, resolved);
+	naui__dir_cache_set(directory, resolved);
 	return path_from(resolved);
 }
 
@@ -612,7 +612,7 @@ bool naui_path_set_current(const Naui_Path path)
 	if (chdir(path.data) != 0)
 		return false;
 
-	_naui_dir_cache_set(NAUI_DIR_WORKING, path.data);
+	naui__dir_cache_set(NAUI_DIR_WORKING, path.data);
 	return true;
 }
 
@@ -753,15 +753,15 @@ Naui_Path naui_path_weakly_canonical(const Naui_Path path)
 
 bool naui_path_lock(const Naui_Path path)
 {
-	if (path.data[0] == '\0' || _naui_filesystem_state.lock_count >= NAUI_LOCK_MAX)
+	if (path.data[0] == '\0' || naui__filesystem_state.lock_count >= NAUI_LOCK_MAX)
 		return false;
 
 	char target[NAUI_PATH_MAX];
-	_naui_resolve_lock_target(path.data, target);
+	naui__resolve_lock_target(path.data, target);
 
-	for (int i = 0; i < _naui_filesystem_state.lock_count; ++i)
+	for (int i = 0; i < naui__filesystem_state.lock_count; ++i)
 	{
-		if (strcmp(_naui_filesystem_state.locks[i].path, target) == 0)
+		if (strcmp(naui__filesystem_state.locks[i].path, target) == 0)
 			return false;
 	}
 
@@ -790,9 +790,9 @@ bool naui_path_lock(const Naui_Path path)
 		return false;
 	}
 
-	snprintf(_naui_filesystem_state.locks[_naui_filesystem_state.lock_count].path, NAUI_PATH_MAX, "%s", target);
-	_naui_filesystem_state.locks[_naui_filesystem_state.lock_count].fd = fd;
-	++_naui_filesystem_state.lock_count;
+	snprintf(naui__filesystem_state.locks[naui__filesystem_state.lock_count].path, NAUI_PATH_MAX, "%s", target);
+	naui__filesystem_state.locks[naui__filesystem_state.lock_count].fd = fd;
+	++naui__filesystem_state.lock_count;
 	return true;
 }
 
@@ -802,10 +802,10 @@ bool naui_path_is_locked(const Naui_Path path)
 		return false;
 
 	char target[NAUI_PATH_MAX];
-	_naui_resolve_lock_target(path.data, target);
-	for (int i = 0; i < _naui_filesystem_state.lock_count; ++i)
+	naui__resolve_lock_target(path.data, target);
+	for (int i = 0; i < naui__filesystem_state.lock_count; ++i)
 	{
-		if (strcmp(_naui_filesystem_state.locks[i].path, target) == 0)
+		if (strcmp(naui__filesystem_state.locks[i].path, target) == 0)
 			return true;
 	}
 
@@ -831,15 +831,15 @@ void naui_path_unlock(const Naui_Path path)
 		return;
 
 	char target[NAUI_PATH_MAX];
-	_naui_resolve_lock_target(path.data, target);
-	for (int i = 0; i < _naui_filesystem_state.lock_count; ++i)
+	naui__resolve_lock_target(path.data, target);
+	for (int i = 0; i < naui__filesystem_state.lock_count; ++i)
 	{
-		if (strcmp(_naui_filesystem_state.locks[i].path, target) != 0)
+		if (strcmp(naui__filesystem_state.locks[i].path, target) != 0)
 			continue;
 
-		flock(_naui_filesystem_state.locks[i].fd, LOCK_UN);
-		close(_naui_filesystem_state.locks[i].fd);
-		_naui_filesystem_state.locks[i] = _naui_filesystem_state.locks[--_naui_filesystem_state.lock_count];
+		flock(naui__filesystem_state.locks[i].fd, LOCK_UN);
+		close(naui__filesystem_state.locks[i].fd);
+		naui__filesystem_state.locks[i] = naui__filesystem_state.locks[--naui__filesystem_state.lock_count];
 		return;
 	}
 }

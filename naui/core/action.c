@@ -28,16 +28,16 @@ typedef struct
 	bool group_active;
 }
 Naui_ActionState;
-static Naui_ActionState _naui_action_state = { .capacity = NAUI_ACTION_DEFAULT_CAPACITY };
+static Naui_ActionState naui__action_state = { .capacity = NAUI_ACTION_DEFAULT_CAPACITY };
 
-void __naui_register_action(const char* name, Naui_Action action)
+void _naui__register_action(const char* name, Naui_Action action)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	Naui_RegisteredAction registered = { name, action };
 	naui_list_push(state->registered, registered);
 }
 
-bool __naui_action_execute_stack(const char* name, const void* data, size_t size)
+bool _naui__action_execute_stack(const char* name, const void* data, size_t size)
 {
 	void* owned = malloc(size);
 	memcpy(owned, data, size);
@@ -53,7 +53,7 @@ bool __naui_action_execute_stack(const char* name, const void* data, size_t size
 
 static const Naui_Action* find_action(const char* name)
 {
-	const Naui_ActionState* state = &_naui_action_state;
+	const Naui_ActionState* state = &naui__action_state;
 	for(ptrdiff_t i = 0; i < naui_list_len(state->registered); i++)
 	{
 		if(strcmp(state->registered[i].name, name) == 0)
@@ -117,7 +117,7 @@ static void group_destroy(void* data)
 	naui_list_free(group->actions);
 }
 
-static const Naui_Action _naui_group_action = {
+static const Naui_Action naui__group_action = {
 	.execute = NULL,
 	.undo = group_undo,
 	.redo = group_redo,
@@ -126,7 +126,7 @@ static const Naui_Action _naui_group_action = {
 
 uint64_t naui_action_get_revision(void)
 {
-	return _naui_action_state.revision;
+	return naui__action_state.revision;
 }
 
 static void trim_oldest(Naui_List(Naui_ActionEntry) entries, size_t capacity)
@@ -140,7 +140,7 @@ static void trim_oldest(Naui_List(Naui_ActionEntry) entries, size_t capacity)
 
 void naui_action_set_history_capacity(size_t capacity)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	state->capacity = capacity ? capacity : 1;
 	trim_oldest(state->undo_entries, state->capacity);
 	trim_oldest(state->redo_entries, state->capacity);
@@ -148,12 +148,12 @@ void naui_action_set_history_capacity(size_t capacity)
 
 size_t naui_action_get_history_capacity(void)
 {
-	return _naui_action_state.capacity;
+	return naui__action_state.capacity;
 }
 
 static void history_push(Naui_ActionEntry entry)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	destroy_entries(state->redo_entries);
 	naui_list_clear(state->redo_entries);
 
@@ -163,7 +163,7 @@ static void history_push(Naui_ActionEntry entry)
 
 void naui_action_group_start(const char* name)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	NAUI_ACTION_FATAL(state->group_active, "naui_action_group_start called while a group is already active. Nested groups aren't supported.");
 	state->group_active = true;
 	state->group_name = name;
@@ -171,7 +171,7 @@ void naui_action_group_start(const char* name)
 
 bool naui_action_group_end(void)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	NAUI_ACTION_FATAL(!state->group_active, "naui_action_group_end called with no active group.");
 	state->group_active = false;
 	if(naui_list_len(state->group_entries) == 0)
@@ -180,13 +180,13 @@ bool naui_action_group_end(void)
 	Naui_GroupData* group_data = (Naui_GroupData*)malloc(sizeof(Naui_GroupData));
 	group_data->actions = state->group_entries;
 	state->group_entries = NULL;
-	history_push((Naui_ActionEntry){ .name = state->group_name, .action = &_naui_group_action, .data = group_data });
+	history_push((Naui_ActionEntry){ .name = state->group_name, .action = &naui__group_action, .data = group_data });
 	return true;
 }
 
 bool naui_action_execute(const char* name, void* data)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	const Naui_Action* action = find_action(name);
 	if(!action || !action->execute(data))
 		return false;
@@ -203,7 +203,7 @@ bool naui_action_execute(const char* name, void* data)
 
 bool naui_action_undo(void)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	if(naui_list_len(state->undo_entries) == 0)
 		return false;
 
@@ -219,7 +219,7 @@ bool naui_action_undo(void)
 
 bool naui_action_redo(void)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	if(naui_list_len(state->redo_entries) == 0)
 		return false;
 
@@ -236,12 +236,12 @@ bool naui_action_redo(void)
 
 bool naui_action_can_undo(void)
 {
-	return naui_list_len(_naui_action_state.undo_entries) > 0;
+	return naui_list_len(naui__action_state.undo_entries) > 0;
 }
 
 bool naui_action_can_redo(void)
 {
-	return naui_list_len(_naui_action_state.redo_entries) > 0;
+	return naui_list_len(naui__action_state.redo_entries) > 0;
 }
 
 static Naui_List(Naui_Action) history_newest_first(Naui_List(Naui_ActionEntry) entries)
@@ -261,17 +261,17 @@ static Naui_List(Naui_Action) history_newest_first(Naui_List(Naui_ActionEntry) e
 
 const Naui_List(Naui_Action) naui_action_get_undo_history(void)
 {
-	return history_newest_first(_naui_action_state.undo_entries);
+	return history_newest_first(naui__action_state.undo_entries);
 }
 
 const Naui_List(Naui_Action) naui_action_get_redo_history(void)
 {
-	return history_newest_first(_naui_action_state.redo_entries);
+	return history_newest_first(naui__action_state.redo_entries);
 }
 
 void naui_action_clear_history(void)
 {
-	Naui_ActionState* state = &_naui_action_state;
+	Naui_ActionState* state = &naui__action_state;
 	destroy_entries(state->undo_entries);
 	destroy_entries(state->redo_entries);
 	naui_list_clear(state->undo_entries);

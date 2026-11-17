@@ -16,12 +16,12 @@ typedef struct
 }
 Uph_KnobDrawData;
 
-static Naui_Vec2 _uph_ui_knob_point(Naui_Vec2 center, float radius, float angle)
+static Naui_Vec2 uph__ui_knob_point(Naui_Vec2 center, float radius, float angle)
 {
     return (Naui_Vec2){ center.x + sinf(angle) * radius, center.y - cosf(angle) * radius };
 }
 
-static void _uph_ui_knob_ring(Naui_Vec2 center, float outer_r, float inner_r, float a0, float a1, Naui_Color color)
+static void uph__ui_knob_ring(Naui_Vec2 center, float outer_r, float inner_r, float a0, float a1, Naui_Color color)
 {
     if (a1 <= a0)
         return;
@@ -34,17 +34,17 @@ static void _uph_ui_knob_ring(Naui_Vec2 center, float outer_r, float inner_r, fl
 
         const Naui_Vec2 quad[4] =
         {
-            _uph_ui_knob_point(center, outer_r, sa),
-            _uph_ui_knob_point(center, outer_r, sb),
-            _uph_ui_knob_point(center, inner_r, sb),
-            _uph_ui_knob_point(center, inner_r, sa)
+            uph__ui_knob_point(center, outer_r, sa),
+            uph__ui_knob_point(center, outer_r, sb),
+            uph__ui_knob_point(center, inner_r, sb),
+            uph__ui_knob_point(center, inner_r, sa)
         };
 
         naui_fill_polygon(quad, 4, color);
     }
 }
 
-static void _uph_ui_knob_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_knob_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Uph_KnobDrawData *knob = (const Uph_KnobDrawData*)user_data;
 
@@ -62,15 +62,15 @@ static void _uph_ui_knob_draw(Leaf_BoundingBox box, void *user_data)
     const float value_angle = UPH_KNOB_ANGLE_MIN + NAUI_CLAMP01(knob->t) * sweep;
     const float origin_angle = UPH_KNOB_ANGLE_MIN + origin * sweep;
 
-    _uph_ui_knob_ring(center, radius, radius - arc_width, UPH_KNOB_ANGLE_MIN, UPH_KNOB_ANGLE_MAX, knob->track_color);
-    _uph_ui_knob_ring(center, radius, radius - arc_width, NAUI_MIN(origin_angle, value_angle), NAUI_MAX(origin_angle, value_angle), knob->color);
+    uph__ui_knob_ring(center, radius, radius - arc_width, UPH_KNOB_ANGLE_MIN, UPH_KNOB_ANGLE_MAX, knob->track_color);
+    uph__ui_knob_ring(center, radius, radius - arc_width, NAUI_MIN(origin_angle, value_angle), NAUI_MAX(origin_angle, value_angle), knob->color);
 
     naui_fill_rect((Naui_Vec2){ center.x - body_r, center.y - body_r }, (Naui_Vec2){ body_r * 2.0f, body_r * 2.0f }, knob->body_color, body_r, NAUI_CORNER_ALL);
-    _uph_ui_knob_ring(center, dial_r, body_r, 0.0f, 2.0f * NAUI_PI, knob->ring_color);
+    uph__ui_knob_ring(center, dial_r, body_r, 0.0f, 2.0f * NAUI_PI, knob->ring_color);
 
     naui_draw_line(
-        _uph_ui_knob_point(center, body_r * 0.1f, value_angle),
-        _uph_ui_knob_point(center, body_r * 0.68f, value_angle),
+        uph__ui_knob_point(center, body_r * 0.1f, value_angle),
+        uph__ui_knob_point(center, body_r * 0.68f, value_angle),
         knob->pointer_color,
         line_width
     );
@@ -144,7 +144,7 @@ bool uph_ui_knob_float(float *value, const Leaf_ID id, float min, float max, flo
 
     leaf({
         .id = id,
-        .custom_draw = _uph_ui_knob_draw,
+        .custom_draw = uph__ui_knob_draw,
         .custom_draw_data = LEAF_DATA_SLICE(draw_data),
         .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_DERIVED },
         .aspect_ratio = 1.0f

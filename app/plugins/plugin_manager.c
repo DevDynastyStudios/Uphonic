@@ -448,27 +448,27 @@ struct Uph_PluginInternalHandle_
     atomic_uint_least64_t touched_param;
 };
 
-static uint64_t _uph_plugin_touch_order;
+static uint64_t uph__plugin_touch_order;
 
-static void _uph_plugin_mark_touched(Uph_PluginInternalHandle *ih, uint64_t param_id)
+static void uph__plugin_mark_touched(Uph_PluginInternalHandle *ih, uint64_t param_id)
 {
     if (ih)
         atomic_store_explicit(&ih->touched_param, param_id + 1, memory_order_relaxed);
 }
 
-static void _uph_plugin_collect_touched_param(Uph_Plugin *plug, Uph_PluginInternalHandle *ih)
+static void uph__plugin_collect_touched_param(Uph_Plugin *plug, Uph_PluginInternalHandle *ih)
 {
     const uint64_t touched = atomic_exchange_explicit(&ih->touched_param, 0, memory_order_relaxed);
     if (touched == 0)
         return;
 
     plug->last_touched_param = touched - 1;
-    plug->last_touched_order = ++_uph_plugin_touch_order;
+    plug->last_touched_order = ++uph__plugin_touch_order;
 }
 
-static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih);
+static void uph__plugin_gui_release_capture(Uph_PluginInternalHandle *ih);
 
-static void _uph_plugin_gui_resize_window(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
+static void uph__plugin_gui_resize_window(Uph_PluginInternalHandle *ih, uint32_t width, uint32_t height)
 {
     ih->gui_width = width;
     ih->gui_height = height;
@@ -873,7 +873,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_query_interface
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_begin_edit(void *self, Steinberg_Vst_ParamID id)
 {
     Uph_Vst3Handler *h = (Uph_Vst3Handler*)self;
-    _uph_plugin_mark_touched(h->owner, id);
+    uph__plugin_mark_touched(h->owner, id);
     return Steinberg_kResultOk;
 }
 
@@ -883,7 +883,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_handler_perform_edit(vo
     if (!h->owner)
         return Steinberg_kResultOk;
 
-    _uph_plugin_mark_touched(h->owner, id);
+    uph__plugin_mark_touched(h->owner, id);
 
     clap_event_param_value_t ev = {0};
     ev.header.size = sizeof(ev);
@@ -1024,7 +1024,7 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_resize_view(void 
     uint32_t w = (uint32_t)(new_size->right - new_size->left);
     uint32_t h = (uint32_t)(new_size->bottom - new_size->top);
 
-    _uph_plugin_gui_resize_window(f->owner, w, h);
+    uph__plugin_gui_resize_window(f->owner, w, h);
 
     f->owner->vst3.width = w;
     f->owner->vst3.height = h;
@@ -1758,7 +1758,7 @@ static inline void uph_assign_vst3_plugin_gui_internal(Uph_Plugin *plug)
     ih->vst3.ready = 1;
 }
 
-static void _uph_plugin_gui_destroy_window(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_destroy_window(Uph_PluginInternalHandle *ih)
 {
 #if NAUI_LINUX
     if (ih->display)
@@ -1805,7 +1805,7 @@ static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 #endif
 
     uph_vst3_free_partial(ih);
-    _uph_plugin_gui_destroy_window(ih);
+    uph__plugin_gui_destroy_window(ih);
 }
 
 static void uph_vst3_process(
@@ -2079,9 +2079,9 @@ static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const Naui_Path pa
 #define UPH_VST2_STATE_CHUNK  ((uint32_t)CCONST('U', 'V', '2', 'C'))
 #define UPH_VST2_STATE_PARAMS ((uint32_t)CCONST('U', 'V', '2', 'P'))
 
-static _Thread_local Uph_PluginInternalHandle *_uph_vst2_pending_owner;
+static _Thread_local Uph_PluginInternalHandle *uph__vst2_pending_owner;
 
-static intptr_t _uph_vst2_copy_string(void *dest, const char *src)
+static intptr_t uph__vst2_copy_string(void *dest, const char *src)
 {
     if (!dest)
         return 0;
@@ -2090,7 +2090,7 @@ static intptr_t _uph_vst2_copy_string(void *dest, const char *src)
     return 1;
 }
 
-static bool _uph_vst2_host_can_do(const char *feature)
+static bool uph__vst2_host_can_do(const char *feature)
 {
     static const char *const features[] = { "sendVstEvents", "sendVstMidiEvent", "sendVstTimeInfo", "sizeWindow", "supplyIdle" };
 
@@ -2103,13 +2103,13 @@ static bool _uph_vst2_host_can_do(const char *feature)
     return false;
 }
 
-static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
+static intptr_t __cdecl uph__vst2_host_callback(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
 {
     (void)opt;
 
     Uph_PluginInternalHandle *ih = effect && effect->ptr2
         ? (Uph_PluginInternalHandle*)effect->ptr2
-        : _uph_vst2_pending_owner;
+        : uph__vst2_pending_owner;
 
     switch (opcode)
     {
@@ -2119,7 +2119,7 @@ static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode,
         case audioMasterAutomate:
         case audioMasterBeginEdit:
             if (index >= 0)
-                _uph_plugin_mark_touched(ih, (uint64_t)index);
+                uph__plugin_mark_touched(ih, (uint64_t)index);
             return 1;
 
         case audioMasterWantMidi:
@@ -2132,7 +2132,7 @@ static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode,
         case audioMasterSizeWindow:
             if (!ih || !ih->window || index <= 0 || value <= 0)
                 return 0;
-            _uph_plugin_gui_resize_window(ih, (uint32_t)index, (uint32_t)value);
+            uph__plugin_gui_resize_window(ih, (uint32_t)index, (uint32_t)value);
             return 1;
 
         case audioMasterGetSampleRate:
@@ -2142,16 +2142,16 @@ static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode,
             return UPH_VST2_MAX_BLOCK;
 
         case audioMasterGetVendorString:
-            return _uph_vst2_copy_string(ptr, "Dev Dynasty Studios");
+            return uph__vst2_copy_string(ptr, "Dev Dynasty Studios");
 
         case audioMasterGetProductString:
-            return _uph_vst2_copy_string(ptr, "Uphonic");
+            return uph__vst2_copy_string(ptr, "Uphonic");
 
         case audioMasterGetVendorVersion:
             return 1;
 
         case audioMasterCanDo:
-            return ptr && _uph_vst2_host_can_do((const char*)ptr);
+            return ptr && uph__vst2_host_can_do((const char*)ptr);
 
         case audioMasterGetLanguage:
             return kVstLangEnglish;
@@ -2161,12 +2161,12 @@ static intptr_t __cdecl _uph_vst2_host_callback(AEffect *effect, int32_t opcode,
     }
 }
 
-static intptr_t _uph_vst2_dispatch(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
+static intptr_t uph__vst2_dispatch(AEffect *effect, int32_t opcode, int32_t index, intptr_t value, void *ptr, float opt)
 {
     return effect->dispatcher(effect, opcode, index, value, ptr, opt);
 }
 
-static void _uph_vst2_library_close(void *lib)
+static void uph__vst2_library_close(void *lib)
 {
 #if NAUI_LINUX
     dlclose(lib);
@@ -2175,7 +2175,7 @@ static void _uph_vst2_library_close(void *lib)
 #endif
 }
 
-static void *_uph_vst2_library_open(const char *path, bool resident, Uph_Vst2MainFn *main_fn)
+static void *uph__vst2_library_open(const char *path, bool resident, Uph_Vst2MainFn *main_fn)
 {
 #if NAUI_LINUX
     void *lib = dlopen(path, RTLD_LOCAL | RTLD_LAZY | (resident ? RTLD_NODELETE : 0));
@@ -2199,33 +2199,33 @@ static void *_uph_vst2_library_open(const char *path, bool resident, Uph_Vst2Mai
 
     if (!*main_fn)
     {
-        _uph_vst2_library_close((void*)lib);
+        uph__vst2_library_close((void*)lib);
         return NULL;
     }
 
     return (void*)lib;
 }
 
-static AEffect *_uph_vst2_effect_create(Uph_Vst2MainFn main_fn, Uph_PluginInternalHandle *owner)
+static AEffect *uph__vst2_effect_create(Uph_Vst2MainFn main_fn, Uph_PluginInternalHandle *owner)
 {
-    _uph_vst2_pending_owner = owner;
+    uph__vst2_pending_owner = owner;
 
-    AEffect *effect = main_fn(_uph_vst2_host_callback);
+    AEffect *effect = main_fn(uph__vst2_host_callback);
     if (effect && effect->magic == kEffectMagic)
     {
         effect->ptr2 = owner;
-        _uph_vst2_dispatch(effect, effOpen, 0, 0, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effOpen, 0, 0, NULL, 0.0f);
     }
     else
         effect = NULL;
 
-    _uph_vst2_pending_owner = NULL;
+    uph__vst2_pending_owner = NULL;
     return effect;
 }
 
-static const char *_uph_vst2_unsupported_reason(AEffect *effect)
+static const char *uph__vst2_unsupported_reason(AEffect *effect)
 {
-    if (_uph_vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f) == kPlugCategShell)
+    if (uph__vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f) == kPlugCategShell)
         return "shell plug-ins are not supported";
     if (!(effect->flags & effFlagsCanReplacing))
         return "plug-in does not support processReplacing";
@@ -2237,28 +2237,28 @@ static const char *_uph_vst2_unsupported_reason(AEffect *effect)
     return NULL;
 }
 
-static Naui_String _uph_vst2_string(AEffect *effect, int32_t opcode, int32_t index)
+static Naui_String uph__vst2_string(AEffect *effect, int32_t opcode, int32_t index)
 {
     char buffer[NAUI_STRING_MAX_SIZE] = { 0 };
-    _uph_vst2_dispatch(effect, opcode, index, 0, buffer, 0.0f);
+    uph__vst2_dispatch(effect, opcode, index, 0, buffer, 0.0f);
     buffer[sizeof(buffer) - 1] = '\0';
     return naui_string_from_cstr(buffer);
 }
 
-static Naui_String _uph_vst2_name(AEffect *effect, const Naui_Path *path)
+static Naui_String uph__vst2_name(AEffect *effect, const Naui_Path *path)
 {
-    Naui_String name = _uph_vst2_string(effect, effGetEffectName, 0);
+    Naui_String name = uph__vst2_string(effect, effGetEffectName, 0);
     if (!name.length)
-        name = _uph_vst2_string(effect, effGetProductString, 0);
+        name = uph__vst2_string(effect, effGetProductString, 0);
     if (!name.length)
         name = naui_view_to_string(naui_file_stem(path));
     return name;
 }
 
-static bool _uph_vst2_editor_rect(AEffect *effect, uint32_t *width, uint32_t *height)
+static bool uph__vst2_editor_rect(AEffect *effect, uint32_t *width, uint32_t *height)
 {
     Uph_Vst2Rect *rect = NULL;
-    _uph_vst2_dispatch(effect, effEditGetRect, 0, 0, &rect, 0.0f);
+    uph__vst2_dispatch(effect, effEditGetRect, 0, 0, &rect, 0.0f);
     if (!rect || rect->right <= rect->left || rect->bottom <= rect->top)
         return false;
 
@@ -2267,7 +2267,7 @@ static bool _uph_vst2_editor_rect(AEffect *effect, uint32_t *width, uint32_t *he
     return true;
 }
 
-static Naui_List(Uph_PluginParam) _uph_vst2_get_param_list(Uph_Plugin *plug)
+static Naui_List(Uph_PluginParam) uph__vst2_get_param_list(Uph_Plugin *plug)
 {
     Naui_List(Uph_PluginParam) list = NULL;
 
@@ -2284,7 +2284,7 @@ static Naui_List(Uph_PluginParam) _uph_vst2_get_param_list(Uph_Plugin *plug)
 
         Uph_PluginParam p = {
             .id = (uint64_t)i,
-            .name = _uph_vst2_string(effect, effGetParamName, i),
+            .name = uph__vst2_string(effect, effGetParamName, i),
             .min_value = 0.0,
             .max_value = 1.0,
             .default_value = value,
@@ -2297,7 +2297,7 @@ static Naui_List(Uph_PluginParam) _uph_vst2_get_param_list(Uph_Plugin *plug)
     return list;
 }
 
-static void _uph_vst2_free(Uph_PluginInternalHandle *ih)
+static void uph__vst2_free(Uph_PluginInternalHandle *ih)
 {
     const bool active = ih->vst2.ready;
     ih->vst2.ready = 0;
@@ -2307,14 +2307,14 @@ static void _uph_vst2_free(Uph_PluginInternalHandle *ih)
     {
         if (active)
         {
-            _uph_vst2_dispatch(effect, effStopProcess, 0, 0, NULL, 0.0f);
-            _uph_vst2_dispatch(effect, effMainsChanged, 0, 0, NULL, 0.0f);
+            uph__vst2_dispatch(effect, effStopProcess, 0, 0, NULL, 0.0f);
+            uph__vst2_dispatch(effect, effMainsChanged, 0, 0, NULL, 0.0f);
         }
 
         if (ih->vst2.editor_open)
-            _uph_vst2_dispatch(effect, effEditClose, 0, 0, NULL, 0.0f);
+            uph__vst2_dispatch(effect, effEditClose, 0, 0, NULL, 0.0f);
 
-        _uph_vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
         ih->vst2.effect = NULL;
     }
 
@@ -2325,17 +2325,17 @@ static void _uph_vst2_free(Uph_PluginInternalHandle *ih)
 
     if (ih->vst2.library_handle)
     {
-        _uph_vst2_library_close(ih->vst2.library_handle);
+        uph__vst2_library_close(ih->vst2.library_handle);
         ih->vst2.library_handle = NULL;
     }
 }
 
-static inline void _uph_vst2_load_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
+static inline void uph__vst2_load_internal(Uph_Plugin *plug, uint32_t *width, uint32_t *height)
 {
     uph_com_init_sta_once();
 
     Uph_Vst2MainFn main_fn = NULL;
-    void *lib = _uph_vst2_library_open(plug->file_path.data, true, &main_fn);
+    void *lib = uph__vst2_library_open(plug->file_path.data, true, &main_fn);
     if (!lib)
     {
         fprintf(stderr, "uph vst2: %s is not a loadable VST2 plug-in\n", plug->file_path.data);
@@ -2347,27 +2347,27 @@ static inline void _uph_vst2_load_internal(Uph_Plugin *plug, uint32_t *width, ui
     uph_note_ring_init(&ih->vst2.pending_notes);
     uph_param_ring_init(&ih->vst2.pending_params);
 
-    ih->vst2.effect = _uph_vst2_effect_create(main_fn, ih);
+    ih->vst2.effect = uph__vst2_effect_create(main_fn, ih);
     if (!ih->vst2.effect)
     {
         fprintf(stderr, "uph vst2: plug-in entry returned no valid effect\n");
-        _uph_vst2_free(ih);
+        uph__vst2_free(ih);
         free(ih);
         return;
     }
 
     AEffect *effect = ih->vst2.effect;
 
-    const char *reason = _uph_vst2_unsupported_reason(effect);
+    const char *reason = uph__vst2_unsupported_reason(effect);
     if (reason)
     {
         fprintf(stderr, "uph vst2: %s (%s)\n", reason, plug->file_path.data);
-        _uph_vst2_free(ih);
+        uph__vst2_free(ih);
         free(ih);
         return;
     }
 
-    ih->display_name = _uph_vst2_name(effect, &plug->file_path);
+    ih->display_name = uph__vst2_name(effect, &plug->file_path);
     fprintf(stderr, "loading vst2 plugin: %s\n", ih->display_name.data);
 
     ih->vst2.in_channels = effect->numInputs;
@@ -2384,20 +2384,20 @@ static inline void _uph_vst2_load_internal(Uph_Plugin *plug, uint32_t *width, ui
     for (uint32_t i = 0; i < UPH_VST2_MAX_EVENTS; i++)
         ih->vst2.events.events[i] = (VstEvent*)&ih->vst2.midi_events[i];
 
-    _uph_vst2_dispatch(effect, effSetSampleRate, 0, 0, NULL, (float)uph_state.settings.audio.sample_rate);
-    _uph_vst2_dispatch(effect, effSetBlockSize, 0, UPH_VST2_MAX_BLOCK, NULL, 0.0f);
+    uph__vst2_dispatch(effect, effSetSampleRate, 0, 0, NULL, (float)uph_state.settings.audio.sample_rate);
+    uph__vst2_dispatch(effect, effSetBlockSize, 0, UPH_VST2_MAX_BLOCK, NULL, 0.0f);
 
-    if (!_uph_vst2_editor_rect(effect, width, height))
+    if (!uph__vst2_editor_rect(effect, width, height))
     {
         *width = 640;
         *height = 480;
     }
 
     plug->internal_handle = ih;
-    plug->params = _uph_vst2_get_param_list(plug);
+    plug->params = uph__vst2_get_param_list(plug);
 }
 
-static inline void _uph_vst2_assign_gui_internal(Uph_Plugin *plug)
+static inline void uph__vst2_assign_gui_internal(Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
     AEffect *effect = ih->vst2.effect;
@@ -2408,21 +2408,21 @@ static inline void _uph_vst2_assign_gui_internal(Uph_Plugin *plug)
     void *parent = (void*)ih->window;
 #endif
 
-    _uph_vst2_dispatch(effect, effEditOpen, 0, 0, parent, 0.0f);
+    uph__vst2_dispatch(effect, effEditOpen, 0, 0, parent, 0.0f);
     ih->vst2.editor_open = true;
 
     uint32_t width = 0, height = 0;
-    if (_uph_vst2_editor_rect(effect, &width, &height) && (width != ih->gui_width || height != ih->gui_height))
-        _uph_plugin_gui_resize_window(ih, width, height);
+    if (uph__vst2_editor_rect(effect, &width, &height) && (width != ih->gui_width || height != ih->gui_height))
+        uph__plugin_gui_resize_window(ih, width, height);
 
-    _uph_vst2_dispatch(effect, effMainsChanged, 0, 1, NULL, 0.0f);
-    _uph_vst2_dispatch(effect, effStartProcess, 0, 0, NULL, 0.0f);
+    uph__vst2_dispatch(effect, effMainsChanged, 0, 1, NULL, 0.0f);
+    uph__vst2_dispatch(effect, effStartProcess, 0, 0, NULL, 0.0f);
 
     ih->vst2.sample_position = 0;
     ih->vst2.ready = 1;
 }
 
-static void _uph_vst2_update_time_info(Uph_PluginInternalHandle *ih, double playhead_beat, bool is_playing)
+static void uph__vst2_update_time_info(Uph_PluginInternalHandle *ih, double playhead_beat, bool is_playing)
 {
     VstTimeInfo *t = &ih->vst2.time_info;
     memset(t, 0, sizeof(*t));
@@ -2441,7 +2441,7 @@ static void _uph_vst2_update_time_info(Uph_PluginInternalHandle *ih, double play
     ih->vst2.was_playing = is_playing;
 }
 
-static void _uph_vst2_queue_midi(Uph_PluginInternalHandle *ih, uint32_t note_snapshot, uint32_t frame_count)
+static void uph__vst2_queue_midi(Uph_PluginInternalHandle *ih, uint32_t note_snapshot, uint32_t frame_count)
 {
     AEffect *effect = ih->vst2.effect;
     const uint32_t first_block = frame_count < UPH_VST2_MAX_BLOCK ? frame_count : UPH_VST2_MAX_BLOCK;
@@ -2478,10 +2478,10 @@ static void _uph_vst2_queue_midi(Uph_PluginInternalHandle *ih, uint32_t note_sna
 
     ih->vst2.events.num_events = count;
     if (count > 0)
-        _uph_vst2_dispatch(effect, effProcessEvents, 0, 0, &ih->vst2.events, 0.0f);
+        uph__vst2_dispatch(effect, effProcessEvents, 0, 0, &ih->vst2.events, 0.0f);
 }
 
-static void _uph_vst2_process(
+static void uph__vst2_process(
     Uph_PluginInternalHandle *ih,
     float **inputs,
     float **outputs,
@@ -2498,7 +2498,7 @@ static void _uph_vst2_process(
     const uint32_t note_snapshot  = uph_note_ring_size(&ih->vst2.pending_notes);
     const uint32_t param_snapshot = uph_param_ring_size(&ih->vst2.pending_params);
 
-    _uph_vst2_queue_midi(ih, note_snapshot, frame_count);
+    uph__vst2_queue_midi(ih, note_snapshot, frame_count);
 
     for (uint32_t i = 0; i < param_snapshot; i++)
     {
@@ -2507,7 +2507,7 @@ static void _uph_vst2_process(
             effect->setParameter(effect, (int)p->param_id, (float)p->value);
     }
 
-    _uph_vst2_update_time_info(ih, playhead_beat, is_playing);
+    uph__vst2_update_time_info(ih, playhead_beat, is_playing);
 
     const int32_t in_channels = ih->vst2.in_channels;
     const int32_t out_channels = ih->vst2.out_channels;
@@ -2542,7 +2542,7 @@ static void _uph_vst2_process(
     uph_param_ring_advance(&ih->vst2.pending_params, param_snapshot);
 }
 
-static bool _uph_vst2_write_state(const Naui_Path path, uint32_t kind, const void *data, size_t size)
+static bool uph__vst2_write_state(const Naui_Path path, uint32_t kind, const void *data, size_t size)
 {
     const uint32_t header[2] = { kind, (uint32_t)size };
 
@@ -2559,16 +2559,16 @@ static bool _uph_vst2_write_state(const Naui_Path path, uint32_t kind, const voi
     return ok;
 }
 
-static bool _uph_vst2_save_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+static bool uph__vst2_save_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
 {
     AEffect *effect = ih->vst2.effect;
 
     if (effect->flags & UPH_VST2_FLAG_PROGRAM_CHUNKS)
     {
         void *chunk = NULL;
-        const intptr_t size = _uph_vst2_dispatch(effect, UPH_VST2_EFF_GET_CHUNK, 0, 0, &chunk, 0.0f);
+        const intptr_t size = uph__vst2_dispatch(effect, UPH_VST2_EFF_GET_CHUNK, 0, 0, &chunk, 0.0f);
         if (size > 0 && chunk)
-            return _uph_vst2_write_state(path, UPH_VST2_STATE_CHUNK, chunk, (size_t)size);
+            return uph__vst2_write_state(path, UPH_VST2_STATE_CHUNK, chunk, (size_t)size);
     }
 
     const size_t count = effect->numParams > 0 ? (size_t)effect->numParams : 0;
@@ -2579,12 +2579,12 @@ static bool _uph_vst2_save_state(Uph_PluginInternalHandle *ih, const Naui_Path p
     for (size_t i = 0; i < count; i++)
         values[i] = effect->getParameter(effect, (int)i);
 
-    const bool ok = _uph_vst2_write_state(path, UPH_VST2_STATE_PARAMS, values, count * sizeof(float));
+    const bool ok = uph__vst2_write_state(path, UPH_VST2_STATE_PARAMS, values, count * sizeof(float));
     free(values);
     return ok;
 }
 
-static bool _uph_vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+static bool uph__vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
 {
     size_t size = 0;
     uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
@@ -2608,7 +2608,7 @@ static bool _uph_vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path p
             fprintf(stderr, "uph_plugin_load_state: truncated VST2 state in %s\n", path.data);
         else if (header[0] == UPH_VST2_STATE_CHUNK && (effect->flags & UPH_VST2_FLAG_PROGRAM_CHUNKS))
         {
-            _uph_vst2_dispatch(effect, UPH_VST2_EFF_SET_CHUNK, 0, (intptr_t)header[1], (void*)payload, 0.0f);
+            uph__vst2_dispatch(effect, UPH_VST2_EFF_SET_CHUNK, 0, (intptr_t)header[1], (void*)payload, 0.0f);
             ok = true;
         }
         else if (header[0] == UPH_VST2_STATE_PARAMS)
@@ -2630,27 +2630,27 @@ static bool _uph_vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path p
     return ok;
 }
 
-static bool _uph_get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
+static bool uph__get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
 {
     Uph_Vst2MainFn main_fn = NULL;
-    void *lib = _uph_vst2_library_open(path.data, false, &main_fn);
+    void *lib = uph__vst2_library_open(path.data, false, &main_fn);
     if (!lib)
         return false;
 
     bool ok = false;
-    AEffect *effect = _uph_vst2_effect_create(main_fn, NULL);
+    AEffect *effect = uph__vst2_effect_create(main_fn, NULL);
 
     if (effect)
     {
-        const char *reason = _uph_vst2_unsupported_reason(effect);
+        const char *reason = uph__vst2_unsupported_reason(effect);
         if (reason)
             fprintf(stderr, "uph info: skipping %s: %s\n", path.data, reason);
         else
         {
-            const intptr_t category = _uph_vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f);
+            const intptr_t category = uph__vst2_dispatch(effect, effGetPlugCategory, 0, 0, NULL, 0.0f);
 
-            out->name = _uph_vst2_name(effect, &path);
-            out->vendor = _uph_vst2_string(effect, effGetVendorString, 0);
+            out->name = uph__vst2_name(effect, &path);
+            out->vendor = uph__vst2_string(effect, effGetVendorString, 0);
             out->format = UPH_PLUGIN_VST2;
             out->type = (effect->flags & effFlagsIsSynth) || category == kPlugCategSynth
                 ? UPH_PLUGIN_INSTRUMENT
@@ -2658,23 +2658,23 @@ static bool _uph_get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
             ok = true;
         }
 
-        _uph_vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effClose, 0, 0, NULL, 0.0f);
     }
     else
         fprintf(stderr, "uph info: no valid VST2 effect in %s\n", path.data);
 
-    _uph_vst2_library_close(lib);
+    uph__vst2_library_close(lib);
 
     out->path = path;
 
     return ok;
 }
 
-static void _uph_vst2_unload(Uph_PluginInternalHandle *ih)
+static void uph__vst2_unload(Uph_PluginInternalHandle *ih)
 {
     ih->visible = false;
-    _uph_vst2_free(ih);
-    _uph_plugin_gui_destroy_window(ih);
+    uph__vst2_free(ih);
+    uph__plugin_gui_destroy_window(ih);
 }
 
 static bool uph_clap_timer_register(const clap_host_t *host, uint32_t period_ms, clap_id *timer_id)
@@ -2713,7 +2713,7 @@ Uph_PluginEventState;
 
 #define _UPH_PLUGIN_EVENT_STATE(s) (Uph_PluginEventState){ &(s).pending_notes, &(s).pending_params, (s).active_notes, (s).active_note_channels, (s).cc_values }
 
-static Uph_PluginEventState _uph_plugin_event_state(const Uph_Plugin *plug)
+static Uph_PluginEventState uph__plugin_event_state(const Uph_Plugin *plug)
 {
     Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
     switch (plug->format)
@@ -2746,7 +2746,7 @@ void uph_plugin_queue_note_event(
     ev.note.key = key;
     ev.note.velocity = velocity / 127.0;
 
-    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
+    const Uph_PluginEventState state = uph__plugin_event_state(plug);
 
     if (!uph_note_ring_push(state.notes, &ev))
     {
@@ -2811,7 +2811,7 @@ void uph_plugin_queue_param_change(
     ev.key = -1;
     ev.value = event_value;
  
-    if (!uph_param_ring_push(_uph_plugin_event_state(plug).params, &ev))
+    if (!uph_param_ring_push(uph__plugin_event_state(plug).params, &ev))
     {
         fprintf(stderr, "uph_plugin_queue_param_change: param ring full, dropping event (param_id=%u)\n",
                 (unsigned)param_id);
@@ -2820,7 +2820,7 @@ void uph_plugin_queue_param_change(
 
 void uph_plugin_queue_stop_all(Uph_Plugin *plug, uint32_t sample_offset)
 {
-    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
+    const Uph_PluginEventState state = uph__plugin_event_state(plug);
 
     for (int key = 0; key < 128; key++)
     {
@@ -2874,7 +2874,7 @@ void uph_plugin_queue_midi_cc(Uph_Plugin *plug, uint8_t channel, uint8_t cc, uin
     ev.midi.data[1] = cc;
     ev.midi.data[2] = value & 0x7F;
 
-    const Uph_PluginEventState state = _uph_plugin_event_state(plug);
+    const Uph_PluginEventState state = uph__plugin_event_state(plug);
 
     if (!uph_note_ring_push(state.notes, &ev))
     {
@@ -2890,12 +2890,12 @@ uint8_t uph_plugin_cc_value(Uph_Plugin *plug, uint8_t cc)
     if (!plug->internal_handle || cc > 127)
         return 0;
 
-    return _uph_plugin_event_state(plug).cc_values[cc];
+    return uph__plugin_event_state(plug).cc_values[cc];
 }
 
 bool uph_plugin_note_active(Uph_Plugin *plug, uint8_t key)
 {
-    return _uph_plugin_event_state(plug).active_notes[key];
+    return uph__plugin_event_state(plug).active_notes[key];
 }
 
 static bool uph_clap_timer_unregister(const clap_host_t *host, clap_id timer_id)
@@ -2936,7 +2936,7 @@ static bool uph_clap_gui_request_resize(const clap_host_t *host, uint32_t width,
     if (!internal_handle)
         return false;
 
-    _uph_plugin_gui_resize_window(internal_handle, width, height);
+    uph__plugin_gui_resize_window(internal_handle, width, height);
     return true;
 }
 
@@ -3267,9 +3267,9 @@ typedef struct
 }
 Uph_PluginModuleRegistryState;
 
-static Uph_PluginModuleRegistryState _uph_plugin_module_registry_state;
+static Uph_PluginModuleRegistryState uph__plugin_module_registry_state;
 
-static bool _uph_module_path_equal(const Naui_Path a, const Naui_Path b)
+static bool uph__module_path_equal(const Naui_Path a, const Naui_Path b)
 {
     const Naui_Path left = naui_path_normalize(a);
     const Naui_Path right = naui_path_normalize(b);
@@ -3281,16 +3281,16 @@ static bool _uph_module_path_equal(const Naui_Path a, const Naui_Path b)
 }
 
 // CLAP forbids init() while anything else in the DSO is running
-static void _uph_module_acquire(const Naui_Path path)
+static void uph__module_acquire(const Naui_Path path)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return;
 
     for (uint32_t waited = 0; ; waited += 2)
     {
         naui_mutex_lock(state->lock);
-        if (waited >= UPH_MODULE_SCAN_WAIT_MS || !_uph_module_path_equal(state->scanning, path))
+        if (waited >= UPH_MODULE_SCAN_WAIT_MS || !uph__module_path_equal(state->scanning, path))
         {
             naui_list_push(state->in_use, path);
             naui_mutex_unlock(state->lock);
@@ -3302,16 +3302,16 @@ static void _uph_module_acquire(const Naui_Path path)
     }
 }
 
-static void _uph_module_release(const Naui_Path path)
+static void uph__module_release(const Naui_Path path)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return;
 
     naui_mutex_lock(state->lock);
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->in_use); i++)
     {
-        if (_uph_module_path_equal(state->in_use[i], path))
+        if (uph__module_path_equal(state->in_use[i], path))
         {
             naui_list_remove(state->in_use, i);
             break;
@@ -3322,14 +3322,14 @@ static void _uph_module_release(const Naui_Path path)
 
 void uph_plugin_modules_init(void)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         state->lock = naui_mutex_create();
 }
 
 void uph_plugin_modules_shutdown(void)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return;
 
@@ -3341,7 +3341,7 @@ void uph_plugin_modules_shutdown(void)
 
 bool uph_plugin_module_scan_begin(Naui_Path path)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return true;
 
@@ -3349,7 +3349,7 @@ bool uph_plugin_module_scan_begin(Naui_Path path)
     bool free_to_scan = true;
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->in_use); i++)
     {
-        if (_uph_module_path_equal(state->in_use[i], path))
+        if (uph__module_path_equal(state->in_use[i], path))
         {
             free_to_scan = false;
             break;
@@ -3365,7 +3365,7 @@ bool uph_plugin_module_scan_begin(Naui_Path path)
 
 void uph_plugin_module_scan_end(void)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return;
 
@@ -3376,13 +3376,13 @@ void uph_plugin_module_scan_end(void)
 
 void uph_plugin_prefetch_abort(void)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     atomic_store(&state->prefetch_abort, true);
 }
 
 void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
 {
-    Uph_PluginModuleRegistryState *state = &_uph_plugin_module_registry_state;
+    Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     char binary[1024];
     const char *file = path.data;
     if (naui_string_view_equals_cstr(naui_file_extension(&path), ".vst3", false))
@@ -3411,7 +3411,7 @@ void uph_plugin_prefetch(Naui_Path path, const atomic_bool *cancel)
 #pragma endregion
 
 #if NAUI_LINUX
-static int _uph_plugin_x11_swallow_error(Display *display, xError *error, XExtCodes *codes, int *ret_code)
+static int uph__plugin_x11_swallow_error(Display *display, xError *error, XExtCodes *codes, int *ret_code)
 {
     (void)display;
     (void)error;
@@ -3422,7 +3422,7 @@ static int _uph_plugin_x11_swallow_error(Display *display, xError *error, XExtCo
 
 #endif
 
-static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
+static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
 {
     Uph_Plugin effect = { 0 };
 
@@ -3441,7 +3441,7 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
     {
         case UPH_PLUGIN_CLAP: uph_load_clap_plugin_internal(&effect, &width, &height); break;
         case UPH_PLUGIN_VST3: uph_load_vst3_plugin_internal(&effect, &width, &height); break;
-        case UPH_PLUGIN_VST2: _uph_vst2_load_internal(&effect, &width, &height); break;
+        case UPH_PLUGIN_VST2: uph__vst2_load_internal(&effect, &width, &height); break;
     }
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)effect.internal_handle;
@@ -3460,7 +3460,7 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 
     XExtCodes *error_codes = XAddExtension(dpy);
     if (error_codes)
-        XESetError(dpy, error_codes->extension, _uph_plugin_x11_swallow_error);
+        XESetError(dpy, error_codes->extension, uph__plugin_x11_swallow_error);
 
     XSetWindowAttributes attributes = { .override_redirect = True };
     Window container = XCreateWindow(
@@ -3515,7 +3515,7 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
     {
         case UPH_PLUGIN_CLAP: uph_assign_clap_plugin_gui_internal(&effect); break;
         case UPH_PLUGIN_VST3: uph_assign_vst3_plugin_gui_internal(&effect); break;
-        case UPH_PLUGIN_VST2: _uph_vst2_assign_gui_internal(&effect); break;
+        case UPH_PLUGIN_VST2: uph__vst2_assign_gui_internal(&effect); break;
     }
 
     effect.loaded = true;
@@ -3525,11 +3525,11 @@ static Uph_Plugin _uph_plugin_load_impl(Naui_Path path)
 
 Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
-    _uph_module_acquire(path);
+    uph__module_acquire(path);
 
-    Uph_Plugin plugin = _uph_plugin_load_impl(path);
+    Uph_Plugin plugin = uph__plugin_load_impl(path);
     if (!plugin.loaded)
-        _uph_module_release(path);
+        uph__module_release(path);
     else if (show_window)
         uph_plugin_show_window(&plugin);
 
@@ -3611,13 +3611,13 @@ void uph_plugin_unload(Uph_Plugin *plug)
             internal_handle->panel = 0;
         }
 
-        _uph_plugin_gui_release_capture(internal_handle);
+        uph__plugin_gui_release_capture(internal_handle);
 
         switch (plug->format)
         {
             case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
             case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
-            case UPH_PLUGIN_VST2: _uph_vst2_unload(internal_handle); break;
+            case UPH_PLUGIN_VST2: uph__vst2_unload(internal_handle); break;
         }
 
         free(plug->internal_handle);
@@ -3625,26 +3625,26 @@ void uph_plugin_unload(Uph_Plugin *plug)
     }
 
     naui_list_free(plug->params);
-    _uph_module_release(plug->file_path);
+    uph__module_release(plug->file_path);
 
     if (was_running)
         uph_audio_engine_start();
 }
 
-static void _uph_plugin_texture_destroy_deferred(Naui_Texture *texture)
+static void uph__plugin_texture_destroy_deferred(Naui_Texture *texture)
 {
     naui_texture_destroy(*texture);
 }
 
-static void _uph_plugin_gui_release_texture(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_release_texture(Uph_PluginInternalHandle *ih)
 {
     if (ih->texture)
-        naui_defer((Naui_DeferredEvent)_uph_plugin_texture_destroy_deferred, &ih->texture, sizeof(Naui_Texture));
+        naui_defer((Naui_DeferredEvent)uph__plugin_texture_destroy_deferred, &ih->texture, sizeof(Naui_Texture));
     ih->texture = NULL;
     ih->texture_width = ih->texture_height = 0;
 }
 
-static void _uph_plugin_gui_frame_reserve(Uph_PluginGuiFrame *frame, uint32_t width, uint32_t height)
+static void uph__plugin_gui_frame_reserve(Uph_PluginGuiFrame *frame, uint32_t width, uint32_t height)
 {
     if (frame->pixels && frame->width == width && frame->height == height)
         return;
@@ -3655,13 +3655,13 @@ static void _uph_plugin_gui_frame_reserve(Uph_PluginGuiFrame *frame, uint32_t wi
     frame->height = height;
 }
 
-static void _uph_plugin_gui_frame_free(Uph_PluginGuiFrame *frame)
+static void uph__plugin_gui_frame_free(Uph_PluginGuiFrame *frame)
 {
     free(frame->pixels);
     *frame = (Uph_PluginGuiFrame){ 0 };
 }
 
-static void _uph_plugin_gui_copy_opaque_row(uint8_t *dst, const uint8_t *src, uint32_t width)
+static void uph__plugin_gui_copy_opaque_row(uint8_t *dst, const uint8_t *src, uint32_t width)
 {
     uint32_t *out = (uint32_t*)dst;
     const uint32_t *in = (const uint32_t*)src;
@@ -3670,7 +3670,7 @@ static void _uph_plugin_gui_copy_opaque_row(uint8_t *dst, const uint8_t *src, ui
 }
 
 #if NAUI_LINUX
-static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 {
     capture->display = XOpenDisplay(NULL);
     if (!capture->display)
@@ -3678,12 +3678,12 @@ static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 
     XExtCodes *codes = XAddExtension(capture->display);
     if (codes)
-        XESetError(capture->display, codes->extension, _uph_plugin_x11_swallow_error);
+        XESetError(capture->display, codes->extension, uph__plugin_x11_swallow_error);
 
     capture->shm_supported = XShmQueryExtension(capture->display);
 }
 
-static void _uph_plugin_gui_shm_release(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_shm_release(Uph_PluginGuiCapture *capture)
 {
     if (!capture->shm_image)
         return;
@@ -3695,13 +3695,13 @@ static void _uph_plugin_gui_shm_release(Uph_PluginGuiCapture *capture)
     capture->shm_image = NULL;
 }
 
-static XImage *_uph_plugin_gui_shm_reserve(Uph_PluginGuiCapture *capture, uint32_t width, uint32_t height)
+static XImage *uph__plugin_gui_shm_reserve(Uph_PluginGuiCapture *capture, uint32_t width, uint32_t height)
 {
     XImage *image = capture->shm_image;
     if (image && image->width == (int)width && image->height == (int)height)
         return image;
 
-    _uph_plugin_gui_shm_release(capture);
+    uph__plugin_gui_shm_release(capture);
 
     Display *display = capture->display;
     XWindowAttributes attributes;
@@ -3737,27 +3737,27 @@ static XImage *_uph_plugin_gui_shm_reserve(Uph_PluginGuiCapture *capture, uint32
     return image;
 }
 
-static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
 {
     if (capture->display)
     {
-        _uph_plugin_gui_shm_release(capture);
+        uph__plugin_gui_shm_release(capture);
         XCloseDisplay(capture->display);
     }
     capture->display = NULL;
 }
 
-static bool _uph_plugin_gui_copy_image(Uph_PluginGuiFrame *frame, const XImage *image)
+static bool uph__plugin_gui_copy_image(Uph_PluginGuiFrame *frame, const XImage *image)
 {
     if (!image || image->bits_per_pixel != 32)
         return false;
 
     for (uint32_t y = 0; y < frame->height; y++)
-        _uph_plugin_gui_copy_opaque_row(frame->pixels + (size_t)y * frame->width * 4, (const uint8_t*)image->data + (size_t)y * image->bytes_per_line, frame->width);
+        uph__plugin_gui_copy_opaque_row(frame->pixels + (size_t)y * frame->width * 4, (const uint8_t*)image->data + (size_t)y * image->bytes_per_line, frame->width);
     return true;
 }
 
-static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
+static bool uph__plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
 {
     Display *display = capture->display;
     if (!display)
@@ -3771,21 +3771,21 @@ static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_Plugi
     bool shm_failed = false;
     if (capture->shm_supported)
     {
-        XImage *image = _uph_plugin_gui_shm_reserve(capture, frame->width, frame->height);
-        ok = image && XShmGetImage(display, pixmap, image, 0, 0, AllPlanes) && _uph_plugin_gui_copy_image(frame, image);
+        XImage *image = uph__plugin_gui_shm_reserve(capture, frame->width, frame->height);
+        ok = image && XShmGetImage(display, pixmap, image, 0, 0, AllPlanes) && uph__plugin_gui_copy_image(frame, image);
         shm_failed = !ok;
     }
 
     if (!ok)
     {
         XImage *image = XGetImage(display, pixmap, 0, 0, frame->width, frame->height, AllPlanes, ZPixmap);
-        ok = _uph_plugin_gui_copy_image(frame, image);
+        ok = uph__plugin_gui_copy_image(frame, image);
         if (image)
             XDestroyImage(image);
 
         if (ok && shm_failed)
         {
-            _uph_plugin_gui_shm_release(capture);
+            uph__plugin_gui_shm_release(capture);
             capture->shm_supported = false;
         }
     }
@@ -3799,12 +3799,12 @@ static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_Plugi
     #define PW_RENDERFULLCONTENT 0x00000002
 #endif
 
-static void _uph_plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
 {
     (void)capture;
 }
 
-static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
 {
     if (capture->dc)
         DeleteDC(capture->dc);
@@ -3816,11 +3816,11 @@ static void _uph_plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
     capture->bitmap_width = capture->bitmap_height = 0;
 }
 
-static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
+static bool uph__plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
 {
     if (!capture->dc || capture->bitmap_width != frame->width || capture->bitmap_height != frame->height)
     {
-        _uph_plugin_gui_capture_close(capture);
+        uph__plugin_gui_capture_close(capture);
 
         HDC screen_dc = GetDC(NULL);
         BITMAPINFO info = { 0 };
@@ -3848,15 +3848,15 @@ static bool _uph_plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_Plugi
 
     const size_t row_bytes = (size_t)frame->width * 4;
     for (uint32_t y = 0; y < frame->height; y++)
-        _uph_plugin_gui_copy_opaque_row(frame->pixels + y * row_bytes, (const uint8_t*)capture->bits + y * row_bytes, frame->width);
+        uph__plugin_gui_copy_opaque_row(frame->pixels + y * row_bytes, (const uint8_t*)capture->bits + y * row_bytes, frame->width);
     return true;
 }
 #endif
 
-static int _uph_plugin_gui_capture_thread(void *arg)
+static int uph__plugin_gui_capture_thread(void *arg)
 {
     Uph_PluginGuiCapture *capture = (Uph_PluginGuiCapture*)arg;
-    _uph_plugin_gui_capture_open(capture);
+    uph__plugin_gui_capture_open(capture);
 
     naui_mutex_lock(capture->lock);
     for (;;)
@@ -3871,8 +3871,8 @@ static int _uph_plugin_gui_capture_thread(void *arg)
         const uint32_t height = capture->height;
         naui_mutex_unlock(capture->lock);
 
-        _uph_plugin_gui_frame_reserve(&capture->back, width, height);
-        const bool ok = capture->back.pixels && _uph_plugin_gui_read_pixels(capture, &capture->back);
+        uph__plugin_gui_frame_reserve(&capture->back, width, height);
+        const bool ok = capture->back.pixels && uph__plugin_gui_read_pixels(capture, &capture->back);
 
         naui_mutex_lock(capture->lock);
         if (ok)
@@ -3886,11 +3886,11 @@ static int _uph_plugin_gui_capture_thread(void *arg)
     capture->finished = true;
     naui_mutex_unlock(capture->lock);
 
-    _uph_plugin_gui_capture_close(capture);
+    uph__plugin_gui_capture_close(capture);
     return 0;
 }
 
-static bool _uph_plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
+static bool uph__plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
 {
     Uph_PluginGuiCapture *capture = &ih->capture;
     capture->lock = naui_mutex_create();
@@ -3899,7 +3899,7 @@ static bool _uph_plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
     capture->stop = capture->requested = capture->fresh = capture->finished = false;
 
     if (capture->lock && capture->wake)
-        capture->thread = naui_thread_create(_uph_plugin_gui_capture_thread, capture);
+        capture->thread = naui_thread_create(uph__plugin_gui_capture_thread, capture);
     if (capture->thread)
         return true;
 
@@ -3912,7 +3912,7 @@ static bool _uph_plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
     return false;
 }
 
-static void _uph_plugin_gui_capture_stop(Uph_PluginGuiCapture *capture)
+static void uph__plugin_gui_capture_stop(Uph_PluginGuiCapture *capture)
 {
     if (!capture->thread)
         return;
@@ -3944,18 +3944,18 @@ static void _uph_plugin_gui_capture_stop(Uph_PluginGuiCapture *capture)
     capture->wake = NULL;
     capture->lock = NULL;
 
-    _uph_plugin_gui_frame_free(&capture->back);
-    _uph_plugin_gui_frame_free(&capture->ready);
-    _uph_plugin_gui_frame_free(&capture->front);
+    uph__plugin_gui_frame_free(&capture->back);
+    uph__plugin_gui_frame_free(&capture->ready);
+    uph__plugin_gui_frame_free(&capture->front);
 }
 
-static void _uph_plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
 {
-    _uph_plugin_gui_capture_stop(&ih->capture);
-    _uph_plugin_gui_release_texture(ih);
+    uph__plugin_gui_capture_stop(&ih->capture);
+    uph__plugin_gui_release_texture(ih);
 }
 
-static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_capture(Uph_PluginInternalHandle *ih)
 {
     const uint32_t width = ih->gui_width;
     const uint32_t height = ih->gui_height;
@@ -3963,7 +3963,7 @@ static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
         return;
 
     Uph_PluginGuiCapture *capture = &ih->capture;
-    if (!capture->thread && !_uph_plugin_gui_capture_start(ih))
+    if (!capture->thread && !uph__plugin_gui_capture_start(ih))
         return;
 
     naui_mutex_lock(capture->lock);
@@ -3986,7 +3986,7 @@ static void _uph_plugin_gui_capture(Uph_PluginInternalHandle *ih)
 
     if (ih->texture_width != width || ih->texture_height != height)
     {
-        _uph_plugin_gui_release_texture(ih);
+        uph__plugin_gui_release_texture(ih);
         ih->texture = naui_texture_create(width, height, NAUI_TEXTURE_FORMAT_BGRA8, NAUI_MEMORY_SHARED);
         ih->texture_width = width;
         ih->texture_height = height;
@@ -4014,7 +4014,7 @@ Naui_Texture uph_plugin_gui_texture(Uph_PluginInternalHandle *handle, uint32_t *
 }
 
 #if NAUI_LINUX
-static void _uph_plugin_gui_x11_notify_moved(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_x11_notify_moved(Uph_PluginInternalHandle *ih)
 {
     Window root, parent, *children = NULL;
     unsigned int count = 0;
@@ -4070,7 +4070,7 @@ void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int3
 
 #if NAUI_LINUX
     XMoveWindow(handle->display, handle->container, root_x, root_y);
-    _uph_plugin_gui_x11_notify_moved(handle);
+    uph__plugin_gui_x11_notify_moved(handle);
     XFlush(handle->display);
 #elif NAUI_WINDOWS
     SetWindowPos(handle->window, NULL, root_x, root_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -4078,7 +4078,7 @@ void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int3
 }
 
 #if NAUI_LINUX
-static Window _uph_plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x, int32_t y, int *out_x, int *out_y)
+static Window uph__plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x, int32_t y, int *out_x, int *out_y)
 {
     Window target = ih->window;
     int tx = x, ty = y;
@@ -4107,7 +4107,7 @@ static Window _uph_plugin_gui_target_at(Uph_PluginInternalHandle *ih, int32_t x,
     return target;
 }
 
-static Window _uph_plugin_gui_x11_listener(Uph_PluginInternalHandle *ih, Window target, long mask, int *x, int *y)
+static Window uph__plugin_gui_x11_listener(Uph_PluginInternalHandle *ih, Window target, long mask, int *x, int *y)
 {
     for (;;)
     {
@@ -4132,7 +4132,7 @@ static Window _uph_plugin_gui_x11_listener(Uph_PluginInternalHandle *ih, Window 
     }
 }
 
-static unsigned int _uph_plugin_gui_x11_state(uint8_t buttons_down)
+static unsigned int uph__plugin_gui_x11_state(uint8_t buttons_down)
 {
     unsigned int state = 0;
     if (buttons_down & (1 << NAUI_MOUSE_LEFT)) state |= Button1Mask;
@@ -4141,7 +4141,7 @@ static unsigned int _uph_plugin_gui_x11_state(uint8_t buttons_down)
     return state;
 }
 
-static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, unsigned int button, int32_t x, int32_t y)
+static void uph__plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, unsigned int button, int32_t x, int32_t y)
 {
     long mask;
     if (type == MotionNotify)
@@ -4151,9 +4151,9 @@ static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, uns
 
     const bool grabbed = ih->buttons_down && ih->input_target;
     int tx, ty;
-    Window target = _uph_plugin_gui_target_at(ih, x, y, &tx, &ty);
+    Window target = uph__plugin_gui_target_at(ih, x, y, &tx, &ty);
     if (target != None && !grabbed)
-        target = _uph_plugin_gui_x11_listener(ih, target, mask, &tx, &ty);
+        target = uph__plugin_gui_x11_listener(ih, target, mask, &tx, &ty);
     if (target == None)
         return;
 
@@ -4171,7 +4171,7 @@ static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, uns
         e->y = ty;
         e->x_root = ih->screen_x + x;
         e->y_root = ih->screen_y + y;
-        e->state = _uph_plugin_gui_x11_state(ih->buttons_down);
+        e->state = uph__plugin_gui_x11_state(ih->buttons_down);
         e->same_screen = True;
     }
     else
@@ -4186,7 +4186,7 @@ static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, uns
         e->y = ty;
         e->x_root = ih->screen_x + x;
         e->y_root = ih->screen_y + y;
-        e->state = _uph_plugin_gui_x11_state(ih->buttons_down);
+        e->state = uph__plugin_gui_x11_state(ih->buttons_down);
         e->button = button;
         e->same_screen = True;
     }
@@ -4202,7 +4202,7 @@ static void _uph_plugin_gui_x11_send(Uph_PluginInternalHandle *ih, int type, uns
 #if NAUI_LINUX
 void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
-    _uph_plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
+    uph__plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
 }
 
 void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
@@ -4211,7 +4211,7 @@ void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseBut
         handle->buttons_down |= (uint8_t)(1 << button);
 
     static const unsigned int x11_buttons[NAUI_MOUSE_MAX] = { Button1, Button3, Button2 };
-    _uph_plugin_gui_x11_send(handle, down ? ButtonPress : ButtonRelease, x11_buttons[button], x, y);
+    uph__plugin_gui_x11_send(handle, down ? ButtonPress : ButtonRelease, x11_buttons[button], x, y);
 
     if (!down)
         handle->buttons_down &= (uint8_t)~(1 << button);
@@ -4227,14 +4227,14 @@ void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta
     const unsigned int button = delta > 0 ? Button4 : Button5;
     for (int32_t i = 0; i < abs(delta); i++)
     {
-        _uph_plugin_gui_x11_send(handle, ButtonPress, button, x, y);
-        _uph_plugin_gui_x11_send(handle, ButtonRelease, button, x, y);
+        uph__plugin_gui_x11_send(handle, ButtonPress, button, x, y);
+        uph__plugin_gui_x11_send(handle, ButtonRelease, button, x, y);
     }
     if (!handle->buttons_down)
         handle->input_target = 0;
 }
 #elif NAUI_WINDOWS
-static void _uph_plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, bool passthrough)
+static void uph__plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, bool passthrough)
 {
     if (ih->native_input == !passthrough)
         return;
@@ -4246,7 +4246,7 @@ static void _uph_plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, 
 
 void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
 {
-    _uph_plugin_gui_win32_set_passthrough(handle, !enabled);
+    uph__plugin_gui_win32_set_passthrough(handle, !enabled);
     if (!enabled)
         return;
 
@@ -4262,7 +4262,7 @@ void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
 }
 #endif
 
-static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
+static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
 {
     if (ih->visible == visible)
         return;
@@ -4273,7 +4273,7 @@ static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
     ih->buttons_down = 0;
     ih->input_target = 0;
 #elif NAUI_WINDOWS
-    _uph_plugin_gui_win32_set_passthrough(ih, true);
+    uph__plugin_gui_win32_set_passthrough(ih, true);
 #endif
 
     if (!visible && ih->is_clap && ih->clap.gui)
@@ -4293,12 +4293,12 @@ static void _uph_plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
         ih->clap.gui->show(ih->clap.plugin);
 
     if (!visible)
-        _uph_plugin_gui_release_capture(ih);
+        uph__plugin_gui_release_capture(ih);
 }
 
 void uph_plugin_gui_closed(Uph_PluginInternalHandle *handle)
 {
-    _uph_plugin_gui_set_visible(handle, false);
+    uph__plugin_gui_set_visible(handle, false);
 }
 
 void uph_plugin_hide_window(Uph_Plugin *plug)
@@ -4308,7 +4308,7 @@ void uph_plugin_hide_window(Uph_Plugin *plug)
 
     if (internal_handle->panel)
         naui_panel_close(internal_handle->panel);
-    _uph_plugin_gui_set_visible(internal_handle, false);
+    uph__plugin_gui_set_visible(internal_handle, false);
 }
 
 void uph_plugin_show_window(Uph_Plugin *plug)
@@ -4322,7 +4322,7 @@ void uph_plugin_show_window(Uph_Plugin *plug)
     if (!internal_handle->panel)
         internal_handle->panel = uph_plugin_editor_create(internal_handle);
     naui_panel_open(internal_handle->panel);
-    _uph_plugin_gui_set_visible(internal_handle, true);
+    uph__plugin_gui_set_visible(internal_handle, true);
 }
 
 bool uph_plugin_window_visible(Uph_Plugin *plug)
@@ -4333,7 +4333,7 @@ bool uph_plugin_window_visible(Uph_Plugin *plug)
 }
 
 #if NAUI_LINUX
-static bool _uph_plugin_gui_x11_owns_window(Uph_PluginInternalHandle *ih, Window window)
+static bool uph__plugin_gui_x11_owns_window(Uph_PluginInternalHandle *ih, Window window)
 {
     while (window != None)
     {
@@ -4353,7 +4353,7 @@ static bool _uph_plugin_gui_x11_owns_window(Uph_PluginInternalHandle *ih, Window
     return false;
 }
 
-static void _uph_plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
+static void uph__plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
 {
     Window focus;
     int revert_to;
@@ -4363,7 +4363,7 @@ static void _uph_plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
     if (focus == main_window || focus == None || focus == PointerRoot || focus == ih->foreign_focus)
         return;
 
-    if (!_uph_plugin_gui_x11_owns_window(ih, focus))
+    if (!uph__plugin_gui_x11_owns_window(ih, focus))
     {
         ih->foreign_focus = focus;
         return;
@@ -4387,7 +4387,7 @@ static inline void uph_poll_plugin_window_events(Uph_Plugin *plug)
         XNextEvent(internal_handle->display, &event);
     }
 
-    _uph_plugin_gui_x11_reclaim_focus(internal_handle);
+    uph__plugin_gui_x11_reclaim_focus(internal_handle);
 #else
     (void)plug;
 #endif
@@ -4404,12 +4404,12 @@ void uph_plugin_update(Uph_Plugin *plug)
         return;
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
-    _uph_plugin_collect_touched_param(plug, internal_handle);
+    uph__plugin_collect_touched_param(plug, internal_handle);
 
     if (!internal_handle->visible)
         return;
 
-    _uph_plugin_gui_capture(internal_handle);
+    uph__plugin_gui_capture(internal_handle);
 
     if (plug->format == UPH_PLUGIN_VST3)
     {
@@ -4420,7 +4420,7 @@ void uph_plugin_update(Uph_Plugin *plug)
     if (plug->format == UPH_PLUGIN_VST2)
     {
         if (internal_handle->vst2.editor_open)
-            _uph_vst2_dispatch(internal_handle->vst2.effect, effEditIdle, 0, 0, NULL, 0.0f);
+            uph__vst2_dispatch(internal_handle->vst2.effect, effEditIdle, 0, 0, NULL, 0.0f);
         return;
     }
 
@@ -4450,9 +4450,9 @@ static bool uph_clap_out_events_try_push(const clap_output_events_t *list, const
 
     Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)list->ctx;
     if (event->type == CLAP_EVENT_PARAM_GESTURE_BEGIN)
-        _uph_plugin_mark_touched(ih, ((const clap_event_param_gesture_t*)event)->param_id);
+        uph__plugin_mark_touched(ih, ((const clap_event_param_gesture_t*)event)->param_id);
     else if (event->type == CLAP_EVENT_PARAM_VALUE)
-        _uph_plugin_mark_touched(ih, ((const clap_event_param_value_t*)event)->param_id);
+        uph__plugin_mark_touched(ih, ((const clap_event_param_value_t*)event)->param_id);
 
     return true;
 }
@@ -4479,7 +4479,7 @@ void uph_plugin_process(
 
     if (plug->format == UPH_PLUGIN_VST2)
     {
-        _uph_vst2_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
+        uph__vst2_process(internal_handle, inputs, outputs, frame_count, playhead_beat, is_playing);
         return;
     }
 
@@ -4633,7 +4633,7 @@ bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
     if (plug->format == UPH_PLUGIN_VST3)
         return uph_vst3_save_state(internal_handle, path);
     if (plug->format == UPH_PLUGIN_VST2)
-        return _uph_vst2_save_state(internal_handle, path);
+        return uph__vst2_save_state(internal_handle, path);
 
     if (!internal_handle->clap.plugin)
         return false;
@@ -4679,7 +4679,7 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 
     if (plug->format == UPH_PLUGIN_VST2)
     {
-        bool ok = _uph_vst2_load_state(internal_handle, path);
+        bool ok = uph__vst2_load_state(internal_handle, path);
         if (ok)
         {
             AEffect *effect = internal_handle->vst2.effect;
@@ -4953,7 +4953,7 @@ bool uph_get_plugin_info(Naui_Path path, Uph_PluginInfo *out)
     {
         case UPH_PLUGIN_CLAP: return uph_get_clap_plugin_info(path, out);
         case UPH_PLUGIN_VST3: return uph_get_vst3_plugin_info_guarded(path, out);
-        case UPH_PLUGIN_VST2: return _uph_get_vst2_plugin_info(path, out);
+        case UPH_PLUGIN_VST2: return uph__get_vst2_plugin_info(path, out);
         default:              return false;
     }
 }

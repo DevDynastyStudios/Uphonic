@@ -75,7 +75,7 @@ typedef struct
 	bool active;
 } Uph_ActionTrackValueEdit;
 
-static Uph_ActionTrackValueEdit _uph_action_track_value_edit;
+static Uph_ActionTrackValueEdit uph__action_track_value_edit;
 
 #pragma region Track References
 
@@ -262,7 +262,7 @@ void uph_action_track_unload_plugin(Uph_Track *track, Uph_Plugin *plugin)
 #pragma endregion
 
 #pragma region Track Create
-bool _uph_action_track_create_execute(void* userdata)
+bool uph__action_track_create_execute(void* userdata)
 {
 	Uph_ActionTrackCreate* data = userdata;
 	const Uph_ActionTrackPointers before = uph_action_track_pointers_capture();
@@ -275,7 +275,7 @@ bool _uph_action_track_create_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_create_undo(void* userdata)
+bool uph__action_track_create_undo(void* userdata)
 {
 	Uph_ActionTrackCreate* data = userdata;
 	if (!data->resource_exists)
@@ -297,7 +297,7 @@ bool _uph_action_track_create_undo(void* userdata)
 #pragma endregion
 
 #pragma region Track Delete
-bool _uph_action_track_delete_execute(void* userdata)
+bool uph__action_track_delete_execute(void* userdata)
 {
 	Uph_ActionTrackDelete* data = userdata;
 	if (uph_action_track_ref_is_master(data->track))
@@ -323,7 +323,7 @@ bool _uph_action_track_delete_execute(void* userdata)
 }
 
 
-bool _uph_action_track_delete_undo(void* userdata)
+bool uph__action_track_delete_undo(void* userdata)
 {
 	Uph_ActionTrackDelete* data = userdata;
 	if (!data->deleted)
@@ -342,7 +342,7 @@ bool _uph_action_track_delete_undo(void* userdata)
 	return true;
 }
 
-void _uph_action_track_delete_destroy(void* userdata)
+void uph__action_track_delete_destroy(void* userdata)
 {
 	Uph_ActionTrackDelete* data = userdata;
 	if (!data->deleted)
@@ -357,7 +357,7 @@ void _uph_action_track_delete_destroy(void* userdata)
 #pragma endregion
 
 #pragma region Track Rename
-bool _uph_action_track_rename_execute(void* userdata)
+bool uph__action_track_rename_execute(void* userdata)
 {
 	Uph_ActionTrackRename* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -368,7 +368,7 @@ bool _uph_action_track_rename_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_rename_undo(void* userdata)
+bool uph__action_track_rename_undo(void* userdata)
 {
 	Uph_ActionTrackRename* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -382,7 +382,7 @@ bool _uph_action_track_rename_undo(void* userdata)
 #pragma endregion
 
 #pragma region Track Color
-bool _uph_action_track_color_execute(void* userdata)
+bool uph__action_track_color_execute(void* userdata)
 {
 	Uph_ActionTrackColor* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -393,7 +393,7 @@ bool _uph_action_track_color_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_color_undo(void* userdata)
+bool uph__action_track_color_undo(void* userdata)
 {
 	Uph_ActionTrackColor* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -407,7 +407,7 @@ bool _uph_action_track_color_undo(void* userdata)
 #pragma endregion
 
 #pragma region Track Mute
-bool _uph_action_track_state_execute(void* userdata)
+bool uph__action_track_state_execute(void* userdata)
 {
 	Uph_ActionTrackState* data = userdata;
 	Uph_TrackState* state = uph_action_track_state_ptr(data->track);
@@ -424,7 +424,7 @@ bool _uph_action_track_state_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_state_undo(void* userdata)
+bool uph__action_track_state_undo(void* userdata)
 {
 	Uph_ActionTrackState* data = userdata;
 	Uph_TrackState* state = uph_action_track_state_ptr(data->track);
@@ -442,7 +442,7 @@ bool _uph_action_track_state_undo(void* userdata)
 #pragma endregion
 
 #pragma region Track Solo
-bool _uph_action_track_solo_execute(void* userdata)
+bool uph__action_track_solo_execute(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -462,7 +462,7 @@ bool _uph_action_track_solo_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_solo_undo(void* userdata)
+bool uph__action_track_solo_undo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	if (data->unmuted)
@@ -475,7 +475,7 @@ bool _uph_action_track_solo_undo(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_solo_redo(void* userdata)
+bool uph__action_track_solo_redo(void* userdata)
 {
 	Uph_ActionTrackSolo* data = userdata;
 	uph_state.project.soloed_track = uph_action_track_resolve(data->new_solo);
@@ -497,13 +497,13 @@ static bool uph_action_track_value_set(Uph_ActionTrackValue* data, float value)
 	return true;
 }
 
-bool _uph_action_track_value_execute(void* userdata)
+bool uph__action_track_value_execute(void* userdata)
 {
 	Uph_ActionTrackValue* data = userdata;
 	return uph_action_track_value_set(data, data->new_value);
 }
 
-bool _uph_action_track_value_undo(void* userdata)
+bool uph__action_track_value_undo(void* userdata)
 {
 	Uph_ActionTrackValue* data = userdata;
 	return uph_action_track_value_set(data, data->old_value);
@@ -511,7 +511,7 @@ bool _uph_action_track_value_undo(void* userdata)
 
 void uph_action_track_value_commit(void)
 {
-	Uph_ActionTrackValueEdit *edit = &_uph_action_track_value_edit;
+	Uph_ActionTrackValueEdit *edit = &uph__action_track_value_edit;
 	if (!edit->active)
 		return;
 
@@ -533,7 +533,7 @@ void uph_action_track_value_commit(void)
 
 void uph_action_track_value_begin(Uph_ActionTrackRef ref, Uph_ActionTrackValueKind kind, float before)
 {
-	Uph_ActionTrackValueEdit *edit = &_uph_action_track_value_edit;
+	Uph_ActionTrackValueEdit *edit = &uph__action_track_value_edit;
 	if (edit->active && (edit->kind != kind || !uph_action_track_ref_equal(edit->track, ref)))
 		uph_action_track_value_commit();
 
@@ -549,7 +549,7 @@ void uph_action_track_value_begin(Uph_ActionTrackRef ref, Uph_ActionTrackValueKi
 #pragma endregion
 
 #pragma region Automation Track Create
-bool _uph_action_track_automation_create_execute(void* userdata)
+bool uph__action_track_automation_create_execute(void* userdata)
 {
 	Uph_ActionTrackAutomationCreate* data = userdata;
 	Uph_Track* parent = uph_action_track_resolve(data->parent);
@@ -576,7 +576,7 @@ bool _uph_action_track_automation_create_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_track_automation_create_undo(void* userdata)
+bool uph__action_track_automation_create_undo(void* userdata)
 {
 	Uph_ActionTrackAutomationCreate* data = userdata;
 	if (!data->resource_exists)

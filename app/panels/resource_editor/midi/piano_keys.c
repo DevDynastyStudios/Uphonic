@@ -86,7 +86,7 @@ static inline float uph_piano_width(const Uph_Piano *piano)
 	return NAUI_DPI(piano->style.key_length);
 }
 
-static const float _uph_piano_accidental_offsets[UPH_NOTES_PER_OCTAVE] =
+static const float uph__piano_accidental_offsets[UPH_NOTES_PER_OCTAVE] =
 {
 	0.0f, -1.0f / 6.0f,		// C  C#
 	0.0f, 1.0f / 6.0f,		// D  D#
@@ -117,7 +117,7 @@ void uph_piano_set_external_key(Uph_Piano *piano, uint8_t key, bool pressed)
 
 #pragma region Geometry
 
-static bool _uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t key, const Uph_PianoCanvas *canvas, Uph_PianoKeyRect *out)
+static bool uph__piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, uint8_t key, const Uph_PianoCanvas *canvas, Uph_PianoKeyRect *out)
 {
 	if (!uph_note_map_in_range(map, key))
 		return false;
@@ -161,7 +161,7 @@ static bool _uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, 
 		const int32_t run_length = run_end - run_start + 1;
 		const float slot = natural_height / (float)run_length;
 		const float height = fminf(natural_height * piano->style.black_key_height_ratio, slot);
-		const float center = boundary - ((float)(semitone - run_start) - (float)(run_length - 1) * 0.5f) * slot - _uph_piano_accidental_offsets[semitone] * height;
+		const float center = boundary - ((float)(semitone - run_start) - (float)(run_length - 1) * 0.5f) * slot - uph__piano_accidental_offsets[semitone] * height;
 		top = center - height * 0.5f;
 		bottom = center + height * 0.5f;
 		width = full_width * piano->style.black_key_length_ratio;
@@ -186,7 +186,7 @@ static bool _uph_piano_key_rect(const Uph_Piano *piano, const Uph_NoteMap *map, 
 	return true;
 }
 
-static int32_t _uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, float mouse_x, float mouse_y)
+static int32_t uph__piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas, float mouse_x, float mouse_y)
 {
 	const Leaf_BoundingBox box = canvas->box;
 	if (mouse_x < box.x || mouse_x >= box.x + box.width || mouse_y < box.y || mouse_y >= box.y + box.height)
@@ -201,7 +201,7 @@ static int32_t _uph_piano_hit_test(const Uph_Piano *piano, const Uph_NoteMap *ma
 		for (int32_t key = map->lowest; key <= map->highest; key++)
 		{
 			Uph_PianoKeyRect rect;
-			if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
+			if (!uph__piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
 				continue;
 
 			if (rect.accidental != want_accidental)
@@ -231,7 +231,7 @@ Uph_PianoEvents uph_piano_update(Uph_Piano *piano, const Uph_NoteMap *map, const
 
 	int32_t key = -1;
 	if (piano->mouse_active)
-		key = _uph_piano_hit_test(piano, map, canvas, (float)naui_mouse_x(), (float)naui_mouse_y());
+		key = uph__piano_hit_test(piano, map, canvas, (float)naui_mouse_x(), (float)naui_mouse_y());
 
 	if (piano->mouse_key != -1 && piano->mouse_key != key)
 		events.released = piano->mouse_key;
@@ -255,12 +255,12 @@ Uph_PianoEvents uph_piano_release_mouse(Uph_Piano *piano)
 
 #pragma region Rendering
 
-static uint8_t _uph_piano_scale_alpha(uint8_t theme_alpha, float style_alpha)
+static uint8_t uph__piano_scale_alpha(uint8_t theme_alpha, float style_alpha)
 {
 	return (uint8_t)((float)theme_alpha * style_alpha / 255.0f + 0.5f);
 }
 
-static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
+static void uph__piano_render_natural_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
@@ -271,7 +271,7 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
 		Uph_PianoKeyRect rect;
-		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || rect.accidental)
+		if (!uph__piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || rect.accidental)
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;
@@ -289,7 +289,7 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 
 		const bool is_octave_start = key % UPH_NOTES_PER_OCTAVE == 0;
 		Leaf_Color line_color = border_color;
-		line_color.a = _uph_piano_scale_alpha(border_color.a, is_octave_start ? style->octave_border_alpha : style->white_key_border_alpha);
+		line_color.a = uph__piano_scale_alpha(border_color.a, is_octave_start ? style->octave_border_alpha : style->white_key_border_alpha);
 		naui_draw_line(
 			(Naui_Vec2) { box.x, bottom },
 			(Naui_Vec2) { box.x + rect.width, bottom },
@@ -300,7 +300,7 @@ static void _uph_piano_render_natural_keys(const Uph_Piano *piano, const Uph_Not
 	}
 }
 
-static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
+static void uph__piano_render_accidental_keys(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Uph_PianoStyle *style = &piano->style;
 	const Leaf_BoundingBox box = canvas->box;
@@ -311,7 +311,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	for (int32_t key = map->lowest; key <= map->highest; key++)
 	{
 		Uph_PianoKeyRect rect;
-		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || !rect.accidental)
+		if (!uph__piano_key_rect(piano, map, (uint8_t)key, canvas, &rect) || !rect.accidental)
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;
@@ -335,7 +335,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 		);
 
 		Leaf_Color outline = border_color;
-		outline.a = _uph_piano_scale_alpha(border_color.a, style->black_key_border_alpha);
+		outline.a = uph__piano_scale_alpha(border_color.a, style->black_key_border_alpha);
 		naui_draw_rect(position, size, outline, NAUI_DPI(style->black_key_border_thick), rounding, NAUI_CORNER_TR | NAUI_CORNER_BR, NAUI_SIDE_ALL);
 
 		if (!pressed && size.y > NAUI_DPI(7))
@@ -352,7 +352,7 @@ static void _uph_piano_render_accidental_keys(const Uph_Piano *piano, const Uph_
 	}
 }
 
-static float _uph_piano_text_x(float anchor_x, float text_width, Leaf_TextAlignment alignment)
+static float uph__piano_text_x(float anchor_x, float text_width, Leaf_TextAlignment alignment)
 {
 	if (alignment == LEAF_TEXT_ALIGN_RIGHT)
 		return anchor_x - text_width;
@@ -363,7 +363,7 @@ static float _uph_piano_text_x(float anchor_x, float text_width, Leaf_TextAlignm
 	return anchor_x;
 }
 
-static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
+static void uph__piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_PianoCanvas *canvas)
 {
 	const Leaf_BoundingBox box = canvas->box;
 	const int32_t font_size = NAUI_DPI(UPH_PIANO_LABEL_FONT_SIZE);
@@ -377,7 +377,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 			continue;
 
 		Uph_PianoKeyRect rect;
-		if (!_uph_piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
+		if (!uph__piano_key_rect(piano, map, (uint8_t)key, canvas, &rect))
 			continue;
 
 		const float top = box.y + rect.top - canvas->scroll_y;
@@ -392,7 +392,7 @@ static void _uph_piano_render_labels(const Uph_Piano *piano, const Uph_NoteMap *
 
 		const float label_width = naui_measure_text(def->name, (uint32_t)strlen(def->name), label_font_size).x;
 		const float label_anchor_x = box.x + rect.width - NAUI_DPI(UPH_PIANO_LABEL_EDGE_PADDING);
-		const float label_x = _uph_piano_text_x(label_anchor_x, label_width, UPH_PIANO_LABEL_ALIGNMENT);
+		const float label_x = uph__piano_text_x(label_anchor_x, label_width, UPH_PIANO_LABEL_ALIGNMENT);
 		naui_draw_text((Naui_Vec2) { label_x, label_y }, def->name, label_font_size, rect.accidental ? sharp_label_color : label_color);
 	}
 }
@@ -401,9 +401,9 @@ void uph_piano_render(const Uph_Piano *piano, const Uph_NoteMap *map, const Uph_
 {
 	const Leaf_BoundingBox box = canvas->box;
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
-	_uph_piano_render_natural_keys(piano, map, canvas);
-	_uph_piano_render_accidental_keys(piano, map, canvas);
-	_uph_piano_render_labels(piano, map, canvas);
+	uph__piano_render_natural_keys(piano, map, canvas);
+	uph__piano_render_accidental_keys(piano, map, canvas);
+	uph__piano_render_labels(piano, map, canvas);
 
 	naui_draw_line(
 		(Naui_Vec2) { box.x + box.width, box.y },

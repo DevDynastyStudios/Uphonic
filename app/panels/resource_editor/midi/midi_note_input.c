@@ -157,7 +157,7 @@ typedef struct
 }
 Uph_MidiEditorState;
 
-static Uph_ActionMode _uph_note_input_tool(const Uph_MidiEditorState *editor)
+static Uph_ActionMode uph__note_input_tool(const Uph_MidiEditorState *editor)
 {
 	if (editor->current_action_mode == UPH_ACTION_DRAW && uph_ui_ctrl_down())
 		return UPH_ACTION_SELECT;
@@ -165,7 +165,7 @@ static Uph_ActionMode _uph_note_input_tool(const Uph_MidiEditorState *editor)
 	return editor->current_action_mode;
 }
 
-static Uph_NoteInteractionMode _uph_note_input_classify_hover(Naui_Vec4 hover_box, float mouse_x)
+static Uph_NoteInteractionMode uph__note_input_classify_hover(Naui_Vec4 hover_box, float mouse_x)
 {
 	const float handle_width = fminf(NAUI_DPI(UPH_MIDI_EDITOR_RESIZE_HANDLE_WIDTH), hover_box.z * UPH_MIDI_EDITOR_RESIZE_HANDLE_MAX_RATIO);
 
@@ -178,7 +178,7 @@ static Uph_NoteInteractionMode _uph_note_input_classify_hover(Naui_Vec4 hover_bo
 	return UPH_NOTE_INTERACTION_MOVE;
 }
 
-static bool _uph_note_input_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float left, float top, float right, float bottom)
+static bool uph__note_input_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float left, float top, float right, float bottom)
 {
 	const float dx = b.x - a.x;
 	const float dy = b.y - a.y;
@@ -212,7 +212,7 @@ static bool _uph_note_input_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float lef
 
 #pragma region Note Drag Actions
 
-static void _uph_note_input_discard_clones(Uph_DraggingNoteState *drag)
+static void uph__note_input_discard_clones(Uph_DraggingNoteState *drag)
 {
 	Uph_MidiPattern *pattern = uph_note_pattern(drag->pattern_index);
 	if (pattern && drag->clone_count > 0 && (uint32_t)naui_list_len(pattern->notes) == drag->clone_start + drag->clone_count)
@@ -226,7 +226,7 @@ static void _uph_note_input_discard_clones(Uph_DraggingNoteState *drag)
 	drag->clone_count = 0;
 }
 
-static void _uph_note_input_begin_clones(Uph_DraggingNoteState *drag, Uph_MidiPattern *pattern)
+static void uph__note_input_begin_clones(Uph_DraggingNoteState *drag, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNote grabbed = pattern->notes[drag->note_index];
 	grabbed.selected = false;
@@ -245,7 +245,7 @@ static void _uph_note_input_begin_clones(Uph_DraggingNoteState *drag, Uph_MidiPa
 	drag->clone_count = (uint32_t)naui_list_len(pattern->notes) - drag->clone_start;
 }
 
-static void _uph_note_input_commit_clones(Uph_DraggingNoteState *drag, const Uph_MidiPattern *pattern)
+static void uph__note_input_commit_clones(Uph_DraggingNoteState *drag, const Uph_MidiPattern *pattern)
 {
 	for (uint32_t i = 0; i < drag->clone_count; i++)
 	{
@@ -268,7 +268,7 @@ static void _uph_note_input_commit_clones(Uph_DraggingNoteState *drag, const Uph
 void uph_midi_note_input_cancel_drag(Uph_MidiEditorState *editor)
 {
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
-	_uph_note_input_discard_clones(drag);
+	uph__note_input_discard_clones(drag);
 	naui_list_free(drag->group_notes);
 	drag->group_notes = NULL;
 	naui_list_free(drag->tail_blocks);
@@ -279,12 +279,12 @@ void uph_midi_note_input_cancel_drag(Uph_MidiEditorState *editor)
 	drag->mode = UPH_NOTE_INTERACTION_NONE;
 }
 
-static bool _uph_note_input_geometry_equal(const Uph_MidiNote *a, const Uph_MidiNote *b)
+static bool uph__note_input_geometry_equal(const Uph_MidiNote *a, const Uph_MidiNote *b)
 {
 	return a->start_beat == b->start_beat && a->length_beats == b->length_beats && a->key_number == b->key_number;
 }
 
-static void _uph_note_input_begin_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern, uint32_t note_index, Uph_NoteInteractionMode mode, Leaf_BoundingBox box)
+static void uph__note_input_begin_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern, uint32_t note_index, Uph_NoteInteractionMode mode, Leaf_BoundingBox box)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
 	Uph_DraggingNoteState *drag = &input->drag;
@@ -316,7 +316,7 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorState *editor, Uph_MidiPatt
 	const int32_t note_row = uph_note_map_row(&editor->note_map, note->key_number);
 	drag->initial_drag_key_offset = note_row - mouse_row_at_grab;
 
-	drag->select_tool = _uph_note_input_tool(editor) == UPH_ACTION_SELECT;
+	drag->select_tool = uph__note_input_tool(editor) == UPH_ACTION_SELECT;
 	drag->additive = drag->select_tool && (uph_ui_ctrl_down() || uph_ui_shift_down());
 	if (drag->additive)
 	{
@@ -344,12 +344,12 @@ static void _uph_note_input_begin_drag(Uph_MidiEditorState *editor, Uph_MidiPatt
 	input->last_note_velocity = note->velocity;
 
 	if (mode == UPH_NOTE_INTERACTION_MOVE && !drag->select_tool && uph_ui_shift_down())
-		_uph_note_input_begin_clones(drag, pattern);
+		uph__note_input_begin_clones(drag, pattern);
 
 	uph_state.shared.current_pattern_updated = true;
 }
 
-static void _uph_note_input_apply_group_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern, const Uph_MidiNote *grabbed)
+static void uph__note_input_apply_group_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern, const Uph_MidiNote *grabbed)
 {
 	const Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
@@ -402,13 +402,13 @@ static void _uph_note_input_apply_group_drag(Uph_MidiEditorState *editor, Uph_Mi
 	}
 }
 
-static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
+static void uph__note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPattern *pattern)
 {
 	Uph_DraggingNoteState *drag = &editor->note_input.drag;
 	const char *transform_action = drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTE_MOVE : UPH_ACTION_MIDI_NOTE_RESIZE;
 
 	if (!drag->moved)
-		_uph_note_input_discard_clones(drag);
+		uph__note_input_discard_clones(drag);
 
 	const bool cloning = drag->clone_count > 0;
 	const bool stretched = uph_pattern_stretch_tail_blocks(drag->pattern_index, drag->tail_blocks);
@@ -416,7 +416,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 	if (tail_group)
 	{
 		naui_action_group_start(cloning ? UPH_ACTION_MIDI_NOTES_CLONE_GROUP : drag->creating ? UPH_ACTION_MIDI_NOTE_CREATE : transform_action);
-		_uph_note_input_commit_clones(drag, pattern);
+		uph__note_input_commit_clones(drag, pattern);
 	}
 
 	if (drag->creating)
@@ -436,7 +436,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 	{
 		bool changed = cloning;
 		naui_action_group_start(cloning ? UPH_ACTION_MIDI_NOTES_CLONE_GROUP : drag->mode == UPH_NOTE_INTERACTION_MOVE ? UPH_ACTION_MIDI_NOTES_MOVE_GROUP : UPH_ACTION_MIDI_NOTES_RESIZE_GROUP);
-		_uph_note_input_commit_clones(drag, pattern);
+		uph__note_input_commit_clones(drag, pattern);
 
 		for (uint32_t i = 0; i < (uint32_t)naui_list_len(drag->group_notes); i++)
 		{
@@ -445,7 +445,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 				continue;
 
 			const Uph_MidiNote *note = &pattern->notes[snapshot->index];
-			if (_uph_note_input_geometry_equal(note, &snapshot->note))
+			if (uph__note_input_geometry_equal(note, &snapshot->note))
 				continue;
 
 			Uph_ActionNoteTransform data = {
@@ -495,7 +495,7 @@ static void _uph_note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 
 #pragma endregion
 
-static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
 	Uph_DraggingNoteState *drag = &input->drag;
@@ -557,12 +557,12 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 			}
 
 			if (drag->group)
-				_uph_note_input_apply_group_drag(editor, pattern, note);
+				uph__note_input_apply_group_drag(editor, pattern, note);
 
 			uph_pattern_stretch_tail_blocks(drag->pattern_index, drag->tail_blocks);
 
 			if (naui_mouse_released(NAUI_MOUSE_LEFT))
-				_uph_note_input_finish_drag(editor, pattern);
+				uph__note_input_finish_drag(editor, pattern);
 
 			return;
 		}
@@ -582,11 +582,11 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 
 			if (uph_song_timeline_vec4_contains_vec2(hover_box, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() }))
 			{
-				Uph_NoteInteractionMode hover_mode = _uph_note_input_classify_hover(hover_box, (float)naui_mouse_x());
+				Uph_NoteInteractionMode hover_mode = uph__note_input_classify_hover(hover_box, (float)naui_mouse_x());
 				if (editor->current_action_mode == UPH_ACTION_SELECT || editor->current_action_mode == UPH_ACTION_DRAW)
 				{
 					if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
-						_uph_note_input_begin_drag(editor, pattern, i, hover_mode, box);
+						uph__note_input_begin_drag(editor, pattern, i, hover_mode, box);
 
 					naui_set_cursor(hover_mode == UPH_NOTE_INTERACTION_MOVE ? NAUI_CURSOR_HAND : NAUI_CURSOR_RESIZE_EW);
 				}
@@ -598,7 +598,7 @@ static void _uph_note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 	}
 }
 
-static void _uph_note_input_update_draw(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_draw(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
 
@@ -645,7 +645,7 @@ static void _uph_note_input_update_draw(Uph_MidiEditorState *editor, Leaf_Boundi
 	naui_list_push(pattern->notes, note);
 }
 
-static void _uph_note_input_update_select(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_select(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
 
@@ -665,7 +665,7 @@ static void _uph_note_input_update_select(Uph_MidiEditorState *editor, Leaf_Boun
 	uph_note_select_all(pattern, false);
 }
 
-static void _uph_note_input_update_marquee(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_marquee(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	const Uph_NoteMarqueeState *marquee = &editor->note_input.marquee;
 	if (!marquee->active)
@@ -686,7 +686,7 @@ static void _uph_note_input_update_marquee(Uph_MidiEditorState *editor, Leaf_Bou
 	}
 }
 
-static void _uph_note_input_update_cut(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_cut(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	const Uph_MidiNoteInput *input = &editor->note_input;
 
@@ -718,7 +718,7 @@ void uph_midi_note_input_cancel_erase(Uph_MidiEditorState *editor)
 	erase->active = false;
 }
 
-static bool _uph_note_input_erase_note(Uph_NoteEraseState *erase, uint32_t note_index)
+static bool uph__note_input_erase_note(Uph_NoteEraseState *erase, uint32_t note_index)
 {
 	Uph_NoteSnapshot snapshot = { .index = note_index };
 	if (!uph_note_list_take(erase->pattern_index, note_index, &snapshot.note))
@@ -730,7 +730,7 @@ static bool _uph_note_input_erase_note(Uph_NoteEraseState *erase, uint32_t note_
 	return true;
 }
 
-static void _uph_note_input_finish_erase(Uph_MidiEditorState *editor)
+static void uph__note_input_finish_erase(Uph_MidiEditorState *editor)
 {
 	Uph_NoteEraseState *erase = &editor->note_input.erase;
 	const bool history_untouched = naui_action_get_revision() == erase->revision;
@@ -745,7 +745,7 @@ static void _uph_note_input_finish_erase(Uph_MidiEditorState *editor)
 	uph_midi_note_input_cancel_erase(editor);
 }
 
-static int32_t _uph_note_input_note_at(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Naui_Vec2 point)
+static int32_t uph__note_input_note_at(const Uph_MidiEditorState *editor, Leaf_BoundingBox box, const Uph_MidiPattern *pattern, Naui_Vec2 point)
 {
 	for (uint32_t i = (uint32_t)naui_list_len(pattern->notes); i > 0; i--)
 	{
@@ -757,7 +757,7 @@ static int32_t _uph_note_input_note_at(const Uph_MidiEditorState *editor, Leaf_B
 	return -1;
 }
 
-static void _uph_note_input_erase_along(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, Naui_Vec2 from, Naui_Vec2 to)
+static void uph__note_input_erase_along(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, Naui_Vec2 from, Naui_Vec2 to)
 {
 	Uph_NoteEraseState *erase = &editor->note_input.erase;
 
@@ -771,12 +771,12 @@ static void _uph_note_input_erase_along(Uph_MidiEditorState *editor, Leaf_Boundi
 		if (left >= right || top >= bottom)
 			continue;
 
-		if (_uph_note_input_segment_hits_box(from, to, left, top, right, bottom))
-			_uph_note_input_erase_note(erase, i - 1);
+		if (uph__note_input_segment_hits_box(from, to, left, top, right, bottom))
+			uph__note_input_erase_note(erase, i - 1);
 	}
 }
 
-static void _uph_note_input_begin_erase(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, Naui_Vec2 mouse)
+static void uph__note_input_begin_erase(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern, Naui_Vec2 mouse)
 {
 	Uph_NoteEraseState *erase = &editor->note_input.erase;
 	erase->active = true;
@@ -784,17 +784,17 @@ static void _uph_note_input_begin_erase(Uph_MidiEditorState *editor, Leaf_Boundi
 	erase->pattern_index = uph_state.shared.selected_resource.index;
 	erase->last_mouse = mouse;
 
-	const int32_t pressed = _uph_note_input_note_at(editor, box, pattern, mouse);
+	const int32_t pressed = uph__note_input_note_at(editor, box, pattern, mouse);
 	if (pressed < 0)
 	{
 		uph_note_select_all(pattern, false);
 		return;
 	}
 
-	_uph_note_input_erase_note(erase, (uint32_t)pressed);
+	uph__note_input_erase_note(erase, (uint32_t)pressed);
 }
 
-static void _uph_note_input_update_erase(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+static void uph__note_input_update_erase(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
 	Uph_NoteEraseState *erase = &input->erase;
@@ -804,12 +804,12 @@ static void _uph_note_input_update_erase(Uph_MidiEditorState *editor, Leaf_Bound
 	{
 		if (!naui_mouse_down(NAUI_MOUSE_RIGHT) || erase->pattern_index != uph_state.shared.selected_resource.index)
 		{
-			_uph_note_input_finish_erase(editor);
+			uph__note_input_finish_erase(editor);
 			return;
 		}
 
 		if (mouse.x != erase->last_mouse.x || mouse.y != erase->last_mouse.y)
-			_uph_note_input_erase_along(editor, box, pattern, erase->last_mouse, mouse);
+			uph__note_input_erase_along(editor, box, pattern, erase->last_mouse, mouse);
 
 		erase->last_mouse = mouse;
 	}
@@ -819,7 +819,7 @@ static void _uph_note_input_update_erase(Uph_MidiEditorState *editor, Leaf_Bound
 		if (!editor->lanes_hovered || busy || !naui_mouse_pressed(NAUI_MOUSE_RIGHT))
 			return;
 
-		_uph_note_input_begin_erase(editor, box, pattern, mouse);
+		uph__note_input_begin_erase(editor, box, pattern, mouse);
 	}
 
 	input->hovered_note.active = false;
@@ -831,24 +831,24 @@ void uph_midi_note_input_update(Uph_MidiEditorState *editor, Leaf_BoundingBox bo
 {
 	if (editor->note_input.erase.active)
 	{
-		_uph_note_input_update_erase(editor, box, pattern);
+		uph__note_input_update_erase(editor, box, pattern);
 		return;
 	}
 
-	_uph_note_input_update_drag(editor, box, pattern);
+	uph__note_input_update_drag(editor, box, pattern);
 
-	const Uph_ActionMode tool = _uph_note_input_tool(editor);
+	const Uph_ActionMode tool = uph__note_input_tool(editor);
 	if (tool == UPH_ACTION_SELECT)
-		_uph_note_input_update_select(editor, box, pattern);
+		uph__note_input_update_select(editor, box, pattern);
 
 	else if (tool == UPH_ACTION_DRAW)
-		_uph_note_input_update_draw(editor, box, pattern);
+		uph__note_input_update_draw(editor, box, pattern);
 
 	else if (tool == UPH_ACTION_CUT)
-		_uph_note_input_update_cut(editor, box, pattern);
+		uph__note_input_update_cut(editor, box, pattern);
 
-	_uph_note_input_update_erase(editor, box, pattern);
-	_uph_note_input_update_marquee(editor, box, pattern);
+	uph__note_input_update_erase(editor, box, pattern);
+	uph__note_input_update_marquee(editor, box, pattern);
 }
 
 void uph_midi_editor_quantize(const Uph_MidiEditorState *editor)
@@ -859,7 +859,7 @@ void uph_midi_editor_quantize(const Uph_MidiEditorState *editor)
 	uph_note_quantize(uph_state.shared.selected_resource.index, editor->snap_resolution, editor->view.zoom.x);
 }
 
-static void _uph_note_input_update_move_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
+static void uph__note_input_update_move_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
 {
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 	const double step = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
@@ -892,7 +892,7 @@ void uph_midi_editor_paste(const Uph_MidiEditorState *editor)
 	uph_note_paste(uph_state.shared.selected_resource.index, fmax(0.0, beat));
 }
 
-static void _uph_note_input_update_clipboard_keys(const Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern, Uph_ResourceIndex pattern_index)
+static void uph__note_input_update_clipboard_keys(const Uph_MidiEditorState *editor, const Uph_MidiPattern *pattern, Uph_ResourceIndex pattern_index)
 {
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 
@@ -906,7 +906,7 @@ static void _uph_note_input_update_clipboard_keys(const Uph_MidiEditorState *edi
 		uph_midi_editor_paste(editor);
 }
 
-static void _uph_note_input_update_note_tool_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
+static void uph__note_input_update_note_tool_keys(const Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
 {
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 	const double division = uph_snap_division(editor->snap_resolution, editor->view.zoom.x);
@@ -933,7 +933,7 @@ static void _uph_note_input_update_note_tool_keys(const Uph_MidiEditorState *edi
 		uph_note_strum(pattern_index, division);
 }
 
-static void _uph_note_input_update_tool_keys(Uph_MidiEditorState *editor)
+static void uph__note_input_update_tool_keys(Uph_MidiEditorState *editor)
 {
 	const Uph_KeybindSettings *keybinds = &uph_state.settings.keybinds;
 
@@ -976,8 +976,8 @@ void uph_midi_note_input_update_shortcuts(Uph_MidiEditorState *editor)
 		uph_note_invert_selection(pattern);
 
 	const Uph_ResourceIndex pattern_index = uph_state.shared.selected_resource.index;
-	_uph_note_input_update_move_keys(editor, pattern_index);
-	_uph_note_input_update_clipboard_keys(editor, pattern, pattern_index);
-	_uph_note_input_update_note_tool_keys(editor, pattern_index);
-	_uph_note_input_update_tool_keys(editor);
+	uph__note_input_update_move_keys(editor, pattern_index);
+	uph__note_input_update_clipboard_keys(editor, pattern, pattern_index);
+	uph__note_input_update_note_tool_keys(editor, pattern_index);
+	uph__note_input_update_tool_keys(editor);
 }

@@ -45,7 +45,7 @@ typedef struct Naui_JobSystem
 	bool initialized;
 } Naui_JobSystem;
 
-static Naui_JobSystem _naui_jobs_state;
+static Naui_JobSystem naui__jobs_state;
 
 static bool slot_index_from_handle(Naui_JobHandle handle, uint32_t* out_index)
 {
@@ -56,13 +56,13 @@ static bool slot_index_from_handle(Naui_JobHandle handle, uint32_t* out_index)
 	uint32_t index = packed & 0xFFFFu;
 	uint32_t gen = packed >> 16;
 
-	if ((int32_t)index >= _naui_jobs_state.capacity)
+	if ((int32_t)index >= naui__jobs_state.capacity)
 		return false;
 
-	if (_naui_jobs_state.slots[index].generation != gen)
+	if (naui__jobs_state.slots[index].generation != gen)
 		return false;
 
-	if (_naui_jobs_state.slots[index].detached)
+	if (naui__jobs_state.slots[index].detached)
 		return false;
 
 	*out_index = index;
@@ -71,7 +71,7 @@ static bool slot_index_from_handle(Naui_JobHandle handle, uint32_t* out_index)
 
 static Naui_JobHandle handle_from_slot_index(uint32_t index)
 {
-	uint32_t gen = _naui_jobs_state.slots[index].generation;
+	uint32_t gen = naui__jobs_state.slots[index].generation;
 	uint32_t packed = (gen << 16) | (index & 0xFFFFu);
 
 	Naui_JobHandle h;
@@ -81,23 +81,23 @@ static Naui_JobHandle handle_from_slot_index(uint32_t index)
 
 static void ready_queue_push(uint32_t slot_index)
 {
-	_naui_jobs_state.ready_queue[_naui_jobs_state.ready_tail] = slot_index;
-	_naui_jobs_state.ready_tail = (_naui_jobs_state.ready_tail + 1) % _naui_jobs_state.capacity;
-	_naui_jobs_state.ready_count += 1;
+	naui__jobs_state.ready_queue[naui__jobs_state.ready_tail] = slot_index;
+	naui__jobs_state.ready_tail = (naui__jobs_state.ready_tail + 1) % naui__jobs_state.capacity;
+	naui__jobs_state.ready_count += 1;
 
-	_naui_jobs_state.slots[slot_index].slot_state = NAUI_SLOT_QUEUED;
-	naui_cond_signal(_naui_jobs_state.cv_queue_not_empty);
+	naui__jobs_state.slots[slot_index].slot_state = NAUI_SLOT_QUEUED;
+	naui_cond_signal(naui__jobs_state.cv_queue_not_empty);
 }
 
 /* Returns false if the queue is empty. */
 static bool ready_queue_pop(uint32_t* out_index)
 {
-	if (_naui_jobs_state.ready_count == 0)
+	if (naui__jobs_state.ready_count == 0)
 		return false;
 
-	*out_index = _naui_jobs_state.ready_queue[_naui_jobs_state.ready_head];
-	_naui_jobs_state.ready_head = (_naui_jobs_state.ready_head + 1) % _naui_jobs_state.capacity;
-	_naui_jobs_state.ready_count -= 1;
+	*out_index = naui__jobs_state.ready_queue[naui__jobs_state.ready_head];
+	naui__jobs_state.ready_head = (naui__jobs_state.ready_head + 1) % naui__jobs_state.capacity;
+	naui__jobs_state.ready_count -= 1;
 	return true;
 }
 
@@ -105,9 +105,9 @@ static bool ready_queue_pop(uint32_t* out_index)
  * Returns false if the pool is full. */
 static bool slot_acquire(uint32_t* out_index)
 {
-	for (int32_t i = 0; i < _naui_jobs_state.capacity; ++i)
+	for (int32_t i = 0; i < naui__jobs_state.capacity; ++i)
 	{
-		if (_naui_jobs_state.slots[i].slot_state != NAUI_SLOT_FREE)
+		if (naui__jobs_state.slots[i].slot_state != NAUI_SLOT_FREE)
 			continue;
 
 		*out_index = (uint32_t)i;
@@ -121,7 +121,7 @@ static void slot_finish(uint32_t index, Naui_JobStatus final_status);
 
 static void release_locked(uint32_t index)
 {
-	Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+	Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 	slot->slot_state = NAUI_SLOT_FREE;
 	slot->fn = NULL;
 	slot->data = NULL;
@@ -134,14 +134,14 @@ static void release_locked(uint32_t index)
  * Must be called with the lock held. */
 static void slot_finish(uint32_t index, Naui_JobStatus final_status)
 {
-	Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+	Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 	slot->status = final_status;
 	slot->slot_state = NAUI_SLOT_FINISHED;
 
 	if (slot->dependent_plus_one != 0)
 	{
 		uint32_t dep_index = slot->dependent_plus_one - 1;
-		Naui_JobSlot* dep = &_naui_jobs_state.slots[dep_index];
+		Naui_JobSlot* dep = &naui__jobs_state.slots[dep_index];
 		slot->dependent_plus_one = 0;
 
 		if (final_status == NAUI_JOB_FAILED)
@@ -159,7 +159,7 @@ static void slot_finish(uint32_t index, Naui_JobStatus final_status)
 	if (slot->detached)
 		release_locked(index);
 
-	naui_cond_broadcast(_naui_jobs_state.cv_job_done);
+	naui_cond_broadcast(naui__jobs_state.cv_job_done);
 }
 
 static int worker_main(void* unused)
@@ -167,16 +167,16 @@ static int worker_main(void* unused)
 	(void)unused;
 	while(true)
 	{
-		naui_mutex_lock(_naui_jobs_state.lock);
+		naui_mutex_lock(naui__jobs_state.lock);
 
-		while (_naui_jobs_state.ready_count == 0 && !_naui_jobs_state.shutting_down)
+		while (naui__jobs_state.ready_count == 0 && !naui__jobs_state.shutting_down)
 		{
-			naui_cond_wait(_naui_jobs_state.cv_queue_not_empty, _naui_jobs_state.lock);
+			naui_cond_wait(naui__jobs_state.cv_queue_not_empty, naui__jobs_state.lock);
 		}
 
-		if (_naui_jobs_state.shutting_down && _naui_jobs_state.ready_count == 0)
+		if (naui__jobs_state.shutting_down && naui__jobs_state.ready_count == 0)
 		{
-			naui_mutex_unlock(_naui_jobs_state.lock);
+			naui_mutex_unlock(naui__jobs_state.lock);
 			return 0;
 		}
 
@@ -184,96 +184,96 @@ static int worker_main(void* unused)
 		bool got = ready_queue_pop(&index);
 		if (!got)
 		{
-			naui_mutex_unlock(_naui_jobs_state.lock);
+			naui_mutex_unlock(naui__jobs_state.lock);
 			continue;
 		}
 
-		Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+		Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 		slot->slot_state = NAUI_SLOT_RUNNING;
 		slot->status = NAUI_JOB_RUNNING;
 		slot->err_buf[0] = '\0';
 
 		Naui_JobFn fn = slot->fn;
 		void* data = slot->data;
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 
 		char local_err[NAUI_JOB_ERR_BUF_SIZE];
 		local_err[0] = '\0';
 		fn(data, local_err, sizeof(local_err));
-		naui_mutex_lock(_naui_jobs_state.lock);
+		naui_mutex_lock(naui__jobs_state.lock);
 
 		Naui_JobStatus final_status = (local_err[0] != '\0') ? NAUI_JOB_FAILED : NAUI_JOB_DONE;
 		if (final_status == NAUI_JOB_FAILED)
 			memcpy(slot->err_buf, local_err, sizeof(local_err));
 
 		slot_finish(index, final_status);
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 	}
 }
 
 void naui_jobs_init(int32_t thread_count, int32_t job_capacity)
 {
-	if (_naui_jobs_state.initialized)
+	if (naui__jobs_state.initialized)
 		return;
 
-	memset(&_naui_jobs_state, 0, sizeof(_naui_jobs_state));
-	_naui_jobs_state.capacity = job_capacity > 0 ? job_capacity : 1;
-	_naui_jobs_state.slots = (Naui_JobSlot*)calloc((size_t)_naui_jobs_state.capacity, sizeof(Naui_JobSlot));
+	memset(&naui__jobs_state, 0, sizeof(naui__jobs_state));
+	naui__jobs_state.capacity = job_capacity > 0 ? job_capacity : 1;
+	naui__jobs_state.slots = (Naui_JobSlot*)calloc((size_t)naui__jobs_state.capacity, sizeof(Naui_JobSlot));
 
-	_naui_jobs_state.ready_queue = (uint32_t*)calloc((size_t)_naui_jobs_state.capacity, sizeof(uint32_t));
-	_naui_jobs_state.ready_head = 0;
-	_naui_jobs_state.ready_tail = 0;
-	_naui_jobs_state.ready_count = 0;
+	naui__jobs_state.ready_queue = (uint32_t*)calloc((size_t)naui__jobs_state.capacity, sizeof(uint32_t));
+	naui__jobs_state.ready_head = 0;
+	naui__jobs_state.ready_tail = 0;
+	naui__jobs_state.ready_count = 0;
 
-	_naui_jobs_state.lock = naui_mutex_create();
-	_naui_jobs_state.cv_queue_not_empty = naui_cond_create();
-	_naui_jobs_state.cv_job_done = naui_cond_create();
+	naui__jobs_state.lock = naui_mutex_create();
+	naui__jobs_state.cv_queue_not_empty = naui_cond_create();
+	naui__jobs_state.cv_job_done = naui_cond_create();
 
-	if (!_naui_jobs_state.slots || !_naui_jobs_state.ready_queue || !_naui_jobs_state.lock || !_naui_jobs_state.cv_queue_not_empty || !_naui_jobs_state.cv_job_done)
+	if (!naui__jobs_state.slots || !naui__jobs_state.ready_queue || !naui__jobs_state.lock || !naui__jobs_state.cv_queue_not_empty || !naui__jobs_state.cv_job_done)
 	{
-		naui_mutex_destroy(_naui_jobs_state.lock);
-		naui_cond_destroy(_naui_jobs_state.cv_queue_not_empty);
-		naui_cond_destroy(_naui_jobs_state.cv_job_done);
-		free(_naui_jobs_state.slots);
-		free(_naui_jobs_state.ready_queue);
-		memset(&_naui_jobs_state, 0, sizeof(_naui_jobs_state));
+		naui_mutex_destroy(naui__jobs_state.lock);
+		naui_cond_destroy(naui__jobs_state.cv_queue_not_empty);
+		naui_cond_destroy(naui__jobs_state.cv_job_done);
+		free(naui__jobs_state.slots);
+		free(naui__jobs_state.ready_queue);
+		memset(&naui__jobs_state, 0, sizeof(naui__jobs_state));
 		return;
 	}
 
-	_naui_jobs_state.worker_count = thread_count > 0 ? thread_count : 1;
-	_naui_jobs_state.workers = (Naui_Thread*)calloc((size_t)_naui_jobs_state.worker_count, sizeof(Naui_Thread));
-	_naui_jobs_state.shutting_down = false;
-	_naui_jobs_state.initialized = true;
+	naui__jobs_state.worker_count = thread_count > 0 ? thread_count : 1;
+	naui__jobs_state.workers = (Naui_Thread*)calloc((size_t)naui__jobs_state.worker_count, sizeof(Naui_Thread));
+	naui__jobs_state.shutting_down = false;
+	naui__jobs_state.initialized = true;
 
-	for (int32_t i = 0; i < _naui_jobs_state.worker_count; ++i)
+	for (int32_t i = 0; i < naui__jobs_state.worker_count; ++i)
 	{
-		_naui_jobs_state.workers[i] = naui_thread_create(worker_main, NULL);
+		naui__jobs_state.workers[i] = naui_thread_create(worker_main, NULL);
 	}
 }
 
 void naui_jobs_shutdown(void)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
-	_naui_jobs_state.shutting_down = true;
-	naui_mutex_unlock(_naui_jobs_state.lock);
-	naui_cond_broadcast(_naui_jobs_state.cv_queue_not_empty);
+	naui_mutex_lock(naui__jobs_state.lock);
+	naui__jobs_state.shutting_down = true;
+	naui_mutex_unlock(naui__jobs_state.lock);
+	naui_cond_broadcast(naui__jobs_state.cv_queue_not_empty);
 
-	for (int32_t i = 0; i < _naui_jobs_state.worker_count; ++i)
+	for (int32_t i = 0; i < naui__jobs_state.worker_count; ++i)
 	{
-		naui_thread_join(_naui_jobs_state.workers[i], NULL);
+		naui_thread_join(naui__jobs_state.workers[i], NULL);
 	}
 
-	free(_naui_jobs_state.workers);
-	free(_naui_jobs_state.ready_queue);
-	free(_naui_jobs_state.slots);
+	free(naui__jobs_state.workers);
+	free(naui__jobs_state.ready_queue);
+	free(naui__jobs_state.slots);
 
-	naui_mutex_destroy(_naui_jobs_state.lock);
-	naui_cond_destroy(_naui_jobs_state.cv_queue_not_empty);
-	naui_cond_destroy(_naui_jobs_state.cv_job_done);
-	memset(&_naui_jobs_state, 0, sizeof(_naui_jobs_state));
+	naui_mutex_destroy(naui__jobs_state.lock);
+	naui_cond_destroy(naui__jobs_state.cv_queue_not_empty);
+	naui_cond_destroy(naui__jobs_state.cv_job_done);
+	memset(&naui__jobs_state, 0, sizeof(naui__jobs_state));
 }
 
 Naui_JobSubmitResult naui_job_submit(Naui_JobHandle* out_handle, Naui_JobFn fn, void* data)
@@ -281,18 +281,18 @@ Naui_JobSubmitResult naui_job_submit(Naui_JobHandle* out_handle, Naui_JobFn fn, 
 	if (out_handle)
 		*out_handle = NAUI_JOB_INVALID;
 
-	if (!_naui_jobs_state.initialized || !fn || !out_handle)
+	if (!naui__jobs_state.initialized || !fn || !out_handle)
 		return NAUI_JOB_SUBMIT_INVALID;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	if (!slot_acquire(&index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return NAUI_JOB_SUBMIT_OVERFLOW;
 	}
 
-	Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+	Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 	slot->fn = fn;
 	slot->data = data;
 	slot->status = NAUI_JOB_PENDING;
@@ -302,7 +302,7 @@ Naui_JobSubmitResult naui_job_submit(Naui_JobHandle* out_handle, Naui_JobFn fn, 
 
 	*out_handle = handle_from_slot_index(index);
 	ready_queue_push(index);
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 	return NAUI_JOB_SUBMIT_OK;
 }
 
@@ -311,19 +311,19 @@ Naui_JobSubmitResult naui_job_submit_after(Naui_JobHandle* out_handle, Naui_JobF
 	if (out_handle)
 		*out_handle = NAUI_JOB_INVALID;
 
-	if (!_naui_jobs_state.initialized || !fn || !out_handle)
+	if (!naui__jobs_state.initialized || !fn || !out_handle)
 		return NAUI_JOB_SUBMIT_INVALID;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t after_index;
 	bool after_valid = slot_index_from_handle(after, &after_index);
 
 	if (after_valid)
 	{
-		Naui_JobSlot* after_slot_check = &_naui_jobs_state.slots[after_index];
+		Naui_JobSlot* after_slot_check = &naui__jobs_state.slots[after_index];
 		if (after_slot_check->slot_state != NAUI_SLOT_FINISHED && after_slot_check->dependent_plus_one != 0)
 		{
-			naui_mutex_unlock(_naui_jobs_state.lock);
+			naui_mutex_unlock(naui__jobs_state.lock);
 			return NAUI_JOB_SUBMIT_INVALID;
 		}
 	}
@@ -331,11 +331,11 @@ Naui_JobSubmitResult naui_job_submit_after(Naui_JobHandle* out_handle, Naui_JobF
 	uint32_t index;
 	if (!slot_acquire(&index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return NAUI_JOB_SUBMIT_OVERFLOW;
 	}
 
-	Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+	Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 	slot->fn = fn;
 	slot->data = data;
 	slot->dependent_plus_one = 0;
@@ -347,11 +347,11 @@ Naui_JobSubmitResult naui_job_submit_after(Naui_JobHandle* out_handle, Naui_JobF
 	{
 		slot->status = NAUI_JOB_PENDING;
 		ready_queue_push(index);
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return NAUI_JOB_SUBMIT_OK;
 	}
 
-	Naui_JobSlot* after_slot = &_naui_jobs_state.slots[after_index];
+	Naui_JobSlot* after_slot = &naui__jobs_state.slots[after_index];
 	if (after_slot->slot_state == NAUI_SLOT_FINISHED)
 	{
 		if (after_slot->status == NAUI_JOB_FAILED)
@@ -373,37 +373,37 @@ Naui_JobSubmitResult naui_job_submit_after(Naui_JobHandle* out_handle, Naui_JobF
 		after_slot->dependent_plus_one = index + 1;
 	}
 
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 	return NAUI_JOB_SUBMIT_OK;
 }
 
 bool naui_job_is_valid(Naui_JobHandle handle)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return false;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	bool valid = slot_index_from_handle(handle, &index);
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 	return valid;
 }
 
 Naui_JobStatus naui_job_status(Naui_JobHandle handle)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return NAUI_JOB_FAILED;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	if (!slot_index_from_handle(handle, &index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return NAUI_JOB_FAILED;
 	}
 
-	Naui_JobStatus status = _naui_jobs_state.slots[index].status;
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	Naui_JobStatus status = naui__jobs_state.slots[index].status;
+	naui_mutex_unlock(naui__jobs_state.lock);
 	return status;
 }
 
@@ -416,80 +416,80 @@ bool naui_job_is_done(Naui_JobHandle handle)
 const char* naui_job_error(Naui_JobHandle handle)
 {
 	static const char empty[1] = "";
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return empty;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
-	if (!slot_index_from_handle(handle, &index) || _naui_jobs_state.slots[index].status != NAUI_JOB_FAILED)
+	if (!slot_index_from_handle(handle, &index) || naui__jobs_state.slots[index].status != NAUI_JOB_FAILED)
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return empty;
 	}
 
-	const char* err = _naui_jobs_state.slots[index].err_buf;
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	const char* err = naui__jobs_state.slots[index].err_buf;
+	naui_mutex_unlock(naui__jobs_state.lock);
 	return err;
 }
 
 void naui_job_wait(Naui_JobHandle handle)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	if (!slot_index_from_handle(handle, &index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return;
 	}
 
-	while (_naui_jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
+	while (naui__jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
 	{
-		naui_cond_wait(_naui_jobs_state.cv_job_done, _naui_jobs_state.lock);
+		naui_cond_wait(naui__jobs_state.cv_job_done, naui__jobs_state.lock);
 	}
 
 	release_locked(index);
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 }
 
 void naui_job_wait_peek(Naui_JobHandle handle)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	if (!slot_index_from_handle(handle, &index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return;
 	}
 
-	while (_naui_jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
+	while (naui__jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
 	{
-		naui_cond_wait(_naui_jobs_state.cv_job_done, _naui_jobs_state.lock);
+		naui_cond_wait(naui__jobs_state.cv_job_done, naui__jobs_state.lock);
 	}
 
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 }
 
 void naui_job_wait_all(const Naui_JobHandle* handles, int32_t count)
 {
-	if (!_naui_jobs_state.initialized || !handles)
+	if (!naui__jobs_state.initialized || !handles)
 		return;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	for (int32_t i = 0; i < count; ++i)
 	{
 		uint32_t index;
 		if (!slot_index_from_handle(handles[i], &index))
 			continue;
 
-		while (_naui_jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
+		while (naui__jobs_state.slots[index].slot_state != NAUI_SLOT_FINISHED)
 		{
-			naui_cond_wait(_naui_jobs_state.cv_job_done, _naui_jobs_state.lock);
+			naui_cond_wait(naui__jobs_state.cv_job_done, naui__jobs_state.lock);
 		}
 	}
 
@@ -502,15 +502,15 @@ void naui_job_wait_all(const Naui_JobHandle* handles, int32_t count)
 		release_locked(index);
 	}
 
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 }
 
 int naui_job_wait_any(const Naui_JobHandle* handles, int32_t count)
 {
-	if (!_naui_jobs_state.initialized || !handles || count <= 0)
+	if (!naui__jobs_state.initialized || !handles || count <= 0)
 		return -1;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 
 	while(true)
 	{
@@ -520,35 +520,35 @@ int naui_job_wait_any(const Naui_JobHandle* handles, int32_t count)
 			if (!slot_index_from_handle(handles[i], &index))
 				continue;
 
-			if (_naui_jobs_state.slots[index].slot_state == NAUI_SLOT_FINISHED)
+			if (naui__jobs_state.slots[index].slot_state == NAUI_SLOT_FINISHED)
 			{
-				naui_mutex_unlock(_naui_jobs_state.lock);
+				naui_mutex_unlock(naui__jobs_state.lock);
 				return i;
 			}
 		}
 
-		naui_cond_wait(_naui_jobs_state.cv_job_done, _naui_jobs_state.lock);
+		naui_cond_wait(naui__jobs_state.cv_job_done, naui__jobs_state.lock);
 	}
 }
 
 void naui_job_release(Naui_JobHandle handle)
 {
-	if (!_naui_jobs_state.initialized)
+	if (!naui__jobs_state.initialized)
 		return;
 
-	naui_mutex_lock(_naui_jobs_state.lock);
+	naui_mutex_lock(naui__jobs_state.lock);
 	uint32_t index;
 	if (!slot_index_from_handle(handle, &index))
 	{
-		naui_mutex_unlock(_naui_jobs_state.lock);
+		naui_mutex_unlock(naui__jobs_state.lock);
 		return;
 	}
 
-	Naui_JobSlot* slot = &_naui_jobs_state.slots[index];
+	Naui_JobSlot* slot = &naui__jobs_state.slots[index];
 	if (slot->slot_state == NAUI_SLOT_FINISHED)
 		release_locked(index);
 	else
 		slot->detached = true;
 
-	naui_mutex_unlock(_naui_jobs_state.lock);
+	naui_mutex_unlock(naui__jobs_state.lock);
 }

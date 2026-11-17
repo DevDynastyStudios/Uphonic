@@ -49,12 +49,12 @@ static void uph_block_refresh_track_type(Uph_Track *track)
 		track->type = UPH_RESOURCE_NONE;
 }
 
-static bool _uph_block_is_recording(const Uph_Track *track, uint32_t index)
+static bool uph__block_is_recording(const Uph_Track *track, uint32_t index)
 {
 	return track->armed_block != UPH_INVALID_TIMELINE_BLOCK && track->armed_block == &track->blocks[index];
 }
 
-static int64_t _uph_block_armed_index(const Uph_Track *track)
+static int64_t uph__block_armed_index(const Uph_Track *track)
 {
 	const int64_t count = (int64_t)naui_list_len(track->blocks);
 	if (track->armed_block == UPH_INVALID_TIMELINE_BLOCK || count == 0)
@@ -64,7 +64,7 @@ static int64_t _uph_block_armed_index(const Uph_Track *track)
 	return index >= 0 && index < count ? index : -1;
 }
 
-static void _uph_block_set_armed_index(Uph_Track *track, int64_t index)
+static void uph__block_set_armed_index(Uph_Track *track, int64_t index)
 {
 	if (index >= 0)
 		track->armed_block = &track->blocks[index];
@@ -75,12 +75,12 @@ static void uph_block_list_insert(Uph_Track *track, uint32_t index, Uph_Timeline
 	if (index > (uint32_t)naui_list_len(track->blocks))
 		index = (uint32_t)naui_list_len(track->blocks);
 
-	int64_t armed = _uph_block_armed_index(track);
+	int64_t armed = uph__block_armed_index(track);
 	naui_list_insert(track->blocks, block, index);
 	if (armed >= (int64_t)index)
 		armed++;
 
-	_uph_block_set_armed_index(track, armed);
+	uph__block_set_armed_index(track, armed);
 
 	if (track->type == UPH_RESOURCE_NONE)
 		track->type = block.type;
@@ -91,7 +91,7 @@ static bool uph_block_list_take(Uph_Track *track, uint32_t index, Uph_TimelineBl
 	if (!track || index >= (uint32_t)naui_list_len(track->blocks))
 		return false;
 
-	int64_t armed = _uph_block_armed_index(track);
+	int64_t armed = uph__block_armed_index(track);
 	*out = track->blocks[index];
 	naui_list_remove(track->blocks, index);
 
@@ -101,7 +101,7 @@ static bool uph_block_list_take(Uph_Track *track, uint32_t index, Uph_TimelineBl
 		armed--;
 
 	if (armed != (int64_t)index)
-		_uph_block_set_armed_index(track, armed);
+		uph__block_set_armed_index(track, armed);
 
 	uph_block_refresh_track_type(track);
 	return true;
@@ -235,7 +235,7 @@ static void uph_block_select_all(bool selected)
 #pragma endregion
 
 #pragma region Block Create
-bool _uph_action_block_create_execute(void* userdata)
+bool uph__action_block_create_execute(void* userdata)
 {
 	Uph_ActionBlockCreate* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -252,13 +252,13 @@ bool _uph_action_block_create_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_block_create_undo(void* userdata)
+bool uph__action_block_create_undo(void* userdata)
 {
 	Uph_ActionBlockCreate* data = userdata;
 	return uph_block_list_take(uph_action_track_resolve(data->track), data->block_index, &data->block);
 }
 
-bool _uph_action_block_create_redo(void* userdata)
+bool uph__action_block_create_redo(void* userdata)
 {
 	Uph_ActionBlockCreate* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -272,11 +272,11 @@ bool _uph_action_block_create_redo(void* userdata)
 #pragma endregion
 
 #pragma region Block Delete
-bool _uph_action_block_delete_execute(void* userdata)
+bool uph__action_block_delete_execute(void* userdata)
 {
 	Uph_ActionBlockDelete* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
-	if (!track || data->block_index >= (uint32_t)naui_list_len(track->blocks) || _uph_block_is_recording(track, data->block_index))
+	if (!track || data->block_index >= (uint32_t)naui_list_len(track->blocks) || uph__block_is_recording(track, data->block_index))
 		return false;
 
 	if (!uph_block_list_take(track, data->block_index, &data->block))
@@ -286,7 +286,7 @@ bool _uph_action_block_delete_execute(void* userdata)
 	return true;
 }
 
-bool _uph_action_block_delete_undo(void* userdata)
+bool uph__action_block_delete_undo(void* userdata)
 {
 	Uph_ActionBlockDelete* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
@@ -301,7 +301,7 @@ bool _uph_action_block_delete_undo(void* userdata)
 #pragma endregion
 
 #pragma region Block Move / Resize
-bool _uph_action_block_transform_execute(void* userdata)
+bool uph__action_block_transform_execute(void* userdata)
 {
 	Uph_ActionBlockTransform* data = userdata;
 	if (data->applied_live)
@@ -313,13 +313,13 @@ bool _uph_action_block_transform_execute(void* userdata)
 	return uph_block_relocate(data->src_track, data->src_index, data->dst_track, data->dst_index, data->new_start, data->new_length, data->new_offset);
 }
 
-bool _uph_action_block_transform_undo(void* userdata)
+bool uph__action_block_transform_undo(void* userdata)
 {
 	Uph_ActionBlockTransform* data = userdata;
 	return uph_block_relocate(data->dst_track, data->dst_index, data->src_track, data->src_index, data->old_start, data->old_length, data->old_offset);
 }
 
-bool _uph_action_block_transform_redo(void* userdata)
+bool uph__action_block_transform_redo(void* userdata)
 {
 	Uph_ActionBlockTransform* data = userdata;
 	return uph_block_relocate(data->src_track, data->src_index, data->dst_track, data->dst_index, data->new_start, data->new_length, data->new_offset);
@@ -338,13 +338,13 @@ static bool uph_block_set_resource(Uph_ActionTrackRef ref, uint32_t block_index,
 	return true;
 }
 
-bool _uph_action_block_relink_execute(void* userdata)
+bool uph__action_block_relink_execute(void* userdata)
 {
 	Uph_ActionBlockRelink* data = userdata;
 	return uph_block_set_resource(data->track, data->block_index, data->new_resource_index);
 }
 
-bool _uph_action_block_relink_undo(void* userdata)
+bool uph__action_block_relink_undo(void* userdata)
 {
 	Uph_ActionBlockRelink* data = userdata;
 	return uph_block_set_resource(data->track, data->block_index, data->old_resource_index);
@@ -360,7 +360,7 @@ static void uph_block_delete_selected(void)
 	for (uint32_t i = (uint32_t)naui_list_len(selected); i > 0; i--)
 	{
 		const Uph_Track* track = uph_action_track_resolve(selected[i - 1].track);
-		if (track && _uph_block_is_recording(track, selected[i - 1].index))
+		if (track && uph__block_is_recording(track, selected[i - 1].index))
 			naui_list_remove(selected, i - 1);
 	}
 
@@ -495,12 +495,12 @@ static void uph_block_invert_selection(void)
 #pragma endregion
 
 #pragma region Block Clipboard
-static Naui_List(Uph_ActionBlockSnapshot) _uph_block_clipboard;
+static Naui_List(Uph_ActionBlockSnapshot) uph__block_clipboard;
 
 void uph_block_clipboard_clear(void)
 {
-	naui_list_free(_uph_block_clipboard);
-	_uph_block_clipboard = NULL;
+	naui_list_free(uph__block_clipboard);
+	uph__block_clipboard = NULL;
 }
 
 static bool uph_block_copy_selected(void)
@@ -518,11 +518,11 @@ static bool uph_block_copy_selected(void)
 		selected[i].block.start_beat -= first_start;
 
 	uph_block_clipboard_clear();
-	_uph_block_clipboard = selected;
+	uph__block_clipboard = selected;
 	return true;
 }
 
-static bool _uph_block_paste_fits(const Uph_Track *track, Uph_ResourceType type)
+static bool uph__block_paste_fits(const Uph_Track *track, Uph_ResourceType type)
 {
 	if (!track)
 		return false;
@@ -535,7 +535,7 @@ static bool _uph_block_paste_fits(const Uph_Track *track, Uph_ResourceType type)
 
 static void uph_block_paste(double beat)
 {
-	const Naui_List(Uph_ActionBlockSnapshot) clipboard = _uph_block_clipboard;
+	const Naui_List(Uph_ActionBlockSnapshot) clipboard = uph__block_clipboard;
 	if (naui_list_len(clipboard) == 0)
 		return;
 
@@ -545,7 +545,7 @@ static void uph_block_paste(double beat)
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(clipboard); i++)
 	{
 		const Uph_Track* track = uph_action_track_resolve(clipboard[i].track);
-		if (!_uph_block_paste_fits(track, clipboard[i].block.type))
+		if (!uph__block_paste_fits(track, clipboard[i].block.type))
 			continue;
 
 		Uph_ActionBlockCreate data = { .track = clipboard[i].track, .block_index = (uint32_t)naui_list_len(track->blocks), .block = clipboard[i].block };

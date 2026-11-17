@@ -158,7 +158,7 @@ typedef struct
 }
 Uph_AudioEngineState;
 
-static Uph_AudioEngineState _uph_audio_engine_state = {
+static Uph_AudioEngineState uph__audio_engine_state = {
     .render_state = UPH_RENDER_RUNNING,
     .render_gain = 1.0f
 };
@@ -203,7 +203,7 @@ static void uph_read_sample_frame(const Uph_SampleData *sample, double pos, bool
 
 static void uph_stretch_init_window(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     for (uint32_t i = 0; i < UPH_WSOLA_GRAIN_FRAMES; i++)
     {
         state->stretch_window[i] = 0.5f - 0.5f * cosf(
@@ -354,7 +354,7 @@ static int64_t uph_wsola_find_start(const Uph_SampleData *s, bool reversed, int6
 
 static void uph_wsola_add_grain(Uph_Stretcher *st, const Uph_SampleData *sample, int64_t k)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     const int64_t hop   = UPH_WSOLA_HOP_FRAMES;
     const int64_t grain = UPH_WSOLA_GRAIN_FRAMES;
 
@@ -419,7 +419,7 @@ static void uph_stretcher_reset(Uph_Stretcher *st, double out_pos)
 
 static Uph_Stretcher *uph_stretcher_acquire(const void *key)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     Uph_Stretcher *oldest = &state->stretchers[0];
 
     for (int i = 0; i < UPH_WSOLA_MAX_STATES; i++)
@@ -486,7 +486,7 @@ static void uph_stretcher_prepare_follow(
     double src_pos
 )
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     const double predicted_src = st->anchor_src + (st->q - st->anchor_q) * st->beta;
     const bool continuing = st->valid
         && st->follow
@@ -549,7 +549,7 @@ static void uph_stretcher_read(Uph_Stretcher *st, const Uph_SampleData *sample, 
     st->next_out_pos += 1.0;
 }
 
-static double _uph_sample_tempo_bpm(const Uph_Sample *sample)
+static double uph__sample_tempo_bpm(const Uph_Sample *sample)
 {
     if (sample->tempo_bpm > 0.0f)
         return (double)sample->tempo_bpm;
@@ -603,7 +603,7 @@ static void uph_render_sample_block(
 
     if (sample->follow_tempo)
     {
-        const double frames_per_beat = 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale) * sample_rate;
+        const double frames_per_beat = 60.0 / (uph__sample_tempo_bpm(sample) * time_scale) * sample_rate;
         const double offset_frames = block->start_offset_beats * frames_per_beat;
         const double buffer_start_seconds = uph_sample_block_beat_to_seconds(buffer_start_beat, fixed_bpm);
         const double first_beat = (f == 0) ? buffer_start_beat : uph_sample_block_seconds_to_beat(buffer_start_seconds + (double)f / sample_rate, fixed_bpm);
@@ -679,7 +679,7 @@ static void uph_render_sample_block(
 
 double uph_sample_playback_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, float bpm)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (bpm <= 0.0f || data->frame_count == 0)
         return 0.0;
 
@@ -1533,7 +1533,7 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
 
 static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_rate, float *out, ma_uint32 frame_count, bool timeline_playing, const float *input)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     memset(out, 0, sizeof(float) * 2 * frame_count);
     state->stretcher_callback++;
 
@@ -1636,7 +1636,7 @@ static void uph_render_audio(double playhead_start_beat, uint32_t engine_sample_
 
 void uph_audio_engine_stop(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_device_stop(&state->device);
     if (state->capture_ready)
         ma_device_stop(&state->capture_device);
@@ -1644,7 +1644,7 @@ void uph_audio_engine_stop(void)
 
 void uph_audio_engine_start(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (state->capture_ready)
     {
         state->input_primed = false;
@@ -1655,7 +1655,7 @@ void uph_audio_engine_start(void)
 
 void uph_audio_engine_lock(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (state->render_lock_depth++ > 0)
         return;
 
@@ -1686,7 +1686,7 @@ void uph_audio_engine_lock(void)
 
 void uph_audio_engine_unlock(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (state->render_lock_depth == 0 || --state->render_lock_depth > 0)
         return;
 
@@ -1782,12 +1782,12 @@ double uph_sample_effective_time_scale(const Uph_Sample *sample, double bpm)
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     if (!sample->follow_tempo || bpm <= 0.0)
         return time_scale;
-    return time_scale * _uph_sample_tempo_bpm(sample) / bpm;
+    return time_scale * uph__sample_tempo_bpm(sample) / bpm;
 }
 
 double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleData *data, double start_beat)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     uint32_t rate = state->device.sampleRate;
     if (rate == 0)
         rate = uph_state.settings.audio.sample_rate;
@@ -1797,7 +1797,7 @@ double uph_sample_block_length_beats(const Uph_Sample *sample, const Uph_SampleD
     const double source_seconds = (double)data->frame_count / (double)rate;
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     if (sample->follow_tempo)
-        return source_seconds * _uph_sample_tempo_bpm(sample) * time_scale / 60.0;
+        return source_seconds * uph__sample_tempo_bpm(sample) * time_scale / 60.0;
 
     return uph_tempo_seconds_to_beat(uph_tempo_beat_to_seconds(start_beat) + source_seconds * time_scale) - start_beat;
 }
@@ -1806,7 +1806,7 @@ double uph_sample_block_source_seconds(const Uph_Sample *sample, double block_st
 {
     const double time_scale = (sample->time_scale > 0.0f) ? (double)sample->time_scale : 1.0;
     if (sample->follow_tempo)
-        return (beat - block_start_beat + start_offset_beats) * 60.0 / (_uph_sample_tempo_bpm(sample) * time_scale);
+        return (beat - block_start_beat + start_offset_beats) * 60.0 / (uph__sample_tempo_bpm(sample) * time_scale);
 
     const double block_start_seconds = uph_tempo_beat_to_seconds(block_start_beat);
     const double offset_seconds = block_start_seconds - uph_tempo_beat_to_seconds(block_start_beat - start_offset_beats);
@@ -1828,7 +1828,7 @@ static void uph_build_waveform_peaks(Uph_SampleData *sample_data)
 
 static void uph_begin_recording(Uph_Track *track)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (track->type == UPH_RESOURCE_NONE)
         track->type = UPH_RESOURCE_SAMPLE;
     if (track->type != UPH_RESOURCE_SAMPLE)
@@ -2051,7 +2051,7 @@ static void uph_record_input(
 
 static void uph_audio_engine_capture_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_pcm_rb *rb = &state->input_rb;
     const ma_uint32 channels = device->capture.channels;
     const float *src = (const float*)input;
@@ -2072,7 +2072,7 @@ static void uph_audio_engine_capture_callback(ma_device *device, void *output, c
 
 static void uph_audio_engine_read_input(float *dst, ma_uint32 frame_count, ma_uint32 channels)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_pcm_rb *rb = &state->input_rb;
     const ma_uint32 capture_period = state->capture_device.capture.internalPeriodSizeInFrames;
     const ma_uint32 prime_frames = 2 * (frame_count > capture_period ? frame_count : capture_period);
@@ -2150,7 +2150,7 @@ typedef struct
 }
 Uph_AudioEnginePreviewState;
 
-static Uph_AudioEnginePreviewState _uph_audio_engine_preview_state;
+static Uph_AudioEnginePreviewState uph__audio_engine_preview_state;
 
 static ma_result uph_preview_decoder_init_file(const Naui_Path *path, const ma_decoder_config *config, ma_decoder *decoder)
 {
@@ -2325,7 +2325,7 @@ static Uph_PreviewStream *uph_preview_stream_open(const Naui_Path path, uint32_t
 
 Uph_PreviewSource uph_audio_engine_preview_open(const Naui_Path path)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     Uph_PreviewSource source = { 0 };
     const uint32_t device_rate = state->device.sampleRate;
 
@@ -2386,7 +2386,7 @@ void uph_audio_engine_preview_close(Uph_PreviewSource *source)
 
 static void uph_audio_engine_preview_mix_stream(Uph_PreviewStream *stream, float *out, ma_uint32 frame_count, float gain)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     if (atomic_load_explicit(&stream->seek_request, memory_order_acquire))
         return;
 
@@ -2418,7 +2418,7 @@ static void uph_audio_engine_preview_mix_stream(Uph_PreviewStream *stream, float
 
 static void uph_audio_engine_preview_mix_data(const Uph_SampleData *data, float *out, ma_uint32 frame_count, float gain)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     uint64_t position = atomic_load_explicit(&state->position, memory_order_relaxed);
     const bool stereo = data->channel_type == UPH_SAMPLE_STEREO;
     for (ma_uint32 f = 0; f < frame_count && position < data->frame_count; f++, position++)
@@ -2436,7 +2436,7 @@ static void uph_audio_engine_preview_mix_data(const Uph_SampleData *data, float 
 
 static void uph_audio_engine_preview_mix(float *out, ma_uint32 frame_count)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     if (!atomic_load_explicit(&state->playing, memory_order_acquire))
         return;
 
@@ -2456,7 +2456,7 @@ static void uph_audio_engine_preview_mix(float *out, ma_uint32 frame_count)
 
 void uph_audio_engine_preview_play(Uph_PreviewSource source)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     if (source.stream && !source.stream->thread)
     {
         source.stream->thread = naui_thread_create(uph_preview_stream_thread, source.stream);
@@ -2479,7 +2479,7 @@ void uph_audio_engine_preview_play(Uph_PreviewSource source)
 
 void uph_audio_engine_preview_restart(void)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     ma_spinlock_lock(&state->lock);
     const Uph_PreviewSource source = state->source;
     if (source.stream)
@@ -2492,18 +2492,18 @@ void uph_audio_engine_preview_restart(void)
 
 void uph_audio_engine_preview_stop(void)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     atomic_store_explicit(&state->playing, false, memory_order_release);
 }
 
 bool uph_audio_engine_preview_playing(void)
 {
-    return atomic_load_explicit(&_uph_audio_engine_preview_state.playing, memory_order_acquire);
+    return atomic_load_explicit(&uph__audio_engine_preview_state.playing, memory_order_acquire);
 }
 
 double uph_audio_engine_preview_progress(void)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     const Uph_PreviewSource source = state->source;
     const uint64_t frame_count = source.data ? source.data->frame_count : source.stream ? source.stream->frame_count : 0;
     if (frame_count == 0)
@@ -2514,7 +2514,7 @@ double uph_audio_engine_preview_progress(void)
 
 bool uph_audio_engine_preview_info(Uph_PreviewInfo *out)
 {
-    Uph_AudioEnginePreviewState *state = &_uph_audio_engine_preview_state;
+    Uph_AudioEnginePreviewState *state = &uph__audio_engine_preview_state;
     const Uph_PreviewSource source = state->source;
     if (source.data)
     {
@@ -2551,7 +2551,7 @@ bool uph_audio_engine_preview_info(Uph_PreviewInfo *out)
 
 static void uph_audio_engine_render_callback(ma_device *device, void *output, const void *input, ma_uint32 frame_count)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     static bool was_playing = false;
 
     const int render_state = atomic_load(&state->render_state);
@@ -2698,7 +2698,7 @@ static void uph_audio_engine_data_callback(ma_device *device, void *output, cons
 
 static bool uph_audio_engine_find_device(const ma_device_type type, const char *name, ma_device_id *id)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (!state->context_ready || !name[0])
         return false;
 
@@ -2728,7 +2728,7 @@ static bool uph_audio_engine_find_device(const ma_device_type type, const char *
 
 static void uph_audio_engine_init_capture_device(ma_context *context, const Uph_AudioSettings *settings, const ma_device_id *capture_id)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     state->capture_ready = false;
     state->input_primed = false;
 
@@ -2763,7 +2763,7 @@ static void uph_audio_engine_init_capture_device(ma_context *context, const Uph_
 
 static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_device_id device_id;
     const bool has_device_id = uph_audio_engine_find_device(ma_device_type_playback, settings->asio_device.data, &device_id);
 
@@ -2793,7 +2793,7 @@ static bool uph_audio_engine_init_asio_device(const Uph_AudioSettings *settings)
 
 static bool uph_audio_engine_init_device(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     Uph_AudioSettings settings = uph_state.settings.audio;
 
     if (state->context_driver == UPH_AUDIO_DRIVER_ASIO)
@@ -2835,7 +2835,7 @@ static bool uph_audio_engine_init_device(void)
 
 static void uph_audio_engine_uninit_device(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_device_uninit(&state->device);
     state->duplex = false;
 
@@ -2849,7 +2849,7 @@ static void uph_audio_engine_uninit_device(void)
 
 static bool uph_audio_engine_init_asio_context(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     ma_context_config config = ma_context_config_init();
     uph_asio_get_backend_callbacks(&config.custom);
 
@@ -2859,7 +2859,7 @@ static bool uph_audio_engine_init_asio_context(void)
 
 static void uph_audio_engine_init_context(Uph_AudioDriver driver)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (driver == UPH_AUDIO_DRIVER_ASIO)
     {
         if (uph_asio_supported() && uph_audio_engine_init_asio_context())
@@ -2881,7 +2881,7 @@ static void uph_audio_engine_init_context(Uph_AudioDriver driver)
 
 static void uph_audio_engine_uninit_context(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (!state->context_ready)
         return;
 
@@ -2891,7 +2891,7 @@ static void uph_audio_engine_uninit_context(void)
 
 void uph_audio_engine_init(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     uph_stretch_init_window();
     uph_audio_engine_init_context(uph_state.settings.audio.driver);
 
@@ -2913,12 +2913,12 @@ void uph_audio_engine_shutdown(void)
 
 ma_context *uph_audio_engine_get_context(void)
 {
-    return _uph_audio_engine_state.context_ready ? &_uph_audio_engine_state.context : NULL;
+    return uph__audio_engine_state.context_ready ? &uph__audio_engine_state.context : NULL;
 }
 
 bool uph_audio_engine_recreate(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     uph_audio_engine_uninit_device();
 
     const Uph_AudioDriver driver = uph_state.settings.audio.driver;
@@ -2933,12 +2933,12 @@ bool uph_audio_engine_recreate(void)
 
 Uph_AudioDriver uph_audio_engine_active_driver(void)
 {
-    return _uph_audio_engine_state.context_driver;
+    return uph__audio_engine_state.context_driver;
 }
 
 uint32_t uph_audio_engine_input_channel_count(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (state->duplex)
         return uph_asio_input_count();
 
@@ -2950,7 +2950,7 @@ uint32_t uph_audio_engine_input_channel_count(void)
 
 void uph_audio_engine_update(void)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     if (!uph_asio_consume_reset_request() || state->context_driver != UPH_AUDIO_DRIVER_ASIO)
         return;
 
@@ -2960,12 +2960,12 @@ void uph_audio_engine_update(void)
 
 bool uph_audio_engine_device_running(void)
 {
-    return ma_device_is_started(&_uph_audio_engine_state.device);
+    return ma_device_is_started(&uph__audio_engine_state.device);
 }
 
 Uph_SampleData uph_audio_engine_load_sample_data(Naui_Path path)
 {
-    Uph_AudioEngineState *state = &_uph_audio_engine_state;
+    Uph_AudioEngineState *state = &uph__audio_engine_state;
     Uph_SampleData sample_data = {0};
 
     size_t file_size;
@@ -3115,7 +3115,7 @@ double uph_audio_engine_get_song_length(void)
 
 uint32_t uph_audio_engine_sample_rate(void)
 {
-    return _uph_audio_engine_state.device.sampleRate;
+    return uph__audio_engine_state.device.sampleRate;
 }
 
 static ma_format uph_render_bit_depth_format(Uph_RenderBitDepth depth)
@@ -3167,11 +3167,11 @@ typedef struct
     bool locked;
 }
 Uph_RenderJobState;
-static Uph_RenderJobState _uph_render_job_state;
+static Uph_RenderJobState uph__render_job_state;
 
 static void uph_render_job_release(bool delete_file)
 {
-    Uph_RenderJobState *state = &_uph_render_job_state;
+    Uph_RenderJobState *state = &uph__render_job_state;
 
     if (state->locked)
     {
@@ -3196,7 +3196,7 @@ static void uph_render_job_release(bool delete_file)
 
 bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSettings *settings)
 {
-    Uph_RenderJobState *state = &_uph_render_job_state;
+    Uph_RenderJobState *state = &uph__render_job_state;
     if (state->phase != UPH_RENDER_JOB_IDLE)
         return false;
 
@@ -3322,7 +3322,7 @@ static bool uph_render_job_write_chunk(Uph_RenderJobState *job)
 
 Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
 {
-    Uph_RenderJobState *state = &_uph_render_job_state;
+    Uph_RenderJobState *state = &uph__render_job_state;
     if (state->phase == UPH_RENDER_JOB_IDLE)
         return UPH_RENDER_STATUS_IDLE;
 
@@ -3367,7 +3367,7 @@ Uph_RenderStatus uph_audio_engine_render_step(double budget_seconds)
 
 float uph_audio_engine_render_progress(void)
 {
-    const Uph_RenderJobState *state = &_uph_render_job_state;
+    const Uph_RenderJobState *state = &uph__render_job_state;
     if (state->phase == UPH_RENDER_JOB_IDLE || state->total_frames == 0)
         return 0.0f;
 
@@ -3378,17 +3378,17 @@ float uph_audio_engine_render_progress(void)
 
 bool uph_audio_engine_render_active(void)
 {
-    return _uph_render_job_state.phase != UPH_RENDER_JOB_IDLE;
+    return uph__render_job_state.phase != UPH_RENDER_JOB_IDLE;
 }
 
 void uph_audio_engine_render_cancel(void)
 {
-    Uph_RenderJobState *state = &_uph_render_job_state;
+    Uph_RenderJobState *state = &uph__render_job_state;
     if (state->phase != UPH_RENDER_JOB_IDLE)
         uph_render_job_release(true);
 }
 
-static bool _uph_audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
+static bool uph__audio_engine_render_to_wav(const char *filepath, const Uph_RenderSettings *settings)
 {
     if (!uph_audio_engine_render_begin(filepath, settings))
         return false;
@@ -3406,7 +3406,7 @@ bool uph_audio_engine_export_to_wav(const char *filepath, double start_beat, dou
         .channels = 2,
         .bit_depth = UPH_RENDER_BIT_DEPTH_32_FLOAT
     };
-    return _uph_audio_engine_render_to_wav(filepath, &settings);
+    return uph__audio_engine_render_to_wav(filepath, &settings);
 }
 
 void uph_audio_engine_unload_sample_data(Uph_SampleData *sample_data)

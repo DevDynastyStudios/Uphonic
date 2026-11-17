@@ -193,25 +193,25 @@ typedef struct NetQuic
 	uint64_t recovery_start_ms;
 } NetQuic;
 
-static const uint8_t _naui_net_quic_initial_salt[20] =
+static const uint8_t naui__net_quic_initial_salt[20] =
 {
 	0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17,
 	0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a,
 };
 
-static const uint8_t _naui_net_quic_retry_key[16] =
+static const uint8_t naui__net_quic_retry_key[16] =
 {
 	0xbe, 0x0c, 0x69, 0x0b, 0x9f, 0x66, 0x57, 0x5a, 0x1d, 0x76, 0x6b, 0x54, 0xe3, 0x68, 0xc8, 0x4e,
 };
 
-static const uint8_t _naui_net_quic_retry_nonce[12] =
+static const uint8_t naui__net_quic_retry_nonce[12] =
 {
 	0x46, 0x15, 0x99, 0xd3, 0x5d, 0x63, 0x2b, 0xf2, 0x23, 0x98, 0x25, 0xbb,
 };
 
-static void _naui_net_quic_flush(Naui_Net net, NetConnection* connection);
+static void naui__net_quic_flush(Naui_Net net, NetConnection* connection);
 
-static void _naui_net_ranges_add(Naui_List(NetQuicRange)* list, uint64_t start, uint64_t end)
+static void naui__net_ranges_add(Naui_List(NetQuicRange)* list, uint64_t start, uint64_t end)
 {
 	if (start >= end)
 		return;
@@ -245,7 +245,7 @@ static void _naui_net_ranges_add(Naui_List(NetQuicRange)* list, uint64_t start, 
 		arrdeln(*list, first + 1, last - first - 1);
 }
 
-static bool _naui_net_ranges_contain(const NetQuicRange* list, uint64_t value)
+static bool naui__net_ranges_contain(const NetQuicRange* list, uint64_t value)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(list); i++)
 	{
@@ -256,7 +256,7 @@ static bool _naui_net_ranges_contain(const NetQuicRange* list, uint64_t value)
 	return false;
 }
 
-static void _naui_net_ranges_remove_below(Naui_List(NetQuicRange)* list, uint64_t floor)
+static void naui__net_ranges_remove_below(Naui_List(NetQuicRange)* list, uint64_t floor)
 {
 	while (naui_list_len(*list) > 0 && (*list)[0].end <= floor)
 		naui_list_remove(*list, 0);
@@ -265,7 +265,7 @@ static void _naui_net_ranges_remove_below(Naui_List(NetQuicRange)* list, uint64_
 		(*list)[0].start = floor;
 }
 
-static size_t _naui_net_quic_varint_size(uint64_t value)
+static size_t naui__net_quic_varint_size(uint64_t value)
 {
 	if (value < 0x40)
 		return 1;
@@ -279,9 +279,9 @@ static size_t _naui_net_quic_varint_size(uint64_t value)
 	return 8;
 }
 
-static size_t _naui_net_quic_put_varint(uint8_t* out, uint64_t value)
+static size_t naui__net_quic_put_varint(uint8_t* out, uint64_t value)
 {
-	size_t size = _naui_net_quic_varint_size(value);
+	size_t size = naui__net_quic_varint_size(value);
 	for (size_t i = 0; i < size; i++)
 	{
 		out[size - 1 - i] = (uint8_t)(value >> (8 * i));
@@ -291,15 +291,15 @@ static size_t _naui_net_quic_put_varint(uint8_t* out, uint64_t value)
 	return size;
 }
 
-static uint64_t _naui_net_quic_read_varint(NetReader* reader)
+static uint64_t naui__net_quic_read_varint(NetReader* reader)
 {
-	const uint8_t* first = _naui_net_read_bytes(reader, 1);
+	const uint8_t* first = naui__net_read_bytes(reader, 1);
 	if (!first)
 		return 0;
 
 	size_t extra = ((size_t)1 << (first[0] >> 6)) - 1;
 	uint64_t value = first[0] & 0x3f;
-	const uint8_t* rest = _naui_net_read_bytes(reader, extra);
+	const uint8_t* rest = naui__net_read_bytes(reader, extra);
 	for (size_t i = 0; rest && i < extra; i++)
 	{
 		value = (value << 8) | rest[i];
@@ -308,19 +308,19 @@ static uint64_t _naui_net_quic_read_varint(NetReader* reader)
 	return value;
 }
 
-static void _naui_net_quic_write_u8(NetQuicWriter* writer, uint8_t value)
+static void naui__net_quic_write_u8(NetQuicWriter* writer, uint8_t value)
 {
 	if (writer->size < writer->cap)
 		writer->data[writer->size++] = value;
 }
 
-static void _naui_net_quic_write_varint(NetQuicWriter* writer, uint64_t value)
+static void naui__net_quic_write_varint(NetQuicWriter* writer, uint64_t value)
 {
-	if (writer->cap - writer->size >= _naui_net_quic_varint_size(value))
-		writer->size += _naui_net_quic_put_varint(writer->data + writer->size, value);
+	if (writer->cap - writer->size >= naui__net_quic_varint_size(value))
+		writer->size += naui__net_quic_put_varint(writer->data + writer->size, value);
 }
 
-static void _naui_net_quic_write_bytes(NetQuicWriter* writer, const void* data, size_t size)
+static void naui__net_quic_write_bytes(NetQuicWriter* writer, const void* data, size_t size)
 {
 	if (size == 0 || writer->cap - writer->size < size)
 		return;
@@ -329,30 +329,30 @@ static void _naui_net_quic_write_bytes(NetQuicWriter* writer, const void* data, 
 	writer->size += size;
 }
 
-static size_t _naui_net_quic_room(const NetQuicWriter* writer)
+static size_t naui__net_quic_room(const NetQuicWriter* writer)
 {
 	return writer->cap - writer->size;
 }
 
-static void _naui_net_quic_send_stream_free(NetQuicSendStream* stream)
+static void naui__net_quic_send_stream_free(NetQuicSendStream* stream)
 {
-	_naui_net_buffer_free(&stream->buffer);
+	naui__net_buffer_free(&stream->buffer);
 	naui_list_free(stream->acked);
 	naui_list_free(stream->lost);
 	memset(stream, 0, sizeof(*stream));
 }
 
-static uint64_t _naui_net_quic_send_stream_end(const NetQuicSendStream* stream)
+static uint64_t naui__net_quic_send_stream_end(const NetQuicSendStream* stream)
 {
-	return stream->base + _naui_net_buffer_len(&stream->buffer);
+	return stream->base + naui__net_buffer_len(&stream->buffer);
 }
 
-static const uint8_t* _naui_net_quic_send_stream_data(NetQuicSendStream* stream, uint64_t offset)
+static const uint8_t* naui__net_quic_send_stream_data(NetQuicSendStream* stream, uint64_t offset)
 {
-	return _naui_net_buffer_ptr(&stream->buffer) + (offset - stream->base);
+	return naui__net_buffer_ptr(&stream->buffer) + (offset - stream->base);
 }
 
-static bool _naui_net_quic_send_stream_pick(NetQuicSendStream* stream, size_t max_size, uint64_t limit, uint64_t* out_offset, size_t* out_size)
+static bool naui__net_quic_send_stream_pick(NetQuicSendStream* stream, size_t max_size, uint64_t limit, uint64_t* out_offset, size_t* out_size)
 {
 	if (max_size == 0)
 		return false;
@@ -389,7 +389,7 @@ static bool _naui_net_quic_send_stream_pick(NetQuicSendStream* stream, size_t ma
 		return true;
 	}
 
-	uint64_t end = _naui_net_quic_send_stream_end(stream);
+	uint64_t end = naui__net_quic_send_stream_end(stream);
 	if (end > limit)
 		end = limit;
 
@@ -406,15 +406,15 @@ static bool _naui_net_quic_send_stream_pick(NetQuicSendStream* stream, size_t ma
 	return true;
 }
 
-static void _naui_net_quic_send_stream_acked(NetQuicSendStream* stream, uint64_t offset, size_t size)
+static void naui__net_quic_send_stream_acked(NetQuicSendStream* stream, uint64_t offset, size_t size)
 {
-	_naui_net_ranges_add(&stream->acked, offset, offset + size);
+	naui__net_ranges_add(&stream->acked, offset, offset + size);
 	while (naui_list_len(stream->acked) > 0 && stream->acked[0].start <= stream->base)
 	{
 		uint64_t end = stream->acked[0].end;
 		if (end > stream->base)
 		{
-			_naui_net_buffer_consume(&stream->buffer, (size_t)(end - stream->base));
+			naui__net_buffer_consume(&stream->buffer, (size_t)(end - stream->base));
 			stream->base = end;
 		}
 
@@ -422,14 +422,14 @@ static void _naui_net_quic_send_stream_acked(NetQuicSendStream* stream, uint64_t
 	}
 }
 
-static void _naui_net_quic_recv_stream_free(NetQuicRecvStream* stream)
+static void naui__net_quic_recv_stream_free(NetQuicRecvStream* stream)
 {
 	free(stream->data);
 	naui_list_free(stream->got);
 	memset(stream, 0, sizeof(*stream));
 }
 
-static bool _naui_net_quic_recv_stream_write(NetQuicRecvStream* stream, uint64_t offset, const uint8_t* data, size_t size)
+static bool naui__net_quic_recv_stream_write(NetQuicRecvStream* stream, uint64_t offset, const uint8_t* data, size_t size)
 {
 	uint64_t end = offset + size;
 	if (end < offset || end > stream->base + stream->window)
@@ -452,11 +452,11 @@ static bool _naui_net_quic_recv_stream_write(NetQuicRecvStream* stream, uint64_t
 	}
 
 	memcpy(stream->data + (offset - stream->base), data, (size_t)(end - offset));
-	_naui_net_ranges_add(&stream->got, offset, end);
+	naui__net_ranges_add(&stream->got, offset, end);
 	return true;
 }
 
-static size_t _naui_net_quic_recv_stream_available(const NetQuicRecvStream* stream)
+static size_t naui__net_quic_recv_stream_available(const NetQuicRecvStream* stream)
 {
 	if (naui_list_len(stream->got) == 0 || stream->got[0].start > stream->base)
 		return 0;
@@ -464,66 +464,66 @@ static size_t _naui_net_quic_recv_stream_available(const NetQuicRecvStream* stre
 	return (size_t)(stream->got[0].end - stream->base);
 }
 
-static void _naui_net_quic_recv_stream_consume(NetQuicRecvStream* stream, size_t size)
+static void naui__net_quic_recv_stream_consume(NetQuicRecvStream* stream, size_t size)
 {
 	uint64_t extent = stream->got[naui_list_len(stream->got) - 1].end - stream->base;
 	memmove(stream->data, stream->data + size, (size_t)extent - size);
 	stream->base += size;
-	_naui_net_ranges_remove_below(&stream->got, stream->base);
+	naui__net_ranges_remove_below(&stream->got, stream->base);
 }
 
-static void _naui_net_quic_keys_derive(NetQuicKeys* keys, const uint8_t secret[NET_SHA256_SIZE], bool aes)
+static void naui__net_quic_keys_derive(NetQuicKeys* keys, const uint8_t secret[NET_SHA256_SIZE], bool aes)
 {
 	size_t key_size = aes ? 16 : 32;
 	keys->aes = aes;
 	memcpy(keys->secret, secret, NET_SHA256_SIZE);
-	_naui_net_hkdf_expand_label(secret, "quic key", NULL, 0, keys->key, key_size);
-	_naui_net_hkdf_expand_label(secret, "quic iv", NULL, 0, keys->iv, sizeof(keys->iv));
-	_naui_net_hkdf_expand_label(secret, "quic hp", NULL, 0, keys->hp, key_size);
+	naui__net_hkdf_expand_label(secret, "quic key", NULL, 0, keys->key, key_size);
+	naui__net_hkdf_expand_label(secret, "quic iv", NULL, 0, keys->iv, sizeof(keys->iv));
+	naui__net_hkdf_expand_label(secret, "quic hp", NULL, 0, keys->hp, key_size);
 	keys->ready = true;
 }
 
-static void _naui_net_quic_keys_update(NetQuicKeys* next, const NetQuicKeys* current)
+static void naui__net_quic_keys_update(NetQuicKeys* next, const NetQuicKeys* current)
 {
 	uint8_t secret[NET_SHA256_SIZE];
-	_naui_net_hkdf_expand_label(current->secret, "quic ku", NULL, 0, secret, sizeof(secret));
+	naui__net_hkdf_expand_label(current->secret, "quic ku", NULL, 0, secret, sizeof(secret));
 
 	*next = *current;
 	memcpy(next->secret, secret, sizeof(secret));
-	_naui_net_hkdf_expand_label(secret, "quic key", NULL, 0, next->key, 32);
-	_naui_net_hkdf_expand_label(secret, "quic iv", NULL, 0, next->iv, sizeof(next->iv));
-	_naui_net_wipe(secret, sizeof(secret));
+	naui__net_hkdf_expand_label(secret, "quic key", NULL, 0, next->key, 32);
+	naui__net_hkdf_expand_label(secret, "quic iv", NULL, 0, next->iv, sizeof(next->iv));
+	naui__net_wipe(secret, sizeof(secret));
 }
 
-static void _naui_net_quic_initial_keys(NetQuic* quic, const uint8_t* dcid, size_t dcid_size)
+static void naui__net_quic_initial_keys(NetQuic* quic, const uint8_t* dcid, size_t dcid_size)
 {
 	uint8_t initial[NET_SHA256_SIZE];
 	uint8_t client[NET_SHA256_SIZE];
 	uint8_t server[NET_SHA256_SIZE];
-	_naui_net_hkdf_extract(_naui_net_quic_initial_salt, sizeof(_naui_net_quic_initial_salt), dcid, dcid_size, initial);
-	_naui_net_hkdf_expand_label(initial, "client in", NULL, 0, client, sizeof(client));
-	_naui_net_hkdf_expand_label(initial, "server in", NULL, 0, server, sizeof(server));
+	naui__net_hkdf_extract(naui__net_quic_initial_salt, sizeof(naui__net_quic_initial_salt), dcid, dcid_size, initial);
+	naui__net_hkdf_expand_label(initial, "client in", NULL, 0, client, sizeof(client));
+	naui__net_hkdf_expand_label(initial, "server in", NULL, 0, server, sizeof(server));
 
 	NetQuicSpace* space = &quic->spaces[NET_TLS_LEVEL_INITIAL];
-	_naui_net_quic_keys_derive(&space->rx, quic->server ? client : server, true);
-	_naui_net_quic_keys_derive(&space->tx, quic->server ? server : client, true);
+	naui__net_quic_keys_derive(&space->rx, quic->server ? client : server, true);
+	naui__net_quic_keys_derive(&space->tx, quic->server ? server : client, true);
 }
 
-static void _naui_net_quic_header_mask(const NetQuicKeys* keys, const uint8_t sample[16], uint8_t mask[5])
+static void naui__net_quic_header_mask(const NetQuicKeys* keys, const uint8_t sample[16], uint8_t mask[5])
 {
 	if (keys->aes)
 	{
 		uint8_t block[16];
-		_naui_net_aes128_encrypt(keys->hp, sample, block);
+		naui__net_aes128_encrypt(keys->hp, sample, block);
 		memcpy(mask, block, 5);
 		return;
 	}
 
 	uint8_t zero[5] = { 0 };
-	_naui_net_chacha20_xor(keys->hp, _naui_net_load32_le(sample), sample + 4, zero, mask, 5);
+	naui__net_chacha20_xor(keys->hp, naui__net_load32_le(sample), sample + 4, zero, mask, 5);
 }
 
-static void _naui_net_quic_nonce(const NetQuicKeys* keys, uint64_t pn, uint8_t nonce[NET_AEAD_NONCE_SIZE])
+static void naui__net_quic_nonce(const NetQuicKeys* keys, uint64_t pn, uint8_t nonce[NET_AEAD_NONCE_SIZE])
 {
 	memcpy(nonce, keys->iv, NET_AEAD_NONCE_SIZE);
 	for (int i = 0; i < 8; i++)
@@ -532,7 +532,7 @@ static void _naui_net_quic_nonce(const NetQuicKeys* keys, uint64_t pn, uint8_t n
 	}
 }
 
-static uint64_t _naui_net_quic_decode_pn(uint64_t expected, uint64_t truncated, int bits)
+static uint64_t naui__net_quic_decode_pn(uint64_t expected, uint64_t truncated, int bits)
 {
 	uint64_t window = (uint64_t)1 << bits;
 	uint64_t half = window / 2;
@@ -547,7 +547,7 @@ static uint64_t _naui_net_quic_decode_pn(uint64_t expected, uint64_t truncated, 
 	return candidate;
 }
 
-static void _naui_net_quic_space_discard(NetQuic* quic, NetQuicSpace* space)
+static void naui__net_quic_space_discard(NetQuic* quic, NetQuicSpace* space)
 {
 	if (space->discarded)
 		return;
@@ -559,17 +559,17 @@ static void _naui_net_quic_space_discard(NetQuic* quic, NetQuicSpace* space)
 
 	naui_list_free(space->received);
 	naui_list_free(space->sent);
-	_naui_net_quic_send_stream_free(&space->crypto_tx);
-	_naui_net_quic_recv_stream_free(&space->crypto_rx);
-	_naui_net_wipe(&space->rx, sizeof(space->rx));
-	_naui_net_wipe(&space->tx, sizeof(space->tx));
+	naui__net_quic_send_stream_free(&space->crypto_tx);
+	naui__net_quic_recv_stream_free(&space->crypto_rx);
+	naui__net_wipe(&space->rx, sizeof(space->rx));
+	naui__net_wipe(&space->tx, sizeof(space->tx));
 	space->discarded = true;
 	space->ack_pending = false;
 	space->probe = false;
 	space->loss_time_ms = 0;
 }
 
-static void _naui_net_quic_free(NetConnection* connection)
+static void naui__net_quic_free(NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
 	if (!quic)
@@ -577,7 +577,7 @@ static void _naui_net_quic_free(NetConnection* connection)
 
 	for (int i = 0; i < NET_TLS_LEVEL_COUNT; i++)
 	{
-		_naui_net_quic_space_discard(quic, &quic->spaces[i]);
+		naui__net_quic_space_discard(quic, &quic->spaces[i]);
 	}
 
 	for (ptrdiff_t i = 0; i < naui_list_len(quic->datagrams); i++)
@@ -586,16 +586,16 @@ static void _naui_net_quic_free(NetConnection* connection)
 	}
 
 	naui_list_free(quic->datagrams);
-	_naui_net_quic_send_stream_free(&quic->stream_tx);
-	_naui_net_quic_recv_stream_free(&quic->stream_rx);
-	_naui_net_tls_free(&quic->tls);
+	naui__net_quic_send_stream_free(&quic->stream_tx);
+	naui__net_quic_recv_stream_free(&quic->stream_rx);
+	naui__net_tls_free(&quic->tls);
 	free(quic->token);
-	_naui_net_wipe(quic, sizeof(*quic));
+	naui__net_wipe(quic, sizeof(*quic));
 	free(quic);
 	connection->quic = NULL;
 }
 
-static NetQuic* _naui_net_quic_new(Naui_Net net, NetConnection* connection, bool server)
+static NetQuic* naui__net_quic_new(Naui_Net net, NetConnection* connection, bool server)
 {
 	NetQuic* quic = (NetQuic*)calloc(1, sizeof(*quic));
 	if (!quic)
@@ -614,53 +614,53 @@ static NetQuic* _naui_net_quic_new(Naui_Net net, NetConnection* connection, bool
 		quic->spaces[i].crypto_rx.window = NET_QUIC_CRYPTO_WINDOW;
 	}
 
-	_naui_net_tls_init(&quic->tls, server, net->device_key.bytes, net->local.id.bytes);
+	naui__net_tls_init(&quic->tls, server, net->device_key.bytes, net->local.id.bytes);
 	connection->quic = quic;
 	return quic;
 }
 
-static void _naui_net_quic_write_param(NetQuicWriter* writer, uint64_t id, uint64_t value)
+static void naui__net_quic_write_param(NetQuicWriter* writer, uint64_t id, uint64_t value)
 {
-	_naui_net_quic_write_varint(writer, id);
-	_naui_net_quic_write_varint(writer, _naui_net_quic_varint_size(value));
-	_naui_net_quic_write_varint(writer, value);
+	naui__net_quic_write_varint(writer, id);
+	naui__net_quic_write_varint(writer, naui__net_quic_varint_size(value));
+	naui__net_quic_write_varint(writer, value);
 }
 
-static void _naui_net_quic_write_param_bytes(NetQuicWriter* writer, uint64_t id, const uint8_t* data, size_t size)
+static void naui__net_quic_write_param_bytes(NetQuicWriter* writer, uint64_t id, const uint8_t* data, size_t size)
 {
-	_naui_net_quic_write_varint(writer, id);
-	_naui_net_quic_write_varint(writer, size);
-	_naui_net_quic_write_bytes(writer, data, size);
+	naui__net_quic_write_varint(writer, id);
+	naui__net_quic_write_varint(writer, size);
+	naui__net_quic_write_bytes(writer, data, size);
 }
 
-static void _naui_net_quic_encode_params(Naui_Net net, NetQuic* quic)
+static void naui__net_quic_encode_params(Naui_Net net, NetQuic* quic)
 {
 	NetQuicWriter writer = { quic->tls.local_params, 0, sizeof(quic->tls.local_params) };
 	if (quic->server)
 	{
-		_naui_net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_ORIGINAL_DCID, quic->original_dcid, quic->original_dcid_size);
-		_naui_net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_RETRY_SCID, quic->local_cid, sizeof(quic->local_cid));
-		_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAMS_BIDI, 1);
+		naui__net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_ORIGINAL_DCID, quic->original_dcid, quic->original_dcid_size);
+		naui__net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_RETRY_SCID, quic->local_cid, sizeof(quic->local_cid));
+		naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAMS_BIDI, 1);
 	}
 
-	_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_IDLE_TIMEOUT, net->config.idle_timeout_ms);
-	_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_DATA, NET_QUIC_STREAM_WINDOW);
-	_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_LOCAL, NET_QUIC_STREAM_WINDOW);
-	_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_REMOTE, NET_QUIC_STREAM_WINDOW);
-	_naui_net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_DISABLE_ACTIVE_MIGRATION, NULL, 0);
-	_naui_net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_INITIAL_SCID, quic->local_cid, sizeof(quic->local_cid));
-	_naui_net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_DATAGRAM_FRAME_SIZE, NET_QUIC_PEER_DATAGRAM_FRAME_SIZE);
+	naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_IDLE_TIMEOUT, net->config.idle_timeout_ms);
+	naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_DATA, NET_QUIC_STREAM_WINDOW);
+	naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_LOCAL, NET_QUIC_STREAM_WINDOW);
+	naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_REMOTE, NET_QUIC_STREAM_WINDOW);
+	naui__net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_DISABLE_ACTIVE_MIGRATION, NULL, 0);
+	naui__net_quic_write_param_bytes(&writer, NET_QUIC_PARAM_INITIAL_SCID, quic->local_cid, sizeof(quic->local_cid));
+	naui__net_quic_write_param(&writer, NET_QUIC_PARAM_MAX_DATAGRAM_FRAME_SIZE, NET_QUIC_PEER_DATAGRAM_FRAME_SIZE);
 	quic->tls.local_params_size = writer.size;
 }
 
-static bool _naui_net_quic_cid_matches(NetReader value, const uint8_t* cid, size_t size)
+static bool naui__net_quic_cid_matches(NetReader value, const uint8_t* cid, size_t size)
 {
 	return value.left == size && memcmp(value.p, cid, size) == 0;
 }
 
-static bool _naui_net_quic_parse_params(NetQuic* quic)
+static bool naui__net_quic_parse_params(NetQuic* quic)
 {
-	NetReader reader = _naui_net_reader(quic->tls.peer_params, quic->tls.peer_params_size);
+	NetReader reader = naui__net_reader(quic->tls.peer_params, quic->tls.peer_params_size);
 	bool original_ok = false;
 	bool initial_ok = false;
 	bool retry_ok = !quic->retried;
@@ -670,32 +670,32 @@ static bool _naui_net_quic_parse_params(NetQuic* quic)
 
 	while (reader.left > 0)
 	{
-		uint64_t id = _naui_net_quic_read_varint(&reader);
-		size_t size = (size_t)_naui_net_quic_read_varint(&reader);
-		const uint8_t* data = _naui_net_read_bytes(&reader, size);
+		uint64_t id = naui__net_quic_read_varint(&reader);
+		size_t size = (size_t)naui__net_quic_read_varint(&reader);
+		const uint8_t* data = naui__net_read_bytes(&reader, size);
 		if (!data)
 			return false;
 
-		NetReader value = _naui_net_reader(data, size);
+		NetReader value = naui__net_reader(data, size);
 		if (id == NET_QUIC_PARAM_ORIGINAL_DCID)
-			original_ok = _naui_net_quic_cid_matches(value, quic->original_dcid, quic->original_dcid_size);
+			original_ok = naui__net_quic_cid_matches(value, quic->original_dcid, quic->original_dcid_size);
 		else if (id == NET_QUIC_PARAM_INITIAL_SCID)
-			initial_ok = _naui_net_quic_cid_matches(value, quic->remote_cid, quic->remote_cid_size);
+			initial_ok = naui__net_quic_cid_matches(value, quic->remote_cid, quic->remote_cid_size);
 		else if (id == NET_QUIC_PARAM_RETRY_SCID)
-			retry_ok = quic->retried && _naui_net_quic_cid_matches(value, quic->retry_scid, quic->retry_scid_size);
+			retry_ok = quic->retried && naui__net_quic_cid_matches(value, quic->retry_scid, quic->retry_scid_size);
 		else if (id == NET_QUIC_PARAM_MAX_DATA)
-			quic->peer_max_data = _naui_net_quic_read_varint(&value);
+			quic->peer_max_data = naui__net_quic_read_varint(&value);
 		else if (id == NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_LOCAL)
-			bidi_local = _naui_net_quic_read_varint(&value);
+			bidi_local = naui__net_quic_read_varint(&value);
 		else if (id == NET_QUIC_PARAM_MAX_STREAM_DATA_BIDI_REMOTE)
-			bidi_remote = _naui_net_quic_read_varint(&value);
+			bidi_remote = naui__net_quic_read_varint(&value);
 		else if (id == NET_QUIC_PARAM_MAX_STREAMS_BIDI)
-			streams = _naui_net_quic_read_varint(&value);
+			streams = naui__net_quic_read_varint(&value);
 		else if (id == NET_QUIC_PARAM_MAX_DATAGRAM_FRAME_SIZE)
-			quic->peer_max_datagram = _naui_net_quic_read_varint(&value);
+			quic->peer_max_datagram = naui__net_quic_read_varint(&value);
 		else if (id == NET_QUIC_PARAM_ACK_DELAY_EXPONENT)
-			quic->peer_ack_delay_exponent = _naui_net_quic_read_varint(&value);
-		else if (id == NET_QUIC_PARAM_MAX_UDP_PAYLOAD_SIZE && _naui_net_quic_read_varint(&value) < NET_QUIC_DATAGRAM_SIZE)
+			quic->peer_ack_delay_exponent = naui__net_quic_read_varint(&value);
+		else if (id == NET_QUIC_PARAM_MAX_UDP_PAYLOAD_SIZE && naui__net_quic_read_varint(&value) < NET_QUIC_DATAGRAM_SIZE)
 			return false;
 
 		if (!value.ok)
@@ -715,7 +715,7 @@ static bool _naui_net_quic_parse_params(NetQuic* quic)
 	return original_ok && retry_ok && streams >= 1;
 }
 
-static size_t _naui_net_quic_write_header(const NetQuic* quic, NetTlsLevel level, uint64_t pn, uint8_t* out, size_t* length_offset)
+static size_t naui__net_quic_write_header(const NetQuic* quic, NetTlsLevel level, uint64_t pn, uint8_t* out, size_t* length_offset)
 {
 	size_t n = 0;
 	if (level == NET_TLS_LEVEL_APPLICATION)
@@ -727,7 +727,7 @@ static size_t _naui_net_quic_write_header(const NetQuic* quic, NetTlsLevel level
 	else
 	{
 		out[n++] = level == NET_TLS_LEVEL_HANDSHAKE ? 0xe3 : 0xc3;
-		_naui_net_put_u32(out + n, NET_QUIC_VERSION);
+		naui__net_put_u32(out + n, NET_QUIC_VERSION);
 		n += 4;
 		out[n++] = quic->remote_cid_size;
 		memcpy(out + n, quic->remote_cid, quic->remote_cid_size);
@@ -738,7 +738,7 @@ static size_t _naui_net_quic_write_header(const NetQuic* quic, NetTlsLevel level
 
 		if (level == NET_TLS_LEVEL_INITIAL)
 		{
-			n += _naui_net_quic_put_varint(out + n, quic->token_size);
+			n += naui__net_quic_put_varint(out + n, quic->token_size);
 			if (quic->token_size)
 				memcpy(out + n, quic->token, quic->token_size);
 
@@ -749,14 +749,14 @@ static size_t _naui_net_quic_write_header(const NetQuic* quic, NetTlsLevel level
 		n += 2;
 	}
 
-	_naui_net_put_u32(out + n, (uint32_t)pn);
+	naui__net_put_u32(out + n, (uint32_t)pn);
 	return n + 4;
 }
 
-static void _naui_net_quic_write_ack(NetQuicSpace* space, NetQuicWriter* writer)
+static void naui__net_quic_write_ack(NetQuicSpace* space, NetQuicWriter* writer)
 {
 	ptrdiff_t count = naui_list_len(space->received);
-	if (count == 0 || _naui_net_quic_room(writer) < 64 + 16 * NET_QUIC_MAX_SENT_ACK_RANGES)
+	if (count == 0 || naui__net_quic_room(writer) < 64 + 16 * NET_QUIC_MAX_SENT_ACK_RANGES)
 		return;
 
 	ptrdiff_t extra = count - 1;
@@ -764,24 +764,24 @@ static void _naui_net_quic_write_ack(NetQuicSpace* space, NetQuicWriter* writer)
 		extra = NET_QUIC_MAX_SENT_ACK_RANGES - 1;
 
 	NetQuicRange top = space->received[count - 1];
-	_naui_net_quic_write_u8(writer, 0x02);
-	_naui_net_quic_write_varint(writer, top.end - 1);
-	_naui_net_quic_write_varint(writer, 0);
-	_naui_net_quic_write_varint(writer, (uint64_t)extra);
-	_naui_net_quic_write_varint(writer, top.end - top.start - 1);
+	naui__net_quic_write_u8(writer, 0x02);
+	naui__net_quic_write_varint(writer, top.end - 1);
+	naui__net_quic_write_varint(writer, 0);
+	naui__net_quic_write_varint(writer, (uint64_t)extra);
+	naui__net_quic_write_varint(writer, top.end - top.start - 1);
 
 	for (ptrdiff_t i = 0; i < extra; i++)
 	{
 		NetQuicRange above = space->received[count - 1 - i];
 		NetQuicRange range = space->received[count - 2 - i];
-		_naui_net_quic_write_varint(writer, above.start - range.end - 1);
-		_naui_net_quic_write_varint(writer, range.end - range.start - 1);
+		naui__net_quic_write_varint(writer, above.start - range.end - 1);
+		naui__net_quic_write_varint(writer, range.end - range.start - 1);
 	}
 
 	space->ack_pending = false;
 }
 
-static void _naui_net_quic_seal_and_send(Naui_Net net, NetConnection* connection, NetTlsLevel level, uint8_t* datagram, size_t header_size, size_t length_offset, const uint8_t* plain, size_t plain_size, uint64_t pn)
+static void naui__net_quic_seal_and_send(Naui_Net net, NetConnection* connection, NetTlsLevel level, uint8_t* datagram, size_t header_size, size_t length_offset, const uint8_t* plain, size_t plain_size, uint64_t pn)
 {
 	NetQuic* quic = connection->quic;
 	NetQuicSpace* space = &quic->spaces[level];
@@ -796,9 +796,9 @@ static void _naui_net_quic_seal_and_send(Naui_Net net, NetConnection* connection
 
 	uint8_t nonce[NET_AEAD_NONCE_SIZE];
 	uint8_t mask[5];
-	_naui_net_quic_nonce(&space->tx, pn, nonce);
-	_naui_net_aead_seal(space->tx.aes, space->tx.key, nonce, datagram, header_size, plain, plain_size, datagram + header_size);
-	_naui_net_quic_header_mask(&space->tx, datagram + header_size, mask);
+	naui__net_quic_nonce(&space->tx, pn, nonce);
+	naui__net_aead_seal(space->tx.aes, space->tx.key, nonce, datagram, header_size, plain, plain_size, datagram + header_size);
+	naui__net_quic_header_mask(&space->tx, datagram + header_size, mask);
 
 	datagram[0] ^= mask[0] & (level == NET_TLS_LEVEL_APPLICATION ? 0x1f : 0x0f);
 	for (int i = 0; i < 4; i++)
@@ -812,68 +812,68 @@ static void _naui_net_quic_seal_and_send(Naui_Net net, NetConnection* connection
 	connection->bytes_sent += total;
 }
 
-static void _naui_net_quic_requeue(NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
+static void naui__net_quic_requeue(NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
 {
 	if (sent->crypto_size)
-		_naui_net_ranges_add(&space->crypto_tx.lost, sent->crypto_offset, sent->crypto_offset + sent->crypto_size);
+		naui__net_ranges_add(&space->crypto_tx.lost, sent->crypto_offset, sent->crypto_offset + sent->crypto_size);
 
 	if (sent->stream_size)
-		_naui_net_ranges_add(&quic->stream_tx.lost, sent->stream_offset, sent->stream_offset + sent->stream_size);
+		naui__net_ranges_add(&quic->stream_tx.lost, sent->stream_offset, sent->stream_offset + sent->stream_size);
 
 	quic->handshake_done_pending |= sent->handshake_done;
 	quic->window_update_pending |= sent->window_update;
 	quic->retire_cid_pending |= sent->retire_cid;
 }
 
-static void _naui_net_quic_write_application_frames(Naui_Net net, NetConnection* connection, NetQuicWriter* writer, NetQuicSent* sent)
+static void naui__net_quic_write_application_frames(Naui_Net net, NetConnection* connection, NetQuicWriter* writer, NetQuicSent* sent)
 {
 	NetQuic* quic = connection->quic;
-	if (quic->handshake_done_pending && _naui_net_quic_room(writer) >= 1)
+	if (quic->handshake_done_pending && naui__net_quic_room(writer) >= 1)
 	{
-		_naui_net_quic_write_u8(writer, 0x1e);
+		naui__net_quic_write_u8(writer, 0x1e);
 		quic->handshake_done_pending = false;
 		sent->handshake_done = true;
 	}
 
-	if (quic->window_update_pending && _naui_net_quic_room(writer) >= 20)
+	if (quic->window_update_pending && naui__net_quic_room(writer) >= 20)
 	{
 		quic->advertised_max_data = quic->stream_rx.base + NET_QUIC_STREAM_WINDOW;
-		_naui_net_quic_write_u8(writer, 0x10);
-		_naui_net_quic_write_varint(writer, quic->advertised_max_data);
-		_naui_net_quic_write_u8(writer, 0x11);
-		_naui_net_quic_write_varint(writer, 0);
-		_naui_net_quic_write_varint(writer, quic->advertised_max_data);
+		naui__net_quic_write_u8(writer, 0x10);
+		naui__net_quic_write_varint(writer, quic->advertised_max_data);
+		naui__net_quic_write_u8(writer, 0x11);
+		naui__net_quic_write_varint(writer, 0);
+		naui__net_quic_write_varint(writer, quic->advertised_max_data);
 		quic->window_update_pending = false;
 		sent->window_update = true;
 	}
 
-	if (quic->retire_cid_pending && _naui_net_quic_room(writer) >= 9)
+	if (quic->retire_cid_pending && naui__net_quic_room(writer) >= 9)
 	{
-		_naui_net_quic_write_u8(writer, 0x19);
-		_naui_net_quic_write_varint(writer, quic->retire_sequence);
+		naui__net_quic_write_u8(writer, 0x19);
+		naui__net_quic_write_varint(writer, quic->retire_sequence);
 		quic->retire_cid_pending = false;
 		sent->retire_cid = true;
 	}
 
-	if (quic->path_response_pending && _naui_net_quic_room(writer) >= 9)
+	if (quic->path_response_pending && naui__net_quic_room(writer) >= 9)
 	{
-		_naui_net_quic_write_u8(writer, 0x1b);
-		_naui_net_quic_write_bytes(writer, quic->path_response, sizeof(quic->path_response));
+		naui__net_quic_write_u8(writer, 0x1b);
+		naui__net_quic_write_bytes(writer, quic->path_response, sizeof(quic->path_response));
 		quic->path_response_pending = false;
 	}
 
-	if (quic->ping_pending && _naui_net_quic_room(writer) >= 1)
+	if (quic->ping_pending && naui__net_quic_room(writer) >= 1)
 	{
-		_naui_net_quic_write_u8(writer, 0x01);
+		naui__net_quic_write_u8(writer, 0x01);
 		quic->ping_pending = false;
 	}
 
-	while (naui_list_len(quic->datagrams) > 0 && _naui_net_quic_room(writer) >= quic->datagrams[0].size + 3)
+	while (naui_list_len(quic->datagrams) > 0 && naui__net_quic_room(writer) >= quic->datagrams[0].size + 3)
 	{
 		NetQuicDatagram datagram = quic->datagrams[0];
-		_naui_net_quic_write_u8(writer, 0x31);
-		_naui_net_quic_write_varint(writer, datagram.size);
-		_naui_net_quic_write_bytes(writer, datagram.data, datagram.size);
+		naui__net_quic_write_u8(writer, 0x31);
+		naui__net_quic_write_varint(writer, datagram.size);
+		naui__net_quic_write_bytes(writer, datagram.data, datagram.size);
 		free(datagram.data);
 		naui_list_remove(quic->datagrams, 0);
 	}
@@ -881,22 +881,22 @@ static void _naui_net_quic_write_application_frames(Naui_Net net, NetConnection*
 	uint64_t limit = quic->peer_max_data < quic->peer_max_stream_data ? quic->peer_max_data : quic->peer_max_stream_data;
 	uint64_t offset = 0;
 	size_t size = 0;
-	if (!quic->stream_open || _naui_net_quic_room(writer) < 16)
+	if (!quic->stream_open || naui__net_quic_room(writer) < 16)
 		return;
 
-	if (!_naui_net_quic_send_stream_pick(&quic->stream_tx, _naui_net_quic_room(writer) - 12, limit, &offset, &size))
+	if (!naui__net_quic_send_stream_pick(&quic->stream_tx, naui__net_quic_room(writer) - 12, limit, &offset, &size))
 		return;
 
-	_naui_net_quic_write_u8(writer, 0x0e);
-	_naui_net_quic_write_varint(writer, 0);
-	_naui_net_quic_write_varint(writer, offset);
-	_naui_net_quic_write_varint(writer, size);
-	_naui_net_quic_write_bytes(writer, _naui_net_quic_send_stream_data(&quic->stream_tx, offset), size);
+	naui__net_quic_write_u8(writer, 0x0e);
+	naui__net_quic_write_varint(writer, 0);
+	naui__net_quic_write_varint(writer, offset);
+	naui__net_quic_write_varint(writer, size);
+	naui__net_quic_write_bytes(writer, naui__net_quic_send_stream_data(&quic->stream_tx, offset), size);
 	sent->stream_offset = offset;
 	sent->stream_size = (uint16_t)size;
 }
 
-static bool _naui_net_quic_flush_level(Naui_Net net, NetConnection* connection, NetTlsLevel level)
+static bool naui__net_quic_flush_level(Naui_Net net, NetConnection* connection, NetTlsLevel level)
 {
 	NetQuic* quic = connection->quic;
 	NetQuicSpace* space = &quic->spaces[level];
@@ -907,7 +907,7 @@ static bool _naui_net_quic_flush_level(Naui_Net net, NetConnection* connection, 
 	uint8_t plain[NET_QUIC_DATAGRAM_SIZE] = { 0 };
 	size_t length_offset = 0;
 	uint64_t pn = space->next_pn;
-	size_t header_size = _naui_net_quic_write_header(quic, level, pn, datagram, &length_offset);
+	size_t header_size = naui__net_quic_write_header(quic, level, pn, datagram, &length_offset);
 	if (header_size + NET_AEAD_TAG_SIZE + 64 > NET_QUIC_DATAGRAM_SIZE)
 		return false;
 
@@ -915,31 +915,31 @@ static bool _naui_net_quic_flush_level(Naui_Net net, NetConnection* connection, 
 	NetQuicSent sent = { .pn = pn, .time_ms = net->now_ms };
 
 	if (space->probe && naui_list_len(space->sent) > 0)
-		_naui_net_quic_requeue(quic, space, &space->sent[0]);
+		naui__net_quic_requeue(quic, space, &space->sent[0]);
 
 	if (space->ack_pending)
-		_naui_net_quic_write_ack(space, &writer);
+		naui__net_quic_write_ack(space, &writer);
 
 	size_t ack_size = writer.size;
 	if (space->probe || quic->bytes_in_flight + NET_QUIC_DATAGRAM_SIZE <= quic->cwnd)
 	{
 		uint64_t offset = 0;
 		size_t size = 0;
-		if (_naui_net_quic_room(&writer) > 16 && _naui_net_quic_send_stream_pick(&space->crypto_tx, _naui_net_quic_room(&writer) - 12, UINT64_MAX, &offset, &size))
+		if (naui__net_quic_room(&writer) > 16 && naui__net_quic_send_stream_pick(&space->crypto_tx, naui__net_quic_room(&writer) - 12, UINT64_MAX, &offset, &size))
 		{
-			_naui_net_quic_write_u8(&writer, 0x06);
-			_naui_net_quic_write_varint(&writer, offset);
-			_naui_net_quic_write_varint(&writer, size);
-			_naui_net_quic_write_bytes(&writer, _naui_net_quic_send_stream_data(&space->crypto_tx, offset), size);
+			naui__net_quic_write_u8(&writer, 0x06);
+			naui__net_quic_write_varint(&writer, offset);
+			naui__net_quic_write_varint(&writer, size);
+			naui__net_quic_write_bytes(&writer, naui__net_quic_send_stream_data(&space->crypto_tx, offset), size);
 			sent.crypto_offset = offset;
 			sent.crypto_size = (uint16_t)size;
 		}
 
 		if (level == NET_TLS_LEVEL_APPLICATION && quic->complete)
-			_naui_net_quic_write_application_frames(net, connection, &writer, &sent);
+			naui__net_quic_write_application_frames(net, connection, &writer, &sent);
 
 		if (space->probe && writer.size == ack_size)
-			_naui_net_quic_write_u8(&writer, 0x01);
+			naui__net_quic_write_u8(&writer, 0x01);
 	}
 
 	if (writer.size == 0)
@@ -951,7 +951,7 @@ static bool _naui_net_quic_flush_level(Naui_Net net, NetConnection* connection, 
 
 	space->next_pn++;
 	space->probe = false;
-	_naui_net_quic_seal_and_send(net, connection, level, datagram, header_size, length_offset, plain, writer.size, pn);
+	naui__net_quic_seal_and_send(net, connection, level, datagram, header_size, length_offset, plain, writer.size, pn);
 	if (!ack_eliciting)
 		return true;
 
@@ -964,7 +964,7 @@ static bool _naui_net_quic_flush_level(Naui_Net net, NetConnection* connection, 
 	return true;
 }
 
-static void _naui_net_quic_set_timer(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_set_timer(Naui_Net net, NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
 	quic->timer_ms = 0;
@@ -1007,7 +1007,7 @@ static void _naui_net_quic_set_timer(Naui_Net net, NetConnection* connection)
 	quic->timer_ms = base + (pto << shift);
 }
 
-static void _naui_net_quic_flush(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_flush(Naui_Net net, NetConnection* connection)
 {
 	if (!connection->quic || connection->phase == NET_PHASE_CLOSED)
 		return;
@@ -1015,20 +1015,20 @@ static void _naui_net_quic_flush(Naui_Net net, NetConnection* connection)
 	int budget = NET_QUIC_MAX_FLUSH_PACKETS;
 	for (int level = 0; level < NET_TLS_LEVEL_COUNT; level++)
 	{
-		while (budget > 0 && _naui_net_quic_flush_level(net, connection, (NetTlsLevel)level))
+		while (budget > 0 && naui__net_quic_flush_level(net, connection, (NetTlsLevel)level))
 			budget--;
 	}
 
-	_naui_net_quic_set_timer(net, connection);
+	naui__net_quic_set_timer(net, connection);
 }
 
-static void _naui_net_quic_fail(Naui_Net net, NetConnection* connection, uint64_t error)
+static void naui__net_quic_fail(Naui_Net net, NetConnection* connection, uint64_t error)
 {
 	connection->quic->error = error;
-	_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, true);
+	naui__net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, true);
 }
 
-static void _naui_net_quic_close(Naui_Net net, NetConnection* connection, bool notify_peer)
+static void naui__net_quic_close(Naui_Net net, NetConnection* connection, bool notify_peer)
 {
 	NetQuic* quic = connection->quic;
 	if (!quic || !notify_peer)
@@ -1046,31 +1046,31 @@ static void _naui_net_quic_close(Naui_Net net, NetConnection* connection, bool n
 	uint8_t plain[NET_QUIC_DATAGRAM_SIZE] = { 0 };
 	size_t length_offset = 0;
 	uint64_t pn = space->next_pn++;
-	size_t header_size = _naui_net_quic_write_header(quic, level, pn, datagram, &length_offset);
+	size_t header_size = naui__net_quic_write_header(quic, level, pn, datagram, &length_offset);
 	if (header_size + NET_AEAD_TAG_SIZE + 64 > NET_QUIC_DATAGRAM_SIZE)
 		return;
 
 	NetQuicWriter writer = { plain, 0, NET_QUIC_DATAGRAM_SIZE - header_size - NET_AEAD_TAG_SIZE };
 	if (quic->error || level != NET_TLS_LEVEL_APPLICATION)
 	{
-		_naui_net_quic_write_u8(&writer, 0x1c);
-		_naui_net_quic_write_varint(&writer, quic->error ? quic->error : NET_QUIC_ERROR_APPLICATION);
-		_naui_net_quic_write_varint(&writer, 0);
+		naui__net_quic_write_u8(&writer, 0x1c);
+		naui__net_quic_write_varint(&writer, quic->error ? quic->error : NET_QUIC_ERROR_APPLICATION);
+		naui__net_quic_write_varint(&writer, 0);
 	}
 	else
 	{
-		_naui_net_quic_write_u8(&writer, 0x1d);
-		_naui_net_quic_write_varint(&writer, 0);
+		naui__net_quic_write_u8(&writer, 0x1d);
+		naui__net_quic_write_varint(&writer, 0);
 	}
 
-	_naui_net_quic_write_varint(&writer, 0);
+	naui__net_quic_write_varint(&writer, 0);
 	if (level == NET_TLS_LEVEL_INITIAL)
 		writer.size = writer.cap;
 
-	_naui_net_quic_seal_and_send(net, connection, level, datagram, header_size, length_offset, plain, writer.size, pn);
+	naui__net_quic_seal_and_send(net, connection, level, datagram, header_size, length_offset, plain, writer.size, pn);
 }
 
-static void _naui_net_quic_on_rtt_sample(NetQuic* quic, uint64_t latest, uint64_t ack_delay)
+static void naui__net_quic_on_rtt_sample(NetQuic* quic, uint64_t latest, uint64_t ack_delay)
 {
 	if (latest == 0)
 		latest = 1;
@@ -1097,10 +1097,10 @@ static void _naui_net_quic_on_rtt_sample(NetQuic* quic, uint64_t latest, uint64_
 	quic->srtt_ms = (7 * quic->srtt_ms + adjusted) / 8;
 }
 
-static void _naui_net_quic_on_packet_lost(Naui_Net net, NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
+static void naui__net_quic_on_packet_lost(Naui_Net net, NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
 {
 	quic->bytes_in_flight -= sent->size;
-	_naui_net_quic_requeue(quic, space, sent);
+	naui__net_quic_requeue(quic, space, sent);
 	if (sent->time_ms <= quic->recovery_start_ms)
 		return;
 
@@ -1109,7 +1109,7 @@ static void _naui_net_quic_on_packet_lost(Naui_Net net, NetQuic* quic, NetQuicSp
 	quic->cwnd = quic->ssthresh > NET_QUIC_MIN_CWND ? quic->ssthresh : NET_QUIC_MIN_CWND;
 }
 
-static void _naui_net_quic_detect_lost(Naui_Net net, NetQuic* quic, NetQuicSpace* space)
+static void naui__net_quic_detect_lost(Naui_Net net, NetQuic* quic, NetQuicSpace* space)
 {
 	space->loss_time_ms = 0;
 	if (!space->any_acked)
@@ -1129,7 +1129,7 @@ static void _naui_net_quic_detect_lost(Naui_Net net, NetQuic* quic, NetQuicSpace
 		if (sent.pn + NET_QUIC_PACKET_THRESHOLD <= space->largest_acked || sent.time_ms + delay <= net->now_ms)
 		{
 			naui_list_remove(space->sent, i);
-			_naui_net_quic_on_packet_lost(net, quic, space, &sent);
+			naui__net_quic_on_packet_lost(net, quic, space, &sent);
 			continue;
 		}
 
@@ -1140,14 +1140,14 @@ static void _naui_net_quic_detect_lost(Naui_Net net, NetQuic* quic, NetQuicSpace
 	}
 }
 
-static void _naui_net_quic_on_packet_acked(NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
+static void naui__net_quic_on_packet_acked(NetQuic* quic, NetQuicSpace* space, const NetQuicSent* sent)
 {
 	quic->bytes_in_flight -= sent->size;
 	if (sent->crypto_size)
-		_naui_net_quic_send_stream_acked(&space->crypto_tx, sent->crypto_offset, sent->crypto_size);
+		naui__net_quic_send_stream_acked(&space->crypto_tx, sent->crypto_offset, sent->crypto_size);
 
 	if (sent->stream_size)
-		_naui_net_quic_send_stream_acked(&quic->stream_tx, sent->stream_offset, sent->stream_size);
+		naui__net_quic_send_stream_acked(&quic->stream_tx, sent->stream_offset, sent->stream_size);
 
 	if (sent->time_ms <= quic->recovery_start_ms)
 		return;
@@ -1161,7 +1161,7 @@ static void _naui_net_quic_on_packet_acked(NetQuic* quic, NetQuicSpace* space, c
 		quic->cwnd = NET_QUIC_MAX_CWND;
 }
 
-static bool _naui_net_quic_ack_range(Naui_Net net, NetQuic* quic, NetQuicSpace* space, uint64_t low, uint64_t high, uint64_t largest, uint64_t ack_delay)
+static bool naui__net_quic_ack_range(Naui_Net net, NetQuic* quic, NetQuicSpace* space, uint64_t low, uint64_t high, uint64_t largest, uint64_t ack_delay)
 {
 	bool any = false;
 	for (ptrdiff_t i = naui_list_len(space->sent) - 1; i >= 0; i--)
@@ -1174,37 +1174,37 @@ static bool _naui_net_quic_ack_range(Naui_Net net, NetQuic* quic, NetQuicSpace* 
 			break;
 
 		if (sent.pn == largest)
-			_naui_net_quic_on_rtt_sample(quic, net->now_ms - sent.time_ms, ack_delay);
+			naui__net_quic_on_rtt_sample(quic, net->now_ms - sent.time_ms, ack_delay);
 
 		naui_list_remove(space->sent, i);
-		_naui_net_quic_on_packet_acked(quic, space, &sent);
+		naui__net_quic_on_packet_acked(quic, space, &sent);
 		any = true;
 	}
 
 	return any;
 }
 
-static bool _naui_net_quic_on_ack(Naui_Net net, NetConnection* connection, NetTlsLevel level, NetReader* reader, bool has_ecn)
+static bool naui__net_quic_on_ack(Naui_Net net, NetConnection* connection, NetTlsLevel level, NetReader* reader, bool has_ecn)
 {
 	NetQuic* quic = connection->quic;
 	NetQuicSpace* space = &quic->spaces[level];
 
-	uint64_t largest = _naui_net_quic_read_varint(reader);
-	uint64_t delay = _naui_net_quic_read_varint(reader);
-	uint64_t count = _naui_net_quic_read_varint(reader);
-	uint64_t first = _naui_net_quic_read_varint(reader);
+	uint64_t largest = naui__net_quic_read_varint(reader);
+	uint64_t delay = naui__net_quic_read_varint(reader);
+	uint64_t count = naui__net_quic_read_varint(reader);
+	uint64_t first = naui__net_quic_read_varint(reader);
 	if (!reader->ok || largest >= space->next_pn || first > largest)
 		return false;
 
 	uint64_t ack_delay = level == NET_TLS_LEVEL_APPLICATION ? (delay << quic->peer_ack_delay_exponent) / 1000 : 0;
 	uint64_t high = largest;
 	uint64_t low = largest - first;
-	bool any = _naui_net_quic_ack_range(net, quic, space, low, high, largest, ack_delay);
+	bool any = naui__net_quic_ack_range(net, quic, space, low, high, largest, ack_delay);
 
 	for (uint64_t i = 0; i < count; i++)
 	{
-		uint64_t gap = _naui_net_quic_read_varint(reader);
-		uint64_t length = _naui_net_quic_read_varint(reader);
+		uint64_t gap = naui__net_quic_read_varint(reader);
+		uint64_t length = naui__net_quic_read_varint(reader);
 		if (!reader->ok || low < gap + 2)
 			return false;
 
@@ -1213,14 +1213,14 @@ static bool _naui_net_quic_on_ack(Naui_Net net, NetConnection* connection, NetTl
 			return false;
 
 		low = high - length;
-		any |= _naui_net_quic_ack_range(net, quic, space, low, high, largest, ack_delay);
+		any |= naui__net_quic_ack_range(net, quic, space, low, high, largest, ack_delay);
 	}
 
 	if (has_ecn)
 	{
-		_naui_net_quic_read_varint(reader);
-		_naui_net_quic_read_varint(reader);
-		_naui_net_quic_read_varint(reader);
+		naui__net_quic_read_varint(reader);
+		naui__net_quic_read_varint(reader);
+		naui__net_quic_read_varint(reader);
 	}
 
 	if (!reader->ok)
@@ -1233,13 +1233,13 @@ static bool _naui_net_quic_on_ack(Naui_Net net, NetConnection* connection, NetTl
 	if (any)
 	{
 		quic->pto_count = 0;
-		_naui_net_quic_detect_lost(net, quic, space);
+		naui__net_quic_detect_lost(net, quic, space);
 	}
 
 	return true;
 }
 
-static void _naui_net_quic_on_timeout(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_on_timeout(Naui_Net net, NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
 	bool loss = false;
@@ -1249,7 +1249,7 @@ static void _naui_net_quic_on_timeout(Naui_Net net, NetConnection* connection)
 		if (space->discarded || !space->loss_time_ms || space->loss_time_ms > net->now_ms)
 			continue;
 
-		_naui_net_quic_detect_lost(net, quic, space);
+		naui__net_quic_detect_lost(net, quic, space);
 		loss = true;
 	}
 
@@ -1278,30 +1278,30 @@ static void _naui_net_quic_on_timeout(Naui_Net net, NetConnection* connection)
 	quic->last_ack_eliciting_ms = net->now_ms;
 }
 
-static void _naui_net_quic_install_handshake_keys(NetQuic* quic)
+static void naui__net_quic_install_handshake_keys(NetQuic* quic)
 {
 	NetQuicSpace* space = &quic->spaces[NET_TLS_LEVEL_HANDSHAKE];
 	const NetTls* tls = &quic->tls;
-	_naui_net_quic_keys_derive(&space->rx, quic->server ? tls->client_handshake : tls->server_handshake, false);
-	_naui_net_quic_keys_derive(&space->tx, quic->server ? tls->server_handshake : tls->client_handshake, false);
+	naui__net_quic_keys_derive(&space->rx, quic->server ? tls->client_handshake : tls->server_handshake, false);
+	naui__net_quic_keys_derive(&space->tx, quic->server ? tls->server_handshake : tls->client_handshake, false);
 	if (!quic->server)
-		_naui_net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_INITIAL]);
+		naui__net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_INITIAL]);
 }
 
-static void _naui_net_quic_complete(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_complete(Naui_Net net, NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
 	NetQuicSpace* space = &quic->spaces[NET_TLS_LEVEL_APPLICATION];
 	const NetTls* tls = &quic->tls;
 
-	if (!_naui_net_quic_parse_params(quic))
+	if (!naui__net_quic_parse_params(quic))
 	{
-		_naui_net_quic_fail(net, connection, NET_QUIC_ERROR_TRANSPORT_PARAMETER);
+		naui__net_quic_fail(net, connection, NET_QUIC_ERROR_TRANSPORT_PARAMETER);
 		return;
 	}
 
-	_naui_net_quic_keys_derive(&space->rx, quic->server ? tls->client_application : tls->server_application, false);
-	_naui_net_quic_keys_derive(&space->tx, quic->server ? tls->server_application : tls->client_application, false);
+	naui__net_quic_keys_derive(&space->rx, quic->server ? tls->client_application : tls->server_application, false);
+	naui__net_quic_keys_derive(&space->tx, quic->server ? tls->server_application : tls->client_application, false);
 	quic->complete = true;
 	connection->verified = true;
 	memcpy(connection->verified_id.bytes, tls->peer_key, NAUI_DEVICE_ID_SIZE);
@@ -1310,7 +1310,7 @@ static void _naui_net_quic_complete(Naui_Net net, NetConnection* connection)
 	{
 		quic->confirmed = true;
 		quic->handshake_done_pending = true;
-		_naui_net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_HANDSHAKE]);
+		naui__net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_HANDSHAKE]);
 	}
 	else
 	{
@@ -1318,11 +1318,11 @@ static void _naui_net_quic_complete(Naui_Net net, NetConnection* connection)
 	}
 
 	uint8_t hello[NET_HELLO_MAX];
-	size_t size = _naui_net_hello_encode(&net->local, hello);
-	_naui_net_frame_append(net, connection, &quic->stream_tx.buffer, NET_FRAME_HELLO, hello, size);
+	size_t size = naui__net_hello_encode(&net->local, hello);
+	naui__net_frame_append(net, connection, &quic->stream_tx.buffer, NET_FRAME_HELLO, hello, size);
 }
 
-static void _naui_net_quic_advance_handshake(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_advance_handshake(Naui_Net net, NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
 	NetTls* tls = &quic->tls;
@@ -1333,25 +1333,25 @@ static void _naui_net_quic_advance_handshake(Naui_Net net, NetConnection* connec
 		while (!space->discarded)
 		{
 			NetQuicRecvStream* stream = &space->crypto_rx;
-			size_t available = _naui_net_quic_recv_stream_available(stream);
+			size_t available = naui__net_quic_recv_stream_available(stream);
 			if (available < 4)
 				break;
 
-			size_t size = 4 + (_naui_net_get_u32(stream->data) & 0xffffff);
+			size_t size = 4 + (naui__net_get_u32(stream->data) & 0xffffff);
 			if (size > NET_QUIC_CRYPTO_WINDOW)
 			{
-				_naui_net_quic_fail(net, connection, NET_QUIC_ERROR_CRYPTO_BUFFER_EXCEEDED);
+				naui__net_quic_fail(net, connection, NET_QUIC_ERROR_CRYPTO_BUFFER_EXCEEDED);
 				return;
 			}
 
 			if (available < size)
 				break;
 
-			bool ok = _naui_net_tls_receive(tls, (NetTlsLevel)level, stream->data, size);
-			_naui_net_quic_recv_stream_consume(stream, size);
+			bool ok = naui__net_tls_receive(tls, (NetTlsLevel)level, stream->data, size);
+			naui__net_quic_recv_stream_consume(stream, size);
 			if (!ok)
 			{
-				_naui_net_quic_fail(net, connection, NET_QUIC_ERROR_CRYPTO + tls->alert);
+				naui__net_quic_fail(net, connection, NET_QUIC_ERROR_CRYPTO + tls->alert);
 				return;
 			}
 
@@ -1359,17 +1359,17 @@ static void _naui_net_quic_advance_handshake(Naui_Net net, NetConnection* connec
 			{
 				NetBuffer* pending = &tls->out[out];
 				if (!quic->spaces[out].discarded)
-					_naui_net_buffer_append(&quic->spaces[out].crypto_tx.buffer, _naui_net_buffer_ptr(pending), _naui_net_buffer_len(pending));
+					naui__net_buffer_append(&quic->spaces[out].crypto_tx.buffer, naui__net_buffer_ptr(pending), naui__net_buffer_len(pending));
 
-				_naui_net_buffer_free(pending);
+				naui__net_buffer_free(pending);
 			}
 
 			if (tls->handshake_keys_ready && !quic->spaces[NET_TLS_LEVEL_HANDSHAKE].tx.ready && !quic->spaces[NET_TLS_LEVEL_HANDSHAKE].discarded)
-				_naui_net_quic_install_handshake_keys(quic);
+				naui__net_quic_install_handshake_keys(quic);
 
 			if (tls->complete && !quic->complete)
 			{
-				_naui_net_quic_complete(net, connection);
+				naui__net_quic_complete(net, connection);
 				if (connection->phase == NET_PHASE_CLOSED)
 					return;
 			}
@@ -1377,36 +1377,36 @@ static void _naui_net_quic_advance_handshake(Naui_Net net, NetConnection* connec
 	}
 }
 
-static uint64_t _naui_net_quic_on_stream(Naui_Net net, NetConnection* connection, uint64_t type, NetReader* reader)
+static uint64_t naui__net_quic_on_stream(Naui_Net net, NetConnection* connection, uint64_t type, NetReader* reader)
 {
 	NetQuic* quic = connection->quic;
-	uint64_t id = _naui_net_quic_read_varint(reader);
-	uint64_t offset = type & 0x04 ? _naui_net_quic_read_varint(reader) : 0;
-	size_t size = type & 0x02 ? (size_t)_naui_net_quic_read_varint(reader) : reader->left;
-	const uint8_t* data = _naui_net_read_bytes(reader, size);
+	uint64_t id = naui__net_quic_read_varint(reader);
+	uint64_t offset = type & 0x04 ? naui__net_quic_read_varint(reader) : 0;
+	size_t size = type & 0x02 ? (size_t)naui__net_quic_read_varint(reader) : reader->left;
+	const uint8_t* data = naui__net_read_bytes(reader, size);
 	if (!data)
 		return NET_QUIC_ERROR_FRAME_ENCODING;
 
 	if (id != 0)
 		return NET_QUIC_ERROR_STREAM_LIMIT;
 
-	if (!_naui_net_quic_recv_stream_write(&quic->stream_rx, offset, data, size))
+	if (!naui__net_quic_recv_stream_write(&quic->stream_rx, offset, data, size))
 		return NET_QUIC_ERROR_FLOW_CONTROL;
 
 	quic->stream_open = true;
 	if (type & 0x01)
-		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, true);
+		naui__net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, true);
 
 	return 0;
 }
 
-static uint64_t _naui_net_quic_on_new_connection_id(NetQuic* quic, NetReader* reader)
+static uint64_t naui__net_quic_on_new_connection_id(NetQuic* quic, NetReader* reader)
 {
-	uint64_t sequence = _naui_net_quic_read_varint(reader);
-	uint64_t retire_prior_to = _naui_net_quic_read_varint(reader);
-	size_t size = _naui_net_read_uint(reader, 1);
-	const uint8_t* cid = _naui_net_read_bytes(reader, size);
-	_naui_net_read_bytes(reader, 16);
+	uint64_t sequence = naui__net_quic_read_varint(reader);
+	uint64_t retire_prior_to = naui__net_quic_read_varint(reader);
+	size_t size = naui__net_read_uint(reader, 1);
+	const uint8_t* cid = naui__net_read_bytes(reader, size);
+	naui__net_read_bytes(reader, 16);
 	if (!reader->ok)
 		return NET_QUIC_ERROR_FRAME_ENCODING;
 
@@ -1424,33 +1424,33 @@ static uint64_t _naui_net_quic_on_new_connection_id(NetQuic* quic, NetReader* re
 	return 0;
 }
 
-static void _naui_net_quic_on_remote_close(Naui_Net net, NetConnection* connection, uint64_t type, NetReader* reader)
+static void naui__net_quic_on_remote_close(Naui_Net net, NetConnection* connection, uint64_t type, NetReader* reader)
 {
-	uint64_t code = _naui_net_quic_read_varint(reader);
+	uint64_t code = naui__net_quic_read_varint(reader);
 	if (type == 0x1c)
-		_naui_net_quic_read_varint(reader);
+		naui__net_quic_read_varint(reader);
 
 	bool refused = type == 0x1c && code == NET_QUIC_ERROR_CONNECTION_REFUSED;
-	_naui_net_close_connection(net, connection, refused ? NAUI_DISCONNECT_REJECTED : NAUI_DISCONNECT_REMOTE, false);
+	naui__net_close_connection(net, connection, refused ? NAUI_DISCONNECT_REJECTED : NAUI_DISCONNECT_REMOTE, false);
 }
 
-static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection, NetTlsLevel level, const uint8_t* payload, size_t size, bool* ack_eliciting)
+static uint64_t naui__net_quic_on_frames(Naui_Net net, NetConnection* connection, NetTlsLevel level, const uint8_t* payload, size_t size, bool* ack_eliciting)
 {
 	NetQuic* quic = connection->quic;
-	NetReader reader = _naui_net_reader(payload, size);
+	NetReader reader = naui__net_reader(payload, size);
 	if (size == 0)
 		return NET_QUIC_ERROR_PROTOCOL_VIOLATION;
 
 	while (reader.left > 0 && connection->phase != NET_PHASE_CLOSED)
 	{
-		uint64_t type = _naui_net_quic_read_varint(&reader);
+		uint64_t type = naui__net_quic_read_varint(&reader);
 		uint64_t error = 0;
 		if (type == 0x00)
 			continue;
 
 		if (type == 0x02 || type == 0x03)
 		{
-			if (!_naui_net_quic_on_ack(net, connection, level, &reader, type == 0x03))
+			if (!naui__net_quic_on_ack(net, connection, level, &reader, type == 0x03))
 				return NET_QUIC_ERROR_PROTOCOL_VIOLATION;
 
 			continue;
@@ -1458,7 +1458,7 @@ static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection
 
 		if (type == 0x1c || (type == 0x1d && level == NET_TLS_LEVEL_APPLICATION))
 		{
-			_naui_net_quic_on_remote_close(net, connection, type, &reader);
+			naui__net_quic_on_remote_close(net, connection, type, &reader);
 			return 0;
 		}
 
@@ -1468,13 +1468,13 @@ static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection
 
 		if (type == 0x06)
 		{
-			uint64_t offset = _naui_net_quic_read_varint(&reader);
-			size_t length = (size_t)_naui_net_quic_read_varint(&reader);
-			const uint8_t* data = _naui_net_read_bytes(&reader, length);
+			uint64_t offset = naui__net_quic_read_varint(&reader);
+			size_t length = (size_t)naui__net_quic_read_varint(&reader);
+			const uint8_t* data = naui__net_read_bytes(&reader, length);
 			if (!data)
 				return NET_QUIC_ERROR_FRAME_ENCODING;
 
-			if (!_naui_net_quic_recv_stream_write(&quic->spaces[level].crypto_rx, offset, data, length))
+			if (!naui__net_quic_recv_stream_write(&quic->spaces[level].crypto_rx, offset, data, length))
 				return NET_QUIC_ERROR_CRYPTO_BUFFER_EXCEEDED;
 
 			continue;
@@ -1484,34 +1484,34 @@ static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection
 			return NET_QUIC_ERROR_PROTOCOL_VIOLATION;
 
 		if (type >= 0x08 && type <= 0x0f)
-			error = _naui_net_quic_on_stream(net, connection, type, &reader);
+			error = naui__net_quic_on_stream(net, connection, type, &reader);
 		else if (type == 0x10)
 		{
-			uint64_t value = _naui_net_quic_read_varint(&reader);
+			uint64_t value = naui__net_quic_read_varint(&reader);
 			if (value > quic->peer_max_data)
 				quic->peer_max_data = value;
 		}
 		else if (type == 0x11)
 		{
-			uint64_t id = _naui_net_quic_read_varint(&reader);
-			uint64_t value = _naui_net_quic_read_varint(&reader);
+			uint64_t id = naui__net_quic_read_varint(&reader);
+			uint64_t value = naui__net_quic_read_varint(&reader);
 			if (id == 0 && value > quic->peer_max_stream_data)
 				quic->peer_max_stream_data = value;
 		}
 		else if (type == 0x12 || type == 0x13 || type == 0x14 || type == 0x16 || type == 0x17 || type == 0x19)
-			_naui_net_quic_read_varint(&reader);
+			naui__net_quic_read_varint(&reader);
 		else if (type == 0x15)
 		{
-			_naui_net_quic_read_varint(&reader);
-			_naui_net_quic_read_varint(&reader);
+			naui__net_quic_read_varint(&reader);
+			naui__net_quic_read_varint(&reader);
 		}
 		else if (type == 0x07 && !quic->server)
-			_naui_net_read_bytes(&reader, (size_t)_naui_net_quic_read_varint(&reader));
+			naui__net_read_bytes(&reader, (size_t)naui__net_quic_read_varint(&reader));
 		else if (type == 0x18)
-			error = _naui_net_quic_on_new_connection_id(quic, &reader);
+			error = naui__net_quic_on_new_connection_id(quic, &reader);
 		else if (type == 0x1a)
 		{
-			const uint8_t* data = _naui_net_read_bytes(&reader, 8);
+			const uint8_t* data = naui__net_read_bytes(&reader, 8);
 			if (data)
 			{
 				memcpy(quic->path_response, data, 8);
@@ -1519,18 +1519,18 @@ static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection
 			}
 		}
 		else if (type == 0x1b)
-			_naui_net_read_bytes(&reader, 8);
+			naui__net_read_bytes(&reader, 8);
 		else if (type == 0x1e && !quic->server)
 		{
 			quic->confirmed = true;
-			_naui_net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_HANDSHAKE]);
+			naui__net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_HANDSHAKE]);
 		}
 		else if (type == 0x30 || type == 0x31)
 		{
-			size_t length = type == 0x31 ? (size_t)_naui_net_quic_read_varint(&reader) : reader.left;
-			const uint8_t* data = _naui_net_read_bytes(&reader, length);
-			if (data && connection->phase == NET_PHASE_ESTABLISHED && !_naui_net_events_full(net))
-				_naui_net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, false, data, length);
+			size_t length = type == 0x31 ? (size_t)naui__net_quic_read_varint(&reader) : reader.left;
+			const uint8_t* data = naui__net_read_bytes(&reader, length);
+			if (data && connection->phase == NET_PHASE_ESTABLISHED && !naui__net_events_full(net))
+				naui__net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, false, data, length);
 		}
 		else
 			return type == 0x04 || type == 0x05 ? NET_QUIC_ERROR_PROTOCOL_VIOLATION : NET_QUIC_ERROR_FRAME_ENCODING;
@@ -1545,7 +1545,7 @@ static uint64_t _naui_net_quic_on_frames(Naui_Net net, NetConnection* connection
 	return reader.ok ? 0 : NET_QUIC_ERROR_FRAME_ENCODING;
 }
 
-static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, NetTlsLevel level, uint8_t* packet, size_t pn_offset, size_t packet_size, const uint8_t* scid, size_t scid_size)
+static void naui__net_quic_on_packet(Naui_Net net, NetConnection* connection, NetTlsLevel level, uint8_t* packet, size_t pn_offset, size_t packet_size, const uint8_t* scid, size_t scid_size)
 {
 	NetQuic* quic = connection->quic;
 	NetQuicSpace* space = &quic->spaces[level];
@@ -1554,7 +1554,7 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 
 	bool is_long = level != NET_TLS_LEVEL_APPLICATION;
 	uint8_t mask[5];
-	_naui_net_quic_header_mask(&space->rx, packet + pn_offset + 4, mask);
+	naui__net_quic_header_mask(&space->rx, packet + pn_offset + 4, mask);
 	packet[0] ^= mask[0] & (is_long ? 0x0f : 0x1f);
 
 	size_t pn_size = (size_t)(packet[0] & 3) + 1;
@@ -1565,7 +1565,7 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 		truncated = (truncated << 8) | packet[pn_offset + i];
 	}
 
-	uint64_t pn = _naui_net_quic_decode_pn(space->any_received ? space->largest_received + 1 : 0, truncated, (int)pn_size * 8);
+	uint64_t pn = naui__net_quic_decode_pn(space->any_received ? space->largest_received + 1 : 0, truncated, (int)pn_size * 8);
 	size_t header_size = pn_offset + pn_size;
 	uint8_t* payload = packet + header_size;
 	size_t payload_size = packet_size - header_size;
@@ -1579,30 +1579,30 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 		if (!quic->confirmed || !space->any_received || pn <= space->largest_received)
 			return;
 
-		_naui_net_quic_keys_update(&next, &space->rx);
+		naui__net_quic_keys_update(&next, &space->rx);
 		keys = &next;
 	}
 
-	_naui_net_quic_nonce(keys, pn, nonce);
-	if (!_naui_net_aead_open(keys->aes, keys->key, nonce, packet, header_size, payload, payload_size, payload))
+	naui__net_quic_nonce(keys, pn, nonce);
+	if (!naui__net_aead_open(keys->aes, keys->key, nonce, packet, header_size, payload, payload_size, payload))
 		return;
 
 	payload_size -= NET_AEAD_TAG_SIZE;
 	if (key_update)
 	{
 		NetQuicKeys next_tx;
-		_naui_net_quic_keys_update(&next_tx, &space->tx);
+		naui__net_quic_keys_update(&next_tx, &space->tx);
 		space->rx = next;
 		space->tx = next_tx;
 		quic->key_phase ^= 1;
 	}
 
-	if (pn < space->received_floor || _naui_net_ranges_contain(space->received, pn))
+	if (pn < space->received_floor || naui__net_ranges_contain(space->received, pn))
 		return;
 
 	if (packet[0] & (is_long ? 0x0c : 0x18))
 	{
-		_naui_net_quic_fail(net, connection, NET_QUIC_ERROR_PROTOCOL_VIOLATION);
+		naui__net_quic_fail(net, connection, NET_QUIC_ERROR_PROTOCOL_VIOLATION);
 		return;
 	}
 
@@ -1614,16 +1614,16 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 	}
 
 	if (quic->server && level == NET_TLS_LEVEL_HANDSHAKE)
-		_naui_net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_INITIAL]);
+		naui__net_quic_space_discard(quic, &quic->spaces[NET_TLS_LEVEL_INITIAL]);
 
 	bool ack_eliciting = false;
-	uint64_t error = _naui_net_quic_on_frames(net, connection, level, payload, payload_size, &ack_eliciting);
+	uint64_t error = naui__net_quic_on_frames(net, connection, level, payload, payload_size, &ack_eliciting);
 	if (connection->phase == NET_PHASE_CLOSED)
 		return;
 
 	if (error)
 	{
-		_naui_net_quic_fail(net, connection, error);
+		naui__net_quic_fail(net, connection, error);
 		return;
 	}
 
@@ -1631,7 +1631,7 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 	connection->bytes_received += packet_size;
 	if (!space->discarded)
 	{
-		_naui_net_ranges_add(&space->received, pn, pn + 1);
+		naui__net_ranges_add(&space->received, pn, pn + 1);
 		if (naui_list_len(space->received) > NET_QUIC_MAX_ACK_RANGES)
 		{
 			space->received_floor = space->received[0].end;
@@ -1645,10 +1645,10 @@ static void _naui_net_quic_on_packet(Naui_Net net, NetConnection* connection, Ne
 		space->ack_pending |= ack_eliciting;
 	}
 
-	_naui_net_quic_advance_handshake(net, connection);
+	naui__net_quic_advance_handshake(net, connection);
 }
 
-static void _naui_net_quic_token_mac(Naui_Net net, const Naui_Address* from, const uint8_t* token, const uint8_t* retry_scid, uint8_t mac[16])
+static void naui__net_quic_token_mac(Naui_Net net, const Naui_Address* from, const uint8_t* token, const uint8_t* retry_scid, uint8_t mac[16])
 {
 	uint8_t input[1 + 2 + 4 + 16 + NET_QUIC_TOKEN_SIZE - 16 + NET_QUIC_CID_SIZE];
 	uint8_t full[NET_SHA256_SIZE];
@@ -1657,7 +1657,7 @@ static void _naui_net_quic_token_mac(Naui_Net net, const Naui_Address* from, con
 	input[n++] = from->family;
 	input[n++] = (uint8_t)(from->port >> 8);
 	input[n++] = (uint8_t)from->port;
-	_naui_net_put_u32(input + n, from->scope_id);
+	naui__net_put_u32(input + n, from->scope_id);
 	n += 4;
 	memcpy(input + n, from->data, 16);
 	n += 16;
@@ -1666,21 +1666,21 @@ static void _naui_net_quic_token_mac(Naui_Net net, const Naui_Address* from, con
 	memcpy(input + n, retry_scid, NET_QUIC_CID_SIZE);
 	n += NET_QUIC_CID_SIZE;
 
-	_naui_net_hmac_sha256(net->quic_token_key, sizeof(net->quic_token_key), input, n, full);
+	naui__net_hmac_sha256(net->quic_token_key, sizeof(net->quic_token_key), input, n, full);
 	memcpy(mac, full, 16);
 }
 
-static void _naui_net_quic_send_retry(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size, const uint8_t* scid, size_t scid_size)
+static void naui__net_quic_send_retry(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size, const uint8_t* scid, size_t scid_size)
 {
 	uint8_t retry_scid[NET_QUIC_CID_SIZE];
-	if (!_naui_net_random_bytes(retry_scid, sizeof(retry_scid)))
+	if (!naui__net_random_bytes(retry_scid, sizeof(retry_scid)))
 		return;
 
 	uint8_t token[NET_QUIC_TOKEN_SIZE] = { 0 };
-	_naui_net_put_u64(token, net->now_ms);
+	naui__net_put_u64(token, net->now_ms);
 	token[8] = (uint8_t)dcid_size;
 	memcpy(token + 9, dcid, dcid_size);
-	_naui_net_quic_token_mac(net, from, token, retry_scid, token + NET_QUIC_TOKEN_SIZE - 16);
+	naui__net_quic_token_mac(net, from, token, retry_scid, token + NET_QUIC_TOKEN_SIZE - 16);
 
 	uint8_t pseudo[1 + NET_QUIC_MAX_CID_SIZE + 128];
 	size_t n = 0;
@@ -1690,7 +1690,7 @@ static void _naui_net_quic_send_retry(Naui_Net net, const Naui_Address* from, co
 
 	uint8_t* packet = pseudo + n;
 	pseudo[n++] = 0xf0;
-	_naui_net_put_u32(pseudo + n, NET_QUIC_VERSION);
+	naui__net_put_u32(pseudo + n, NET_QUIC_VERSION);
 	n += 4;
 	pseudo[n++] = (uint8_t)scid_size;
 	memcpy(pseudo + n, scid, scid_size);
@@ -1701,21 +1701,21 @@ static void _naui_net_quic_send_retry(Naui_Net net, const Naui_Address* from, co
 	memcpy(pseudo + n, token, sizeof(token));
 	n += sizeof(token);
 
-	_naui_net_aes128_gcm_tag(_naui_net_quic_retry_key, _naui_net_quic_retry_nonce, pseudo, n, NULL, 0, pseudo + n);
+	naui__net_aes128_gcm_tag(naui__net_quic_retry_key, naui__net_quic_retry_nonce, pseudo, n, NULL, 0, pseudo + n);
 	n += NET_AEAD_TAG_SIZE;
 
 	size_t sent = 0;
 	naui_socket_sendto(&net->quic, packet, (size_t)(pseudo + n - packet), from, &sent);
 }
 
-static NetConnection* _naui_net_quic_accept(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size, const uint8_t* scid, size_t scid_size, const uint8_t* token, size_t token_size, size_t datagram_size)
+static NetConnection* naui__net_quic_accept(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size, const uint8_t* scid, size_t scid_size, const uint8_t* token, size_t token_size, size_t datagram_size)
 {
 	if (!net->quic_listening || datagram_size < NET_QUIC_DATAGRAM_SIZE || dcid_size < 8)
 		return NULL;
 
 	if (token_size == 0)
 	{
-		_naui_net_quic_send_retry(net, from, dcid, dcid_size, scid, scid_size);
+		naui__net_quic_send_retry(net, from, dcid, dcid_size, scid, scid_size);
 		return NULL;
 	}
 
@@ -1723,18 +1723,18 @@ static NetConnection* _naui_net_quic_accept(Naui_Net net, const Naui_Address* fr
 		return NULL;
 
 	uint8_t mac[16];
-	_naui_net_quic_token_mac(net, from, token, dcid, mac);
-	if (!_naui_net_ct_equal(mac, token + NET_QUIC_TOKEN_SIZE - 16, sizeof(mac)))
+	naui__net_quic_token_mac(net, from, token, dcid, mac);
+	if (!naui__net_ct_equal(mac, token + NET_QUIC_TOKEN_SIZE - 16, sizeof(mac)))
 		return NULL;
 
-	if (net->now_ms - _naui_net_get_u64(token) > NET_QUIC_TOKEN_LIFETIME_MS)
+	if (net->now_ms - naui__net_get_u64(token) > NET_QUIC_TOKEN_LIFETIME_MS)
 		return NULL;
 
-	if (_naui_net_count_live(net) >= net->config.max_connections || _naui_net_count_pending(net) >= NET_MAX_PENDING)
+	if (naui__net_count_live(net) >= net->config.max_connections || naui__net_count_pending(net) >= NET_MAX_PENDING)
 		return NULL;
 
-	NetConnection* connection = _naui_net_new_connection(net, NAUI_TRANSPORT_QUIC, true, from);
-	NetQuic* quic = connection ? _naui_net_quic_new(net, connection, true) : NULL;
+	NetConnection* connection = naui__net_new_connection(net, NAUI_TRANSPORT_QUIC, true, from);
+	NetQuic* quic = connection ? naui__net_quic_new(net, connection, true) : NULL;
 	if (!quic)
 	{
 		if (connection)
@@ -1749,12 +1749,12 @@ static NetConnection* _naui_net_quic_accept(Naui_Net net, const Naui_Address* fr
 	quic->remote_cid_size = (uint8_t)scid_size;
 	quic->original_dcid_size = token[8];
 	memcpy(quic->original_dcid, token + 9, token[8]);
-	_naui_net_quic_initial_keys(quic, dcid, dcid_size);
-	_naui_net_quic_encode_params(net, quic);
+	naui__net_quic_initial_keys(quic, dcid, dcid_size);
+	naui__net_quic_encode_params(net, quic);
 	return connection;
 }
 
-static NetConnection* _naui_net_quic_find(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size)
+static NetConnection* naui__net_quic_find(Naui_Net net, const Naui_Address* from, const uint8_t* dcid, size_t dcid_size)
 {
 	if (dcid_size != NET_QUIC_CID_SIZE)
 		return NULL;
@@ -1772,7 +1772,7 @@ static NetConnection* _naui_net_quic_find(Naui_Net net, const Naui_Address* from
 	return NULL;
 }
 
-static void _naui_net_quic_on_retry(Naui_Net net, NetConnection* connection, const uint8_t* packet, size_t size, size_t header_size, const uint8_t* scid, size_t scid_size)
+static void naui__net_quic_on_retry(Naui_Net net, NetConnection* connection, const uint8_t* packet, size_t size, size_t header_size, const uint8_t* scid, size_t scid_size)
 {
 	NetQuic* quic = connection->quic;
 	if (quic->server || quic->retried || quic->remote_cid_confirmed)
@@ -1790,8 +1790,8 @@ static void _naui_net_quic_on_retry(Naui_Net net, NetConnection* connection, con
 	memcpy(pseudo + n, packet, size - NET_AEAD_TAG_SIZE);
 	n += size - NET_AEAD_TAG_SIZE;
 
-	_naui_net_aes128_gcm_tag(_naui_net_quic_retry_key, _naui_net_quic_retry_nonce, pseudo, n, NULL, 0, tag);
-	if (!_naui_net_ct_equal(tag, packet + size - NET_AEAD_TAG_SIZE, sizeof(tag)))
+	naui__net_aes128_gcm_tag(naui__net_quic_retry_key, naui__net_quic_retry_nonce, pseudo, n, NULL, 0, tag);
+	if (!naui__net_ct_equal(tag, packet + size - NET_AEAD_TAG_SIZE, sizeof(tag)))
 		return;
 
 	size_t token_size = size - header_size - NET_AEAD_TAG_SIZE;
@@ -1806,11 +1806,11 @@ static void _naui_net_quic_on_retry(Naui_Net net, NetConnection* connection, con
 	memcpy(quic->retry_scid, scid, scid_size);
 	quic->remote_cid_size = (uint8_t)scid_size;
 	memcpy(quic->remote_cid, scid, scid_size);
-	_naui_net_quic_initial_keys(quic, quic->remote_cid, quic->remote_cid_size);
+	naui__net_quic_initial_keys(quic, quic->remote_cid, quic->remote_cid_size);
 
 	NetQuicSpace* space = &quic->spaces[NET_TLS_LEVEL_INITIAL];
 	if (naui_list_len(space->sent) == 1)
-		_naui_net_quic_on_rtt_sample(quic, net->now_ms - space->sent[0].time_ms, 0);
+		naui__net_quic_on_rtt_sample(quic, net->now_ms - space->sent[0].time_ms, 0);
 
 	for (ptrdiff_t i = 0; i < naui_list_len(space->sent); i++)
 	{
@@ -1823,7 +1823,7 @@ static void _naui_net_quic_on_retry(Naui_Net net, NetConnection* connection, con
 	connection->last_recv_ms = net->now_ms;
 }
 
-static void _naui_net_quic_on_datagram(Naui_Net net, uint8_t* data, size_t size, const Naui_Address* from)
+static void naui__net_quic_on_datagram(Naui_Net net, uint8_t* data, size_t size, const Naui_Address* from)
 {
 	size_t offset = 0;
 	while (offset < size)
@@ -1832,17 +1832,17 @@ static void _naui_net_quic_on_datagram(Naui_Net net, uint8_t* data, size_t size,
 		size_t left = size - offset;
 		if (!(packet[0] & 0x80))
 		{
-			NetConnection* connection = left > NET_QUIC_CID_SIZE ? _naui_net_quic_find(net, from, packet + 1, NET_QUIC_CID_SIZE) : NULL;
+			NetConnection* connection = left > NET_QUIC_CID_SIZE ? naui__net_quic_find(net, from, packet + 1, NET_QUIC_CID_SIZE) : NULL;
 			if (connection && (packet[0] & 0x40))
-				_naui_net_quic_on_packet(net, connection, NET_TLS_LEVEL_APPLICATION, packet, 1 + NET_QUIC_CID_SIZE, left, NULL, 0);
+				naui__net_quic_on_packet(net, connection, NET_TLS_LEVEL_APPLICATION, packet, 1 + NET_QUIC_CID_SIZE, left, NULL, 0);
 
 			return;
 		}
 
-		NetReader reader = _naui_net_reader(packet + 1, left - 1);
-		uint32_t version = _naui_net_read_uint(&reader, 4);
-		NetReader dcid = _naui_net_read_block(&reader, 1);
-		NetReader scid = _naui_net_read_block(&reader, 1);
+		NetReader reader = naui__net_reader(packet + 1, left - 1);
+		uint32_t version = naui__net_read_uint(&reader, 4);
+		NetReader dcid = naui__net_read_block(&reader, 1);
+		NetReader scid = naui__net_read_block(&reader, 1);
 		if (!dcid.ok || !scid.ok || dcid.left > NET_QUIC_MAX_CID_SIZE || scid.left > NET_QUIC_MAX_CID_SIZE)
 			return;
 
@@ -1850,35 +1850,35 @@ static void _naui_net_quic_on_datagram(Naui_Net net, uint8_t* data, size_t size,
 			return;
 
 		uint8_t type = (packet[0] >> 4) & 3;
-		NetConnection* connection = _naui_net_quic_find(net, from, dcid.p, dcid.left);
+		NetConnection* connection = naui__net_quic_find(net, from, dcid.p, dcid.left);
 		if (type == 3)
 		{
 			if (connection)
-				_naui_net_quic_on_retry(net, connection, packet, left, (size_t)(reader.p - packet), scid.p, scid.left);
+				naui__net_quic_on_retry(net, connection, packet, left, (size_t)(reader.p - packet), scid.p, scid.left);
 
 			return;
 		}
 
-		NetReader token = type == 0 ? _naui_net_reader(NULL, 0) : _naui_net_reader(packet, 0);
+		NetReader token = type == 0 ? naui__net_reader(NULL, 0) : naui__net_reader(packet, 0);
 		if (type == 0)
 		{
-			size_t token_size = (size_t)_naui_net_quic_read_varint(&reader);
-			token = _naui_net_reader(_naui_net_read_bytes(&reader, token_size), token_size);
+			size_t token_size = (size_t)naui__net_quic_read_varint(&reader);
+			token = naui__net_reader(naui__net_read_bytes(&reader, token_size), token_size);
 		}
 
-		size_t length = (size_t)_naui_net_quic_read_varint(&reader);
+		size_t length = (size_t)naui__net_quic_read_varint(&reader);
 		size_t pn_offset = (size_t)(reader.p - packet);
 		if (!reader.ok || length > reader.left || (type == 0 && !token.p))
 			return;
 
 		if (!connection && type == 0)
-			connection = _naui_net_quic_accept(net, from, dcid.p, dcid.left, scid.p, scid.left, token.p, token.left, size);
+			connection = naui__net_quic_accept(net, from, dcid.p, dcid.left, scid.p, scid.left, token.p, token.left, size);
 
 		if (!connection)
 			return;
 
 		if (type != 1)
-			_naui_net_quic_on_packet(net, connection, type == 0 ? NET_TLS_LEVEL_INITIAL : NET_TLS_LEVEL_HANDSHAKE, packet, pn_offset, pn_offset + length, scid.p, scid.left);
+			naui__net_quic_on_packet(net, connection, type == 0 ? NET_TLS_LEVEL_INITIAL : NET_TLS_LEVEL_HANDSHAKE, packet, pn_offset, pn_offset + length, scid.p, scid.left);
 
 		if (connection->phase == NET_PHASE_CLOSED)
 			return;
@@ -1887,11 +1887,11 @@ static void _naui_net_quic_on_datagram(Naui_Net net, uint8_t* data, size_t size,
 	}
 }
 
-static void _naui_net_quic_receive(Naui_Net net)
+static void naui__net_quic_receive(Naui_Net net)
 {
 	for (int i = 0; i < NET_QUIC_MAX_PACKETS; i++)
 	{
-		if (_naui_net_events_full(net))
+		if (naui__net_events_full(net))
 			return;
 
 		size_t size = 0;
@@ -1900,11 +1900,11 @@ static void _naui_net_quic_receive(Naui_Net net)
 			return;
 
 		if (size > 0)
-			_naui_net_quic_on_datagram(net, net->udp_rx, size, &from);
+			naui__net_quic_on_datagram(net, net->udp_rx, size, &from);
 	}
 }
 
-static bool _naui_net_quic_open_socket(Naui_Net net, const Naui_Address* address)
+static bool naui__net_quic_open_socket(Naui_Net net, const Naui_Address* address)
 {
 	if (naui_socket_open(&net->quic, NAUI_SOCKET_UDP, address->family) && naui_socket_bind(&net->quic, address, false))
 		return true;
@@ -1913,7 +1913,7 @@ static bool _naui_net_quic_open_socket(Naui_Net net, const Naui_Address* address
 	return false;
 }
 
-static bool _naui_net_quic_listen(Naui_Net net, const Naui_Address* address)
+static bool naui__net_quic_listen(Naui_Net net, const Naui_Address* address)
 {
 	if (naui_socket_is_valid(&net->quic))
 	{
@@ -1921,28 +1921,28 @@ static bool _naui_net_quic_listen(Naui_Net net, const Naui_Address* address)
 		return false;
 	}
 
-	if (!_naui_net_random_bytes(net->quic_token_key, sizeof(net->quic_token_key)) || !_naui_net_quic_open_socket(net, address))
+	if (!naui__net_random_bytes(net->quic_token_key, sizeof(net->quic_token_key)) || !naui__net_quic_open_socket(net, address))
 		return false;
 
 	net->quic_listening = true;
 	return true;
 }
 
-static Naui_Connection _naui_net_quic_connect(Naui_Net net, const Naui_Address* address)
+static Naui_Connection naui__net_quic_connect(Naui_Net net, const Naui_Address* address)
 {
 	if (!naui_socket_is_valid(&net->quic))
 	{
 		Naui_Address any6 = naui_address_any(NAUI_ADDRESS_IPV6, 0);
 		Naui_Address any4 = naui_address_any(NAUI_ADDRESS_IPV4, 0);
-		if (!_naui_net_quic_open_socket(net, &any6) && !_naui_net_quic_open_socket(net, &any4))
+		if (!naui__net_quic_open_socket(net, &any6) && !naui__net_quic_open_socket(net, &any4))
 			return NAUI_CONNECTION_INVALID;
 	}
 
 	if (net->quic.family == NAUI_ADDRESS_IPV4 && address->family == NAUI_ADDRESS_IPV6)
 		return NAUI_CONNECTION_INVALID;
 
-	NetConnection* connection = _naui_net_new_connection(net, NAUI_TRANSPORT_QUIC, false, address);
-	NetQuic* quic = connection ? _naui_net_quic_new(net, connection, false) : NULL;
+	NetConnection* connection = naui__net_new_connection(net, NAUI_TRANSPORT_QUIC, false, address);
+	NetQuic* quic = connection ? naui__net_quic_new(net, connection, false) : NULL;
 	if (!quic)
 	{
 		if (connection)
@@ -1954,25 +1954,25 @@ static Naui_Connection _naui_net_quic_connect(Naui_Net net, const Naui_Address* 
 	connection->phase = NET_PHASE_HANDSHAKE;
 	quic->remote_cid_size = NET_QUIC_CID_SIZE;
 	quic->original_dcid_size = NET_QUIC_CID_SIZE;
-	bool ok = _naui_net_random_bytes(quic->local_cid, sizeof(quic->local_cid)) && _naui_net_random_bytes(quic->remote_cid, NET_QUIC_CID_SIZE);
+	bool ok = naui__net_random_bytes(quic->local_cid, sizeof(quic->local_cid)) && naui__net_random_bytes(quic->remote_cid, NET_QUIC_CID_SIZE);
 	memcpy(quic->original_dcid, quic->remote_cid, NET_QUIC_CID_SIZE);
-	_naui_net_quic_initial_keys(quic, quic->remote_cid, quic->remote_cid_size);
-	_naui_net_quic_encode_params(net, quic);
+	naui__net_quic_initial_keys(quic, quic->remote_cid, quic->remote_cid_size);
+	naui__net_quic_encode_params(net, quic);
 
-	if (!ok || !_naui_net_tls_start(&quic->tls))
+	if (!ok || !naui__net_tls_start(&quic->tls))
 	{
 		connection->phase = NET_PHASE_CLOSED;
 		return NAUI_CONNECTION_INVALID;
 	}
 
 	NetBuffer* hello = &quic->tls.out[NET_TLS_LEVEL_INITIAL];
-	_naui_net_buffer_append(&quic->spaces[NET_TLS_LEVEL_INITIAL].crypto_tx.buffer, _naui_net_buffer_ptr(hello), _naui_net_buffer_len(hello));
-	_naui_net_buffer_free(hello);
-	_naui_net_quic_flush(net, connection);
+	naui__net_buffer_append(&quic->spaces[NET_TLS_LEVEL_INITIAL].crypto_tx.buffer, naui__net_buffer_ptr(hello), naui__net_buffer_len(hello));
+	naui__net_buffer_free(hello);
+	naui__net_quic_flush(net, connection);
 	return (Naui_Connection){ connection->id };
 }
 
-static bool _naui_net_quic_send(Naui_Net net, NetConnection* connection, const void* data, size_t size, Naui_SendMode mode)
+static bool naui__net_quic_send(Naui_Net net, NetConnection* connection, const void* data, size_t size, Naui_SendMode mode)
 {
 	NetQuic* quic = connection->quic;
 	if (mode == NAUI_SEND_RELIABLE)
@@ -1980,10 +1980,10 @@ static bool _naui_net_quic_send(Naui_Net net, NetConnection* connection, const v
 		if (size > net->config.max_message_size)
 			return false;
 
-		if (!_naui_net_frame_append(net, connection, &quic->stream_tx.buffer, NET_FRAME_DATA, data, size))
+		if (!naui__net_frame_append(net, connection, &quic->stream_tx.buffer, NET_FRAME_DATA, data, size))
 			return false;
 
-		_naui_net_quic_flush(net, connection);
+		naui__net_quic_flush(net, connection);
 		return true;
 	}
 
@@ -2001,23 +2001,23 @@ static bool _naui_net_quic_send(Naui_Net net, NetConnection* connection, const v
 		memcpy(datagram.data, data, size);
 
 	naui_list_push(quic->datagrams, datagram);
-	_naui_net_quic_flush(net, connection);
+	naui__net_quic_flush(net, connection);
 	return true;
 }
 
-static void _naui_net_quic_keepalive(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_keepalive(Naui_Net net, NetConnection* connection)
 {
 	connection->quic->ping_pending = true;
-	_naui_net_quic_flush(net, connection);
+	naui__net_quic_flush(net, connection);
 }
 
-static void _naui_net_quic_collect(Naui_Net net, bool reading)
+static void naui__net_quic_collect(Naui_Net net, bool reading)
 {
 	if (reading && naui_socket_is_valid(&net->quic))
-		_naui_net_poll_add(net, &net->quic, NAUI_POLL_READ, NET_SLOT_QUIC, NULL);
+		naui__net_poll_add(net, &net->quic, NAUI_POLL_READ, NET_SLOT_QUIC, NULL);
 }
 
-static uint32_t _naui_net_quic_limit_wait(Naui_Net net, uint32_t wait)
+static uint32_t naui__net_quic_limit_wait(Naui_Net net, uint32_t wait)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -2034,28 +2034,28 @@ static uint32_t _naui_net_quic_limit_wait(Naui_Net net, uint32_t wait)
 	return wait;
 }
 
-static void _naui_net_quic_deliver(Naui_Net net, NetConnection* connection)
+static void naui__net_quic_deliver(Naui_Net net, NetConnection* connection)
 {
 	NetQuic* quic = connection->quic;
-	size_t available = _naui_net_quic_recv_stream_available(&quic->stream_rx);
-	if (available > 0 && !_naui_net_events_full(net))
+	size_t available = naui__net_quic_recv_stream_available(&quic->stream_rx);
+	if (available > 0 && !naui__net_events_full(net))
 	{
-		if (!_naui_net_buffer_append(&connection->rx, quic->stream_rx.data, available))
+		if (!naui__net_buffer_append(&connection->rx, quic->stream_rx.data, available))
 		{
-			_naui_net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, true);
+			naui__net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, true);
 			return;
 		}
 
-		_naui_net_quic_recv_stream_consume(&quic->stream_rx, available);
+		naui__net_quic_recv_stream_consume(&quic->stream_rx, available);
 		if (quic->stream_rx.base + NET_QUIC_STREAM_WINDOW - quic->advertised_max_data >= NET_QUIC_STREAM_WINDOW / 2)
 			quic->window_update_pending = true;
 	}
 
-	if (_naui_net_buffer_len(&connection->rx) > 0)
-		_naui_net_frame_parse(net, connection);
+	if (naui__net_buffer_len(&connection->rx) > 0)
+		naui__net_frame_parse(net, connection);
 }
 
-static void _naui_net_quic_process(Naui_Net net)
+static void naui__net_quic_process(Naui_Net net)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -2063,13 +2063,13 @@ static void _naui_net_quic_process(Naui_Net net)
 		if (connection->transport != NAUI_TRANSPORT_QUIC || connection->phase == NET_PHASE_CLOSED)
 			continue;
 
-		_naui_net_quic_deliver(net, connection);
+		naui__net_quic_deliver(net, connection);
 		if (connection->phase == NET_PHASE_CLOSED)
 			continue;
 
 		if (connection->quic->timer_ms && connection->quic->timer_ms <= net->now_ms)
-			_naui_net_quic_on_timeout(net, connection);
+			naui__net_quic_on_timeout(net, connection);
 
-		_naui_net_quic_flush(net, connection);
+		naui__net_quic_flush(net, connection);
 	}
 }

@@ -1,15 +1,15 @@
 #pragma region Automation Point Editing
 
-static double _uph_song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
+static double uph__song_timeline_automation_mouse_beat(Naui_Vec2 position, double start_offset)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	const double raw = ((double)naui_mouse_x() - position.x) / state->zoom.x + start_offset;
 	return uph_snap_beat_round(raw, state->snap_resolution, state->zoom.x);
 }
 
-static void _uph_song_timeline_finish_point_edit(const Uph_Automation *automation)
+static void uph__song_timeline_finish_point_edit(const Uph_Automation *automation)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	Uph_AutomationEditState *edit = &state->automation_edit;
 	const int32_t index = edit->dragging_point_index;
 	edit->dragging_point_index = -1;
@@ -48,7 +48,7 @@ static void _uph_song_timeline_finish_point_edit(const Uph_Automation *automatio
 
 void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec2 size, Uph_Track *track, uint32_t block_index, double start_offset, Uph_ResourceIndex automation_index)
 {
-	Uph_SongTimelineState *state = &_uph_song_timeline_state;
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	Uph_AutomationEditState *edit = &state->automation_edit;
 	Uph_Automation *automation = &uph_state.project.automations[automation_index];
 	const float zoom_x = state->zoom.x;
@@ -75,7 +75,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 
 		if (idx != 0)
 		{
-			double snapped_beat = _uph_song_timeline_automation_mouse_beat(position, start_offset);
+			double snapped_beat = uph__song_timeline_automation_mouse_beat(position, start_offset);
 			const double prev_beat = automation->points[idx - 1].beat;
 			snapped_beat = fmax(snapped_beat, prev_beat);
 
@@ -88,7 +88,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 		naui_set_cursor(NAUI_CURSOR_HAND);
 
 		if (naui_mouse_released(NAUI_MOUSE_LEFT))
-			_uph_song_timeline_finish_point_edit(automation);
+			uph__song_timeline_finish_point_edit(automation);
 
 		return;
 	}
@@ -131,7 +131,7 @@ void uph_song_timeline_update_automation_point_drag(Naui_Vec2 position, Naui_Vec
 	bool in_bounds = uph_song_timeline_vec4_contains_vec2((Naui_Vec4) { position.x, position.y, size.x, size.y }, (Naui_Vec2) { (float)naui_mouse_x(), (float)naui_mouse_y() });
 	if (!hovering_existing_point && naui_mouse_pressed(NAUI_MOUSE_LEFT) && in_bounds)
 	{
-		double new_beat = _uph_song_timeline_automation_mouse_beat(position, start_offset);
+		double new_beat = uph__song_timeline_automation_mouse_beat(position, start_offset);
 		new_beat = fmax(new_beat, 0.0);
 		const float mouse_y = (float)naui_mouse_y();
 		const float clamped_y = fminf(fmaxf(mouse_y, position.y), position.y + size.y);

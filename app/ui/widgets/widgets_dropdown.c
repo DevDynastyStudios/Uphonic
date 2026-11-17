@@ -1,4 +1,4 @@
-static void _uph_ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
+static void uph__ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
 {
     const Leaf_Color color = *(const Leaf_Color*)user_data;
 
@@ -19,10 +19,10 @@ static void _uph_ui_dropdown_arrow_draw(Leaf_BoundingBox box, void *user_data)
 bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32_t *current_index, const Leaf_ID id)
 {
     Uph_GlobalWidgetState *data = &uph_global_widget_state;
-    Uph_UIMenuNode *menu = _uph_ui_menu_root(data, id);
+    Uph_UIMenuNode *menu = uph__ui_menu_root(data, id);
     bool result = false;
 
-    const bool was_open = _uph_ui_menu_is_open(data, menu);
+    const bool was_open = uph__ui_menu_is_open(data, menu);
     const bool hovered = uph_ui_widget_hovered(id) || (was_open && leaf_hovered(id));
 
     if (hovered)
@@ -31,13 +31,13 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
         if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
         {
             if (was_open)
-                _uph_ui_close_menu(data);
+                uph__ui_close_menu(data);
             else
-                _uph_ui_open_menu(data, menu, false);
+                uph__ui_open_menu(data, menu, false);
         }
     }
 
-    const bool open = _uph_ui_menu_is_open(data, menu);
+    const bool open = uph__ui_menu_is_open(data, menu);
     const uint32_t shown_index = (*current_index < item_count) ? *current_index : 0;
     const char *shown_text = item_count > 0 ? items[shown_index] : "";
 
@@ -55,9 +55,9 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     leaf({
         .id = id,
-        .size = { .width = LEAF_SIZE_GROW, .height = UPH_UI_SIZE_EXACT(_uph_ui_frame_height()) },
+        .size = { .width = LEAF_SIZE_GROW, .height = UPH_UI_SIZE_EXACT(uph__ui_frame_height()) },
         .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), 0),
-        .border = _uph_ui_frame_border(),
+        .border = uph__ui_frame_border(),
         .color = background,
         .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL),
@@ -77,7 +77,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
         }
 
         leaf({
-            .custom_draw = _uph_ui_dropdown_arrow_draw,
+            .custom_draw = uph__ui_dropdown_arrow_draw,
             .custom_draw_data = LEAF_DATA_SLICE(arrow_color),
             .size = { .width = LEAF_SIZE_FIXED(font_size), .height = LEAF_SIZE_FIXED(font_size) }
         });

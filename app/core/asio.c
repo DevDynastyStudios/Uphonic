@@ -143,7 +143,7 @@ typedef struct
 }
 Uph_AsioState;
 
-static Uph_AsioState _uph_asio_state;
+static Uph_AsioState uph__asio_state;
 
 static const IID uph_asio_iid_class_factory = { 0x00000001, 0x0000, 0x0000, { 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46 } };
 
@@ -214,7 +214,7 @@ static bool uph_asio_find_driver(const ma_device_id *id, Uph_AsioDriverEntry *ou
 
 static bool uph_asio_load(const CLSID *clsid)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	WCHAR clsid_text[64];
 	if (!StringFromGUID2(clsid, clsid_text, 64))
 		return false;
@@ -271,7 +271,7 @@ static bool uph_asio_load(const CLSID *clsid)
 
 static void uph_asio_unload(void)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	if (state->driver)
 	{
 		state->driver->vtbl->release(state->driver);
@@ -413,7 +413,7 @@ static void uph_asio_write_channel(void *dst, const long type, const float *src,
 
 static void uph_asio_process(const long index)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	const long frames = state->buffer_size;
 	float *input = state->input_scratch;
 	float *output = state->output_scratch;
@@ -452,14 +452,14 @@ static Uph_AsioTime *uph_asio_on_buffer_switch_time_info(Uph_AsioTime *params, l
 
 static void uph_asio_on_sample_rate_changed(double rate)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	(void)rate;
 	atomic_store(&state->reset_requested, true);
 }
 
 static long uph_asio_on_message(long selector, long value, void *message, double *opt)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	(void)message;
 	(void)opt;
 
@@ -510,7 +510,7 @@ static long uph_asio_pick_buffer_size(const long requested, const long min, cons
 
 static void uph_asio_log_driver_error(const char *what)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	char message[124] = { 0 };
 	if (state->driver)
 		state->driver->vtbl->get_error_message(state->driver, message);
@@ -520,7 +520,7 @@ static void uph_asio_log_driver_error(const char *what)
 
 static void uph_asio_release_device(void)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	if (state->buffers_created)
 	{
 		state->driver->vtbl->dispose_buffers(state->driver);
@@ -564,7 +564,7 @@ static ma_result uph_asio_on_context_enumerate_devices(ma_context *context, ma_e
 
 static void uph_asio_fill_descriptor(ma_device_descriptor *descriptor, const ma_uint32 channels, const ma_uint32 sample_rate)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	descriptor->format = ma_format_f32;
 	descriptor->channels = channels;
 	descriptor->sampleRate = sample_rate;
@@ -575,7 +575,7 @@ static void uph_asio_fill_descriptor(ma_device_descriptor *descriptor, const ma_
 
 static ma_result uph_asio_on_device_init(ma_device *device, const ma_device_config *config, ma_device_descriptor *playback, ma_device_descriptor *capture)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	if (config->deviceType != ma_device_type_duplex)
 		return MA_DEVICE_TYPE_NOT_SUPPORTED;
 
@@ -686,7 +686,7 @@ static ma_result uph_asio_on_device_uninit(ma_device *device)
 
 static ma_result uph_asio_on_device_start(ma_device *device)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	(void)device;
 	if (state->driver->vtbl->start(state->driver) != UPH_ASE_OK)
 	{
@@ -699,7 +699,7 @@ static ma_result uph_asio_on_device_start(ma_device *device)
 
 static ma_result uph_asio_on_device_stop(ma_device *device)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	(void)device;
 	state->driver->vtbl->stop(state->driver);
 	return MA_SUCCESS;
@@ -735,7 +735,7 @@ void uph_asio_get_backend_callbacks(ma_backend_callbacks *callbacks)
 
 bool uph_asio_show_control_panel(void)
 {
-	Uph_AsioState *state = &_uph_asio_state;
+	Uph_AsioState *state = &uph__asio_state;
 	if (!state->driver)
 		return false;
 
@@ -744,12 +744,12 @@ bool uph_asio_show_control_panel(void)
 
 bool uph_asio_consume_reset_request(void)
 {
-	return atomic_exchange(&_uph_asio_state.reset_requested, false);
+	return atomic_exchange(&uph__asio_state.reset_requested, false);
 }
 
 uint32_t uph_asio_input_count(void)
 {
-	return _uph_asio_state.device ? (uint32_t)_uph_asio_state.input_count : 0;
+	return uph__asio_state.device ? (uint32_t)uph__asio_state.input_count : 0;
 }
 
 #else

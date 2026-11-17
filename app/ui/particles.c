@@ -61,7 +61,7 @@ void uph_particles_free(Uph_ParticleSystem *system)
 	system->particles = NULL;
 }
 
-static void _uph_particles_draw(Leaf_BoundingBox bbox, Uph_ParticleSystem **user_data)
+static void uph__particles_draw(Leaf_BoundingBox bbox, Uph_ParticleSystem **user_data)
 {
 	const Uph_ParticleSystem *system = *user_data;
 	const float time = naui_time();
@@ -112,7 +112,7 @@ void uph_particles_render(Uph_ParticleSystem *system)
 		return;
 
 	leaf({
-		.custom_draw = (Leaf_CustomDrawFn)_uph_particles_draw,
+		.custom_draw = (Leaf_CustomDrawFn)uph__particles_draw,
 		.custom_draw_data = LEAF_DATA_SLICE(system),
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 		.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT

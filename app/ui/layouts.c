@@ -16,7 +16,7 @@ typedef struct
 	bool menu_was_open;
 }
 Uph_LayoutsState;
-static Uph_LayoutsState _uph_layouts_state = { 0 };
+static Uph_LayoutsState uph__layouts_state = { 0 };
 
 static Naui_Path uph_layouts_path_in(const Naui_Path folder, const char *name)
 {
@@ -69,7 +69,7 @@ static void uph_layouts_scan(const Naui_Path folder, char names[UPH_LAYOUT_MAX_C
 
 static void uph_layouts_refresh(void)
 {
-	Uph_LayoutsState *state = &_uph_layouts_state;
+	Uph_LayoutsState *state = &uph__layouts_state;
 	uph_layouts_scan(UPHONIC_BUILTIN_LAYOUTS_FOLDER, state->builtin_names, &state->builtin_count);
 	uph_layouts_scan(UPHONIC_LAYOUTS_FOLDER, state->names, &state->count);
 
@@ -101,12 +101,12 @@ static bool uph_layouts_load_builtin(const char *name)
 	return true;
 }
 
-static void _uph_layouts_apply_default(void)
+static void uph__layouts_apply_default(void)
 {
 	uph_layouts_load_builtin(UPH_LAYOUT_BUILTIN_DEFAULT);
 }
 
-static bool _uph_layouts_load(const char *name)
+static bool uph__layouts_load(const char *name)
 {
 	const Naui_Path path = uph_layouts_path(name);
 	if (naui_panel_layout_load(path.data))
@@ -128,17 +128,17 @@ void uph_layouts_apply_saved(void)
 		if (naui_path_exists(uph_layouts_builtin_path(builtin)) && uph_layouts_load_builtin(builtin))
 			return;
 	}
-	else if (name[0] && naui_path_exists(uph_layouts_path(name)) && _uph_layouts_load(name))
+	else if (name[0] && naui_path_exists(uph_layouts_path(name)) && uph__layouts_load(name))
 		return;
 
-	_uph_layouts_apply_default();
+	uph__layouts_apply_default();
 }
 
 static Naui_String uph_layouts_save_name;
 
-static void _uph_open_save_layout_dialog_ex(const char *message);
+static void uph__open_save_layout_dialog_ex(const char *message);
 
-static bool _uph_layout_name_valid(const char *name)
+static bool uph__layout_name_valid(const char *name)
 {
 	const size_t length = strlen(name);
 	if (length == 0 || length >= UPH_LAYOUT_NAME_MAX || !strcmp(name, ".") || !strcmp(name, ".."))
@@ -157,7 +157,7 @@ static bool _uph_layout_name_valid(const char *name)
 	return name[length - 1] != '.';
 }
 
-static void _uph_layout_name_trim(char *name)
+static void uph__layout_name_trim(char *name)
 {
 	size_t start = 0;
 	while (name[start] && isspace((unsigned char)name[start]))
@@ -169,7 +169,7 @@ static void _uph_layout_name_trim(char *name)
 		name[--length] = '\0';
 }
 
-static void _uph_save_layout_write(const char *name)
+static void uph__save_layout_write(const char *name)
 {
 	const Naui_Path folder = UPHONIC_LAYOUTS_FOLDER;
 	if (!naui_path_exists(folder) && !naui_directories_create(folder))
@@ -189,16 +189,16 @@ static void _uph_save_layout_write(const char *name)
 	uph_layouts_select(name);
 }
 
-static void _uph_overwrite_layout_result(int32_t button, void *user_data)
+static void uph__overwrite_layout_result(int32_t button, void *user_data)
 {
 	(void)user_data;
 	if (button == 0)
-		_uph_save_layout_write(uph_layouts_save_name.data);
+		uph__save_layout_write(uph_layouts_save_name.data);
 	else
-		_uph_open_save_layout_dialog_ex(NULL);
+		uph__open_save_layout_dialog_ex(NULL);
 }
 
-static void _uph_save_layout_result(int32_t button, void *user_data)
+static void uph__save_layout_result(int32_t button, void *user_data)
 {
 	(void)user_data;
 	if (button != 0)
@@ -206,14 +206,14 @@ static void _uph_save_layout_result(int32_t button, void *user_data)
 
 	char name[NAUI_STRING_MAX_SIZE];
 	snprintf(name, sizeof(name), "%s", uph_layouts_save_name.data);
-	_uph_layout_name_trim(name);
+	uph__layout_name_trim(name);
 	name[naui_utf8_clip_length(name, strlen(name), UPH_LAYOUT_NAME_MAX - 1)] = '\0';
-	_uph_layout_name_trim(name);
+	uph__layout_name_trim(name);
 	uph_layouts_save_name = naui_string_from_cstr(name);
 
-	if (!_uph_layout_name_valid(name))
+	if (!uph__layout_name_valid(name))
 	{
-		_uph_open_save_layout_dialog_ex(NAUI_TR("file_dialog.error.invalid_name"));
+		uph__open_save_layout_dialog_ex(NAUI_TR("file_dialog.error.invalid_name"));
 		return;
 	}
 
@@ -225,15 +225,15 @@ static void _uph_save_layout_result(int32_t button, void *user_data)
 			.buttons = { NAUI_TR("menu.layout.popup.overwrite"), NAUI_TR("menu.layout.popup.cancel") },
 			.default_button = 0,
 			.cancel_button = 1,
-			.callback = _uph_overwrite_layout_result
+			.callback = uph__overwrite_layout_result
 		});
 		return;
 	}
 
-	_uph_save_layout_write(name);
+	uph__save_layout_write(name);
 }
 
-static void _uph_open_save_layout_dialog_ex(const char *message)
+static void uph__open_save_layout_dialog_ex(const char *message)
 {
 	uph_dialog_open(&(Uph_DialogConfig){
 		.title = NAUI_TR("menu.layout.popup.save"),
@@ -241,25 +241,25 @@ static void _uph_open_save_layout_dialog_ex(const char *message)
 		.buttons = { NAUI_TR("menu.layout.popup.save_btn"), NAUI_TR("menu.layout.popup.cancel") },
 		.default_button = 0,
 		.cancel_button = 1,
-		.callback = _uph_save_layout_result,
+		.callback = uph__save_layout_result,
 		.input = &uph_layouts_save_name,
 		.input_placeholder = NAUI_TR("file_dialog.name")
 	});
 }
 
-static void _uph_open_save_layout_dialog(void)
+static void uph__open_save_layout_dialog(void)
 {
 	if (uph_dialog_is_open())
 		return;
 
 	const char *current = uph_state.settings.general.layout.data;
 	uph_layouts_save_name = naui_string_from_cstr(uph_layouts_is_builtin_selection(current) ? "" : current);
-	_uph_open_save_layout_dialog_ex(NULL);
+	uph__open_save_layout_dialog_ex(NULL);
 }
 
-static void _uph_delete_layout_result(int32_t button, void *user_data)
+static void uph__delete_layout_result(int32_t button, void *user_data)
 {
-	Uph_LayoutsState *state = &_uph_layouts_state;
+	Uph_LayoutsState *state = &uph__layouts_state;
 	(void)user_data;
 	if (button != 0)
 		return;
@@ -273,9 +273,9 @@ static void _uph_delete_layout_result(int32_t button, void *user_data)
 	uph_layouts_refresh();
 }
 
-static void _uph_confirm_delete_layout(const char *name)
+static void uph__confirm_delete_layout(const char *name)
 {
-	Uph_LayoutsState *state = &_uph_layouts_state;
+	Uph_LayoutsState *state = &uph__layouts_state;
 	snprintf(state->pending_delete, sizeof(state->pending_delete), "%s", name);
 
 	uph_dialog_open(&(Uph_DialogConfig){
@@ -284,13 +284,13 @@ static void _uph_confirm_delete_layout(const char *name)
 		.buttons = { NAUI_TR("menu.layout.delete"), NAUI_TR("menu.layout.popup.cancel") },
 		.default_button = 1,
 		.cancel_button = 1,
-		.callback = _uph_delete_layout_result
+		.callback = uph__delete_layout_result
 	});
 }
 
 void uph_layouts_render_menu(void)
 {
-	Uph_LayoutsState *state = &_uph_layouts_state;
+	Uph_LayoutsState *state = &uph__layouts_state;
 
 	const bool menu_open = uph_ui_any_menu_open();
 	if (menu_open && !state->menu_was_open)
@@ -307,11 +307,11 @@ void uph_layouts_render_menu(void)
 	for (uint32_t i = 0; i < state->count; i++)
 	{
 		if (uph_ui_menu_item(layout_menu, state->names[i], leaf_id_indexed("uph_layout_menu_item", i)))
-			_uph_layouts_load(state->names[i]);
+			uph__layouts_load(state->names[i]);
 	}
 
 	if (uph_ui_menu_item(layout_menu, NAUI_TR("menu.layout.save"), leaf_id("uph_layout_menu_save")))
-		_uph_open_save_layout_dialog();
+		uph__open_save_layout_dialog();
 
 	if (state->count == 0)
 		return;
@@ -320,6 +320,6 @@ void uph_layouts_render_menu(void)
 	for (uint32_t i = 0; i < state->count; i++)
 	{
 		if (uph_ui_menu_item(delete_menu, state->names[i], leaf_id_indexed("uph_layout_menu_delete_item", i)))
-			_uph_confirm_delete_layout(state->names[i]);
+			uph__confirm_delete_layout(state->names[i]);
 	}
 }
