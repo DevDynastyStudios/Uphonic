@@ -495,6 +495,18 @@ static void uph__note_input_finish_drag(Uph_MidiEditorState *editor, Uph_MidiPat
 
 #pragma endregion
 
+static int32_t uph__note_input_hovered_selected_note(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
+{
+	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
+	{
+		const Uph_MidiNote *note = &pattern->notes[i];
+		if (note->selected && uph_song_timeline_vec4_contains_vec2(uph_midi_view_note_box(&editor->view, &editor->note_map, box, note), mouse))
+			return (int32_t)i;
+	}
+	return -1;
+}
+
 static void uph__note_input_update_drag(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
 {
 	Uph_MidiNoteInput *input = &editor->note_input;
@@ -502,6 +514,8 @@ static void uph__note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 
 	if (drag->active && (drag->pattern_index != uph_state.shared.selected_resource.index || drag->note_index >= (uint32_t)naui_list_len(pattern->notes)))
 		uph_midi_note_input_cancel_drag(editor);
+
+	const int32_t preferred_note = drag->active || !editor->lanes_hovered ? -1 : uph__note_input_hovered_selected_note(editor, box, pattern);
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
 	{
@@ -572,6 +586,9 @@ static void uph__note_input_update_drag(Uph_MidiEditorState *editor, Leaf_Boundi
 
 		if (!drag->active)
 		{
+			if (preferred_note >= 0 && (int32_t)i != preferred_note)
+				continue;
+
 			Naui_Vec4 hover_box = uph_midi_view_note_box(&editor->view, &editor->note_map, box, note);
 
 			if (hover_box.y + hover_box.w < box.y || hover_box.y > box.y + box.height)

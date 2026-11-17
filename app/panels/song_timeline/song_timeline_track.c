@@ -8,6 +8,39 @@ typedef struct
 }
 Uph_DragResource;
 
+static bool uph__song_timeline_block_hover_box(Leaf_BoundingBox bbox, const Uph_TimelineBlock *block, float title_height, Naui_Vec4 *out)
+{
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
+	const float block_left = bbox.x + state->zoom.x * block->start_beat - state->scroll.x;
+	const float block_right = block_left + state->zoom.x * block->length_beats;
+
+	const float clamped_left = fmaxf(bbox.x, block_left);
+	const float clamped_right = fminf(bbox.x + bbox.width, block_right);
+
+	if (clamped_right <= clamped_left)
+		return false;
+
+	*out = (Naui_Vec4){
+		clamped_left,
+		bbox.y,
+		clamped_right - clamped_left,
+		block->type == UPH_RESOURCE_AUTOMATION ? title_height : bbox.height
+	};
+	return true;
+}
+
+static int32_t uph__song_timeline_hovered_selected_block(Leaf_BoundingBox bbox, Naui_List(Uph_TimelineBlock) blocks, float title_height)
+{
+	const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
+	{
+		Naui_Vec4 hover_box;
+		if (blocks[i].selected && uph__song_timeline_block_hover_box(bbox, &blocks[i], title_height, &hover_box) && uph_song_timeline_vec4_contains_vec2(hover_box, mouse))
+			return (int32_t)i;
+	}
+	return -1;
+}
+
 static void uph__song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox, Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &uph__song_timeline_state;
@@ -52,6 +85,8 @@ static void uph__song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 
 	if (!state->tracks_hovered)
 		return;
+
+	const int32_t preferred_block = drag->active ? -1 : uph__song_timeline_hovered_selected_block(bbox, blocks, title_height);
 
 	for (uint32_t i = 0; i < (uint32_t)naui_list_len(blocks); i++)
 	{
@@ -118,21 +153,14 @@ static void uph__song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 
 		if (!drag->active)
 		{
-			const float block_left = bbox.x + zoom_x * blocks[i].start_beat - scroll_x;
-			const float block_right = block_left + zoom_x * blocks[i].length_beats;
-
-			const float clamped_left = fmaxf(bbox.x, block_left);
-			const float clamped_right = fminf(bbox.x + bbox.width, block_right);
-
-			if (clamped_right <= clamped_left)
+			if (preferred_block >= 0 && (int32_t)i != preferred_block)
 				continue;
 
-			Naui_Vec4 hover_box = (Naui_Vec4){
-				clamped_left,
-				bbox.y,
-				clamped_right - clamped_left,
-				blocks[i].type == UPH_RESOURCE_AUTOMATION ? title_height : bbox.height
-			};
+			const float block_left = bbox.x + zoom_x * blocks[i].start_beat - scroll_x;
+
+			Naui_Vec4 hover_box;
+			if (!uph__song_timeline_block_hover_box(bbox, &blocks[i], title_height, &hover_box))
+				continue;
 
 			const Naui_Vec2 mouse = { (float)naui_mouse_x(), (float)naui_mouse_y() };
 			const bool in_hover_box = uph_song_timeline_vec4_contains_vec2(hover_box, mouse);
