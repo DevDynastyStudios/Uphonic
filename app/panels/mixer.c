@@ -1008,15 +1008,8 @@ static float uph_mixer_approach(float current, float target, float speed, float 
 static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, float parent_offset)
 {
 	Uph_MixerState *state = &uph__mixer_state;
-	if (strip->type == UPH_RESOURCE_AUTOMATION)
+	if (strip->type == UPH_RESOURCE_AUTOMATION || strip->type == UPH_RESOURCE_MASTER)
 		return;
-
-    if (strip->type == UPH_RESOURCE_MASTER)
-    {
-        uph_mixer_render_strip_body(strip, context_menu);
-        state->visual.settled_x += uph_mixer_strip_width();
-        return;
-    }
 
     Uph_Track *track = strip;
     const float target_x = state->visual.settled_x;
@@ -1430,7 +1423,7 @@ static void uph_mixer_reveal_selected_strip(Leaf_ID scroll_id)
 		state->reveal_settle_frames = UPH_MIXER_REVEAL_SETTLE_FRAMES;
 	}
 
-	if (!strip || state->reveal_settle_frames == 0)
+	if (!strip || strip->type == UPH_RESOURCE_MASTER || state->reveal_settle_frames == 0)
 		return;
 
 	if (state->visual.effect_panel >= 1.0f)
@@ -1467,6 +1460,19 @@ static void uph_mixer_on_update(void)
         if (min_meter < FLT_MAX && last_content.height > 0.0f)
             required_height = floorf(last_content.height - min_meter + NAUI_DPI(UPH_MIXER_METER_SCROLL_HEIGHT) + 0.5f);
 
+        Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_strip_menu"));
+        state->color_menu = uph_ui_context_menu_custom(leaf_id("uph_mixer_color_menu"), uph_mixer_render_color_menu);
+
+        Uph_Track *master = uph_resources_master_track();
+        if (master)
+        {
+            uph_mixer_render_strip_body(master, context_menu);
+            leaf({
+                .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(3)), .height = LEAF_SIZE_FULL },
+                .color = uph_state.colors.mixer_track_border
+            });
+        }
+
         uph_mixer_reveal_selected_strip(leaf_id("uph_mixer_scrollbar"));
         Uph_UIScrollArea scroll_area = uph_ui_begin_scroll_area(
             &state->scroll.x,
@@ -1475,8 +1481,6 @@ static void uph_mixer_on_update(void)
             leaf_id("uph_mixer_scrollbar")
         );
 
-        Uph_UIMenuID context_menu = uph_ui_context_menu(leaf_id("uph_mixer_strip_menu"));
-        state->color_menu = uph_ui_context_menu_custom(leaf_id("uph_mixer_color_menu"), uph_mixer_render_color_menu);
         leaf({
             .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
             .direction = LEAF_DIRECTION_HORIZONTAL
@@ -1509,7 +1513,6 @@ static void uph_mixer_on_update(void)
 
 		if (uph_state.shared.selected_mixer_master)
 		{
-			Uph_Track *master = uph_resources_master_track();
 			if (uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_master")))
 				uph_song_timeline_open_automation_list(master);
 
