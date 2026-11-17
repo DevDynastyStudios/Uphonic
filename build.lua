@@ -151,7 +151,7 @@ local function compile(release)
     for _, part in ipairs(defines(release))       do table.insert(parts, part) end
     for _, part in ipairs(include_flags())        do table.insert(parts, part) end
 
-    table.insert(parts, config.src)
+    table.insert(parts, type(config.src) == "table" and config.src[PLATFORM] or config.src)
     table.insert(parts, "-o")
     table.insert(parts, '"' .. out .. '"')
 

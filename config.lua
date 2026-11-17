@@ -1,6 +1,10 @@
 return {
     app_name = "Uphonic",
-    src = "uphonic/build.c",
+    src = {
+        windows = "uphonic/build.c",
+        linux = "uphonic/build.c",
+        macos = "uphonic/build.m"
+    },
 
     include_dirs = {
         ".",
@@ -15,7 +19,7 @@ return {
     },
 
     frameworks = {
-        macos = { "Cocoa", "Metal", "QuartzCore", "CoreMIDI.framework", "CoreFoundation.framework" }
+        macos = { "Cocoa", "Metal", "QuartzCore", "CoreMIDI", "CoreFoundation" }
     },
 
     defines = {

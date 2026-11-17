@@ -626,6 +626,88 @@ typedef struct
 }
 mgapp_linux_state;
 
+#elif defined(__APPLE__)
+
+#if !defined(__OBJC__)
+#error "The mgapp macOS backend must be compiled as Objective-C (include the implementation from a .m file)."
+#endif
+
+#if __has_feature(objc_arc)
+#error "The mgapp macOS backend uses manual reference counting; compile it without -fobjc-arc."
+#endif
+
+#import <Cocoa/Cocoa.h>
+#import <QuartzCore/CAMetalLayer.h>
+#ifndef __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES
+#define __ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES 0
+#endif
+#include <Carbon/Carbon.h>
+#include <mach/mach_time.h>
+#include <stdlib.h>
+
+#ifndef MGAPP_MACOS_SCROLL_STEP
+    #define MGAPP_MACOS_SCROLL_STEP 10.0f
+#endif
+
+#ifndef MGAPP_MACOS_RESIZE_BORDER
+    #define MGAPP_MACOS_RESIZE_BORDER 6.0f
+#endif
+
+#ifndef MGAPP_MACOS_MIN_SIZE
+    #define MGAPP_MACOS_MIN_SIZE 64.0f
+#endif
+
+typedef uint8_t mgapp_macos_edge;
+enum
+{
+    MGAPP_MACOS_EDGE_NONE = 0,
+    MGAPP_MACOS_EDGE_LEFT = 1 << 0,
+    MGAPP_MACOS_EDGE_RIGHT = 1 << 1,
+    MGAPP_MACOS_EDGE_TOP = 1 << 2,
+    MGAPP_MACOS_EDGE_BOTTOM = 1 << 3
+};
+
+typedef uint8_t mgapp_macos_drag_mode;
+enum
+{
+    MGAPP_MACOS_DRAG_NONE,
+    MGAPP_MACOS_DRAG_MOVE,
+    MGAPP_MACOS_DRAG_RESIZE
+};
+
+typedef struct
+{
+    NSWindow *window;
+    NSView *view;
+    CAMetalLayer *layer;
+    id delegate;
+
+    NSCursor *cursor_table[MG_CURSOR_MAX];
+    bool cursor_hidden;
+
+    struct
+    {
+        mgapp_macos_drag_mode mode;
+        mgapp_macos_edge edges;
+        NSPoint start_mouse;
+        NSRect start_frame;
+    }
+    drag;
+
+    NSRect restore_frame;
+    bool maximized;
+
+    NSUInteger marked_length;
+    bool ime_handled;
+
+    float scroll_accumulator;
+    float backing_scale;
+
+    double clock_scale;
+    uint64_t start_time;
+}
+mgapp_macos_state;
+
 #endif
 
 typedef struct
@@ -636,6 +718,8 @@ typedef struct
     mgapp_win32_state win32;
 #elif defined(__linux__)
     mgapp_linux_state _linux;
+#elif defined(__APPLE__)
+    mgapp_macos_state macos;
 #endif
     mgapp_input_state input;
 
@@ -4165,6 +4249,1259 @@ float mgapp_time(void)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (float)ts.tv_sec + (float)ts.tv_nsec * 1e-9f;
+}
+
+#elif defined(__APPLE__)
+
+static inline mg_key mgapp_macos_translate_key(unsigned short key_code)
+{
+    switch (key_code)
+    {
+        case kVK_ANSI_A:              return MG_KEY_A;
+        case kVK_ANSI_B:              return MG_KEY_B;
+        case kVK_ANSI_C:              return MG_KEY_C;
+        case kVK_ANSI_D:              return MG_KEY_D;
+        case kVK_ANSI_E:              return MG_KEY_E;
+        case kVK_ANSI_F:              return MG_KEY_F;
+        case kVK_ANSI_G:              return MG_KEY_G;
+        case kVK_ANSI_H:              return MG_KEY_H;
+        case kVK_ANSI_I:              return MG_KEY_I;
+        case kVK_ANSI_J:              return MG_KEY_J;
+        case kVK_ANSI_K:              return MG_KEY_K;
+        case kVK_ANSI_L:              return MG_KEY_L;
+        case kVK_ANSI_M:              return MG_KEY_M;
+        case kVK_ANSI_N:              return MG_KEY_N;
+        case kVK_ANSI_O:              return MG_KEY_O;
+        case kVK_ANSI_P:              return MG_KEY_P;
+        case kVK_ANSI_Q:              return MG_KEY_Q;
+        case kVK_ANSI_R:              return MG_KEY_R;
+        case kVK_ANSI_S:              return MG_KEY_S;
+        case kVK_ANSI_T:              return MG_KEY_T;
+        case kVK_ANSI_U:              return MG_KEY_U;
+        case kVK_ANSI_V:              return MG_KEY_V;
+        case kVK_ANSI_W:              return MG_KEY_W;
+        case kVK_ANSI_X:              return MG_KEY_X;
+        case kVK_ANSI_Y:              return MG_KEY_Y;
+        case kVK_ANSI_Z:              return MG_KEY_Z;
+
+        case kVK_ANSI_0:              return MG_KEY_0;
+        case kVK_ANSI_1:              return MG_KEY_1;
+        case kVK_ANSI_2:              return MG_KEY_2;
+        case kVK_ANSI_3:              return MG_KEY_3;
+        case kVK_ANSI_4:              return MG_KEY_4;
+        case kVK_ANSI_5:              return MG_KEY_5;
+        case kVK_ANSI_6:              return MG_KEY_6;
+        case kVK_ANSI_7:              return MG_KEY_7;
+        case kVK_ANSI_8:              return MG_KEY_8;
+        case kVK_ANSI_9:              return MG_KEY_9;
+
+        case kVK_F1:                  return MG_KEY_F1;
+        case kVK_F2:                  return MG_KEY_F2;
+        case kVK_F3:                  return MG_KEY_F3;
+        case kVK_F4:                  return MG_KEY_F4;
+        case kVK_F5:                  return MG_KEY_F5;
+        case kVK_F6:                  return MG_KEY_F6;
+        case kVK_F7:                  return MG_KEY_F7;
+        case kVK_F8:                  return MG_KEY_F8;
+        case kVK_F9:                  return MG_KEY_F9;
+        case kVK_F10:                 return MG_KEY_F10;
+        case kVK_F11:                 return MG_KEY_F11;
+        case kVK_F12:                 return MG_KEY_F12;
+        case kVK_F13:                 return MG_KEY_F13;
+        case kVK_F14:                 return MG_KEY_F14;
+        case kVK_F15:                 return MG_KEY_F15;
+        case kVK_F16:                 return MG_KEY_F16;
+        case kVK_F17:                 return MG_KEY_F17;
+        case kVK_F18:                 return MG_KEY_F18;
+        case kVK_F19:                 return MG_KEY_F19;
+        case kVK_F20:                 return MG_KEY_F20;
+
+        case kVK_ANSI_Keypad0:        return MG_KEY_NUMPAD0;
+        case kVK_ANSI_Keypad1:        return MG_KEY_NUMPAD1;
+        case kVK_ANSI_Keypad2:        return MG_KEY_NUMPAD2;
+        case kVK_ANSI_Keypad3:        return MG_KEY_NUMPAD3;
+        case kVK_ANSI_Keypad4:        return MG_KEY_NUMPAD4;
+        case kVK_ANSI_Keypad5:        return MG_KEY_NUMPAD5;
+        case kVK_ANSI_Keypad6:        return MG_KEY_NUMPAD6;
+        case kVK_ANSI_Keypad7:        return MG_KEY_NUMPAD7;
+        case kVK_ANSI_Keypad8:        return MG_KEY_NUMPAD8;
+        case kVK_ANSI_Keypad9:        return MG_KEY_NUMPAD9;
+        case kVK_ANSI_KeypadMultiply: return MG_KEY_MULTIPLY;
+        case kVK_ANSI_KeypadPlus:     return MG_KEY_ADD;
+        case kVK_ANSI_KeypadMinus:    return MG_KEY_SUBTRACT;
+        case kVK_ANSI_KeypadDecimal:  return MG_KEY_DECIMAL;
+        case kVK_ANSI_KeypadDivide:   return MG_KEY_DIVIDE;
+        case kVK_ANSI_KeypadEnter:    return MG_KEY_ENTER;
+        case kVK_ANSI_KeypadEquals:   return MG_KEY_NUMPAD_EQUAL;
+        case kVK_ANSI_KeypadClear:    return MG_KEY_NUMLOCK;
+
+        case kVK_Delete:              return MG_KEY_BACKSPACE;
+        case kVK_ForwardDelete:       return MG_KEY_DELETE;
+        case kVK_Return:              return MG_KEY_ENTER;
+        case kVK_Tab:                 return MG_KEY_TAB;
+        case kVK_Escape:              return MG_KEY_ESCAPE;
+        case kVK_Space:               return MG_KEY_SPACE;
+        case kVK_CapsLock:            return MG_KEY_CAPITAL;
+        case kVK_Help:                return MG_KEY_INSERT;
+        case kVK_PageUp:              return MG_KEY_PAGE_UP;
+        case kVK_PageDown:            return MG_KEY_PAGE_DOWN;
+        case kVK_End:                 return MG_KEY_END;
+        case kVK_Home:                return MG_KEY_HOME;
+        case kVK_LeftArrow:           return MG_KEY_LEFT;
+        case kVK_UpArrow:             return MG_KEY_UP;
+        case kVK_RightArrow:          return MG_KEY_RIGHT;
+        case kVK_DownArrow:           return MG_KEY_DOWN;
+
+        case kVK_Shift:               return MG_KEY_LSHIFT;
+        case kVK_RightShift:          return MG_KEY_RSHIFT;
+        case kVK_Control:             return MG_KEY_LCONTROL;
+        case kVK_RightControl:        return MG_KEY_RCONTROL;
+        case kVK_Option:              return MG_KEY_LALT;
+        case kVK_RightOption:         return MG_KEY_RALT;
+        case kVK_Command:             return MG_KEY_LSUPER;
+        case kVK_RightCommand:        return MG_KEY_RSUPER;
+
+        case kVK_ANSI_Semicolon:      return MG_KEY_SEMICOLON;
+        case kVK_ANSI_Quote:          return MG_KEY_APOSTROPHE;
+        case kVK_ANSI_Equal:          return MG_KEY_EQUAL;
+        case kVK_ANSI_Comma:          return MG_KEY_COMMA;
+        case kVK_ANSI_Minus:          return MG_KEY_MINUS;
+        case kVK_ANSI_Period:         return MG_KEY_PERIOD;
+        case kVK_ANSI_Slash:          return MG_KEY_SLASH;
+        case kVK_ANSI_Grave:          return MG_KEY_GRAVE;
+        case kVK_ANSI_LeftBracket:    return MG_KEY_LBRACKET;
+        case kVK_ANSI_Backslash:      return MG_KEY_PIPE;
+        case kVK_ANSI_RightBracket:   return MG_KEY_RBRACKET;
+
+        default: return MG_KEY_MAX;
+    }
+}
+
+static inline NSEventModifierFlags mgapp_macos_modifier_flag(mg_key key)
+{
+    switch (key)
+    {
+        case MG_KEY_LSHIFT:
+        case MG_KEY_RSHIFT:   return NSEventModifierFlagShift;
+        case MG_KEY_LCONTROL:
+        case MG_KEY_RCONTROL: return NSEventModifierFlagControl;
+        case MG_KEY_LALT:
+        case MG_KEY_RALT:     return NSEventModifierFlagOption;
+        case MG_KEY_LSUPER:
+        case MG_KEY_RSUPER:   return NSEventModifierFlagCommand;
+        case MG_KEY_CAPITAL:  return NSEventModifierFlagCapsLock;
+        default:              return 0;
+    }
+}
+
+static inline NSCursor *mgapp_macos_private_cursor(NSString *selector_name, NSCursor *fallback)
+{
+    const SEL selector = NSSelectorFromString(selector_name);
+    if ([NSCursor respondsToSelector:selector])
+        return [NSCursor performSelector:selector];
+    return fallback;
+}
+
+static inline void mgapp_macos_load_cursors(mgapp_macos_state *macos_state)
+{
+    macos_state->cursor_table[MG_CURSOR_ARROW] = [NSCursor arrowCursor];
+    macos_state->cursor_table[MG_CURSOR_IBEAM] = [NSCursor IBeamCursor];
+    macos_state->cursor_table[MG_CURSOR_CROSSHAIR] = [NSCursor crosshairCursor];
+    macos_state->cursor_table[MG_CURSOR_HAND] = [NSCursor pointingHandCursor];
+    macos_state->cursor_table[MG_CURSOR_RESIZE_NS] = [NSCursor resizeUpDownCursor];
+    macos_state->cursor_table[MG_CURSOR_RESIZE_EW] = [NSCursor resizeLeftRightCursor];
+    macos_state->cursor_table[MG_CURSOR_RESIZE_NESW] = mgapp_macos_private_cursor(@"_windowResizeNorthEastSouthWestCursor", [NSCursor crosshairCursor]);
+    macos_state->cursor_table[MG_CURSOR_RESIZE_NWSE] = mgapp_macos_private_cursor(@"_windowResizeNorthWestSouthEastCursor", [NSCursor crosshairCursor]);
+    macos_state->cursor_table[MG_CURSOR_RESIZE_ALL] = mgapp_macos_private_cursor(@"_moveCursor", [NSCursor openHandCursor]);
+    macos_state->cursor_table[MG_CURSOR_NOT_ALLOWED] = [NSCursor operationNotAllowedCursor];
+    macos_state->cursor_table[MG_CURSOR_HIDDEN] = nil;
+
+    for (int32_t i = 0; i < MG_CURSOR_MAX; ++i)
+        [macos_state->cursor_table[i] retain];
+}
+
+static void mgapp_macos_apply_cursor(mg_cursor cursor)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    if (cursor == MG_CURSOR_HIDDEN)
+    {
+        if (!macos_state->cursor_hidden)
+        {
+            [NSCursor hide];
+            macos_state->cursor_hidden = true;
+        }
+        return;
+    }
+
+    if (macos_state->cursor_hidden)
+    {
+        [NSCursor unhide];
+        macos_state->cursor_hidden = false;
+    }
+
+    [macos_state->cursor_table[cursor] set];
+}
+
+static void mgapp_macos_emit_key(mg_key key, bool pressed)
+{
+    mgapp_input_process_key(key, pressed);
+    mgapp_event event = {
+        .key = key,
+        .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_KEY_DOWN : MGAPP_EVENT_KEY_UP)
+    };
+    mgapp_call_event(&event);
+}
+
+static void mgapp_macos_emit_text(NSString *text)
+{
+    const char *utf8 = [text UTF8String];
+    if (!utf8)
+        return;
+
+    const int32_t length = (int32_t)strlen(utf8);
+    int32_t i = 0;
+    while (i < length)
+    {
+        uint32_t codepoint;
+        i += mgapp_utf8_decode(utf8 + i, length - i, &codepoint);
+        mgapp_emit_char(codepoint);
+    }
+}
+
+static void mgapp_macos_emit_key_chars(NSEvent *event)
+{
+    if ([event modifierFlags] & NSEventModifierFlagCommand)
+        return;
+
+    NSString *characters = [event characters];
+    const NSUInteger count = [characters length];
+    for (NSUInteger i = 0; i < count; ++i)
+    {
+        uint32_t codepoint = [characters characterAtIndex:i];
+        if (CFStringIsSurrogateHighCharacter((UniChar)codepoint) && i + 1 < count)
+            codepoint = (uint32_t)CFStringGetLongCharacterForSurrogatePair((UniChar)codepoint, [characters characterAtIndex:++i]);
+
+        switch (codepoint)
+        {
+            case 0x7F:                 codepoint = 0x08; break;
+            case NSDeleteFunctionKey:  codepoint = 0x7F; break;
+            case NSEnterCharacter:     codepoint = 0x0D; break;
+            default: break;
+        }
+
+        if (codepoint >= 0xF700 && codepoint <= 0xF8FF)
+            continue;
+
+        mgapp_emit_char(codepoint);
+    }
+}
+
+static int32_t mgapp_macos_utf8_offset(NSString *string, NSUInteger utf16_index)
+{
+    const NSUInteger length = [string length];
+    if (utf16_index > length)
+        utf16_index = length;
+
+    if (utf16_index > 0 && utf16_index < length)
+        utf16_index = [string rangeOfComposedCharacterSequenceAtIndex:utf16_index].location;
+
+    return (int32_t)[[string substringToIndex:utf16_index] lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+}
+
+static void mgapp_macos_ime_set_composition(NSAttributedString *text, NSRange selection)
+{
+    NSString *string = [text string];
+    mgapp_ime_clear_composition();
+    mgapp_state.macos.marked_length = [string length];
+
+    if ([string length] == 0)
+        return;
+
+    const char *utf8 = [string UTF8String];
+    int32_t length = (int32_t)strlen(utf8);
+    if (length >= MGAPP_IME_MAX_TEXT)
+    {
+        length = MGAPP_IME_MAX_TEXT - 1;
+        while (length > 0 && (utf8[length] & 0xC0) == 0x80)
+            --length;
+    }
+
+    memcpy(mgapp_state.ime.text, utf8, (size_t)length);
+    mgapp_state.ime.text[length] = '\0';
+    mgapp_state.ime.length = length;
+    mgapp_state.ime.composing = true;
+
+    const int32_t cursor = mgapp_macos_utf8_offset(string, NSMaxRange(selection));
+    mgapp_state.ime.cursor = cursor < length ? cursor : length;
+
+    [text enumerateAttribute:NSMarkedClauseSegmentAttributeName
+        inRange:NSMakeRange(0, [string length])
+        options:0
+        usingBlock:^(id value, NSRange range, BOOL *stop)
+    {
+        int32_t start = mgapp_macos_utf8_offset(string, range.location);
+        int32_t end = mgapp_macos_utf8_offset(string, NSMaxRange(range));
+        if (start > length)
+            start = length;
+        if (end > length)
+            end = length;
+
+        const bool target = selection.length > 0 && NSIntersectionRange(range, selection).length > 0;
+        mgapp_ime_push_clause(start, end, target);
+    }];
+}
+
+static void mgapp_macos_update_size(bool emit)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    const float scale = (float)[macos_state->window backingScaleFactor];
+    if (scale != macos_state->backing_scale)
+    {
+        macos_state->backing_scale = scale;
+        mgapp_state.dpi_scale = scale;
+        mgapp_state.dpi = (uint32_t)(96.0f * scale);
+        [macos_state->layer setContentsScale:scale];
+    }
+
+    const NSRect backing = [macos_state->view convertRectToBacking:[macos_state->view bounds]];
+    const int32_t width = (int32_t)backing.size.width;
+    const int32_t height = (int32_t)backing.size.height;
+
+    if (width == mgapp_state.window_width && height == mgapp_state.window_height)
+        return;
+
+    mgapp_state.window_width = width;
+    mgapp_state.window_height = height;
+
+    if (!emit)
+        return;
+
+    mgapp_event event = {
+        .window = {
+            .width = width,
+            .height = height
+        },
+        .type = MGAPP_EVENT_RESIZE
+    };
+    mgapp_call_event(&event);
+}
+
+static mgapp_macos_edge mgapp_macos_hit_edge(NSPoint point)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    if (!(mgapp_state.flags & MGAPP_FLAG_NO_TITLEBAR) || (mgapp_state.flags & MGAPP_FLAG_NO_RESIZE) || macos_state->maximized)
+        return MGAPP_MACOS_EDGE_NONE;
+
+    const NSRect bounds = [macos_state->view bounds];
+    mgapp_macos_edge edges = MGAPP_MACOS_EDGE_NONE;
+
+    if (point.x <= MGAPP_MACOS_RESIZE_BORDER)
+        edges |= MGAPP_MACOS_EDGE_LEFT;
+    if (point.x >= bounds.size.width - MGAPP_MACOS_RESIZE_BORDER)
+        edges |= MGAPP_MACOS_EDGE_RIGHT;
+    if (point.y <= MGAPP_MACOS_RESIZE_BORDER)
+        edges |= MGAPP_MACOS_EDGE_TOP;
+    if (point.y >= bounds.size.height - MGAPP_MACOS_RESIZE_BORDER)
+        edges |= MGAPP_MACOS_EDGE_BOTTOM;
+
+    return edges;
+}
+
+static mg_cursor mgapp_macos_edge_cursor(mgapp_macos_edge edges)
+{
+    switch (edges)
+    {
+        case MGAPP_MACOS_EDGE_LEFT | MGAPP_MACOS_EDGE_TOP:
+        case MGAPP_MACOS_EDGE_RIGHT | MGAPP_MACOS_EDGE_BOTTOM:
+            return MG_CURSOR_RESIZE_NWSE;
+        case MGAPP_MACOS_EDGE_RIGHT | MGAPP_MACOS_EDGE_TOP:
+        case MGAPP_MACOS_EDGE_LEFT | MGAPP_MACOS_EDGE_BOTTOM:
+            return MG_CURSOR_RESIZE_NESW;
+        case MGAPP_MACOS_EDGE_LEFT:
+        case MGAPP_MACOS_EDGE_RIGHT:
+            return MG_CURSOR_RESIZE_EW;
+        case MGAPP_MACOS_EDGE_TOP:
+        case MGAPP_MACOS_EDGE_BOTTOM:
+            return MG_CURSOR_RESIZE_NS;
+        default:
+            return MG_CURSOR_ARROW;
+    }
+}
+
+static bool mgapp_macos_in_caption(int32_t x, int32_t y)
+{
+    return (mgapp_state.flags & MGAPP_FLAG_NO_TITLEBAR) &&
+        x >= mgapp_state.caption.x && x < mgapp_state.caption.x + mgapp_state.caption.width &&
+        y >= mgapp_state.caption.y && y < mgapp_state.caption.y + mgapp_state.caption.height;
+}
+
+static NSPoint mgapp_macos_track_mouse(NSPoint location_in_window)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    const NSPoint point = [macos_state->view convertPoint:location_in_window fromView:nil];
+    const int32_t x = (int32_t)(point.x * macos_state->backing_scale);
+    const int32_t y = (int32_t)(point.y * macos_state->backing_scale);
+    mgapp_state.input.mouse.x = (int16_t)x;
+    mgapp_state.input.mouse.y = (int16_t)y;
+
+    const bool in_view = [macos_state->view mouse:point inRect:[macos_state->view bounds]];
+    const mgapp_macos_edge edges = mgapp_macos_hit_edge(point);
+    mgapp_state.input.mouse.inside = in_view && edges == MGAPP_MACOS_EDGE_NONE && !mgapp_macos_in_caption(x, y);
+
+    if (in_view && macos_state->drag.mode == MGAPP_MACOS_DRAG_NONE)
+        mgapp_macos_apply_cursor(edges != MGAPP_MACOS_EDGE_NONE ? mgapp_macos_edge_cursor(edges) : mgapp_state.current_cursor);
+
+    return point;
+}
+
+static void mgapp_macos_mouse_moved(NSEvent *event)
+{
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_event mouse_event = {
+        .mouse = {
+            .x = mgapp_state.input.mouse.x,
+            .y = mgapp_state.input.mouse.y
+        },
+        .type = MGAPP_EVENT_MOUSE_MOVE
+    };
+    mgapp_call_event(&mouse_event);
+}
+
+static void mgapp_macos_mouse_button(mg_mouse_button button, bool pressed)
+{
+    mgapp_input_process_mouse_button(button, pressed, mgapp_state.frame_time);
+    mgapp_event event = {
+        .mouse = {
+            .button = button
+        },
+        .type = (mgapp_event_type)(pressed ? MGAPP_EVENT_MOUSE_DOWN : MGAPP_EVENT_MOUSE_UP)
+    };
+    mgapp_call_event(&event);
+}
+
+static void mgapp_macos_scroll(int8_t delta)
+{
+    mgapp_state.input.mouse.delta = delta;
+    mgapp_event event = {
+        .mouse = {
+            .scroll = delta
+        },
+        .type = MGAPP_EVENT_MOUSE_SCROLL
+    };
+    mgapp_call_event(&event);
+}
+
+static void mgapp_macos_begin_drag(mgapp_macos_drag_mode mode, mgapp_macos_edge edges)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+    macos_state->drag.mode = mode;
+    macos_state->drag.edges = edges;
+    macos_state->drag.start_mouse = [NSEvent mouseLocation];
+    macos_state->drag.start_frame = [macos_state->window frame];
+    macos_state->maximized = false;
+}
+
+static void mgapp_macos_continue_drag(void)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    const NSPoint mouse = [NSEvent mouseLocation];
+    const CGFloat dx = mouse.x - macos_state->drag.start_mouse.x;
+    const CGFloat dy = mouse.y - macos_state->drag.start_mouse.y;
+    const NSRect start = macos_state->drag.start_frame;
+    NSRect frame = start;
+
+    if (macos_state->drag.mode == MGAPP_MACOS_DRAG_MOVE)
+    {
+        frame.origin.x += dx;
+        frame.origin.y += dy;
+        [macos_state->window setFrameOrigin:frame.origin];
+        return;
+    }
+
+    const mgapp_macos_edge edges = macos_state->drag.edges;
+
+    if (edges & MGAPP_MACOS_EDGE_LEFT)
+    {
+        frame.size.width = MAX(start.size.width - dx, MGAPP_MACOS_MIN_SIZE);
+        frame.origin.x = NSMaxX(start) - frame.size.width;
+    }
+    if (edges & MGAPP_MACOS_EDGE_RIGHT)
+        frame.size.width = MAX(start.size.width + dx, MGAPP_MACOS_MIN_SIZE);
+    if (edges & MGAPP_MACOS_EDGE_BOTTOM)
+    {
+        frame.size.height = MAX(start.size.height - dy, MGAPP_MACOS_MIN_SIZE);
+        frame.origin.y = NSMaxY(start) - frame.size.height;
+    }
+    if (edges & MGAPP_MACOS_EDGE_TOP)
+        frame.size.height = MAX(start.size.height + dy, MGAPP_MACOS_MIN_SIZE);
+
+    [macos_state->window setFrame:frame display:YES];
+}
+
+static void mgapp_macos_request_close(void)
+{
+    if (!mgapp_state.running || !mgapp_request_close())
+        return;
+
+    mgapp_event event = { .type = MGAPP_EVENT_WINDOW_CLOSE };
+    mgapp_call_event(&event);
+    mgapp_state.running = false;
+}
+
+@interface mgapp_macos_window : NSWindow
+@end
+
+@implementation mgapp_macos_window
+
+- (BOOL)canBecomeKeyWindow
+{
+    return YES;
+}
+
+- (BOOL)canBecomeMainWindow
+{
+    return YES;
+}
+
+@end
+
+@interface mgapp_macos_view : NSView <NSTextInputClient>
+{
+    NSTrackingArea *tracking_area;
+}
+@end
+
+@implementation mgapp_macos_view
+
+- (instancetype)initWithFrame:(NSRect)frame
+{
+    self = [super initWithFrame:frame];
+    if (self)
+        [self updateTrackingAreas];
+    return self;
+}
+
+- (void)dealloc
+{
+    [tracking_area release];
+    [super dealloc];
+}
+
+- (BOOL)isFlipped
+{
+    return YES;
+}
+
+- (BOOL)isOpaque
+{
+    return YES;
+}
+
+- (BOOL)acceptsFirstResponder
+{
+    return YES;
+}
+
+- (BOOL)acceptsFirstMouse:(NSEvent *)event
+{
+    return YES;
+}
+
+- (BOOL)mouseDownCanMoveWindow
+{
+    return NO;
+}
+
+- (BOOL)wantsUpdateLayer
+{
+    return YES;
+}
+
+- (CALayer *)makeBackingLayer
+{
+    return [CAMetalLayer layer];
+}
+
+- (void)updateTrackingAreas
+{
+    if (tracking_area)
+    {
+        [self removeTrackingArea:tracking_area];
+        [tracking_area release];
+    }
+
+    const NSTrackingAreaOptions options =
+        NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingCursorUpdate |
+        NSTrackingActiveAlways | NSTrackingInVisibleRect | NSTrackingEnabledDuringMouseDrag;
+
+    tracking_area = [[NSTrackingArea alloc] initWithRect:NSZeroRect options:options owner:self userInfo:nil];
+    [self addTrackingArea:tracking_area];
+    [super updateTrackingAreas];
+}
+
+- (void)cursorUpdate:(NSEvent *)event
+{
+    mgapp_macos_track_mouse([event locationInWindow]);
+}
+
+- (void)mouseEntered:(NSEvent *)event
+{
+    mgapp_macos_track_mouse([event locationInWindow]);
+}
+
+- (void)mouseExited:(NSEvent *)event
+{
+    mgapp_state.input.mouse.inside = false;
+    if (mgapp_state.macos.drag.mode == MGAPP_MACOS_DRAG_NONE)
+        mgapp_macos_apply_cursor(MG_CURSOR_ARROW);
+}
+
+- (void)mouseMoved:(NSEvent *)event
+{
+    mgapp_macos_mouse_moved(event);
+}
+
+- (void)mouseDragged:(NSEvent *)event
+{
+    if (mgapp_state.macos.drag.mode != MGAPP_MACOS_DRAG_NONE)
+    {
+        mgapp_macos_continue_drag();
+        return;
+    }
+    mgapp_macos_mouse_moved(event);
+}
+
+- (void)rightMouseDragged:(NSEvent *)event
+{
+    mgapp_macos_mouse_moved(event);
+}
+
+- (void)otherMouseDragged:(NSEvent *)event
+{
+    mgapp_macos_mouse_moved(event);
+}
+
+- (void)mouseDown:(NSEvent *)event
+{
+    const NSPoint point = mgapp_macos_track_mouse([event locationInWindow]);
+    const mgapp_macos_edge edges = mgapp_macos_hit_edge(point);
+
+    if (edges != MGAPP_MACOS_EDGE_NONE)
+    {
+        mgapp_macos_begin_drag(MGAPP_MACOS_DRAG_RESIZE, edges);
+        return;
+    }
+
+    if (mgapp_macos_in_caption(mgapp_state.input.mouse.x, mgapp_state.input.mouse.y))
+    {
+        if ([event clickCount] == 2)
+        {
+            if (mgapp_maximized())
+                mgapp_restore();
+            else
+                mgapp_maximize();
+            return;
+        }
+
+        mgapp_macos_begin_drag(MGAPP_MACOS_DRAG_MOVE, MGAPP_MACOS_EDGE_NONE);
+        return;
+    }
+
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_LEFT, true);
+}
+
+- (void)mouseUp:(NSEvent *)event
+{
+    if (mgapp_state.macos.drag.mode != MGAPP_MACOS_DRAG_NONE)
+    {
+        mgapp_state.macos.drag.mode = MGAPP_MACOS_DRAG_NONE;
+        mgapp_macos_track_mouse([event locationInWindow]);
+        return;
+    }
+
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_LEFT, false);
+}
+
+- (void)rightMouseDown:(NSEvent *)event
+{
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_RIGHT, true);
+}
+
+- (void)rightMouseUp:(NSEvent *)event
+{
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_RIGHT, false);
+}
+
+- (void)otherMouseDown:(NSEvent *)event
+{
+    if ([event buttonNumber] != 2)
+        return;
+
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_MIDDLE, true);
+}
+
+- (void)otherMouseUp:(NSEvent *)event
+{
+    if ([event buttonNumber] != 2)
+        return;
+
+    mgapp_macos_track_mouse([event locationInWindow]);
+    mgapp_macos_mouse_button(MG_MOUSE_BUTTON_MIDDLE, false);
+}
+
+- (void)scrollWheel:(NSEvent *)event
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+    const float delta = (float)[event scrollingDeltaY];
+
+    if (![event hasPreciseScrollingDeltas])
+    {
+        if (delta != 0.0f)
+            mgapp_macos_scroll(delta > 0.0f ? 1 : -1);
+        return;
+    }
+
+    if ([event phase] == NSEventPhaseBegan)
+        macos_state->scroll_accumulator = 0.0f;
+
+    macos_state->scroll_accumulator += delta;
+
+    while (macos_state->scroll_accumulator >= MGAPP_MACOS_SCROLL_STEP)
+    {
+        macos_state->scroll_accumulator -= MGAPP_MACOS_SCROLL_STEP;
+        mgapp_macos_scroll(1);
+    }
+
+    while (macos_state->scroll_accumulator <= -MGAPP_MACOS_SCROLL_STEP)
+    {
+        macos_state->scroll_accumulator += MGAPP_MACOS_SCROLL_STEP;
+        mgapp_macos_scroll(-1);
+    }
+}
+
+- (void)keyDown:(NSEvent *)event
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    const bool text_mode = mgapp_state.ime.mode == MGAPP_IME_MODE_TEXT;
+    const bool was_composing = text_mode && macos_state->marked_length > 0;
+    const mg_key key = mgapp_macos_translate_key([event keyCode]);
+
+    if (key != MG_KEY_MAX && !was_composing)
+        mgapp_macos_emit_key(key, true);
+
+    if (text_mode)
+    {
+        macos_state->ime_handled = false;
+        [self interpretKeyEvents:@[event]];
+        if (macos_state->ime_handled || was_composing)
+            return;
+    }
+
+    mgapp_macos_emit_key_chars(event);
+}
+
+- (void)keyUp:(NSEvent *)event
+{
+    const mg_key key = mgapp_macos_translate_key([event keyCode]);
+    if (key != MG_KEY_MAX)
+        mgapp_macos_emit_key(key, false);
+}
+
+- (void)flagsChanged:(NSEvent *)event
+{
+    const mg_key key = mgapp_macos_translate_key([event keyCode]);
+    const NSEventModifierFlags flag = mgapp_macos_modifier_flag(key);
+    if (key == MG_KEY_MAX || !flag)
+        return;
+
+    const bool pressed = ([event modifierFlags] & flag) && !mgapp_state.input.keyboard.keys[key];
+    mgapp_macos_emit_key(key, pressed);
+}
+
+- (BOOL)hasMarkedText
+{
+    return mgapp_state.macos.marked_length > 0;
+}
+
+- (NSRange)markedRange
+{
+    const NSUInteger length = mgapp_state.macos.marked_length;
+    return length > 0 ? NSMakeRange(0, length) : NSMakeRange(NSNotFound, 0);
+}
+
+- (NSRange)selectedRange
+{
+    return NSMakeRange(NSNotFound, 0);
+}
+
+- (void)setMarkedText:(id)string selectedRange:(NSRange)selected_range replacementRange:(NSRange)replacement_range
+{
+    NSAttributedString *text = [string isKindOfClass:[NSAttributedString class]]
+        ? [string retain]
+        : [[NSAttributedString alloc] initWithString:string];
+
+    mgapp_macos_ime_set_composition(text, selected_range);
+    [text release];
+    mgapp_state.macos.ime_handled = true;
+}
+
+- (void)unmarkText
+{
+    mgapp_state.macos.marked_length = 0;
+    mgapp_ime_clear_composition();
+}
+
+- (NSArray *)validAttributesForMarkedText
+{
+    return @[];
+}
+
+- (NSAttributedString *)attributedSubstringForProposedRange:(NSRange)range actualRange:(NSRangePointer)actual_range
+{
+    return nil;
+}
+
+- (void)insertText:(id)string replacementRange:(NSRange)replacement_range
+{
+    NSString *text = [string isKindOfClass:[NSAttributedString class]] ? [string string] : string;
+
+    mgapp_state.macos.marked_length = 0;
+    mgapp_ime_clear_composition();
+    mgapp_macos_emit_text(text);
+    mgapp_state.macos.ime_handled = true;
+}
+
+- (NSUInteger)characterIndexForPoint:(NSPoint)point
+{
+    return 0;
+}
+
+- (NSRect)firstRectForCharacterRange:(NSRange)range actualRange:(NSRangePointer)actual_range
+{
+    const float scale = mgapp_state.macos.backing_scale > 0.0f ? mgapp_state.macos.backing_scale : 1.0f;
+    const NSRect area = NSMakeRect(
+        (mgapp_state.ime.area_x + mgapp_state.ime.caret_x) / scale,
+        mgapp_state.ime.area_y / scale,
+        1.0,
+        mgapp_state.ime.area_height / scale);
+
+    return [[self window] convertRectToScreen:[self convertRect:area toView:nil]];
+}
+
+- (void)doCommandBySelector:(SEL)selector
+{
+}
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender
+{
+    return NSDragOperationCopy;
+}
+
+- (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender
+{
+    mgapp_macos_track_mouse([sender draggingLocation]);
+    return NSDragOperationCopy;
+}
+
+- (BOOL)performDragOperation:(id<NSDraggingInfo>)sender
+{
+    NSPasteboard *pasteboard = [sender draggingPasteboard];
+    NSDictionary *options = @{ NSPasteboardURLReadingFileURLsOnlyKey: @YES };
+    NSArray *urls = [pasteboard readObjectsForClasses:@[[NSURL class]] options:options];
+    const NSUInteger count = [urls count];
+    if (count == 0)
+        return NO;
+
+    const char **paths = (const char**)malloc(sizeof(char*) * count);
+    if (!paths)
+        return NO;
+
+    for (NSUInteger i = 0; i < count; ++i)
+        paths[i] = [[urls objectAtIndex:i] fileSystemRepresentation];
+
+    mgapp_event event = {
+        .file_drop = {
+            .paths = paths,
+            .path_count = (int32_t)count
+        },
+        .type = MGAPP_EVENT_FILE_DROP
+    };
+    mgapp_call_event(&event);
+
+    free(paths);
+    return YES;
+}
+
+@end
+
+@interface mgapp_macos_delegate : NSObject <NSApplicationDelegate, NSWindowDelegate>
+@end
+
+@implementation mgapp_macos_delegate
+
+- (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
+{
+    mgapp_macos_request_close();
+    return NSTerminateCancel;
+}
+
+- (BOOL)windowShouldClose:(NSWindow *)sender
+{
+    mgapp_macos_request_close();
+    return NO;
+}
+
+- (void)windowDidResize:(NSNotification *)notification
+{
+    mgapp_macos_update_size(true);
+}
+
+- (void)windowDidChangeBackingProperties:(NSNotification *)notification
+{
+    mgapp_macos_update_size(true);
+}
+
+- (void)windowDidResignKey:(NSNotification *)notification
+{
+    mgapp_state.macos.drag.mode = MGAPP_MACOS_DRAG_NONE;
+    mgapp_input_release_all_keys();
+}
+
+@end
+
+static void mgapp_platform_ime_apply_area(void)
+{
+    NSView *view = mgapp_state.macos.view;
+    if (view)
+        [[view inputContext] invalidateCharacterCoordinates];
+}
+
+static void mgapp_platform_ime_cancel(void)
+{
+    NSView *view = mgapp_state.macos.view;
+    if (view && mgapp_state.macos.marked_length > 0)
+        [[view inputContext] discardMarkedText];
+    mgapp_state.macos.marked_length = 0;
+}
+
+static void mgapp_platform_ime_set_mode(mgapp_ime_mode mode)
+{
+    if (mode == MGAPP_IME_MODE_TEXT)
+    {
+        mgapp_platform_ime_apply_area();
+        return;
+    }
+
+    mgapp_platform_ime_cancel();
+}
+
+static inline void mgapp_macos_setup_clock(mgapp_macos_state *macos_state)
+{
+    mach_timebase_info_data_t timebase;
+    mach_timebase_info(&timebase);
+    macos_state->clock_scale = (double)timebase.numer / (double)timebase.denom * 1e-9;
+    macos_state->start_time = mach_absolute_time();
+}
+
+static void mgapp_macos_create_menu(NSString *app_name)
+{
+    NSMenu *menu_bar = [[NSMenu alloc] init];
+    NSMenuItem *app_item = [[NSMenuItem alloc] init];
+    NSMenu *app_menu = [[NSMenu alloc] init];
+
+    [app_menu addItemWithTitle:[@"Hide " stringByAppendingString:app_name] action:@selector(hide:) keyEquivalent:@"h"];
+    [app_menu addItem:[NSMenuItem separatorItem]];
+    [app_menu addItemWithTitle:[@"Quit " stringByAppendingString:app_name] action:@selector(terminate:) keyEquivalent:@"q"];
+
+    [app_item setSubmenu:app_menu];
+    [menu_bar addItem:app_item];
+    [NSApp setMainMenu:menu_bar];
+
+    [app_menu release];
+    [app_item release];
+    [menu_bar release];
+}
+
+static void mgapp_macos_pump_events(void)
+{
+    for (;;)
+    {
+        NSEvent *event = [NSApp nextEventMatchingMask:NSEventMaskAny
+            untilDate:[NSDate distantPast]
+            inMode:NSDefaultRunLoopMode
+            dequeue:YES];
+        if (!event)
+            break;
+
+        NSWindow *key_window = [NSApp keyWindow];
+        if ([event type] == NSEventTypeKeyUp && ([event modifierFlags] & NSEventModifierFlagCommand) && key_window)
+            [key_window sendEvent:event];
+        else
+            [NSApp sendEvent:event];
+    }
+}
+
+int32_t mgapp_run(const mgapp_init_info *info)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    @autoreleasepool
+    {
+        [NSApplication sharedApplication];
+        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+
+        macos_state->delegate = [[mgapp_macos_delegate alloc] init];
+        [NSApp setDelegate:macos_state->delegate];
+
+        NSString *title = info->title ? [NSString stringWithUTF8String:info->title] : nil;
+        if (!title)
+            title = [[NSProcessInfo processInfo] processName];
+
+        mgapp_macos_create_menu(title);
+        [NSApp finishLaunching];
+
+        mgapp_macos_setup_clock(macos_state);
+        mgapp_macos_load_cursors(macos_state);
+
+        mgapp_state.flags = info->flags;
+
+        const CGFloat width = info->width ? (CGFloat)info->width : 800.0;
+        const CGFloat height = info->height ? (CGFloat)info->height : 600.0;
+        const NSRect content_rect = NSMakeRect(0.0, 0.0, width, height);
+
+        NSWindowStyleMask style = NSWindowStyleMaskBorderless;
+        if (!(info->flags & MGAPP_FLAG_NO_MINIMIZE))
+            style |= NSWindowStyleMaskMiniaturizable;
+
+        if (!(info->flags & MGAPP_FLAG_NO_TITLEBAR))
+        {
+            style |= NSWindowStyleMaskTitled | NSWindowStyleMaskClosable;
+            if (!(info->flags & MGAPP_FLAG_NO_RESIZE))
+                style |= NSWindowStyleMaskResizable;
+        }
+
+        macos_state->window = [[mgapp_macos_window alloc] initWithContentRect:content_rect
+            styleMask:style
+            backing:NSBackingStoreBuffered
+            defer:NO];
+        if (!macos_state->window)
+        {
+            MGAPP_ERROR("Window creation failed!");
+            return 1;
+        }
+
+        [macos_state->window setReleasedWhenClosed:NO];
+        [macos_state->window setAcceptsMouseMovedEvents:YES];
+        [macos_state->window setDelegate:macos_state->delegate];
+        [macos_state->window setTitle:title];
+        [macos_state->window setHasShadow:YES];
+
+        if (!(info->flags & MGAPP_FLAG_NO_TITLEBAR) && (info->flags & MGAPP_FLAG_NO_MAXIMIZE))
+            [[macos_state->window standardWindowButton:NSWindowZoomButton] setEnabled:NO];
+
+        macos_state->view = [[mgapp_macos_view alloc] initWithFrame:content_rect];
+        [macos_state->view setWantsLayer:YES];
+        macos_state->layer = [(CAMetalLayer*)[macos_state->view layer] retain];
+
+        [macos_state->window setContentView:macos_state->view];
+        [macos_state->window makeFirstResponder:macos_state->view];
+        [macos_state->window center];
+
+        if (info->flags & MGAPP_FLAG_ENABLE_FILE_DROPS)
+            [macos_state->view registerForDraggedTypes:@[NSPasteboardTypeFileURL]];
+
+        mgapp_macos_update_size(false);
+        mgapp_platform_ime_set_mode(MGAPP_IME_MODE_OFF);
+
+        if (!(info->flags & MGAPP_FLAG_HIDE_WINDOW))
+            mgapp_show(true);
+
+        mgapp_state.events = info->events;
+        mgapp_state.running = true;
+        mgapp_state.frame_time = mgapp_time();
+
+        if (info->events.start)
+            info->events.start();
+    }
+
+    while (mgapp_state.running)
+    {
+        @autoreleasepool
+        {
+            mgapp_macos_pump_events();
+
+            const float new_time = mgapp_time();
+            mgapp_state.delta_time = new_time - mgapp_state.frame_time;
+            mgapp_state.frame_time = new_time;
+
+            if (info->events.update)
+                info->events.update();
+
+            mgapp_input_frame();
+        }
+    }
+
+    @autoreleasepool
+    {
+        if (info->events.end)
+            info->events.end();
+
+        if (macos_state->cursor_hidden)
+            [NSCursor unhide];
+
+        [macos_state->window setDelegate:nil];
+        [macos_state->window orderOut:nil];
+        [macos_state->window close];
+
+        [macos_state->layer release];
+        [macos_state->view release];
+        [macos_state->window release];
+        [NSApp setDelegate:nil];
+        [macos_state->delegate release];
+
+        for (int32_t i = 0; i < MG_CURSOR_MAX; ++i)
+            [macos_state->cursor_table[i] release];
+
+        macos_state->layer = nil;
+        macos_state->view = nil;
+        macos_state->window = nil;
+        macos_state->delegate = nil;
+    }
+
+    mgapp_clipboard_cache(NULL, 0);
+    return 0;
+}
+
+void mgapp_close(void)
+{
+    mgapp_macos_request_close();
+}
+
+void mgapp_show(bool value)
+{
+    NSWindow *window = mgapp_state.macos.window;
+
+    if (!value)
+    {
+        [window orderOut:nil];
+        return;
+    }
+
+    [window makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+}
+
+void mgapp_minimize(void)
+{
+    [mgapp_state.macos.window miniaturize:nil];
+}
+
+void mgapp_maximize(void)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+    if (macos_state->maximized)
+        return;
+
+    NSScreen *screen = [macos_state->window screen];
+    if (!screen)
+        screen = [NSScreen mainScreen];
+
+    macos_state->restore_frame = [macos_state->window frame];
+    macos_state->maximized = true;
+    [macos_state->window setFrame:[screen visibleFrame] display:YES];
+}
+
+void mgapp_restore(void)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    if ([macos_state->window isMiniaturized])
+    {
+        [macos_state->window deminiaturize:nil];
+        return;
+    }
+
+    if (!macos_state->maximized)
+        return;
+
+    macos_state->maximized = false;
+    [macos_state->window setFrame:macos_state->restore_frame display:YES];
+}
+
+bool mgapp_maximized(void)
+{
+    return mgapp_state.macos.maximized;
+}
+
+void mgapp_set_cursor(mg_cursor cursor)
+{
+    if (mgapp_state.current_cursor == cursor)
+        return;
+
+    mgapp_state.current_cursor = cursor;
+    if (mgapp_state.input.mouse.inside)
+        mgapp_macos_apply_cursor(cursor);
+}
+
+void mgapp_set_clipboard(const char *text)
+{
+    if (!text)
+        return;
+
+    @autoreleasepool
+    {
+        NSString *string = [NSString stringWithUTF8String:text];
+        if (!string)
+            return;
+
+        NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+        [pasteboard clearContents];
+        [pasteboard setString:string forType:NSPasteboardTypeString];
+    }
+}
+
+const char *mgapp_get_clipboard(void)
+{
+    @autoreleasepool
+    {
+        NSString *string = [[NSPasteboard generalPasteboard] stringForType:NSPasteboardTypeString];
+        const char *utf8 = string ? [string UTF8String] : NULL;
+        if (!utf8)
+        {
+            mgapp_clipboard_cache(NULL, 0);
+            return NULL;
+        }
+
+        mgapp_clipboard_cache(utf8, strlen(utf8));
+    }
+
+    return mgapp_state.clipboard_buffer;
+}
+
+float mgapp_time(void)
+{
+    const uint64_t elapsed = mach_absolute_time() - mgapp_state.macos.start_time;
+    return (float)((double)elapsed * mgapp_state.macos.clock_scale);
+}
+
+void *mgapp_primary_handle(void)
+{
+    return (void*)mgapp_state.macos.layer;
+}
+
+void *mgapp_secondary_handle(void)
+{
+    return (void*)mgapp_state.macos.window;
 }
 
 #endif

@@ -74,6 +74,9 @@ extern "C" {
 #if defined(MGFX_D3D11)
         MGFX_RENDERER_D3D11,
 #endif
+#if defined(MGFX_METAL)
+        MGFX_RENDERER_METAL,
+#endif
 #if defined(MGFX_OPENGL)
 #if !defined(__EMSCRIPTEN__)
         MGFX_RENDERER_OPENGL,
@@ -1174,6 +1177,157 @@ mgfx_d3d11_context;
 
 #endif
 
+#if defined(MGFX_METAL)
+
+#if !defined(__OBJC__)
+#error "The mgfx Metal backend must be compiled as Objective-C (include the implementation from a .m file)."
+#endif
+
+#if __has_feature(objc_arc)
+#error "The mgfx Metal backend uses manual reference counting; compile it without -fobjc-arc."
+#endif
+
+#import <Metal/Metal.h>
+#import <QuartzCore/CAMetalLayer.h>
+
+#ifndef MGFX_METAL_FRAMES_IN_FLIGHT
+#define MGFX_METAL_FRAMES_IN_FLIGHT 3
+#endif
+
+#ifndef MGFX_METAL_VERTEX_BUFFER_INDEX
+#define MGFX_METAL_VERTEX_BUFFER_INDEX 30
+#endif
+
+#ifndef MGFX_METAL_MAX_UNIFORM_SIZE
+#define MGFX_METAL_MAX_UNIFORM_SIZE 4096
+#endif
+
+#ifndef MGFX_METAL_ENTRY_POINT
+#define MGFX_METAL_ENTRY_POINT "main0"
+#endif
+
+#ifndef MGFX_METAL_MAX_SHADER_ARGUMENTS
+#define MGFX_METAL_MAX_SHADER_ARGUMENTS 64
+#endif
+
+typedef struct
+{
+    id<MTLBuffer> buffers[MGFX_METAL_FRAMES_IN_FLIGHT];
+    uint64_t frame;
+    uint32_t count;
+    uint32_t current;
+    size_t size;
+}
+mgfx_metal_buffer;
+
+typedef struct
+{
+    id<MTLTexture> texture;
+    MTLPixelFormat format;
+    mgfx_image_type type;
+    uint32_t width, height, depth;
+    uint32_t bpp;
+    uint32_t mip_levels;
+    uint32_t samples;
+}
+mgfx_metal_image;
+
+typedef struct
+{
+    id<MTLSamplerState> state;
+}
+mgfx_metal_sampler;
+
+typedef struct
+{
+    int8_t uniforms[MGFX_MAX_BINDABLE_UNIFORMS];
+    int8_t storage_buffers[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+    int8_t sampled_textures[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+    int8_t samplers[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+    int8_t storage_textures[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+}
+mgfx_metal_stage_slots;
+
+typedef uint32_t mgfx_metal_pipeline_type;
+enum
+{
+    MGFX_METAL_PIPELINE_TYPE_GRAPHICS,
+    MGFX_METAL_PIPELINE_TYPE_COMPUTE
+};
+
+typedef struct
+{
+    id<MTLRenderPipelineState> render_state;
+    id<MTLComputePipelineState> compute_state;
+    id<MTLDepthStencilState> depth_stencil_state;
+    mgfx_metal_stage_slots vertex_slots;
+    mgfx_metal_stage_slots fragment_slots;
+    mgfx_metal_stage_slots compute_slots;
+    MTLPrimitiveType primitive_type;
+    MTLCullMode cull_mode;
+    MTLWinding winding;
+    MTLSize group_size;
+    mgfx_metal_pipeline_type type;
+}
+mgfx_metal_pipeline;
+
+typedef struct
+{
+    id<MTLDevice> device;
+    id<MTLCommandQueue> queue;
+    CAMetalLayer *layer;
+    dispatch_semaphore_t frame_semaphore;
+
+    id<MTLCommandBuffer> command_buffer;
+    id<CAMetalDrawable> drawable;
+    id<MTLRenderCommandEncoder> render_encoder;
+    id<MTLComputeCommandEncoder> compute_encoder;
+    id<MTLTexture> msaa_texture;
+
+    struct
+    {
+        MTLRenderPassDescriptor *descriptor;
+        bool resolve[MGFX_MAX_COLOR_ATTACHMENTS];
+        uint32_t color_count;
+        uint32_t width, height;
+        bool has_depth;
+        bool has_stencil;
+        bool active;
+    }
+    current_pass;
+
+    struct
+    {
+        mgfx_metal_pipeline *pipeline;
+        mgfx_metal_buffer *vertex_buffer;
+        mgfx_metal_buffer *index_buffer;
+        MTLIndexType index_type;
+        uint32_t index_size;
+
+        mgfx_metal_buffer *storage_buffers[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+        mgfx_metal_image *sampled_images[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+        mgfx_metal_sampler *samplers[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+        mgfx_metal_image *storage_images[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+
+        uint8_t uniforms[MGFX_MAX_BINDABLE_UNIFORMS][MGFX_METAL_MAX_UNIFORM_SIZE];
+        size_t uniform_sizes[MGFX_MAX_BINDABLE_UNIFORMS];
+
+        MTLViewport viewport;
+        MTLScissorRect scissor;
+        bool scissor_visible;
+        bool dirty;
+    }
+    bindings;
+
+    uint64_t frame_index;
+    uint32_t msaa_samples;
+    uint32_t width, height;
+    bool vsync, pending_resize;
+}
+mgfx_metal_context;
+
+#endif
+
 typedef void (*mgfx_init_fn)(const mgfx_init_info *init_info);
 typedef void (*mgfx_shutdown_fn)(void);
 typedef mgfx_result (*mgfx_begin_fn)(void);
@@ -1229,6 +1383,9 @@ typedef struct
 #endif
 #if defined(MGFX_D3D11)
         mgfx_d3d11_context d3d11;
+#endif
+#if defined(MGFX_METAL)
+        mgfx_metal_context metal;
 #endif
     };
 
@@ -6284,6 +6441,1454 @@ static void mgfx_d3d11_bind_pipeline(mgfx_d3d11_pipeline *pipeline)
 
 #endif // MGFX_D3D11
 
+#if defined(MGFX_METAL)
+
+static MTLPixelFormat mgfx_metal_get_format(mgfx_format format)
+{
+    switch (format)
+    {
+        case MGFX_FORMAT_R8_UNORM:          return MTLPixelFormatR8Unorm;
+        case MGFX_FORMAT_RG8_UNORM:         return MTLPixelFormatRG8Unorm;
+        case MGFX_FORMAT_RGBA8_UNORM:       return MTLPixelFormatRGBA8Unorm;
+        case MGFX_FORMAT_RGBA8_SRGB:        return MTLPixelFormatRGBA8Unorm_sRGB;
+        case MGFX_FORMAT_BGRA8_UNORM:       return MTLPixelFormatBGRA8Unorm;
+        case MGFX_FORMAT_BGRA8_SRGB:        return MTLPixelFormatBGRA8Unorm_sRGB;
+
+        case MGFX_FORMAT_R16_SFLOAT:        return MTLPixelFormatR16Float;
+        case MGFX_FORMAT_RG16_SFLOAT:       return MTLPixelFormatRG16Float;
+        case MGFX_FORMAT_RGBA16_SFLOAT:     return MTLPixelFormatRGBA16Float;
+
+        case MGFX_FORMAT_R32_SFLOAT:        return MTLPixelFormatR32Float;
+        case MGFX_FORMAT_RG32_SFLOAT:       return MTLPixelFormatRG32Float;
+        case MGFX_FORMAT_RGBA32_SFLOAT:     return MTLPixelFormatRGBA32Float;
+
+        case MGFX_FORMAT_R32_UINT:          return MTLPixelFormatR32Uint;
+        case MGFX_FORMAT_R32_SINT:          return MTLPixelFormatR32Sint;
+
+        case MGFX_FORMAT_DEPTH:             return MTLPixelFormatDepth32Float;
+        case MGFX_FORMAT_DEPTH_STENCIL:     return MTLPixelFormatDepth32Float_Stencil8;
+
+        default:                            return MTLPixelFormatInvalid;
+    }
+}
+
+static inline MTLVertexFormat mgfx_metal_get_vertex_format(mgfx_vertex_format format)
+{
+    switch (format)
+    {
+        case MGFX_VERTEX_FORMAT_UINT:    return MTLVertexFormatUInt;
+        case MGFX_VERTEX_FORMAT_INT:     return MTLVertexFormatInt;
+        case MGFX_VERTEX_FORMAT_FLOAT:   return MTLVertexFormatFloat;
+
+        case MGFX_VERTEX_FORMAT_UINT2:   return MTLVertexFormatUInt2;
+        case MGFX_VERTEX_FORMAT_INT2:    return MTLVertexFormatInt2;
+        case MGFX_VERTEX_FORMAT_FLOAT2:  return MTLVertexFormatFloat2;
+
+        case MGFX_VERTEX_FORMAT_UINT3:   return MTLVertexFormatUInt3;
+        case MGFX_VERTEX_FORMAT_INT3:    return MTLVertexFormatInt3;
+        case MGFX_VERTEX_FORMAT_FLOAT3:  return MTLVertexFormatFloat3;
+
+        case MGFX_VERTEX_FORMAT_UINT4:   return MTLVertexFormatUInt4;
+        case MGFX_VERTEX_FORMAT_INT4:    return MTLVertexFormatInt4;
+        case MGFX_VERTEX_FORMAT_FLOAT4:  return MTLVertexFormatFloat4;
+
+        case MGFX_VERTEX_FORMAT_UBYTE4:  return MTLVertexFormatUChar4;
+        case MGFX_VERTEX_FORMAT_BYTE4:   return MTLVertexFormatChar4;
+        case MGFX_VERTEX_FORMAT_UBYTE4N: return MTLVertexFormatUChar4Normalized;
+        case MGFX_VERTEX_FORMAT_BYTE4N:  return MTLVertexFormatChar4Normalized;
+
+        default:                         return MTLVertexFormatInvalid;
+    }
+}
+
+static inline MTLBlendFactor mgfx_metal_get_blend_factor(mgfx_blend_factor factor)
+{
+    switch (factor)
+    {
+        case MGFX_BLEND_FACTOR_ZERO:                     return MTLBlendFactorZero;
+        case MGFX_BLEND_FACTOR_ONE:                      return MTLBlendFactorOne;
+        case MGFX_BLEND_FACTOR_SRC_COLOR:                return MTLBlendFactorSourceColor;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_SRC_COLOR:      return MTLBlendFactorOneMinusSourceColor;
+        case MGFX_BLEND_FACTOR_DST_COLOR:                return MTLBlendFactorDestinationColor;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_DST_COLOR:      return MTLBlendFactorOneMinusDestinationColor;
+        case MGFX_BLEND_FACTOR_SRC_ALPHA:                return MTLBlendFactorSourceAlpha;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA:      return MTLBlendFactorOneMinusSourceAlpha;
+        case MGFX_BLEND_FACTOR_DST_ALPHA:                return MTLBlendFactorDestinationAlpha;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_DST_ALPHA:      return MTLBlendFactorOneMinusDestinationAlpha;
+        case MGFX_BLEND_FACTOR_CONSTANT_COLOR:           return MTLBlendFactorBlendColor;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR: return MTLBlendFactorOneMinusBlendColor;
+        case MGFX_BLEND_FACTOR_CONSTANT_ALPHA:           return MTLBlendFactorBlendAlpha;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA: return MTLBlendFactorOneMinusBlendAlpha;
+        case MGFX_BLEND_FACTOR_SRC_ALPHA_SATURATE:       return MTLBlendFactorSourceAlphaSaturated;
+        case MGFX_BLEND_FACTOR_SRC1_COLOR:               return MTLBlendFactorSource1Color;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR:     return MTLBlendFactorOneMinusSource1Color;
+        case MGFX_BLEND_FACTOR_SRC1_ALPHA:               return MTLBlendFactorSource1Alpha;
+        case MGFX_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA:     return MTLBlendFactorOneMinusSource1Alpha;
+        default:                                         return MTLBlendFactorZero;
+    }
+}
+
+static inline MTLBlendOperation mgfx_metal_get_blend_op(mgfx_blend_op op)
+{
+    switch (op)
+    {
+        case MGFX_BLEND_OP_ADD:              return MTLBlendOperationAdd;
+        case MGFX_BLEND_OP_SUBTRACT:         return MTLBlendOperationSubtract;
+        case MGFX_BLEND_OP_REVERSE_SUBTRACT: return MTLBlendOperationReverseSubtract;
+        case MGFX_BLEND_OP_MIN:              return MTLBlendOperationMin;
+        case MGFX_BLEND_OP_MAX:              return MTLBlendOperationMax;
+        default:                             return MTLBlendOperationAdd;
+    }
+}
+
+static inline MTLCompareFunction mgfx_metal_get_compare_function(mgfx_compare_op op)
+{
+    switch (op)
+    {
+        case MGFX_COMPARE_OP_NEVER:            return MTLCompareFunctionNever;
+        case MGFX_COMPARE_OP_LESS:             return MTLCompareFunctionLess;
+        case MGFX_COMPARE_OP_EQUAL:            return MTLCompareFunctionEqual;
+        case MGFX_COMPARE_OP_LESS_OR_EQUAL:    return MTLCompareFunctionLessEqual;
+        case MGFX_COMPARE_OP_GREATER:          return MTLCompareFunctionGreater;
+        case MGFX_COMPARE_OP_NOT_EQUAL:        return MTLCompareFunctionNotEqual;
+        case MGFX_COMPARE_OP_GREATER_OR_EQUAL: return MTLCompareFunctionGreaterEqual;
+        case MGFX_COMPARE_OP_ALWAYS:           return MTLCompareFunctionAlways;
+        default:                               return MTLCompareFunctionAlways;
+    }
+}
+
+static inline MTLCullMode mgfx_metal_get_cull_mode(mgfx_cull_mode mode)
+{
+    switch (mode)
+    {
+        case MGFX_CULL_MODE_FRONT: return MTLCullModeFront;
+        case MGFX_CULL_MODE_BACK:  return MTLCullModeBack;
+        default:                   return MTLCullModeNone;
+    }
+}
+
+static inline MTLPrimitiveType mgfx_metal_get_primitive_type(mgfx_primitive_topology topology)
+{
+    switch (topology)
+    {
+        case MGFX_PRIMITIVE_TOPOLOGY_POINT_LIST:     return MTLPrimitiveTypePoint;
+        case MGFX_PRIMITIVE_TOPOLOGY_LINE_LIST:      return MTLPrimitiveTypeLine;
+        case MGFX_PRIMITIVE_TOPOLOGY_LINE_STRIP:     return MTLPrimitiveTypeLineStrip;
+        case MGFX_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP: return MTLPrimitiveTypeTriangleStrip;
+        default:                                     return MTLPrimitiveTypeTriangle;
+    }
+}
+
+static inline MTLSamplerMinMagFilter mgfx_metal_get_filter(mgfx_sampler_filter filter)
+{
+    return filter == MGFX_SAMPLER_FILTER_LINEAR ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
+}
+
+static inline MTLSamplerAddressMode mgfx_metal_get_address_mode(mgfx_sampler_address_mode mode)
+{
+    switch (mode)
+    {
+        case MGFX_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT: return MTLSamplerAddressModeMirrorRepeat;
+        case MGFX_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE:   return MTLSamplerAddressModeClampToEdge;
+        case MGFX_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER: return MTLSamplerAddressModeClampToBorderColor;
+        default:                                        return MTLSamplerAddressModeRepeat;
+    }
+}
+
+static inline MTLTextureType mgfx_metal_get_texture_type(mgfx_image_type type, uint32_t samples)
+{
+    switch (type)
+    {
+        case MGFX_IMAGE_TYPE_2D_ARRAY: return MTLTextureType2DArray;
+        case MGFX_IMAGE_TYPE_3D:       return MTLTextureType3D;
+        case MGFX_IMAGE_TYPE_CUBE:     return MTLTextureTypeCube;
+        default:                       return samples > 1 ? MTLTextureType2DMultisample : MTLTextureType2D;
+    }
+}
+
+static uint32_t mgfx_metal_clamp_samples(mgfx_msaa msaa)
+{
+    for (uint32_t samples = msaa; samples > 1; samples >>= 1)
+    {
+        if ([mgfx_ctx.metal.device supportsTextureSampleCount:samples])
+            return samples;
+    }
+    return 1;
+}
+
+static void mgfx_metal_check(id object, NSError *error, const char *message)
+{
+    if (object)
+        return;
+
+    if (error)
+        fprintf(stderr, "[MGFX]: %s\n", [[error localizedDescription] UTF8String]);
+    MGFX_ASSERT(object != nil, message);
+}
+
+static void mgfx_metal_unbind_buffer(mgfx_metal_buffer *buffer)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (metal->bindings.vertex_buffer == buffer)
+        metal->bindings.vertex_buffer = NULL;
+    if (metal->bindings.index_buffer == buffer)
+        metal->bindings.index_buffer = NULL;
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        if (metal->bindings.storage_buffers[i] == buffer)
+            metal->bindings.storage_buffers[i] = NULL;
+    }
+}
+
+static void mgfx_metal_unbind_image(mgfx_metal_image *image)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        if (metal->bindings.sampled_images[i] == image)
+            metal->bindings.sampled_images[i] = NULL;
+        if (metal->bindings.storage_images[i] == image)
+            metal->bindings.storage_images[i] = NULL;
+    }
+}
+
+static void mgfx_metal_create_msaa_target(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    [metal->msaa_texture release];
+    metal->msaa_texture = nil;
+
+    if (metal->msaa_samples <= 1 || !metal->width || !metal->height)
+        return;
+
+    MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm
+        width:metal->width
+        height:metal->height
+        mipmapped:NO];
+    descriptor.textureType = MTLTextureType2DMultisample;
+    descriptor.sampleCount = metal->msaa_samples;
+    descriptor.usage = MTLTextureUsageRenderTarget;
+    descriptor.storageMode = MTLStorageModePrivate;
+
+    metal->msaa_texture = [metal->device newTextureWithDescriptor:descriptor];
+}
+
+static void mgfx_metal_end_render_encoder(bool interrupted)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    id<MTLRenderCommandEncoder> encoder = metal->render_encoder;
+
+    if (!encoder)
+        return;
+
+    const MTLStoreAction resolve_action = interrupted ? MTLStoreActionStoreAndMultisampleResolve : MTLStoreActionMultisampleResolve;
+    for (uint32_t i = 0; i < metal->current_pass.color_count; i++)
+        [encoder setColorStoreAction:(metal->current_pass.resolve[i] ? resolve_action : MTLStoreActionStore) atIndex:i];
+
+    if (metal->current_pass.has_depth)
+        [encoder setDepthStoreAction:MTLStoreActionStore];
+    if (metal->current_pass.has_stencil)
+        [encoder setStencilStoreAction:MTLStoreActionStore];
+
+    [encoder endEncoding];
+    [encoder release];
+    metal->render_encoder = nil;
+}
+
+static void mgfx_metal_end_compute_encoder(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (!metal->compute_encoder)
+        return;
+
+    [metal->compute_encoder endEncoding];
+    [metal->compute_encoder release];
+    metal->compute_encoder = nil;
+}
+
+static void mgfx_metal_begin_render_encoder(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (metal->render_encoder)
+        return;
+
+    MGFX_ASSERT(metal->current_pass.active, "Draw calls require a pass bound with mgfx_bind_pass.");
+    mgfx_metal_end_compute_encoder();
+
+    MTLRenderPassDescriptor *descriptor = metal->current_pass.descriptor;
+    metal->render_encoder = [[metal->command_buffer renderCommandEncoderWithDescriptor:descriptor] retain];
+
+    for (uint32_t i = 0; i < metal->current_pass.color_count; i++)
+        descriptor.colorAttachments[i].loadAction = MTLLoadActionLoad;
+    descriptor.depthAttachment.loadAction = MTLLoadActionLoad;
+    descriptor.stencilAttachment.loadAction = MTLLoadActionLoad;
+
+    metal->bindings.dirty = true;
+}
+
+static void mgfx_metal_begin_compute_encoder(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (metal->compute_encoder)
+        return;
+
+    MGFX_ASSERT(metal->command_buffer, "Compute dispatches must happen between mgfx_begin and mgfx_end.");
+    mgfx_metal_end_render_encoder(true);
+    metal->compute_encoder = [[metal->command_buffer computeCommandEncoder] retain];
+    metal->bindings.dirty = true;
+}
+
+static void mgfx_metal_init(const mgfx_init_info *init_info)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    *metal = (mgfx_metal_context){ 0 };
+
+    metal->layer = [(CAMetalLayer*)init_info->primary_handle retain];
+    MGFX_ASSERT(metal->layer != nil, "The Metal backend requires a CAMetalLayer as the primary handle.");
+
+    metal->device = metal->layer.device ? [metal->layer.device retain] : MTLCreateSystemDefaultDevice();
+    MGFX_ASSERT(metal->device != nil, "No Metal device is available.");
+
+    metal->layer.device = metal->device;
+    metal->layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    metal->layer.framebufferOnly = YES;
+
+    metal->queue = [metal->device newCommandQueue];
+    metal->frame_semaphore = dispatch_semaphore_create(MGFX_METAL_FRAMES_IN_FLIGHT);
+
+    metal->width = (uint32_t)init_info->width;
+    metal->height = (uint32_t)init_info->height;
+    metal->msaa_samples = mgfx_metal_clamp_samples(init_info->msaa);
+    metal->pending_resize = true;
+
+    metal->vsync = init_info->vsync;
+    if (@available(macOS 10.13, *))
+        metal->layer.displaySyncEnabled = init_info->vsync;
+}
+
+static void mgfx_metal_shutdown(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    id<MTLCommandBuffer> fence = [metal->queue commandBuffer];
+    [fence commit];
+    [fence waitUntilCompleted];
+
+    [metal->current_pass.descriptor release];
+    [metal->msaa_texture release];
+    [metal->queue release];
+    [metal->device release];
+    [metal->layer release];
+    dispatch_release(metal->frame_semaphore);
+
+    *metal = (mgfx_metal_context){ 0 };
+}
+
+static mgfx_result mgfx_metal_begin(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (metal->pending_resize)
+    {
+        metal->pending_resize = false;
+        metal->layer.drawableSize = CGSizeMake(metal->width, metal->height);
+        mgfx_metal_create_msaa_target();
+    }
+
+    if (!metal->width || !metal->height)
+        return MGFX_RESULT_FAILURE;
+
+    dispatch_semaphore_wait(metal->frame_semaphore, DISPATCH_TIME_FOREVER);
+
+    id<CAMetalDrawable> drawable = [metal->layer nextDrawable];
+    if (!drawable)
+    {
+        dispatch_semaphore_signal(metal->frame_semaphore);
+        return MGFX_RESULT_FAILURE;
+    }
+
+    metal->drawable = [drawable retain];
+    metal->command_buffer = [[metal->queue commandBuffer] retain];
+
+    dispatch_semaphore_t semaphore = metal->frame_semaphore;
+    [metal->command_buffer addCompletedHandler:^(id<MTLCommandBuffer> buffer)
+    {
+        dispatch_semaphore_signal(semaphore);
+    }];
+
+    metal->frame_index++;
+    return MGFX_RESULT_SUCCESS;
+}
+
+static void mgfx_metal_end(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    mgfx_metal_end_render_encoder(false);
+    mgfx_metal_end_compute_encoder();
+
+    [metal->command_buffer presentDrawable:metal->drawable];
+    [metal->command_buffer commit];
+
+    [metal->command_buffer release];
+    [metal->drawable release];
+    [metal->current_pass.descriptor release];
+
+    metal->command_buffer = nil;
+    metal->drawable = nil;
+    metal->current_pass.descriptor = nil;
+    metal->current_pass.active = false;
+}
+
+static void mgfx_metal_resize(uint32_t width, uint32_t height)
+{
+    mgfx_ctx.metal.width = width;
+    mgfx_ctx.metal.height = height;
+    mgfx_ctx.metal.pending_resize = true;
+}
+
+static void mgfx_metal_vsync(bool vsync)
+{
+    mgfx_ctx.metal.vsync = vsync;
+    if (@available(macOS 10.13, *))
+        mgfx_ctx.metal.layer.displaySyncEnabled = vsync;
+}
+
+static void mgfx_metal_viewport(int32_t x, int32_t y, uint32_t width, uint32_t height)
+{
+    mgfx_ctx.metal.bindings.viewport = (MTLViewport){
+        .originX = (double)x,
+        .originY = (double)y,
+        .width = (double)width,
+        .height = (double)height,
+        .znear = 0.0,
+        .zfar = 1.0
+    };
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_scissor(int32_t x, int32_t y, uint32_t width, uint32_t height)
+{
+    if (x < 0)
+    {
+        width = (uint32_t)-x < width ? width + (uint32_t)x : 0;
+        x = 0;
+    }
+    if (y < 0)
+    {
+        height = (uint32_t)-y < height ? height + (uint32_t)y : 0;
+        y = 0;
+    }
+
+    mgfx_ctx.metal.bindings.scissor = (MTLScissorRect){
+        .x = (NSUInteger)x,
+        .y = (NSUInteger)y,
+        .width = width,
+        .height = height
+    };
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static MTLScissorRect mgfx_metal_clamped_scissor(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    const NSUInteger width = metal->current_pass.width;
+    const NSUInteger height = metal->current_pass.height;
+    MTLScissorRect rect = metal->bindings.scissor;
+
+    if (rect.x > width)
+        rect.x = width;
+    if (rect.y > height)
+        rect.y = height;
+    if (rect.width > width - rect.x)
+        rect.width = width - rect.x;
+    if (rect.height > height - rect.y)
+        rect.height = height - rect.y;
+
+    return rect;
+}
+
+static void mgfx_metal_bind_pass(const mgfx_pass_info *pass)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    MGFX_ASSERT(metal->command_buffer, "mgfx_bind_pass must be called between mgfx_begin and mgfx_end.");
+
+    mgfx_metal_end_render_encoder(false);
+    mgfx_metal_end_compute_encoder();
+
+    MTLRenderPassDescriptor *descriptor = [[MTLRenderPassDescriptor renderPassDescriptor] retain];
+    [metal->current_pass.descriptor release];
+    memset(&metal->current_pass, 0, sizeof(metal->current_pass));
+    metal->current_pass.descriptor = descriptor;
+
+    const bool custom_pass = mgfx_valid_pass(pass);
+    const MTLClearColor clear = MTLClearColorMake(pass->clear.r, pass->clear.g, pass->clear.b, pass->clear.a);
+
+    if (!custom_pass)
+    {
+        id<MTLTexture> target = metal->drawable.texture;
+        const bool msaa = metal->msaa_texture != nil;
+
+        MTLRenderPassColorAttachmentDescriptor *attachment = descriptor.colorAttachments[0];
+        attachment.texture = msaa ? metal->msaa_texture : target;
+        attachment.resolveTexture = msaa ? target : nil;
+        attachment.loadAction = MTLLoadActionClear;
+        attachment.storeAction = MTLStoreActionUnknown;
+        attachment.clearColor = clear;
+
+        metal->current_pass.color_count = 1;
+        metal->current_pass.resolve[0] = msaa;
+        metal->current_pass.width = (uint32_t)target.width;
+        metal->current_pass.height = (uint32_t)target.height;
+    }
+    else
+    {
+        uint32_t color_count = 0;
+        uint32_t width = 0, height = 0;
+        uint32_t pass_samples = 0;
+
+        for (; color_count < MGFX_MAX_COLOR_ATTACHMENTS && pass->color_images[color_count]; color_count++)
+        {
+            mgfx_metal_image *image = (mgfx_metal_image*)pass->color_images[color_count];
+            mgfx_metal_image *resolve = (mgfx_metal_image*)pass->resolve_images[color_count];
+
+            if (color_count == 0)
+            {
+                width = image->width;
+                height = image->height;
+                pass_samples = image->samples;
+            }
+            else
+            {
+                MGFX_ASSERT(image->width == width && image->height == height, "Mismatched color attachment sizes");
+                MGFX_ASSERT(image->samples == pass_samples, "Mismatched color attachment sample counts");
+            }
+
+            if (resolve)
+            {
+                MGFX_ASSERT(image->samples > 1, "Resolve image given for a single-sampled attachment.");
+                MGFX_ASSERT(resolve->samples == 1, "Resolve image must be single-sampled.");
+                MGFX_ASSERT(resolve->width == image->width && resolve->height == image->height, "Resolve image size must match the MSAA attachment.");
+                MGFX_ASSERT(resolve->format == image->format, "Resolve image format must match the MSAA attachment.");
+            }
+
+            MTLRenderPassColorAttachmentDescriptor *attachment = descriptor.colorAttachments[color_count];
+            attachment.texture = image->texture;
+            attachment.resolveTexture = resolve ? resolve->texture : nil;
+            attachment.loadAction = MTLLoadActionClear;
+            attachment.storeAction = MTLStoreActionUnknown;
+            attachment.clearColor = clear;
+
+            metal->current_pass.resolve[color_count] = resolve != NULL;
+        }
+
+        mgfx_metal_image *depth = (mgfx_metal_image*)pass->depth_stencil_image;
+        if (depth)
+        {
+            if (color_count == 0)
+            {
+                width = depth->width;
+                height = depth->height;
+            }
+            else
+            {
+                MGFX_ASSERT(depth->width == width && depth->height == height, "Depth attachment size mismatch");
+                MGFX_ASSERT(depth->samples == pass_samples, "Depth attachment sample count mismatch");
+            }
+
+            descriptor.depthAttachment.texture = depth->texture;
+            descriptor.depthAttachment.loadAction = MTLLoadActionClear;
+            descriptor.depthAttachment.storeAction = MTLStoreActionUnknown;
+            descriptor.depthAttachment.clearDepth = 1.0;
+            metal->current_pass.has_depth = true;
+
+            if (depth->format == MTLPixelFormatDepth32Float_Stencil8)
+            {
+                descriptor.stencilAttachment.texture = depth->texture;
+                descriptor.stencilAttachment.loadAction = MTLLoadActionClear;
+                descriptor.stencilAttachment.storeAction = MTLStoreActionUnknown;
+                descriptor.stencilAttachment.clearStencil = 0;
+                metal->current_pass.has_stencil = true;
+            }
+        }
+
+        metal->current_pass.color_count = color_count;
+        metal->current_pass.width = width;
+        metal->current_pass.height = height;
+    }
+
+    metal->current_pass.active = true;
+
+    mgfx_metal_viewport(0, 0, metal->current_pass.width, metal->current_pass.height);
+    mgfx_metal_scissor(0, 0, metal->current_pass.width, metal->current_pass.height);
+    mgfx_metal_begin_render_encoder();
+}
+
+static mgfx_metal_buffer *mgfx_metal_create_buffer(const mgfx_buffer_create_info *create_info)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    mgfx_metal_buffer *buffer = (mgfx_metal_buffer*)calloc(1, sizeof(mgfx_metal_buffer));
+
+    const bool shared = create_info->memory == MGFX_MEMORY_SHARED;
+    const MTLResourceOptions options = shared
+        ? MTLResourceStorageModeShared | MTLResourceCPUCacheModeWriteCombined
+        : MTLResourceStorageModeManaged;
+    const NSUInteger length = create_info->size ? create_info->size : 4;
+
+    buffer->count = shared ? MGFX_METAL_FRAMES_IN_FLIGHT : 1;
+    buffer->size = create_info->size;
+    buffer->frame = metal->frame_index;
+
+    for (uint32_t i = 0; i < buffer->count; i++)
+    {
+        buffer->buffers[i] = create_info->data
+            ? [metal->device newBufferWithBytes:create_info->data length:length options:options]
+            : [metal->device newBufferWithLength:length options:options];
+        MGFX_ASSERT(buffer->buffers[i] != nil, "Failed to create Metal buffer.");
+    }
+
+    return buffer;
+}
+
+static void mgfx_metal_update_buffer(mgfx_metal_buffer *buffer, size_t offset, size_t size, void *data)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    MGFX_ASSERT(offset + size <= buffer->size, "mgfx_update_buffer range exceeds the buffer size.");
+
+    if (buffer->count > 1 && offset == 0 && buffer->frame != metal->frame_index)
+    {
+        buffer->current = (buffer->current + 1) % buffer->count;
+        buffer->frame = metal->frame_index;
+        metal->bindings.dirty = true;
+    }
+
+    id<MTLBuffer> target = buffer->buffers[buffer->current];
+    memcpy((uint8_t*)[target contents] + offset, data, size);
+
+    if ([target storageMode] == MTLStorageModeManaged)
+        [target didModifyRange:NSMakeRange(offset, size)];
+}
+
+static void mgfx_metal_destroy_buffer(mgfx_metal_buffer *buffer)
+{
+    if (!buffer)
+        return;
+
+    mgfx_metal_unbind_buffer(buffer);
+    for (uint32_t i = 0; i < buffer->count; i++)
+        [buffer->buffers[i] release];
+    free(buffer);
+}
+
+static void mgfx_metal_bind_vertex_buffer(mgfx_metal_buffer *buffer)
+{
+    mgfx_ctx.metal.bindings.vertex_buffer = buffer;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_bind_index_buffer(mgfx_metal_buffer *buffer, mgfx_index_type index_type)
+{
+    mgfx_ctx.metal.bindings.index_buffer = buffer;
+    mgfx_ctx.metal.bindings.index_type = index_type == MGFX_INDEX_TYPE_UINT16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32;
+    mgfx_ctx.metal.bindings.index_size = index_type == MGFX_INDEX_TYPE_UINT16 ? 2 : 4;
+}
+
+static void mgfx_metal_bind_storage_buffer(mgfx_metal_buffer *buffer, uint32_t binding)
+{
+    MGFX_ASSERT(binding < MGFX_MAX_BINDABLE_SHADER_RESOURCES, "Storage buffer binding out of range.");
+    mgfx_ctx.metal.bindings.storage_buffers[binding] = buffer;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_bind_uniforms(uint32_t binding, size_t size, void *data)
+{
+    MGFX_ASSERT(binding < MGFX_MAX_BINDABLE_UNIFORMS, "Uniform binding out of range.");
+    MGFX_ASSERT(size <= MGFX_METAL_MAX_UNIFORM_SIZE, "Uniform data exceeds MGFX_METAL_MAX_UNIFORM_SIZE.");
+
+    memcpy(mgfx_ctx.metal.bindings.uniforms[binding], data, size);
+    mgfx_ctx.metal.bindings.uniform_sizes[binding] = size;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_update_image(mgfx_metal_image *image, const mgfx_image_update_info *update_info)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    MGFX_ASSERT(update_info != NULL, "mgfx_update_image requires update info.");
+
+    const bool layered = mgfx_image_type_is_layered(image->type);
+    size_t total = 0;
+
+    for (uint32_t i = 0; i < image->mip_levels; i++)
+    {
+        if (!update_info->subimages[i])
+            continue;
+
+        const size_t w = mgfx_mip_extent(image->width, i);
+        const size_t h = mgfx_mip_extent(image->height, i);
+        total += w * h * mgfx_mip_depth(image->type, image->depth, i) * image->bpp;
+    }
+
+    MGFX_ASSERT(total > 0, "mgfx_update_image requires at least one subimage.");
+
+    id<MTLBuffer> staging = [metal->device newBufferWithLength:total options:MTLResourceStorageModeShared];
+    id<MTLCommandBuffer> command_buffer = [metal->queue commandBuffer];
+    id<MTLBlitCommandEncoder> blit = [command_buffer blitCommandEncoder];
+
+    size_t offset = 0;
+    for (uint32_t i = 0; i < image->mip_levels; i++)
+    {
+        const uint8_t *data = (const uint8_t*)update_info->subimages[i];
+        if (!data)
+            continue;
+
+        const uint32_t w = mgfx_mip_extent(image->width, i);
+        const uint32_t h = mgfx_mip_extent(image->height, i);
+        const uint32_t d = mgfx_mip_depth(image->type, image->depth, i);
+        const size_t row_pitch = (size_t)w * image->bpp;
+        const size_t slice_pitch = row_pitch * h;
+        const size_t level_size = slice_pitch * d;
+
+        memcpy((uint8_t*)[staging contents] + offset, data, level_size);
+
+        if (layered)
+        {
+            for (uint32_t slice = 0; slice < d; slice++)
+            {
+                [blit copyFromBuffer:staging
+                    sourceOffset:offset + slice * slice_pitch
+                    sourceBytesPerRow:row_pitch
+                    sourceBytesPerImage:0
+                    sourceSize:MTLSizeMake(w, h, 1)
+                    toTexture:image->texture
+                    destinationSlice:slice
+                    destinationLevel:i
+                    destinationOrigin:MTLOriginMake(0, 0, 0)];
+            }
+        }
+        else
+        {
+            [blit copyFromBuffer:staging
+                sourceOffset:offset
+                sourceBytesPerRow:row_pitch
+                sourceBytesPerImage:image->type == MGFX_IMAGE_TYPE_3D ? slice_pitch : 0
+                sourceSize:MTLSizeMake(w, h, d)
+                toTexture:image->texture
+                destinationSlice:0
+                destinationLevel:i
+                destinationOrigin:MTLOriginMake(0, 0, 0)];
+        }
+
+        offset += level_size;
+    }
+
+    [blit endEncoding];
+    [command_buffer commit];
+    [staging release];
+}
+
+static mgfx_metal_image *mgfx_metal_create_image(const mgfx_image_create_info *create_info)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    mgfx_validate_msaa_image(create_info);
+
+    const MTLPixelFormat format = mgfx_metal_get_format(create_info->format);
+    MGFX_ASSERT(format != MTLPixelFormatInvalid, "Image format is not supported by the Metal backend.");
+
+    mgfx_metal_image *image = (mgfx_metal_image*)calloc(1, sizeof(mgfx_metal_image));
+
+    const uint32_t depth = mgfx_image_depth(create_info);
+    const uint32_t mip_levels = create_info->mip_count == 0 ? 1 : create_info->mip_count;
+    const uint32_t samples = mgfx_metal_clamp_samples(create_info->msaa);
+
+    MTLTextureUsage usage = 0;
+    if (create_info->usage & MGFX_IMAGE_USAGE_SAMPLED)
+        usage |= MTLTextureUsageShaderRead;
+    if (create_info->usage & MGFX_IMAGE_USAGE_STORAGE)
+        usage |= MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+    if (create_info->usage & (MGFX_IMAGE_USAGE_COLOR_ATTACHMENT | MGFX_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT))
+        usage |= MTLTextureUsageRenderTarget;
+
+    MTLTextureDescriptor *descriptor = [[MTLTextureDescriptor alloc] init];
+    descriptor.textureType = mgfx_metal_get_texture_type(create_info->type, samples);
+    descriptor.pixelFormat = format;
+    descriptor.width = create_info->width;
+    descriptor.height = create_info->height;
+    descriptor.depth = create_info->type == MGFX_IMAGE_TYPE_3D ? depth : 1;
+    descriptor.arrayLength = create_info->type == MGFX_IMAGE_TYPE_2D_ARRAY ? depth : 1;
+    descriptor.mipmapLevelCount = mip_levels;
+    descriptor.sampleCount = samples;
+    descriptor.storageMode = MTLStorageModePrivate;
+    descriptor.usage = usage ? usage : MTLTextureUsageShaderRead;
+
+    image->texture = [metal->device newTextureWithDescriptor:descriptor];
+    [descriptor release];
+    MGFX_ASSERT(image->texture != nil, "Failed to create Metal texture.");
+
+    image->format = format;
+    image->type = create_info->type;
+    image->width = create_info->width;
+    image->height = create_info->height;
+    image->depth = depth;
+    image->bpp = mgfx_format_bpp(create_info->format);
+    image->mip_levels = mip_levels;
+    image->samples = samples;
+
+    bool has_data = false;
+    for (uint32_t i = 0; i < MGFX_MAX_MIPMAPS; i++)
+        has_data |= create_info->subimages[i] != NULL;
+
+    if (has_data)
+    {
+        mgfx_image_update_info initial_data;
+        memcpy(initial_data.subimages, create_info->subimages, sizeof(initial_data.subimages));
+        mgfx_metal_update_image(image, &initial_data);
+    }
+
+    return image;
+}
+
+static void mgfx_metal_destroy_image(mgfx_metal_image *image)
+{
+    if (!image)
+        return;
+
+    mgfx_metal_unbind_image(image);
+    [image->texture release];
+    free(image);
+}
+
+static void mgfx_metal_bind_sampled_image(mgfx_metal_image *image, mgfx_metal_sampler *sampler, uint32_t binding)
+{
+    MGFX_ASSERT(binding < MGFX_MAX_BINDABLE_SHADER_RESOURCES, "Sampled image binding out of range.");
+    mgfx_ctx.metal.bindings.sampled_images[binding] = image;
+    mgfx_ctx.metal.bindings.samplers[binding] = sampler;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_bind_storage_image(mgfx_metal_image *image, mgfx_access access, uint32_t binding)
+{
+    MGFX_ASSERT(binding < MGFX_MAX_BINDABLE_SHADER_RESOURCES, "Storage image binding out of range.");
+    mgfx_ctx.metal.bindings.storage_images[binding] = image;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static mgfx_metal_sampler *mgfx_metal_create_sampler(const mgfx_sampler_create_info *create_info)
+{
+    MTLSamplerDescriptor *descriptor = [[MTLSamplerDescriptor alloc] init];
+    descriptor.minFilter = mgfx_metal_get_filter(create_info->min_filter);
+    descriptor.magFilter = mgfx_metal_get_filter(create_info->mag_filter);
+    descriptor.mipFilter = create_info->mip_filter == MGFX_SAMPLER_FILTER_LINEAR ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
+    descriptor.sAddressMode = mgfx_metal_get_address_mode(create_info->address_mode_u);
+    descriptor.tAddressMode = mgfx_metal_get_address_mode(create_info->address_mode_v);
+    descriptor.rAddressMode = mgfx_metal_get_address_mode(create_info->address_mode_w);
+
+    mgfx_metal_sampler *sampler = (mgfx_metal_sampler*)calloc(1, sizeof(mgfx_metal_sampler));
+    sampler->state = [mgfx_ctx.metal.device newSamplerStateWithDescriptor:descriptor];
+    [descriptor release];
+
+    MGFX_ASSERT(sampler->state != nil, "Failed to create Metal sampler.");
+    return sampler;
+}
+
+static void mgfx_metal_destroy_sampler(mgfx_metal_sampler *sampler)
+{
+    if (!sampler)
+        return;
+
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        if (metal->bindings.samplers[i] == sampler)
+            metal->bindings.samplers[i] = NULL;
+    }
+
+    [sampler->state release];
+    free(sampler);
+}
+
+typedef struct
+{
+    const char *type;
+    size_t type_length;
+    const char *name;
+    size_t name_length;
+    char kind;
+    int8_t index;
+}
+mgfx_metal_shader_argument;
+
+static inline bool mgfx_metal_is_identifier(char c)
+{
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+static const char *mgfx_metal_find(const char *begin, const char *end, const char *needle)
+{
+    const size_t length = strlen(needle);
+    for (const char *cursor = begin; cursor + length <= end; cursor++)
+    {
+        if (strncmp(cursor, needle, length) == 0)
+            return cursor;
+    }
+    return NULL;
+}
+
+static bool mgfx_metal_parse_shader_argument(const char *begin, const char *end, mgfx_metal_shader_argument *argument)
+{
+    static const struct
+    {
+        const char *tag;
+        char kind;
+    }
+    tags[] = {
+        { "[[buffer(", 'b' },
+        { "[[texture(", 't' },
+        { "[[sampler(", 's' }
+    };
+
+    const char *attribute = NULL;
+    for (uint32_t i = 0; i < sizeof(tags) / sizeof(tags[0]) && !attribute; i++)
+    {
+        attribute = mgfx_metal_find(begin, end, tags[i].tag);
+        if (attribute)
+        {
+            argument->kind = tags[i].kind;
+            argument->index = (int8_t)atoi(attribute + strlen(tags[i].tag));
+        }
+    }
+
+    if (!attribute)
+        return false;
+
+    const char *cursor = attribute;
+    while (cursor > begin && !mgfx_metal_is_identifier(cursor[-1]))
+        cursor--;
+    const char *name_end = cursor;
+    while (cursor > begin && mgfx_metal_is_identifier(cursor[-1]))
+        cursor--;
+    argument->name = cursor;
+    argument->name_length = (size_t)(name_end - cursor);
+
+    while (cursor > begin && (cursor[-1] == ' ' || cursor[-1] == '&' || cursor[-1] == '*'))
+        cursor--;
+    const char *type_end = cursor;
+    while (cursor > begin && mgfx_metal_is_identifier(cursor[-1]))
+        cursor--;
+    argument->type = cursor;
+    argument->type_length = (size_t)(type_end - cursor);
+
+    return argument->name_length > 0;
+}
+
+static int32_t mgfx_metal_parse_shader_arguments(const char *text, mgfx_metal_shader_argument *arguments, int32_t capacity)
+{
+    const char *cursor = strstr(text, MGFX_METAL_ENTRY_POINT "(");
+    if (!cursor)
+        return -1;
+
+    cursor += strlen(MGFX_METAL_ENTRY_POINT "(");
+
+    int32_t count = 0;
+    int32_t depth = 0;
+    const char *start = cursor;
+
+    for (; *cursor; cursor++)
+    {
+        const char c = *cursor;
+
+        if (c == '(' || c == '<' || c == '[')
+        {
+            depth++;
+            continue;
+        }
+
+        if ((c == ')' || c == '>' || c == ']') && depth > 0)
+        {
+            depth--;
+            continue;
+        }
+
+        if (c != ',' && c != ')')
+            continue;
+
+        if (count < capacity && mgfx_metal_parse_shader_argument(start, cursor, &arguments[count]))
+            count++;
+
+        if (c == ')')
+            break;
+
+        start = cursor + 1;
+    }
+
+    return count;
+}
+
+static bool mgfx_metal_name_matches(const char *text, size_t length, const char *name, const char *suffix)
+{
+    const size_t name_length = strlen(name);
+    const size_t suffix_length = strlen(suffix);
+
+    return length == name_length + suffix_length &&
+        strncmp(text, name, name_length) == 0 &&
+        strncmp(text + name_length, suffix, suffix_length) == 0;
+}
+
+static int8_t mgfx_metal_find_slot(const mgfx_metal_shader_argument *arguments, int32_t count, char kind, const char *name, const char *suffix)
+{
+    for (int32_t i = 0; i < count; i++)
+    {
+        const mgfx_metal_shader_argument *argument = &arguments[i];
+        if (argument->kind != kind)
+            continue;
+
+        if (mgfx_metal_name_matches(argument->name, argument->name_length, name, suffix) ||
+            (kind == 'b' && mgfx_metal_name_matches(argument->type, argument->type_length, name, suffix)))
+            return argument->index;
+    }
+    return -1;
+}
+
+static void mgfx_metal_build_slots(const mgfx_shader *shader, const char *text, mgfx_metal_stage_slots *slots)
+{
+    for (int8_t i = 0; i < MGFX_MAX_BINDABLE_UNIFORMS; i++)
+        slots->uniforms[i] = i;
+
+    for (int8_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        slots->storage_buffers[i] = MGFX_MAX_BINDABLE_UNIFORMS + i;
+        slots->sampled_textures[i] = i;
+        slots->samplers[i] = i;
+        slots->storage_textures[i] = i;
+    }
+
+    mgfx_metal_shader_argument arguments[MGFX_METAL_MAX_SHADER_ARGUMENTS];
+    const int32_t count = mgfx_metal_parse_shader_arguments(text, arguments, MGFX_METAL_MAX_SHADER_ARGUMENTS);
+    if (count < 0)
+        return;
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_UNIFORMS && shader->uniform_blocks[i].size; i++)
+    {
+        const char *name = shader->uniform_blocks[i].name;
+        const int32_t binding = shader->uniform_blocks[i].binding;
+        MGFX_ASSERT(binding >= 0 && binding < MGFX_MAX_BINDABLE_UNIFORMS, "Uniform block binding out of range.");
+
+        if (name)
+            slots->uniforms[binding] = mgfx_metal_find_slot(arguments, count, 'b', name, "");
+    }
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        const char *name = shader->resources[i].name;
+        const int32_t binding = shader->resources[i].binding;
+        if (!name)
+            continue;
+
+        MGFX_ASSERT(binding >= 0 && binding < MGFX_MAX_BINDABLE_SHADER_RESOURCES, "Shader resource binding out of range.");
+
+        switch (shader->resources[i].type)
+        {
+            case MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER:
+                slots->storage_buffers[binding] = mgfx_metal_find_slot(arguments, count, 'b', name, "");
+                break;
+            case MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE:
+                slots->sampled_textures[binding] = mgfx_metal_find_slot(arguments, count, 't', name, "");
+                slots->samplers[binding] = mgfx_metal_find_slot(arguments, count, 's', name, "Smplr");
+                break;
+            case MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE:
+                slots->storage_textures[binding] = mgfx_metal_find_slot(arguments, count, 't', name, "");
+                break;
+        }
+    }
+}
+
+static MTLSize mgfx_metal_parse_group_size(const char *text)
+{
+    unsigned int x = 1, y = 1, z = 1;
+
+    const char *found = strstr(text, "gl_WorkGroupSize");
+    if (found)
+        found = strstr(found, "uint3(");
+    if (found)
+        sscanf(found, "uint3(%uu, %uu, %uu)", &x, &y, &z);
+
+    return MTLSizeMake(x, y, z);
+}
+
+static char *mgfx_metal_source_text(const mgfx_shader_source *source)
+{
+    size_t size = source->size;
+    const char *code = (const char*)source->code;
+    while (size > 0 && code[size - 1] == '\0')
+        size--;
+
+    char *text = (char*)malloc(size + 1);
+    MGFX_ASSERT(text != NULL, "Out of memory.");
+    memcpy(text, code, size);
+    text[size] = '\0';
+    return text;
+}
+
+static id<MTLFunction> mgfx_metal_create_function(const char *text, id<MTLLibrary> *out_library)
+{
+    NSError *error = nil;
+    NSString *source = [[NSString alloc] initWithUTF8String:text];
+    id<MTLLibrary> library = [mgfx_ctx.metal.device newLibraryWithSource:source options:nil error:&error];
+    [source release];
+    mgfx_metal_check(library, error, "Failed to compile Metal shader.");
+
+    id<MTLFunction> function = [library newFunctionWithName:[NSString stringWithUTF8String:MGFX_METAL_ENTRY_POINT]];
+    if (!function && [[library functionNames] count] > 0)
+        function = [library newFunctionWithName:[[library functionNames] firstObject]];
+    MGFX_ASSERT(function != nil, "Metal shader has no entry point.");
+
+    *out_library = library;
+    return function;
+}
+
+static void mgfx_metal_fill_compute_pipeline(mgfx_metal_pipeline *pipeline, const mgfx_pipeline_create_info *create_info)
+{
+    char *text = mgfx_metal_source_text(&create_info->shader.compute);
+    id<MTLLibrary> library = nil;
+    id<MTLFunction> function = mgfx_metal_create_function(text, &library);
+
+    NSError *error = nil;
+    pipeline->compute_state = [mgfx_ctx.metal.device newComputePipelineStateWithFunction:function error:&error];
+    mgfx_metal_check(pipeline->compute_state, error, "Failed to create Metal compute pipeline.");
+
+    mgfx_metal_build_slots(&create_info->shader, text, &pipeline->compute_slots);
+    pipeline->group_size = mgfx_metal_parse_group_size(text);
+    pipeline->type = MGFX_METAL_PIPELINE_TYPE_COMPUTE;
+
+    [function release];
+    [library release];
+    free(text);
+}
+
+static void mgfx_metal_fill_graphics_pipeline(mgfx_metal_pipeline *pipeline, const mgfx_pipeline_create_info *create_info)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    char *vertex_text = mgfx_metal_source_text(&create_info->shader.vertex);
+    char *fragment_text = mgfx_metal_source_text(&create_info->shader.fragment);
+    id<MTLLibrary> vertex_library = nil;
+    id<MTLLibrary> fragment_library = nil;
+    id<MTLFunction> vertex_function = mgfx_metal_create_function(vertex_text, &vertex_library);
+    id<MTLFunction> fragment_function = mgfx_metal_create_function(fragment_text, &fragment_library);
+
+    MTLRenderPipelineDescriptor *descriptor = [[MTLRenderPipelineDescriptor alloc] init];
+    descriptor.vertexFunction = vertex_function;
+    descriptor.fragmentFunction = fragment_function;
+    descriptor.sampleCount = mgfx_metal_clamp_samples(create_info->msaa);
+
+    if (create_info->vertex_layout[0])
+    {
+        MTLVertexDescriptor *vertex_descriptor = [MTLVertexDescriptor vertexDescriptor];
+        uint32_t stride = 0;
+
+        for (uint32_t i = 0; i < MGFX_MAX_VERTEX_ATTRIBUTES && create_info->vertex_layout[i]; i++)
+        {
+            const mgfx_vertex_format format = create_info->vertex_layout[i];
+            vertex_descriptor.attributes[i].format = mgfx_metal_get_vertex_format(format);
+            vertex_descriptor.attributes[i].offset = stride;
+            vertex_descriptor.attributes[i].bufferIndex = MGFX_METAL_VERTEX_BUFFER_INDEX;
+            stride += mgfx_vertex_format_size(format);
+        }
+
+        vertex_descriptor.layouts[MGFX_METAL_VERTEX_BUFFER_INDEX].stride = stride;
+        vertex_descriptor.layouts[MGFX_METAL_VERTEX_BUFFER_INDEX].stepFunction = MTLVertexStepFunctionPerVertex;
+        vertex_descriptor.layouts[MGFX_METAL_VERTEX_BUFFER_INDEX].stepRate = 1;
+        descriptor.vertexDescriptor = vertex_descriptor;
+    }
+
+    const mgfx_color_blend *blend = &create_info->color_blend;
+    for (uint32_t i = 0; i < MGFX_MAX_COLOR_ATTACHMENTS; i++)
+    {
+        const mgfx_format format = create_info->color_formats[i];
+        if (i > 0 && format == MGFX_FORMAT_NONE)
+            break;
+
+        MTLRenderPipelineColorAttachmentDescriptor *attachment = descriptor.colorAttachments[i];
+        attachment.pixelFormat = format == MGFX_FORMAT_NONE ? MTLPixelFormatBGRA8Unorm : mgfx_metal_get_format(format);
+        attachment.blendingEnabled = blend->blend_enabled;
+
+        if (blend->blend_enabled)
+        {
+            attachment.sourceRGBBlendFactor = mgfx_metal_get_blend_factor(blend->src_color_blend_factor);
+            attachment.destinationRGBBlendFactor = mgfx_metal_get_blend_factor(blend->dst_color_blend_factor);
+            attachment.rgbBlendOperation = mgfx_metal_get_blend_op(blend->color_blend_op);
+            attachment.sourceAlphaBlendFactor = mgfx_metal_get_blend_factor(blend->src_alpha_blend_factor);
+            attachment.destinationAlphaBlendFactor = mgfx_metal_get_blend_factor(blend->dst_alpha_blend_factor);
+            attachment.alphaBlendOperation = mgfx_metal_get_blend_op(blend->alpha_blend_op);
+        }
+    }
+
+    const mgfx_depth_stencil_state *depth_stencil = &create_info->depth_stencil;
+    if (depth_stencil->format != MGFX_FORMAT_NONE)
+    {
+        descriptor.depthAttachmentPixelFormat = mgfx_metal_get_format(depth_stencil->format);
+        if (depth_stencil->format == MGFX_FORMAT_DEPTH_STENCIL)
+            descriptor.stencilAttachmentPixelFormat = descriptor.depthAttachmentPixelFormat;
+    }
+
+    NSError *error = nil;
+    pipeline->render_state = [metal->device newRenderPipelineStateWithDescriptor:descriptor error:&error];
+    [descriptor release];
+    mgfx_metal_check(pipeline->render_state, error, "Failed to create Metal render pipeline.");
+
+    MTLDepthStencilDescriptor *depth_descriptor = [[MTLDepthStencilDescriptor alloc] init];
+    if (depth_stencil->depth_compare_op != MGFX_COMPARE_OP_NEVER)
+    {
+        depth_descriptor.depthCompareFunction = mgfx_metal_get_compare_function(depth_stencil->depth_compare_op);
+        depth_descriptor.depthWriteEnabled = depth_stencil->depth_write_enabled;
+    }
+    else
+    {
+        depth_descriptor.depthCompareFunction = MTLCompareFunctionAlways;
+        depth_descriptor.depthWriteEnabled = NO;
+    }
+    pipeline->depth_stencil_state = [metal->device newDepthStencilStateWithDescriptor:depth_descriptor];
+    [depth_descriptor release];
+
+    mgfx_metal_build_slots(&create_info->shader, vertex_text, &pipeline->vertex_slots);
+    mgfx_metal_build_slots(&create_info->shader, fragment_text, &pipeline->fragment_slots);
+
+    pipeline->primitive_type = mgfx_metal_get_primitive_type(create_info->primitive_topology);
+    pipeline->cull_mode = mgfx_metal_get_cull_mode(create_info->cull_mode);
+    pipeline->winding = create_info->front_face == MGFX_FRONT_FACE_CCW ? MTLWindingCounterClockwise : MTLWindingClockwise;
+    pipeline->type = MGFX_METAL_PIPELINE_TYPE_GRAPHICS;
+
+    [vertex_function release];
+    [fragment_function release];
+    [vertex_library release];
+    [fragment_library release];
+    free(vertex_text);
+    free(fragment_text);
+}
+
+static mgfx_metal_pipeline *mgfx_metal_create_pipeline(const mgfx_pipeline_create_info *create_info)
+{
+    mgfx_metal_pipeline *pipeline = (mgfx_metal_pipeline*)calloc(1, sizeof(mgfx_metal_pipeline));
+
+    if (create_info->shader.compute.size)
+        mgfx_metal_fill_compute_pipeline(pipeline, create_info);
+    else
+        mgfx_metal_fill_graphics_pipeline(pipeline, create_info);
+
+    return pipeline;
+}
+
+static void mgfx_metal_destroy_pipeline(mgfx_metal_pipeline *pipeline)
+{
+    if (!pipeline)
+        return;
+
+    if (mgfx_ctx.metal.bindings.pipeline == pipeline)
+        mgfx_ctx.metal.bindings.pipeline = NULL;
+
+    [pipeline->render_state release];
+    [pipeline->compute_state release];
+    [pipeline->depth_stencil_state release];
+    free(pipeline);
+}
+
+static void mgfx_metal_bind_pipeline(mgfx_metal_pipeline *pipeline)
+{
+    mgfx_ctx.metal.bindings.pipeline = pipeline;
+    mgfx_ctx.metal.bindings.dirty = true;
+}
+
+static void mgfx_metal_apply_render_bindings(void)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    id<MTLRenderCommandEncoder> encoder = metal->render_encoder;
+    const mgfx_metal_pipeline *pipeline = metal->bindings.pipeline;
+
+    MGFX_ASSERT(pipeline && pipeline->type == MGFX_METAL_PIPELINE_TYPE_GRAPHICS, "Draw calls require a bound graphics pipeline.");
+
+    [encoder setRenderPipelineState:pipeline->render_state];
+    [encoder setDepthStencilState:pipeline->depth_stencil_state];
+    [encoder setCullMode:pipeline->cull_mode];
+    [encoder setFrontFacingWinding:pipeline->winding];
+    [encoder setViewport:metal->bindings.viewport];
+
+    const MTLScissorRect scissor = mgfx_metal_clamped_scissor();
+    metal->bindings.scissor_visible = scissor.width > 0 && scissor.height > 0;
+    if (metal->bindings.scissor_visible)
+        [encoder setScissorRect:scissor];
+
+    if (metal->bindings.vertex_buffer)
+    {
+        mgfx_metal_buffer *buffer = metal->bindings.vertex_buffer;
+        [encoder setVertexBuffer:buffer->buffers[buffer->current] offset:0 atIndex:MGFX_METAL_VERTEX_BUFFER_INDEX];
+    }
+
+    const mgfx_metal_stage_slots *vs = &pipeline->vertex_slots;
+    const mgfx_metal_stage_slots *fs = &pipeline->fragment_slots;
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_UNIFORMS; i++)
+    {
+        const size_t size = metal->bindings.uniform_sizes[i];
+        if (!size)
+            continue;
+
+        const void *data = metal->bindings.uniforms[i];
+        if (vs->uniforms[i] >= 0)
+            [encoder setVertexBytes:data length:size atIndex:vs->uniforms[i]];
+        if (fs->uniforms[i] >= 0)
+            [encoder setFragmentBytes:data length:size atIndex:fs->uniforms[i]];
+    }
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        mgfx_metal_buffer *storage_buffer = metal->bindings.storage_buffers[i];
+        if (storage_buffer)
+        {
+            id<MTLBuffer> buffer = storage_buffer->buffers[storage_buffer->current];
+            if (vs->storage_buffers[i] >= 0)
+                [encoder setVertexBuffer:buffer offset:0 atIndex:vs->storage_buffers[i]];
+            if (fs->storage_buffers[i] >= 0)
+                [encoder setFragmentBuffer:buffer offset:0 atIndex:fs->storage_buffers[i]];
+        }
+
+        mgfx_metal_image *sampled_image = metal->bindings.sampled_images[i];
+        if (sampled_image)
+        {
+            if (vs->sampled_textures[i] >= 0)
+                [encoder setVertexTexture:sampled_image->texture atIndex:vs->sampled_textures[i]];
+            if (fs->sampled_textures[i] >= 0)
+                [encoder setFragmentTexture:sampled_image->texture atIndex:fs->sampled_textures[i]];
+        }
+
+        mgfx_metal_sampler *sampler = metal->bindings.samplers[i];
+        if (sampler)
+        {
+            if (vs->samplers[i] >= 0)
+                [encoder setVertexSamplerState:sampler->state atIndex:vs->samplers[i]];
+            if (fs->samplers[i] >= 0)
+                [encoder setFragmentSamplerState:sampler->state atIndex:fs->samplers[i]];
+        }
+
+        mgfx_metal_image *storage_image = metal->bindings.storage_images[i];
+        if (storage_image)
+        {
+            if (vs->storage_textures[i] >= 0)
+                [encoder setVertexTexture:storage_image->texture atIndex:vs->storage_textures[i]];
+            if (fs->storage_textures[i] >= 0)
+                [encoder setFragmentTexture:storage_image->texture atIndex:fs->storage_textures[i]];
+        }
+    }
+
+    metal->bindings.dirty = false;
+}
+
+static bool mgfx_metal_prepare_draw(void)
+{
+    mgfx_metal_begin_render_encoder();
+
+    if (mgfx_ctx.metal.bindings.dirty)
+        mgfx_metal_apply_render_bindings();
+
+    return mgfx_ctx.metal.bindings.scissor_visible;
+}
+
+static void mgfx_metal_draw_instanced(uint32_t vertex_count, uint32_t first_vertex, uint32_t instance_count, uint32_t first_instance)
+{
+    if (!mgfx_metal_prepare_draw())
+        return;
+
+    [mgfx_ctx.metal.render_encoder drawPrimitives:mgfx_ctx.metal.bindings.pipeline->primitive_type
+        vertexStart:first_vertex
+        vertexCount:vertex_count
+        instanceCount:instance_count
+        baseInstance:first_instance];
+}
+
+static void mgfx_metal_draw_indexed_instanced(uint32_t index_count, uint32_t first_index, int32_t first_vertex, uint32_t instance_count, uint32_t first_instance)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+
+    if (!mgfx_metal_prepare_draw())
+        return;
+
+    mgfx_metal_buffer *index_buffer = metal->bindings.index_buffer;
+    MGFX_ASSERT(index_buffer != NULL, "Indexed draws require a bound index buffer.");
+
+    [metal->render_encoder drawIndexedPrimitives:metal->bindings.pipeline->primitive_type
+        indexCount:index_count
+        indexType:metal->bindings.index_type
+        indexBuffer:index_buffer->buffers[index_buffer->current]
+        indexBufferOffset:(NSUInteger)first_index * metal->bindings.index_size
+        instanceCount:instance_count
+        baseVertex:first_vertex
+        baseInstance:first_instance];
+}
+
+static void mgfx_metal_draw(uint32_t vertex_count, uint32_t first_vertex)
+{
+    mgfx_metal_draw_instanced(vertex_count, first_vertex, 1, 0);
+}
+
+static void mgfx_metal_draw_indexed(uint32_t index_count, uint32_t first_index, int32_t first_vertex)
+{
+    mgfx_metal_draw_indexed_instanced(index_count, first_index, first_vertex, 1, 0);
+}
+
+static void mgfx_metal_dispatch(uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z)
+{
+    mgfx_metal_context *metal = &mgfx_ctx.metal;
+    const mgfx_metal_pipeline *pipeline = metal->bindings.pipeline;
+
+    MGFX_ASSERT(pipeline && pipeline->type == MGFX_METAL_PIPELINE_TYPE_COMPUTE, "Dispatches require a bound compute pipeline.");
+
+    mgfx_metal_begin_compute_encoder();
+    id<MTLComputeCommandEncoder> encoder = metal->compute_encoder;
+    const mgfx_metal_stage_slots *cs = &pipeline->compute_slots;
+
+    [encoder setComputePipelineState:pipeline->compute_state];
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_UNIFORMS; i++)
+    {
+        const size_t size = metal->bindings.uniform_sizes[i];
+        if (size && cs->uniforms[i] >= 0)
+            [encoder setBytes:metal->bindings.uniforms[i] length:size atIndex:cs->uniforms[i]];
+    }
+
+    for (uint32_t i = 0; i < MGFX_MAX_BINDABLE_SHADER_RESOURCES; i++)
+    {
+        mgfx_metal_buffer *storage_buffer = metal->bindings.storage_buffers[i];
+        if (storage_buffer && cs->storage_buffers[i] >= 0)
+            [encoder setBuffer:storage_buffer->buffers[storage_buffer->current] offset:0 atIndex:cs->storage_buffers[i]];
+
+        mgfx_metal_image *sampled_image = metal->bindings.sampled_images[i];
+        if (sampled_image && cs->sampled_textures[i] >= 0)
+            [encoder setTexture:sampled_image->texture atIndex:cs->sampled_textures[i]];
+
+        mgfx_metal_sampler *sampler = metal->bindings.samplers[i];
+        if (sampler && cs->samplers[i] >= 0)
+            [encoder setSamplerState:sampler->state atIndex:cs->samplers[i]];
+
+        mgfx_metal_image *storage_image = metal->bindings.storage_images[i];
+        if (storage_image && cs->storage_textures[i] >= 0)
+            [encoder setTexture:storage_image->texture atIndex:cs->storage_textures[i]];
+    }
+
+    [encoder dispatchThreadgroups:MTLSizeMake(group_count_x, group_count_y, group_count_z)
+        threadsPerThreadgroup:pipeline->group_size];
+}
+
+#endif // MGFX_METAL
+
 #define MGFX_PIPELINE_BIND(backend) \
 do { \
 mgfx_ctx.init = mgfx_##backend##_init; \
@@ -6348,6 +7953,12 @@ void mgfx_init(const mgfx_init_info *init_info)
         case MGFX_RENDERER_D3D11:
         mgfx_ctx.shader_lang = MGFX_SHADER_LANG_HLSL5;
         MGFX_PIPELINE_BIND(d3d11);
+        break;
+#endif
+#if defined(MGFX_METAL)
+        case MGFX_RENDERER_METAL:
+        mgfx_ctx.shader_lang = MGFX_SHADER_LANG_MSL;
+        MGFX_PIPELINE_BIND(metal);
         break;
 #endif
     }
