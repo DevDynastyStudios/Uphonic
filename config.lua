@@ -1,11 +1,11 @@
 return {
     app_name = "Uphonic",
-    src = "app/build.c",
+    src = "uphonic/build.c",
 
     include_dirs = {
         ".",
         "naui/vendor",
-        "app"
+        "uphonic"
     },
 
     links = {
