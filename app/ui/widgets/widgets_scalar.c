@@ -1,3 +1,21 @@
+static Naui_String uph__ui_format_float(const char *format, float value)
+{
+    Naui_String result = naui_string_format(format ? (char*)format : "%.3f", value);
+    if (result.length == 0 || result.data[0] != '-')
+        return result;
+
+    size_t end = 1;
+    while (end < result.length && (result.data[end] == '0' || result.data[end] == '.'))
+        end++;
+
+    if (end == 1 || (end < result.length && result.data[end] >= '1' && result.data[end] <= '9'))
+        return result;
+
+    memmove(result.data, result.data + 1, result.length);
+    result.length--;
+    return result;
+}
+
 static bool uph__ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, float min_f, float max_f, int32_t min_i, int32_t max_i, const char *format, Uph_UISliderFlags flags, Leaf_Color handle_color, Leaf_Color fill_color)
 {
     Uph_TextfieldData *tdata = &uph_global_widget_state.textfield_data;
@@ -12,7 +30,7 @@ static bool uph__ui_slider_scalar(const Leaf_ID id, void *value, bool is_float, 
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
         if (is_float)
-            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+            edit_buffer = uph__ui_format_float(format, *(float*)value);
         else
             edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
 
@@ -191,7 +209,7 @@ static bool uph__ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
     if (!text_editing && hovered && naui_mouse_double_clicked(NAUI_MOUSE_LEFT))
     {
         if (is_float)
-            edit_buffer = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+            edit_buffer = uph__ui_format_float(format, *(float*)value);
         else
             edit_buffer = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
 
@@ -294,7 +312,7 @@ static bool uph__ui_drag_scalar(const Leaf_ID id, void *value, bool is_float, fl
 
     Naui_String display;
     if (is_float)
-        display = naui_string_format(format ? (char*)format : "%.3f", *(float*)value);
+        display = uph__ui_format_float(format, *(float*)value);
     else
         display = naui_string_format(format ? (char*)format : "%d", *(int32_t*)value);
 
