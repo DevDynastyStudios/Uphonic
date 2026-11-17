@@ -1109,9 +1109,9 @@ static void uph__sample_editor_render_property(const char *label, const char *va
 static void uph__sample_editor_format_db(char *out, size_t size, double amplitude)
 {
 	if (amplitude <= 1e-9)
-		snprintf(out, size, "-inf dB");
+		snprintf(out, size, "-inf");
 	else
-		snprintf(out, size, "%.1f dB", 20.0 * log10(amplitude));
+		snprintf(out, size, "%.1f", 20.0 * log10(amplitude));
 }
 
 static void uph__sample_editor_render_properties(const Uph_SampleEditorState *editor, const Uph_SampleData *data)
@@ -1258,7 +1258,7 @@ static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *edito
 		uph__sample_editor_sidebar_row("Gain")
 		{
 			float gain_db = NAUI_CLAMP(uph_linear_to_db(sample->gain), UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX);
-			if (uph_ui_drag_float(&gain_db, leaf_id("uph_sample_editor_gain"), 0.1f, UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX, "%.2f dB", UPH_UI_DRAG_FLAG_CLAMPED))
+			if (uph_ui_drag_float(&gain_db, leaf_id("uph_sample_editor_gain"), 0.1f, UPH_SAMPLE_EDITOR_GAIN_DB_MIN, UPH_SAMPLE_EDITOR_GAIN_DB_MAX, "%.2f", UPH_UI_DRAG_FLAG_CLAMPED))
 				sample->gain = uph_db_to_linear(gain_db);
 		}
 
