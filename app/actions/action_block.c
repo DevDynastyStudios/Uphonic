@@ -552,7 +552,8 @@ static void uph_block_paste(double beat)
 		data.block.start_beat += beat;
 		data.block.selected = true;
 		data.block.visual.lifetime = 0.0f;
-		naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data);
+		if (naui_action_execute_stack(UPH_ACTION_BLOCK_CREATE, data))
+			uph_song_timeline_emit_block_shockwave(track, &data.block);
 	}
 
 	naui_action_group_end();

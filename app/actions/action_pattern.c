@@ -637,7 +637,8 @@ static void uph_note_paste(Uph_ResourceIndex pattern_index, double beat)
 		Uph_ActionNoteCreate data = { .pattern_index = pattern_index, .note_index = (uint32_t)naui_list_len(pattern->notes), .note = uph__note_clipboard[i] };
 		data.note.start_beat += beat;
 		data.note.selected = true;
-		naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data);
+		if (naui_action_execute_stack(UPH_ACTION_MIDI_NOTE_CREATE, data))
+			uph_midi_editor_emit_note_shockwave(pattern_index, &data.note);
 	}
 
 	uph_pattern_stretch_tail_blocks(pattern_index, tail);
