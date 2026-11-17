@@ -22,7 +22,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-static const struct { int start; int count; } k_unicode_blocks[] =
+static const struct { int start; int count; } naui__unicode_blocks[] =
 {
     { 0x0020,   96 },
     { 0x00A0,   96 },
@@ -43,29 +43,29 @@ static const struct { int start; int count; } k_unicode_blocks[] =
     { 0xF900,  512 },
     { 0xFF00,   94 },
 };
-#define K_NUM_UNICODE_BLOCKS (int)(sizeof(k_unicode_blocks)/sizeof(k_unicode_blocks[0]))
+#define NAUI_UNICODE_BLOCK_COUNT (int)(sizeof(naui__unicode_blocks)/sizeof(naui__unicode_blocks[0]))
 
-static const int k_atlas_size_candidates[] = { 512, 1024, 2048, 4096 };
-#define K_NUM_ATLAS_CANDIDATES (int)(sizeof(k_atlas_size_candidates)/sizeof(k_atlas_size_candidates[0]))
+static const int naui__atlas_sizes[] = { 128, 256, 512, 1024, 2048, 4096 };
+#define NAUI_ATLAS_SIZE_COUNT (int)(sizeof(naui__atlas_sizes)/sizeof(naui__atlas_sizes[0]))
 
-static int naui_choose_initial_atlas(int glyph_count, float size, int oversample_h, int padding)
+static int naui__choose_initial_atlas(int glyph_count, float size, int oversample_h, int padding)
 {
     const float cell_w = size * (float)oversample_h + (float)padding;
     const float cell_h = size + (float)padding;
     const float needed = (float)glyph_count * cell_w * cell_h * 1.2f;
 
-    for (int i = 0; i < K_NUM_ATLAS_CANDIDATES; i++)
+    for (int i = 0; i < NAUI_ATLAS_SIZE_COUNT; i++)
     {
-        const float sz = (float)k_atlas_size_candidates[i];
+        const float sz = (float)naui__atlas_sizes[i];
         if (sz * sz >= needed)
-            return k_atlas_size_candidates[i];
+            return naui__atlas_sizes[i];
     }
-    return k_atlas_size_candidates[K_NUM_ATLAS_CANDIDATES - 1];
+    return naui__atlas_sizes[NAUI_ATLAS_SIZE_COUNT - 1];
 }
 
-static float naui_fit_bake_size(int glyph_count, float max_size, int padding)
+static float naui__fit_bake_size(int glyph_count, float max_size, int padding)
 {
-    const float atlas_px = (float)k_atlas_size_candidates[K_NUM_ATLAS_CANDIDATES - 1];
+    const float atlas_px = (float)naui__atlas_sizes[NAUI_ATLAS_SIZE_COUNT - 1];
     const float budget   = atlas_px * atlas_px / 1.2f;
     const float pad      = (float)padding;
 
@@ -74,11 +74,6 @@ static float naui_fit_bake_size(int glyph_count, float max_size, int padding)
         size -= 1.0f;
 
     return size;
-}
-
-static bool naui_block_is_cjk(int start)
-{
-    return start >= 0x3400 && start < 0xFF00;
 }
 
 typedef struct
@@ -143,7 +138,7 @@ typedef struct
 {
     float size;
     bool  exact;
-    bool  include_cjk;
+    int   block_count;
     int   padding;
     int   oversample_h;
     int   mip_count;
@@ -194,7 +189,7 @@ Naui_RendererState;
 
 static Naui_RendererState *naui__renderer_state;
 
-static inline float naui_min(float a, float b)
+static inline float naui__min(float a, float b)
 {
     return a < b ? a : b;
 }
@@ -209,7 +204,7 @@ float naui_get_opacity(void)
     return naui__renderer_state->opacity;
 }
 
-static inline uint32_t naui_pack_color(Naui_Color c)
+static inline uint32_t naui__pack_color(Naui_Color c)
 {
     if (naui__renderer_state->opacity < 1.0f)
         c.a = (uint8_t)((float)c.a * naui__renderer_state->opacity + 0.5f);
@@ -217,7 +212,7 @@ static inline uint32_t naui_pack_color(Naui_Color c)
     return ((uint32_t)c.a << 24) | ((uint32_t)c.b << 16) | ((uint32_t)c.g << 8) | (uint32_t)c.r;
 }
 
-static inline Naui_Color NAUI_LERP_color(Naui_Color a, Naui_Color b, float t)
+static inline Naui_Color naui__lerp_color(Naui_Color a, Naui_Color b, float t)
 {
     return (Naui_Color){
         (uint8_t)(a.r + (b.r - a.r) * t),
@@ -227,7 +222,7 @@ static inline Naui_Color NAUI_LERP_color(Naui_Color a, Naui_Color b, float t)
     };
 }
 
-static const stbtt_packedchar *naui_bake_lookup(const Naui_FontBake *bake, int cp)
+static const stbtt_packedchar *naui__bake_lookup(const Naui_FontBake *bake, int cp)
 {
     for (int i = 0; i < bake->range_count; i++)
     {
@@ -254,7 +249,7 @@ typedef struct
 }
 Naui_GradientAxis;
 
-static Naui_GradientAxis naui_gradient_axis(Naui_Vec2 tl, Naui_Vec2 br, float angle_deg)
+static Naui_GradientAxis naui__gradient_axis(Naui_Vec2 tl, Naui_Vec2 br, float angle_deg)
 {
     float rad = angle_deg;
     float dx = cosf(rad), dy = sinf(rad);
@@ -280,15 +275,15 @@ static Naui_GradientAxis naui_gradient_axis(Naui_Vec2 tl, Naui_Vec2 br, float an
     return (Naui_GradientAxis){ dx, dy, mn, range };
 }
 
-static inline float naui_gradient_axis_t(const Naui_GradientAxis *axis, float px, float py)
+static inline float naui__gradient_axis_t(const Naui_GradientAxis *axis, float px, float py)
 {
     float t = (px * axis->dx + py * axis->dy - axis->mn) / axis->range;
     return NAUI_CLAMP01(t);
 }
 
-static inline uint32_t naui_gradient_color_at(const Naui_Gradient *g, const Naui_GradientAxis *axis, float px, float py)
+static inline uint32_t naui__gradient_color_at(const Naui_Gradient *g, const Naui_GradientAxis *axis, float px, float py)
 {
-    float t = naui_gradient_axis_t(axis, px, py);
+    float t = naui__gradient_axis_t(axis, px, py);
 
     float p1 = g->percent1;
     float p2 = g->percent2;
@@ -301,19 +296,19 @@ static inline uint32_t naui_gradient_color_at(const Naui_Gradient *g, const Naui
         t = NAUI_CLAMP01(t);
     }
 
-    return naui_pack_color(NAUI_LERP_color(g->color1, g->color2, t));
+    return naui__pack_color(naui__lerp_color(g->color1, g->color2, t));
 }
 
-static inline Naui_ClipRect naui_current_clip(void)
+static inline Naui_ClipRect naui__current_clip(void)
 {
     if (naui__renderer_state->clip_stack_depth == 0)
         return (Naui_ClipRect){ 0, 0, (float)naui__renderer_state->width, (float)naui__renderer_state->height };
     return naui__renderer_state->clip_stack[naui__renderer_state->clip_stack_depth - 1];
 }
 
-static void naui_apply_scissor(void)
+static void naui__apply_scissor(void)
 {
-    Naui_ClipRect c = naui_current_clip();
+    Naui_ClipRect c = naui__current_clip();
 
     float x0 = c.x0 < 0 ? 0 : c.x0;
     float y0 = c.y0 < 0 ? 0 : c.y0;
@@ -325,7 +320,7 @@ static void naui_apply_scissor(void)
     mgfx_scissor((int32_t)x0, (int32_t)y0, (uint32_t)(x1 - x0), (uint32_t)(y1 - y0));
 }
 
-static void naui_renderer_flush(void)
+static void naui__renderer_flush(void)
 {
     if (naui__renderer_state->index_count == naui__renderer_state->index_offset) return;
 
@@ -343,7 +338,7 @@ static void naui_renderer_flush(void)
     naui__renderer_state->index_offset = naui__renderer_state->index_count;
 }
 
-static bool naui_renderer_grow_vertices(uint32_t need_count)
+static bool naui__renderer_grow_vertices(uint32_t need_count)
 {
     uint32_t new_cap = naui__renderer_state->vertex_capacity;
     while (new_cap < need_count)
@@ -365,7 +360,7 @@ static bool naui_renderer_grow_vertices(uint32_t need_count)
     return true;
 }
 
-static bool naui_renderer_grow_indices(uint32_t need_count)
+static bool naui__renderer_grow_indices(uint32_t need_count)
 {
     uint32_t new_cap = naui__renderer_state->index_capacity;
     while (new_cap < need_count)
@@ -387,7 +382,7 @@ static bool naui_renderer_grow_indices(uint32_t need_count)
     return true;
 }
 
-static inline bool naui_renderer_reserve(uint32_t vert_needed, uint32_t idx_needed)
+static inline bool naui__renderer_reserve(uint32_t vert_needed, uint32_t idx_needed)
 {
     uint32_t need_v = naui__renderer_state->vertex_count + vert_needed;
     uint32_t need_i = naui__renderer_state->index_count  + idx_needed;
@@ -395,20 +390,20 @@ static inline bool naui_renderer_reserve(uint32_t vert_needed, uint32_t idx_need
     if (need_v <= naui__renderer_state->vertex_capacity && need_i <= naui__renderer_state->index_capacity)
         return true;
 
-    naui_renderer_flush();
+    naui__renderer_flush();
 
     if (need_v > naui__renderer_state->vertex_capacity)
-        if (!naui_renderer_grow_vertices(need_v)) return false;
+        if (!naui__renderer_grow_vertices(need_v)) return false;
 
     if (need_i > naui__renderer_state->index_capacity)
-        if (!naui_renderer_grow_indices(need_i)) return false;
+        if (!naui__renderer_grow_indices(need_i)) return false;
 
     return true;
 }
 
-static void naui_push_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
+static void naui__push_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
 {
-    if (!naui_renderer_reserve(4, 6))
+    if (!naui__renderer_reserve(4, 6))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -426,10 +421,10 @@ static void naui_push_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, 
     naui__renderer_state->index_count += 6;
 }
 
-static void naui_push_gradient_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d,
+static void naui__push_gradient_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d,
     uint32_t ca, uint32_t cb, uint32_t cc, uint32_t cd, int32_t texture_id)
 {
-    if (!naui_renderer_reserve(4, 6))
+    if (!naui__renderer_reserve(4, 6))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -447,9 +442,9 @@ static void naui_push_gradient_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui
     naui__renderer_state->index_count += 6;
 }
 
-static void naui_push_textured_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, Naui_Vec4 texture_area, uint32_t color, int32_t texture_id)
+static void naui__push_textured_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, Naui_Vec4 texture_area, uint32_t color, int32_t texture_id)
 {
-    if (!naui_renderer_reserve(4, 6))
+    if (!naui__renderer_reserve(4, 6))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -467,9 +462,9 @@ static void naui_push_textured_quad4(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui
     naui__renderer_state->index_count += 6;
 }
 
-static void naui_push_rect(Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t texture_id)
+static void naui__push_rect(Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t texture_id)
 {
-    naui_push_quad4(
+    naui__push_quad4(
         (Naui_Vec2){tl.x, tl.y},
         (Naui_Vec2){br.x, tl.y},
         (Naui_Vec2){br.x, br.y},
@@ -478,9 +473,9 @@ static void naui_push_rect(Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t t
     );
 }
 
-static void naui_push_textured_rect(Naui_Vec2 tl, Naui_Vec2 br, Naui_Vec4 uv, uint32_t color, int32_t texture_id)
+static void naui__push_textured_rect(Naui_Vec2 tl, Naui_Vec2 br, Naui_Vec4 uv, uint32_t color, int32_t texture_id)
 {
-    naui_push_textured_quad4(
+    naui__push_textured_quad4(
         (Naui_Vec2){tl.x, tl.y},
         (Naui_Vec2){br.x, tl.y},
         (Naui_Vec2){br.x, br.y},
@@ -490,9 +485,9 @@ static void naui_push_textured_rect(Naui_Vec2 tl, Naui_Vec2 br, Naui_Vec4 uv, ui
     );
 }
 
-static void naui_push_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, uint32_t color)
+static void naui__push_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, uint32_t color)
 {
-    if (!naui_renderer_reserve(3, 3))
+    if (!naui__renderer_reserve(3, 3))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -508,10 +503,10 @@ static void naui_push_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, uint32_t c
     naui__renderer_state->index_count += 3;
 }
 
-static void naui_push_gradient_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c,
+static void naui__push_gradient_triangle(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c,
     uint32_t ca, uint32_t cb, uint32_t cc)
 {
-    if (!naui_renderer_reserve(3, 3))
+    if (!naui__renderer_reserve(3, 3))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -536,7 +531,7 @@ typedef struct
 }
 Naui_GradientPoly;
 
-static Naui_GradientPoly naui_clip_poly_by_t(const Naui_GradientPoly *in, const Naui_GradientAxis *axis, float line_t, int keep_ge)
+static Naui_GradientPoly naui__clip_poly_by_t(const Naui_GradientPoly *in, const Naui_GradientAxis *axis, float line_t, int keep_ge)
 {
     Naui_GradientPoly out = { .count = 0 };
     if (in->count == 0) return out;
@@ -546,8 +541,8 @@ static Naui_GradientPoly naui_clip_poly_by_t(const Naui_GradientPoly *in, const 
         Naui_Vec2 cur  = in->p[i];
         Naui_Vec2 next = in->p[(i + 1) % in->count];
 
-        float t_cur  = naui_gradient_axis_t(axis, cur.x, cur.y);
-        float t_next = naui_gradient_axis_t(axis, next.x, next.y);
+        float t_cur  = naui__gradient_axis_t(axis, cur.x, cur.y);
+        float t_next = naui__gradient_axis_t(axis, next.x, next.y);
 
         int cur_in  = keep_ge ? (t_cur  >= line_t) : (t_cur  <= line_t);
         int next_in = keep_ge ? (t_next >= line_t) : (t_next <= line_t);
@@ -570,36 +565,36 @@ static Naui_GradientPoly naui_clip_poly_by_t(const Naui_GradientPoly *in, const 
     return out;
 }
 
-static void naui_push_gradient_polygon(const Naui_GradientPoly *poly, const Naui_Gradient *g, const Naui_GradientAxis *axis)
+static void naui__push_gradient_polygon(const Naui_GradientPoly *poly, const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
     if (poly->count < 3) return;
 
     Naui_Vec2 p0 = poly->p[0];
-    uint32_t  c0 = naui_gradient_color_at(g, axis, p0.x, p0.y);
+    uint32_t  c0 = naui__gradient_color_at(g, axis, p0.x, p0.y);
 
     for (int i = 1; i + 1 < poly->count; i++)
     {
         Naui_Vec2 p1 = poly->p[i];
         Naui_Vec2 p2 = poly->p[i + 1];
-        naui_push_gradient_triangle(
+        naui__push_gradient_triangle(
             p0, p1, p2,
             c0,
-            naui_gradient_color_at(g, axis, p1.x, p1.y),
-            naui_gradient_color_at(g, axis, p2.x, p2.y)
+            naui__gradient_color_at(g, axis, p1.x, p1.y),
+            naui__gradient_color_at(g, axis, p2.x, p2.y)
         );
     }
 }
 
-static void naui_push_flat_polygon(const Naui_GradientPoly *poly, uint32_t color)
+static void naui__push_flat_polygon(const Naui_GradientPoly *poly, uint32_t color)
 {
     if (poly->count < 3) return;
 
     Naui_Vec2 p0 = poly->p[0];
     for (int i = 1; i + 1 < poly->count; i++)
-        naui_push_gradient_triangle(p0, poly->p[i], poly->p[i + 1], color, color, color);
+        naui__push_gradient_triangle(p0, poly->p[i], poly->p[i + 1], color, color, color);
 }
 
-static void naui_push_gradient_convex(const Naui_Vec2 *verts, int vert_count, const Naui_Gradient *g, const Naui_GradientAxis *axis)
+static void naui__push_gradient_convex(const Naui_Vec2 *verts, int vert_count, const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
     if (vert_count < 3 || vert_count > NAUI_GRADIENT_CLIP_MAX_VERTS) return;
 
@@ -609,29 +604,29 @@ static void naui_push_gradient_convex(const Naui_Vec2 *verts, int vert_count, co
     float p1 = NAUI_CLAMP01(g->percent1);
     float p2 = NAUI_CLAMP01(g->percent2);
 
-    uint32_t c1 = naui_pack_color(g->color1);
-    uint32_t c2 = naui_pack_color(g->color2);
+    uint32_t c1 = naui__pack_color(g->color1);
+    uint32_t c2 = naui__pack_color(g->color2);
 
     if (p2 <= p1)
     {
-        Naui_GradientPoly before = naui_clip_poly_by_t(&src, axis, p1, 0);
-        Naui_GradientPoly after  = naui_clip_poly_by_t(&src, axis, p1, 1);
-        naui_push_flat_polygon(&before, c1);
-        naui_push_flat_polygon(&after,  c2);
+        Naui_GradientPoly before = naui__clip_poly_by_t(&src, axis, p1, 0);
+        Naui_GradientPoly after  = naui__clip_poly_by_t(&src, axis, p1, 1);
+        naui__push_flat_polygon(&before, c1);
+        naui__push_flat_polygon(&after,  c2);
         return;
     }
 
-    Naui_GradientPoly flat_lo = naui_clip_poly_by_t(&src, axis, p1, 0);
-    Naui_GradientPoly rest    = naui_clip_poly_by_t(&src, axis, p1, 1);
-    Naui_GradientPoly ramp    = naui_clip_poly_by_t(&rest, axis, p2, 0);
-    Naui_GradientPoly flat_hi = naui_clip_poly_by_t(&rest, axis, p2, 1);
+    Naui_GradientPoly flat_lo = naui__clip_poly_by_t(&src, axis, p1, 0);
+    Naui_GradientPoly rest    = naui__clip_poly_by_t(&src, axis, p1, 1);
+    Naui_GradientPoly ramp    = naui__clip_poly_by_t(&rest, axis, p2, 0);
+    Naui_GradientPoly flat_hi = naui__clip_poly_by_t(&rest, axis, p2, 1);
 
-    naui_push_flat_polygon(&flat_lo, c1);
-    naui_push_gradient_polygon(&ramp, g, axis);
-    naui_push_flat_polygon(&flat_hi, c2);
+    naui__push_flat_polygon(&flat_lo, c1);
+    naui__push_gradient_polygon(&ramp, g, axis);
+    naui__push_flat_polygon(&flat_hi, c2);
 }
 
-static void naui_push_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br, const Naui_Gradient *g, const Naui_GradientAxis *axis)
+static void naui__push_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br, const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
     Naui_Vec2 verts[4] = {
         { tl.x, tl.y },
@@ -639,20 +634,20 @@ static void naui_push_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br, const Naui_Gradi
         { br.x, br.y },
         { tl.x, br.y },
     };
-    naui_push_gradient_convex(verts, 4, g, axis);
+    naui__push_gradient_convex(verts, 4, g, axis);
 }
 
-static void naui_push_corner_fan(Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
+static void naui__push_corner_fan(Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
 {
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
     {
         Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
         Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
-        naui_push_triangle(center, p0, p1, color);
+        naui__push_triangle(center, p0, p1, color);
     }
 }
 
-static void naui_push_gradient_corner_fan(Naui_Vec2 center, float r, float ax, float ay,
+static void naui__push_gradient_corner_fan(Naui_Vec2 center, float r, float ax, float ay,
     const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
@@ -660,11 +655,11 @@ static void naui_push_gradient_corner_fan(Naui_Vec2 center, float r, float ax, f
         Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
         Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
         Naui_Vec2 tri[3] = { center, p0, p1 };
-        naui_push_gradient_convex(tri, 3, g, axis);
+        naui__push_gradient_convex(tri, 3, g, axis);
     }
 }
 
-static void naui_push_corner_ring(Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
+static void naui__push_corner_ring(Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
 {
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
     {
@@ -676,7 +671,7 @@ static void naui_push_corner_ring(Naui_Vec2 center, float inner_r, float outer_r
         Naui_Vec2 i0 = { center.x + ax * cx * inner_r, center.y + ay * cy * inner_r };
         Naui_Vec2 i1 = { center.x + ax * nx * inner_r, center.y + ay * ny * inner_r };
 
-        naui_push_quad4(o0, o1, i1, i0, color, -1);
+        naui__push_quad4(o0, o1, i1, i0, color, -1);
     }
 }
 
@@ -780,7 +775,7 @@ void naui_renderer_initialize(void)
     naui__renderer_state->height = mgapp_height();
 }
 
-static void naui_free_bake(Naui_FontBake *bake)
+static void naui__free_bake(Naui_FontBake *bake)
 {
     if (!bake->loaded) return;
 
@@ -855,12 +850,12 @@ bool naui_renderer_begin(void)
     return true;
 }
 
-static void naui_upload_dirty_font_atlases(void);
+static void naui__upload_dirty_font_atlases(void);
 
 void naui_renderer_end(void)
 {
-    naui_upload_dirty_font_atlases();
-    naui_renderer_flush();
+    naui__upload_dirty_font_atlases();
+    naui__renderer_flush();
     mgfx_end();
 }
 
@@ -868,7 +863,7 @@ void naui_push_clip_rect(float x, float y, float width, float height)
 {
     if (naui__renderer_state->clip_stack_depth >= NAUI_CLIP_STACK_MAX) return;
 
-    naui_renderer_flush();
+    naui__renderer_flush();
 
     float x0 = x, y0 = y;
     float x1 = x0 + width, y1 = y0 + height;
@@ -885,19 +880,19 @@ void naui_push_clip_rect(float x, float y, float width, float height)
     if (y1 < y0) y1 = y0;
 
     naui__renderer_state->clip_stack[naui__renderer_state->clip_stack_depth++] = (Naui_ClipRect){ x0, y0, x1, y1 };
-    naui_apply_scissor();
+    naui__apply_scissor();
 }
 
 void naui_pop_clip_rect(void)
 {
     if (naui__renderer_state->clip_stack_depth == 0) return;
 
-    naui_renderer_flush();
+    naui__renderer_flush();
     naui__renderer_state->clip_stack_depth--;
-    naui_apply_scissor();
+    naui__apply_scissor();
 }
 
-static void naui_build_mip_chain(uint8_t *base, int size, int mip_count, void **levels)
+static void naui__build_mip_chain(uint8_t *base, int size, int mip_count, void **levels)
 {
     levels[0] = base;
     for (int m = 1; m < mip_count; m++)
@@ -926,7 +921,7 @@ static void naui_build_mip_chain(uint8_t *base, int size, int mip_count, void **
     }
 }
 
-static int naui_font_glyph_owner(const Naui_FontSources *sources, int cp)
+static int naui__font_glyph_owner(const Naui_FontSources *sources, int cp)
 {
     for (int s = 0; s < sources->count; s++)
     {
@@ -936,7 +931,7 @@ static int naui_font_glyph_owner(const Naui_FontSources *sources, int cp)
     return -1;
 }
 
-static float naui_source_font_size(const Naui_FontSources *sources, int source, float bake_size)
+static float naui__source_font_size(const Naui_FontSources *sources, int source, float bake_size)
 {
     if (source == 0)
         return bake_size;
@@ -945,17 +940,17 @@ static float naui_source_font_size(const Naui_FontSources *sources, int source, 
     return STBTT_POINT_SIZE(em_px);
 }
 
-static void naui_set_range_sizes(stbtt_pack_range *ranges, const Naui_FontSources *sources, const int *first_range, const int *range_count, float bake_size)
+static void naui__set_range_sizes(stbtt_pack_range *ranges, const Naui_FontSources *sources, const int *first_range, const int *range_count, float bake_size)
 {
     for (int s = 0; s < sources->count; s++)
     {
-        const float size = naui_source_font_size(sources, s, bake_size);
+        const float size = naui__source_font_size(sources, s, bake_size);
         for (int i = 0; i < range_count[s]; i++)
             ranges[first_range[s] + i].font_size = size;
     }
 }
 
-static int naui_bake_font(
+static int naui__bake_font(
     const Naui_FontSources    *sources,
     const Naui_FontBakeParams *params,
     Naui_FontBake             *bake)
@@ -963,8 +958,8 @@ static int naui_bake_font(
     float bake_size = params->size;
 
     int total_codepoints = 0;
-    for (int b = 0; b < K_NUM_UNICODE_BLOCKS; b++)
-        total_codepoints += k_unicode_blocks[b].count;
+    for (int b = 0; b < params->block_count; b++)
+        total_codepoints += naui__unicode_blocks[b].count;
 
     typedef struct { int first_codepoint; int num_chars; } RangeMeta;
     RangeMeta *meta = malloc(total_codepoints * sizeof(RangeMeta));
@@ -979,18 +974,15 @@ static int naui_bake_font(
     {
         source_first_range[s] = range_count;
 
-        for (int b = 0; b < K_NUM_UNICODE_BLOCKS; b++)
+        for (int b = 0; b < params->block_count; b++)
         {
-            int block_start = k_unicode_blocks[b].start;
-            int block_end   = block_start + k_unicode_blocks[b].count;
+            int block_start = naui__unicode_blocks[b].start;
+            int block_end   = block_start + naui__unicode_blocks[b].count;
             int run_start   = -1;
-
-            if (!params->include_cjk && naui_block_is_cjk(block_start))
-                continue;
 
             for (int cp = block_start; cp <= block_end; cp++)
             {
-                int present = (cp < block_end) && naui_font_glyph_owner(sources, cp) == s;
+                int present = (cp < block_end) && naui__font_glyph_owner(sources, cp) == s;
 
                 if (present && run_start < 0)
                 {
@@ -1018,7 +1010,7 @@ static int naui_bake_font(
     }
 
     if (!params->exact)
-        bake_size = naui_fit_bake_size(total_glyphs, params->size, params->padding);
+        bake_size = naui__fit_bake_size(total_glyphs, params->size, params->padding);
 
     stbtt_pack_range *tmp_ranges = malloc(range_count * sizeof(stbtt_pack_range));
     if (!tmp_ranges)
@@ -1042,7 +1034,7 @@ static int naui_bake_font(
         tmp_ranges[i].chardata_for_range                = chars;
     }
     free(meta);
-    naui_set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
+    naui__set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
 
     int chosen_atlas_size = 0;
     uint8_t *alpha = NULL;
@@ -1055,16 +1047,16 @@ static int naui_bake_font(
         {
             bake_size *= 0.9f;
             if (bake_size < NAUI_FONT_MIN_BAKE_SIZE) break;
-            naui_set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
+            naui__set_range_sizes(tmp_ranges, sources, source_first_range, source_range_count, bake_size);
         }
 
-        int initial = naui_choose_initial_atlas(total_glyphs, bake_size, params->oversample_h, params->padding);
+        int initial = naui__choose_initial_atlas(total_glyphs, bake_size, params->oversample_h, params->padding);
 
-        for (int ci = 0; ci < K_NUM_ATLAS_CANDIDATES; ci++)
+        for (int ci = 0; ci < NAUI_ATLAS_SIZE_COUNT; ci++)
         {
-            if (k_atlas_size_candidates[ci] < initial || k_atlas_size_candidates[ci] < params->min_atlas_size) continue;
+            if (naui__atlas_sizes[ci] < initial || naui__atlas_sizes[ci] < params->min_atlas_size) continue;
 
-            int sz = k_atlas_size_candidates[ci];
+            int sz = naui__atlas_sizes[ci];
             uint8_t *buf = calloc(sz * sz, 1);
             if (!buf) continue;
 
@@ -1101,7 +1093,7 @@ static int naui_bake_font(
     while (mip_count > 1 && (chosen_atlas_size >> (mip_count - 1)) < 1) mip_count--;
 
     void *levels[MGFX_MAX_MIPMAPS] = { 0 };
-    naui_build_mip_chain(alpha, chosen_atlas_size, mip_count, levels);
+    naui__build_mip_chain(alpha, chosen_atlas_size, mip_count, levels);
     while (mip_count > 1 && !levels[mip_count - 1]) mip_count--;
 
     mgfx_image_create_info image_info = {
@@ -1161,7 +1153,7 @@ static int naui_bake_font(
     return 1;
 }
 
-static bool naui_font_name_is_valid(const char *name)
+static bool naui__font_name_is_valid(const char *name)
 {
     if (!name || !*name || strlen(name) > NAUI_FONT_NAME_MAX)
         return false;
@@ -1178,9 +1170,9 @@ static bool naui_font_name_is_valid(const char *name)
     return true;
 }
 
-static bool naui_font_read_source(const char *file_name, uint8_t **out_ttf, stbtt_fontinfo *out_info)
+static bool naui__font_read_source(const char *file_name, uint8_t **out_ttf, stbtt_fontinfo *out_info)
 {
-    if (!naui_font_name_is_valid(file_name))
+    if (!naui__font_name_is_valid(file_name))
     {
         naui_log(NAUI_LOG_WARNING, "Invalid font name: '%s'", file_name ? file_name : "(null)");
         return false;
@@ -1211,7 +1203,7 @@ static bool naui_font_read_source(const char *file_name, uint8_t **out_ttf, stbt
     return true;
 }
 
-static void naui_free_sources(Naui_FontSources *sources)
+static void naui__free_sources(Naui_FontSources *sources)
 {
     for (int s = 0; s < sources->count; s++)
         free(sources->ttf[s]);
@@ -1227,7 +1219,7 @@ bool naui_load_fonts(const char *const *file_names, uint32_t file_count)
     memset(&sources, 0, sizeof(sources));
     for (uint32_t i = 0; i < file_count; i++)
     {
-        if (naui_font_read_source(file_names[i], &sources.ttf[sources.count], &sources.info[sources.count]))
+        if (naui__font_read_source(file_names[i], &sources.ttf[sources.count], &sources.info[sources.count]))
             sources.count++;
     }
 
@@ -1239,16 +1231,16 @@ bool naui_load_fonts(const char *const *file_names, uint32_t file_count)
     const Naui_FontBakeParams params = {
         .size         = NAUI_FONT_BAKE_SIZE,
         .exact        = false,
-        .include_cjk  = true,
+        .block_count  = NAUI_UNICODE_BLOCK_COUNT,
         .padding      = NAUI_FONT_MAIN_PADDING,
         .oversample_h = 1,
         .mip_count    = NAUI_FONT_MAIN_MIP_COUNT,
     };
 
-    if (!naui_bake_font(&sources, &params, &fresh))
+    if (!naui__bake_font(&sources, &params, &fresh))
     {
         naui_log(NAUI_LOG_WARNING, "Couldn't bake font: %s", file_names[0]);
-        naui_free_sources(&sources);
+        naui__free_sources(&sources);
         return false;
     }
 
@@ -1267,18 +1259,18 @@ void naui_unload_fonts(void)
 
     if (naui__renderer_state->font_bound_atlas == naui__renderer_state->font.atlas)
         naui__renderer_state->font_bound_atlas = NULL;
-    naui_free_bake(&naui__renderer_state->font);
+    naui__free_bake(&naui__renderer_state->font);
 
     for (int i = 0; i < naui__renderer_state->font_sized_count; i++)
     {
         Naui_FontBake *sized = &naui__renderer_state->font_sized[i];
         if (sized->loaded && naui__renderer_state->font_bound_atlas == sized->atlas)
             naui__renderer_state->font_bound_atlas = NULL;
-        naui_free_bake(sized);
+        naui__free_bake(sized);
     }
     naui__renderer_state->font_sized_count = 0;
 
-    naui_free_sources(&naui__renderer_state->font_sources);
+    naui__free_sources(&naui__renderer_state->font_sources);
     naui__renderer_state->font_loaded = false;
 }
 
@@ -1292,15 +1284,15 @@ bool naui_font_has_codepoint(uint32_t codepoint)
     if (!naui__renderer_state->font_loaded)
         return false;
 
-    return naui_bake_lookup(&naui__renderer_state->font, (int)codepoint) != NULL;
+    return naui__bake_lookup(&naui__renderer_state->font, (int)codepoint) != NULL;
 }
 
-static Naui_FontBakeParams naui_sized_bake_params(int pixel_size, int min_atlas_size)
+static Naui_FontBakeParams naui__sized_bake_params(int pixel_size, int min_atlas_size)
 {
     return (Naui_FontBakeParams){
         .size           = (float)pixel_size,
         .exact          = true,
-        .include_cjk    = false,
+        .block_count    = 1,
         .padding        = 1,
         .oversample_h   = NAUI_FONT_SIZED_OVERSAMPLE,
         .mip_count      = 1,
@@ -1309,7 +1301,7 @@ static Naui_FontBakeParams naui_sized_bake_params(int pixel_size, int min_atlas_
     };
 }
 
-static Naui_FontBake *naui_font_sized_bake(int pixel_size)
+static Naui_FontBake *naui__font_sized_bake(int pixel_size)
 {
     if (pixel_size < 1 || pixel_size > NAUI_FONT_SIZED_MAX_PX)
         return NULL;
@@ -1327,22 +1319,22 @@ static Naui_FontBake *naui_font_sized_bake(int pixel_size)
     Naui_FontBake *sized = &naui__renderer_state->font_sized[naui__renderer_state->font_sized_count++];
     memset(sized, 0, sizeof(*sized));
 
-    const Naui_FontBakeParams params = naui_sized_bake_params(pixel_size, 0);
-    if (!naui_bake_font(&naui__renderer_state->font_sources, &params, sized))
+    const Naui_FontBakeParams params = naui__sized_bake_params(pixel_size, 0);
+    if (!naui__bake_font(&naui__renderer_state->font_sources, &params, sized))
         memset(sized, 0, sizeof(*sized));
 
     sized->pixel_size = pixel_size;
     return sized->loaded ? sized : NULL;
 }
 
-static bool naui_bake_pack_glyph(Naui_FontBake *bake, const Naui_FontSources *sources, int cp, stbtt_packedchar *out)
+static bool naui__bake_pack_glyph(Naui_FontBake *bake, const Naui_FontSources *sources, int cp, stbtt_packedchar *out)
 {
-    const int source = naui_font_glyph_owner(sources, cp);
+    const int source = naui__font_glyph_owner(sources, cp);
     if (source < 0)
         return false;
 
     stbtt_pack_range range = {
-        .font_size                        = naui_source_font_size(sources, source, bake->baked_size),
+        .font_size                        = naui__source_font_size(sources, source, bake->baked_size),
         .first_unicode_codepoint_in_range = cp,
         .num_chars                        = 1,
         .chardata_for_range               = out,
@@ -1350,24 +1342,24 @@ static bool naui_bake_pack_glyph(Naui_FontBake *bake, const Naui_FontSources *so
     return stbtt_PackFontRanges(&bake->pack, sources->ttf[source], 0, &range, 1) != 0;
 }
 
-static bool naui_font_sized_grow(Naui_FontBake *bake)
+static bool naui__font_sized_grow(Naui_FontBake *bake)
 {
-    const int max_atlas = k_atlas_size_candidates[K_NUM_ATLAS_CANDIDATES - 1];
+    const int max_atlas = naui__atlas_sizes[NAUI_ATLAS_SIZE_COUNT - 1];
     if (bake->atlas_size >= max_atlas)
         return false;
 
     const Naui_FontSources *sources = &naui__renderer_state->font_sources;
-    const Naui_FontBakeParams params = naui_sized_bake_params(bake->pixel_size, bake->atlas_size * 2);
+    const Naui_FontBakeParams params = naui__sized_bake_params(bake->pixel_size, bake->atlas_size * 2);
 
     Naui_FontBake grown;
     memset(&grown, 0, sizeof(grown));
-    if (!naui_bake_font(sources, &params, &grown))
+    if (!naui__bake_font(sources, &params, &grown))
         return false;
 
     grown.glyphs = malloc((size_t)bake->glyph_capacity * sizeof(Naui_FontGlyph));
     if (!grown.glyphs)
     {
-        naui_free_bake(&grown);
+        naui__free_bake(&grown);
         return false;
     }
     grown.glyph_capacity = bake->glyph_capacity;
@@ -1376,21 +1368,21 @@ static bool naui_font_sized_grow(Naui_FontBake *bake)
     {
         Naui_FontGlyph *glyph = &grown.glyphs[grown.glyph_count];
         glyph->codepoint = bake->glyphs[i].codepoint;
-        if (naui_bake_pack_glyph(&grown, sources, glyph->codepoint, &glyph->chars))
+        if (naui__bake_pack_glyph(&grown, sources, glyph->codepoint, &glyph->chars))
             grown.glyph_count++;
     }
 
-    naui_renderer_flush();
+    naui__renderer_flush();
     if (naui__renderer_state->font_bound_atlas == bake->atlas)
         naui__renderer_state->font_bound_atlas = NULL;
 
     grown.pixel_size = bake->pixel_size;
-    naui_free_bake(bake);
+    naui__free_bake(bake);
     *bake = grown;
     return true;
 }
 
-static bool naui_font_sized_add_glyph(Naui_FontBake *bake, int cp)
+static bool naui__font_sized_add_glyph(Naui_FontBake *bake, int cp)
 {
     if (bake->glyph_count == bake->glyph_capacity)
     {
@@ -1404,9 +1396,9 @@ static bool naui_font_sized_add_glyph(Naui_FontBake *bake, int cp)
 
     stbtt_packedchar chars;
     const Naui_FontSources *sources = &naui__renderer_state->font_sources;
-    while (!naui_bake_pack_glyph(bake, sources, cp, &chars))
+    while (!naui__bake_pack_glyph(bake, sources, cp, &chars))
     {
-        if (!naui_font_sized_grow(bake))
+        if (!naui__font_sized_grow(bake))
             return false;
     }
 
@@ -1422,10 +1414,10 @@ static bool naui_font_sized_add_glyph(Naui_FontBake *bake, int cp)
     return true;
 }
 
-static Naui_FontBake *naui_select_text_bake(const char *text, const char *end, float size)
+static Naui_FontBake *naui__select_text_bake(const char *text, const char *end, float size)
 {
     Naui_FontBake *main_bake = &naui__renderer_state->font;
-    Naui_FontBake *sized = naui_font_sized_bake((int)floorf(size + 0.5f));
+    Naui_FontBake *sized = naui__font_sized_bake((int)floorf(size + 0.5f));
     if (!sized)
         return main_bake;
 
@@ -1437,17 +1429,17 @@ static Naui_FontBake *naui_select_text_bake(const char *text, const char *end, f
         if (cp == '\n' || cp == '\r')
             continue;
 
-        if (naui_bake_lookup(sized, cp) || !naui_bake_lookup(main_bake, cp))
+        if (naui__bake_lookup(sized, cp) || !naui__bake_lookup(main_bake, cp))
             continue;
 
-        if (!naui_font_sized_add_glyph(sized, (int)cp))
+        if (!naui__font_sized_add_glyph(sized, (int)cp))
             return main_bake;
     }
 
     return sized;
 }
 
-static void naui_upload_dirty_font_atlases(void)
+static void naui__upload_dirty_font_atlases(void)
 {
     for (int i = 0; i < naui__renderer_state->font_sized_count; i++)
     {
@@ -1460,7 +1452,7 @@ static void naui_upload_dirty_font_atlases(void)
     }
 }
 
-static inline float naui_bake_scale(const Naui_FontBake *bake, float size)
+static inline float naui__bake_scale(const Naui_FontBake *bake, float size)
 {
     return bake->pixel_size > 0 ? 1.0f : size / bake->baked_size;
 }
@@ -1471,9 +1463,9 @@ Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size)
     if (!naui__renderer_state->font_loaded) return (Naui_Vec2){0};
 
     const char *end = text + length;
-    const Naui_FontBake *bake = naui_select_text_bake(text, end, font_size);
+    const Naui_FontBake *bake = naui__select_text_bake(text, end, font_size);
 
-    float scale  = naui_bake_scale(bake, font_size);
+    float scale  = naui__bake_scale(bake, font_size);
     float x = 0.0f;
     float max_x  = 0.0f;
     int num_lines = 1;
@@ -1495,8 +1487,8 @@ Naui_Vec2 naui_measure_text(const char *text, uint32_t length, float font_size)
         }
         if (cp == '\r') continue;
 
-        const stbtt_packedchar *bc = naui_bake_lookup(bake, cp);
-        if (!bc) bc = naui_bake_lookup(bake, '?');
+        const stbtt_packedchar *bc = naui__bake_lookup(bake, cp);
+        if (!bc) bc = naui__bake_lookup(bake, '?');
         if (!bc)
         {
             x += font_size * 0.25f;
@@ -1519,16 +1511,16 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, Naui_Color
     if (!naui__renderer_state->font_loaded) return;
 
     const char *end = text + strlen(text);
-    const Naui_FontBake *bake = naui_select_text_bake(text, end, size);
+    const Naui_FontBake *bake = naui__select_text_bake(text, end, size);
 
     if (naui__renderer_state->font_bound_atlas != bake->atlas)
     {
-        naui_renderer_flush();
+        naui__renderer_flush();
         mgfx_bind_sampled_image(bake->atlas, naui__renderer_state->font_sampler, 1);
         naui__renderer_state->font_bound_atlas = bake->atlas;
     }
 
-    float scale = naui_bake_scale(bake, size);
+    float scale = naui__bake_scale(bake, size);
     float atlas_sz = (float)bake->atlas_size;
 
     float line_ascent  = bake->ascent  * scale;
@@ -1539,9 +1531,9 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, Naui_Color
     float x = start_x;
     float y = floorf(position.y + line_ascent + 0.5f);
 
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
-    Naui_ClipRect clip = naui_current_clip();
+    Naui_ClipRect clip = naui__current_clip();
 
     for (const char *p = text; p < end; )
     {
@@ -1556,8 +1548,8 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, Naui_Color
         }
         if (cp == '\r') continue;
 
-        const stbtt_packedchar *bc = naui_bake_lookup(bake, cp);
-        if (!bc) bc = naui_bake_lookup(bake, '?');
+        const stbtt_packedchar *bc = naui__bake_lookup(bake, cp);
+        if (!bc) bc = naui__bake_lookup(bake, '?');
         if (!bc)
         {
             x += size * 0.25f;
@@ -1575,7 +1567,7 @@ void naui_draw_text(Naui_Vec2 position, const char *text, float size, Naui_Color
             continue;
         }
 
-        if (!naui_renderer_reserve(4, 6))
+        if (!naui__renderer_reserve(4, 6))
             break;
 
         float gu0 = bc->x0 / atlas_sz, gv0 = bc->y0 / atlas_sz;
@@ -1603,29 +1595,29 @@ void naui_fill_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float
 {
     float x0 = position.x, y0 = position.y;
     float x1 = x0 + scale.x, y1 = y0 + scale.y;
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        naui_push_rect(position, (Naui_Vec2){x1, y1}, c, -1);
+        naui__push_rect(position, (Naui_Vec2){x1, y1}, c, -1);
         return;
     }
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
 
     int tl = (corners & NAUI_CORNER_TL) != 0;
     int tr = (corners & NAUI_CORNER_TR) != 0;
     int br = (corners & NAUI_CORNER_BR) != 0;
     int bl = (corners & NAUI_CORNER_BL) != 0;
 
-    naui_push_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, c, -1);
-    naui_push_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, c, -1);
-    naui_push_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, c, -1);
+    naui__push_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, c, -1);
+    naui__push_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, c, -1);
+    naui__push_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, c, -1);
 
-    if (tl) naui_push_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, c);
-    if (tr) naui_push_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, c);
-    if (br) naui_push_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, c);
-    if (bl) naui_push_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, c);
+    if (tl) naui__push_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, c);
+    if (tr) naui__push_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, c);
+    if (br) naui__push_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, c);
+    if (bl) naui__push_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, c);
 }
 
 void naui_draw_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float line_width, float rounding, Naui_CornerFlags corners, Naui_SideFlags sides)
@@ -1633,7 +1625,7 @@ void naui_draw_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float
     float x0 = position.x, y0 = position.y;
     float x1 = x0 + scale.x, y1 = y0 + scale.y;
     float lw = line_width;
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
     int side_top    = (sides & NAUI_SIDE_TOP)       != 0;
     int side_right  = (sides & NAUI_SIDE_RIGHT)     != 0;
@@ -1642,14 +1634,14 @@ void naui_draw_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        if (side_top)    naui_push_rect((Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, c, -1);
-        if (side_bottom) naui_push_rect((Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, c, -1);
-        if (side_left)   naui_push_rect((Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y1    }, c, -1);
-        if (side_right)  naui_push_rect((Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y1    }, c, -1);
+        if (side_top)    naui__push_rect((Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, c, -1);
+        if (side_bottom) naui__push_rect((Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, c, -1);
+        if (side_left)   naui__push_rect((Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y1    }, c, -1);
+        if (side_right)  naui__push_rect((Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y1    }, c, -1);
         return;
     }
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     float outer_r = r + lw;
 
     int tl = (corners & NAUI_CORNER_TL) != 0 && side_top    && side_left;
@@ -1657,26 +1649,26 @@ void naui_draw_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Color color, float
     int br = (corners & NAUI_CORNER_BR) != 0 && side_bottom && side_right;
     int bl = (corners & NAUI_CORNER_BL) != 0 && side_bottom && side_left;
 
-    if (side_top)    naui_push_rect((Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0}, c, -1);
-    if (side_bottom) naui_push_rect((Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw}, c, -1);
-    if (side_left)   naui_push_rect((Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0, y1 - (bl ? r : 0)}, c, -1);
-    if (side_right)  naui_push_rect((Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, c, -1);
+    if (side_top)    naui__push_rect((Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0}, c, -1);
+    if (side_bottom) naui__push_rect((Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw}, c, -1);
+    if (side_left)   naui__push_rect((Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0, y1 - (bl ? r : 0)}, c, -1);
+    if (side_right)  naui__push_rect((Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, c, -1);
 
-    if (tl) naui_push_corner_ring((Naui_Vec2){x0+r, y0+r}, r, outer_r, -1, -1, c);
-    if (tr) naui_push_corner_ring((Naui_Vec2){x1-r, y0+r}, r, outer_r, +1, -1, c);
-    if (br) naui_push_corner_ring((Naui_Vec2){x1-r, y1-r}, r, outer_r, +1, +1, c);
-    if (bl) naui_push_corner_ring((Naui_Vec2){x0+r, y1-r}, r, outer_r, -1, +1, c);
+    if (tl) naui__push_corner_ring((Naui_Vec2){x0+r, y0+r}, r, outer_r, -1, -1, c);
+    if (tr) naui__push_corner_ring((Naui_Vec2){x1-r, y0+r}, r, outer_r, +1, -1, c);
+    if (br) naui__push_corner_ring((Naui_Vec2){x1-r, y1-r}, r, outer_r, +1, +1, c);
+    if (bl) naui__push_corner_ring((Naui_Vec2){x0+r, y1-r}, r, outer_r, -1, +1, c);
 }
 
 void naui_fill_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient gradient, float rounding, Naui_CornerFlags corners)
 {
     float x0 = position.x, y0 = position.y;
     float x1 = x0 + scale.x, y1 = y0 + scale.y;
-    Naui_GradientAxis axis = naui_gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, gradient.angle);
+    Naui_GradientAxis axis = naui__gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, gradient.angle);
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        naui_push_gradient_rect((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, &gradient, &axis);
+        naui__push_gradient_rect((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, &gradient, &axis);
         return;
     }
 
@@ -1685,16 +1677,16 @@ void naui_fill_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
     int br = (corners & NAUI_CORNER_BR) != 0;
     int bl = (corners & NAUI_CORNER_BL) != 0;
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
 
-    naui_push_gradient_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, &gradient, &axis);
-    naui_push_gradient_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, &gradient, &axis);
-    naui_push_gradient_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, &gradient, &axis);
+    naui__push_gradient_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, &gradient, &axis);
+    naui__push_gradient_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, &gradient, &axis);
+    naui__push_gradient_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, &gradient, &axis);
 
-    if (tl) naui_push_gradient_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, &gradient, &axis);
-    if (tr) naui_push_gradient_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, &gradient, &axis);
-    if (br) naui_push_gradient_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, &gradient, &axis);
-    if (bl) naui_push_gradient_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, &gradient, &axis);
+    if (tl) naui__push_gradient_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, &gradient, &axis);
+    if (tr) naui__push_gradient_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, &gradient, &axis);
+    if (br) naui__push_gradient_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, &gradient, &axis);
+    if (bl) naui__push_gradient_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, &gradient, &axis);
 }
 
 void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient gradient, float line_width, float rounding, Naui_CornerFlags corners, Naui_SideFlags sides)
@@ -1702,7 +1694,7 @@ void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
     float x0 = position.x, y0 = position.y;
     float x1 = x0 + scale.x, y1 = y0 + scale.y;
     float lw = line_width;
-    Naui_GradientAxis axis = naui_gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, gradient.angle);
+    Naui_GradientAxis axis = naui__gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, gradient.angle);
 
     int side_top    = (sides & NAUI_SIDE_TOP)       != 0;
     int side_right  = (sides & NAUI_SIDE_RIGHT)     != 0;
@@ -1711,10 +1703,10 @@ void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        if (side_top)    naui_push_gradient_rect((Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, &gradient, &axis);
-        if (side_bottom) naui_push_gradient_rect((Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, &gradient, &axis);
-        if (side_left)   naui_push_gradient_rect((Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y1    }, &gradient, &axis);
-        if (side_right)  naui_push_gradient_rect((Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y1    }, &gradient, &axis);
+        if (side_top)    naui__push_gradient_rect((Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, &gradient, &axis);
+        if (side_bottom) naui__push_gradient_rect((Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, &gradient, &axis);
+        if (side_left)   naui__push_gradient_rect((Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y1    }, &gradient, &axis);
+        if (side_right)  naui__push_gradient_rect((Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y1    }, &gradient, &axis);
         return;
     }
 
@@ -1723,13 +1715,13 @@ void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
     int br = (corners & NAUI_CORNER_BR) != 0 && side_bottom && side_right;
     int bl = (corners & NAUI_CORNER_BL) != 0 && side_bottom && side_left;
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     float outer_r = r + lw;
 
-    if (side_top)    naui_push_gradient_rect((Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0    }, &gradient, &axis);
-    if (side_bottom) naui_push_gradient_rect((Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw }, &gradient, &axis);
-    if (side_left)   naui_push_gradient_rect((Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0, y1 - (bl ? r : 0)}, &gradient, &axis);
-    if (side_right)  naui_push_gradient_rect((Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, &gradient, &axis);
+    if (side_top)    naui__push_gradient_rect((Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0    }, &gradient, &axis);
+    if (side_bottom) naui__push_gradient_rect((Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw }, &gradient, &axis);
+    if (side_left)   naui__push_gradient_rect((Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0, y1 - (bl ? r : 0)}, &gradient, &axis);
+    if (side_right)  naui__push_gradient_rect((Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, &gradient, &axis);
 
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
     {
@@ -1759,7 +1751,7 @@ void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
             Naui_Vec2 i1 = { center.x + ax * nx * r,       center.y + ay * ny * r       };
 
             Naui_Vec2 ring_quad[4] = { o0, o1, i1, i0 };
-            naui_push_gradient_convex(ring_quad, 4, &gradient, &axis);
+            naui__push_gradient_convex(ring_quad, 4, &gradient, &axis);
         }
     }
 }
@@ -1775,18 +1767,18 @@ void naui_draw_line(Naui_Vec2 a, Naui_Vec2 b, Naui_Color color, float line_width
     float half_w = line_width * 0.5f / len;
     float nx = -dy * half_w;
     float ny =  dx * half_w;
-    naui_push_quad4(
+    naui__push_quad4(
         (Naui_Vec2){ a.x + nx, a.y + ny },
         (Naui_Vec2){ b.x + nx, b.y + ny },
         (Naui_Vec2){ b.x - nx, b.y - ny },
         (Naui_Vec2){ a.x - nx, a.y - ny },
-        naui_pack_color(color), -1
+        naui__pack_color(color), -1
     );
 }
 
 #define NAUI_BEZIER_MAX_SEGMENTS 256
 
-static inline bool naui_segment_normal(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 *out)
+static inline bool naui__segment_normal(Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 *out)
 {
     const float dx = b.x - a.x;
     const float dy = b.y - a.y;
@@ -1804,10 +1796,10 @@ void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color col
     if (!points || point_count < 2)
         return;
 
-    if (!naui_renderer_reserve((uint32_t)point_count * 2, (uint32_t)(point_count - 1) * 6))
+    if (!naui__renderer_reserve((uint32_t)point_count * 2, (uint32_t)(point_count - 1) * 6))
         return;
 
-    const uint32_t c = naui_pack_color(color);
+    const uint32_t c = naui__pack_color(color);
     const float half_w = line_width * 0.5f;
     const float miter_limit = half_w * 2.0f;
     const uint32_t base = naui__renderer_state->vertex_count;
@@ -1821,7 +1813,7 @@ void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color col
         Naui_Vec2 n_out;
         bool has_out = false;
         for (int j = i + 1; j < point_count && !has_out; j++)
-            has_out = naui_segment_normal(points[i], points[j], &n_out);
+            has_out = naui__segment_normal(points[i], points[j], &n_out);
 
         if (!has_out && !has_last_normal)
             return;
@@ -1838,7 +1830,7 @@ void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color col
             m = (Naui_Vec2){ m.x / m_len, m.y / m_len };
 
         const float d = m.x * n_in.x + m.y * n_in.y;
-        const float scale = naui_min(half_w / fmaxf(d, 1e-3f), miter_limit);
+        const float scale = naui__min(half_w / fmaxf(d, 1e-3f), miter_limit);
         const Naui_Vec2 p = points[i];
 
         Naui_BatchVertex *v = &naui__renderer_state->vertices[base + emitted * 2];
@@ -1866,7 +1858,7 @@ void naui_draw_polyline(const Naui_Vec2 *points, int point_count, Naui_Color col
     naui__renderer_state->vertex_count += emitted * 2;
 }
 
-static inline Naui_Vec2 naui_bezier_point(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float t)
+static inline Naui_Vec2 naui__bezier_point(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float t)
 {
     const float u = 1.0f - t;
     const float w0 = u * u * u;
@@ -1879,16 +1871,16 @@ static inline Naui_Vec2 naui_bezier_point(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 
     };
 }
 
-static inline float naui_distance(Naui_Vec2 a, Naui_Vec2 b)
+static inline float naui__distance(Naui_Vec2 a, Naui_Vec2 b)
 {
     const float dx = b.x - a.x;
     const float dy = b.y - a.y;
     return sqrtf(dx * dx + dy * dy);
 }
 
-static int naui_flatten_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float margin, float include_y, Naui_Vec2 *out)
+static int naui__flatten_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float margin, float include_y, Naui_Vec2 *out)
 {
-    const Naui_ClipRect clip = naui_current_clip();
+    const Naui_ClipRect clip = naui__current_clip();
     const float min_x = fminf(fminf(p0.x, p1.x), fminf(p2.x, p3.x)) - margin;
     const float max_x = fmaxf(fmaxf(p0.x, p1.x), fmaxf(p2.x, p3.x)) + margin;
     const float min_y = fminf(fminf(fminf(p0.y, p1.y), fminf(p2.y, p3.y)), include_y) - margin;
@@ -1896,12 +1888,12 @@ static int naui_flatten_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Ve
     if (max_x < clip.x0 || min_x > clip.x1 || max_y < clip.y0 || min_y > clip.y1)
         return 0;
 
-    const float length = naui_distance(p0, p1) + naui_distance(p1, p2) + naui_distance(p2, p3);
+    const float length = naui__distance(p0, p1) + naui__distance(p1, p2) + naui__distance(p2, p3);
     const int segments = NAUI_CLAMP((int)(length * 0.25f), 1, NAUI_BEZIER_MAX_SEGMENTS);
 
     out[0] = p0;
     for (int i = 1; i < segments; i++)
-        out[i] = naui_bezier_point(p0, p1, p2, p3, (float)i / (float)segments);
+        out[i] = naui__bezier_point(p0, p1, p2, p3, (float)i / (float)segments);
     out[segments] = p3;
 
     return segments + 1;
@@ -1910,21 +1902,21 @@ static int naui_flatten_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Ve
 void naui_draw_bezier(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, Naui_Color color, float line_width)
 {
     Naui_Vec2 points[NAUI_BEZIER_MAX_SEGMENTS + 1];
-    const int count = naui_flatten_bezier(p0, p1, p2, p3, line_width, p0.y, points);
+    const int count = naui__flatten_bezier(p0, p1, p2, p3, line_width, p0.y, points);
     naui_draw_polyline(points, count, color, line_width);
 }
 
 void naui_fill_bezier_area(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p3, float baseline_y, Naui_Color color)
 {
     Naui_Vec2 points[NAUI_BEZIER_MAX_SEGMENTS + 1];
-    const int count = naui_flatten_bezier(p0, p1, p2, p3, 0.0f, baseline_y, points);
+    const int count = naui__flatten_bezier(p0, p1, p2, p3, 0.0f, baseline_y, points);
     if (count < 2)
         return;
 
-    const uint32_t c = naui_pack_color(color);
+    const uint32_t c = naui__pack_color(color);
     for (int i = 0; i + 1 < count; i++)
     {
-        naui_push_quad4(
+        naui__push_quad4(
             points[i],
             points[i + 1],
             (Naui_Vec2){ points[i + 1].x, baseline_y },
@@ -1934,7 +1926,7 @@ void naui_fill_bezier_area(Naui_Vec2 p0, Naui_Vec2 p1, Naui_Vec2 p2, Naui_Vec2 p
     }
 }
 
-static inline Naui_Vec4 uv_for_sub(Naui_Vec4 uv, Naui_Vec2 img_tl, Naui_Vec2 img_size, float sx0, float sy0, float sx1, float sy1)
+static inline Naui_Vec4 naui__uv_for_sub(Naui_Vec4 uv, Naui_Vec2 img_tl, Naui_Vec2 img_size, float sx0, float sy0, float sx1, float sy1)
 {
     float u0 = uv.x + ((sx0 - img_tl.x) / img_size.x) * uv.z;
     float v0 = uv.y + ((sy0 - img_tl.y) / img_size.y) * uv.w;
@@ -1943,13 +1935,13 @@ static inline Naui_Vec4 uv_for_sub(Naui_Vec4 uv, Naui_Vec2 img_tl, Naui_Vec2 img
     return (Naui_Vec4){ u0, v0, u1, v1 };
 }
 
-static void naui_push_textured_corner_fan(
+static void naui__push_textured_corner_fan(
     Naui_Vec2 center, float r, float ax, float ay,
     Naui_Vec4 uv_rect,
     Naui_Vec2 img_tl, Naui_Vec2 img_size,
     uint32_t color)
 {
-    if (!naui_renderer_reserve(NAUI_RENDERER_CORNER_SEGMENTS * 3, NAUI_RENDERER_CORNER_SEGMENTS * 3))
+    if (!naui__renderer_reserve(NAUI_RENDERER_CORNER_SEGMENTS * 3, NAUI_RENDERER_CORNER_SEGMENTS * 3))
         return;
 
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
@@ -1989,11 +1981,11 @@ void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scal
     const float s0 = image->texture_area[0], t0 = image->texture_area[1];
     const float s1 = image->texture_area[2], t1 = image->texture_area[3];
     Naui_Vec4 uv = { s0, t0, s1, t1 };
-    uint32_t c = naui_pack_color(tint);
+    uint32_t c = naui__pack_color(tint);
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        naui_push_textured_rect(position, (Naui_Vec2){x1, y1}, uv, c, 0);
+        naui__push_textured_rect(position, (Naui_Vec2){x1, y1}, uv, c, 0);
         return;
     }
 
@@ -2002,18 +1994,18 @@ void naui_draw_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scal
     int br = (corners & NAUI_CORNER_BR) != 0;
     int bl = (corners & NAUI_CORNER_BL) != 0;
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     Naui_Vec2 img_tl   = { x0, y0 };
     Naui_Vec2 img_size = { scale.x, scale.y };
 
-    naui_push_textured_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, uv_for_sub(uv, img_tl, img_size, x0+r, y0, x1-r, y1), c, 0);
-    naui_push_textured_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, uv_for_sub(uv, img_tl, img_size, x0, y0 + (tl ? r : 0), x0+r, y1 - (bl ? r : 0)), c, 0);
-    naui_push_textured_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, uv_for_sub(uv, img_tl, img_size, x1-r, y0 + (tr ? r : 0), x1, y1 - (br ? r : 0)), c, 0);
+    naui__push_textured_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, naui__uv_for_sub(uv, img_tl, img_size, x0+r, y0, x1-r, y1), c, 0);
+    naui__push_textured_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, naui__uv_for_sub(uv, img_tl, img_size, x0, y0 + (tl ? r : 0), x0+r, y1 - (bl ? r : 0)), c, 0);
+    naui__push_textured_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, naui__uv_for_sub(uv, img_tl, img_size, x1-r, y0 + (tr ? r : 0), x1, y1 - (br ? r : 0)), c, 0);
 
-    if (tl) naui_push_textured_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, uv, img_tl, img_size, c);
-    if (tr) naui_push_textured_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, uv, img_tl, img_size, c);
-    if (br) naui_push_textured_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, uv, img_tl, img_size, c);
-    if (bl) naui_push_textured_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, uv, img_tl, img_size, c);
+    if (tl) naui__push_textured_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, uv, img_tl, img_size, c);
+    if (tr) naui__push_textured_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, uv, img_tl, img_size, c);
+    if (br) naui__push_textured_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, uv, img_tl, img_size, c);
+    if (bl) naui__push_textured_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, uv, img_tl, img_size, c);
 }
 
 Naui_Texture naui_texture_create(uint32_t width, uint32_t height, Naui_TextureFormat format, Naui_MemoryType memory)
@@ -2043,12 +2035,12 @@ void naui_texture_destroy(Naui_Texture texture)
 
 void naui_draw_texture(Naui_Texture texture, Naui_Vec2 position, Naui_Vec2 scale, Naui_Color tint)
 {
-    naui_renderer_flush();
+    naui__renderer_flush();
     mgfx_bind_sampled_image(texture, naui__renderer_state->nearest_sampler, 0);
 
-    naui_push_textured_rect(position, (Naui_Vec2){ position.x + scale.x, position.y + scale.y }, (Naui_Vec4){ 0.0f, 0.0f, 1.0f, 1.0f }, naui_pack_color(tint), 0);
+    naui__push_textured_rect(position, (Naui_Vec2){ position.x + scale.x, position.y + scale.y }, (Naui_Vec4){ 0.0f, 0.0f, 1.0f, 1.0f }, naui__pack_color(tint), 0);
 
-    naui_renderer_flush();
+    naui__renderer_flush();
     mgfx_bind_sampled_image(naui__renderer_state->image_atlas, naui__renderer_state->linear_sampler, 0);
 }
 
@@ -2066,7 +2058,7 @@ typedef struct
 }
 Naui_TexGradientPoly;
 
-static Naui_TexGradientPoly naui_tex_clip_poly_by_t(const Naui_TexGradientPoly *in, const Naui_GradientAxis *axis, float line_t, int keep_ge)
+static Naui_TexGradientPoly naui__tex_clip_poly_by_t(const Naui_TexGradientPoly *in, const Naui_GradientAxis *axis, float line_t, int keep_ge)
 {
     Naui_TexGradientPoly out = { .count = 0 };
     if (in->count == 0) return out;
@@ -2076,8 +2068,8 @@ static Naui_TexGradientPoly naui_tex_clip_poly_by_t(const Naui_TexGradientPoly *
         Naui_TexGradientVert cur  = in->v[i];
         Naui_TexGradientVert next = in->v[(i + 1) % in->count];
 
-        float t_cur  = naui_gradient_axis_t(axis, cur.pos.x,  cur.pos.y);
-        float t_next = naui_gradient_axis_t(axis, next.pos.x, next.pos.y);
+        float t_cur  = naui__gradient_axis_t(axis, cur.pos.x,  cur.pos.y);
+        float t_next = naui__gradient_axis_t(axis, next.pos.x, next.pos.y);
 
         int cur_in  = keep_ge ? (t_cur  >= line_t) : (t_cur  <= line_t);
         int next_in = keep_ge ? (t_next >= line_t) : (t_next <= line_t);
@@ -2105,13 +2097,13 @@ static Naui_TexGradientPoly naui_tex_clip_poly_by_t(const Naui_TexGradientPoly *
     return out;
 }
 
-static void naui_push_textured_gradient_triangle(
+static void naui__push_textured_gradient_triangle(
     Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c,
     Naui_Vec2 uv_a, Naui_Vec2 uv_b, Naui_Vec2 uv_c,
     uint32_t ca, uint32_t cb, uint32_t cc,
     int32_t texture_id)
 {
-    if (!naui_renderer_reserve(3, 3))
+    if (!naui__renderer_reserve(3, 3))
         return;
 
     uint32_t base = naui__renderer_state->vertex_count;
@@ -2127,41 +2119,41 @@ static void naui_push_textured_gradient_triangle(
     naui__renderer_state->index_count += 3;
 }
 
-static void naui_push_tex_flat_polygon(const Naui_TexGradientPoly *poly, uint32_t color, int32_t texture_id)
+static void naui__push_tex_flat_polygon(const Naui_TexGradientPoly *poly, uint32_t color, int32_t texture_id)
 {
     if (poly->count < 3) return;
 
     Naui_TexGradientVert p0 = poly->v[0];
     for (int i = 1; i + 1 < poly->count; i++)
-        naui_push_textured_gradient_triangle(
+        naui__push_textured_gradient_triangle(
             p0.pos, poly->v[i].pos, poly->v[i + 1].pos,
             p0.uv,  poly->v[i].uv,  poly->v[i + 1].uv,
             color, color, color, texture_id);
 }
 
-static void naui_push_tex_gradient_polygon(const Naui_TexGradientPoly *poly, const Naui_Gradient *g, const Naui_GradientAxis *axis, int32_t texture_id)
+static void naui__push_tex_gradient_polygon(const Naui_TexGradientPoly *poly, const Naui_Gradient *g, const Naui_GradientAxis *axis, int32_t texture_id)
 {
     if (poly->count < 3) return;
 
     Naui_TexGradientVert p0 = poly->v[0];
-    uint32_t c0 = naui_gradient_color_at(g, axis, p0.pos.x, p0.pos.y);
+    uint32_t c0 = naui__gradient_color_at(g, axis, p0.pos.x, p0.pos.y);
 
     for (int i = 1; i + 1 < poly->count; i++)
     {
         Naui_TexGradientVert p1 = poly->v[i];
         Naui_TexGradientVert p2 = poly->v[i + 1];
-        naui_push_textured_gradient_triangle(
+        naui__push_textured_gradient_triangle(
             p0.pos, p1.pos, p2.pos,
             p0.uv,  p1.uv,  p2.uv,
             c0,
-            naui_gradient_color_at(g, axis, p1.pos.x, p1.pos.y),
-            naui_gradient_color_at(g, axis, p2.pos.x, p2.pos.y),
+            naui__gradient_color_at(g, axis, p1.pos.x, p1.pos.y),
+            naui__gradient_color_at(g, axis, p2.pos.x, p2.pos.y),
             texture_id
         );
     }
 }
 
-static void naui_push_gradient_convex_textured(const Naui_TexGradientVert *verts, int vert_count, const Naui_Gradient *g, const Naui_GradientAxis *axis, int32_t texture_id)
+static void naui__push_gradient_convex_textured(const Naui_TexGradientVert *verts, int vert_count, const Naui_Gradient *g, const Naui_GradientAxis *axis, int32_t texture_id)
 {
     if (vert_count < 3 || vert_count > NAUI_GRADIENT_CLIP_MAX_VERTS) return;
 
@@ -2171,29 +2163,29 @@ static void naui_push_gradient_convex_textured(const Naui_TexGradientVert *verts
     float p1 = NAUI_CLAMP01(g->percent1);
     float p2 = NAUI_CLAMP01(g->percent2);
 
-    uint32_t c1 = naui_pack_color(g->color1);
-    uint32_t c2 = naui_pack_color(g->color2);
+    uint32_t c1 = naui__pack_color(g->color1);
+    uint32_t c2 = naui__pack_color(g->color2);
 
     if (p2 <= p1)
     {
-        Naui_TexGradientPoly before = naui_tex_clip_poly_by_t(&src, axis, p1, 0);
-        Naui_TexGradientPoly after  = naui_tex_clip_poly_by_t(&src, axis, p1, 1);
-        naui_push_tex_flat_polygon(&before, c1, texture_id);
-        naui_push_tex_flat_polygon(&after,  c2, texture_id);
+        Naui_TexGradientPoly before = naui__tex_clip_poly_by_t(&src, axis, p1, 0);
+        Naui_TexGradientPoly after  = naui__tex_clip_poly_by_t(&src, axis, p1, 1);
+        naui__push_tex_flat_polygon(&before, c1, texture_id);
+        naui__push_tex_flat_polygon(&after,  c2, texture_id);
         return;
     }
 
-    Naui_TexGradientPoly flat_lo = naui_tex_clip_poly_by_t(&src, axis, p1, 0);
-    Naui_TexGradientPoly rest    = naui_tex_clip_poly_by_t(&src, axis, p1, 1);
-    Naui_TexGradientPoly ramp    = naui_tex_clip_poly_by_t(&rest, axis, p2, 0);
-    Naui_TexGradientPoly flat_hi = naui_tex_clip_poly_by_t(&rest, axis, p2, 1);
+    Naui_TexGradientPoly flat_lo = naui__tex_clip_poly_by_t(&src, axis, p1, 0);
+    Naui_TexGradientPoly rest    = naui__tex_clip_poly_by_t(&src, axis, p1, 1);
+    Naui_TexGradientPoly ramp    = naui__tex_clip_poly_by_t(&rest, axis, p2, 0);
+    Naui_TexGradientPoly flat_hi = naui__tex_clip_poly_by_t(&rest, axis, p2, 1);
 
-    naui_push_tex_flat_polygon(&flat_lo, c1, texture_id);
-    naui_push_tex_gradient_polygon(&ramp, g, axis, texture_id);
-    naui_push_tex_flat_polygon(&flat_hi, c2, texture_id);
+    naui__push_tex_flat_polygon(&flat_lo, c1, texture_id);
+    naui__push_tex_gradient_polygon(&ramp, g, axis, texture_id);
+    naui__push_tex_flat_polygon(&flat_hi, c2, texture_id);
 }
 
-static void naui_push_textured_gradient_corner_fan(
+static void naui__push_textured_gradient_corner_fan(
     Naui_Vec2 center, float r, float ax, float ay,
     Naui_Vec4 uv_rect,
     Naui_Vec2 img_tl, Naui_Vec2 img_size,
@@ -2217,11 +2209,11 @@ static void naui_push_textured_gradient_corner_fan(
             { p1, uv_p1 },
         };
 
-        naui_push_gradient_convex_textured(tri, 3, g, axis, 0);
+        naui__push_gradient_convex_textured(tri, 3, g, axis, 0);
     }
 }
 
-static void naui_push_textured_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br,
+static void naui__push_textured_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br,
     Naui_Vec4 texture_area, const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
     Naui_TexGradientVert verts[4] = {
@@ -2230,7 +2222,7 @@ static void naui_push_textured_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br,
         { {br.x, br.y}, {texture_area.x + texture_area.z, texture_area.y + texture_area.w} },
         { {tl.x, br.y}, {texture_area.x, texture_area.y + texture_area.w} },
     };
-    naui_push_gradient_convex_textured(verts, 4, g, axis, 0);
+    naui__push_gradient_convex_textured(verts, 4, g, axis, 0);
 }
 
 void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient tint, float rounding, Naui_CornerFlags corners)
@@ -2242,11 +2234,11 @@ void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_
     const float s1 = image->texture_area[2], t1 = image->texture_area[3];
     Naui_Vec4 uv = { s0, t0, s1, t1 };
 
-    Naui_GradientAxis axis = naui_gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, tint.angle);
+    Naui_GradientAxis axis = naui__gradient_axis((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, tint.angle);
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        naui_push_textured_gradient_rect((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, uv, &tint, &axis);
+        naui__push_textured_gradient_rect((Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, uv, &tint, &axis);
         return;
     }
 
@@ -2255,18 +2247,18 @@ void naui_draw_gradient_image(const Naui_Image *image, Naui_Vec2 position, Naui_
     int br = (corners & NAUI_CORNER_BR) != 0;
     int bl = (corners & NAUI_CORNER_BL) != 0;
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     Naui_Vec2 img_tl   = { x0, y0 };
     Naui_Vec2 img_size = { scale.x, scale.y };
 
-    naui_push_textured_gradient_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, uv_for_sub(uv, img_tl, img_size, x0+r, y0, x1-r, y1), &tint, &axis);
-    naui_push_textured_gradient_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, uv_for_sub(uv, img_tl, img_size, x0, y0 + (tl ? r : 0), x0+r, y1 - (bl ? r : 0)), &tint, &axis);
-    naui_push_textured_gradient_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, uv_for_sub(uv, img_tl, img_size, x1-r, y0 + (tr ? r : 0), x1, y1 - (br ? r : 0)), &tint, &axis);
+    naui__push_textured_gradient_rect((Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, naui__uv_for_sub(uv, img_tl, img_size, x0+r, y0, x1-r, y1), &tint, &axis);
+    naui__push_textured_gradient_rect((Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, naui__uv_for_sub(uv, img_tl, img_size, x0, y0 + (tl ? r : 0), x0+r, y1 - (bl ? r : 0)), &tint, &axis);
+    naui__push_textured_gradient_rect((Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, naui__uv_for_sub(uv, img_tl, img_size, x1-r, y0 + (tr ? r : 0), x1, y1 - (br ? r : 0)), &tint, &axis);
 
-    if (tl) naui_push_textured_gradient_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, uv, img_tl, img_size, &tint, &axis);
-    if (tr) naui_push_textured_gradient_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, uv, img_tl, img_size, &tint, &axis);
-    if (br) naui_push_textured_gradient_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, uv, img_tl, img_size, &tint, &axis);
-    if (bl) naui_push_textured_gradient_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, uv, img_tl, img_size, &tint, &axis);
+    if (tl) naui__push_textured_gradient_corner_fan((Naui_Vec2){x0+r, y0+r}, r, -1, -1, uv, img_tl, img_size, &tint, &axis);
+    if (tr) naui__push_textured_gradient_corner_fan((Naui_Vec2){x1-r, y0+r}, r, +1, -1, uv, img_tl, img_size, &tint, &axis);
+    if (br) naui__push_textured_gradient_corner_fan((Naui_Vec2){x1-r, y1-r}, r, +1, +1, uv, img_tl, img_size, &tint, &axis);
+    if (bl) naui__push_textured_gradient_corner_fan((Naui_Vec2){x0+r, y1-r}, r, -1, +1, uv, img_tl, img_size, &tint, &axis);
 }
 
 void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Naui_Color color, float rounding, Naui_CornerFlags corners)
@@ -2274,14 +2266,14 @@ void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Na
     if (blur_radius <= 0.0f)
         return;
 
-    float r  = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r  = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     float br = blur_radius;
 
     float x0 = position.x, y0 = position.y;
     float x1 = position.x + scale.x, y1 = position.y + scale.y;
 
-    uint32_t c_full = naui_pack_color(color);
-    uint32_t c_zero = naui_pack_color((Naui_Color){ color.r, color.g, color.b, 0 });
+    uint32_t c_full = naui__pack_color(color);
+    uint32_t c_zero = naui__pack_color((Naui_Color){ color.r, color.g, color.b, 0 });
 
     int tl = (corners & NAUI_CORNER_TL) != 0;
     int tr = (corners & NAUI_CORNER_TR) != 0;
@@ -2293,22 +2285,22 @@ void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Na
     float cx_br = x1 - (br_flag ? r : 0), cy_br = y1 - (br_flag ? r : 0);
     float cx_bl = x0 + (bl ? r : 0), cy_bl = y1 - (bl ? r : 0);
 
-    naui_push_gradient_quad4(
+    naui__push_gradient_quad4(
         (Naui_Vec2){cx_tl, y0 - br}, (Naui_Vec2){cx_tr, y0 - br},
         (Naui_Vec2){cx_tr, y0     }, (Naui_Vec2){cx_tl, y0     },
         c_zero, c_zero, c_full, c_full, -1);
 
-    naui_push_gradient_quad4(
+    naui__push_gradient_quad4(
         (Naui_Vec2){cx_bl, y1     }, (Naui_Vec2){cx_br, y1     },
         (Naui_Vec2){cx_br, y1 + br}, (Naui_Vec2){cx_bl, y1 + br},
         c_full, c_full, c_zero, c_zero, -1);
 
-    naui_push_gradient_quad4(
+    naui__push_gradient_quad4(
         (Naui_Vec2){x0 - br, cy_tl}, (Naui_Vec2){x0, cy_tl},
         (Naui_Vec2){x0, cy_bl}, (Naui_Vec2){x0 - br, cy_bl},
         c_zero, c_full, c_full, c_zero, -1);
 
-    naui_push_gradient_quad4(
+    naui__push_gradient_quad4(
         (Naui_Vec2){x1,      cy_tr}, (Naui_Vec2){x1 + br, cy_tr},
         (Naui_Vec2){x1 + br, cy_br}, (Naui_Vec2){x1,      cy_br},
         c_full, c_zero, c_zero, c_full, -1);
@@ -2331,7 +2323,7 @@ void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Na
             float cx = fan[f].cx, cy = fan[f].cy;
             float ax = fan[f].ax, ay = fan[f].ay;
 
-            naui_push_gradient_quad4(
+            naui__push_gradient_quad4(
                 (Naui_Vec2){cx, cy },
                 (Naui_Vec2){cx + ax*br, cy },
                 (Naui_Vec2){cx + ax*br, cy + ay*br},
@@ -2354,7 +2346,7 @@ void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Na
             Naui_Vec2 o0 = { cx + ax * c0 * (r + br), cy + ay * s0 * (r + br) };
             Naui_Vec2 o1 = { cx + ax * c1 * (r + br), cy + ay * s1 * (r + br) };
 
-            naui_push_gradient_quad4(i0, i1, o1, o0,
+            naui__push_gradient_quad4(i0, i1, o1, o0,
                 c_full, c_full, c_zero, c_zero, -1);
         }
     }
@@ -2365,22 +2357,22 @@ void naui_fill_polygon(const Naui_Vec2 *points, int point_count, Naui_Color colo
     if (!points || point_count < 3)
         return;
 
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
     Naui_Vec2 p0 = points[0];
     for (int i = 1; i + 1 < point_count; i++)
-        naui_push_triangle(p0, points[i], points[i + 1], c);
+        naui__push_triangle(p0, points[i], points[i + 1], c);
 }
 
 Naui_Vec4 naui_current_clip_rect(void)
 {
-    Naui_ClipRect c = naui_current_clip();
+    Naui_ClipRect c = naui__current_clip();
     return (Naui_Vec4){ c.x0, c.y0, c.x1 - c.x0, c.y1 - c.y0 };
 }
 
-static void naui_push_quad4_xform(const Naui_Mat4x4 *m, Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
+static void naui__push_quad4_xform(const Naui_Mat4x4 *m, Naui_Vec2 a, Naui_Vec2 b, Naui_Vec2 c, Naui_Vec2 d, uint32_t color, int32_t texture_id)
 {
-    naui_push_quad4(
+    naui__push_quad4(
         naui_mat4x4_transform_point2(*m, a),
         naui_mat4x4_transform_point2(*m, b),
         naui_mat4x4_transform_point2(*m, c),
@@ -2389,7 +2381,7 @@ static void naui_push_quad4_xform(const Naui_Mat4x4 *m, Naui_Vec2 a, Naui_Vec2 b
     );
 }
 
-static void naui_push_corner_ring_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
+static void naui__push_corner_ring_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
 {
     for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
     {
@@ -2401,7 +2393,7 @@ static void naui_push_corner_ring_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, 
         Naui_Vec2 i0 = { center.x + ax * cx * inner_r, center.y + ay * cy * inner_r };
         Naui_Vec2 i1 = { center.x + ax * nx * inner_r, center.y + ay * ny * inner_r };
 
-        naui_push_quad4_xform(m, o0, o1, i1, i0, color, -1);
+        naui__push_quad4_xform(m, o0, o1, i1, i0, color, -1);
     }
 }
 
@@ -2419,7 +2411,7 @@ void naui_draw_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot
     float x0 = 0.0f, y0 = 0.0f;
     float x1 = scale.x, y1 = scale.y;
     float lw = line_width;
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
     int side_top    = (sides & NAUI_SIDE_TOP)    != 0;
     int side_right  = (sides & NAUI_SIDE_RIGHT)  != 0;
@@ -2428,14 +2420,14 @@ void naui_draw_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        if (side_top)    naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x0-lw, y0    }, c, -1);
-        if (side_bottom) naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, (Naui_Vec2){x0-lw, y1+lw}, c, -1);
-        if (side_left)   naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y0    }, (Naui_Vec2){x0,    y1    }, (Naui_Vec2){x0-lw, y1    }, c, -1);
-        if (side_right)  naui_push_quad4_xform(&xform, (Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1,    y1    }, c, -1);
+        if (side_top)    naui__push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0-lw}, (Naui_Vec2){x1+lw, y0-lw}, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x0-lw, y0    }, c, -1);
+        if (side_bottom) naui__push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y1    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1+lw, y1+lw}, (Naui_Vec2){x0-lw, y1+lw}, c, -1);
+        if (side_left)   naui__push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0    }, (Naui_Vec2){x0,    y0    }, (Naui_Vec2){x0,    y1    }, (Naui_Vec2){x0-lw, y1    }, c, -1);
+        if (side_right)  naui__push_quad4_xform(&xform, (Naui_Vec2){x1,    y0    }, (Naui_Vec2){x1+lw, y0    }, (Naui_Vec2){x1+lw, y1    }, (Naui_Vec2){x1,    y1    }, c, -1);
         return;
     }
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
     float outer_r = r + lw;
 
     int tl = (corners & NAUI_CORNER_TL) != 0 && side_top    && side_left;
@@ -2443,20 +2435,20 @@ void naui_draw_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot
     int br = (corners & NAUI_CORNER_BR) != 0 && side_bottom && side_right;
     int bl = (corners & NAUI_CORNER_BL) != 0 && side_bottom && side_left;
 
-    if (side_top)    naui_push_quad4_xform(&xform, (Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0   }, (Naui_Vec2){x0 + (tl ? r : -lw), y0   }, c, -1);
-    if (side_bottom) naui_push_quad4_xform(&xform, (Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw}, (Naui_Vec2){x0 + (bl ? r : -lw), y1+lw}, c, -1);
-    if (side_left)   naui_push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y1 - (bl ? r : 0)}, (Naui_Vec2){x0-lw, y1 - (bl ? r : 0)}, c, -1);
-    if (side_right)  naui_push_quad4_xform(&xform, (Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, (Naui_Vec2){x1,    y1 - (br ? r : 0)}, c, -1);
+    if (side_top)    naui__push_quad4_xform(&xform, (Naui_Vec2){x0 + (tl ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0-lw}, (Naui_Vec2){x1 - (tr ? r : -lw), y0   }, (Naui_Vec2){x0 + (tl ? r : -lw), y0   }, c, -1);
+    if (side_bottom) naui__push_quad4_xform(&xform, (Naui_Vec2){x0 + (bl ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1   }, (Naui_Vec2){x1 - (br ? r : -lw), y1+lw}, (Naui_Vec2){x0 + (bl ? r : -lw), y1+lw}, c, -1);
+    if (side_left)   naui__push_quad4_xform(&xform, (Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y0 + (tl ? r : 0)}, (Naui_Vec2){x0,    y1 - (bl ? r : 0)}, (Naui_Vec2){x0-lw, y1 - (bl ? r : 0)}, c, -1);
+    if (side_right)  naui__push_quad4_xform(&xform, (Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, (Naui_Vec2){x1,    y1 - (br ? r : 0)}, c, -1);
 
-    if (tl) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, outer_r, -1, -1, c);
-    if (tr) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, outer_r, +1, -1, c);
-    if (br) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, outer_r, +1, +1, c);
-    if (bl) naui_push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, outer_r, -1, +1, c);
+    if (tl) naui__push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, outer_r, -1, -1, c);
+    if (tr) naui__push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, outer_r, +1, -1, c);
+    if (br) naui__push_corner_ring_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, outer_r, +1, +1, c);
+    if (bl) naui__push_corner_ring_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, outer_r, -1, +1, c);
 }
 
-static void naui_push_rect_xform(const Naui_Mat4x4 *m, Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t texture_id)
+static void naui__push_rect_xform(const Naui_Mat4x4 *m, Naui_Vec2 tl, Naui_Vec2 br, uint32_t color, int32_t texture_id)
 {
-    naui_push_quad4_xform(
+    naui__push_quad4_xform(
         m,
         (Naui_Vec2){tl.x, tl.y},
         (Naui_Vec2){br.x, tl.y},
@@ -2466,7 +2458,7 @@ static void naui_push_rect_xform(const Naui_Mat4x4 *m, Naui_Vec2 tl, Naui_Vec2 b
     );
 }
 
-static void naui_push_corner_fan_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
+static void naui__push_corner_fan_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
 {
     Naui_Vec2 xcenter = naui_mat4x4_transform_point2(*m, center);
 
@@ -2475,7 +2467,7 @@ static void naui_push_corner_fan_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, f
         Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
         Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
 
-        naui_push_triangle(
+        naui__push_triangle(
             xcenter,
             naui_mat4x4_transform_point2(*m, p0),
             naui_mat4x4_transform_point2(*m, p1),
@@ -2497,27 +2489,27 @@ void naui_fill_rotated_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Vec2 pivot
 
     float x0 = 0.0f, y0 = 0.0f;
     float x1 = scale.x, y1 = scale.y;
-    uint32_t c = naui_pack_color(color);
+    uint32_t c = naui__pack_color(color);
 
     if (rounding <= 0.0f || corners == NAUI_CORNER_NONE)
     {
-        naui_push_rect_xform(&xform, (Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, c, -1);
+        naui__push_rect_xform(&xform, (Naui_Vec2){x0, y0}, (Naui_Vec2){x1, y1}, c, -1);
         return;
     }
 
-    float r = naui_min(rounding, naui_min(scale.x, scale.y) * 0.5f);
+    float r = naui__min(rounding, naui__min(scale.x, scale.y) * 0.5f);
 
     int tl = (corners & NAUI_CORNER_TL) != 0;
     int tr = (corners & NAUI_CORNER_TR) != 0;
     int br = (corners & NAUI_CORNER_BR) != 0;
     int bl = (corners & NAUI_CORNER_BL) != 0;
 
-    naui_push_rect_xform(&xform, (Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, c, -1);
-    naui_push_rect_xform(&xform, (Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, c, -1);
-    naui_push_rect_xform(&xform, (Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, c, -1);
+    naui__push_rect_xform(&xform, (Naui_Vec2){x0+r, y0}, (Naui_Vec2){x1-r, y1}, c, -1);
+    naui__push_rect_xform(&xform, (Naui_Vec2){x0, y0 + (tl ? r : 0)}, (Naui_Vec2){x0+r, y1 - (bl ? r : 0)}, c, -1);
+    naui__push_rect_xform(&xform, (Naui_Vec2){x1-r, y0 + (tr ? r : 0)}, (Naui_Vec2){x1, y1 - (br ? r : 0)}, c, -1);
 
-    if (tl) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, -1, -1, c);
-    if (tr) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, +1, -1, c);
-    if (br) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, +1, +1, c);
-    if (bl) naui_push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, -1, +1, c);
+    if (tl) naui__push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y0+r}, r, -1, -1, c);
+    if (tr) naui__push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y0+r}, r, +1, -1, c);
+    if (br) naui__push_corner_fan_xform(&xform, (Naui_Vec2){x1-r, y1-r}, r, +1, +1, c);
+    if (bl) naui__push_corner_fan_xform(&xform, (Naui_Vec2){x0+r, y1-r}, r, -1, +1, c);
 }
