@@ -8,7 +8,7 @@
 #define UPH_MIDI_EDITOR_PEDAL_ROW_FONT_SIZE 13
 #define UPH_MIDI_EDITOR_PEDAL_ROW_IDLE_TEXT_MIX 0.45f
 
-static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "Sustain", "Sostenuto", "Soft" };
+static const char *const _uph_pedal_labels[UPH_MIDI_PEDAL_COUNT] = { "midi.pedal.sustain", "midi.pedal.sostenuto", "midi.pedal.soft" };
 
 static float _uph_pedal_usable_height(Leaf_BoundingBox box)
 {
@@ -276,7 +276,7 @@ void uph_midi_pedal_render_header(Uph_MidiEditorState *editor, Leaf_BoundingBox 
 		if (active)
 			naui_fill_rect(row_position, (Naui_Vec2) { NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_ACCENT_WIDTH), row_height }, uph_midi_view_note_color(), rounding, NAUI_CORNER_TL | NAUI_CORNER_BL);
 
-		const char *label = _uph_pedal_labels[type];
+		const char *label = NAUI_TR(_uph_pedal_labels[type]);
 		const Naui_Vec2 size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 		naui_draw_text((Naui_Vec2) { row_position.x + NAUI_DPI(UPH_MIDI_EDITOR_PEDAL_ROW_TEXT_INSET), y + (row_height - size.y) * 0.5f }, label, font_size, active || hovered ? uph_state.colors.ui_text : idle_text_color);
 
