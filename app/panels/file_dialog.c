@@ -1,5 +1,9 @@
 #define UPH_FILE_DIALOG_WIDTH 760
 #define UPH_FILE_DIALOG_HEIGHT 480
+#define UPH_FILE_DIALOG_SIDEBAR_WIDTH 150
+#define UPH_FILE_DIALOG_ROW_HEIGHT 24
+#define UPH_FILE_DIALOG_ICON_SIZE 14
+#define UPH_FILE_DIALOG_SIZE_COLUMN 80
 
 typedef struct
 {
@@ -122,21 +126,80 @@ static void uph__file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActio
 	if (!path.data[0] || !naui_path_is_directory(path))
 		return;
 
-	if (uph_ui_text_button(label, leaf_id_indexed("uph_file_dialog_place", data->instance + index)))
+	const Leaf_ID id = leaf_id_indexed("uph_file_dialog_place", data->instance + index);
+	const bool hovered = uph_ui_widget_hovered(id);
+	const bool current = strcmp(data->dialog->current_dir.data, path.data) == 0;
+	const int32_t icon_size = NAUI_DPI(UPH_FILE_DIALOG_ICON_SIZE);
+
+	if (hovered)
 	{
-		actions->navigate_to = path;
-		actions->has_navigate = true;
+		naui_set_cursor(NAUI_CURSOR_HAND);
+		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+		{
+			actions->navigate_to = path;
+			actions->has_navigate = true;
+		}
 	}
+
+	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
+	if (current)
+		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.widget_accent, 0.35f);
+	else if (hovered)
+		background = uph_state.colors.ui_frame_hovered_bg;
+
+	leaf({
+		.id = id,
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_FILE_DIALOG_ROW_HEIGHT)) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), 0),
+		.color = background,
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.child_gap = NAUI_DPI(8),
+		.direction = LEAF_DIRECTION_HORIZONTAL,
+		.clip_children = true
+	})
+	{
+		leaf({
+			.image = (void*)uph_state.icons.folder,
+			.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
+			.color = current ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled
+		});
+
+		leaf_text(label, {
+			.color = uph_state.colors.ui_text,
+			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
+		});
+	}
+}
+
+static void uph__file_dialog_caption(const char *text)
+{
+	leaf_text(text, {
+		.color = uph_state.colors.ui_text_disabled,
+		.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE - 2))
+	});
 }
 
 static void uph__file_dialog_sidebar(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	leaf({
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(130)), .height = LEAF_SIZE_GROW },
-		.child_gap = NAUI_DPI(4),
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_FILE_DIALOG_SIDEBAR_WIDTH)), .height = LEAF_SIZE_GROW },
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(6)),
+		.color = uph_state.colors.ui_well_bg,
+		.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.ui_frame_border },
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.child_gap = NAUI_DPI(2),
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
+		leaf({
+			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+			.padding = { .left = NAUI_DPI(6), .right = NAUI_DPI(6), .top = NAUI_DPI(2), .bottom = NAUI_DPI(4) }
+		})
+		{
+			uph__file_dialog_caption(NAUI_TR("file_dialog.places"));
+		}
+
 		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.home"), naui_directory_get(NAUI_DIR_HOME), 1);
 		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.downloads"), naui_directory_get(NAUI_DIR_DOWNLOADS), 2);
 		uph__file_dialog_place(data, actions, NAUI_TR("file_dialog.places.projects"), UPHONIC_WORKSPACE_FOLDER, 3);
@@ -160,42 +223,79 @@ static void uph__file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 			actions->activated_row = index;
 	}
 
-	const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
+	const int32_t icon_size = NAUI_DPI(UPH_FILE_DIALOG_ICON_SIZE);
 	const Leaf_Color text_color = uph_state.colors.ui_text;
+	const Leaf_Color muted_color = uph_state.colors.ui_text_disabled;
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
 	if (selected)
-		background = uph_state.colors.widget_accent;
+		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.widget_accent, 0.5f);
 	else if (hovered)
 		background = uph_state.colors.ui_frame_hovered_bg;
 
-	char name[NAUI_PATH_MAX + 2];
-	snprintf(name, sizeof(name), "%s%s", naui_file_filename(&entry->path).data, entry->is_directory ? "/" : "");
-
 	leaf({
 		.id = row_id,
-		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 0.5f)),
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_FILE_DIALOG_ROW_HEIGHT)) },
+		.padding = LEAF_PADDING_AXES(NAUI_DPI(8), 0),
 		.color = background,
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.child_gap = NAUI_DPI(8),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
+		leaf({
+			.image = (void*)(entry->is_directory ? uph_state.icons.folder : uph_state.icons.file),
+			.size = { .width = LEAF_SIZE_FIXED(icon_size), .height = LEAF_SIZE_FIXED(icon_size) },
+			.color = entry->is_directory || selected ? text_color : muted_color
+		});
+
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 			.clip_children = true
 		})
 		{
-			leaf_text(name, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+			leaf_text(naui_file_filename(&entry->path).data, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
 		}
 
-		if (!entry->is_directory)
+		leaf({
+			.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_FILE_DIALOG_SIZE_COLUMN)), .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
+		})
 		{
-			char size_text[32];
-			uph__file_dialog_format_size(entry->size, size_text, sizeof(size_text));
-			leaf_text(size_text, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+			if (!entry->is_directory)
+			{
+				char size_text[32];
+				uph__file_dialog_format_size(entry->size, size_text, sizeof(size_text));
+				leaf_text(size_text, { .color = selected ? text_color : muted_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+			}
+		}
+	}
+}
+
+static void uph__file_dialog_list_header(void)
+{
+	leaf({
+		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+		.padding = { .left = NAUI_DPI(14 + UPH_FILE_DIALOG_ICON_SIZE + 8), .right = NAUI_DPI(14), .top = NAUI_DPI(6), .bottom = NAUI_DPI(6) },
+		.border = { .width = 1, .sides = LEAF_SIDE_BOTTOM, .color = uph_state.colors.ui_frame_border },
+		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+		.child_gap = NAUI_DPI(8),
+		.direction = LEAF_DIRECTION_HORIZONTAL
+	})
+	{
+		leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT } })
+		{
+			uph__file_dialog_caption(NAUI_TR("file_dialog.name"));
+		}
+
+		leaf({
+			.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_FILE_DIALOG_SIZE_COLUMN)), .height = LEAF_SIZE_FIT },
+			.child_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER }
+		})
+		{
+			uph__file_dialog_caption(NAUI_TR("file_dialog.size"));
 		}
 	}
 }
@@ -203,33 +303,53 @@ static void uph__file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 static void uph__file_dialog_list(Uph_FileDialogData *data, Uph_FileDialogActions *actions)
 {
 	const Naui_Dialog *dialog = data->dialog;
+	const uint32_t count = (uint32_t)naui_list_len(dialog->entries);
 
 	leaf({
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
 		.color = uph_state.colors.ui_well_bg,
+		.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.ui_frame_border },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
+		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
 	})
 	{
-		Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
-			UPH_UI_SCROLL_DIRECTION_VERTICAL,
-			&data->scroll,
-			leaf_id_indexed("uph_file_dialog_scroll", data->instance)
-		);
-
-		const uint32_t count = (uint32_t)naui_list_len(dialog->entries);
-		for (uint32_t i = 0; i < count; i++)
-			uph__file_dialog_row(data, actions, &dialog->entries[i], (int32_t)i);
+		uph__file_dialog_list_header();
 
 		if (count == 0)
 		{
-			leaf_text(NAUI_TR("file_dialog.empty"), {
-				.color = uph_state.colors.ui_text,
-				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
-			});
+			leaf({
+				.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
+				.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
+			})
+			{
+				leaf_text(NAUI_TR("file_dialog.empty"), {
+					.color = uph_state.colors.ui_text_disabled,
+					.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
+				});
+			}
 		}
+		else
+		{
+			Uph_UIScrollContainer scroll_container = uph_ui_begin_scroll_container(
+				UPH_UI_SCROLL_DIRECTION_VERTICAL,
+				&data->scroll,
+				leaf_id_indexed("uph_file_dialog_scroll", data->instance)
+			);
 
-		uph_ui_end_scroll_container(&scroll_container);
+			leaf({
+				.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
+				.padding = LEAF_PADDING_ALL(NAUI_DPI(6)),
+				.child_gap = NAUI_DPI(1),
+				.direction = LEAF_DIRECTION_VERTICAL
+			})
+			{
+				for (uint32_t i = 0; i < count; i++)
+					uph__file_dialog_row(data, actions, &dialog->entries[i], (int32_t)i);
+			}
+
+			uph_ui_end_scroll_container(&scroll_container);
+		}
 	}
 }
 
@@ -248,7 +368,8 @@ static void uph__file_dialog_top_bar(Uph_FileDialogData *data, Uph_FileDialogAct
 		if (uph_ui_text_button(NAUI_TR("file_dialog.up"), leaf_id_indexed("uph_file_dialog_up", data->instance)))
 			actions->go_up = true;
 
-		if (uph_ui_text_button(NAUI_TR("file_dialog.refresh"), leaf_id_indexed("uph_file_dialog_refresh", data->instance)))
+		const float icon_size = NAUI_DPI(UPH_FILE_DIALOG_ICON_SIZE);
+		if (uph_ui_image_button(uph_state.icons.reload, leaf_id_indexed("uph_file_dialog_refresh", data->instance), (Naui_Vec2){ icon_size, icon_size }, uph_state.colors.ui_text))
 			actions->refresh = true;
 
 		const bool was_active = uph_ui_textfield_active(path_id);
@@ -268,16 +389,15 @@ static void uph__file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 {
 	Naui_Dialog *dialog = data->dialog;
 	const Leaf_ID name_id = leaf_id_indexed("uph_file_dialog_name", data->instance);
-	const Leaf_Color text_color = uph_state.colors.ui_text;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
 
 	if (data->error_key)
-		leaf_text(NAUI_TR(data->error_key), { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+		leaf_text(NAUI_TR(data->error_key), { .color = uph_state.colors.record_armed, .font_size = LEAF_SIZE_FIXED(font_size) });
 
 	leaf({
 		.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT },
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-		.child_gap = NAUI_DPI(6),
+		.child_gap = NAUI_DPI(8),
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
@@ -291,9 +411,9 @@ static void uph__file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 		char filters[NAUI_DIALOG_MAX_FILTERS * (NAUI_DIALOG_FILTER_MAX + 2)];
 		uph__file_dialog_filter_text(dialog, filters, sizeof(filters));
 		if (filters[0])
-			leaf_text(filters, { .color = text_color, .font_size = LEAF_SIZE_FIXED(font_size) });
+			leaf_text(filters, { .color = uph_state.colors.ui_text_disabled, .font_size = LEAF_SIZE_FIXED(font_size) });
 
-		if (uph_ui_text_button(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance)))
+		if (uph_ui_text_button_ex(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance), uph_state.colors.widget_accent, NAUI_CORNER_ALL))
 			actions->confirm = true;
 
 		if (uph_ui_text_button(NAUI_TR("dialog.cancel"), leaf_id_indexed("uph_file_dialog_cancel", data->instance)))
@@ -422,8 +542,8 @@ static void uph_file_dialog_on_update(void)
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-		.padding = LEAF_PADDING_ALL(NAUI_DPI(8)),
-		.child_gap = NAUI_DPI(8),
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(10)),
+		.child_gap = NAUI_DPI(10),
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
@@ -431,7 +551,7 @@ static void uph_file_dialog_on_update(void)
 
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_GROW },
-			.child_gap = NAUI_DPI(8),
+			.child_gap = NAUI_DPI(10),
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{

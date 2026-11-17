@@ -54,6 +54,7 @@
 	"file_dialog.overwrite.message": "A file with that name already exists. Do you want to replace it?",
 	"file_dialog.overwrite.replace": "Replace",
 	"file_dialog.overwrite.title": "Replace File?",
+	"file_dialog.places": "Places",
 	"file_dialog.places.downloads": "Downloads",
 	"file_dialog.places.home": "Home",
 	"file_dialog.places.projects": "Projects",
@@ -61,6 +62,7 @@
 	"file_dialog.save": "Save",
 	"file_dialog.save_file.title": "Save File",
 	"file_dialog.select": "Select",
+	"file_dialog.size": "Size",
 	"file_dialog.up": "Up",
 
 	"layout.default": "Default",

@@ -6,6 +6,7 @@
 	X(dots,            "uph_icon_dots") \
 	X(draw,            "uph_icon_draw") \
 	X(dropdown,        "uph_icon_dropdown") \
+	X(file,            "uph_icon_file") \
 	X(folder,          "uph_icon_folder") \
 	X(gear,            "uph_icon_gear") \
 	X(headphones,      "uph_icon_headphones") \

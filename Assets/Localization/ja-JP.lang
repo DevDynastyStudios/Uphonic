@@ -54,6 +54,7 @@
 	"file_dialog.overwrite.message": "同じ名前のファイルが既に存在します。置き換えますか？",
 	"file_dialog.overwrite.replace": "置き換え",
 	"file_dialog.overwrite.title": "ファイルを置き換えますか？",
+	"file_dialog.places": "場所",
 	"file_dialog.places.downloads": "ダウンロード",
 	"file_dialog.places.home": "ホーム",
 	"file_dialog.places.projects": "プロジェクト",
@@ -61,6 +62,7 @@
 	"file_dialog.save": "保存",
 	"file_dialog.save_file.title": "ファイルを保存",
 	"file_dialog.select": "選択",
+	"file_dialog.size": "サイズ",
 	"file_dialog.up": "上へ",
 
 	"layout.default": "標準",
