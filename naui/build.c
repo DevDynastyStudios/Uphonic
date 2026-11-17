@@ -48,6 +48,9 @@
 	#include <arpa/inet.h>
 	#include <netdb.h>
 	#include <poll.h>
+	#ifdef __linux__
+		#include <sys/random.h>
+	#endif
 	#include <errno.h>
 #endif
 
@@ -132,7 +135,13 @@
 #include "networking/socket_win32.c"
 #include "networking/socket_unix.c"
 #include "networking/socket_common.c"
+#include "networking/crypto.c"
 #include "networking/device.c"
+#include "networking/net_common.c"
+#include "networking/net_tls.c"
+#include "networking/net_quic.c"
+#include "networking/net_tcp.c"
+#include "networking/net_udp.c"
 #include "networking/net.c"
 
 #include "filesystem/iterator_unix.c"

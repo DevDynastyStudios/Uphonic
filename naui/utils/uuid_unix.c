@@ -1,4 +1,4 @@
-#if !defined(_WIN32) || !defined(_WIN64)
+#if !defined(_WIN32) && !defined(_WIN64)
 
 #if defined(__linux__)
 #	include <sys/random.h>

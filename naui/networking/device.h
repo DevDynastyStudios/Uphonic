@@ -1,4 +1,5 @@
 #define NAUI_DEVICE_ID_SIZE 32
+#define NAUI_DEVICE_KEY_SIZE 32
 #define NAUI_DEVICE_ID_STR_SIZE 65
 #define NAUI_DEVICE_NAME_MAX 64
 #define NAUI_DEVICE_MAX_ENDPOINTS 8
@@ -45,6 +46,11 @@ typedef struct
 
 typedef struct
 {
+	uint8_t bytes[NAUI_DEVICE_KEY_SIZE];
+} Naui_DeviceKey;
+
+typedef struct
+{
 	Naui_Address address;
 	Naui_Transport transport;
 	uint64_t last_seen;
@@ -70,7 +76,8 @@ typedef struct Naui_Device
 } Naui_Device;
 
 
-Naui_DeviceId naui_device_id_generate(void);
+bool naui_device_key_generate(Naui_DeviceKey* out);
+Naui_DeviceId naui_device_id_from_key(const Naui_DeviceKey* key);
 void naui_device_id_format(Naui_DeviceId id, char* buffer);
 bool naui_device_id_is_null(Naui_DeviceId id);
 bool naui_device_id_equal(Naui_DeviceId a, Naui_DeviceId b);

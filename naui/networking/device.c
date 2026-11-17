@@ -1,15 +1,12 @@
-Naui_DeviceId naui_device_id_generate(void)
+bool naui_device_key_generate(Naui_DeviceKey* out)
+{
+	return out && net_random_bytes(out->bytes, sizeof(out->bytes));
+}
+
+Naui_DeviceId naui_device_id_from_key(const Naui_DeviceKey* key)
 {
 	Naui_DeviceId id;
-	do
-	{
-		for (size_t i = 0; i < NAUI_DEVICE_ID_SIZE; i += sizeof(uint64_t))
-		{
-			uint64_t part = naui_uuid_generate();
-			memcpy(id.bytes + i, &part, sizeof(part));
-		}
-	} while (naui_device_id_is_null(id));
-
+	net_ed25519_public(key->bytes, id.bytes);
 	return id;
 }
 

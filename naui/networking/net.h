@@ -1,5 +1,6 @@
 /* UDP payload limit that stays inside the minimum IPv6 MTU. */
 #define NAUI_UDP_MAX_MESSAGE_SIZE 1188
+#define NAUI_QUIC_MAX_MESSAGE_SIZE 1150
 
 typedef struct Naui_NetImpl* Naui_Net;
 
@@ -32,7 +33,7 @@ enum
 typedef struct
 {
 	const char* device_name;
-	const Naui_DeviceId* device_id;
+	const Naui_DeviceKey* device_key;
 	uint32_t max_connections;
 	uint32_t max_message_size;
 	uint32_t max_devices;
@@ -62,6 +63,7 @@ typedef struct
 	const void* data;
 	size_t size;
 	bool reliable;
+	bool verified;
 } Naui_NetEvent;
 
 typedef uint8_t Naui_ConnectionState;
@@ -80,6 +82,7 @@ typedef struct
 	uint64_t bytes_sent;
 	uint64_t bytes_received;
 	bool incoming;
+	bool verified;
 } Naui_ConnectionInfo;
 
 Naui_Net naui_net_create(const Naui_NetConfig* config);

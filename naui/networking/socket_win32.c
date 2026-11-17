@@ -60,8 +60,9 @@ void net_native_tcp_fixups(net_native handle)
 
 void net_native_apply_reuse(net_native handle, bool reuse)
 {
-	(void)handle;
 	(void)reuse;
+	BOOL exclusive = TRUE;
+	setsockopt(handle, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char*)&exclusive, sizeof(exclusive));
 }
 
 bool net_native_is_transient_accept_error(int error)
