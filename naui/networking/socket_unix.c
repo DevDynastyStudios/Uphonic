@@ -20,22 +20,22 @@ typedef struct pollfd net_pollfd;
 	#define NET_SEND_FLAGS 0
 #endif
 
-bool net_platform_init(void)
+static bool _naui_net_platform_init(void)
 {
 	return true;
 }
 
-void net_platform_shutdown(void)
+static void _naui_net_platform_shutdown(void)
 {
 
 }
 
-void net_native_close(net_native handle)
+static void _naui_net_native_close(net_native handle)
 {
 	close(handle);
 }
 
-bool net_native_set_nonblocking(net_native handle)
+static bool _naui_net_native_set_nonblocking(net_native handle)
 {
 	int flags = fcntl(handle, F_GETFL, 0);
 
@@ -53,12 +53,12 @@ bool net_native_set_nonblocking(net_native handle)
 	return true;
 }
 
-void net_native_udp_fixups(net_native handle)
+static void _naui_net_native_udp_fixups(net_native handle)
 {
 	(void)handle;
 }
 
-void net_native_tcp_fixups(net_native handle)
+static void _naui_net_native_tcp_fixups(net_native handle)
 {
 #ifdef SO_NOSIGPIPE
 	int on = 1;
@@ -68,7 +68,7 @@ void net_native_tcp_fixups(net_native handle)
 #endif
 }
 
-void net_native_apply_reuse(net_native handle, bool reuse)
+static void _naui_net_native_apply_reuse(net_native handle, bool reuse)
 {
 	if (!reuse)
 		return;
@@ -77,7 +77,7 @@ void net_native_apply_reuse(net_native handle, bool reuse)
 	setsockopt(handle, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 }
 
-bool net_native_is_transient_accept_error(int error)
+static bool _naui_net_native_is_transient_accept_error(int error)
 {
 	return error == ECONNABORTED;
 }

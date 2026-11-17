@@ -133,7 +133,7 @@ struct Naui_NetImpl
 	uint64_t now_ms;
 };
 
-static uint64_t net_now_ms(void)
+static uint64_t _naui_net_now_ms(void)
 {
 #if NAUI_WINDOWS
 
@@ -148,24 +148,24 @@ static uint64_t net_now_ms(void)
 #endif
 }
 
-static uint64_t net_random64(void)
+static uint64_t _naui_net_random64(void)
 {
 	uint64_t value = 0;
-	net_random_bytes(&value, sizeof(value));
+	_naui_net_random_bytes(&value, sizeof(value));
 	return value;
 }
 
-static size_t net_buffer_len(const NetBuffer* buffer)
+static size_t _naui_net_buffer_len(const NetBuffer* buffer)
 {
 	return buffer->size - buffer->head;
 }
 
-static uint8_t* net_buffer_ptr(NetBuffer* buffer)
+static uint8_t* _naui_net_buffer_ptr(NetBuffer* buffer)
 {
 	return buffer->data + buffer->head;
 }
 
-static void net_buffer_consume(NetBuffer* buffer, size_t size)
+static void _naui_net_buffer_consume(NetBuffer* buffer, size_t size)
 {
 	buffer->head += size;
 
@@ -176,7 +176,7 @@ static void net_buffer_consume(NetBuffer* buffer, size_t size)
 	}
 }
 
-static bool net_buffer_append(NetBuffer* buffer, const void* data, size_t size)
+static bool _naui_net_buffer_append(NetBuffer* buffer, const void* data, size_t size)
 {
 	if (size == 0)
 		return true;
@@ -217,30 +217,30 @@ static bool net_buffer_append(NetBuffer* buffer, const void* data, size_t size)
 	return true;
 }
 
-static void net_buffer_free(NetBuffer* buffer)
+static void _naui_net_buffer_free(NetBuffer* buffer)
 {
 	free(buffer->data);
 	memset(buffer, 0, sizeof(*buffer));
 }
 
-static void net_tick(Naui_Net net)
+static void _naui_net_tick(Naui_Net net)
 {
-	net->now_ms = net_now_ms();
+	net->now_ms = _naui_net_now_ms();
 }
 
-static size_t net_event_backlog(const Naui_Net net)
+static size_t _naui_net_event_backlog(const Naui_Net net)
 {
 	return (size_t)naui_list_len(net->events) - net->events_head;
 }
 
-static bool net_events_full(const Naui_Net net)
+static bool _naui_net_events_full(const Naui_Net net)
 {
 	return
-		net_event_backlog(net) >= NET_MAX_QUEUED_EVENTS ||
+		_naui_net_event_backlog(net) >= NET_MAX_QUEUED_EVENTS ||
 		net->queued_bytes >= NET_MAX_QUEUED_BYTES;
 }
 
-static void net_push_event(Naui_Net net, Naui_NetEventType type, const NetConnection* connection, Naui_DisconnectReason reason, bool reliable, const void* data, size_t size)
+static void _naui_net_push_event(Naui_Net net, Naui_NetEventType type, const NetConnection* connection, Naui_DisconnectReason reason, bool reliable, const void* data, size_t size)
 {
 	Naui_NetEvent event;
 
@@ -274,7 +274,7 @@ static void net_push_event(Naui_Net net, Naui_NetEventType type, const NetConnec
 	naui_list_push(net->events, event);
 }
 
-static Naui_Device* net_find_device(Naui_Net net, Naui_DeviceId id)
+static Naui_Device* _naui_net_find_device(Naui_Net net, Naui_DeviceId id)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->devices); i++)
 	{
@@ -285,7 +285,7 @@ static Naui_Device* net_find_device(Naui_Net net, Naui_DeviceId id)
 	return NULL;
 }
 
-static void net_device_note_endpoint(Naui_Device* device, const Naui_Address* address, Naui_Transport transport, bool incoming, uint64_t unix_now)
+static void _naui_net_device_note_endpoint(Naui_Device* device, const Naui_Address* address, Naui_Transport transport, bool incoming, uint64_t unix_now)
 {
 	Naui_DeviceEndpoint endpoint;
 	memset(&endpoint, 0, sizeof(endpoint));
@@ -321,10 +321,10 @@ static void net_device_note_endpoint(Naui_Device* device, const Naui_Address* ad
 	device->endpoints[oldest] = endpoint;
 }
 
-static Naui_Device* net_device_from_hello(Naui_Net net, const NetHello* hello, bool verified)
+static Naui_Device* _naui_net_device_from_hello(Naui_Net net, const NetHello* hello, bool verified)
 {
 	uint64_t unix_now = naui_unix_time();
-	Naui_Device* device = net_find_device(net, hello->id);
+	Naui_Device* device = _naui_net_find_device(net, hello->id);
 	if (!device)
 	{
 		device = (Naui_Device*)calloc(1, sizeof(*device));
@@ -350,9 +350,9 @@ static Naui_Device* net_device_from_hello(Naui_Net net, const NetHello* hello, b
 	return device;
 }
 
-static void net_evict_devices(Naui_Net net)
+static void _naui_net_evict_devices(Naui_Net net)
 {
-	if (net_event_backlog(net) != 0)
+	if (_naui_net_event_backlog(net) != 0)
 		return;
 
 	while ((size_t)naui_list_len(net->devices) > net->config.max_devices)
@@ -376,7 +376,7 @@ static void net_evict_devices(Naui_Net net)
 	}
 }
 
-static size_t net_hello_encode(const Naui_Device* local, uint8_t* out)
+static size_t _naui_net_hello_encode(const Naui_Device* local, uint8_t* out)
 {
 	size_t name_len = strlen(local->name);
 	if (name_len > NET_HELLO_NAME_MAX)
@@ -392,7 +392,7 @@ static size_t net_hello_encode(const Naui_Device* local, uint8_t* out)
 	return NET_HELLO_FIXED + name_len;
 }
 
-static bool net_hello_decode(const uint8_t* data, size_t size, NetHello* hello)
+static bool _naui_net_hello_decode(const uint8_t* data, size_t size, NetHello* hello)
 {
 	if (size < NET_HELLO_FIXED || data[0] != NET_HELLO_VERSION)
 		return false;
@@ -421,7 +421,7 @@ static bool net_hello_decode(const uint8_t* data, size_t size, NetHello* hello)
 	return true;
 }
 
-static NetConnection* net_new_connection(Naui_Net net, Naui_Transport transport, bool incoming, const Naui_Address* remote)
+static NetConnection* _naui_net_new_connection(Naui_Net net, Naui_Transport transport, bool incoming, const Naui_Address* remote)
 {
 	NetConnection* connection = (NetConnection*)calloc(1, sizeof(*connection));
 	if (!connection)
@@ -444,7 +444,7 @@ static NetConnection* net_new_connection(Naui_Net net, Naui_Transport transport,
 	return connection;
 }
 
-static NetConnection* net_find_connection(Naui_Net net, Naui_Connection handle)
+static NetConnection* _naui_net_find_connection(Naui_Net net, Naui_Connection handle)
 {
 	if (handle._id == 0)
 		return NULL;
@@ -461,7 +461,7 @@ static NetConnection* net_find_connection(Naui_Net net, Naui_Connection handle)
 	return NULL;
 }
 
-static size_t net_count_live(const Naui_Net net)
+static size_t _naui_net_count_live(const Naui_Net net)
 {
 	size_t count = 0;
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
@@ -472,7 +472,7 @@ static size_t net_count_live(const Naui_Net net)
 	return count;
 }
 
-static size_t net_count_pending(const Naui_Net net)
+static size_t _naui_net_count_pending(const Naui_Net net)
 {
 	size_t count = 0;
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
@@ -484,9 +484,9 @@ static size_t net_count_pending(const Naui_Net net)
 	return count;
 }
 
-static void net_quic_free(NetConnection* connection);
+static void _naui_net_quic_free(NetConnection* connection);
 
-static void net_sweep(Naui_Net net)
+static void _naui_net_sweep(Naui_Net net)
 {
 	for (ptrdiff_t i = naui_list_len(net->connections) - 1; i >= 0; --i)
 	{
@@ -494,15 +494,15 @@ static void net_sweep(Naui_Net net)
 		if (connection->phase != NET_PHASE_CLOSED)
 			continue;
 
-		net_quic_free(connection);
-		net_buffer_free(&connection->rx);
-		net_buffer_free(&connection->tx);
+		_naui_net_quic_free(connection);
+		_naui_net_buffer_free(&connection->rx);
+		_naui_net_buffer_free(&connection->tx);
 		free(connection);
 		naui_list_remove(net->connections, i);
 	}
 }
 
-static void net_poll_add(Naui_Net net, const Naui_Socket* sock, Naui_PollEvents want, NetSlotKind kind, NetConnection* connection)
+static void _naui_net_poll_add(Naui_Net net, const Naui_Socket* sock, Naui_PollEvents want, NetSlotKind kind, NetConnection* connection)
 {
 	Naui_PollItem item = { sock, want, 0 };
 	NetPollSlot slot = { kind, connection };
@@ -510,22 +510,22 @@ static void net_poll_add(Naui_Net net, const Naui_Socket* sock, Naui_PollEvents 
 	naui_list_push(net->poll_slots, slot);
 }
 
-static void net_tcp_close(NetConnection* connection, bool flush);
-static void net_udp_close(Naui_Net net, NetConnection* connection, bool notify_peer);
-static void net_quic_close(Naui_Net net, NetConnection* connection, bool notify_peer);
+static void _naui_net_tcp_close(NetConnection* connection, bool flush);
+static void _naui_net_udp_close(Naui_Net net, NetConnection* connection, bool notify_peer);
+static void _naui_net_quic_close(Naui_Net net, NetConnection* connection, bool notify_peer);
 
-static void net_close_connection(Naui_Net net, NetConnection* connection, Naui_DisconnectReason reason, bool notify_peer)
+static void _naui_net_close_connection(Naui_Net net, NetConnection* connection, Naui_DisconnectReason reason, bool notify_peer)
 {
 	if (connection->phase == NET_PHASE_CLOSED)
 		return;
 
 	bool was_established = connection->phase == NET_PHASE_ESTABLISHED;
 	if (connection->transport == NAUI_TRANSPORT_TCP)
-		net_tcp_close(connection, notify_peer);
+		_naui_net_tcp_close(connection, notify_peer);
 	else if (connection->transport == NAUI_TRANSPORT_UDP)
-		net_udp_close(net, connection, notify_peer);
+		_naui_net_udp_close(net, connection, notify_peer);
 	else
-		net_quic_close(net, connection, notify_peer);
+		_naui_net_quic_close(net, connection, notify_peer);
 
 	connection->phase = NET_PHASE_CLOSED;
 	if (connection->device && connection->device->connection_count > 0)
@@ -533,75 +533,75 @@ static void net_close_connection(Naui_Net net, NetConnection* connection, Naui_D
 
 	if (was_established)
 	{
-		net_push_event(net, NAUI_NET_EVENT_DISCONNECTED, connection, reason, false, NULL, 0);
+		_naui_net_push_event(net, NAUI_NET_EVENT_DISCONNECTED, connection, reason, false, NULL, 0);
 		return;
 	}
 
 	if (!connection->incoming)
-		net_push_event(net, NAUI_NET_EVENT_CONNECT_FAILED, connection, reason, false, NULL, 0);
+		_naui_net_push_event(net, NAUI_NET_EVENT_CONNECT_FAILED, connection, reason, false, NULL, 0);
 }
 
-static void net_complete_handshake(Naui_Net net, NetConnection* connection, const NetHello* hello)
+static void _naui_net_complete_handshake(Naui_Net net, NetConnection* connection, const NetHello* hello)
 {
-	Naui_Device* device = net_device_from_hello(net, hello, connection->verified);
+	Naui_Device* device = _naui_net_device_from_hello(net, hello, connection->verified);
 	if (!device)
 	{
-		net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, true);
+		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, true);
 		return;
 	}
 
 	connection->device = device;
 	device->connection_count++;
-	net_device_note_endpoint(device, &connection->remote, connection->transport, connection->incoming, naui_unix_time());
+	_naui_net_device_note_endpoint(device, &connection->remote, connection->transport, connection->incoming, naui_unix_time());
 
 	connection->phase = NET_PHASE_ESTABLISHED;
-	net_push_event(net, NAUI_NET_EVENT_CONNECTED, connection, NAUI_DISCONNECT_LOCAL, false, NULL, 0);
+	_naui_net_push_event(net, NAUI_NET_EVENT_CONNECTED, connection, NAUI_DISCONNECT_LOCAL, false, NULL, 0);
 }
 
-static bool net_frame_append(Naui_Net net, NetConnection* connection, NetBuffer* tx, uint8_t type, const void* payload, size_t size)
+static bool _naui_net_frame_append(Naui_Net net, NetConnection* connection, NetBuffer* tx, uint8_t type, const void* payload, size_t size)
 {
-	size_t pending = net_buffer_len(tx);
+	size_t pending = _naui_net_buffer_len(tx);
 	if (pending > net->send_buffer_limit || 5 + size > net->send_buffer_limit - pending)
 		return false;
 
 	uint8_t header[5];
-	net_put_u32(header, (uint32_t)(1 + size));
+	_naui_net_put_u32(header, (uint32_t)(1 + size));
 	header[4] = type;
-	if (!net_buffer_append(tx, header, sizeof(header)) || !net_buffer_append(tx, payload, size))
+	if (!_naui_net_buffer_append(tx, header, sizeof(header)) || !_naui_net_buffer_append(tx, payload, size))
 	{
-		net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, false);
+		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_ERROR, false);
 		return false;
 	}
 
 	return true;
 }
 
-static void net_frame_handle(Naui_Net net, NetConnection* connection, uint8_t type, const uint8_t* payload, size_t size)
+static void _naui_net_frame_handle(Naui_Net net, NetConnection* connection, uint8_t type, const uint8_t* payload, size_t size)
 {
 	switch (type)
 	{
 		case NET_FRAME_HELLO:
 		{
 			NetHello hello;
-			if (connection->phase != NET_PHASE_HANDSHAKE || !net_hello_decode(payload, size, &hello))
+			if (connection->phase != NET_PHASE_HANDSHAKE || !_naui_net_hello_decode(payload, size, &hello))
 			{
-				net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
 				return;
 			}
 
 			if (connection->verified && !naui_device_id_equal(hello.id, connection->verified_id))
 			{
-				net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, true);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, true);
 				return;
 			}
 
 			if (naui_device_id_equal(hello.id, net->local.id))
 			{
-				net_close_connection(net, connection, NAUI_DISCONNECT_SELF, true);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_SELF, true);
 				return;
 			}
 
-			net_complete_handshake(net, connection, &hello);
+			_naui_net_complete_handshake(net, connection, &hello);
 			return;
 		}
 
@@ -609,18 +609,18 @@ static void net_frame_handle(Naui_Net net, NetConnection* connection, uint8_t ty
 		{
 			if (connection->phase != NET_PHASE_ESTABLISHED)
 			{
-				net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
 				return;
 			}
 
-			net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, true, payload, size);
+			_naui_net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, true, payload, size);
 			return;
 		}
 
 		case NET_FRAME_PING:
 		{
 			if (connection->phase != NET_PHASE_ESTABLISHED)
-				net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
 
 			return;
 		}
@@ -628,41 +628,41 @@ static void net_frame_handle(Naui_Net net, NetConnection* connection, uint8_t ty
 		default:
 		{
 			if (connection->phase != NET_PHASE_ESTABLISHED)
-				net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
+				_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
 
 			return;
 		}
 	}
 }
 
-static void net_frame_parse(Naui_Net net, NetConnection* connection)
+static void _naui_net_frame_parse(Naui_Net net, NetConnection* connection)
 {
 	while (connection->phase != NET_PHASE_CLOSED)
 	{
-		if (net_events_full(net))
+		if (_naui_net_events_full(net))
 			break;
 
-		size_t available = net_buffer_len(&connection->rx);
+		size_t available = _naui_net_buffer_len(&connection->rx);
 
 		if (available < 4)
 			break;
 
-		const uint8_t* data = net_buffer_ptr(&connection->rx);
-		uint32_t length = net_get_u32(data);
+		const uint8_t* data = _naui_net_buffer_ptr(&connection->rx);
+		uint32_t length = _naui_net_get_u32(data);
 		size_t limit = connection->phase == NET_PHASE_ESTABLISHED ? (size_t)net->config.max_message_size + 1 : NET_HELLO_MAX + 1;
 		if (length < 1 || length > limit)
 		{
-			net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
+			_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, false);
 			return;
 		}
 
 		if (available - 4 < length)
 			break;
 
-		net_frame_handle(net, connection, data[4], data + 5, length - 1);
+		_naui_net_frame_handle(net, connection, data[4], data + 5, length - 1);
 		if (connection->phase == NET_PHASE_CLOSED)
 			return;
 
-		net_buffer_consume(&connection->rx, 4 + (size_t)length);
+		_naui_net_buffer_consume(&connection->rx, 4 + (size_t)length);
 	}
 }

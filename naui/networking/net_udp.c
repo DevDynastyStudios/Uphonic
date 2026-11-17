@@ -21,7 +21,7 @@ enum
 	NET_REJECT_SELF = 2,
 };
 
-static void net_udp_header(uint8_t* p, uint8_t type)
+static void _naui_net_udp_header(uint8_t* p, uint8_t type)
 {
 	p[0] = 'N';
 	p[1] = 'U';
@@ -29,7 +29,7 @@ static void net_udp_header(uint8_t* p, uint8_t type)
 	p[3] = type;
 }
 
-static void net_udp_send_raw(Naui_Net net, const Naui_Address* to, const void* data, size_t size)
+static void _naui_net_udp_send_raw(Naui_Net net, const Naui_Address* to, const void* data, size_t size)
 {
 	if (!naui_socket_is_valid(&net->udp))
 		return;
@@ -38,61 +38,61 @@ static void net_udp_send_raw(Naui_Net net, const Naui_Address* to, const void* d
 	naui_socket_sendto(&net->udp, data, size, to, &sent);
 }
 
-static void net_udp_send_session(Naui_Net net, NetConnection* connection, uint8_t type, const void* payload, size_t size)
+static void _naui_net_udp_send_session(Naui_Net net, NetConnection* connection, uint8_t type, const void* payload, size_t size)
 {
 	uint8_t packet[NET_UDP_PACKET_MAX];
 	if (NET_UDP_HEADER_SIZE + 8 + size > sizeof(packet))
 		return;
 
-	net_udp_header(packet, type);
-	net_put_u64(packet + 4, connection->session_id);
+	_naui_net_udp_header(packet, type);
+	_naui_net_put_u64(packet + 4, connection->session_id);
 
 	if (size)
 		memcpy(packet + 12, payload, size);
 
 	size_t total = 12 + size;
-	net_udp_send_raw(net, &connection->remote, packet, total);
+	_naui_net_udp_send_raw(net, &connection->remote, packet, total);
 	connection->bytes_sent += total;
 	connection->last_send_ms = net->now_ms;
 }
 
-static void net_udp_send_connect(Naui_Net net, NetConnection* connection)
+static void _naui_net_udp_send_connect(Naui_Net net, NetConnection* connection)
 {
 	uint8_t packet[NET_UDP_CONNECT_SIZE];
 	memset(packet, 0, sizeof(packet));
 
-	net_udp_header(packet, NET_UDP_CONNECT);
-	net_put_u64(packet + 4, connection->client_token);
-	net_hello_encode(&net->local, packet + 12);
-	net_udp_send_raw(net, &connection->remote, packet, sizeof(packet));
+	_naui_net_udp_header(packet, NET_UDP_CONNECT);
+	_naui_net_put_u64(packet + 4, connection->client_token);
+	_naui_net_hello_encode(&net->local, packet + 12);
+	_naui_net_udp_send_raw(net, &connection->remote, packet, sizeof(packet));
 
 	connection->last_connect_ms = net->now_ms;
 	connection->last_send_ms = net->now_ms;
 }
 
-static void net_udp_send_accept(Naui_Net net, NetConnection* connection)
+static void _naui_net_udp_send_accept(Naui_Net net, NetConnection* connection)
 {
 	uint8_t packet[NET_UDP_HEADER_SIZE + 16 + NET_HELLO_MAX];
 
-	net_udp_header(packet, NET_UDP_ACCEPT);
-	net_put_u64(packet + 4, connection->client_token);
-	net_put_u64(packet + 12, connection->session_id);
+	_naui_net_udp_header(packet, NET_UDP_ACCEPT);
+	_naui_net_put_u64(packet + 4, connection->client_token);
+	_naui_net_put_u64(packet + 12, connection->session_id);
 
-	size_t hello_size = net_hello_encode(&net->local, packet + 20);
-	net_udp_send_raw(net, &connection->remote, packet, 20 + hello_size);
+	size_t hello_size = _naui_net_hello_encode(&net->local, packet + 20);
+	_naui_net_udp_send_raw(net, &connection->remote, packet, 20 + hello_size);
 	connection->last_send_ms = net->now_ms;
 }
 
-static void net_udp_send_reject(Naui_Net net, const Naui_Address* address, uint64_t token, uint8_t reason)
+static void _naui_net_udp_send_reject(Naui_Net net, const Naui_Address* address, uint64_t token, uint8_t reason)
 {
 	uint8_t packet[13];
-	net_udp_header(packet, NET_UDP_REJECT);
-	net_put_u64(packet + 4, token);
+	_naui_net_udp_header(packet, NET_UDP_REJECT);
+	_naui_net_put_u64(packet + 4, token);
 	packet[12] = reason;
-	net_udp_send_raw(net, address, packet, sizeof(packet));
+	_naui_net_udp_send_raw(net, address, packet, sizeof(packet));
 }
 
-static NetConnection* net_udp_find_incoming(Naui_Net net, const Naui_Address* from, uint64_t token)
+static NetConnection* _naui_net_udp_find_incoming(Naui_Net net, const Naui_Address* from, uint64_t token)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -118,7 +118,7 @@ static NetConnection* net_udp_find_incoming(Naui_Net net, const Naui_Address* fr
 	return NULL;
 }
 
-static void net_udp_close_replaced(Naui_Net net, const NetConnection* replacement)
+static void _naui_net_udp_close_replaced(Naui_Net net, const NetConnection* replacement)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -127,11 +127,11 @@ static void net_udp_close_replaced(Naui_Net net, const NetConnection* replacemen
 			continue;
 
 		if (naui_address_equal(&connection->remote, &replacement->remote))
-			net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, false);
+			_naui_net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, false);
 	}
 }
 
-static NetConnection* net_udp_find_connecting(Naui_Net net, const Naui_Address* from, uint64_t token)
+static NetConnection* _naui_net_udp_find_connecting(Naui_Net net, const Naui_Address* from, uint64_t token)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -157,7 +157,7 @@ static NetConnection* net_udp_find_connecting(Naui_Net net, const Naui_Address* 
 	return NULL;
 }
 
-static NetConnection* net_udp_find_session(Naui_Net net, const Naui_Address* from, uint64_t session_id)
+static NetConnection* _naui_net_udp_find_session(Naui_Net net, const Naui_Address* from, uint64_t session_id)
 {
 	for (ptrdiff_t i = 0; i < naui_list_len(net->connections); i++)
 	{
@@ -180,7 +180,7 @@ static NetConnection* net_udp_find_session(Naui_Net net, const Naui_Address* fro
 	return NULL;
 }
 
-static void net_udp_on_connect(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
+static void _naui_net_udp_on_connect(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
 {
 	if (!net->udp_listening)
 		return;
@@ -188,65 +188,65 @@ static void net_udp_on_connect(Naui_Net net, const uint8_t* packet, size_t size,
 	if (size < NET_UDP_CONNECT_SIZE)
 		return;
 
-	uint64_t token = net_get_u64(packet + 4);
+	uint64_t token = _naui_net_get_u64(packet + 4);
 	NetHello hello;
 
 	if (token == 0)
 		return;
 
-	if (!net_hello_decode(packet + 12, size - 12, &hello))
+	if (!_naui_net_hello_decode(packet + 12, size - 12, &hello))
 		return;
 
-	NetConnection* existing = net_udp_find_incoming(net, from, token);
+	NetConnection* existing = _naui_net_udp_find_incoming(net, from, token);
 	if (existing)
 	{
 		existing->last_recv_ms = net->now_ms;
-		net_udp_send_accept(net, existing);
+		_naui_net_udp_send_accept(net, existing);
 		return;
 	}
 
 	if (naui_device_id_equal(hello.id, net->local.id))
 	{
-		net_udp_send_reject(net, from, token, NET_REJECT_SELF);
+		_naui_net_udp_send_reject(net, from, token, NET_REJECT_SELF);
 		return;
 	}
 
-	if (net_count_pending(net) >= NET_MAX_PENDING)
+	if (_naui_net_count_pending(net) >= NET_MAX_PENDING)
 		return;
 
-	if (net_count_live(net) >= net->config.max_connections)
+	if (_naui_net_count_live(net) >= net->config.max_connections)
 	{
-		net_udp_send_reject(net, from, token, NET_REJECT_FULL);
+		_naui_net_udp_send_reject(net, from, token, NET_REJECT_FULL);
 		return;
 	}
 
-	NetConnection* connection = net_new_connection(net, NAUI_TRANSPORT_UDP, true, from);
+	NetConnection* connection = _naui_net_new_connection(net, NAUI_TRANSPORT_UDP, true, from);
 	if (!connection)
 		return;
 
 	connection->phase = NET_PHASE_HANDSHAKE;
 	connection->client_token = token;
-	connection->session_id = net_random64();
+	connection->session_id = _naui_net_random64();
 	connection->pending_hello = hello;
-	net_udp_send_accept(net, connection);
+	_naui_net_udp_send_accept(net, connection);
 }
 
-static void net_udp_on_accept(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
+static void _naui_net_udp_on_accept(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
 {
 	if (size < 20 + NET_HELLO_FIXED)
 		return;
 
-	NetConnection* connection = net_udp_find_connecting(net, from, net_get_u64(packet + 4));
+	NetConnection* connection = _naui_net_udp_find_connecting(net, from, _naui_net_get_u64(packet + 4));
 	if (!connection)
 		return;
 
-	uint64_t session = net_get_u64(packet + 12);
+	uint64_t session = _naui_net_get_u64(packet + 12);
 	NetHello hello;
 
-	if (session == 0 || !net_hello_decode(packet + 20, size - 20, &hello))
+	if (session == 0 || !_naui_net_hello_decode(packet + 20, size - 20, &hello))
 	{
 		connection->session_id = session;
-		net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, session != 0);
+		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_PROTOCOL, session != 0);
 		return;
 	}
 
@@ -255,37 +255,37 @@ static void net_udp_on_accept(Naui_Net net, const uint8_t* packet, size_t size, 
 	connection->bytes_received += size;
 	if (naui_device_id_equal(hello.id, net->local.id))
 	{
-		net_close_connection(net, connection, NAUI_DISCONNECT_SELF, true);
+		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_SELF, true);
 		return;
 	}
 
-	net_complete_handshake(net, connection, &hello);
+	_naui_net_complete_handshake(net, connection, &hello);
 	if (connection->phase == NET_PHASE_ESTABLISHED)
-		net_udp_send_session(net, connection, NET_UDP_PING, NULL, 0);
+		_naui_net_udp_send_session(net, connection, NET_UDP_PING, NULL, 0);
 }
 
-static void net_udp_on_reject(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
+static void _naui_net_udp_on_reject(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
 {
 	if (size < 13)
 		return;
 
-	NetConnection* connection = net_udp_find_connecting(net, from, net_get_u64(packet + 4));
+	NetConnection* connection = _naui_net_udp_find_connecting(net, from, _naui_net_get_u64(packet + 4));
 	if (!connection)
 		return;
 
-	net_close_connection(
+	_naui_net_close_connection(
 		net,
 		connection,
 		packet[12] == NET_REJECT_SELF ? NAUI_DISCONNECT_SELF : NAUI_DISCONNECT_REJECTED,
 		false);
 }
 
-static void net_udp_on_session_packet(Naui_Net net, uint8_t type, const uint8_t* packet, size_t size, const Naui_Address* from)
+static void _naui_net_udp_on_session_packet(Naui_Net net, uint8_t type, const uint8_t* packet, size_t size, const Naui_Address* from)
 {
 	if (size < 12)
 		return;
 
-	NetConnection* connection = net_udp_find_session(net, from, net_get_u64(packet + 4));
+	NetConnection* connection = _naui_net_udp_find_session(net, from, _naui_net_get_u64(packet + 4));
 	if (!connection)
 		return;
 
@@ -294,23 +294,23 @@ static void net_udp_on_session_packet(Naui_Net net, uint8_t type, const uint8_t*
 
 	if (type == NET_UDP_BYE)
 	{
-		net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, false);
+		_naui_net_close_connection(net, connection, NAUI_DISCONNECT_REMOTE, false);
 		return;
 	}
 
 	if (connection->phase == NET_PHASE_HANDSHAKE)
 	{
-		net_udp_close_replaced(net, connection);
-		net_complete_handshake(net, connection, &connection->pending_hello);
+		_naui_net_udp_close_replaced(net, connection);
+		_naui_net_complete_handshake(net, connection, &connection->pending_hello);
 		if (connection->phase != NET_PHASE_ESTABLISHED)
 			return;
 	}
 
-	if (type == NET_UDP_DATA && size - 12 <= NAUI_UDP_MAX_MESSAGE_SIZE && !net_events_full(net))
-		net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, false, packet + 12, size - 12);
+	if (type == NET_UDP_DATA && size - 12 <= NAUI_UDP_MAX_MESSAGE_SIZE && !_naui_net_events_full(net))
+		_naui_net_push_event(net, NAUI_NET_EVENT_MESSAGE, connection, NAUI_DISCONNECT_LOCAL, false, packet + 12, size - 12);
 }
 
-static void net_udp_handle_packet(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
+static void _naui_net_udp_handle_packet(Naui_Net net, const uint8_t* packet, size_t size, const Naui_Address* from)
 {
 	if (size < NET_UDP_HEADER_SIZE)
 		return;
@@ -328,19 +328,19 @@ static void net_udp_handle_packet(Naui_Net net, const uint8_t* packet, size_t si
 	{
 		case NET_UDP_CONNECT:
 		{
-			net_udp_on_connect(net, packet, size, from);
+			_naui_net_udp_on_connect(net, packet, size, from);
 			return;
 		}
 
 		case NET_UDP_ACCEPT:
 		{
-			net_udp_on_accept(net, packet, size, from);
+			_naui_net_udp_on_accept(net, packet, size, from);
 			return;
 		}
 
 		case NET_UDP_REJECT:
 		{
-			net_udp_on_reject(net, packet, size, from);
+			_naui_net_udp_on_reject(net, packet, size, from);
 			return;
 		}
 
@@ -348,7 +348,7 @@ static void net_udp_handle_packet(Naui_Net net, const uint8_t* packet, size_t si
 		case NET_UDP_PING:
 		case NET_UDP_BYE:
 		{
-			net_udp_on_session_packet(net, packet[3], packet, size, from);
+			_naui_net_udp_on_session_packet(net, packet[3], packet, size, from);
 			return;
 		}
 
@@ -357,11 +357,11 @@ static void net_udp_handle_packet(Naui_Net net, const uint8_t* packet, size_t si
 	}
 }
 
-static void net_udp_receive(Naui_Net net)
+static void _naui_net_udp_receive(Naui_Net net)
 {
 	for (int i = 0; i < NET_UDP_MAX_PACKETS; i++)
 	{
-		if (net_events_full(net))
+		if (_naui_net_events_full(net))
 			return;
 
 		size_t size = 0;
@@ -369,11 +369,11 @@ static void net_udp_receive(Naui_Net net)
 		if (naui_socket_recvfrom(&net->udp, net->udp_rx, NET_UDP_RECV_SIZE, &size, &from) != NAUI_NET_OK)
 			return;
 
-		net_udp_handle_packet(net, net->udp_rx, size, &from);
+		_naui_net_udp_handle_packet(net, net->udp_rx, size, &from);
 	}
 }
 
-static bool net_udp_ensure_socket(Naui_Net net)
+static bool _naui_net_udp_ensure_socket(Naui_Net net)
 {
 	if (naui_socket_is_valid(&net->udp))
 		return true;
@@ -396,13 +396,13 @@ static bool net_udp_ensure_socket(Naui_Net net)
 	return false;
 }
 
-static void net_udp_close(Naui_Net net, NetConnection* connection, bool notify_peer)
+static void _naui_net_udp_close(Naui_Net net, NetConnection* connection, bool notify_peer)
 {
 	if (notify_peer && connection->session_id != 0)
-		net_udp_send_session(net, connection, NET_UDP_BYE, NULL, 0);
+		_naui_net_udp_send_session(net, connection, NET_UDP_BYE, NULL, 0);
 }
 
-static bool net_udp_listen(Naui_Net net, const Naui_Address* address)
+static bool _naui_net_udp_listen(Naui_Net net, const Naui_Address* address)
 {
 	if (naui_socket_is_valid(&net->udp))
 	{
@@ -420,39 +420,39 @@ static bool net_udp_listen(Naui_Net net, const Naui_Address* address)
 	return false;
 }
 
-static Naui_Connection net_udp_connect(Naui_Net net, const Naui_Address* address)
+static Naui_Connection _naui_net_udp_connect(Naui_Net net, const Naui_Address* address)
 {
-	if (!net_udp_ensure_socket(net))
+	if (!_naui_net_udp_ensure_socket(net))
 		return NAUI_CONNECTION_INVALID;
 
 	if (net->udp.family == NAUI_ADDRESS_IPV4 && address->family == NAUI_ADDRESS_IPV6)
 		return NAUI_CONNECTION_INVALID;
 
-	NetConnection* connection = net_new_connection(net, NAUI_TRANSPORT_UDP, false, address);
+	NetConnection* connection = _naui_net_new_connection(net, NAUI_TRANSPORT_UDP, false, address);
 	if (!connection)
 		return NAUI_CONNECTION_INVALID;
 
-	connection->client_token = net_random64();
-	net_udp_send_connect(net, connection);
+	connection->client_token = _naui_net_random64();
+	_naui_net_udp_send_connect(net, connection);
 	return (Naui_Connection){ connection->id };
 }
 
-static bool net_udp_send(Naui_Net net, NetConnection* connection, const void* data, size_t size, Naui_SendMode mode)
+static bool _naui_net_udp_send(Naui_Net net, NetConnection* connection, const void* data, size_t size, Naui_SendMode mode)
 {
 	if (mode == NAUI_SEND_RELIABLE || size > NAUI_UDP_MAX_MESSAGE_SIZE)
 		return false;
 
-	net_udp_send_session(net, connection, NET_UDP_DATA, data, size);
+	_naui_net_udp_send_session(net, connection, NET_UDP_DATA, data, size);
 	return true;
 }
 
-static void net_udp_keepalive(Naui_Net net, NetConnection* connection)
+static void _naui_net_udp_keepalive(Naui_Net net, NetConnection* connection)
 {
-	net_udp_send_session(net, connection, NET_UDP_PING, NULL, 0);
+	_naui_net_udp_send_session(net, connection, NET_UDP_PING, NULL, 0);
 }
 
-static void net_udp_collect(Naui_Net net, bool reading)
+static void _naui_net_udp_collect(Naui_Net net, bool reading)
 {
 	if (reading && naui_socket_is_valid(&net->udp))
-		net_poll_add(net, &net->udp, NAUI_POLL_READ, NET_SLOT_UDP, NULL);
+		_naui_net_poll_add(net, &net->udp, NAUI_POLL_READ, NET_SLOT_UDP, NULL);
 }
