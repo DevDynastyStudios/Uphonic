@@ -96,7 +96,7 @@ Uph_UIScrollContainer uph_ui_begin_scroll_container(Uph_UIScrollDirection direct
         else if (naui_panel_is_hovered(naui_panel_current()))
         {
             if (leaf_hovered(max_area_id) || leaf_hovered(scroll_id))
-                *out_scroll -= (float)naui_mouse_scroll_delta() * 20.0f;
+                *out_scroll += (float)naui_mouse_scroll_delta() * (vertical ? -20.0f : 20.0f);
 
             if (leaf_hovered(scroll_id))
             {
@@ -359,7 +359,7 @@ Uph_UIScrollArea uph_ui_begin_scroll_area(float *scroll_x, float *scroll_y, floa
                 target = can_y ? scroll_y : can_x ? scroll_x : NULL;
         }
         if (target)
-            *target -= (float)wheel * 20.0f;
+            *target += (float)wheel * (target == scroll_x ? 20.0f : -20.0f);
     }
 
     *scroll_x = NAUI_CLAMP(*scroll_x, 0.0f, max_scroll_x);
