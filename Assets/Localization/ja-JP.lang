@@ -363,6 +363,7 @@
 	"settings.shortcuts.unbound": "未割り当て",
 	"settings.shortcuts.clear": "クリア",
 	"settings.shortcuts.reset": "リセット",
+	"settings.shortcuts.search": "ショートカットを検索",
 	"settings.shortcuts.reset_all": "すべてリセット",
 	"settings.shortcuts.conflict": "%s と重複",
 	"settings.shortcuts.group.automation": "オートメーションエディター",

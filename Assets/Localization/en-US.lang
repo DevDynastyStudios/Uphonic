@@ -363,6 +363,7 @@
 	"settings.shortcuts.unbound": "Unbound",
 	"settings.shortcuts.clear": "Clear",
 	"settings.shortcuts.reset": "Reset",
+	"settings.shortcuts.search": "Search shortcuts",
 	"settings.shortcuts.reset_all": "Reset All",
 	"settings.shortcuts.conflict": "Also used by %s",
 	"settings.shortcuts.group.automation": "Automation Editor",

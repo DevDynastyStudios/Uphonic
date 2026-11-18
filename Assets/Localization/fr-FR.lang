@@ -304,6 +304,7 @@
 "settings.shortcuts.unbound": "Non assigné",
 "settings.shortcuts.clear": "Effacer",
 "settings.shortcuts.reset": "Réinitialiser",
+"settings.shortcuts.search": "Rechercher des raccourcis",
 "settings.shortcuts.reset_all": "Tout réinitialiser",
 "settings.shortcuts.conflict": "Aussi utilisé par %s",
 "settings.shortcuts.group.automation": "Éditeur d'automation",

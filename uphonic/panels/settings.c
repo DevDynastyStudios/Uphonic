@@ -117,6 +117,7 @@ typedef struct
 
 	const Uph_KeybindInfo *capturing_keybind;
 	float shortcuts_scroll;
+	Naui_String shortcuts_filter;
 }
 Uph_SettingsState;
 
@@ -1590,6 +1591,15 @@ static bool uph_settings_chord_button(const Uph_KeybindInfo *info, const bool ca
 	return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
 
+static bool uph_settings_keybind_matches(const Uph_SettingsState *data, const Uph_KeybindInfo *info)
+{
+	if (data->shortcuts_filter.length == 0)
+		return true;
+
+	return naui_string_contains(naui_string_from_cstr(NAUI_TR(info->label_key)), data->shortcuts_filter, false)
+		|| naui_string_contains(naui_keybind_to_string(*info->chord), data->shortcuts_filter, false);
+}
+
 static void uph_settings_page_shortcuts(Uph_SettingsState *data)
 {
 	if (data->capturing_keybind)
@@ -1608,6 +1618,14 @@ static void uph_settings_page_shortcuts(Uph_SettingsState *data)
 	const Uph_KeybindInfo *infos = uph_keybind_infos(&count);
 	bool capture_button_clicked = false;
 
+	leaf({
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+		.padding = { .right = (int32_t)NAUI_DPI(8) }
+	})
+	{
+		uph_ui_textfield(&data->shortcuts_filter, leaf_id("uph_settings_shortcuts_filter"), UPH_UI_TEXTFIELD_FLAG_SEARCH, NAUI_TR("settings.shortcuts.search"));
+	}
+
 	Uph_UIScrollContainer container = uph_ui_begin_scroll_container(
 		UPH_UI_SCROLL_DIRECTION_VERTICAL,
 		&data->shortcuts_scroll,
@@ -1625,6 +1643,9 @@ static void uph_settings_page_shortcuts(Uph_SettingsState *data)
 		for (uint32_t i = 0; i < count; i++)
 		{
 			const Uph_KeybindInfo *info = &infos[i];
+			if (!uph_settings_keybind_matches(data, info))
+				continue;
+
 			if (!group || strcmp(group, info->group_key) != 0)
 			{
 				const bool first = group == NULL;

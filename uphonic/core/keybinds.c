@@ -46,8 +46,8 @@ static const Uph_KeybindInfo uph_keybind_info_table[] =
 
 	{ "delete", "settings.shortcuts.delete", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI | UPH_KB_AUTO | UPH_KB_RL, &uph_state.settings.keybinds.delete_selected, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_DELETE) },
 	{ "select_all", "settings.shortcuts.select_all", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI, &uph_state.settings.keybinds.select_all, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_A) },
-	{ "deselect", "settings.shortcuts.deselect", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI | UPH_KB_AUTO, &uph_state.settings.keybinds.deselect, NAUI_KEYBIND_INIT(NAUI_MOD_NONE, NAUI_KEY_ESCAPE) },
-	{ "duplicate", "settings.shortcuts.duplicate", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI, &uph_state.settings.keybinds.duplicate, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_D) },
+	{ "deselect", "settings.shortcuts.deselect", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI | UPH_KB_AUTO, &uph_state.settings.keybinds.deselect, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_D) },
+	{ "duplicate", "settings.shortcuts.duplicate", UPH_KEYBIND_GROUP_EDITING, UPH_KB_TL | UPH_KB_MIDI, &uph_state.settings.keybinds.duplicate, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_B) },
 	{ "quantize", "settings.shortcuts.quantize", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.quantize, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_Q) },
 	{ "legato", "settings.shortcuts.legato", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.legato, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_L) },
 	{ "glue", "settings.shortcuts.glue", UPH_KEYBIND_GROUP_EDITING, UPH_KB_MIDI, &uph_state.settings.keybinds.glue, NAUI_KEYBIND_INIT(NAUI_MOD_PRIMARY, NAUI_KEY_G) },
