@@ -18,6 +18,7 @@ Uph_PluginInfo;
 #if NAUI_LINUX
 #include <X11/Xlibint.h>
 #include <X11/extensions/Xcomposite.h>
+#include <X11/extensions/Xdamage.h>
 #include <X11/extensions/shape.h>
 #include <X11/extensions/XShm.h>
 #include <sys/ipc.h>
@@ -307,6 +308,10 @@ typedef struct
     XImage *shm_image;
     XShmSegmentInfo shm_info;
     bool shm_supported;
+    Damage damage;
+    int damage_event;
+    bool damaged;
+    uint32_t captured_width, captured_height;
 #elif NAUI_WINDOWS
     HWND window;
     HDC dc;
@@ -3681,6 +3686,36 @@ static void uph__plugin_gui_capture_open(Uph_PluginGuiCapture *capture)
         XESetError(capture->display, codes->extension, uph__plugin_x11_swallow_error);
 
     capture->shm_supported = XShmQueryExtension(capture->display);
+    capture->damaged = true;
+
+    int damage_error;
+    if (!XDamageQueryExtension(capture->display, &capture->damage_event, &damage_error))
+        return;
+
+    capture->damage = XDamageCreate(capture->display, capture->window, XDamageReportNonEmpty);
+    XSync(capture->display, False);
+}
+
+static bool uph__plugin_gui_take_damage(Uph_PluginGuiCapture *capture, uint32_t width, uint32_t height)
+{
+    Display *display = capture->display;
+    while (XPending(display))
+    {
+        XEvent event;
+        XNextEvent(display, &event);
+        if (capture->damage && event.type == capture->damage_event + XDamageNotify)
+            capture->damaged = true;
+    }
+
+    const bool resized = width != capture->captured_width || height != capture->captured_height;
+    if (!capture->damage)
+        return true;
+    if (!capture->damaged && !resized)
+        return false;
+
+    XDamageSubtract(display, capture->damage, None, None);
+    capture->damaged = false;
+    return true;
 }
 
 static void uph__plugin_gui_shm_release(Uph_PluginGuiCapture *capture)
@@ -3742,9 +3777,13 @@ static void uph__plugin_gui_capture_close(Uph_PluginGuiCapture *capture)
     if (capture->display)
     {
         uph__plugin_gui_shm_release(capture);
+        if (capture->damage)
+            XDamageDestroy(capture->display, capture->damage);
         XCloseDisplay(capture->display);
     }
     capture->display = NULL;
+    capture->damage = 0;
+    capture->captured_width = capture->captured_height = 0;
 }
 
 static bool uph__plugin_gui_copy_image(Uph_PluginGuiFrame *frame, const XImage *image)
@@ -3760,7 +3799,7 @@ static bool uph__plugin_gui_copy_image(Uph_PluginGuiFrame *frame, const XImage *
 static bool uph__plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_PluginGuiFrame *frame)
 {
     Display *display = capture->display;
-    if (!display)
+    if (!display || !uph__plugin_gui_take_damage(capture, frame->width, frame->height))
         return false;
 
     Pixmap pixmap = XCompositeNameWindowPixmap(display, capture->window);
@@ -3792,6 +3831,14 @@ static bool uph__plugin_gui_read_pixels(Uph_PluginGuiCapture *capture, Uph_Plugi
 
     XFreePixmap(display, pixmap);
     XSync(display, False);
+
+    if (ok)
+    {
+        capture->captured_width = frame->width;
+        capture->captured_height = frame->height;
+    }
+    else
+        capture->damaged = true;
     return ok;
 }
 #elif NAUI_WINDOWS
