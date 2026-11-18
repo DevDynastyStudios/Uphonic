@@ -496,6 +496,12 @@ static void uph__song_timeline_render_automation_row(Uph_Track *track)
 
 static void uph__song_timeline_render_instrument_row(Uph_Track *track)
 {
+	if (uph_plugin_loading(&track->instrument))
+	{
+		uph_ui_tinted_spinner_full();
+		return;
+	}
+
 	const char *label = track->instrument.loaded ? track->instrument.name.data : NAUI_TR("plugin.menu.instrument");
 	if (!uph_ui_tinted_text_button_full(label, leaf_id_indexed("uph_song_timeline_instrument", (uint64_t)track)))
 		return;

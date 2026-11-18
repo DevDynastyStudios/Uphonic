@@ -35,6 +35,7 @@
 #include "panels/song_timeline/song_timeline.h"
 #include "panels/resource_list.h"
 #include "panels/plugin_editor.h"
+#include "plugins/plugin_thread.h"
 #include "panels/resource_editor/midi/midi_editor.h"
 #include "panels/sample_browser.h"
 
@@ -68,6 +69,7 @@
 
 #include "core/tempo_map.c"
 #include "plugins/plugin_manager.c"
+#include "plugins/plugin_thread.c"
 
 #include "plugins/plugin_cache.c"
 

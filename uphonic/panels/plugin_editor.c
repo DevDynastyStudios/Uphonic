@@ -16,6 +16,14 @@ typedef struct
 }
 Uph_PluginEditorDrawData;
 
+typedef struct
+{
+    bool has_keyboard;
+}
+Uph_PluginEditorState;
+
+static Uph_PluginEditorState uph__plugin_editor_state;
+
 NAUI_PANEL_WITH_DATA(uph_plugin_editor, Uph_PluginEditorData)
 
 #define UPH_PLUGIN_EDITOR_TITLEBAR_GUESS 32
@@ -81,12 +89,39 @@ static void uph__plugin_editor_track_size(Uph_PluginEditorData *data, Naui_Panel
         data->size_history_count++;
 }
 
+static void uph__plugin_editor_forward_keys(Uph_PluginEditorData *data)
+{
+    uph__plugin_editor_state.has_keyboard = true;
+
+    for (uint32_t key = 0; key < NAUI_KEY_MAX; key++)
+    {
+        if (key == NAUI_KEY_SHIFT || key == NAUI_KEY_CONTROL || key == NAUI_KEY_ALT)
+            continue;
+        if (naui_key_pressed_repeat((Naui_Key)key))
+            uph_plugin_gui_key(data->handle, (Naui_Key)key, true);
+        if (naui_key_released((Naui_Key)key))
+            uph_plugin_gui_key(data->handle, (Naui_Key)key, false);
+    }
+
+    const uint32_t codepoint = naui_app_codepoint();
+    if (codepoint)
+        uph_plugin_gui_text(data->handle, codepoint);
+}
+
 static void uph__plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
 {
     const int32_t x = naui_mouse_x() - (int32_t)floorf(body.x);
     const int32_t y = naui_mouse_y() - (int32_t)floorf(body.y);
     const bool inside = x >= 0 && y >= 0 && x < (int32_t)body.width && y < (int32_t)body.height;
     const bool hovered = inside && naui_panel_is_hovered(panel);
+
+#if NAUI_WINDOWS
+    if (naui_panel_focused() == panel || hovered)
+        uph__plugin_editor_forward_keys(data);
+#else
+    if (naui_panel_focused() == panel)
+        uph__plugin_editor_forward_keys(data);
+#endif
 
 #if NAUI_WINDOWS
     bool any_down = false;
@@ -171,6 +206,14 @@ Naui_PanelID uph_plugin_editor_create(Uph_PluginInternalHandle *handle)
     data->handle = handle;
 
     return panel;
+}
+
+bool uph_plugin_editor_take_keyboard(void)
+{
+    Uph_PluginEditorState *state = &uph__plugin_editor_state;
+    const bool has_keyboard = state->has_keyboard;
+    state->has_keyboard = false;
+    return has_keyboard;
 }
 
 void uph_plugin_editor_destroy(Naui_PanelID panel)

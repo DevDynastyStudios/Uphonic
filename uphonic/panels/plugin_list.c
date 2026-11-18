@@ -1,21 +1,9 @@
 NAUI_PANEL(uph_plugin_list)
 
-#define UPH_PLUGIN_LIST_LOAD_VISIBLE_FRAMES 3
 #define UPH_PLUGIN_LIST_TYPE_COLUMN 64
 #define UPH_PLUGIN_LIST_FORMAT_COLUMN 64
 #define UPH_PLUGIN_LIST_ROW_GAP 2
 #define UPH_PLUGIN_LIST_TARGET_DOT 8
-
-typedef struct
-{
-    Naui_Path path;
-    Naui_String name;
-    Naui_JobHandle prefetch;
-    atomic_bool prefetch_cancel;
-    uint32_t frames;
-    bool active;
-}
-Uph_PluginListLoad;
 
 typedef struct
 {
@@ -24,37 +12,12 @@ typedef struct
     Naui_String filter;
 
     int32_t current_plugin_index;
-
-    Uph_PluginListLoad load;
 }
 Uph_PluginListState;
 
 static Uph_PluginListState uph__plugin_list_state = { 0 };
 
 static bool uph_plugin_list_ensure_selection(void);
-
-static void uph_plugin_list_prefetch_job(void *data, char *err_buf, size_t err_size)
-{
-    (void)err_buf;
-    (void)err_size;
-    Uph_PluginListLoad *load = data;
-    uph_plugin_prefetch(load->path, &load->prefetch_cancel);
-}
-
-static void uph_plugin_list_cancel_load(void)
-{
-    Uph_PluginListState *state = &uph__plugin_list_state;
-    Uph_PluginListLoad *load = &state->load;
-    if (!load->active)
-        return;
-
-    atomic_store(&load->prefetch_cancel, true);
-    if (naui_job_is_valid(load->prefetch))
-        naui_job_wait(load->prefetch);
-
-    load->prefetch = NAUI_JOB_INVALID;
-    load->active = false;
-}
 
 void uph_plugin_list_on_attach(void)
 {
@@ -79,68 +42,29 @@ void uph_plugin_list_on_open(void)
 void uph_plugin_list_on_close(void)
 {
     Uph_PluginListState *state = &uph__plugin_list_state;
-    uph_plugin_list_cancel_load();
     state->filter = (Naui_String){0};
 }
 
-static void uph_plugin_list_apply_load(const Naui_Path plugin_path)
+static void uph_plugin_list_load(void)
 {
+    Uph_PluginListState *state = &uph__plugin_list_state;
+    if (!uph_plugin_list_ensure_selection())
+        return;
+
+    const Naui_Path plugin_path = state->plugin_infos[state->current_plugin_index].path;
     Uph_Track *track = uph_state.shared.current_plugin_list_track;
     if (uph_state.shared.plugin_list_target == UPH_PLUGIN_LIST_TRACK_INSTRUMENT)
     {
-        if (track->instrument.loaded)
-            uph_action_track_unload_plugin(track, &track->instrument);
-
-        track->instrument = uph_plugin_load(plugin_path, true);
+        uph_action_track_unload_plugin(track, &track->instrument);
+        track->instrument = uph_plugin_load(plugin_path, (Naui_Path){ 0 }, true);
         track->type = UPH_RESOURCE_PATTERN;
     }
     else
     {
-        Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
+        Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, (Naui_Path){ 0 }, true), .enabled = true };
         naui_list_push(track->effects, effect);
     }
     naui_panel_close(naui_panel_current());
-}
-
-// Load plugins on the main thread only plz
-static void uph_plugin_list_load(void)
-{
-    Uph_PluginListState *state = &uph__plugin_list_state;
-    Uph_PluginListLoad *load = &state->load;
-    if (load->active || !uph_plugin_list_ensure_selection())
-        return;
-
-    const Uph_PluginInfo *info = &state->plugin_infos[state->current_plugin_index];
-    load->path = info->path;
-    load->name = info->name;
-    load->frames = 0;
-    load->active = true;
-    atomic_store(&load->prefetch_cancel, false);
-
-    if (naui_job_submit(&load->prefetch, uph_plugin_list_prefetch_job, load) != NAUI_JOB_SUBMIT_OK)
-        load->prefetch = NAUI_JOB_INVALID;
-}
-
-static bool uph_plugin_list_update_load(void)
-{
-    Uph_PluginListState *state = &uph__plugin_list_state;
-    Uph_PluginListLoad *load = &state->load;
-    if (!load->active)
-        return false;
-
-    load->frames++;
-    const bool cached = !naui_job_is_valid(load->prefetch) || naui_job_is_done(load->prefetch);
-    if (load->frames < UPH_PLUGIN_LIST_LOAD_VISIBLE_FRAMES || !cached)
-        return false;
-
-    if (naui_job_is_valid(load->prefetch))
-        naui_job_release(load->prefetch);
-
-    const Naui_Path path = load->path;
-    load->prefetch = NAUI_JOB_INVALID;
-    load->active = false;
-    uph_plugin_list_apply_load(path);
-    return true;
 }
 
 static void uph_plugin_list_poll_scan(void)
@@ -208,11 +132,8 @@ static void uph_plugin_list_status(void)
     static char text[256];
     text[0] = '\0';
 
-    const Uph_PluginListLoad *load = &state->load;
     const Uph_PluginScanProgress scan = uph_plugin_scan_progress();
-    if (load->active)
-        snprintf(text, sizeof(text), "%s  %s", NAUI_TR("plugin.menu.loading"), load->name.data);
-    else if (scan.active)
+    if (scan.active)
         snprintf(text, sizeof(text), "%s  %u / %u", NAUI_TR("plugin.menu.scanning"), scan.scanned, scan.total);
 
     if (!text[0])
@@ -536,9 +457,6 @@ void uph_plugin_list_on_update(void)
 {
 	Uph_PluginListState *state = &uph__plugin_list_state;
     uph_plugin_list_poll_scan();
-
-    if (uph_plugin_list_update_load())
-        return;
 
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
 

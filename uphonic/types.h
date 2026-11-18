@@ -331,11 +331,14 @@ typedef struct
 }
 Uph_PluginParam;
 
+typedef struct Uph_PluginLoad Uph_PluginLoad;
+
 typedef struct
 {
 	Naui_Path file_path;
 	Naui_String name;
 	void *internal_handle;
+	Uph_PluginLoad *pending;
 	Uph_PluginFormat format;
 	Naui_List(Uph_PluginParam) params;
 	uint64_t last_touched_param;

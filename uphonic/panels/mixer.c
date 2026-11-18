@@ -362,7 +362,7 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 		})
 		{
 			leaf_text(effect->plugin.name.data, {
-				.color = effect->enabled ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
+				.color = effect->enabled && effect->plugin.loaded ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
 				.font_size = LEAF_SIZE_FIXED(font_size)
 			});
 		}

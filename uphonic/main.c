@@ -215,6 +215,7 @@ void naui_app_start(void)
 	uph_ui_cursors_init();
 	uph_icons_load();
 	uph_plugin_modules_init();
+	uph_plugin_thread_init();
 	naui_jobs_init(UPH_JOB_THREAD_COUNT, UPH_JOB_CAPACITY);
  
 	uph_state.panels.song_timeline = NAUI_ATTACH_PANEL(uph_song_timeline);
@@ -261,7 +262,6 @@ void naui_app_start(void)
 void naui_app_end(void)
 {
 	uph_recovery_release_lock();
-	uph_plugin_prefetch_abort();
 	uph_plugin_scan_shutdown();
 	uph_sample_browser_shutdown();
 	uph_project_flush_pending_samples(false);
@@ -279,6 +279,7 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
 	uph_resources_clear_tracks();
+	uph_plugin_thread_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Stopping MIDI Engine...");
 	cmidi_scheduler_stop_all();
@@ -291,14 +292,10 @@ static void uph_update_track(Uph_Track *track)
 {
 	uph_level_meter_smooth(track);
 
-	if (track->instrument.loaded)
-		uph_plugin_update(&track->instrument);
+	uph_plugin_update(&track->instrument);
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-	{
-		if (track->effects[i].plugin.loaded)
-			uph_plugin_update(&track->effects[i].plugin);
-	}
+		uph_plugin_update(&track->effects[i].plugin);
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 		uph_update_track(&track->subtracks[i]);
@@ -328,7 +325,7 @@ void naui_app_update(void)
 	uph_project_update_pending_samples();
 
 	uph__update_panel_titles();
-	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active());
+	naui_keybind_set_enabled(!uph_dialog_blocks_input() && !uph_ui_any_textfield_active() && !uph_plugin_editor_take_keyboard());
  
 	uph_render_update();
 	uph_render_main_titlebar();
@@ -341,6 +338,7 @@ void naui_app_update(void)
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);
+	uph_plugin_thread_frame();
  
 	const bool midi_editor_focused = naui_panel_focused() == uph_state.panels.resource_editor
 		&& uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN

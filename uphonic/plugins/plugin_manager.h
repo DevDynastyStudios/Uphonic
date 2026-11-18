@@ -5,7 +5,12 @@ bool uph_plugin_format_from_path(
 
 Uph_Plugin uph_plugin_load(
 	Naui_Path path,
+	Naui_Path state_path,
 	bool show_window
+);
+
+bool uph_plugin_loading(
+	const Uph_Plugin *plugin
 );
 
 void uph_plugin_show_window(
@@ -27,10 +32,5 @@ uint8_t uph_plugin_cc_value(
 
 bool uph_plugin_save_state(
 	const Uph_Plugin *plug,
-	const Naui_Path path
-);
-
-bool uph_plugin_load_state(
-	Uph_Plugin *plug,
 	const Naui_Path path
 );
