@@ -2,6 +2,7 @@
 #define NAUI_RENDERER_INITIAL_INDICES  (NAUI_RENDERER_INITIAL_VERTICES * 6 / 4)
 
 #define NAUI_RENDERER_CORNER_SEGMENTS 4
+#define NAUI_RENDERER_CORNER_TOLERANCE 0.25f
 
 #define NAUI_FONT_MAX_RANGES        64
 #define NAUI_FONT_MAX_SOURCES       4
@@ -182,8 +183,9 @@ typedef struct
 
     float opacity;
 
-    float corner_cos[NAUI_RENDERER_CORNER_SEGMENTS + 1];
-    float corner_sin[NAUI_RENDERER_CORNER_SEGMENTS + 1];
+    float corner_cos[NAUI_RENDERER_CORNER_SEGMENTS + 1][NAUI_RENDERER_CORNER_SEGMENTS + 1];
+    float corner_sin[NAUI_RENDERER_CORNER_SEGMENTS + 1][NAUI_RENDERER_CORNER_SEGMENTS + 1];
+    float corner_max_radius[NAUI_RENDERER_CORNER_SEGMENTS + 1];
 }
 Naui_RendererState;
 
@@ -192,6 +194,14 @@ static Naui_RendererState *naui__renderer_state;
 static inline float naui__min(float a, float b)
 {
     return a < b ? a : b;
+}
+
+static inline int naui__corner_segments(float r)
+{
+    int segments = 1;
+    while (segments < NAUI_RENDERER_CORNER_SEGMENTS && r > naui__renderer_state->corner_max_radius[segments])
+        segments++;
+    return segments;
 }
 
 void naui_set_opacity(float opacity)
@@ -639,10 +649,13 @@ static void naui__push_gradient_rect(Naui_Vec2 tl, Naui_Vec2 br, const Naui_Grad
 
 static void naui__push_corner_fan(Naui_Vec2 center, float r, float ax, float ay, uint32_t color)
 {
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
-        Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
+        Naui_Vec2 p0 = { center.x + ax * corner_cos[s]     * r, center.y + ay * corner_sin[s]     * r };
+        Naui_Vec2 p1 = { center.x + ax * corner_cos[s + 1] * r, center.y + ay * corner_sin[s + 1] * r };
         naui__push_triangle(center, p0, p1, color);
     }
 }
@@ -650,10 +663,13 @@ static void naui__push_corner_fan(Naui_Vec2 center, float r, float ax, float ay,
 static void naui__push_gradient_corner_fan(Naui_Vec2 center, float r, float ax, float ay,
     const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
-        Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
+        Naui_Vec2 p0 = { center.x + ax * corner_cos[s]     * r, center.y + ay * corner_sin[s]     * r };
+        Naui_Vec2 p1 = { center.x + ax * corner_cos[s + 1] * r, center.y + ay * corner_sin[s + 1] * r };
         Naui_Vec2 tri[3] = { center, p0, p1 };
         naui__push_gradient_convex(tri, 3, g, axis);
     }
@@ -661,10 +677,13 @@ static void naui__push_gradient_corner_fan(Naui_Vec2 center, float r, float ax, 
 
 static void naui__push_corner_ring(Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
 {
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(outer_r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        float cx = naui__renderer_state->corner_cos[s],     cy = naui__renderer_state->corner_sin[s];
-        float nx = naui__renderer_state->corner_cos[s + 1], ny = naui__renderer_state->corner_sin[s + 1];
+        float cx = corner_cos[s],     cy = corner_sin[s];
+        float nx = corner_cos[s + 1], ny = corner_sin[s + 1];
 
         Naui_Vec2 o0 = { center.x + ax * cx * outer_r, center.y + ay * cy * outer_r };
         Naui_Vec2 o1 = { center.x + ax * nx * outer_r, center.y + ay * ny * outer_r };
@@ -701,11 +720,15 @@ void naui_renderer_initialize(void)
         .vsync = true
     });
 
-    for (int i = 0; i <= NAUI_RENDERER_CORNER_SEGMENTS; i++)
+    for (int n = 1; n <= NAUI_RENDERER_CORNER_SEGMENTS; n++)
     {
-        float a = (float)(M_PI * 0.5) * i / NAUI_RENDERER_CORNER_SEGMENTS;
-        naui__renderer_state->corner_cos[i] = cosf(a);
-        naui__renderer_state->corner_sin[i] = sinf(a);
+        for (int i = 0; i <= n; i++)
+        {
+            float a = (float)(M_PI * 0.5) * i / n;
+            naui__renderer_state->corner_cos[n][i] = cosf(a);
+            naui__renderer_state->corner_sin[n][i] = sinf(a);
+        }
+        naui__renderer_state->corner_max_radius[n] = NAUI_RENDERER_CORNER_TOLERANCE / (1.0f - cosf((float)M_PI * 0.25f / n));
     }
 
     naui__renderer_state->vertex_capacity = NAUI_RENDERER_INITIAL_VERTICES;
@@ -1723,10 +1746,13 @@ void naui_draw_gradient_rect(Naui_Vec2 position, Naui_Vec2 scale, Naui_Gradient 
     if (side_left)   naui__push_gradient_rect((Naui_Vec2){x0-lw, y0 + (tl ? r : 0)}, (Naui_Vec2){x0, y1 - (bl ? r : 0)}, &gradient, &axis);
     if (side_right)  naui__push_gradient_rect((Naui_Vec2){x1,    y0 + (tr ? r : 0)}, (Naui_Vec2){x1+lw, y1 - (br ? r : 0)}, &gradient, &axis);
 
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(outer_r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        float cx = naui__renderer_state->corner_cos[s],     cy = naui__renderer_state->corner_sin[s];
-        float nx = naui__renderer_state->corner_cos[s + 1], ny = naui__renderer_state->corner_sin[s + 1];
+        float cx = corner_cos[s],     cy = corner_sin[s];
+        float nx = corner_cos[s + 1], ny = corner_sin[s + 1];
 
         float ax_vals[4] = { -1, +1, +1, -1 };
         float ay_vals[4] = { -1, -1, +1, +1 };
@@ -1941,13 +1967,17 @@ static void naui__push_textured_corner_fan(
     Naui_Vec2 img_tl, Naui_Vec2 img_size,
     uint32_t color)
 {
-    if (!naui__renderer_reserve(NAUI_RENDERER_CORNER_SEGMENTS * 3, NAUI_RENDERER_CORNER_SEGMENTS * 3))
+    int segments = naui__corner_segments(r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+
+    if (!naui__renderer_reserve(segments * 3, segments * 3))
         return;
 
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    for (int s = 0; s < segments; s++)
     {
-        float cx0 = ax * naui__renderer_state->corner_cos[s],     cy0 = ay * naui__renderer_state->corner_sin[s];
-        float cx1 = ax * naui__renderer_state->corner_cos[s + 1], cy1 = ay * naui__renderer_state->corner_sin[s + 1];
+        float cx0 = ax * corner_cos[s],     cy0 = ay * corner_sin[s];
+        float cx1 = ax * corner_cos[s + 1], cy1 = ay * corner_sin[s + 1];
 
         Naui_Vec2 p0 = { center.x + cx0 * r, center.y + cy0 * r };
         Naui_Vec2 p1 = { center.x + cx1 * r, center.y + cy1 * r };
@@ -2191,10 +2221,13 @@ static void naui__push_textured_gradient_corner_fan(
     Naui_Vec2 img_tl, Naui_Vec2 img_size,
     const Naui_Gradient *g, const Naui_GradientAxis *axis)
 {
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        float cx0 = ax * naui__renderer_state->corner_cos[s],     cy0 = ay * naui__renderer_state->corner_sin[s];
-        float cx1 = ax * naui__renderer_state->corner_cos[s + 1], cy1 = ay * naui__renderer_state->corner_sin[s + 1];
+        float cx0 = ax * corner_cos[s],     cy0 = ay * corner_sin[s];
+        float cx1 = ax * corner_cos[s + 1], cy1 = ay * corner_sin[s + 1];
 
         Naui_Vec2 p0 = { center.x + cx0 * r, center.y + cy0 * r };
         Naui_Vec2 p1 = { center.x + cx1 * r, center.y + cy1 * r };
@@ -2335,10 +2368,13 @@ void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_radius, Na
         float cx = fan[f].cx, cy = fan[f].cy;
         float ax = fan[f].ax, ay = fan[f].ay;
 
-        for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+        int segments = naui__corner_segments(r + br);
+        const float *corner_cos = naui__renderer_state->corner_cos[segments];
+        const float *corner_sin = naui__renderer_state->corner_sin[segments];
+        for (int s = 0; s < segments; s++)
         {
-            float c0 = naui__renderer_state->corner_cos[s], s0 = naui__renderer_state->corner_sin[s];
-            float c1 = naui__renderer_state->corner_cos[s + 1], s1 = naui__renderer_state->corner_sin[s + 1];
+            float c0 = corner_cos[s], s0 = corner_sin[s];
+            float c1 = corner_cos[s + 1], s1 = corner_sin[s + 1];
 
             Naui_Vec2 i0 = { cx + ax * c0 * r, cy + ay * s0 * r };
             Naui_Vec2 i1 = { cx + ax * c1 * r, cy + ay * s1 * r };
@@ -2383,10 +2419,13 @@ static void naui__push_quad4_xform(const Naui_Mat4x4 *m, Naui_Vec2 a, Naui_Vec2 
 
 static void naui__push_corner_ring_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, float inner_r, float outer_r, float ax, float ay, uint32_t color)
 {
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(outer_r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        float cx = naui__renderer_state->corner_cos[s],     cy = naui__renderer_state->corner_sin[s];
-        float nx = naui__renderer_state->corner_cos[s + 1], ny = naui__renderer_state->corner_sin[s + 1];
+        float cx = corner_cos[s],     cy = corner_sin[s];
+        float nx = corner_cos[s + 1], ny = corner_sin[s + 1];
 
         Naui_Vec2 o0 = { center.x + ax * cx * outer_r, center.y + ay * cy * outer_r };
         Naui_Vec2 o1 = { center.x + ax * nx * outer_r, center.y + ay * ny * outer_r };
@@ -2462,10 +2501,13 @@ static void naui__push_corner_fan_xform(const Naui_Mat4x4 *m, Naui_Vec2 center, 
 {
     Naui_Vec2 xcenter = naui_mat4x4_transform_point2(*m, center);
 
-    for (int s = 0; s < NAUI_RENDERER_CORNER_SEGMENTS; s++)
+    int segments = naui__corner_segments(r);
+    const float *corner_cos = naui__renderer_state->corner_cos[segments];
+    const float *corner_sin = naui__renderer_state->corner_sin[segments];
+    for (int s = 0; s < segments; s++)
     {
-        Naui_Vec2 p0 = { center.x + ax * naui__renderer_state->corner_cos[s]     * r, center.y + ay * naui__renderer_state->corner_sin[s]     * r };
-        Naui_Vec2 p1 = { center.x + ax * naui__renderer_state->corner_cos[s + 1] * r, center.y + ay * naui__renderer_state->corner_sin[s + 1] * r };
+        Naui_Vec2 p0 = { center.x + ax * corner_cos[s]     * r, center.y + ay * corner_sin[s]     * r };
+        Naui_Vec2 p1 = { center.x + ax * corner_cos[s + 1] * r, center.y + ay * corner_sin[s + 1] * r };
 
         naui__push_triangle(
             xcenter,
