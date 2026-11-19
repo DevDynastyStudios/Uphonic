@@ -195,17 +195,11 @@ int32_t naui_mouse_y(void)
 
 typedef struct
 {
-    bool dragging[MG_MOUSE_BUTTON_MAX];
     int32_t drag_start_x[MG_MOUSE_BUTTON_MAX];
     int32_t drag_start_y[MG_MOUSE_BUTTON_MAX];
     Naui_Cursor current_cursor;
-    struct
-    {
-        const char *image;
-        Naui_Vec2 hotspot;
-        float size;
-    }
-    cursor_images[NAUI_CURSOR_CAPACITY];
+    mg_cursor native_cursors[NAUI_CURSOR_CAPACITY];
+    bool dragging[MG_MOUSE_BUTTON_MAX];
 }
 Naui_GlobalInputState;
 static Naui_GlobalInputState naui__input_state;
@@ -216,34 +210,21 @@ void naui_set_cursor(Naui_Cursor cursor)
         naui__input_state.current_cursor = cursor;
 }
 
-void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot, float size)
+void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot)
 {
+    Naui_GlobalInputState *state = &naui__input_state;
     if (cursor >= NAUI_CURSOR_CAPACITY)
         return;
 
-    naui__input_state.cursor_images[cursor].image = image;
-    naui__input_state.cursor_images[cursor].hotspot = hotspot;
-    naui__input_state.cursor_images[cursor].size = size;
-}
-
-void naui_cursor_render(void)
-{
-    Naui_GlobalInputState *state = &naui__input_state;
-    const char *name = state->cursor_images[state->current_cursor].image;
-    if (!name || !mgapp_mouse_inside())
+    const Naui_Path path = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Cursors", image));
+    int32_t width, height, channels;
+    uint8_t *pixels = stbi_load(path.data, &width, &height, &channels, 4);
+    if (!pixels)
         return;
 
-    const Naui_Image *image = naui_asset_image(name);
-    if (!image)
-        return;
-
-    const Naui_Vec2 hotspot = state->cursor_images[state->current_cursor].hotspot;
-    const float size = (float)NAUI_DPI(state->cursor_images[state->current_cursor].size);
-    const Naui_Vec2 position = {
-        floorf((float)mgapp_mouse_x() - hotspot.x * size),
-        floorf((float)mgapp_mouse_y() - hotspot.y * size)
-    };
-    naui_draw_image(image, position, (Naui_Vec2){ size, size }, (Naui_Color){ 255, 255, 255, 255 }, 0.0f, NAUI_CORNER_NONE);
+    mgapp_destroy_cursor(state->native_cursors[cursor]);
+    state->native_cursors[cursor] = mgapp_create_cursor(pixels, width, height, (int32_t)(hotspot.x * (float)width), (int32_t)(hotspot.y * (float)height));
+    stbi_image_free(pixels);
 }
 
 void naui_input_update(void)
@@ -271,14 +252,14 @@ void naui_input_update(void)
         }
     }
 
-    Naui_Cursor cursor = naui__input_state.current_cursor;
-    if (naui__input_state.cursor_images[cursor].image)
-        cursor = mgapp_mouse_inside() ? NAUI_CURSOR_HIDDEN : NAUI_CURSOR_ARROW;
-    else if (cursor >= NAUI_CURSOR_MAX)
-        cursor = NAUI_CURSOR_ARROW;
+    Naui_GlobalInputState *state = &naui__input_state;
+    const Naui_Cursor cursor = state->current_cursor;
+    mg_cursor native = cursor < NAUI_CURSOR_MAX ? (mg_cursor)cursor : MG_CURSOR_ARROW;
+    if (state->native_cursors[cursor])
+        native = state->native_cursors[cursor];
 
-    mgapp_set_cursor((mg_cursor)cursor);
-    naui__input_state.current_cursor = NAUI_CURSOR_ARROW;
+    mgapp_set_cursor(native);
+    state->current_cursor = NAUI_CURSOR_ARROW;
 }
 
 bool naui_mouse_dragging(Naui_MouseButton button)

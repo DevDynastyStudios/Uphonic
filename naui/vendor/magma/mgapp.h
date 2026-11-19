@@ -287,6 +287,10 @@ mgapp_init_info;
     #define MGAPP_IME_MAX_CLAUSES 32
 #endif
 
+#ifndef MGAPP_CURSOR_CAPACITY
+    #define MGAPP_CURSOR_CAPACITY 32
+#endif
+
 MGAPP_API int32_t mgapp_run(const mgapp_init_info *info);
 MGAPP_API void mgapp_close(void);
 MGAPP_API void mgapp_cancel_close(void);
@@ -304,6 +308,8 @@ MGAPP_API int32_t mgapp_width(void);
 MGAPP_API int32_t mgapp_height(void);
 
 MGAPP_API void mgapp_set_cursor(mg_cursor cursor);
+MGAPP_API mg_cursor mgapp_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y);
+MGAPP_API void mgapp_destroy_cursor(mg_cursor cursor);
 
 MGAPP_API bool mgapp_key_down(mg_key key);
 MGAPP_API bool mgapp_key_pressed(mg_key key);
@@ -500,7 +506,7 @@ typedef struct
 
     WNDPROC original_proc;
 
-    HCURSOR cursor_table[MG_CURSOR_MAX];
+    HCURSOR cursor_table[MGAPP_CURSOR_CAPACITY];
     bool tracking_mouse;
 
     HIMC ime_himc;
@@ -518,6 +524,7 @@ mgapp_win32_state;
 #include <X11/Xutil.h>
 #include <X11/keysym.h>
 #include <X11/cursorfont.h>
+#include <X11/Xcursor/Xcursor.h>
 
 #include <limits.h>
 #include <locale.h>
@@ -568,7 +575,7 @@ typedef struct
     char *clipboard_owned;
     size_t clipboard_owned_len;
 
-    Cursor cursor_table[MG_CURSOR_MAX];
+    Cursor cursor_table[MGAPP_CURSOR_CAPACITY];
 
     long event_mask;
     bool focused;
@@ -616,6 +623,8 @@ typedef struct
     void (*show)(bool);
     void (*close)(void);
     void (*set_cursor)(mg_cursor);
+    mg_cursor (*create_cursor)(const uint8_t*, int32_t, int32_t, int32_t, int32_t);
+    void (*destroy_cursor)(mg_cursor);
     void (*set_clipboard)(const char*);
     const char *(*get_clipboard)(void);
     void (*ime_set_mode)(mgapp_ime_mode);
@@ -682,7 +691,7 @@ typedef struct
     CAMetalLayer *layer;
     id delegate;
 
-    NSCursor *cursor_table[MG_CURSOR_MAX];
+    NSCursor *cursor_table[MGAPP_CURSOR_CAPACITY];
     bool cursor_hidden;
 
     struct
@@ -1803,6 +1812,17 @@ void mgapp_set_cursor(mg_cursor cursor)
     mgapp_state.current_cursor = cursor;
 }
 
+mg_cursor mgapp_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+    (void)rgba; (void)width; (void)height; (void)hotspot_x; (void)hotspot_y;
+    return MG_CURSOR_ARROW;
+}
+
+void mgapp_destroy_cursor(mg_cursor cursor)
+{
+    (void)cursor;
+}
+
 void mgapp_set_clipboard(const char *text)
 {
     if (!text)
@@ -2643,6 +2663,12 @@ int32_t mgapp_run(const mgapp_init_info *info)
     if (info->events.end)
         info->events.end();
 
+    for (int32_t i = MG_CURSOR_MAX; i < MGAPP_CURSOR_CAPACITY; ++i)
+    {
+        if (win32_state->cursor_table[i])
+            DestroyCursor(win32_state->cursor_table[i]);
+    }
+
     DestroyWindow(win32_state->hwnd);
     UnregisterClassW(class_name, win32_state->hinstance);
     return 0;
@@ -2684,6 +2710,77 @@ void mgapp_set_cursor(mg_cursor cursor)
         return;
     SetCursor(mgapp_state.win32.cursor_table[cursor]);
     mgapp_state.current_cursor = cursor;
+}
+
+mg_cursor mgapp_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+    mgapp_win32_state *win32_state = &mgapp_state.win32;
+
+    mg_cursor cursor = MG_CURSOR_MAX;
+    while (cursor < MGAPP_CURSOR_CAPACITY && win32_state->cursor_table[cursor])
+        ++cursor;
+    if (cursor >= MGAPP_CURSOR_CAPACITY || !rgba || width <= 0 || height <= 0)
+        return MG_CURSOR_ARROW;
+
+    BITMAPV5HEADER header = { 0 };
+    header.bV5Size = sizeof(header);
+    header.bV5Width = width;
+    header.bV5Height = -height;
+    header.bV5Planes = 1;
+    header.bV5BitCount = 32;
+    header.bV5Compression = BI_BITFIELDS;
+    header.bV5RedMask = 0x00ff0000;
+    header.bV5GreenMask = 0x0000ff00;
+    header.bV5BlueMask = 0x000000ff;
+    header.bV5AlphaMask = 0xff000000;
+
+    uint8_t *bits = NULL;
+    HDC dc = GetDC(NULL);
+    HBITMAP color = CreateDIBSection(dc, (BITMAPINFO*)&header, DIB_RGB_COLORS, (void**)&bits, NULL, 0);
+    ReleaseDC(NULL, dc);
+    HBITMAP mask = CreateBitmap(width, height, 1, 1, NULL);
+
+    HCURSOR handle = NULL;
+    if (color && mask)
+    {
+        for (int32_t i = 0; i < width * height; ++i)
+        {
+            bits[i * 4 + 0] = rgba[i * 4 + 2];
+            bits[i * 4 + 1] = rgba[i * 4 + 1];
+            bits[i * 4 + 2] = rgba[i * 4 + 0];
+            bits[i * 4 + 3] = rgba[i * 4 + 3];
+        }
+
+        ICONINFO info = { 0 };
+        info.fIcon = FALSE;
+        info.xHotspot = (DWORD)hotspot_x;
+        info.yHotspot = (DWORD)hotspot_y;
+        info.hbmMask = mask;
+        info.hbmColor = color;
+        handle = (HCURSOR)CreateIconIndirect(&info);
+    }
+
+    if (color)
+        DeleteObject(color);
+    if (mask)
+        DeleteObject(mask);
+    if (!handle)
+        return MG_CURSOR_ARROW;
+
+    win32_state->cursor_table[cursor] = handle;
+    return cursor;
+}
+
+void mgapp_destroy_cursor(mg_cursor cursor)
+{
+    mgapp_win32_state *win32_state = &mgapp_state.win32;
+    if (cursor < MG_CURSOR_MAX || cursor >= MGAPP_CURSOR_CAPACITY || !win32_state->cursor_table[cursor])
+        return;
+
+    if (mgapp_state.current_cursor == cursor)
+        mgapp_set_cursor(MG_CURSOR_ARROW);
+    DestroyCursor(win32_state->cursor_table[cursor]);
+    win32_state->cursor_table[cursor] = NULL;
 }
 
 void mgapp_set_clipboard(const char *text)
@@ -4034,6 +4131,48 @@ void mgapp_xlib_set_cursor(mg_cursor cursor)
     XFlush(xlib_state->display);
 }
 
+mg_cursor mgapp_xlib_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+
+    mg_cursor cursor = MG_CURSOR_MAX;
+    while (cursor < MGAPP_CURSOR_CAPACITY && xlib_state->cursor_table[cursor])
+        ++cursor;
+    if (cursor >= MGAPP_CURSOR_CAPACITY || !xlib_state->display || !rgba || width <= 0 || height <= 0)
+        return MG_CURSOR_ARROW;
+
+    XcursorImage *image = XcursorImageCreate(width, height);
+    if (!image)
+        return MG_CURSOR_ARROW;
+
+    image->xhot = (XcursorDim)hotspot_x;
+    image->yhot = (XcursorDim)hotspot_y;
+    for (int32_t i = 0; i < width * height; ++i)
+    {
+        const uint32_t a = rgba[i * 4 + 3];
+        const uint32_t r = (rgba[i * 4 + 0] * a + 127) / 255;
+        const uint32_t g = (rgba[i * 4 + 1] * a + 127) / 255;
+        const uint32_t b = (rgba[i * 4 + 2] * a + 127) / 255;
+        image->pixels[i] = (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    xlib_state->cursor_table[cursor] = XcursorImageLoadCursor(xlib_state->display, image);
+    XcursorImageDestroy(image);
+    return xlib_state->cursor_table[cursor] ? cursor : MG_CURSOR_ARROW;
+}
+
+void mgapp_xlib_destroy_cursor(mg_cursor cursor)
+{
+    mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
+    if (cursor < MG_CURSOR_MAX || cursor >= MGAPP_CURSOR_CAPACITY || !xlib_state->cursor_table[cursor])
+        return;
+
+    if (mgapp_state.current_cursor == cursor)
+        mgapp_set_cursor(MG_CURSOR_ARROW);
+    XFreeCursor(xlib_state->display, xlib_state->cursor_table[cursor]);
+    xlib_state->cursor_table[cursor] = 0;
+}
+
 void mgapp_xlib_set_clipboard(const char *text)
 {
     mgapp_xlib_state *xlib_state = &mgapp_state._linux.xlib;
@@ -4151,6 +4290,8 @@ int32_t mgapp_run(const mgapp_init_info *info)
         state->show = mgapp_xlib_show;
         state->close = mgapp_xlib_close;
         state->set_cursor = mgapp_xlib_set_cursor;
+        state->create_cursor = mgapp_xlib_create_cursor;
+        state->destroy_cursor = mgapp_xlib_destroy_cursor;
         state->set_clipboard = mgapp_xlib_set_clipboard;
         state->get_clipboard = mgapp_xlib_get_clipboard;
         state->ime_set_mode = mgapp_xlib_ime_set_mode;
@@ -4204,6 +4345,19 @@ void mgapp_set_cursor(mg_cursor cursor)
         return;
     mgapp_state._linux.set_cursor(cursor);
     mgapp_state.current_cursor = cursor;
+}
+
+mg_cursor mgapp_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+    if (!mgapp_state._linux.create_cursor)
+        return MG_CURSOR_ARROW;
+    return mgapp_state._linux.create_cursor(rgba, width, height, hotspot_x, hotspot_y);
+}
+
+void mgapp_destroy_cursor(mg_cursor cursor)
+{
+    if (mgapp_state._linux.destroy_cursor)
+        mgapp_state._linux.destroy_cursor(cursor);
 }
 
 void mgapp_set_clipboard(const char *text)
@@ -5369,7 +5523,7 @@ int32_t mgapp_run(const mgapp_init_info *info)
         [NSApp setDelegate:nil];
         [macos_state->delegate release];
 
-        for (int32_t i = 0; i < MG_CURSOR_MAX; ++i)
+        for (int32_t i = 0; i < MGAPP_CURSOR_CAPACITY; ++i)
             [macos_state->cursor_table[i] release];
 
         macos_state->layer = nil;
@@ -5451,6 +5605,57 @@ void mgapp_set_cursor(mg_cursor cursor)
     mgapp_state.current_cursor = cursor;
     if (mgapp_state.input.mouse.inside)
         mgapp_macos_apply_cursor(cursor);
+}
+
+mg_cursor mgapp_create_cursor(const uint8_t *rgba, int32_t width, int32_t height, int32_t hotspot_x, int32_t hotspot_y)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+
+    mg_cursor cursor = MG_CURSOR_MAX;
+    while (cursor < MGAPP_CURSOR_CAPACITY && macos_state->cursor_table[cursor])
+        ++cursor;
+    if (cursor >= MGAPP_CURSOR_CAPACITY || !rgba || width <= 0 || height <= 0)
+        return MG_CURSOR_ARROW;
+
+    @autoreleasepool
+    {
+        NSBitmapImageRep *rep = [[NSBitmapImageRep alloc]
+            initWithBitmapDataPlanes:NULL
+            pixelsWide:width
+            pixelsHigh:height
+            bitsPerSample:8
+            samplesPerPixel:4
+            hasAlpha:YES
+            isPlanar:NO
+            colorSpaceName:NSDeviceRGBColorSpace
+            bitmapFormat:NSBitmapFormatAlphaNonpremultiplied
+            bytesPerRow:width * 4
+            bitsPerPixel:32];
+        if (!rep)
+            return MG_CURSOR_ARROW;
+        memcpy([rep bitmapData], rgba, (size_t)width * (size_t)height * 4);
+
+        const CGFloat scale = mgapp_state.dpi_scale > 0.0f ? (CGFloat)mgapp_state.dpi_scale : 1.0;
+        NSImage *image = [[NSImage alloc] initWithSize:NSMakeSize((CGFloat)width / scale, (CGFloat)height / scale)];
+        [image addRepresentation:rep];
+        macos_state->cursor_table[cursor] = [[NSCursor alloc] initWithImage:image hotSpot:NSMakePoint((CGFloat)hotspot_x / scale, (CGFloat)hotspot_y / scale)];
+        [image release];
+        [rep release];
+    }
+
+    return macos_state->cursor_table[cursor] ? cursor : MG_CURSOR_ARROW;
+}
+
+void mgapp_destroy_cursor(mg_cursor cursor)
+{
+    mgapp_macos_state *macos_state = &mgapp_state.macos;
+    if (cursor < MG_CURSOR_MAX || cursor >= MGAPP_CURSOR_CAPACITY || !macos_state->cursor_table[cursor])
+        return;
+
+    if (mgapp_state.current_cursor == cursor)
+        mgapp_set_cursor(MG_CURSOR_ARROW);
+    [macos_state->cursor_table[cursor] release];
+    macos_state->cursor_table[cursor] = nil;
 }
 
 void mgapp_set_clipboard(const char *text)

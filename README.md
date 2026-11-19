@@ -47,25 +47,25 @@ Install the required packages for your distribution.
 
 ```bash
 sudo apt update
-sudo apt install clang lua5.4 libx11-dev libegl-dev xwayland
+sudo apt install clang lua5.4 libx11-dev libxcursor-dev libegl-dev xwayland
 ```
 
 #### Fedora
 
 ```bash
-sudo dnf install clang lua libX11-devel mesa-libEGL-devel xorg-x11-server-Xwayland
+sudo dnf install clang lua libX11-devel libXcursor-devel mesa-libEGL-devel xorg-x11-server-Xwayland
 ```
 
 #### Arch Linux
 
 ```bash
-sudo pacman -S clang lua libx11 libegl xorg-xwayland
+sudo pacman -S clang lua libx11 libxcursor libegl xorg-xwayland
 ```
 
 #### openSUSE
 
 ```bash
-sudo zypper install clang lua54 libX11-devel Mesa-libEGL-devel xwayland
+sudo zypper install clang lua54 libX11-devel libXcursor-devel Mesa-libEGL-devel xwayland
 ```
 > [!IMPORTANT]
 >`xwayland` is only required if you're running a Wayland session.

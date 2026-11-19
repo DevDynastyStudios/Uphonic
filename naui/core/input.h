@@ -244,7 +244,7 @@ NAUI_API int32_t naui_mouse_x(void);
 NAUI_API int32_t naui_mouse_y(void);
 NAUI_API bool naui_mouse_dragging(Naui_MouseButton button);
 NAUI_API void naui_set_cursor(Naui_Cursor cursor);
-NAUI_API void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot, float size);
+NAUI_API void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot);
 
 static inline bool naui_any_mouse_pressed(void)
 {
