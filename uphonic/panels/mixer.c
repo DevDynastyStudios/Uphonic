@@ -91,7 +91,8 @@ static Uph_MixerState uph__mixer_state = { 0 };
 #define UPH_MIXER_EFFECT_INSET		4
 #define UPH_MIXER_EFFECT_ROW_PAD	4
 #define UPH_MIXER_EFFECT_ROW_GAP	4
-#define UPH_MIXER_EFFECT_ROW_HEIGHT 28
+#define UPH_MIXER_EFFECT_ROW_HEIGHT 34
+#define UPH_MIXER_EFFECT_LIST_GAP	4
 #define UPH_MIXER_METER_MIN_HEIGHT	60
 #define UPH_MIXER_METER_SCROLL_HEIGHT 100
 #define UPH_MIXER_EFFECT_LED_HIT	18
@@ -144,11 +145,21 @@ static void uph_mixer_on_close(void)
 	
 }
 
+static float uph_mixer_approach(float current, float target, float speed, float epsilon)
+{
+    const float next = current + (target - current) * (naui_app_animations_enabled() ? 1.0f - expf(-speed * naui_delta_time()) : 1.0f);
+    return fabsf(target - next) < epsilon ? target : next;
+}
+
 static void uph_mixer_effect_list_swap(Uph_EffectPlugin *effects, uint32_t a, uint32_t b)
 {
 	Uph_EffectPlugin temp = effects[a];
 	effects[a] = effects[b];
 	effects[b] = temp;
+
+	const float step = NAUI_DPI(UPH_MIXER_EFFECT_ROW_HEIGHT) + NAUI_DPI(UPH_MIXER_EFFECT_LIST_GAP);
+	effects[b].visual.y += ((float)a - (float)b) * step;
+	effects[a].visual.y += ((float)b - (float)a) * step;
 }
 
 static Uph_Track *uph_mixer_selected_strip(void)
@@ -301,7 +312,7 @@ static bool uph_mixer_effect_add_button(const char *label, const Leaf_ID id)
 	if (hovered)
 		naui_set_cursor(NAUI_CURSOR_HAND);
 
-	Naui_Color color = uph_state.colors.ui_frame_bg;
+	Naui_Color color = uph_state.colors.ui_well_bg;
 	if (hovered)
 	{
 		color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
@@ -313,6 +324,7 @@ static bool uph_mixer_effect_add_button(const char *label, const Leaf_ID id)
 		.id = id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_ROW_HEIGHT)) },
 		.color = color,
+		.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.ui_frame_border },
 		.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL)
 	})
@@ -343,11 +355,18 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 		uph_ui_open_context_menu(context_menu);
 	}
 
+	effect->visual.y = uph_mixer_approach(effect->visual.y, 0.0f, NAUI_UI_MOTION_SPEED, 0.5f);
+
+	leaf({
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_ROW_HEIGHT)) },
+		.child_offset = { .y = -effect->visual.y }
+	})
 	leaf({
 		.id = id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_ROW_HEIGHT)) },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_MIXER_EFFECT_ROW_PAD), 0),
-		.color = uph_state.colors.ui_frame_bg,
+		.color = row_hovered ? uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.ui_frame_hovered_bg, 0.5f) : uph_state.colors.ui_well_bg,
+		.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.ui_frame_border },
 		.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
 		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), LEAF_CORNER_ALL),
 		.child_gap = NAUI_DPI(UPH_MIXER_EFFECT_ROW_GAP),
@@ -367,6 +386,22 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 			});
 		}
 
+		if (uph_plugin_loading(&effect->plugin))
+		{
+			Naui_Color spinner_color = uph_state.colors.ui_text;
+			leaf({
+				.custom_draw = uph_ui_spinner_custom_draw,
+				.custom_draw_data = LEAF_DATA_SLICE(spinner_color),
+				.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_HIT)), .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_HIT)) },
+				.floating = {
+					.parent_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
+					.self_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
+					.offset = { .x = -NAUI_DPI(UPH_MIXER_EFFECT_ROW_PAD) }
+				},
+				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
+			});
+		}
+
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
 			.direction = LEAF_DIRECTION_HORIZONTAL
@@ -382,6 +417,18 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 				*move_from = (int32_t)index;
 				*move_to = (int32_t)index + 1;
 			}
+		}
+	}
+
+	if (effect->plugin.loaded && uph_ui_widget_hovered(id))
+	{
+		naui_set_cursor(NAUI_CURSOR_HAND);
+		if (naui_mouse_pressed(NAUI_MOUSE_LEFT))
+		{
+			if (uph_plugin_window_visible(&effect->plugin))
+				uph_plugin_hide_window(&effect->plugin);
+			else
+				uph_plugin_show_window(&effect->plugin);
 		}
 	}
 }
@@ -507,7 +554,7 @@ static void uph_mixer_render_effect_list(void)
 			leaf({
 				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 				.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_MIXER_EFFECT_INSET)),
-				.child_gap = NAUI_DPI(2)
+				.child_gap = NAUI_DPI(UPH_MIXER_EFFECT_LIST_GAP)
 			})
 			{
 				for (uint32_t i = 0; i < effect_count; i++)
@@ -997,12 +1044,6 @@ static float uph_mixer_strip_width(void)
 {
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     return (float)(int32_t)NAUI_DPI(100 + padding.x * 2);
-}
-
-static float uph_mixer_approach(float current, float target, float speed, float epsilon)
-{
-    const float next = current + (target - current) * (naui_app_animations_enabled() ? 1.0f - expf(-speed * naui_delta_time()) : 1.0f);
-    return fabsf(target - next) < epsilon ? target : next;
 }
 
 static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, float parent_offset)

@@ -351,6 +351,12 @@ typedef struct
 {
 	Uph_Plugin plugin;
 	bool enabled;
+
+	struct
+	{
+		float y;
+	}
+	visual;
 }
 Uph_EffectPlugin;
 
