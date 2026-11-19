@@ -79,18 +79,20 @@ static float naui__fit_bake_size(int glyph_count, float max_size, int padding)
 
 typedef struct
 {
+    float x0, y0, x1, y1;
+}
+Naui_ClipRect;
+
+typedef struct
+{
     Naui_Vec2 position;
     Naui_Vec2 uv;
     uint32_t color;
     int32_t texture_id;
+    uint32_t clip_min;
+    uint32_t clip_max;
 }
 Naui_BatchVertex;
-
-typedef struct
-{
-    float x0, y0, x1, y1;
-}
-Naui_ClipRect;
 
 typedef struct
 {
@@ -159,6 +161,9 @@ typedef struct
     uint32_t index_count;
     uint32_t index_offset;
     uint32_t index_capacity;
+
+    uint32_t clip_vertex_start;
+    uint32_t clip_index_start;
 
     mgfx_pipeline base_pipeline;
     mgfx_buffer batch_vb, batch_ib;
@@ -316,22 +321,63 @@ static inline Naui_ClipRect naui__current_clip(void)
     return naui__renderer_state->clip_stack[naui__renderer_state->clip_stack_depth - 1];
 }
 
-static void naui__apply_scissor(void)
+static Naui_ClipRect naui__pixel_clip(void)
 {
+    Naui_RendererState *state = naui__renderer_state;
     Naui_ClipRect c = naui__current_clip();
 
     float x0 = c.x0 < 0 ? 0 : c.x0;
     float y0 = c.y0 < 0 ? 0 : c.y0;
-    float x1 = c.x1 > (float)naui__renderer_state->width  ? (float)naui__renderer_state->width  : c.x1;
-    float y1 = c.y1 > (float)naui__renderer_state->height ? (float)naui__renderer_state->height : c.y1;
+    float x1 = c.x1 > (float)state->width  ? (float)state->width  : c.x1;
+    float y1 = c.y1 > (float)state->height ? (float)state->height : c.y1;
     if (x1 < x0) x1 = x0;
     if (y1 < y0) y1 = y0;
 
-    mgfx_scissor((int32_t)x0, (int32_t)y0, (uint32_t)(x1 - x0), (uint32_t)(y1 - y0));
+    x0 = (float)(int32_t)x0;
+    y0 = (float)(int32_t)y0;
+    return (Naui_ClipRect){ x0, y0, x0 + (float)(uint32_t)(x1 - x0), y0 + (float)(uint32_t)(y1 - y0) };
+}
+
+static inline bool naui__triangle_outside(const Naui_BatchVertex *a, const Naui_BatchVertex *b, const Naui_BatchVertex *c, Naui_ClipRect clip)
+{
+    return (a->position.x <= clip.x0 && b->position.x <= clip.x0 && c->position.x <= clip.x0)
+        || (a->position.x >= clip.x1 && b->position.x >= clip.x1 && c->position.x >= clip.x1)
+        || (a->position.y <= clip.y0 && b->position.y <= clip.y0 && c->position.y <= clip.y0)
+        || (a->position.y >= clip.y1 && b->position.y >= clip.y1 && c->position.y >= clip.y1);
+}
+
+static void naui__apply_clip(void)
+{
+    Naui_RendererState *state = naui__renderer_state;
+    const Naui_ClipRect clip = naui__pixel_clip();
+
+    const uint32_t clip_min = (uint32_t)clip.x0 | ((uint32_t)clip.y0 << 16);
+    const uint32_t clip_max = (uint32_t)clip.x1 | ((uint32_t)clip.y1 << 16);
+    for (uint32_t i = state->clip_vertex_start; i < state->vertex_count; i++)
+    {
+        state->vertices[i].clip_min = clip_min;
+        state->vertices[i].clip_max = clip_max;
+    }
+
+    uint32_t write = state->clip_index_start;
+    for (uint32_t i = state->clip_index_start; i + 2 < state->index_count; i += 3)
+    {
+        const uint32_t i0 = state->indices[i], i1 = state->indices[i + 1], i2 = state->indices[i + 2];
+        if (naui__triangle_outside(&state->vertices[i0], &state->vertices[i1], &state->vertices[i2], clip))
+            continue;
+        state->indices[write++] = i0;
+        state->indices[write++] = i1;
+        state->indices[write++] = i2;
+    }
+    state->index_count = write;
+
+    state->clip_vertex_start = state->vertex_count;
+    state->clip_index_start = state->index_count;
 }
 
 static void naui__renderer_flush(void)
 {
+    naui__apply_clip();
     if (naui__renderer_state->index_count == naui__renderer_state->index_offset) return;
 
     uint32_t vcount  = naui__renderer_state->vertex_count - naui__renderer_state->vertex_offset;
@@ -755,7 +801,8 @@ void naui_renderer_initialize(void)
             MGFX_VERTEX_FORMAT_FLOAT2,
             MGFX_VERTEX_FORMAT_FLOAT2,
             MGFX_VERTEX_FORMAT_UBYTE4N,
-            MGFX_VERTEX_FORMAT_INT
+            MGFX_VERTEX_FORMAT_INT,
+            MGFX_VERTEX_FORMAT_UINT2
         },
         .color_blend = {
             .blend_enabled = true,
@@ -856,6 +903,8 @@ bool naui_renderer_begin(void)
     naui__renderer_state->vertex_offset = 0;
     naui__renderer_state->index_count = 0;
     naui__renderer_state->index_offset = 0;
+    naui__renderer_state->clip_vertex_start = 0;
+    naui__renderer_state->clip_index_start = 0;
     naui__renderer_state->clip_stack_depth = 0;
     mgfx_bind_pass(&(mgfx_pass_info){ 0 });
     mgfx_bind_pipeline(naui__renderer_state->base_pipeline);
@@ -886,7 +935,7 @@ void naui_push_clip_rect(float x, float y, float width, float height)
 {
     if (naui__renderer_state->clip_stack_depth >= NAUI_CLIP_STACK_MAX) return;
 
-    naui__renderer_flush();
+    naui__apply_clip();
 
     float x0 = x, y0 = y;
     float x1 = x0 + width, y1 = y0 + height;
@@ -903,16 +952,14 @@ void naui_push_clip_rect(float x, float y, float width, float height)
     if (y1 < y0) y1 = y0;
 
     naui__renderer_state->clip_stack[naui__renderer_state->clip_stack_depth++] = (Naui_ClipRect){ x0, y0, x1, y1 };
-    naui__apply_scissor();
 }
 
 void naui_pop_clip_rect(void)
 {
     if (naui__renderer_state->clip_stack_depth == 0) return;
 
-    naui__renderer_flush();
+    naui__apply_clip();
     naui__renderer_state->clip_stack_depth--;
-    naui__apply_scissor();
 }
 
 static void naui__build_mip_chain(uint8_t *base, int size, int mip_count, void **levels)

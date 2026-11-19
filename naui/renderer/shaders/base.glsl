@@ -5,10 +5,13 @@ in vec2 in_position;
 in vec2 in_uv;
 in vec4 in_color;
 in int in_texture_id;
+in uvec2 in_clip;
 
 out vec4 frag_color;
 out vec2 frag_uv;
 out float frag_texture_id;
+out vec2 frag_position;
+flat out vec4 frag_clip;
 
 layout(binding = 0) uniform ViewData
 {
@@ -23,6 +26,8 @@ void main()
     frag_uv = in_uv;
     frag_color = in_color;
     frag_texture_id = float(in_texture_id);
+    frag_position = in_position;
+    frag_clip = vec4(uvec4(in_clip.x & 0xFFFFu, in_clip.x >> 16, in_clip.y & 0xFFFFu, in_clip.y >> 16));
 }
 
 @stage fragment
@@ -33,11 +38,16 @@ layout(binding = 1) uniform sampler2D texture1;
 in vec4 frag_color;
 in vec2 frag_uv;
 in float frag_texture_id;
+in vec2 frag_position;
+flat in vec4 frag_clip;
 
 out vec4 out_color;
 
 void main()
 {
+    if (any(bvec4(lessThan(frag_position, frag_clip.xy), greaterThanEqual(frag_position, frag_clip.zw))))
+        discard;
+
     const int texture_id = int(frag_texture_id);
     switch (texture_id)
     {
