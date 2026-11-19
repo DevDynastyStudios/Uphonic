@@ -8,6 +8,7 @@
 typedef struct
 {
 	Naui_Dialog *dialog;
+	Naui_Dialog closing;
 	const char *error_key;
 	float scroll;
 	uint64_t instance;
@@ -18,7 +19,6 @@ NAUI_PANEL_WITH_DATA(uph_file_dialog, Uph_FileDialogData)
 
 typedef struct
 {
-	Naui_Dialog *pending;
 	Naui_Dialog *ending;
 	bool recentering;
 	char overwrite_key[NAUI_DIALOG_KEY_MAX];
@@ -494,23 +494,18 @@ static void uph__file_dialog_apply(Uph_FileDialogData *data, Uph_FileDialogActio
 
 static void uph_file_dialog_on_attach(void)
 {
-	Uph_FileDialogState *state = &uph__file_dialog_state;
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	memset(data, 0, sizeof(*data));
-	data->dialog = state->pending;
-	data->instance = (uint64_t)(uintptr_t)state->pending;
-	state->pending = NULL;
 
 	const Naui_PanelID self = naui_panel_current();
-	naui_panel_set_title(self, data->dialog->title);
-	naui_panel_set_size(self, (Naui_Vec2){ NAUI_DPI(UPH_FILE_DIALOG_WIDTH), NAUI_DPI(UPH_FILE_DIALOG_HEIGHT) });
 	naui_panel_set_min_size(self, (Naui_Vec2){ NAUI_DPI(480), NAUI_DPI(300) });
 	naui_panel_enable_flags(self, NAUI_PANEL_FLAG_NO_DOCK);
 }
 
 static void uph_file_dialog_on_detach(void)
 {
-
+	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
+	naui_list_free(data->closing.entries);
 }
 
 static void uph_file_dialog_on_open(void)
@@ -526,9 +521,15 @@ static void uph_file_dialog_on_close(void)
 
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	Naui_Dialog *dialog = data->dialog;
-	data->dialog = NULL;
+	if (!dialog || dialog == &data->closing)
+		return;
 
-	if (dialog && dialog != state->ending)
+	naui_list_free(data->closing.entries);
+	data->closing = *dialog;
+	data->closing.entries = naui_list_clone(dialog->entries);
+	data->dialog = &data->closing;
+
+	if (dialog != state->ending)
 		naui_dialog_cancel(dialog);
 }
 
@@ -537,6 +538,8 @@ static void uph_file_dialog_on_update(void)
 	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_current_data();
 	if (!data->dialog)
 		return;
+
+	const bool closing = data->dialog == &data->closing;
 
 	Uph_FileDialogActions actions = { .clicked_row = -1, .activated_row = -1 };
 
@@ -561,6 +564,9 @@ static void uph_file_dialog_on_update(void)
 
 		uph__file_dialog_footer(data, &actions);
 	}
+
+	if (closing)
+		return;
 
 	const bool typing = uph_ui_textfield_active(leaf_id_indexed("uph_file_dialog_path", data->instance)) || uph_ui_textfield_active(leaf_id_indexed("uph_file_dialog_name", data->instance));
 	if (typing)
@@ -590,13 +596,22 @@ static bool uph_file_dialog_renderer_begin(Naui_Dialog *dialog)
 	snprintf(dialog->title, sizeof(dialog->title), "%s", titles[dialog->mode]);
 	snprintf(dialog->confirm_label, sizeof(dialog->confirm_label), "%s", labels[dialog->mode]);
 
-	state->pending = dialog;
-	const Naui_PanelID panel = NAUI_ATTACH_PANEL(uph_file_dialog);
-	state->pending = NULL;
+	if (!state->panels[slot])
+		state->panels[slot] = NAUI_ATTACH_PANEL(uph_file_dialog);
+
+	const Naui_PanelID panel = state->panels[slot];
 	if (!panel)
 		return false;
 
-	state->panels[slot] = panel;
+	Uph_FileDialogData *data = (Uph_FileDialogData*)naui_panel_data(panel);
+	naui_list_free(data->closing.entries);
+	memset(data, 0, sizeof(*data));
+	data->dialog = dialog;
+	data->instance = (uint64_t)(uintptr_t)dialog;
+
+	naui_panel_set_title(panel, dialog->title);
+	naui_panel_set_size(panel, (Naui_Vec2){ NAUI_DPI(UPH_FILE_DIALOG_WIDTH), NAUI_DPI(UPH_FILE_DIALOG_HEIGHT) });
+
 	state->panel_owners[slot] = dialog;
 	state->recentering = true;
 	naui_panel_close(panel);
@@ -613,14 +628,10 @@ static void uph_file_dialog_renderer_end(Naui_Dialog *dialog)
 		if (state->panel_owners[i] != dialog)
 			continue;
 
-		const Naui_PanelID panel = state->panels[i];
 		state->panel_owners[i] = NULL;
-		state->panels[i] = 0;
-
 		state->ending = dialog;
-		naui_panel_close(panel);
+		naui_panel_close(state->panels[i]);
 		state->ending = NULL;
-		naui_panel_detach(panel);
 		return;
 	}
 }

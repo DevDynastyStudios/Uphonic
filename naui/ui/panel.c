@@ -29,6 +29,15 @@ enum
     NAUI_SPLIT_AXIS_HORIZONTAL = LEAF_DIRECTION_HORIZONTAL
 };
 
+typedef uint8_t Naui_PanelState;
+enum
+{
+    NAUI_PANEL_STATE_OCCLUDED = 1 << 0,
+    NAUI_PANEL_STATE_CLOSED = 1 << 1,
+    NAUI_PANEL_STATE_CLOSE_HOVERED = 1 << 2,
+    NAUI_PANEL_STATE_LAYOUT_CLAIMED = 1 << 3
+};
+
 typedef struct Naui_PanelNode Naui_PanelNode;
 struct Naui_PanelNode
 {
@@ -51,11 +60,16 @@ struct Naui_PanelNode
     }
     visual;
     Naui_SplitAxis  split_axis;
-    bool            occluded;
-    bool            closed;
-    bool            close_hovered;
-    bool            layout_claimed;
+    Naui_PanelState state;
 };
+
+static inline void naui_panel_node_set_state(Naui_PanelNode *node, Naui_PanelState bit, bool enabled)
+{
+    if (enabled)
+        node->state |= bit;
+    else
+        node->state &= ~bit;
+}
 
 typedef struct
 {
@@ -203,7 +217,7 @@ static inline void naui_update_panel_focus(Naui_PanelNode *node)
     if (node->tabs && focused && focused->parent == node)
         naui__panel_manager_state.focused_panel = node->tabs[node->active_tab];
 
-    if (node->occluded || !naui_any_mouse_pressed())
+    if ((node->state & NAUI_PANEL_STATE_OCCLUDED) || !naui_any_mouse_pressed())
         return;
     naui_focus_panel_node(node);
 }
@@ -239,10 +253,10 @@ static void naui_panel_bring_to_front(Naui_PanelNode *node)
 void naui_panel_open(Naui_PanelID panel_id)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
-    if (!node->closed)
+    if (!(node->state & NAUI_PANEL_STATE_CLOSED))
         return;
 
-    node->closed = false;
+    node->state &= ~NAUI_PANEL_STATE_CLOSED;
 
     node->position.x = NAUI_MAX(0.0f, (naui_app_width() - node->size.x) * 0.5f);
     node->position.y = NAUI_MAX(0.0f, (naui_app_height() - node->size.y) * 0.5f);
@@ -258,11 +272,11 @@ void naui_panel_open(Naui_PanelID panel_id)
 void naui_panel_close(Naui_PanelID panel_id)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)panel_id;
-    if (node->closed)
+    if (node->state & NAUI_PANEL_STATE_CLOSED)
         return;
 
-    node->closed = true;
-    node->close_hovered = false;
+    node->state |= NAUI_PANEL_STATE_CLOSED;
+    node->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
     if (node->parent || node == naui__panel_manager_state.main_viewport)
         node->visual.scale = 0.0f;
     if (naui__panel_manager_state.focused_panel == node)
@@ -280,7 +294,7 @@ void naui_panel_close(Naui_PanelID panel_id)
 
 bool naui_panel_closed(Naui_PanelID panel_id)
 {
-    return ((Naui_PanelNode*)panel_id)->closed;
+    return (((Naui_PanelNode*)panel_id)->state & NAUI_PANEL_STATE_CLOSED);
 }
 
 Leaf_BoundingBox naui_panel_bounding_box(Naui_PanelID panel_id)
@@ -382,8 +396,8 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
             }
 
             target->parent = group;
-            target->occluded = false;
-            target->close_hovered = false;
+            target->state &= ~NAUI_PANEL_STATE_OCCLUDED;
+            target->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
             naui_list_push(group->tabs, target);
         }
         else
@@ -402,8 +416,8 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
                 Naui_PanelNode *guest_tab = guest->tabs[i];
                 guest_tab->parent = group;
                 guest_tab->root = group->root;
-                guest_tab->occluded = false;
-                guest_tab->close_hovered = false;
+                guest_tab->state &= ~NAUI_PANEL_STATE_OCCLUDED;
+                guest_tab->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
                 naui_list_push(group->tabs, guest_tab);
             }
             naui_list_free(guest->tabs);
@@ -413,8 +427,8 @@ Naui_PanelID naui_panel_dock(Naui_PanelID target_id, Naui_PanelID guest_id, Naui
         {
             guest->parent = group;
             guest->root = group->root;
-            guest->occluded = false;
-            guest->close_hovered = false;
+            guest->state &= ~NAUI_PANEL_STATE_OCCLUDED;
+            guest->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
             naui_list_push(group->tabs, guest);
         }
 
@@ -633,7 +647,7 @@ static bool naui_range_occludes_point(float mx, float my, uint32_t from, Naui_Pa
     for (uint32_t i = from; i < naui_list_len(naui__panel_manager_state.root_nodes); i++)
     {
         Naui_PanelNode *other = naui__panel_manager_state.root_nodes[i];
-        if (other->closed)
+        if (other->state & NAUI_PANEL_STATE_CLOSED)
             continue;
         if (skip && (other == skip || other == skip->root))
             continue;
@@ -659,7 +673,7 @@ static bool naui_point_occluded_above(float mx, float my, Naui_PanelNode *root)
 
 bool naui_panel_is_hovered(Naui_PanelID panel_id)
 {
-    return !((Naui_PanelNode*)panel_id)->occluded;
+    return !(((Naui_PanelNode*)panel_id)->state & NAUI_PANEL_STATE_OCCLUDED);
 }
 
 bool naui_panel_is_any_hovered(void)
@@ -832,8 +846,8 @@ static void naui_render_close_button(Naui_PanelNode *node, Naui_PanelNode *occlu
 {
     Leaf_ID id = leaf_id_indexed(NAUI_CLOSE_BUTTON_ID, (Naui_PanelID)node);
 
-    bool hovered = node->occluded ? false : leaf_hovered(id);
-    node->close_hovered = hovered;
+    bool hovered = (node->state & NAUI_PANEL_STATE_OCCLUDED) ? false : leaf_hovered(id);
+    naui_panel_node_set_state(node, NAUI_PANEL_STATE_CLOSE_HOVERED, hovered);
 
     if (hovered && naui_mouse_clicked(NAUI_MOUSE_LEFT) && naui_panel_is_hovered((Naui_PanelID)occlusion_node))
     {
@@ -907,7 +921,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
     const int32_t font_size = NAUI_DPI(NAUI_PANEL_FONT_SIZE);
     const Naui_Vec2 padding = naui_vec2_scale(NAUI_PANEL_TITLEBAR_PADDING, naui_app_dpi_scale());
 
-    const bool hovered = !group->occluded && leaf_hovered(id);
+    const bool hovered = !(group->state & NAUI_PANEL_STATE_OCCLUDED) && leaf_hovered(id);
     const Leaf_Color text_color = is_active || hovered
         ? naui__panel_manager_state.colors.panel_titlebar_text
         : naui__panel_manager_state.colors.panel_tab_inactive_text;
@@ -936,7 +950,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
 
         leaf({ .size = {LEAF_SIZE_FIXED(padding.x - NAUI_DPI(2)), LEAF_SIZE_FIXED(0.0f)} });
         leaf_text(node->title, { .font_size = font_size, .color = text_color });
-        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !group->occluded && leaf_hovered(id))
+        if (!(node->flags & NAUI_PANEL_FLAG_NO_CLOSE) && !(group->state & NAUI_PANEL_STATE_OCCLUDED) && leaf_hovered(id))
             naui_render_close_button(node, group, font_size);
         else
         {
@@ -944,7 +958,7 @@ static inline void naui_render_docked_panel_tab(Naui_PanelNode *node, Naui_Panel
                 .size = {LEAF_SIZE_FIXED(font_size), LEAF_SIZE_FIXED(font_size)},
                 .padding = LEAF_PADDING_AXES(3.0f, 3.0f)
             });
-            node->close_hovered = false;
+            node->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
         }
     }
 }
@@ -1075,7 +1089,7 @@ static void naui_render_next_panel_child(Naui_PanelNode *node)
 
 static void naui_render_panel(Naui_PanelNode *node)
 {
-    const float scale = node->closed ?
+    const float scale = (node->state & NAUI_PANEL_STATE_CLOSED) ?
         1.0f - naui_ease_out_quint(1.0f - node->visual.scale) :
         naui_ease_out_quint(node->visual.scale);
     const int32_t size_px = NAUI_DPI(12 - 12 * scale);
@@ -1169,7 +1183,7 @@ static bool naui_subtree_has_close_hovered(Naui_PanelNode *node)
 {
     if (!node) return false;
     if (!node->children[0])
-        return node->close_hovered;
+        return node->state & NAUI_PANEL_STATE_CLOSE_HOVERED;
     return naui_subtree_has_close_hovered(node->children[0]) ||
            naui_subtree_has_close_hovered(node->children[1]);
 }
@@ -1233,7 +1247,7 @@ static inline void naui_handle_panel_click(Naui_PanelNode *node, Naui_PanelNode 
 {
     Naui_PanelNode *root = node->root;
 
-    if (node->occluded)
+    if (node->state & NAUI_PANEL_STATE_OCCLUDED)
         return;
     if (!naui_mouse_pressed(NAUI_MOUSE_LEFT))
         return;
@@ -1474,10 +1488,10 @@ static void naui_update_splits_only(Naui_PanelNode *node)
 
 static inline void naui_set_group_occluded(Naui_PanelNode *node, bool occluded)
 {
-    node->occluded = occluded;
+    naui_panel_node_set_state(node, NAUI_PANEL_STATE_OCCLUDED, occluded);
     if (node->tabs)
         for (int32_t i = 0; i < naui_list_len(node->tabs); i++)
-            node->tabs[i]->occluded = occluded;
+            naui_panel_node_set_state(node->tabs[i], NAUI_PANEL_STATE_OCCLUDED, occluded);
 }
 
 static void naui_render_closing_panel(Naui_PanelNode *node)
@@ -1514,7 +1528,7 @@ static void naui_update_panel_tabs(Naui_PanelNode *node)
         return;
     for (int32_t i = 0; i < naui_list_len(node->tabs); i++)
     {
-        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !node->occluded && !node->tabs[i]->close_hovered &&
+        if (naui_mouse_pressed(NAUI_MOUSE_LEFT) && !(node->state & NAUI_PANEL_STATE_OCCLUDED) && !(node->tabs[i]->state & NAUI_PANEL_STATE_CLOSE_HOVERED) &&
             naui_internal_panel_child_hovered(leaf_id_indexed(NAUI_PANEL_TAB_ID, (uintptr_t)node->tabs[i])))
         {
             node->active_tab = i;
@@ -1572,7 +1586,7 @@ void naui_render_panels_and_viewport(void)
 
     for (int32_t i = (int32_t)naui_list_len(naui__panel_manager_state.root_nodes); i-- > 0;)
     {
-        if (!naui__panel_manager_state.root_nodes[i]->closed)
+        if (!(naui__panel_manager_state.root_nodes[i]->state & NAUI_PANEL_STATE_CLOSED))
         {
             naui_update_panel(naui__panel_manager_state.root_nodes[i]);
         }
@@ -1592,7 +1606,7 @@ void naui_render_panels_and_viewport(void)
     for (int32_t i = 0; i < (int32_t)naui_list_len(naui__panel_manager_state.root_nodes); i++)
     {
         Naui_PanelNode *node = naui__panel_manager_state.root_nodes[i];
-        if (node->closed)
+        if (node->state & NAUI_PANEL_STATE_CLOSED)
         {
             if (node->visual.scale > 0.0f && naui_app_animations_enabled())
                 naui_render_closing_panel(node);
@@ -1713,7 +1727,7 @@ static void naui_serialize_layout(Naui_Json *json, Naui_JsonValue *root)
     for (int32_t i = 0; i < (int32_t)naui_list_len(naui__panel_manager_state.root_nodes); i++)
     {
         const Naui_PanelNode *node = naui__panel_manager_state.root_nodes[i];
-        if (node->closed || !naui_panel_subtree_serializable(node))
+        if ((node->state & NAUI_PANEL_STATE_CLOSED) || !naui_panel_subtree_serializable(node))
             continue;
 
         Naui_JsonValue *entry = naui_json_push_object(json, floating);
@@ -1742,7 +1756,7 @@ bool naui_panel_layout_save(const char *file_path)
 static Naui_PanelNode *naui_claim_panel_of_type(const char *type_name)
 {
     Naui_PanelNode *node = (Naui_PanelNode*)naui_panel_find_of_type(type_name);
-    if (!node || node->layout_claimed || !naui_panel_leaf_serializable(node))
+    if (!node || (node->state & NAUI_PANEL_STATE_LAYOUT_CLAIMED) || !naui_panel_leaf_serializable(node))
         return NULL;
 
     if (node->parent || node == naui__panel_manager_state.main_viewport)
@@ -1751,7 +1765,7 @@ static Naui_PanelNode *naui_claim_panel_of_type(const char *type_name)
         naui_panel_undock_immediate(&wrapper);
     }
 
-    node->layout_claimed = true;
+    node->state |= NAUI_PANEL_STATE_LAYOUT_CLAIMED;
     return node;
 }
 
@@ -1862,11 +1876,11 @@ static void naui_flatten_all_panels(void)
 
 static void naui_panel_set_open_state(Naui_PanelNode *node, bool open)
 {
-    if (node->closed != open)
+    if (!(node->state & NAUI_PANEL_STATE_CLOSED) == open)
         return;
 
-    node->closed = !open;
-    node->close_hovered = false;
+    naui_panel_node_set_state(node, NAUI_PANEL_STATE_CLOSED, !open);
+    node->state &= ~NAUI_PANEL_STATE_CLOSE_HOVERED;
     if (!open)
         node->visual.scale = 0.0f;
 
@@ -1935,8 +1949,8 @@ static void naui_apply_layout(const Naui_JsonValue *root)
     for (int32_t i = 0; i < (int32_t)naui_list_len(candidates); i++)
     {
         Naui_PanelNode *node = candidates[i];
-        naui_panel_set_open_state(node, node->layout_claimed);
-        node->layout_claimed = false;
+        naui_panel_set_open_state(node, node->state & NAUI_PANEL_STATE_LAYOUT_CLAIMED);
+        node->state &= ~NAUI_PANEL_STATE_LAYOUT_CLAIMED;
     }
 
     naui_list_free(candidates);
