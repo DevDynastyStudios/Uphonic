@@ -111,7 +111,7 @@ static int uph__plugin_thread_main(void *arg)
     for (;;)
     {
         while (naui_list_len(state->queue) == 0 && !state->frame && !state->stop)
-            naui_cond_wait(state->wake, state->lock);
+            naui_cond_wait_responsive(state->wake, state->lock);
         if (naui_list_len(state->queue) == 0 && state->stop)
             break;
 
@@ -200,6 +200,6 @@ void uph_plugin_thread_call(Uph_PluginCommand command)
     const uint64_t ticket = ++state->submitted;
     naui_cond_signal(state->wake);
     while (state->thread && state->completed < ticket)
-        naui_cond_wait(state->finished, state->lock);
+        naui_cond_wait_responsive(state->finished, state->lock);
     naui_mutex_unlock(state->lock);
 }
