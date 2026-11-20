@@ -140,20 +140,3 @@ void uph_ui_spinner_custom_draw(Leaf_BoundingBox box, void *user_data)
 
     naui_draw_polyline(points, UPH_UI_SPINNER_SEGMENTS + 1, *color, NAUI_DPI(2));
 }
-
-void uph_ui_tinted_spinner_full(void)
-{
-    const float frame_height = uph__ui_frame_height();
-    Naui_Color spinner_color = uph_state.colors.ui_text;
-    leaf({
-        .size = { .width = LEAF_SIZE_FULL, .height = UPH_UI_SIZE_EXACT(frame_height) },
-        .border = uph__ui_border(uph_state.colors.ui_tinted_frame_border),
-        .color = uph_state.colors.ui_tinted_frame_bg,
-        .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL)
-    }) leaf({
-        .custom_draw = uph_ui_spinner_custom_draw,
-        .custom_draw_data = LEAF_DATA_SLICE(spinner_color),
-        .size = { .width = UPH_UI_SIZE_EXACT(frame_height), .height = UPH_UI_SIZE_EXACT(frame_height) }
-    });
-}

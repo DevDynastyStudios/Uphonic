@@ -56,12 +56,12 @@ static void uph_plugin_list_load(void)
     if (uph_state.shared.plugin_list_target == UPH_PLUGIN_LIST_TRACK_INSTRUMENT)
     {
         uph_action_track_unload_plugin(track, &track->instrument);
-        track->instrument = uph_plugin_load(plugin_path, (Naui_Path){ 0 }, true);
+        track->instrument = uph_plugin_load(plugin_path, true);
         track->type = UPH_RESOURCE_PATTERN;
     }
     else
     {
-        Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, (Naui_Path){ 0 }, true), .enabled = true };
+        Uph_EffectPlugin effect = { .plugin = uph_plugin_load(plugin_path, true), .enabled = true };
         naui_list_push(track->effects, effect);
     }
     naui_panel_close(naui_panel_current());

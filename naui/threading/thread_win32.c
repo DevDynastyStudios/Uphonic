@@ -17,8 +17,6 @@ struct Naui_MutexImpl
 struct Naui_CondImpl
 {
 	CONDITION_VARIABLE handle;
-	HANDLE responsive_wake;
-	volatile LONG responsive_waiters;
 };
 
 typedef struct
@@ -144,15 +142,7 @@ Naui_Cond naui_cond_create(void)
 	if (!impl)
 		return NULL;
 
-	impl->responsive_wake = CreateSemaphoreA(NULL, 0, LONG_MAX, NULL);
-	if (!impl->responsive_wake)
-	{
-		free(impl);
-		return NULL;
-	}
-
 	InitializeConditionVariable(&impl->handle);
-	impl->responsive_waiters = 0;
 	return impl;
 }
 
@@ -161,7 +151,6 @@ void naui_cond_destroy(Naui_Cond cond)
 	if (!cond)
 		return;
 
-	CloseHandle(cond->responsive_wake);
 	free(cond);
 }
 
@@ -170,31 +159,13 @@ void naui_cond_wait(Naui_Cond cond, Naui_Mutex mutex)
 	SleepConditionVariableSRW(&cond->handle, &mutex->handle, INFINITE, 0);
 }
 
-void naui_cond_wait_responsive(Naui_Cond cond, Naui_Mutex mutex)
-{
-	InterlockedIncrement(&cond->responsive_waiters);
-	naui_mutex_unlock(mutex);
-
-	MsgWaitForMultipleObjectsEx(1, &cond->responsive_wake, INFINITE, QS_SENDMESSAGE, 0);
-	MSG msg;
-	PeekMessageA(&msg, NULL, 0, 0, PM_NOREMOVE | PM_QS_SENDMESSAGE);
-
-	InterlockedDecrement(&cond->responsive_waiters);
-	naui_mutex_lock(mutex);
-}
-
 void naui_cond_signal(Naui_Cond cond)
 {
 	WakeConditionVariable(&cond->handle);
-	if (InterlockedCompareExchange(&cond->responsive_waiters, 0, 0) > 0)
-		ReleaseSemaphore(cond->responsive_wake, 1, NULL);
 }
 
 void naui_cond_broadcast(Naui_Cond cond)
 {
 	WakeAllConditionVariable(&cond->handle);
-	const LONG waiters = InterlockedCompareExchange(&cond->responsive_waiters, 0, 0);
-	if (waiters > 0)
-		ReleaseSemaphore(cond->responsive_wake, waiters, NULL);
 }
 #endif

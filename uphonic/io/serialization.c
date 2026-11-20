@@ -613,14 +613,13 @@ static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Up
 	naui_json_set_string(json, object, "format", uph__io_plugin_format_names[plugin->format]);
 
 	const Naui_Path state_file = naui_path_join(state_dir, naui_path_from_cstr(state_name));
-	const bool loaded = plugin->loaded || uph_plugin_loading(plugin);
-	if (loaded && uph_plugin_save_state(plugin, state_file))
+	if (plugin->loaded && uph_plugin_save_state(plugin, state_file))
 	{
 		naui_json_set_string(json, object, "state", state_name);
 		return;
 	}
 
-	if (loaded)
+	if (plugin->loaded)
 		naui_log(NAUI_LOG_WARNING, "Couldn't get the state of plugin '%s', its settings won't be saved", plugin->name.data);
 
 	if (naui_path_exists(state_file))
@@ -1133,27 +1132,34 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	}
 
 	const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
-	if (!path.data[0])
+	if (path.data[0])
+		plugin = uph_plugin_load(path, false);
+
+	if (plugin.loaded)
 	{
-		naui_log(NAUI_LOG_WARNING, "Plugin not found: %s", saved_path.data);
-		*complete = false;
-		return (Uph_Plugin){
-			.file_path = saved_path,
-			.name = naui_string_from_cstr(name),
-			.format = format
-		};
+		const char* state_name = naui_json_get_string(naui_json_object_get(object, "state"), NULL);
+		if (state_name)
+		{
+			const bool state_loaded = uph_io_is_safe_file_name(state_name) && uph_plugin_load_state(&plugin, naui_path_join(load_dir, naui_path_from_cstr(state_name)));
+
+			if (!state_loaded)
+			{
+				naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", plugin.name.data);
+				*complete = false;
+			}
+		}
+
+		return plugin;
 	}
 
-	const char* state_name = naui_json_get_string(naui_json_object_get(object, "state"), NULL);
-	Naui_Path state_path = { 0 };
-	if (state_name && uph_io_is_safe_file_name(state_name))
-		state_path = naui_path_join(load_dir, naui_path_from_cstr(state_name));
-	else if (state_name)
-		*complete = false;
+	naui_log(NAUI_LOG_WARNING, "Plugin not found or failed to load: %s", saved_path.data);
+	*complete = false;
 
-	plugin = uph_plugin_load(path, state_path, false);
-	plugin.name = naui_string_from_cstr(name);
-	plugin.format = format;
+	plugin = (Uph_Plugin){
+		.file_path = saved_path,
+		.name = naui_string_from_cstr(name),
+		.format = format
+	};
 	return plugin;
 }
 

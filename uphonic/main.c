@@ -215,7 +215,6 @@ void naui_app_start(void)
 	uph_ui_cursors_init();
 	uph_icons_load();
 	uph_plugin_modules_init();
-	uph_plugin_thread_init();
 	naui_jobs_init(UPH_JOB_THREAD_COUNT, UPH_JOB_CAPACITY);
  
 	uph_state.panels.song_timeline = NAUI_ATTACH_PANEL(uph_song_timeline);
@@ -279,7 +278,6 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
 	uph_resources_clear_tracks();
-	uph_plugin_thread_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Stopping MIDI Engine...");
 	cmidi_scheduler_stop_all();
@@ -338,7 +336,6 @@ void naui_app_update(void)
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);
-	uph_plugin_thread_frame();
  
 	const bool midi_editor_focused = naui_panel_focused() == uph_state.panels.resource_editor
 		&& uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN

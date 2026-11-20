@@ -386,22 +386,6 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 			});
 		}
 
-		if (uph_plugin_loading(&effect->plugin))
-		{
-			Naui_Color spinner_color = uph_state.colors.ui_text;
-			leaf({
-				.custom_draw = uph_ui_spinner_custom_draw,
-				.custom_draw_data = LEAF_DATA_SLICE(spinner_color),
-				.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_HIT)), .height = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_EFFECT_LED_HIT)) },
-				.floating = {
-					.parent_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
-					.self_alignment = { .x = LEAF_ALIGN_X_RIGHT, .y = LEAF_ALIGN_Y_CENTER },
-					.offset = { .x = -NAUI_DPI(UPH_MIXER_EFFECT_ROW_PAD) }
-				},
-				.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
-			});
-		}
-
 		leaf({
 			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FIT },
 			.direction = LEAF_DIRECTION_HORIZONTAL

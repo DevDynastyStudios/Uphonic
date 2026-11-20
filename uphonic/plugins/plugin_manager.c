@@ -448,15 +448,14 @@ struct Uph_PluginInternalHandle_
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
+    int32_t origin_x, origin_y;
     bool origin_dirty;
     bool visible;
-    bool shown;
     bool is_clap;
     Uph_PluginFormat format;
     Naui_Path module_path;
     Naui_String display_name;
     atomic_uint_least64_t touched_param;
-    atomic_uint_least64_t origin;
     atomic_bool callback_requested;
 };
 
@@ -1792,7 +1791,7 @@ static void uph__plugin_gui_destroy_window(Uph_PluginInternalHandle *ih)
 static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 {
     ih->vst3.ready = 0;
-    ih->shown = false;
+    ih->visible = false;
 
     if (ih->vst3.processor)
         ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 0);
@@ -2684,7 +2683,7 @@ static bool uph__get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
 
 static void uph__vst2_unload(Uph_PluginInternalHandle *ih)
 {
-    ih->shown = false;
+    ih->visible = false;
     uph__vst2_free(ih);
     uph__plugin_gui_destroy_window(ih);
 }
@@ -3252,7 +3251,7 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 #endif
 
     gui->set_parent(plugin, &window);
-    if (internal_handle->shown)
+    if (internal_handle->visible)
         gui->show(plugin);
 
     const uint32_t max_frame_count = 2048;
@@ -3503,81 +3502,16 @@ static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
     return effect;
 }
 
-typedef uint8_t Uph_PluginLoadStatus;
-enum
+Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
-    UPH_PLUGIN_LOAD_RUNNING,
-    UPH_PLUGIN_LOAD_DONE,
-    UPH_PLUGIN_LOAD_CANCELLED
-};
+    uph__module_acquire(path);
+    Uph_Plugin plugin = uph__plugin_load_impl(path);
+    if (!plugin.loaded)
+        uph__module_release(path);
+    else if (show_window)
+        uph_plugin_show_window(&plugin);
 
-struct Uph_PluginLoad
-{
-    Naui_Path path;
-    Naui_Path state_path;
-    Uph_Plugin result;
-    _Atomic Uph_PluginLoadStatus status;
-    bool state_failed;
-    bool show_window;
-};
-
-Uph_Plugin uph_plugin_load(Naui_Path path, Naui_Path state_path, bool show_window)
-{
-    Uph_Plugin plugin = { .file_path = path };
-    naui_string_copy_view(&plugin.name, naui_file_stem(&path));
-    if (!uph_plugin_format_from_path(path, &plugin.format))
-    {
-        fprintf(stderr, "uph: unrecognized plugin extension for %s\n", path.data);
-        return plugin;
-    }
-
-    Uph_PluginLoad *load = (Uph_PluginLoad*)calloc(1, sizeof(Uph_PluginLoad));
-    load->path = path;
-    load->state_path = state_path;
-    load->show_window = show_window;
-    atomic_init(&load->status, UPH_PLUGIN_LOAD_RUNNING);
-
-    plugin.pending = load;
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_LOAD, .load = load });
     return plugin;
-}
-
-bool uph_plugin_loading(const Uph_Plugin *plug)
-{
-    return plug->pending != NULL;
-}
-
-static void uph__plugin_adopt(Uph_Plugin *plug)
-{
-    Uph_PluginLoad *load = plug->pending;
-    plug->pending = NULL;
-
-    if (load->result.loaded)
-    {
-        uph_audio_engine_lock();
-        *plug = load->result;
-        uph_audio_engine_unlock();
-    }
-    else
-        naui_log(NAUI_LOG_WARNING, "Plugin failed to load: %s", load->path.data);
-
-    if (load->state_failed)
-        naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", plug->name.data);
-
-    if (plug->loaded && load->show_window)
-        uph_plugin_show_window(plug);
-
-    free(load);
-}
-
-static bool uph__plugin_cancel_load(Uph_Plugin *plug)
-{
-    Uph_PluginLoadStatus expected = UPH_PLUGIN_LOAD_RUNNING;
-    if (!atomic_compare_exchange_strong(&plug->pending->status, &expected, UPH_PLUGIN_LOAD_CANCELLED))
-        return false;
-
-    plug->pending = NULL;
-    return true;
 }
 
 static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
@@ -3592,10 +3526,10 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 
         if (internal_handle->clap.gui)
         {
-            if (internal_handle->shown)
+            if (internal_handle->visible)
             {
                 internal_handle->clap.gui->hide(plugin);
-                internal_handle->shown = false;
+                internal_handle->visible = false;
             }
             internal_handle->clap.gui->destroy(plugin);
         }
@@ -3637,12 +3571,6 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 
 void uph_plugin_unload(Uph_Plugin *plug)
 {
-    if (plug->pending && !uph__plugin_cancel_load(plug))
-    {
-        plug->pending->show_window = false;
-        uph__plugin_adopt(plug);
-    }
-
     if (!plug->loaded)
         return;
 
@@ -3662,7 +3590,16 @@ void uph_plugin_unload(Uph_Plugin *plug)
         }
 
         uph__plugin_gui_release_capture(internal_handle);
-        uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_UNLOAD, .handle = internal_handle });
+
+        switch (internal_handle->format)
+        {
+            case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
+            case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
+            case UPH_PLUGIN_VST2: uph__vst2_unload(internal_handle); break;
+        }
+
+        uph__module_release(internal_handle->module_path);
+        free(internal_handle);
         plug->internal_handle = NULL;
     }
 
@@ -4133,15 +4070,14 @@ static void uph__plugin_gui_x11_notify_moved(Uph_PluginInternalHandle *ih)
 
 void uph_plugin_gui_set_origin(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
-    const uint64_t origin = ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
-    atomic_store_explicit(&handle->origin, origin, memory_order_relaxed);
+    handle->origin_x = x;
+    handle->origin_y = y;
 }
 
 static void uph__plugin_gui_apply_origin(Uph_PluginInternalHandle *handle)
 {
-    const uint64_t origin = atomic_load_explicit(&handle->origin, memory_order_relaxed);
-    const int32_t x = (int32_t)(uint32_t)(origin >> 32);
-    const int32_t y = (int32_t)(uint32_t)origin;
+    const int32_t x = handle->origin_x;
+    const int32_t y = handle->origin_y;
 
 #if NAUI_LINUX
     Window root = DefaultRootWindow(handle->display);
@@ -4358,17 +4294,17 @@ static KeySym uph__plugin_gui_x11_keysym(Naui_Key key)
     }
 }
 
-static unsigned int uph__plugin_gui_x11_modifiers(uint8_t modifiers)
+static unsigned int uph__plugin_gui_x11_modifiers(void)
 {
     unsigned int state = 0;
-    if (modifiers & UPH_PLUGIN_MODIFIER_SHIFT) state |= ShiftMask;
-    if (modifiers & UPH_PLUGIN_MODIFIER_CONTROL) state |= ControlMask;
-    if (modifiers & UPH_PLUGIN_MODIFIER_ALT) state |= Mod1Mask;
-    if (modifiers & UPH_PLUGIN_MODIFIER_SUPER) state |= Mod4Mask;
+    if (naui_key_down(NAUI_KEY_SHIFT)) state |= ShiftMask;
+    if (naui_key_down(NAUI_KEY_CONTROL)) state |= ControlMask;
+    if (naui_key_down(NAUI_KEY_ALT)) state |= Mod1Mask;
+    if (naui_key_down(NAUI_KEY_LSUPER) || naui_key_down(NAUI_KEY_RSUPER)) state |= Mod4Mask;
     return state;
 }
 
-static void uph__plugin_gui_x11_key(Uph_PluginInternalHandle *ih, Naui_Key key, bool down, uint8_t modifiers)
+static void uph__plugin_gui_x11_key(Uph_PluginInternalHandle *ih, Naui_Key key, bool down)
 {
     const KeySym keysym = uph__plugin_gui_x11_keysym(key);
     const KeyCode keycode = keysym != NoSymbol ? XKeysymToKeycode(ih->display, keysym) : 0;
@@ -4396,7 +4332,7 @@ static void uph__plugin_gui_x11_key(Uph_PluginInternalHandle *ih, Naui_Key key, 
     e->y = y;
     e->x_root = ih->screen_x + ih->mouse_x;
     e->y_root = ih->screen_y + ih->mouse_y;
-    e->state = uph__plugin_gui_x11_modifiers(modifiers) | uph__plugin_gui_x11_state(ih->buttons_down);
+    e->state = uph__plugin_gui_x11_modifiers() | uph__plugin_gui_x11_state(ih->buttons_down);
     e->keycode = keycode;
     e->same_screen = True;
 
@@ -4434,18 +4370,18 @@ static void uph__plugin_gui_x11_mouse_scroll(Uph_PluginInternalHandle *handle, i
 
 void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_MOUSE_MOVE, .handle = handle, .x = x, .y = y });
+    uph__plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
 }
 
 void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
 {
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_MOUSE_BUTTON, .handle = handle, .x = x, .y = y, .button = button, .down = down });
+    uph__plugin_gui_x11_mouse_button(handle, button, down, x, y);
 }
 
 void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta, int32_t x, int32_t y)
 {
     if (delta)
-        uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_MOUSE_SCROLL, .handle = handle, .x = x, .y = y, .delta = delta });
+        uph__plugin_gui_x11_mouse_scroll(handle, delta, x, y);
 }
 #elif NAUI_WINDOWS
 static void uph__plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, bool passthrough)
@@ -4459,7 +4395,7 @@ void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
     if (handle->native_input != enabled)
     {
         handle->native_input = enabled;
-        uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_NATIVE_INPUT, .handle = handle, .down = enabled });
+        uph__plugin_gui_win32_set_passthrough(handle, !enabled);
     }
 
     if (!enabled)
@@ -4514,36 +4450,37 @@ static void uph__plugin_gui_win32_text(Uph_PluginInternalHandle *ih, uint32_t co
 
 void uph_plugin_gui_key(Uph_PluginInternalHandle *handle, Naui_Key key, bool down)
 {
-    uint8_t modifiers = 0;
-    if (naui_key_down(NAUI_KEY_SHIFT)) modifiers |= UPH_PLUGIN_MODIFIER_SHIFT;
-    if (naui_key_down(NAUI_KEY_CONTROL)) modifiers |= UPH_PLUGIN_MODIFIER_CONTROL;
-    if (naui_key_down(NAUI_KEY_ALT)) modifiers |= UPH_PLUGIN_MODIFIER_ALT;
-    if (naui_key_down(NAUI_KEY_LSUPER) || naui_key_down(NAUI_KEY_RSUPER)) modifiers |= UPH_PLUGIN_MODIFIER_SUPER;
-
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_KEY, .handle = handle, .key = key, .down = down, .modifiers = modifiers });
+#if NAUI_LINUX
+    uph__plugin_gui_x11_key(handle, key, down);
+#elif NAUI_WINDOWS
+    uph__plugin_gui_win32_key(handle, key, down);
+#endif
 }
 
 void uph_plugin_gui_text(Uph_PluginInternalHandle *handle, uint32_t codepoint)
 {
 #if NAUI_WINDOWS
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_TEXT, .handle = handle, .codepoint = codepoint });
+    uph__plugin_gui_win32_text(handle, codepoint);
 #else
     (void)handle;
     (void)codepoint;
 #endif
 }
 
-static void uph__plugin_gui_set_shown(Uph_PluginInternalHandle *ih, bool visible)
+static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
 {
-    if (ih->shown == visible)
+    if (ih->visible == visible)
         return;
 
-    ih->shown = visible;
+    ih->visible = visible;
     ih->origin_dirty = visible;
+    if (!visible)
+        uph__plugin_gui_release_capture(ih);
 #if NAUI_LINUX
     ih->buttons_down = 0;
     ih->input_target = 0;
 #elif NAUI_WINDOWS
+    ih->native_input = false;
     uph__plugin_gui_win32_set_passthrough(ih, true);
 #endif
 
@@ -4562,21 +4499,6 @@ static void uph__plugin_gui_set_shown(Uph_PluginInternalHandle *ih, bool visible
 
     if (visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->show(ih->clap.plugin);
-}
-
-static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
-{
-    if (ih->visible == visible)
-        return;
-
-    ih->visible = visible;
-#if NAUI_WINDOWS
-    ih->native_input = false;
-#endif
-    if (!visible)
-        uph__plugin_gui_release_capture(ih);
-
-    uph_plugin_thread_push((Uph_PluginCommand){ .kind = visible ? UPH_PLUGIN_COMMAND_SHOW : UPH_PLUGIN_COMMAND_HIDE, .handle = ih });
 }
 
 void uph_plugin_gui_closed(Uph_PluginInternalHandle *handle)
@@ -4691,7 +4613,7 @@ static void uph__plugin_idle(Uph_PluginInternalHandle *ih)
     if (ih->is_clap && atomic_exchange(&ih->callback_requested, false))
         ih->clap.plugin->on_main_thread(ih->clap.plugin);
 
-    if (!ih->shown)
+    if (!ih->visible)
         return;
 
     uph__plugin_gui_apply_origin(ih);
@@ -4709,14 +4631,12 @@ static void uph__plugin_idle(Uph_PluginInternalHandle *ih)
 
 void uph_plugin_update(Uph_Plugin *plug)
 {
-    if (plug->pending && atomic_load(&plug->pending->status) == UPH_PLUGIN_LOAD_DONE)
-        uph__plugin_adopt(plug);
-
     if (!plug->loaded || !plug->internal_handle)
         return;
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     uph__plugin_collect_touched_param(plug, internal_handle);
+    uph__plugin_idle(internal_handle);
 
     if (internal_handle->visible)
         uph__plugin_gui_capture(internal_handle);
@@ -4941,19 +4861,13 @@ static bool uph__plugin_save_state(Uph_PluginInternalHandle *internal_handle, co
 
 bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 {
-    if (plug->pending)
-        uph_plugin_thread_call((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_SYNC });
-
-    const Uph_Plugin *ready = plug->pending ? &plug->pending->result : plug;
-    if (!ready->loaded || !ready->internal_handle)
+    if (!plug->loaded || !plug->internal_handle)
         return false;
 
-    bool saved = false;
-    uph_plugin_thread_call((Uph_PluginCommand){ .kind = UPH_PLUGIN_COMMAND_SAVE_STATE, .handle = ready->internal_handle, .path = &path, .result = &saved });
-    return saved;
+    return uph__plugin_save_state((Uph_PluginInternalHandle*)plug->internal_handle, path);
 }
 
-static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
+bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)

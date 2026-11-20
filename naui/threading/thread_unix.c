@@ -180,11 +180,6 @@ void naui_cond_wait(Naui_Cond cond, Naui_Mutex mutex)
 	pthread_cond_wait(&cond->handle, &mutex->handle);
 }
 
-void naui_cond_wait_responsive(Naui_Cond cond, Naui_Mutex mutex)
-{
-	naui_cond_wait(cond, mutex);
-}
-
 void naui_cond_signal(Naui_Cond cond)
 {
 	pthread_cond_signal(&cond->handle);
