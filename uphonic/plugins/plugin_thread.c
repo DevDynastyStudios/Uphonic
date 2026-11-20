@@ -95,6 +95,7 @@ static void uph__plugin_thread_pump_messages(void)
     MSG msg;
     while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
     {
+        uph__plugin_gui_win32_reset_cursor(&msg);
         TranslateMessage(&msg);
         DispatchMessageA(&msg);
     }
