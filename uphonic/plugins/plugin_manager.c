@@ -441,7 +441,6 @@ struct Uph_PluginInternalHandle_
     HWND window;
     POINT cursor;
     bool native_input;
-    bool reset_cursor;
 #endif
     Naui_PanelID panel;
     Naui_Texture texture;
@@ -4453,24 +4452,6 @@ static void uph__plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, 
 {
     const LONG_PTR style = GetWindowLongPtrA(ih->window, GWL_EXSTYLE);
     SetWindowLongPtrA(ih->window, GWL_EXSTYLE, passthrough ? (style | WS_EX_TRANSPARENT) : (style & ~(LONG_PTR)WS_EX_TRANSPARENT));
-    ih->reset_cursor = !passthrough;
-}
-
-static void uph__plugin_gui_win32_reset_cursor(const MSG *msg)
-{
-    if (msg->message != WM_MOUSEMOVE || !msg->hwnd)
-        return;
-
-    HWND root = GetAncestor(msg->hwnd, GA_ROOT);
-    if (!root || GetWindowLongPtrA(root, GWLP_WNDPROC) != (LONG_PTR)uph_plugin_wnd_proc)
-        return;
-
-    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)GetWindowLongPtrA(root, GWLP_USERDATA);
-    if (!ih || !ih->reset_cursor)
-        return;
-
-    ih->reset_cursor = false;
-    SetCursor(LoadCursorA(NULL, (LPCSTR)IDC_ARROW));
 }
 
 void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
