@@ -42,7 +42,6 @@ void naui_cond_destroy(Naui_Cond cond);
  * `mutex` must be held by the calling thread when this is called. */
 void naui_cond_wait(Naui_Cond cond, Naui_Mutex mutex);
 void naui_cond_wait_responsive(Naui_Cond cond, Naui_Mutex mutex);
-void naui_cond_wait_pumping(Naui_Cond cond, Naui_Mutex mutex);
 
 /* Wakes at least one thread waiting on `cond`. */
 void naui_cond_signal(Naui_Cond cond);

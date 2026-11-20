@@ -183,23 +183,6 @@ void naui_cond_wait_responsive(Naui_Cond cond, Naui_Mutex mutex)
 	naui_mutex_lock(mutex);
 }
 
-void naui_cond_wait_pumping(Naui_Cond cond, Naui_Mutex mutex)
-{
-	InterlockedIncrement(&cond->responsive_waiters);
-	naui_mutex_unlock(mutex);
-
-	MsgWaitForMultipleObjectsEx(1, &cond->responsive_wake, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
-	MSG msg;
-	while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
-	{
-		TranslateMessage(&msg);
-		DispatchMessageA(&msg);
-	}
-
-	InterlockedDecrement(&cond->responsive_waiters);
-	naui_mutex_lock(mutex);
-}
-
 void naui_cond_signal(Naui_Cond cond)
 {
 	WakeConditionVariable(&cond->handle);

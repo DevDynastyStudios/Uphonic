@@ -111,7 +111,7 @@ static int uph__plugin_thread_main(void *arg)
     for (;;)
     {
         while (naui_list_len(state->queue) == 0 && !state->frame && !state->stop)
-            naui_cond_wait_pumping(state->wake, state->lock);
+            naui_cond_wait_responsive(state->wake, state->lock);
         if (naui_list_len(state->queue) == 0 && state->stop)
             break;
 
