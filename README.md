@@ -82,7 +82,7 @@ lua build.lua <mode> <configuration>
 | --- | --- |
 | `run` | Runs an already built binary. |
 | `build` | Builds the project. |
-| `build_run` | Builds and runs the project. |
+| `buildrun` | Builds and runs the project. |
 
 | Configuration | Description |
 | --- | --- |
@@ -92,7 +92,7 @@ lua build.lua <mode> <configuration>
 Example:
 
 ```bash
-lua build.lua build_run release
+lua build.lua buildrun release
 ```
 
 ---
