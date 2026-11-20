@@ -4,10 +4,6 @@ typedef struct
     Naui_Mutex lock;
     Naui_Cond wake;
     Naui_Cond finished;
-#if NAUI_WINDOWS
-    HANDLE wake_event;
-    HANDLE finished_event;
-#endif
     Naui_List(Uph_PluginCommand) queue;
     Naui_List(Uph_PluginCommand) spare;
     Naui_List(Uph_PluginInternalHandle*) live;
@@ -105,40 +101,6 @@ static void uph__plugin_thread_pump_messages(void)
 #endif
 }
 
-static void uph__plugin_thread_signal_wake(Uph_PluginThreadState *state)
-{
-#if NAUI_WINDOWS
-    SetEvent(state->wake_event);
-#else
-    naui_cond_signal(state->wake);
-#endif
-}
-
-static void uph__plugin_thread_wait_wake(Uph_PluginThreadState *state)
-{
-#if NAUI_WINDOWS
-    naui_mutex_unlock(state->lock);
-    MsgWaitForMultipleObjectsEx(1, &state->wake_event, INFINITE, QS_ALLINPUT, MWMO_INPUTAVAILABLE);
-    uph__plugin_thread_pump_messages();
-    naui_mutex_lock(state->lock);
-#else
-    naui_cond_wait(state->wake, state->lock);
-#endif
-}
-
-static void uph__plugin_thread_wait_finished(Uph_PluginThreadState *state)
-{
-#if NAUI_WINDOWS
-    naui_mutex_unlock(state->lock);
-    MsgWaitForMultipleObjectsEx(1, &state->finished_event, INFINITE, QS_SENDMESSAGE, 0);
-    MSG msg;
-    PeekMessageA(&msg, NULL, 0, 0, PM_NOREMOVE | PM_QS_SENDMESSAGE);
-    naui_mutex_lock(state->lock);
-#else
-    naui_cond_wait(state->finished, state->lock);
-#endif
-}
-
 static int uph__plugin_thread_main(void *arg)
 {
     (void)arg;
@@ -149,7 +111,7 @@ static int uph__plugin_thread_main(void *arg)
     for (;;)
     {
         while (naui_list_len(state->queue) == 0 && !state->frame && !state->stop)
-            uph__plugin_thread_wait_wake(state);
+            naui_cond_wait(state->wake, state->lock);
         if (naui_list_len(state->queue) == 0 && state->stop)
             break;
 
@@ -173,9 +135,6 @@ static int uph__plugin_thread_main(void *arg)
         state->spare = batch;
         state->completed += count;
         naui_cond_broadcast(state->finished);
-#if NAUI_WINDOWS
-        SetEvent(state->finished_event);
-#endif
     }
     naui_mutex_unlock(state->lock);
     return 0;
@@ -187,10 +146,6 @@ void uph_plugin_thread_init(void)
     state->lock = naui_mutex_create();
     state->wake = naui_cond_create();
     state->finished = naui_cond_create();
-#if NAUI_WINDOWS
-    state->wake_event = CreateEventA(NULL, FALSE, FALSE, NULL);
-    state->finished_event = CreateEventA(NULL, FALSE, FALSE, NULL);
-#endif
     state->thread = naui_thread_create(uph__plugin_thread_main, NULL);
     if (!state->thread)
         naui_log(NAUI_LOG_ERROR, "Couldn't start the plugin thread, plugins won't load");
@@ -204,7 +159,7 @@ void uph_plugin_thread_shutdown(void)
 
     naui_mutex_lock(state->lock);
     state->stop = true;
-    uph__plugin_thread_signal_wake(state);
+    naui_cond_signal(state->wake);
     naui_mutex_unlock(state->lock);
 
     naui_thread_join(state->thread, NULL);
@@ -213,10 +168,6 @@ void uph_plugin_thread_shutdown(void)
     naui_cond_destroy(state->finished);
     naui_cond_destroy(state->wake);
     naui_mutex_destroy(state->lock);
-#if NAUI_WINDOWS
-    CloseHandle(state->wake_event);
-    CloseHandle(state->finished_event);
-#endif
     naui_list_free(state->queue);
     naui_list_free(state->spare);
     naui_list_free(state->live);
@@ -227,7 +178,7 @@ void uph_plugin_thread_frame(void)
     Uph_PluginThreadState *state = &uph__plugin_thread_state;
     naui_mutex_lock(state->lock);
     state->frame = true;
-    uph__plugin_thread_signal_wake(state);
+    naui_cond_signal(state->wake);
     naui_mutex_unlock(state->lock);
 }
 
@@ -237,7 +188,7 @@ void uph_plugin_thread_push(Uph_PluginCommand command)
     naui_mutex_lock(state->lock);
     naui_list_push(state->queue, command);
     state->submitted++;
-    uph__plugin_thread_signal_wake(state);
+    naui_cond_signal(state->wake);
     naui_mutex_unlock(state->lock);
 }
 
@@ -247,8 +198,8 @@ void uph_plugin_thread_call(Uph_PluginCommand command)
     naui_mutex_lock(state->lock);
     naui_list_push(state->queue, command);
     const uint64_t ticket = ++state->submitted;
-    uph__plugin_thread_signal_wake(state);
+    naui_cond_signal(state->wake);
     while (state->thread && state->completed < ticket)
-        uph__plugin_thread_wait_finished(state);
+        naui_cond_wait(state->finished, state->lock);
     naui_mutex_unlock(state->lock);
 }
