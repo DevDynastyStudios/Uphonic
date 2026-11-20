@@ -3474,7 +3474,7 @@ static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
         WS_POPUP | WS_CLIPCHILDREN,
         0, 0,
         (int)width, (int)height,
-        (HWND)mgapp_primary_handle(),
+        NULL,
         NULL,
         GetModuleHandleA(NULL),
         NULL
@@ -4657,6 +4657,30 @@ static void uph__plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
     XSetInputFocus(ih->display, main_window, RevertToParent, CurrentTime);
     XFlush(ih->display);
 }
+#elif NAUI_WINDOWS
+static bool uph__plugin_gui_win32_is_plugin_window(HWND hwnd)
+{
+    return GetWindowLongPtrA(hwnd, GWLP_WNDPROC) == (LONG_PTR)uph_plugin_wnd_proc;
+}
+
+static void uph__plugin_gui_win32_follow_main(Uph_PluginInternalHandle *ih)
+{
+    HWND main_window = (HWND)mgapp_primary_handle();
+    const bool show = IsWindowVisible(main_window) && !IsIconic(main_window);
+    if (show != (IsWindowVisible(ih->window) != 0))
+        ShowWindow(ih->window, show ? SW_SHOWNOACTIVATE : SW_HIDE);
+    if (!show)
+        return;
+
+    HWND above = GetWindow(main_window, GW_HWNDPREV);
+    for (HWND w = above; w && uph__plugin_gui_win32_is_plugin_window(w); w = GetWindow(w, GW_HWNDPREV))
+    {
+        if (w == ih->window)
+            return;
+    }
+
+    SetWindowPos(ih->window, above ? above : HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+}
 #endif
 
 static void uph__plugin_clap_fire_timers(Uph_PluginInternalHandle *ih)
@@ -4694,6 +4718,9 @@ static void uph__plugin_idle(Uph_PluginInternalHandle *ih)
     if (!ih->shown)
         return;
 
+#if NAUI_WINDOWS
+    uph__plugin_gui_win32_follow_main(ih);
+#endif
     uph__plugin_gui_apply_origin(ih);
 
     switch (ih->format)
