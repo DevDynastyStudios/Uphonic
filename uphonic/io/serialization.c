@@ -377,6 +377,8 @@ static bool uph_io_save_automation(const Uph_Project* project, const Naui_Path s
 		const Uph_Automation* automation = &project->automations[i];
 		Naui_JsonValue* entry = naui_json_push_object(&json, root);
 		naui_json_set_string(&json, entry, "name", automation->name.data);
+		if (automation->display != UPH_AUTOMATION_DISPLAY_NORMALIZED)
+			naui_json_set_number(&json, entry, "display", (double)automation->display);
 
 		Naui_JsonValue* points = naui_json_set_array(&json, entry, "points");
 		for (size_t p = 0; p < (size_t)naui_list_len(automation->points); p++)
@@ -1052,6 +1054,8 @@ static bool uph_io_load_automation(Uph_Project* project, const Naui_Path load_pa
 		Uph_Automation automation = { 0 };
 		const bool is_object = value && value->type == NAUI_JSON_OBJECT;
 		automation.name = naui_string_from_cstr(naui_json_get_string(is_object ? naui_json_object_get(value, "name") : NULL, NAUI_TR("automation.default.name")));
+		const double display = naui_json_get_number(is_object ? naui_json_object_get(value, "display") : NULL, 0.0);
+		automation.display = (isfinite(display) && display >= 0.0 && display < (double)UPH_AUTOMATION_DISPLAY_COUNT) ? (Uph_AutomationDisplay)display : UPH_AUTOMATION_DISPLAY_NORMALIZED;
 		const Naui_JsonValue* points = is_object ? naui_json_object_get(value, "points") : NULL;
 		if (points && points->type == NAUI_JSON_ARRAY)
 		{

@@ -162,7 +162,7 @@ void uph_song_timeline_render_toolbox(void)
 			const Leaf_ID bpm_id = leaf_id("uph_bpm_drag");
 			const bool tempo_live = uph_tempo_lane_active() && uph_state.shared.song_timeline_playing;
 			float shown_bpm = tempo_live ? uph_tempo_current_bpm() : uph_state.project.bpm;
-			if (uph_ui_bpm(&shown_bpm, "uph_bpm_drag", 1.0f, 10000.0f) && !tempo_live)
+			if (uph_ui_bpm(&shown_bpm, "uph_bpm_drag", 1.0f, UPH_TEMPO_MAX_BPM) && !tempo_live)
 				uph_state.project.bpm = shown_bpm;
 
 			Uph_UIMenuID bpm_menu = uph_ui_context_menu(leaf_id("uph_song_timeline_bpm_menu"));

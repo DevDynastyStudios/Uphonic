@@ -3,6 +3,9 @@
 #define UPH_MIXER_DB_MIN -60.0f
 #define UPH_MIXER_DB_MAX 6.0f
 
+#define UPH_TEMPO_MIN_BPM 20.0f
+#define UPH_TEMPO_MAX_BPM 1000.0f
+
 #if NAUI_WINDOWS
     #define UPH_VST2_EXTENSION ".dll"
 #else

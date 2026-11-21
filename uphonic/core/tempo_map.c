@@ -1,7 +1,5 @@
 #define UPH_TEMPO_MAP_STEPS_PER_BEAT 32
 #define UPH_TEMPO_MAP_MAX_STEPS (1u << 21)
-#define UPH_TEMPO_MIN_BPM 20.0f
-#define UPH_TEMPO_MAX_BPM 500.0f
 
 typedef struct
 {
@@ -28,12 +26,6 @@ typedef struct
 Uph_TempoMapState;
 
 static Uph_TempoMapState uph__tempo_map_state = { 0 };
-
-static float uph__tempo_from_automation(float value)
-{
-    const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
-    return UPH_TEMPO_MIN_BPM + clamped * (UPH_TEMPO_MAX_BPM - UPH_TEMPO_MIN_BPM);
-}
 
 Uph_Track *uph_tempo_find_lane(void)
 {
@@ -71,7 +63,7 @@ static bool uph_tempo_block_value(const Uph_TimelineBlock *block, double beat, f
     if (!uph_automation_value_at_beat(&uph_state.project.automations[block->resource_index], (beat - block->start_beat) + block->start_offset_beats, &value))
         return false;
 
-    *out_bpm = uph__tempo_from_automation(value);
+    *out_bpm = uph_automation_to_bpm(value);
     return true;
 }
 

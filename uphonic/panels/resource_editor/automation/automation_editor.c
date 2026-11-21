@@ -75,6 +75,31 @@ static const char *uph__automation_editor_curve_names[UPH_AUTOMATION_CURVE_COUNT
 	"Step"
 };
 
+typedef struct
+{
+	const char *unit;
+	float min;
+	float max;
+	const char *format;
+}
+Uph_AutomationDisplayInfo;
+
+static const char *uph__automation_editor_display_names[UPH_AUTOMATION_DISPLAY_COUNT] = {
+	"Normalized",
+	"Percent",
+	"BPM",
+	"Volume",
+	"Pan"
+};
+
+static const Uph_AutomationDisplayInfo uph__automation_editor_displays[UPH_AUTOMATION_DISPLAY_COUNT] = {
+	{ "", 0.0f, 1.0f, "%.3f" },
+	{ "%", 0.0f, 100.0f, "%.1f" },
+	{ "BPM", UPH_TEMPO_MIN_BPM, UPH_TEMPO_MAX_BPM, "%.1f" },
+	{ "dB", UPH_MIXER_DB_MIN, UPH_MIXER_DB_MAX, "%.1f" },
+	{ "", -100.0f, 100.0f, "%.0f" }
+};
+
 #pragma region Helpers
 
 static inline bool uph__automation_editor_snap_disabled(void)
@@ -108,6 +133,55 @@ static inline Naui_Vec2 uph__automation_editor_point_position(const Uph_Automati
 		uph_midi_view_beat_to_x(&editor->view, box, point->beat),
 		uph__automation_editor_value_to_y(box, point->value)
 	};
+}
+
+static inline const Uph_AutomationDisplayInfo *uph__automation_editor_display_info(Uph_AutomationDisplay display)
+{
+	return &uph__automation_editor_displays[display < UPH_AUTOMATION_DISPLAY_COUNT ? display : UPH_AUTOMATION_DISPLAY_NORMALIZED];
+}
+
+static inline float uph__automation_editor_to_display(Uph_AutomationDisplay display, float value)
+{
+	const Uph_AutomationDisplayInfo *info = uph__automation_editor_display_info(display);
+	return info->min + NAUI_CLAMP01(value) * (info->max - info->min);
+}
+
+static inline float uph__automation_editor_from_display(Uph_AutomationDisplay display, float shown)
+{
+	const Uph_AutomationDisplayInfo *info = uph__automation_editor_display_info(display);
+	return NAUI_CLAMP01((shown - info->min) / (info->max - info->min));
+}
+
+static void uph__automation_editor_format_value(Uph_AutomationDisplay display, float value, bool compact, char *out, size_t size)
+{
+	const float shown = uph__automation_editor_to_display(display, value);
+	switch (display)
+	{
+		case UPH_AUTOMATION_DISPLAY_PERCENT:
+			snprintf(out, size, compact ? "%.0f%%" : "%.1f%%", shown);
+			break;
+		case UPH_AUTOMATION_DISPLAY_BPM:
+			snprintf(out, size, compact ? "%.0f" : "%.1f BPM", shown);
+			break;
+		case UPH_AUTOMATION_DISPLAY_VOLUME:
+			if (value <= 0.0f)
+				snprintf(out, size, compact ? "-inf" : "-inf dB");
+			else
+				snprintf(out, size, compact ? "%.0f" : "%.1f dB", shown);
+			break;
+		case UPH_AUTOMATION_DISPLAY_PAN:
+		{
+			const float rounded = roundf(shown);
+			if (rounded == 0.0f)
+				snprintf(out, size, "C");
+			else
+				snprintf(out, size, "%c%.0f", rounded < 0.0f ? 'L' : 'R', fabsf(rounded));
+			break;
+		}
+		default:
+			snprintf(out, size, compact ? "%.2f" : "%.3f", shown);
+			break;
+	}
 }
 
 static Uph_Automation *uph__automation_editor_current(const Uph_AutomationEditorState *editor)
@@ -603,8 +677,10 @@ static void uph__automation_editor_update_point_menu(Uph_AutomationEditorState *
 
 	if (editor->has_clipboard)
 	{
-		char label[32];
-		snprintf(label, sizeof(label), "Paste value (%.3f)", editor->clipboard_value);
+		char value_text[32];
+		char label[48];
+		uph__automation_editor_format_value(automation->display, editor->clipboard_value, false, value_text, sizeof(value_text));
+		snprintf(label, sizeof(label), "Paste value (%s)", value_text);
 		if (uph_ui_menu_item(menu, label, leaf_id("uph_automation_editor_point_paste")) && valid)
 			uph__automation_editor_set_value(editor, automation, (uint32_t)index, editor->clipboard_value);
 	}
@@ -637,6 +713,8 @@ static void uph__automation_editor_ruler_draw(Leaf_BoundingBox box, void *user_d
 
 static void uph__automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_data)
 {
+	const Uph_Automation *automation = uph__automation_editor_current(&uph__automation_editor_state);
+	const Uph_AutomationDisplay display = automation ? automation->display : UPH_AUTOMATION_DISPLAY_NORMALIZED;
 	const Leaf_Color text_color = uph_state.colors.ui_text_disabled;
 	const Leaf_Color tick_color = uph_state.colors.automation_editor_grid_beat;
 	const int32_t font_size = NAUI_DPI(11);
@@ -648,7 +726,7 @@ static void uph__automation_editor_gutter_draw(Leaf_BoundingBox box, void *user_
 		const float y = uph__automation_editor_value_to_y(box, value);
 
 		char label[16];
-		snprintf(label, sizeof(label), "%.2f", value);
+		uph__automation_editor_format_value(display, value, true, label, sizeof(label));
 		const Naui_Vec2 text_size = naui_measure_text(label, (uint32_t)strlen(label), font_size);
 
 		naui_draw_line((Naui_Vec2) { box.x + box.width - padding * 0.5f, y }, (Naui_Vec2) { box.x + box.width, y }, tick_color, 1.0f);
@@ -765,7 +843,9 @@ static void uph__automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	if (point_index >= 0 && (uint32_t)point_index < count)
 	{
 		const Uph_AutomationPoint *point = &automation->points[point_index];
-		snprintf(text, sizeof(text), "Beat %.3f  |  %.3f", point->beat, point->value);
+		char value_text[32];
+		uph__automation_editor_format_value(automation->display, point->value, false, value_text, sizeof(value_text));
+		snprintf(text, sizeof(text), "Beat %.3f  |  %s", point->beat, value_text);
 		uph__automation_editor_draw_readout(box, uph__automation_editor_point_position(state, box, point), text);
 	}
 	else if (handle_index >= 0 && (uint32_t)handle_index + 1 < count)
@@ -873,6 +953,25 @@ static void uph__automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 				editor->fit = true;
 		}
 
+		leaf({
+			.size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+			.child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
+			.child_gap = NAUI_DPI(6),
+			.direction = LEAF_DIRECTION_HORIZONTAL
+		})
+		{
+			uint32_t display = (uint32_t)automation->display;
+			uph__automation_editor_render_label("Display", false);
+			leaf({
+				.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(96)), .height = LEAF_SIZE_FULL },
+				.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
+			})
+			{
+				if (uph_ui_dropdown(uph__automation_editor_display_names, UPH_AUTOMATION_DISPLAY_COUNT, &display, leaf_id("uph_automation_editor_display")))
+					automation->display = (Uph_AutomationDisplay)display;
+			}
+		}
+
 		const int32_t index = editor->selected_point;
 		if (index >= 0 && (uint32_t)index < (uint32_t)naui_list_len(automation->points))
 		{
@@ -910,16 +1009,24 @@ static void uph__automation_editor_render_toolbar(Uph_AutomationEditorState *edi
 				.direction = LEAF_DIRECTION_HORIZONTAL
 			})
 			{
-				float value = point->value;
-				uph__automation_editor_render_label("Value", false);
+				const Uph_AutomationDisplayInfo *info = uph__automation_editor_display_info(automation->display);
+				float value = uph__automation_editor_to_display(automation->display, point->value);
+
+				char label[32];
+				if (info->unit[0])
+					snprintf(label, sizeof(label), "Value (%s)", info->unit);
+				else
+					snprintf(label, sizeof(label), "Value");
+
+				uph__automation_editor_render_label(label, false);
 				leaf({
 					.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(80)), .height = LEAF_SIZE_FULL },
 					.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
 				})
 				{
-					if (uph_ui_drag_float(&value, leaf_id("uph_automation_editor_value"), 0.002f, 0.0f, 1.0f, "%.3f", UPH_UI_DRAG_FLAG_CLAMPED))
+					if (uph_ui_drag_float(&value, leaf_id("uph_automation_editor_value"), 0.002f * (info->max - info->min), info->min, info->max, info->format, UPH_UI_DRAG_FLAG_CLAMPED))
 					{
-						point->value = NAUI_CLAMP01(value);
+						point->value = uph__automation_editor_from_display(automation->display, value);
 						changed = true;
 					}
 				}
@@ -1008,9 +1115,6 @@ static void uph__automation_editor_render_entry(Uph_AutomationEditorState *edito
 	const int32_t width = NAUI_DPI(90);
 	const int32_t height = NAUI_DPI(26);
 
-	char placeholder[32];
-	snprintf(placeholder, sizeof(placeholder), "%.3f", automation->points[index].value);
-
 	bool submitted = false;
 	leaf({
 		.id = leaf_id("uph_automation_editor_entry"),
@@ -1023,14 +1127,14 @@ static void uph__automation_editor_render_entry(Uph_AutomationEditorState *edito
 		.positioning = LEAF_POSITIONING_FLOATING_TO_ROOT
 	})
 	{
-		submitted = uph_ui_textfield(&editor->entry_text, leaf_id("uph_automation_editor_entry_field"), UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY | UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_INLINE, placeholder);
+		submitted = uph_ui_textfield(&editor->entry_text, leaf_id("uph_automation_editor_entry_field"), UPH_UI_TEXTFIELD_FLAG_NUMBER_ONLY | UPH_UI_TEXTFIELD_FLAG_ALWAYS_ACTIVE | UPH_UI_TEXTFIELD_FLAG_INLINE, NULL);
 	}
 
 	if (!submitted || !naui_key_pressed(NAUI_KEY_ENTER))
 		return;
 
 	if (editor->entry_text.length > 0)
-		uph__automation_editor_set_value(editor, automation, (uint32_t)index, (float)atof(editor->entry_text.data));
+		uph__automation_editor_set_value(editor, automation, (uint32_t)index, uph__automation_editor_from_display(automation->display, (float)atof(editor->entry_text.data)));
 
 	uph__automation_editor_close_entry(editor);
 }

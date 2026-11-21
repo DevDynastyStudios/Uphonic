@@ -441,10 +441,22 @@ typedef struct
 }
 Uph_AutomationPoint;
 
+typedef uint8_t Uph_AutomationDisplay;
+enum
+{
+	UPH_AUTOMATION_DISPLAY_NORMALIZED,
+	UPH_AUTOMATION_DISPLAY_PERCENT,
+	UPH_AUTOMATION_DISPLAY_BPM,
+	UPH_AUTOMATION_DISPLAY_VOLUME,
+	UPH_AUTOMATION_DISPLAY_PAN,
+	UPH_AUTOMATION_DISPLAY_COUNT
+};
+
 typedef struct
 {
 	Naui_String name;
 	Naui_List(Uph_AutomationPoint) points;
+	Uph_AutomationDisplay display;
 	struct
 	{
 		float lifetime;

@@ -428,6 +428,12 @@ float uph_automation_to_pan(float value)
     return clamped * 2.0f - 1.0f;
 }
 
+float uph_automation_to_bpm(float value)
+{
+    const float clamped = value < 0.0f ? 0.0f : (value > 1.0f ? 1.0f : value);
+    return UPH_TEMPO_MIN_BPM + clamped * (UPH_TEMPO_MAX_BPM - UPH_TEMPO_MIN_BPM);
+}
+
 #define UPH_LOOP_REGION_HANDLE_WIDTH 5
 #define UPH_LOOP_REGION_STRIP 0.4f
 
