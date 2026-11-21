@@ -782,8 +782,8 @@ static bool uph__song_timeline_render_group_items(Uph_UIMenuID menu, Uph_Track *
 	}
 
 	Uph_Track *group = NULL;
-	if (uph_resources_count_groupable_tracks(groupable) >= 1 && uph_ui_menu_item(menu, "Group Tracks", leaf_id("uph_song_timeline_options_group")))
-		group = uph_resources_group_tracks(groupable, "Untitled Group", track->color_index);
+	if (uph_resources_count_groupable_tracks(groupable) >= 1 && uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.group"), leaf_id("uph_song_timeline_options_group")))
+		group = uph_resources_group_tracks(groupable, NAUI_TR("song_timeline.menu.group.title"), track->color_index);
 
 	naui_list_free(groupable);
 
@@ -793,7 +793,7 @@ static bool uph__song_timeline_render_group_items(Uph_UIMenuID menu, Uph_Track *
 		return true;
 	}
 
-	if (track->type != UPH_RESOURCE_GROUP || !uph_ui_menu_item(menu, "Ungroup", leaf_id("uph_song_timeline_options_ungroup")))
+	if (track->type != UPH_RESOURCE_GROUP || !uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.ungroup"), leaf_id("uph_song_timeline_options_ungroup")))
 		return false;
 
 	Naui_List(Uph_TrackPtr) children = NULL;
@@ -809,13 +809,13 @@ static void uph__song_timeline_render_instrument_items(Uph_UIMenuID menu, Uph_Tr
 {
 	if (!track->instrument.loaded)
 	{
-		if (uph_ui_menu_item(menu, "Load Instrument", leaf_id("uph_song_timeline_options_load_instrument")))
+		if (uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.instrument.load"), leaf_id("uph_song_timeline_options_load_instrument")))
 			uph__song_timeline_open_instrument_list(track);
 		return;
 	}
 
 	const bool visible = uph_plugin_window_visible(&track->instrument);
-	if (uph_ui_menu_item(menu, visible ? "Hide Instrument" : "Show Instrument", leaf_id("uph_song_timeline_options_show_instrument")))
+	if (uph_ui_menu_item(menu, visible ? NAUI_TR("song_timeline.menu.instrument.hide") : NAUI_TR("song_timeline.menu.instrument.show"), leaf_id("uph_song_timeline_options_show_instrument")))
 	{
 		if (visible)
 			uph_plugin_hide_window(&track->instrument);
@@ -823,7 +823,7 @@ static void uph__song_timeline_render_instrument_items(Uph_UIMenuID menu, Uph_Tr
 			uph_plugin_show_window(&track->instrument);
 	}
 
-	if (uph_ui_menu_item(menu, "Remove Instrument", leaf_id("uph_song_timeline_options_remove_instrument")))
+	if (uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.instrument.remove"), leaf_id("uph_song_timeline_options_remove_instrument")))
 	{
 		uph_action_track_unload_plugin(track, &track->instrument);
 		if (naui_list_len(track->blocks) == 0)
@@ -836,10 +836,10 @@ static void uph__song_timeline_render_track_items(Uph_UIMenuID menu, Uph_UIMenuI
 	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	if (track->type != UPH_RESOURCE_MASTER)
 	{
-		if (uph_ui_menu_item(menu, "Rename", leaf_id("uph_song_timeline_options_rename")))
+		if (uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.rename"), leaf_id("uph_song_timeline_options_rename")))
 			uph__song_timeline_begin_rename(track);
 
-		if (uph_ui_menu_item(menu, "Color", leaf_id("uph_song_timeline_options_color")))
+		if (uph_ui_menu_item(menu, NAUI_TR("song_timeline.track.color"), leaf_id("uph_song_timeline_options_color")))
 		{
 			state->current_color_options_track = track;
 			uph_ui_open_context_menu(color_menu);
@@ -859,7 +859,7 @@ static void uph__song_timeline_render_track_items(Uph_UIMenuID menu, Uph_UIMenuI
 			uph_song_timeline_automate_last_touched(track);
 	}
 
-	if (track->type != UPH_RESOURCE_MASTER && uph_ui_menu_item(menu, "Remove", leaf_id("uph_song_timeline_options_remove")))
+	if (track->type != UPH_RESOURCE_MASTER && uph_ui_menu_item(menu, NAUI_TR("song_timeline.menu.remove"), leaf_id("uph_song_timeline_options_remove")))
 		uph_resources_delete_tracks(targets);
 }
 

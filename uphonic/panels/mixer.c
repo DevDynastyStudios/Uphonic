@@ -1551,15 +1551,15 @@ static void uph_mixer_on_update(void)
 			Uph_Track *current = uph_state.shared.current_mixer_track;
 
 			if (uph_resources_count_groupable_tracks(uph_state.shared.selected_mixer_tracks) >= 1 &&
-				uph_ui_menu_item(context_menu, "Group Tracks", leaf_id("uph_mixer_group_tracks")))
+				uph_ui_menu_item(context_menu, NAUI_TR("song_timeline.menu.group"), leaf_id("uph_mixer_group_tracks")))
 			{
 				state->rename_track = NULL;
-				Uph_Track *group = uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, "Untitled Group", current->color_index);
+				Uph_Track *group = uph_resources_group_tracks(uph_state.shared.selected_mixer_tracks, NAUI_TR("song_timeline.menu.group.title"), current->color_index);
 				if (group)
 					uph_resources_select_mixer_track(group);
 			}
 			else if (current->type == UPH_RESOURCE_GROUP &&
-				uph_ui_menu_item(context_menu, "Ungroup", leaf_id("uph_mixer_ungroup_tracks")))
+				uph_ui_menu_item(context_menu, NAUI_TR("song_timeline.menu.ungroup"), leaf_id("uph_mixer_ungroup_tracks")))
 			{
 				state->rename_track = NULL;
 				Naui_List(Uph_TrackPtr) children = NULL;
@@ -1573,10 +1573,10 @@ static void uph_mixer_on_update(void)
 			}
 			else
 			{
-				if (uph_ui_menu_item(context_menu, "Rename", leaf_id("uph_mixer_rename_track")))
+				if (uph_ui_menu_item(context_menu, NAUI_TR("song_timeline.menu.rename"), leaf_id("uph_mixer_rename_track")))
 					uph_mixer_begin_rename(current);
 
-				if (uph_ui_menu_item(context_menu, "Color", leaf_id("uph_mixer_color_track")))
+				if (uph_ui_menu_item(context_menu, NAUI_TR("song_timeline.track.color"), leaf_id("uph_mixer_color_track")))
 					uph_mixer_open_color_menu(current);
 
 				if (uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate"), leaf_id("uph_mixer_automate_track")))
@@ -1586,7 +1586,7 @@ static void uph_mixer_on_update(void)
 					uph_ui_menu_item(context_menu, NAUI_TR("automation.menu.automate_last"), leaf_id("uph_mixer_automate_last_track")))
 					uph_song_timeline_automate_last_touched(current);
 
-				if (uph_ui_menu_item(context_menu, "Remove", leaf_id("uph_mixer_remove_track")))
+				if (uph_ui_menu_item(context_menu, NAUI_TR("song_timeline.menu.remove"), leaf_id("uph_mixer_remove_track")))
 				{
 					state->rename_track = NULL;
 					uph_resources_delete_tracks(uph_state.shared.selected_mixer_tracks);
