@@ -445,6 +445,7 @@ struct Uph_PluginInternalHandle_
     Naui_PanelID panel;
     Naui_Texture texture;
     Uph_PluginGuiCapture capture;
+    Naui_ForeignGpuContext gpu_context;
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
@@ -3505,10 +3506,20 @@ static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
 Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
     uph__module_acquire(path);
+
+    Naui_ForeignGpuContext gpu_context = { 0 };
+    naui_foreign_gpu_context_enter(&gpu_context);
     Uph_Plugin plugin = uph__plugin_load_impl(path);
+    naui_foreign_gpu_context_leave(&gpu_context);
+
     if (!plugin.loaded)
+    {
         uph__module_release(path);
-    else if (show_window)
+        return plugin;
+    }
+
+    ((Uph_PluginInternalHandle*)plugin.internal_handle)->gpu_context = gpu_context;
+    if (show_window)
         uph_plugin_show_window(&plugin);
 
     return plugin;
@@ -3591,12 +3602,14 @@ void uph_plugin_unload(Uph_Plugin *plug)
 
         uph__plugin_gui_release_capture(internal_handle);
 
+        naui_foreign_gpu_context_enter(&internal_handle->gpu_context);
         switch (internal_handle->format)
         {
             case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
             case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
             case UPH_PLUGIN_VST2: uph__vst2_unload(internal_handle); break;
         }
+        naui_foreign_gpu_context_leave(&internal_handle->gpu_context);
 
         uph__module_release(internal_handle->module_path);
         free(internal_handle);
@@ -4484,6 +4497,8 @@ static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
     uph__plugin_gui_win32_set_passthrough(ih, true);
 #endif
 
+    naui_foreign_gpu_context_enter(&ih->gpu_context);
+
     if (!visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->hide(ih->clap.plugin);
 
@@ -4499,6 +4514,8 @@ static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
 
     if (visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->show(ih->clap.plugin);
+
+    naui_foreign_gpu_context_leave(&ih->gpu_context);
 }
 
 void uph_plugin_gui_closed(Uph_PluginInternalHandle *handle)
@@ -4636,7 +4653,10 @@ void uph_plugin_update(Uph_Plugin *plug)
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     uph__plugin_collect_touched_param(plug, internal_handle);
+
+    naui_foreign_gpu_context_enter(&internal_handle->gpu_context);
     uph__plugin_idle(internal_handle);
+    naui_foreign_gpu_context_leave(&internal_handle->gpu_context);
 
     if (internal_handle->visible)
         uph__plugin_gui_capture(internal_handle);

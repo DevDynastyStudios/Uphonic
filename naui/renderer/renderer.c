@@ -191,10 +191,51 @@ typedef struct
     float corner_cos[NAUI_RENDERER_CORNER_SEGMENTS + 1][NAUI_RENDERER_CORNER_SEGMENTS + 1];
     float corner_sin[NAUI_RENDERER_CORNER_SEGMENTS + 1][NAUI_RENDERER_CORNER_SEGMENTS + 1];
     float corner_max_radius[NAUI_RENDERER_CORNER_SEGMENTS + 1];
+
+    Naui_ForeignGpuContext own_gpu_context;
 }
 Naui_RendererState;
 
 static Naui_RendererState *naui__renderer_state;
+
+#if defined(MGFX_OPENGL) && NAUI_LINUX
+static void naui__gpu_context_capture(Naui_ForeignGpuContext *context)
+{
+    context->display = eglGetCurrentDisplay();
+    context->draw = eglGetCurrentSurface(EGL_DRAW);
+    context->read = eglGetCurrentSurface(EGL_READ);
+    context->context = eglGetCurrentContext();
+}
+
+static void naui__gpu_context_bind(const Naui_ForeignGpuContext *context)
+{
+    if (context->context == EGL_NO_CONTEXT || eglGetCurrentContext() == context->context)
+        return;
+
+    eglMakeCurrent(context->display, context->draw, context->read, context->context);
+}
+#else
+static void naui__gpu_context_capture(Naui_ForeignGpuContext *context)
+{
+    *context = (Naui_ForeignGpuContext){ 0 };
+}
+
+static void naui__gpu_context_bind(const Naui_ForeignGpuContext *context)
+{
+    (void)context;
+}
+#endif
+
+void naui_foreign_gpu_context_enter(const Naui_ForeignGpuContext *context)
+{
+    naui__gpu_context_bind(context);
+}
+
+void naui_foreign_gpu_context_leave(Naui_ForeignGpuContext *context)
+{
+    naui__gpu_context_capture(context);
+    naui__gpu_context_bind(&naui__renderer_state->own_gpu_context);
+}
 
 static inline float naui__min(float a, float b)
 {
@@ -766,6 +807,8 @@ void naui_renderer_initialize(void)
         .vsync = true
     });
 
+    naui__gpu_context_capture(&naui__renderer_state->own_gpu_context);
+
     for (int n = 1; n <= NAUI_RENDERER_CORNER_SEGMENTS; n++)
     {
         for (int i = 0; i <= n; i++)
@@ -896,6 +939,8 @@ void naui_renderer_resize(int32_t width, int32_t height)
 
 bool naui_renderer_begin(void)
 {
+    naui__gpu_context_bind(&naui__renderer_state->own_gpu_context);
+
     if (mgfx_begin() != MGFX_RESULT_SUCCESS)
         return false;
 

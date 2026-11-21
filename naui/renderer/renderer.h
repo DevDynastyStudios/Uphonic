@@ -39,6 +39,15 @@ enum
 
 typedef void *Naui_Texture;
 
+typedef struct
+{
+    void *display;
+    void *draw;
+    void *read;
+    void *context;
+}
+Naui_ForeignGpuContext;
+
 typedef uint8_t Naui_TextureFormat;
 enum
 {
@@ -93,3 +102,6 @@ NAUI_API void naui_draw_shadow(Naui_Vec2 position, Naui_Vec2 scale, float blur_r
 
 NAUI_API void naui_fill_polygon(const Naui_Vec2 *points, int point_count, Naui_Color color);
 NAUI_API Naui_Vec4 naui_current_clip_rect(void);
+
+NAUI_API void naui_foreign_gpu_context_enter(const Naui_ForeignGpuContext *context);
+NAUI_API void naui_foreign_gpu_context_leave(Naui_ForeignGpuContext *context);
