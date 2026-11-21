@@ -400,6 +400,16 @@
 	"settings.ui.snap.sixteenth": "1/16",
 	"settings.ui.zoom_sensitivity": "ズーム感度",
 
+	"song_timeline.menu.group": "トラックをグループ化",
+	"song_timeline.menu.group.title": "無題のグループ",
+	"song_timeline.menu.remove": "トラックを削除",
+	"song_timeline.menu.rename": "トラック名を変更",
+	"song_timeline.menu.ungroup": "トラックのグループ化を解除",
+	"song_timeline.menu.instrument.hide": "音源を非表示",
+	"song_timeline.menu.instrument.load": "音源を読み込む",
+	"song_timeline.menu.instrument.remove": "音源を削除",
+	"song_timeline.menu.instrument.show": "音源を表示",
+
 	"song_timeline.title": "曲のタイムライン",
 	"song_timeline.track.color": "トラックの色",
 	"song_timeline.track.title": "無題のトラック",

@@ -400,6 +400,16 @@
 	"settings.ui.snap.sixteenth": "1/16",
 	"settings.ui.zoom_sensitivity": "Zoom Sensitivity",
 
+	"song_timeline.menu.group": "Group Tracks",
+	"song_timeline.menu.group.title": "Untitled Group",
+	"song_timeline.menu.remove": "Remove",
+	"song_timeline.menu.rename": "Rename",
+	"song_timeline.menu.ungroup": "Ungroup Tracks",
+	"song_timeline.menu.instrument.hide": "Hide Instrument",
+	"song_timeline.menu.instrument.load": "Load Instrument",
+	"song_timeline.menu.instrument.remove": "Remove Instrument",
+	"song_timeline.menu.instrument.show": "Show Instrument",
+
 	"song_timeline.title": "Song Timeline",
 	"song_timeline.track.color": "Track Color",
 	"song_timeline.track.title": "Untitled Track",
