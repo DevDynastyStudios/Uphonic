@@ -679,7 +679,16 @@ static void uph__note_input_update_select(Uph_MidiEditorState *editor, Leaf_Boun
 	marquee->active = true;
 	marquee->start_beat = uph_midi_view_x_to_beat(&editor->view, box, (float)naui_mouse_x());
 	marquee->start_content_y = (float)naui_mouse_y() - box.y + editor->view.scroll.y;
-	uph_note_select_all(pattern, false);
+
+	naui_list_free(marquee->base_selection);
+	marquee->base_selection = NULL;
+	if (uph_ui_ctrl_down() || uph_ui_shift_down())
+	{
+		for (uint32_t i = 0; i < (uint32_t)naui_list_len(pattern->notes); i++)
+			naui_list_push(marquee->base_selection, pattern->notes[i].selected);
+	}
+	else
+		uph_note_select_all(pattern, false);
 }
 
 static void uph__note_input_update_marquee(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_MidiPattern *pattern)
@@ -699,7 +708,8 @@ static void uph__note_input_update_marquee(Uph_MidiEditorState *editor, Leaf_Bou
 	{
 		Uph_MidiNote *note = &pattern->notes[i];
 		const Naui_Vec4 note_box = uph_midi_view_note_box(&editor->view, &editor->note_map, box, note);
-		note->selected = note_box.x < right && note_box.x + note_box.z > left && note_box.y < bottom && note_box.y + note_box.w > top;
+		const bool base_selected = i < (uint32_t)naui_list_len(marquee->base_selection) && marquee->base_selection[i];
+		note->selected = base_selected || (note_box.x < right && note_box.x + note_box.z > left && note_box.y < bottom && note_box.y + note_box.w > top);
 	}
 }
 

@@ -8,6 +8,7 @@
 
 typedef struct
 {
+	Naui_List(bool) base_selection;
 	double start_beat;
 	float start_content_y;
 	bool active;
