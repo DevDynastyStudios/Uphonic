@@ -195,10 +195,28 @@ int32_t naui_mouse_y(void)
 
 typedef struct
 {
+    const char *images[NAUI_CURSOR_SCALE_COUNT];
+    Naui_Vec2 hotspot;
+}
+Naui_CursorImage;
+
+static const float naui__cursor_scales[NAUI_CURSOR_SCALE_COUNT] = {
+    [NAUI_CURSOR_SCALE_100] = 1.0f,
+    [NAUI_CURSOR_SCALE_125] = 1.25f,
+    [NAUI_CURSOR_SCALE_150] = 1.5f,
+    [NAUI_CURSOR_SCALE_175] = 1.75f,
+    [NAUI_CURSOR_SCALE_200] = 2.0f,
+    [NAUI_CURSOR_SCALE_300] = 3.0f,
+};
+
+typedef struct
+{
     int32_t drag_start_x[MG_MOUSE_BUTTON_MAX];
     int32_t drag_start_y[MG_MOUSE_BUTTON_MAX];
     Naui_Cursor current_cursor;
     mg_cursor native_cursors[NAUI_CURSOR_CAPACITY];
+    Naui_CursorImage cursor_images[NAUI_CURSOR_CAPACITY];
+    uint32_t cursor_dpi;
     bool dragging[MG_MOUSE_BUTTON_MAX];
 }
 Naui_GlobalInputState;
@@ -210,21 +228,55 @@ void naui_set_cursor(Naui_Cursor cursor)
         naui__input_state.current_cursor = cursor;
 }
 
-void naui_set_cursor_image(Naui_Cursor cursor, const char *image, Naui_Vec2 hotspot)
+static uint8_t *naui__load_cursor_variant(const char *image, int32_t *width, int32_t *height)
 {
-    Naui_GlobalInputState *state = &naui__input_state;
-    if (cursor >= NAUI_CURSOR_CAPACITY)
-        return;
+    if (!image)
+        return NULL;
 
     const Naui_Path path = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Cursors", image));
-    int32_t width, height, channels;
-    uint8_t *pixels = stbi_load(path.data, &width, &height, &channels, 4);
+    int32_t channels;
+    return stbi_load(path.data, width, height, &channels, 4);
+}
+
+static void naui__build_cursor(Naui_Cursor cursor)
+{
+    Naui_GlobalInputState *state = &naui__input_state;
+    const Naui_CursorImage *image = &state->cursor_images[cursor];
+
+    const float dpi_scale = mgapp_dpi_scale();
+    const float target = dpi_scale > 0.0f ? dpi_scale : 1.0f;
+
+    int32_t first = 0;
+    while (first < NAUI_CURSOR_SCALE_COUNT && naui__cursor_scales[first] < target - 0.01f)
+        ++first;
+
+    uint8_t *pixels = NULL;
+    int32_t width = 0, height = 0;
+    for (int32_t i = first; i < NAUI_CURSOR_SCALE_COUNT && !pixels; ++i)
+        pixels = naui__load_cursor_variant(image->images[i], &width, &height);
+    for (int32_t i = first - 1; i >= 0 && !pixels; --i)
+        pixels = naui__load_cursor_variant(image->images[i], &width, &height);
     if (!pixels)
         return;
 
     mgapp_destroy_cursor(state->native_cursors[cursor]);
-    state->native_cursors[cursor] = mgapp_create_cursor(pixels, width, height, (int32_t)(hotspot.x * (float)width), (int32_t)(hotspot.y * (float)height));
+    state->native_cursors[cursor] = mgapp_create_cursor(pixels, width, height, (int32_t)(image->hotspot.x * (float)width), (int32_t)(image->hotspot.y * (float)height));
     stbi_image_free(pixels);
+}
+
+void naui_set_cursor_image(Naui_Cursor cursor, const char *const images[NAUI_CURSOR_SCALE_COUNT], Naui_Vec2 hotspot)
+{
+    Naui_GlobalInputState *state = &naui__input_state;
+    if (cursor >= NAUI_CURSOR_CAPACITY || !images)
+        return;
+
+    Naui_CursorImage *slot = &state->cursor_images[cursor];
+    for (int32_t i = 0; i < NAUI_CURSOR_SCALE_COUNT; ++i)
+        slot->images[i] = images[i];
+    slot->hotspot = hotspot;
+
+    state->cursor_dpi = mgapp_dpi();
+    naui__build_cursor(cursor);
 }
 
 void naui_input_update(void)
@@ -253,6 +305,14 @@ void naui_input_update(void)
     }
 
     Naui_GlobalInputState *state = &naui__input_state;
+    const uint32_t dpi = mgapp_dpi();
+    if (state->cursor_dpi && dpi != state->cursor_dpi)
+    {
+        state->cursor_dpi = dpi;
+        for (Naui_Cursor i = 0; i < NAUI_CURSOR_CAPACITY; ++i)
+            naui__build_cursor(i);
+    }
+
     const Naui_Cursor cursor = state->current_cursor;
     mg_cursor native = cursor < NAUI_CURSOR_MAX ? (mg_cursor)cursor : MG_CURSOR_ARROW;
     if (state->native_cursors[cursor])
