@@ -45,7 +45,7 @@ static void uph_block_refresh_track_type(Uph_Track *track)
 	if (track->type == UPH_RESOURCE_AUTOMATION)
 		return;
 
-	if (naui_list_len(track->blocks) == 0 && !track->instrument.loaded)
+	if (naui_list_len(track->blocks) == 0 && !track->instrument.loaded && !uph_plugin_loading(&track->instrument))
 		track->type = UPH_RESOURCE_NONE;
 }
 

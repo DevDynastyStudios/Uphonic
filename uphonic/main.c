@@ -278,6 +278,9 @@ void naui_app_end(void)
  
 	naui_log(NAUI_LOG_INFO, "Clearing Tracks...");
 	uph_resources_clear_tracks();
+
+	naui_log(NAUI_LOG_INFO, "Stopping Plugin Host...");
+	uph_plugin_modules_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Stopping MIDI Engine...");
 	cmidi_scheduler_stop_all();

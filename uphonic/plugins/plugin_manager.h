@@ -8,6 +8,14 @@ Uph_Plugin uph_plugin_load(
 		bool show_window
 );
 
+void uph_plugin_wait(
+	Uph_Plugin *plugin
+);
+
+bool uph_plugin_loading(
+	const Uph_Plugin *plugin
+);
+
 void uph_plugin_show_window(
 	Uph_Plugin *plugin
 );

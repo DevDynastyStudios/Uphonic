@@ -336,6 +336,7 @@ typedef struct
 	Naui_Path file_path;
 	Naui_String name;
 	void *internal_handle;
+	void *pending_load;
 	Uph_PluginFormat format;
 	Naui_List(Uph_PluginParam) params;
 	uint64_t last_touched_param;

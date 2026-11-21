@@ -179,7 +179,7 @@ static void uph__song_timeline_group_apply(Uph_DraggingBlockState *drag, Naui_Li
 		if (move->dst_track->type == UPH_RESOURCE_NONE)
 			uph__song_timeline_set_track_type(drag, move->dst_track, drag->group_blocks[k].block.type);
 
-		if (naui_list_len(move->src_track->blocks) == 0 && !move->src_track->instrument.loaded)
+		if (naui_list_len(move->src_track->blocks) == 0 && !move->src_track->instrument.loaded && !uph_plugin_loading(&move->src_track->instrument))
 			uph__song_timeline_set_track_type(drag, move->src_track, UPH_RESOURCE_NONE);
 	}
 
@@ -618,7 +618,7 @@ void uph_song_timeline_update_drag_track_switch(void)
 	{
 		if (new_track->type == UPH_RESOURCE_NONE)
 			new_track->type = moved.type;
-		if (naui_list_len(old_track->blocks) == 0 && !old_track->instrument.loaded)
+		if (naui_list_len(old_track->blocks) == 0 && !old_track->instrument.loaded && !uph_plugin_loading(&old_track->instrument))
 			old_track->type = UPH_RESOURCE_NONE;
 	}
 

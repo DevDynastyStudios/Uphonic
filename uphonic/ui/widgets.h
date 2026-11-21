@@ -48,3 +48,8 @@ bool uph_ui_textfield(
 	Uph_UITextFieldFlags flags,
 	const char *placeholder
 );
+
+void uph_ui_spinner_custom_draw(
+	Leaf_BoundingBox box,
+	void *user_data
+);

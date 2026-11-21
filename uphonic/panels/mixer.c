@@ -380,10 +380,22 @@ static void uph_mixer_render_effect_row(Uph_EffectPlugin *effect, const uint32_t
 			.clip_children = true
 		})
 		{
-			leaf_text(effect->plugin.name.data, {
-				.color = effect->enabled && effect->plugin.loaded ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
-				.font_size = LEAF_SIZE_FIXED(font_size)
-			});
+			if (uph_plugin_loading(&effect->plugin))
+			{
+				Naui_Color spinner_color = uph_state.colors.ui_text;
+				leaf({
+					.custom_draw = uph_ui_spinner_custom_draw,
+					.custom_draw_data = LEAF_DATA_SLICE(spinner_color),
+					.size = { .width = LEAF_SIZE_FIXED(font_size * 2), .height = LEAF_SIZE_FIXED(font_size * 2) }
+				});
+			}
+			else
+			{
+				leaf_text(effect->plugin.name.data, {
+					.color = effect->enabled && effect->plugin.loaded ? uph_state.colors.ui_text : uph_state.colors.ui_text_disabled,
+					.font_size = LEAF_SIZE_FIXED(font_size)
+				});
+			}
 		}
 
 		leaf({

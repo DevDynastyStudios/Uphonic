@@ -34,10 +34,22 @@ static bool uph__ui_text_button(const char *string, const Leaf_ID id, Naui_Color
         .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(rounding), NAUI_CORNER_ALL)
     })
     {
-        leaf_text(string, {
-            .color = text_color,
-            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
-        });
+        if (string)
+        {
+            leaf_text(string, {
+                .color = text_color,
+                .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
+            });
+        }
+        else
+        {
+            Naui_Color spinner_color = text_color;
+            leaf({
+                .custom_draw = uph_ui_spinner_custom_draw,
+                .custom_draw_data = LEAF_DATA_SLICE(spinner_color),
+                .size = { .width = UPH_UI_SIZE_EXACT(frame_height), .height = UPH_UI_SIZE_EXACT(frame_height) }
+            });
+        }
     }
     return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
 }
@@ -50,6 +62,11 @@ bool uph_ui_text_button_ex(const char *string, const Leaf_ID id, Naui_Color bg_c
 bool uph_ui_tinted_text_button_full(const char *string, const Leaf_ID id)
 {
     return uph__ui_text_button(string, id, uph_state.colors.ui_tinted_frame_bg, LEAF_SIZE_FULL, true);
+}
+
+void uph_ui_tinted_spinner_button_full(const Leaf_ID id)
+{
+    uph__ui_text_button(NULL, id, uph_state.colors.ui_tinted_frame_bg, LEAF_SIZE_FULL, true);
 }
 
 bool uph_ui_text_button(const char *string, const Leaf_ID id)

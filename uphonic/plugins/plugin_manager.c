@@ -381,6 +381,7 @@ struct Uph_PluginInternalHandle_
             int64_t cc_param_ids[128];
 
             uint32_t width, height;
+            bool resize_deferred;
             bool has_event_input;
             int32_t audio_in_buses;
             int32_t audio_out_buses;
@@ -444,14 +445,14 @@ struct Uph_PluginInternalHandle_
 #endif
     Naui_PanelID panel;
     Naui_Texture texture;
-    Uph_PluginGuiCapture capture;
-    Naui_ForeignGpuContext gpu_context;
+    Uph_PluginGuiCapture *capture;
     uint32_t gui_width, gui_height;
     uint32_t texture_width, texture_height;
     int32_t screen_x, screen_y;
-    int32_t origin_x, origin_y;
+    _Atomic int32_t origin_x, origin_y;
     bool origin_dirty;
     bool visible;
+    bool gui_shown;
     bool is_clap;
     Uph_PluginFormat format;
     Naui_Path module_path;
@@ -1027,6 +1028,8 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_query_interface(v
     return Steinberg_kNoInterface;
 }
 
+static bool uph__plugin_load_in_progress;
+
 static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_resize_view(void *self, struct Steinberg_IPlugView *view, struct Steinberg_ViewRect *new_size)
 {
     Uph_Vst3Frame *f = (Uph_Vst3Frame*)self;
@@ -1036,7 +1039,10 @@ static Steinberg_tresult SMTG_STDMETHODCALLTYPE uph_vst3_frame_resize_view(void 
     uint32_t w = (uint32_t)(new_size->right - new_size->left);
     uint32_t h = (uint32_t)(new_size->bottom - new_size->top);
 
-    uph__plugin_gui_resize_window(f->owner, w, h);
+    if (uph__plugin_load_in_progress && f->owner->vst3.ready)
+        f->owner->vst3.resize_deferred = true;
+    else
+        uph__plugin_gui_resize_window(f->owner, w, h);
 
     f->owner->vst3.width = w;
     f->owner->vst3.height = h;
@@ -1692,6 +1698,13 @@ static inline void uph_load_vst3_plugin_internal(Uph_Plugin *plug, uint32_t *wid
         return;
     }
 
+    Steinberg_IPlugViewContentScaleSupport *scale_support = NULL;
+    if (ih->vst3.view->lpVtbl->queryInterface(ih->vst3.view, Steinberg_IPlugViewContentScaleSupport_iid, (void**)&scale_support) == Steinberg_kResultOk && scale_support)
+    {
+        scale_support->lpVtbl->setContentScaleFactor(scale_support, mgapp_dpi_scale());
+        scale_support->lpVtbl->release(scale_support);
+    }
+
 #if NAUI_LINUX
     const char *platform = Steinberg_kPlatformTypeX11EmbedWindowID;
 #elif NAUI_WINDOWS
@@ -1792,7 +1805,7 @@ static void uph__plugin_gui_destroy_window(Uph_PluginInternalHandle *ih)
 static void uph_unload_vst3_plugin(Uph_PluginInternalHandle *ih)
 {
     ih->vst3.ready = 0;
-    ih->visible = false;
+    ih->gui_shown = false;
 
     if (ih->vst3.processor)
         ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 0);
@@ -2684,7 +2697,7 @@ static bool uph__get_vst2_plugin_info(Naui_Path path, Uph_PluginInfo *out)
 
 static void uph__vst2_unload(Uph_PluginInternalHandle *ih)
 {
-    ih->visible = false;
+    ih->gui_shown = false;
     uph__vst2_free(ih);
     uph__plugin_gui_destroy_window(ih);
 }
@@ -3252,7 +3265,7 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
 #endif
 
     gui->set_parent(plugin, &window);
-    if (internal_handle->visible)
+    if (internal_handle->gui_shown)
         gui->show(plugin);
 
     const uint32_t max_frame_count = 2048;
@@ -3266,6 +3279,215 @@ static inline void uph_assign_clap_plugin_gui_internal(Uph_Plugin *plug)
     plugin->start_processing(plugin);
     internal_handle->clap.ready = 1;
 }
+
+#pragma region Plugin Host Thread
+
+#define UPH_PLUGIN_HOST_IDLE_MS 10
+#define UPH_PLUGIN_HOST_MAX_MESSAGES 64
+
+typedef void (*Uph_PluginHostFn)(void *data);
+
+typedef struct
+{
+    Uph_PluginHostFn fn;
+    void *data;
+    bool owned;
+    atomic_bool *done;
+}
+Uph_PluginHostCommand;
+
+typedef struct
+{
+    Naui_Thread thread;
+    Naui_Mutex lock;
+    Naui_List(Uph_PluginHostCommand) queue;
+    Naui_List(Uph_PluginInternalHandle*) handles;
+    atomic_bool stop;
+    atomic_bool finished;
+#if NAUI_WINDOWS
+    HANDLE wake;
+    HANDLE signal;
+#endif
+}
+Uph_PluginHostState;
+
+static Uph_PluginHostState uph__plugin_host_state;
+
+static void uph__plugin_idle(Uph_PluginInternalHandle *ih);
+
+static void uph__plugin_host_signal(atomic_bool *flag)
+{
+    atomic_store(flag, true);
+#if NAUI_WINDOWS
+    if (uph__plugin_host_state.signal)
+        SetEvent(uph__plugin_host_state.signal);
+#endif
+}
+
+static void uph__plugin_host_wait(atomic_bool *flag)
+{
+    while (!atomic_load(flag))
+    {
+#if NAUI_WINDOWS
+        MsgWaitForMultipleObjects(1, &uph__plugin_host_state.signal, FALSE, 50, QS_SENDMESSAGE);
+        MSG msg;
+        PeekMessageA(&msg, NULL, 0, 0, PM_NOREMOVE | PM_QS_SENDMESSAGE);
+#else
+        naui_thread_sleep_ms(1);
+#endif
+    }
+}
+
+static void uph__plugin_host_run(const Uph_PluginHostCommand *command)
+{
+    command->fn(command->data);
+    if (command->owned)
+        free(command->data);
+    if (command->done)
+        uph__plugin_host_signal(command->done);
+}
+
+static void uph__plugin_host_enqueue(Uph_PluginHostFn fn, void *data, bool owned, atomic_bool *done)
+{
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    const Uph_PluginHostCommand command = { fn, data, owned, done };
+    if (!state->thread)
+    {
+        uph__plugin_host_run(&command);
+        return;
+    }
+
+    naui_mutex_lock(state->lock);
+    naui_list_push(state->queue, command);
+    naui_mutex_unlock(state->lock);
+#if NAUI_WINDOWS
+    SetEvent(state->wake);
+#endif
+}
+
+static void uph__plugin_host_post(Uph_PluginHostFn fn, const void *data, size_t size)
+{
+    void *copy = malloc(size);
+    memcpy(copy, data, size);
+    uph__plugin_host_enqueue(fn, copy, true, NULL);
+}
+
+static void uph__plugin_host_call(Uph_PluginHostFn fn, void *data)
+{
+    atomic_bool done = false;
+    uph__plugin_host_enqueue(fn, data, false, &done);
+    uph__plugin_host_wait(&done);
+}
+
+static void uph__plugin_host_pump_messages(void)
+{
+#if NAUI_WINDOWS
+    MSG msg;
+    for (uint32_t i = 0; i < UPH_PLUGIN_HOST_MAX_MESSAGES && PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE); i++)
+    {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+#endif
+}
+
+static int uph__plugin_host_thread(void *arg)
+{
+    (void)arg;
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    uph_com_init_sta_once();
+
+    Naui_List(Uph_PluginHostCommand) batch = NULL;
+    float last_idle = 0.0f;
+    for (;;)
+    {
+        naui_mutex_lock(state->lock);
+        Naui_List(Uph_PluginHostCommand) pending = state->queue;
+        state->queue = batch;
+        batch = pending;
+        const bool stop = atomic_load(&state->stop) && naui_list_len(batch) == 0;
+        naui_mutex_unlock(state->lock);
+
+        if (stop)
+            break;
+
+        for (uint32_t i = 0; i < (uint32_t)naui_list_len(batch); i++)
+            uph__plugin_host_run(&batch[i]);
+        naui_list_clear(batch);
+
+        uph__plugin_host_pump_messages();
+
+        const float now = naui_time();
+        if (now - last_idle >= UPH_PLUGIN_HOST_IDLE_MS / 1000.0f)
+        {
+            last_idle = now;
+            for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->handles); i++)
+                uph__plugin_idle(state->handles[i]);
+        }
+
+#if NAUI_WINDOWS
+        MsgWaitForMultipleObjects(1, &state->wake, FALSE, UPH_PLUGIN_HOST_IDLE_MS, QS_ALLINPUT);
+#else
+        naui_thread_sleep_ms(2);
+#endif
+    }
+
+    naui_list_free(batch);
+    uph__plugin_host_signal(&state->finished);
+    return 0;
+}
+
+static void uph__plugin_host_start(void)
+{
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    if (state->thread)
+        return;
+
+    state->lock = naui_mutex_create();
+#if NAUI_WINDOWS
+    state->wake = CreateEventA(NULL, FALSE, FALSE, NULL);
+    state->signal = CreateEventA(NULL, FALSE, FALSE, NULL);
+#endif
+    atomic_store(&state->stop, false);
+    atomic_store(&state->finished, false);
+
+    if (state->lock)
+        state->thread = naui_thread_create(uph__plugin_host_thread, NULL);
+    if (!state->thread)
+        fprintf(stderr, "uph: could not start the plugin thread, plugins will load on the main thread\n");
+}
+
+static void uph__plugin_host_stop(void)
+{
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    if (state->thread)
+    {
+        atomic_store(&state->stop, true);
+#if NAUI_WINDOWS
+        SetEvent(state->wake);
+#endif
+        uph__plugin_host_wait(&state->finished);
+        naui_thread_join(state->thread, NULL);
+        state->thread = NULL;
+    }
+
+    if (state->lock)
+        naui_mutex_destroy(state->lock);
+    state->lock = NULL;
+#if NAUI_WINDOWS
+    if (state->wake)
+        CloseHandle(state->wake);
+    if (state->signal)
+        CloseHandle(state->signal);
+    state->wake = state->signal = NULL;
+#endif
+    naui_list_free(state->queue);
+    naui_list_free(state->handles);
+    state->queue = NULL;
+    state->handles = NULL;
+}
+
+#pragma endregion
 
 #define UPH_MODULE_SCAN_WAIT_MS 15000
 
@@ -3337,10 +3559,14 @@ void uph_plugin_modules_init(void)
     Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         state->lock = naui_mutex_create();
+
+    uph__plugin_host_start();
 }
 
 void uph_plugin_modules_shutdown(void)
 {
+    uph__plugin_host_stop();
+
     Uph_PluginModuleRegistryState *state = &uph__plugin_module_registry_state;
     if (!state->lock)
         return;
@@ -3503,26 +3729,112 @@ static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
     return effect;
 }
 
+typedef struct
+{
+    Uph_Plugin result;
+    bool show_window;
+    atomic_bool done;
+}
+Uph_PluginLoadTask;
+
+static void uph__plugin_host_destroy(Uph_PluginInternalHandle *ih);
+
+static void uph__plugin_flush_deferred_resizes(void)
+{
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->handles); i++)
+    {
+        Uph_PluginInternalHandle *ih = state->handles[i];
+        if (ih->format != UPH_PLUGIN_VST3 || !ih->vst3.resize_deferred)
+            continue;
+
+        ih->vst3.resize_deferred = false;
+        if (ih->vst3.width != ih->gui_width || ih->vst3.height != ih->gui_height)
+            uph__plugin_gui_resize_window(ih, ih->vst3.width, ih->vst3.height);
+    }
+}
+
+static void uph__plugin_host_load(void *data)
+{
+    Uph_PluginLoadTask *task = *(Uph_PluginLoadTask**)data;
+    const Naui_Path path = task->result.file_path;
+
+    uph__module_acquire(path);
+    uph__plugin_load_in_progress = true;
+    task->result = uph__plugin_load_impl(path);
+    uph__plugin_load_in_progress = false;
+    uph__plugin_flush_deferred_resizes();
+
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)task->result.internal_handle;
+    if (task->result.loaded)
+        naui_list_push(uph__plugin_host_state.handles, ih);
+    else if (ih)
+    {
+        uph__plugin_host_destroy(ih);
+        naui_list_free(task->result.params);
+        task->result.internal_handle = NULL;
+        task->result.params = NULL;
+    }
+    else
+        uph__module_release(path);
+
+    uph__plugin_host_signal(&task->done);
+}
+
+static void uph__plugin_host_discard(void *data)
+{
+    Uph_PluginLoadTask *task = *(Uph_PluginLoadTask**)data;
+    if (task->result.internal_handle)
+        uph__plugin_host_destroy((Uph_PluginInternalHandle*)task->result.internal_handle);
+    naui_list_free(task->result.params);
+    free(task);
+}
+
+static void uph__plugin_finish_load(Uph_Plugin *plug)
+{
+    Uph_PluginLoadTask *task = (Uph_PluginLoadTask*)plug->pending_load;
+    if (!task || !atomic_load(&task->done))
+        return;
+
+    const bool show_window = task->show_window;
+    *plug = task->result;
+    free(task);
+
+    if (plug->loaded && show_window)
+        uph_plugin_show_window(plug);
+}
+
 Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
-    uph__module_acquire(path);
-
-    Naui_ForeignGpuContext gpu_context = { 0 };
-    naui_foreign_gpu_context_enter(&gpu_context);
-    Uph_Plugin plugin = uph__plugin_load_impl(path);
-    naui_foreign_gpu_context_leave(&gpu_context);
-
-    if (!plugin.loaded)
+    Uph_Plugin plugin = { .file_path = path };
+    if (!uph_plugin_format_from_path(path, &plugin.format))
     {
-        uph__module_release(path);
+        fprintf(stderr, "uph: unrecognized plugin extension for %s\n", path.data);
         return plugin;
     }
 
-    ((Uph_PluginInternalHandle*)plugin.internal_handle)->gpu_context = gpu_context;
-    if (show_window)
-        uph_plugin_show_window(&plugin);
+    Uph_PluginLoadTask *task = (Uph_PluginLoadTask*)calloc(1, sizeof(Uph_PluginLoadTask));
+    task->result.file_path = path;
+    task->show_window = show_window;
+    plugin.pending_load = task;
 
+    uph__plugin_host_post(uph__plugin_host_load, &task, sizeof(task));
     return plugin;
+}
+
+void uph_plugin_wait(Uph_Plugin *plug)
+{
+    Uph_PluginLoadTask *task = (Uph_PluginLoadTask*)plug->pending_load;
+    if (!task)
+        return;
+
+    uph__plugin_host_wait(&task->done);
+    uph__plugin_finish_load(plug);
+}
+
+bool uph_plugin_loading(const Uph_Plugin *plug)
+{
+    return plug->pending_load != NULL;
 }
 
 static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
@@ -3537,10 +3849,10 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
 
         if (internal_handle->clap.gui)
         {
-            if (internal_handle->visible)
+            if (internal_handle->gui_shown)
             {
                 internal_handle->clap.gui->hide(plugin);
-                internal_handle->visible = false;
+                internal_handle->gui_shown = false;
             }
             internal_handle->clap.gui->destroy(plugin);
         }
@@ -3580,8 +3892,43 @@ static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
     }
 }
 
+static void uph__plugin_host_destroy(Uph_PluginInternalHandle *ih)
+{
+    Uph_PluginHostState *state = &uph__plugin_host_state;
+    for (uint32_t i = 0; i < (uint32_t)naui_list_len(state->handles); i++)
+    {
+        if (state->handles[i] == ih)
+        {
+            naui_list_remove(state->handles, i);
+            break;
+        }
+    }
+
+    switch (ih->format)
+    {
+        case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(ih); break;
+        case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(ih); break;
+        case UPH_PLUGIN_VST2: uph__vst2_unload(ih); break;
+    }
+
+    uph__module_release(ih->module_path);
+    free(ih);
+}
+
+static void uph__plugin_host_unload(void *data)
+{
+    uph__plugin_host_destroy(*(Uph_PluginInternalHandle**)data);
+}
+
 void uph_plugin_unload(Uph_Plugin *plug)
 {
+    if (plug->pending_load)
+    {
+        uph__plugin_host_post(uph__plugin_host_discard, &plug->pending_load, sizeof(plug->pending_load));
+        plug->pending_load = NULL;
+        return;
+    }
+
     if (!plug->loaded)
         return;
 
@@ -3601,18 +3948,7 @@ void uph_plugin_unload(Uph_Plugin *plug)
         }
 
         uph__plugin_gui_release_capture(internal_handle);
-
-        naui_foreign_gpu_context_enter(&internal_handle->gpu_context);
-        switch (internal_handle->format)
-        {
-            case UPH_PLUGIN_CLAP: uph_unload_clap_plugin(internal_handle); break;
-            case UPH_PLUGIN_VST3: uph_unload_vst3_plugin(internal_handle); break;
-            case UPH_PLUGIN_VST2: uph__vst2_unload(internal_handle); break;
-        }
-        naui_foreign_gpu_context_leave(&internal_handle->gpu_context);
-
-        uph__module_release(internal_handle->module_path);
-        free(internal_handle);
+        uph__plugin_host_post(uph__plugin_host_unload, &internal_handle, sizeof(internal_handle));
         plug->internal_handle = NULL;
     }
 
@@ -3925,23 +4261,24 @@ static int uph__plugin_gui_capture_thread(void *arg)
 
 static bool uph__plugin_gui_capture_start(Uph_PluginInternalHandle *ih)
 {
-    Uph_PluginGuiCapture *capture = &ih->capture;
+    Uph_PluginGuiCapture *capture = (Uph_PluginGuiCapture*)calloc(1, sizeof(Uph_PluginGuiCapture));
     capture->lock = naui_mutex_create();
     capture->wake = naui_cond_create();
     capture->window = ih->window;
-    capture->stop = capture->requested = capture->fresh = capture->finished = false;
 
     if (capture->lock && capture->wake)
         capture->thread = naui_thread_create(uph__plugin_gui_capture_thread, capture);
     if (capture->thread)
+    {
+        ih->capture = capture;
         return true;
+    }
 
     if (capture->wake)
         naui_cond_destroy(capture->wake);
     if (capture->lock)
         naui_mutex_destroy(capture->lock);
-    capture->wake = NULL;
-    capture->lock = NULL;
+    free(capture);
     return false;
 }
 
@@ -3982,9 +4319,18 @@ static void uph__plugin_gui_capture_stop(Uph_PluginGuiCapture *capture)
     uph__plugin_gui_frame_free(&capture->front);
 }
 
+static void uph__plugin_host_release_capture(void *data)
+{
+    Uph_PluginGuiCapture *capture = *(Uph_PluginGuiCapture**)data;
+    uph__plugin_gui_capture_stop(capture);
+    free(capture);
+}
+
 static void uph__plugin_gui_release_capture(Uph_PluginInternalHandle *ih)
 {
-    uph__plugin_gui_capture_stop(&ih->capture);
+    if (ih->capture)
+        uph__plugin_host_post(uph__plugin_host_release_capture, &ih->capture, sizeof(ih->capture));
+    ih->capture = NULL;
     uph__plugin_gui_release_texture(ih);
 }
 
@@ -3995,9 +4341,10 @@ static void uph__plugin_gui_capture(Uph_PluginInternalHandle *ih)
     if (!width || !height)
         return;
 
-    Uph_PluginGuiCapture *capture = &ih->capture;
-    if (!capture->thread && !uph__plugin_gui_capture_start(ih))
+    if (!ih->capture && !uph__plugin_gui_capture_start(ih))
         return;
+
+    Uph_PluginGuiCapture *capture = ih->capture;
 
     naui_mutex_lock(capture->lock);
     const bool fresh = capture->fresh;
@@ -4354,6 +4701,21 @@ static void uph__plugin_gui_x11_key(Uph_PluginInternalHandle *ih, Naui_Key key, 
 }
 #endif
 
+typedef struct
+{
+    Uph_PluginInternalHandle *ih;
+    int32_t x, y;
+    int32_t value;
+    bool flag;
+}
+Uph_PluginGuiCommand;
+
+static void uph__plugin_gui_post(Uph_PluginHostFn fn, Uph_PluginInternalHandle *ih, int32_t x, int32_t y, int32_t value, bool flag)
+{
+    const Uph_PluginGuiCommand command = { ih, x, y, value, flag };
+    uph__plugin_host_post(fn, &command, sizeof(command));
+}
+
 #if NAUI_LINUX
 static void uph__plugin_gui_x11_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
 {
@@ -4381,20 +4743,38 @@ static void uph__plugin_gui_x11_mouse_scroll(Uph_PluginInternalHandle *handle, i
         handle->input_target = 0;
 }
 
+static void uph__plugin_host_mouse_move(void *data)
+{
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    uph__plugin_gui_x11_send(command->ih, MotionNotify, 0, command->x, command->y);
+}
+
+static void uph__plugin_host_mouse_button(void *data)
+{
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    uph__plugin_gui_x11_mouse_button(command->ih, (Naui_MouseButton)command->value, command->flag, command->x, command->y);
+}
+
+static void uph__plugin_host_mouse_scroll(void *data)
+{
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    uph__plugin_gui_x11_mouse_scroll(command->ih, command->value, command->x, command->y);
+}
+
 void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
-    uph__plugin_gui_x11_send(handle, MotionNotify, 0, x, y);
+    uph__plugin_gui_post(uph__plugin_host_mouse_move, handle, x, y, 0, false);
 }
 
 void uph_plugin_gui_mouse_button(Uph_PluginInternalHandle *handle, Naui_MouseButton button, bool down, int32_t x, int32_t y)
 {
-    uph__plugin_gui_x11_mouse_button(handle, button, down, x, y);
+    uph__plugin_gui_post(uph__plugin_host_mouse_button, handle, x, y, (int32_t)button, down);
 }
 
 void uph_plugin_gui_mouse_scroll(Uph_PluginInternalHandle *handle, int32_t delta, int32_t x, int32_t y)
 {
     if (delta)
-        uph__plugin_gui_x11_mouse_scroll(handle, delta, x, y);
+        uph__plugin_gui_post(uph__plugin_host_mouse_scroll, handle, x, y, delta, false);
 }
 #elif NAUI_WINDOWS
 static void uph__plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, bool passthrough)
@@ -4403,12 +4783,18 @@ static void uph__plugin_gui_win32_set_passthrough(Uph_PluginInternalHandle *ih, 
     SetWindowLongPtrA(ih->window, GWL_EXSTYLE, passthrough ? (style | WS_EX_TRANSPARENT) : (style & ~(LONG_PTR)WS_EX_TRANSPARENT));
 }
 
+static void uph__plugin_host_passthrough(void *data)
+{
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    uph__plugin_gui_win32_set_passthrough(command->ih, command->flag);
+}
+
 void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
 {
     if (handle->native_input != enabled)
     {
         handle->native_input = enabled;
-        uph__plugin_gui_win32_set_passthrough(handle, !enabled);
+        uph__plugin_gui_post(uph__plugin_host_passthrough, handle, 0, 0, 0, !enabled);
     }
 
     if (!enabled)
@@ -4461,43 +4847,53 @@ static void uph__plugin_gui_win32_text(Uph_PluginInternalHandle *ih, uint32_t co
 }
 #endif
 
-void uph_plugin_gui_key(Uph_PluginInternalHandle *handle, Naui_Key key, bool down)
+static void uph__plugin_host_key(void *data)
 {
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
 #if NAUI_LINUX
-    uph__plugin_gui_x11_key(handle, key, down);
+    uph__plugin_gui_x11_key(command->ih, (Naui_Key)command->value, command->flag);
 #elif NAUI_WINDOWS
-    uph__plugin_gui_win32_key(handle, key, down);
+    uph__plugin_gui_win32_key(command->ih, (Naui_Key)command->value, command->flag);
 #endif
 }
+
+void uph_plugin_gui_key(Uph_PluginInternalHandle *handle, Naui_Key key, bool down)
+{
+    uph__plugin_gui_post(uph__plugin_host_key, handle, 0, 0, (int32_t)key, down);
+}
+
+#if NAUI_WINDOWS
+static void uph__plugin_host_text(void *data)
+{
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    uph__plugin_gui_win32_text(command->ih, (uint32_t)command->value);
+}
+#endif
 
 void uph_plugin_gui_text(Uph_PluginInternalHandle *handle, uint32_t codepoint)
 {
 #if NAUI_WINDOWS
-    uph__plugin_gui_win32_text(handle, codepoint);
+    uph__plugin_gui_post(uph__plugin_host_text, handle, 0, 0, (int32_t)codepoint, false);
 #else
     (void)handle;
     (void)codepoint;
 #endif
 }
 
-static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
+static void uph__plugin_host_set_visible(void *data)
 {
-    if (ih->visible == visible)
-        return;
+    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
+    Uph_PluginInternalHandle *ih = command->ih;
+    const bool visible = command->flag;
 
-    ih->visible = visible;
+    ih->gui_shown = visible;
     ih->origin_dirty = visible;
-    if (!visible)
-        uph__plugin_gui_release_capture(ih);
 #if NAUI_LINUX
     ih->buttons_down = 0;
     ih->input_target = 0;
 #elif NAUI_WINDOWS
-    ih->native_input = false;
     uph__plugin_gui_win32_set_passthrough(ih, true);
 #endif
-
-    naui_foreign_gpu_context_enter(&ih->gpu_context);
 
     if (!visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->hide(ih->clap.plugin);
@@ -4514,8 +4910,21 @@ static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visib
 
     if (visible && ih->is_clap && ih->clap.gui)
         ih->clap.gui->show(ih->clap.plugin);
+}
 
-    naui_foreign_gpu_context_leave(&ih->gpu_context);
+static void uph__plugin_gui_set_visible(Uph_PluginInternalHandle *ih, bool visible)
+{
+    if (ih->visible == visible)
+        return;
+
+    ih->visible = visible;
+    if (!visible)
+        uph__plugin_gui_release_capture(ih);
+#if NAUI_WINDOWS
+    ih->native_input = false;
+#endif
+
+    uph__plugin_gui_post(uph__plugin_host_set_visible, ih, 0, 0, 0, visible);
 }
 
 void uph_plugin_gui_closed(Uph_PluginInternalHandle *handle)
@@ -4630,7 +5039,7 @@ static void uph__plugin_idle(Uph_PluginInternalHandle *ih)
     if (ih->is_clap && atomic_exchange(&ih->callback_requested, false))
         ih->clap.plugin->on_main_thread(ih->clap.plugin);
 
-    if (!ih->visible)
+    if (!ih->gui_shown)
         return;
 
     uph__plugin_gui_apply_origin(ih);
@@ -4648,15 +5057,13 @@ static void uph__plugin_idle(Uph_PluginInternalHandle *ih)
 
 void uph_plugin_update(Uph_Plugin *plug)
 {
+    uph__plugin_finish_load(plug);
+
     if (!plug->loaded || !plug->internal_handle)
         return;
 
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     uph__plugin_collect_touched_param(plug, internal_handle);
-
-    naui_foreign_gpu_context_enter(&internal_handle->gpu_context);
-    uph__plugin_idle(internal_handle);
-    naui_foreign_gpu_context_leave(&internal_handle->gpu_context);
 
     if (internal_handle->visible)
         uph__plugin_gui_capture(internal_handle);
@@ -4879,15 +5286,31 @@ static bool uph__plugin_save_state(Uph_PluginInternalHandle *internal_handle, co
     return ok;
 }
 
+typedef struct
+{
+    Uph_Plugin *plug;
+    Naui_Path path;
+    bool ok;
+}
+Uph_PluginStateCall;
+
+static void uph__plugin_host_save_state(void *data)
+{
+    Uph_PluginStateCall *call = (Uph_PluginStateCall*)data;
+    call->ok = uph__plugin_save_state((Uph_PluginInternalHandle*)call->plug->internal_handle, call->path);
+}
+
 bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 {
     if (!plug->loaded || !plug->internal_handle)
         return false;
 
-    return uph__plugin_save_state((Uph_PluginInternalHandle*)plug->internal_handle, path);
+    Uph_PluginStateCall call = { .plug = (Uph_Plugin*)plug, .path = path };
+    uph__plugin_host_call(uph__plugin_host_save_state, &call);
+    return call.ok;
 }
 
-bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
+static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)
@@ -4950,6 +5373,22 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
         plug->params = uph_clap_get_param_list(plug);
 
     return ok;
+}
+
+static void uph__plugin_host_load_state(void *data)
+{
+    Uph_PluginStateCall *call = (Uph_PluginStateCall*)data;
+    call->ok = uph__plugin_load_state(call->plug, call->path);
+}
+
+bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
+{
+    if (!plug->internal_handle)
+        return false;
+
+    Uph_PluginStateCall call = { .plug = plug, .path = path };
+    uph__plugin_host_call(uph__plugin_host_load_state, &call);
+    return call.ok;
 }
 
 static bool uph_clap_features_have(const char *const *features, const char *needle)
