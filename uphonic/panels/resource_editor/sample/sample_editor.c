@@ -21,6 +21,8 @@
 #define UPH_SAMPLE_EDITOR_PROPERTY_LABEL_WIDTH	84
 #define UPH_SAMPLE_EDITOR_PROPERTY_VALUE_WIDTH	120
 #define UPH_SAMPLE_EDITOR_BUTTON_ZOOM_FACTOR	1.5
+#define UPH_SAMPLE_EDITOR_CARD_GAP				6
+#define UPH_SAMPLE_EDITOR_CARD_ROUNDING			6
 
 #define UPH_SAMPLE_EDITOR_GAIN_DB_MIN			-60.0f
 #define UPH_SAMPLE_EDITOR_GAIN_DB_MAX			6.0f
@@ -79,6 +81,7 @@ typedef struct
 	bool wave_hovered;
 	bool sidebar_hidden;
 	float sidebar_collapse;
+	float sidebar_scroll;
 }
 Uph_SampleEditorState;
 
@@ -1137,14 +1140,15 @@ static void uph__sample_editor_render_properties(const Uph_SampleEditorState *ed
 	snprintf(file, sizeof(file), "%s", file_name[0] ? file_name : "Recorded");
 
 	leaf({
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(1) },
+		.color = uph_state.colors.sample_editor_ruler_border
+	});
+
+	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
 		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), NAUI_DPI(10)),
-		.border = {
-			.width = 1,
-			.sides = LEAF_SIDE_TOP,
-			.color = uph_state.colors.sample_editor_toolbox_border
-		},
 		.color = uph_state.colors.sample_editor_toolbox_bg,
+		.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING - 1), LEAF_CORNER_BL | LEAF_CORNER_BR),
 		.child_gap = NAUI_DPI(6),
 		.direction = LEAF_DIRECTION_VERTICAL,
 		.clip_children = true
@@ -1187,14 +1191,15 @@ static float uph__sample_editor_sidebar_toggle_width(void)
 	return NAUI_MAX(leaf_get_bounding_box(leaf_id("uph_sample_editor_sidebar_toggle")).width, NAUI_DPI(UPH_UI_FRAME_HEIGHT));
 }
 
-static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+static void uph__sample_editor_render_sidebar_content(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
 {
+	const int32_t section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
+	const int32_t card_rounding = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING);
 	leaf({
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
-		.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+		.padding = LEAF_PADDING_AXES(section_padding - 1, section_padding - card_rounding),
 		.child_gap = NAUI_DPI(8),
-		.direction = LEAF_DIRECTION_VERTICAL,
-		.clip_children = true
+		.direction = LEAF_DIRECTION_VERTICAL
 	})
 	{
 		leaf({
@@ -1269,6 +1274,22 @@ static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *edito
 	}
 }
 
+static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *editor, Uph_Sample *sample, const Uph_SampleEditorSource *source)
+{
+	const int32_t section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
+	const int32_t card_rounding = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING);
+	leaf({
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH) + section_padding * 2 - 2), .height = LEAF_SIZE_FULL },
+		.padding = { .left = 1, .right = 1, .top = card_rounding, .bottom = card_rounding },
+		.clip_children = true
+	})
+	{
+		Uph_UIScrollContainer container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &editor->sidebar_scroll, leaf_id("uph_sample_editor_sidebar_scrollbar"));
+		uph__sample_editor_render_sidebar_content(editor, sample, source);
+		uph_ui_end_scroll_container(&container);
+	}
+}
+
 static float uph__sample_editor_sidebar_collapse_eased(Uph_SampleEditorState *editor)
 {
 	const float target = editor->sidebar_hidden ? 1.0f : 0.0f;
@@ -1289,9 +1310,10 @@ static void uph__sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 	const float collapse = uph__sample_editor_sidebar_collapse_eased(editor);
 	const Leaf_Border border = {
 		.width = 1,
-		.sides = LEAF_SIDE_RIGHT,
+		.sides = LEAF_SIDE_ALL,
 		.color = uph_state.colors.sample_editor_toolbox_border
 	};
+	const Leaf_Rounding rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING), LEAF_CORNER_ALL);
 
 	if (collapse >= 1.0f)
 	{
@@ -1300,6 +1322,7 @@ static void uph__sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING), NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING)),
 			.border = border,
 			.color = uph_state.colors.sample_editor_toolbox_bg,
+			.rounding = rounding,
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
 			.direction = LEAF_DIRECTION_VERTICAL
 		})
@@ -1320,6 +1343,7 @@ static void uph__sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 		.size = { .width = LEAF_SIZE_FIXED((int32_t)width), .height = LEAF_SIZE_FULL },
 		.border = border,
 		.color = uph_state.colors.sample_editor_toolbox_bg,
+		.rounding = rounding,
 		.clip_children = true
 	})
 	{
@@ -1501,9 +1525,12 @@ void uph_sample_editor_update(void)
 
 	uph__sample_editor_render_toolbar(state);
 
+	const int32_t card_gap = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_GAP);
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
-		.child_gap = 1,
+		.padding = LEAF_PADDING_ALL(card_gap),
+		.color = uph_state.colors.panel_body_bg,
+		.child_gap = card_gap,
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
@@ -1513,7 +1540,16 @@ void uph_sample_editor_update(void)
 
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-			.direction = LEAF_DIRECTION_VERTICAL
+			.padding = LEAF_PADDING_ALL(1),
+			.border = {
+				.width = 1,
+				.sides = LEAF_SIDE_ALL,
+				.color = uph_state.colors.sample_editor_toolbox_border
+			},
+			.color = uph_state.colors.sample_editor_toolbox_bg,
+			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING), LEAF_CORNER_ALL),
+			.direction = LEAF_DIRECTION_VERTICAL,
+			.clip_children = true
 		})
 		{
 			if (!source->valid)
@@ -1522,37 +1558,47 @@ void uph_sample_editor_update(void)
 			{
 				const int32_t ruler_height = (int32_t)NAUI_DPI(UPH_SAMPLE_EDITOR_RULER_HEIGHT);
 				const int32_t gutter_width = (int32_t)NAUI_DPI(UPH_SAMPLE_EDITOR_GUTTER_WIDTH);
+				const int32_t inner_rounding = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING - 1);
+				const Leaf_Color separator_color = uph_state.colors.sample_editor_ruler_border;
 				leaf({
 					.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(ruler_height) },
-					.child_gap = 1,
 					.direction = LEAF_DIRECTION_HORIZONTAL
 				})
 				{
 					leaf({
 						.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-						.color = uph_state.colors.sample_editor_toolbox_bg
+						.color = uph_state.colors.sample_editor_toolbox_bg,
+						.rounding = LEAF_ROUNDING_FIXED(inner_rounding, LEAF_CORNER_TL)
+					});
+					leaf({
+						.size = { .width = LEAF_SIZE_FIXED(1), .height = LEAF_SIZE_FULL },
+						.color = separator_color
 					});
 					leaf({
 						.custom_draw = uph__sample_editor_ruler_draw,
-						.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIXED(ruler_height - 2) },
-						.border = {
-							.width = 1,
-							.sides = LEAF_SIDE_ALL,
-							.color = uph_state.colors.sample_editor_ruler_border
-						},
-						.color = uph_state.colors.sample_editor_ruler_bg
+						.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+						.color = uph_state.colors.sample_editor_ruler_bg,
+						.rounding = LEAF_ROUNDING_FIXED(inner_rounding, LEAF_CORNER_TR)
 					});
 				}
 
 				leaf({
+					.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(1) },
+					.color = separator_color
+				});
+
+				leaf({
 					.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
-					.child_gap = 1,
 					.direction = LEAF_DIRECTION_HORIZONTAL
 				})
 				{
 					leaf({
 						.custom_draw = uph__sample_editor_gutter_draw,
 						.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL }
+					});
+					leaf({
+						.size = { .width = LEAF_SIZE_FIXED(1), .height = LEAF_SIZE_FULL },
+						.color = separator_color
 					});
 					leaf({
 						.id = wave_id,

@@ -31,7 +31,6 @@
 	"automation.editor.length": "長さ",
 	"automation.editor.beats": "拍",
 	"automation.editor.point": "選択中のポイント",
-	"automation.editor.point.none": "ポイントをクリックして編集、または空いている場所をクリックして追加します。",
 	"automation.editor.beat": "拍",
 	"automation.editor.value": "値",
 	"automation.editor.curve": "カーブ",

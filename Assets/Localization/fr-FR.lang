@@ -30,7 +30,6 @@
 "automation.editor.length": "Durée",
 "automation.editor.beats": "temps",
 "automation.editor.point": "Point sélectionné",
-"automation.editor.point.none": "Cliquez sur un point pour le modifier, ou sur un espace vide de la piste pour en ajouter un.",
 "automation.editor.beat": "Temps",
 "automation.editor.value": "Valeur",
 "automation.editor.curve": "Courbe",

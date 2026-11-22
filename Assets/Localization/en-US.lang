@@ -30,7 +30,6 @@
 	"automation.editor.length": "Length",
 	"automation.editor.beats": "beats",
 	"automation.editor.point": "Selected Point",
-	"automation.editor.point.none": "Click a point to edit it, or click an empty spot on the lane to add one.",
 	"automation.editor.beat": "Beat",
 	"automation.editor.value": "Value",
 	"automation.editor.curve": "Curve",

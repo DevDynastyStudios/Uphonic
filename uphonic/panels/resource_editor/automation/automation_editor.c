@@ -6,6 +6,8 @@
 #define UPH_AUTOMATION_EDITOR_SIDEBAR_CONTROL_WIDTH	104
 #define UPH_AUTOMATION_EDITOR_SECTION_PADDING		12
 #define UPH_AUTOMATION_EDITOR_BUTTON_ZOOM_FACTOR	1.5f
+#define UPH_AUTOMATION_EDITOR_CARD_GAP				6
+#define UPH_AUTOMATION_EDITOR_CARD_ROUNDING			6
 
 #define UPH_AUTOMATION_EDITOR_POINT_SIZE		9
 #define UPH_AUTOMATION_EDITOR_HANDLE_SIZE		7
@@ -63,6 +65,8 @@ typedef struct
 	int32_t field_index;
 	Uph_AutomationPoint field_initial;
 	bool field_editing;
+
+	float sidebar_scroll;
 
 	Naui_Vec2 pan_last_mouse;
 	bool panning;
@@ -790,7 +794,8 @@ static void uph__automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 
 	naui_push_clip_rect(box.x, box.y, box.width, box.height);
 
-	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.automation_editor_row_bg1, 0.0f, NAUI_CORNER_NONE);
+	const float corner_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING - 1);
+	naui_fill_rect((Naui_Vec2) { box.x, box.y }, (Naui_Vec2) { box.width, box.height }, uph_state.colors.automation_editor_row_bg1, corner_rounding, NAUI_CORNER_BR);
 	naui_fill_rect((Naui_Vec2) { box.x, value_top }, (Naui_Vec2) { box.width, value_height }, lane_color, 0.0f, NAUI_CORNER_NONE);
 	uph_midi_grid_render_beats(box, view, state->snap_resolution);
 
@@ -805,7 +810,7 @@ static void uph__automation_editor_lane_draw(Leaf_BoundingBox box, void *user_da
 	if (end_x < box.x + box.width)
 	{
 		const float shade_x = fmaxf(end_x, box.x);
-		naui_fill_rect((Naui_Vec2) { shade_x, box.y }, (Naui_Vec2) { box.x + box.width - shade_x, box.height }, leaf_rgba(0, 0, 0, 70), 0.0f, NAUI_CORNER_NONE);
+		naui_fill_rect((Naui_Vec2) { shade_x, box.y }, (Naui_Vec2) { box.x + box.width - shade_x, box.height }, leaf_rgba(0, 0, 0, 70), corner_rounding, NAUI_CORNER_BR);
 	}
 
 	const int32_t line_width = NAUI_DPI(UPH_AUTOMATION_EDITOR_LINE_WIDTH);
@@ -1080,17 +1085,10 @@ static void uph__automation_editor_render_point_fields(Uph_AutomationEditorState
 {
 	const int32_t index = editor->selected_point;
 	if (index < 0 || (uint32_t)index >= (uint32_t)naui_list_len(automation->points))
-	{
-		leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT } })
-		{
-			leaf_text(NAUI_TR("automation.editor.point.none"), {
-				.color = uph_state.colors.ui_text_disabled,
-				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE - 1)),
-				.wrap_mode = LEAF_TEXT_WRAP_MODE_WORD
-			});
-		}
 		return;
-	}
+
+	uph__automation_editor_render_separator();
+	uph__automation_editor_render_caption(NAUI_TR("automation.editor.point"));
 
 	Uph_AutomationPoint *point = &automation->points[index];
 	const Uph_AutomationPoint before = *point;
@@ -1176,21 +1174,13 @@ static void uph__automation_editor_render_point_fields(Uph_AutomationEditorState
 	}
 }
 
-static void uph__automation_editor_render_sidebar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+static void uph__automation_editor_render_sidebar_content(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
+	const int32_t card_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING);
+	const int32_t section_padding = NAUI_DPI(UPH_AUTOMATION_EDITOR_SECTION_PADDING);
 	leaf({
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_AUTOMATION_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
-		.border = {
-			.width = 1,
-			.sides = LEAF_SIDE_RIGHT,
-			.color = uph_state.colors.automation_editor_toolbox_border
-		},
-		.color = uph_state.colors.automation_editor_toolbox_bg,
-		.clip_children = true
-	})
-	leaf({
-		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
-		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_AUTOMATION_EDITOR_SECTION_PADDING)),
+		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+		.padding = LEAF_PADDING_AXES(section_padding - 1, section_padding - card_rounding),
 		.child_gap = NAUI_DPI(8),
 		.direction = LEAF_DIRECTION_VERTICAL
 	})
@@ -1228,10 +1218,29 @@ static void uph__automation_editor_render_sidebar(Uph_AutomationEditorState *edi
 				automation->display = (Uph_AutomationDisplay)display;
 		}
 
-		uph__automation_editor_render_separator();
-
-		uph__automation_editor_render_caption(NAUI_TR("automation.editor.point"));
 		uph__automation_editor_render_point_fields(editor, automation);
+	}
+}
+
+static void uph__automation_editor_render_sidebar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
+{
+	const int32_t card_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING);
+	leaf({
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_AUTOMATION_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
+		.padding = { .left = 1, .right = 1, .top = card_rounding, .bottom = card_rounding },
+		.border = {
+			.width = 1,
+			.sides = LEAF_SIDE_ALL,
+			.color = uph_state.colors.automation_editor_toolbox_border
+		},
+		.color = uph_state.colors.automation_editor_toolbox_bg,
+		.rounding = LEAF_ROUNDING_FIXED(card_rounding, LEAF_CORNER_ALL),
+		.clip_children = true
+	})
+	{
+		Uph_UIScrollContainer container = uph_ui_begin_scroll_container(UPH_UI_SCROLL_DIRECTION_VERTICAL, &editor->sidebar_scroll, leaf_id("uph_automation_editor_sidebar_scrollbar"));
+		uph__automation_editor_render_sidebar_content(editor, automation);
+		uph_ui_end_scroll_container(&container);
 	}
 
 	if (editor->field_editing && !naui_mouse_down(NAUI_MOUSE_LEFT) && !uph__automation_editor_fields_text_active())
@@ -1380,8 +1389,14 @@ void uph_automation_editor_update(void)
 
 	const int32_t gutter_width = NAUI_DPI(UPH_AUTOMATION_EDITOR_GUTTER_WIDTH);
 	const int32_t ruler_height = (int32_t)NAUI_DPI(UPH_AUTOMATION_EDITOR_RULER_HEIGHT);
+	const int32_t card_gap = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_GAP);
+	const int32_t inner_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING - 1);
+	const Leaf_Color separator_color = uph_state.colors.automation_editor_ruler_border;
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
+		.padding = LEAF_PADDING_ALL(card_gap),
+		.color = uph_state.colors.panel_body_bg,
+		.child_gap = card_gap,
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
@@ -1389,34 +1404,44 @@ void uph_automation_editor_update(void)
 
 		leaf({
 			.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
-			.direction = LEAF_DIRECTION_VERTICAL
+			.padding = LEAF_PADDING_ALL(1),
+			.border = {
+				.width = 1,
+				.sides = LEAF_SIDE_ALL,
+				.color = uph_state.colors.automation_editor_toolbox_border
+			},
+			.color = uph_state.colors.automation_editor_toolbox_bg,
+			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING), LEAF_CORNER_ALL),
+			.direction = LEAF_DIRECTION_VERTICAL,
+			.clip_children = true
 		})
 		{
 			leaf({
 				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(ruler_height) },
-				.border = {
-					.width = 1,
-					.sides = LEAF_SIDE_BOTTOM,
-					.color = uph_state.colors.automation_editor_ruler_border
-				},
-				.color = uph_state.colors.automation_editor_ruler_bg,
 				.direction = LEAF_DIRECTION_HORIZONTAL
 			})
 			{
 				leaf({
-					.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-					.border = {
-						.width = 1,
-						.sides = LEAF_SIDE_RIGHT,
-						.color = uph_state.colors.automation_editor_toolbox_border
-					},
-					.color = uph_state.colors.automation_editor_toolbox_bg
+					.size = { .width = LEAF_SIZE_FIXED(gutter_width - 1), .height = LEAF_SIZE_FULL },
+					.color = uph_state.colors.automation_editor_toolbox_bg,
+					.rounding = LEAF_ROUNDING_FIXED(inner_rounding, LEAF_CORNER_TL)
+				});
+				leaf({
+					.size = { .width = LEAF_SIZE_FIXED(1), .height = LEAF_SIZE_FULL },
+					.color = uph_state.colors.automation_editor_toolbox_border
 				});
 				leaf({
 					.custom_draw = (Leaf_CustomDrawFn)uph__automation_editor_ruler_draw,
-					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL }
+					.size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FULL },
+					.color = uph_state.colors.automation_editor_ruler_bg,
+					.rounding = LEAF_ROUNDING_FIXED(inner_rounding, LEAF_CORNER_TR)
 				});
 			}
+
+			leaf({
+				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIXED(1) },
+				.color = separator_color
+			});
 
 			leaf({
 				.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
@@ -1427,7 +1452,8 @@ void uph_automation_editor_update(void)
 				leaf({
 					.custom_draw = (Leaf_CustomDrawFn)uph__automation_editor_gutter_draw,
 					.size = { .width = LEAF_SIZE_FIXED(gutter_width), .height = LEAF_SIZE_FULL },
-					.color = uph_state.colors.automation_editor_toolbox_bg
+					.color = uph_state.colors.automation_editor_toolbox_bg,
+					.rounding = LEAF_ROUNDING_FIXED(inner_rounding, LEAF_CORNER_BL)
 				});
 				leaf({
 					.id = lane_id,
