@@ -147,6 +147,9 @@
     "uph_sample_editor_accent_color": "#A286C8",
 
     "uph_automation_editor_toolbox_bg_color": "#FFF0F7",
+    "uph_automation_editor_toolbox_border_color": "#D9C9E9",
+    "uph_automation_editor_toolbox_separator_color": "#E6D1F4",
+    "uph_automation_editor_tool_icon_color": "#69597C",
     "uph_automation_editor_grid_beat_color": "#B7DFFF74",
     "uph_automation_editor_grid_subbeat_color": "#B7DFFF3A",
     "uph_automation_editor_ruler_bg_color": "#FFF0F7",

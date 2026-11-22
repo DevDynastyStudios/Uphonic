@@ -163,6 +163,9 @@ Uph_Icons;
 	X(sample_editor_row_bg2,              "uph_sample_editor_row_bg2_color") \
 	X(sample_editor_accent,               "uph_sample_editor_accent_color") \
 	X(automation_editor_toolbox_bg,       "uph_automation_editor_toolbox_bg_color") \
+	X(automation_editor_toolbox_border,   "uph_automation_editor_toolbox_border_color") \
+	X(automation_editor_toolbox_separator,"uph_automation_editor_toolbox_separator_color") \
+	X(automation_editor_tool_icon,        "uph_automation_editor_tool_icon_color") \
 	X(automation_editor_grid_beat,        "uph_automation_editor_grid_beat_color") \
 	X(automation_editor_grid_subbeat,     "uph_automation_editor_grid_subbeat_color") \
 	X(automation_editor_ruler_bg,         "uph_automation_editor_ruler_bg_color") \
