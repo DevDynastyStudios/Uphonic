@@ -8,11 +8,17 @@ Uph_Plugin uph_plugin_load(
 		bool show_window
 );
 
-void uph_plugin_wait(
-	Uph_Plugin *plugin
+Uph_Plugin uph_plugin_load_with_state(
+	Naui_Path path,
+	const Naui_Path state_path,
+	bool *state_read
 );
 
 bool uph_plugin_loading(
+	const Uph_Plugin *plugin
+);
+
+uint64_t uph_plugin_load_ticket(
 	const Uph_Plugin *plugin
 );
 

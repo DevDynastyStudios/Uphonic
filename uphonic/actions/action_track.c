@@ -235,7 +235,7 @@ static void uph_action_remove_param_lanes(Uph_Track *track, Uph_Plugin *plugin)
 	for (int32_t s = (int32_t)naui_list_len(track->subtracks) - 1; s >= 0; s--)
 	{
 		Uph_Track *lane = &track->subtracks[s];
-		if (lane->type != UPH_RESOURCE_AUTOMATION || lane->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM || !uph_plugin_owns_param(plugin, lane->automation_param))
+		if (!uph_resources_lane_targets_plugin(lane, plugin))
 			continue;
 
 		const Uph_ActionTrackRef ref = uph_action_track_ref(lane);

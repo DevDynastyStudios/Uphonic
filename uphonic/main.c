@@ -289,14 +289,22 @@ void naui_app_end(void)
 	naui_log(NAUI_LOG_INFO, "Thanks For Using Uphonic.");
 }
  
+static void uph_update_track_plugin(Uph_Track *track, Uph_Plugin *plugin)
+{
+	const uint64_t load_ticket = uph_plugin_load_ticket(plugin);
+	uph_plugin_update(plugin);
+	if (load_ticket && !uph_plugin_loading(plugin))
+		uph_resources_link_pending_automation(track, load_ticket, plugin);
+}
+
 static void uph_update_track(Uph_Track *track)
 {
 	uph_level_meter_smooth(track);
 
-	uph_plugin_update(&track->instrument);
- 
+	uph_update_track_plugin(track, &track->instrument);
+
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->effects); i++)
-		uph_plugin_update(&track->effects[i].plugin);
+		uph_update_track_plugin(track, &track->effects[i].plugin);
  
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(track->subtracks); i++)
 		uph_update_track(&track->subtracks[i]);

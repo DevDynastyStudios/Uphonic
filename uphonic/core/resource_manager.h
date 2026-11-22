@@ -49,6 +49,28 @@ Uph_PluginParam *uph_resources_find_param(
 	uint64_t param_id
 );
 
+Uph_Plugin *uph_resources_plugin_at(
+	Uph_Track *track,
+	int32_t effect_index
+);
+
+bool uph_resources_pending_owner_index(
+	const Uph_Track *track,
+	uint64_t load_ticket,
+	int32_t *out_effect_index
+);
+
+bool uph_resources_lane_targets_plugin(
+	const Uph_Track *lane,
+	const Uph_Plugin *plugin
+);
+
+void uph_resources_link_pending_automation(
+	Uph_Track *track,
+	uint64_t load_ticket,
+	Uph_Plugin *plugin
+);
+
 Uph_PluginParam *uph_resources_last_touched_param(
 	Uph_Track *track,
 	int32_t *out_effect_index

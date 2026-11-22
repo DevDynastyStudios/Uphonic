@@ -546,6 +546,16 @@ static void uph_io_save_track_automation(Naui_Json* json, Naui_JsonValue* object
 		return;
 
 	int32_t effect_index;
+	if (parent && track->automation_pending_load)
+	{
+		if (!uph_resources_pending_owner_index(parent, track->automation_pending_load, &effect_index))
+			return;
+
+		naui_json_set_number(json, object, "param_id", (double)track->automation_pending_param_id);
+		naui_json_set_int(json, object, "effect_index", effect_index);
+		return;
+	}
+
 	if (!parent || !uph_resources_param_owner_index(parent, track->automation_param, &effect_index))
 		return;
 
@@ -615,7 +625,7 @@ static void uph_io_save_plugin(Naui_Json* json, Naui_JsonValue* object, const Up
 	naui_json_set_string(json, object, "format", uph__io_plugin_format_names[plugin->format]);
 
 	const Naui_Path state_file = naui_path_join(state_dir, naui_path_from_cstr(state_name));
-	if (plugin->loaded && uph_plugin_save_state(plugin, state_file))
+	if ((plugin->loaded || uph_plugin_loading(plugin)) && uph_plugin_save_state(plugin, state_file))
 	{
 		naui_json_set_string(json, object, "state", state_name);
 		return;
@@ -1138,25 +1148,22 @@ static Uph_Plugin uph_io_load_plugin(const Naui_JsonValue* object, const Naui_Pa
 	const Naui_Path path = uph_io_resolve_plugin_path(saved_path);
 	if (path.data[0])
 	{
-		plugin = uph_plugin_load(path, false);
-		uph_plugin_wait(&plugin);
-	}
-
-	if (plugin.loaded)
-	{
 		const char* state_name = naui_json_get_string(naui_json_object_get(object, "state"), NULL);
-		if (state_name)
-		{
-			const bool state_loaded = uph_io_is_safe_file_name(state_name) && uph_plugin_load_state(&plugin, naui_path_join(load_dir, naui_path_from_cstr(state_name)));
+		const bool safe_state = state_name && uph_io_is_safe_file_name(state_name);
+		const Naui_Path state_path = safe_state ? naui_path_join(load_dir, naui_path_from_cstr(state_name)) : (Naui_Path){ 0 };
 
-			if (!state_loaded)
-			{
-				naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", plugin.name.data);
-				*complete = false;
-			}
+		bool state_read = false;
+		plugin = uph_plugin_load_with_state(path, state_path, &state_read);
+		plugin.name = naui_string_from_cstr(name);
+
+		if (state_name && !state_read)
+		{
+			naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", name);
+			*complete = false;
 		}
 
-		return plugin;
+		if (uph_plugin_loading(&plugin))
+			return plugin;
 	}
 
 	naui_log(NAUI_LOG_WARNING, "Plugin not found or failed to load: %s", saved_path.data);
@@ -1504,6 +1511,7 @@ static bool uph_io_load_track_plugins(Uph_Track* track, const Naui_Path load_dir
 static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue* object, Uph_Track* parent, bool* complete)
 {
 	track->automation_param = NULL;
+	track->automation_pending_load = 0;
 	track->automation_target = uph_io_automation_target_from_name(naui_json_get_string(naui_json_object_get(object, "target"), "param"));
 	if (track->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
 		return;
@@ -1515,7 +1523,17 @@ static void uph_io_load_track_automation(Uph_Track* track, const Naui_JsonValue*
 	const double param_id = naui_json_get_number(id_value, 0.0);
 	const int effect_index = naui_json_get_int(naui_json_object_get(object, "effect_index"), -1);
 	if (parent && param_id >= 0.0)
+	{
+		const Uph_Plugin* owner = uph_resources_plugin_at(parent, effect_index < -1 ? -1 : effect_index);
+		if (owner && uph_plugin_loading(owner))
+		{
+			track->automation_pending_load = uph_plugin_load_ticket(owner);
+			track->automation_pending_param_id = (uint64_t)param_id;
+			return;
+		}
+
 		track->automation_param = uph_resources_find_param(parent, effect_index < -1 ? -1 : effect_index, (uint64_t)param_id);
+	}
 
 	if (!track->automation_param)
 	{

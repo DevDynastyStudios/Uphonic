@@ -2060,16 +2060,8 @@ static bool uph_vst3_save_state(Uph_PluginInternalHandle *ih, const Naui_Path pa
     return ok;
 }
 
-static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const uint8_t *data, size_t size)
 {
-    size_t size = 0;
-    uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
-    if (!data)
-    {
-        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
-        return false;
-    }
-
     bool ok = false;
     if (size >= 8)
     {
@@ -2097,7 +2089,6 @@ static bool uph_vst3_load_state(Uph_PluginInternalHandle *ih, const Naui_Path pa
         }
     }
 
-    free(data);
     return ok;
 }
 
@@ -2609,16 +2600,8 @@ static bool uph__vst2_save_state(Uph_PluginInternalHandle *ih, const Naui_Path p
     return ok;
 }
 
-static bool uph__vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path path)
+static bool uph__vst2_load_state(Uph_PluginInternalHandle *ih, const uint8_t *data, size_t size)
 {
-    size_t size = 0;
-    uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
-    if (!data)
-    {
-        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
-        return false;
-    }
-
     bool ok = false;
     uint32_t header[2] = { 0 };
 
@@ -2630,7 +2613,7 @@ static bool uph__vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path p
         const uint8_t *payload = data + sizeof(header);
 
         if (header[1] > size - sizeof(header))
-            fprintf(stderr, "uph_plugin_load_state: truncated VST2 state in %s\n", path.data);
+            fprintf(stderr, "uph_plugin_load_state: truncated VST2 state\n");
         else if (header[0] == UPH_VST2_STATE_CHUNK && (effect->flags & UPH_VST2_FLAG_PROGRAM_CHUNKS))
         {
             uph__vst2_dispatch(effect, UPH_VST2_EFF_SET_CHUNK, 0, (intptr_t)header[1], (void*)payload, 0.0f);
@@ -2651,7 +2634,6 @@ static bool uph__vst2_load_state(Uph_PluginInternalHandle *ih, const Naui_Path p
         }
     }
 
-    free(data);
     return ok;
 }
 
@@ -3732,12 +3714,19 @@ static Uph_Plugin uph__plugin_load_impl(Naui_Path path)
 typedef struct
 {
     Uph_Plugin result;
+    uint64_t ticket;
+    uint8_t *state_data;
+    size_t state_size;
+    bool state_failed;
     bool show_window;
     atomic_bool done;
 }
 Uph_PluginLoadTask;
 
+static uint64_t uph__plugin_load_ticket;
+
 static void uph__plugin_host_destroy(Uph_PluginInternalHandle *ih);
+static bool uph__plugin_load_state(Uph_Plugin *plug, const uint8_t *data, size_t size);
 
 static void uph__plugin_flush_deferred_resizes(void)
 {
@@ -3767,7 +3756,11 @@ static void uph__plugin_host_load(void *data)
 
     Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)task->result.internal_handle;
     if (task->result.loaded)
+    {
         naui_list_push(uph__plugin_host_state.handles, ih);
+        if (task->state_data)
+            task->state_failed = !uph__plugin_load_state(&task->result, task->state_data, task->state_size);
+    }
     else if (ih)
     {
         uph__plugin_host_destroy(ih);
@@ -3787,6 +3780,7 @@ static void uph__plugin_host_discard(void *data)
     if (task->result.internal_handle)
         uph__plugin_host_destroy((Uph_PluginInternalHandle*)task->result.internal_handle);
     naui_list_free(task->result.params);
+    free(task->state_data);
     free(task);
 }
 
@@ -3797,24 +3791,40 @@ static void uph__plugin_finish_load(Uph_Plugin *plug)
         return;
 
     const bool show_window = task->show_window;
-    *plug = task->result;
+    if (task->result.loaded)
+    {
+        *plug = task->result;
+        if (task->state_failed)
+            naui_log(NAUI_LOG_WARNING, "Couldn't restore the settings of plugin '%s'", plug->name.data);
+    }
+    else
+    {
+        naui_log(NAUI_LOG_WARNING, "Plugin not found or failed to load: %s", plug->file_path.data);
+        plug->pending_load = NULL;
+    }
+
+    free(task->state_data);
     free(task);
 
     if (plug->loaded && show_window)
         uph_plugin_show_window(plug);
 }
 
-Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
+static Uph_Plugin uph__plugin_load_async(Naui_Path path, bool show_window, uint8_t *state_data, size_t state_size)
 {
     Uph_Plugin plugin = { .file_path = path };
     if (!uph_plugin_format_from_path(path, &plugin.format))
     {
         fprintf(stderr, "uph: unrecognized plugin extension for %s\n", path.data);
+        free(state_data);
         return plugin;
     }
 
     Uph_PluginLoadTask *task = (Uph_PluginLoadTask*)calloc(1, sizeof(Uph_PluginLoadTask));
     task->result.file_path = path;
+    task->ticket = ++uph__plugin_load_ticket;
+    task->state_data = state_data;
+    task->state_size = state_size;
     task->show_window = show_window;
     plugin.pending_load = task;
 
@@ -3822,19 +3832,30 @@ Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
     return plugin;
 }
 
-void uph_plugin_wait(Uph_Plugin *plug)
+Uph_Plugin uph_plugin_load(Naui_Path path, bool show_window)
 {
-    Uph_PluginLoadTask *task = (Uph_PluginLoadTask*)plug->pending_load;
-    if (!task)
-        return;
+    return uph__plugin_load_async(path, show_window, NULL, 0);
+}
 
-    uph__plugin_host_wait(&task->done);
-    uph__plugin_finish_load(plug);
+Uph_Plugin uph_plugin_load_with_state(Naui_Path path, const Naui_Path state_path, bool *state_read)
+{
+    size_t size = 0;
+    uint8_t *data = state_path.data[0] ? (uint8_t*)naui_file_read_all(state_path, &size) : NULL;
+    if (state_read)
+        *state_read = data != NULL;
+
+    return uph__plugin_load_async(path, false, data, size);
 }
 
 bool uph_plugin_loading(const Uph_Plugin *plug)
 {
     return plug->pending_load != NULL;
+}
+
+uint64_t uph_plugin_load_ticket(const Uph_Plugin *plug)
+{
+    const Uph_PluginLoadTask *task = (const Uph_PluginLoadTask*)plug->pending_load;
+    return task ? task->ticket : 0;
 }
 
 static void uph_unload_clap_plugin(Uph_PluginInternalHandle *internal_handle)
@@ -5302,6 +5323,10 @@ static void uph__plugin_host_save_state(void *data)
 
 bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
 {
+    const Uph_PluginLoadTask *task = (const Uph_PluginLoadTask*)plug->pending_load;
+    if (task)
+        return task->state_data && naui_file_write_all(path, task->state_data, task->state_size);
+
     if (!plug->loaded || !plug->internal_handle)
         return false;
 
@@ -5310,7 +5335,7 @@ bool uph_plugin_save_state(const Uph_Plugin *plug, const Naui_Path path)
     return call.ok;
 }
 
-static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
+static bool uph__plugin_load_state(Uph_Plugin *plug, const uint8_t *data, size_t size)
 {
     Uph_PluginInternalHandle *internal_handle = (Uph_PluginInternalHandle*)plug->internal_handle;
     if (!internal_handle)
@@ -5318,7 +5343,7 @@ static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 
     if (plug->format == UPH_PLUGIN_VST3)
     {
-        bool ok = uph_vst3_load_state(internal_handle, path);
+        bool ok = uph_vst3_load_state(internal_handle, data, size);
         if (ok)
             plug->params = uph_vst3_get_param_list(plug);
         return ok;
@@ -5326,7 +5351,7 @@ static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
 
     if (plug->format == UPH_PLUGIN_VST2)
     {
-        bool ok = uph__vst2_load_state(internal_handle, path);
+        bool ok = uph__vst2_load_state(internal_handle, data, size);
         if (ok)
         {
             AEffect *effect = internal_handle->vst2.effect;
@@ -5350,24 +5375,14 @@ static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
         return false;
     }
 
-    size_t size = 0;
-    char *data = naui_file_read_all(path, &size);
-    if (!data)
-    {
-        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
-        return false;
-    }
-
     Uph_ClapLoadStream stream = {
         .iface = { .ctx = &stream, .read = uph_clap_stream_read },
-        .data = (const uint8_t*)data,
+        .data = data,
         .size = size,
         .pos = 0
     };
 
     bool ok = state->load(internal_handle->clap.plugin, &stream.iface);
-
-    free(data);
 
     if (ok)
         plug->params = uph_clap_get_param_list(plug);
@@ -5375,10 +5390,19 @@ static bool uph__plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
     return ok;
 }
 
+typedef struct
+{
+    Uph_Plugin *plug;
+    const uint8_t *data;
+    size_t size;
+    bool ok;
+}
+Uph_PluginStateLoadCall;
+
 static void uph__plugin_host_load_state(void *data)
 {
-    Uph_PluginStateCall *call = (Uph_PluginStateCall*)data;
-    call->ok = uph__plugin_load_state(call->plug, call->path);
+    Uph_PluginStateLoadCall *call = (Uph_PluginStateLoadCall*)data;
+    call->ok = uph__plugin_load_state(call->plug, call->data, call->size);
 }
 
 bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
@@ -5386,8 +5410,17 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
     if (!plug->internal_handle)
         return false;
 
-    Uph_PluginStateCall call = { .plug = plug, .path = path };
+    size_t size = 0;
+    uint8_t *data = (uint8_t*)naui_file_read_all(path, &size);
+    if (!data)
+    {
+        fprintf(stderr, "uph_plugin_load_state: failed to read %s\n", path.data);
+        return false;
+    }
+
+    Uph_PluginStateLoadCall call = { .plug = plug, .data = data, .size = size };
     uph__plugin_host_call(uph__plugin_host_load_state, &call);
+    free(data);
     return call.ok;
 }
 

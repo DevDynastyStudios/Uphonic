@@ -269,21 +269,86 @@ Uph_PluginParam *uph_resources_last_touched_param(Uph_Track *track, int32_t *out
 	return param;
 }
 
+Uph_Plugin *uph_resources_plugin_at(Uph_Track *track, int32_t effect_index)
+{
+	if (effect_index < 0)
+		return &track->instrument;
+
+	Naui_List(Uph_EffectPlugin) effects = track->effects;
+	if ((uint64_t)effect_index >= (uint64_t)naui_list_len(effects))
+		return NULL;
+
+	return &effects[effect_index].plugin;
+}
+
+bool uph_resources_pending_owner_index(const Uph_Track *track, uint64_t load_ticket, int32_t *out_effect_index)
+{
+	if (!load_ticket)
+		return false;
+
+	if (uph_plugin_load_ticket(&track->instrument) == load_ticket)
+	{
+		*out_effect_index = -1;
+		return true;
+	}
+
+	for (uint32_t e = 0; e < (uint32_t)naui_list_len(track->effects); e++)
+	{
+		if (uph_plugin_load_ticket(&track->effects[e].plugin) == load_ticket)
+		{
+			*out_effect_index = (int32_t)e;
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool uph_resources_lane_targets_plugin(const Uph_Track *lane, const Uph_Plugin *plugin)
+{
+	if (lane->type != UPH_RESOURCE_AUTOMATION || lane->automation_target != UPH_AUTOMATION_TARGET_PLUGIN_PARAM)
+		return false;
+
+	if (lane->automation_pending_load)
+		return lane->automation_pending_load == uph_plugin_load_ticket(plugin);
+
+	return uph_plugin_owns_param(plugin, lane->automation_param);
+}
+
+void uph_resources_link_pending_automation(Uph_Track *track, uint64_t load_ticket, Uph_Plugin *plugin)
+{
+	bool linked = false;
+	for (uint32_t s = 0; s < (uint32_t)naui_list_len(track->subtracks); s++)
+	{
+		Uph_Track *lane = &track->subtracks[s];
+		if (lane->automation_pending_load != load_ticket)
+			continue;
+
+		lane->automation_pending_load = 0;
+		lane->automation_param = NULL;
+		for (uint32_t i = 0; i < (uint32_t)naui_list_len(plugin->params); i++)
+		{
+			if (plugin->params[i].id == lane->automation_pending_param_id)
+			{
+				lane->automation_param = &plugin->params[i];
+				break;
+			}
+		}
+
+		if (!lane->automation_param)
+			naui_log(NAUI_LOG_WARNING, "Automation lane '%s' points at a parameter that isn't there", lane->name.data);
+		linked = true;
+	}
+
+	if (linked)
+		uph_resources_refresh_param_usage(uph_state.project.tracks);
+}
+
 Uph_PluginParam *uph_resources_find_param(Uph_Track *track, int32_t effect_index, uint64_t param_id)
 {
-	Uph_Plugin *plugin;
-	if (effect_index < 0)
-	{
-		plugin = &track->instrument;
-	}
-	else
-	{
-		Naui_List(Uph_EffectPlugin) effects = track->effects;
-		if ((uint64_t)effect_index >= (uint64_t)naui_list_len(effects))
-			return NULL;
-
-		plugin = &effects[effect_index].plugin;
-	}
+	Uph_Plugin *plugin = uph_resources_plugin_at(track, effect_index);
+	if (!plugin)
+		return NULL;
 
 	const uint64_t param_count = naui_list_len(plugin->params);
 	for (uint64_t i = 0; i < param_count; i++)

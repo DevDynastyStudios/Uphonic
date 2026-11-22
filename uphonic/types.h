@@ -401,6 +401,8 @@ struct Uph_Track
 	visual;
 
 	Uph_PluginParam *automation_param;
+	uint64_t automation_pending_load;
+	uint64_t automation_pending_param_id;
 	Uph_AutomationTarget automation_target;
 
 	Uph_ResourceType type;
