@@ -287,6 +287,11 @@ void naui_app_end(void)
 	cmidi_shutdown();
  
 	naui_log(NAUI_LOG_INFO, "Thanks For Using Uphonic.");
+
+#if NAUI_WINDOWS
+	fflush(NULL);
+	TerminateProcess(GetCurrentProcess(), 0);
+#endif
 }
  
 static void uph_update_track_plugin(Uph_Track *track, Uph_Plugin *plugin)
