@@ -189,6 +189,8 @@ Uph_Icons;
 	X(resource_list_item_fg,              "uph_resource_list_item_fg_color") \
 	X(resource_list_item_text,            "uph_resource_list_item_text_color") \
 	X(resource_list_header,               "uph_resource_list_header_color") \
+	X(resource_list_card_bg,              "uph_resource_list_card_bg_color") \
+	X(resource_list_card_border,          "uph_resource_list_card_border_color") \
 	X(sample_browser_item_bg,             "uph_sample_browser_item_bg_color") \
 	X(sample_browser_item_fg,             "uph_sample_browser_item_fg_color") \
 	X(plugin_list_clap,                   "uph_plugin_list_clap_color") \

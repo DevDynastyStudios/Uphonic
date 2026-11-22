@@ -176,6 +176,8 @@
     "uph_resource_list_item_fg_color": "#6FE3D6",
     "uph_resource_list_item_text_color": "#D5DEEA",
     "uph_resource_list_header_color": "#161B23",
+    "uph_resource_list_card_bg_color": "#161B23",
+    "uph_resource_list_card_border_color": "#252D3A",
 
     "uph_sample_browser_item_bg_color": "#1F2631",
     "uph_sample_browser_item_fg_color": "#6FE3D6",
