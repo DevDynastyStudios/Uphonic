@@ -255,7 +255,7 @@ void uph_render_main_titlebar(void)
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 			.positioning = LEAF_POSITIONING_FLOATING_TO_PARENT
 		})
-		leaf_text(NAUI_TR("uphonic.title"), {
+		leaf_text(uph_project_has_been_saved(&uph_state.project) ? uph_state.project.title.data : NAUI_TR("uphonic.title"), {
 			.color = text_color,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(NAUI_PANEL_FONT_SIZE)),
 			.alignment = LEAF_TEXT_ALIGN_CENTER
