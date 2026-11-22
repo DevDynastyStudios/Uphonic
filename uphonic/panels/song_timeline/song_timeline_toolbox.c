@@ -142,7 +142,7 @@ void uph_song_timeline_render_toolbox(void)
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			leaf_text("Snap:", {
+			leaf_text(NAUI_TR("grid.snap"), {
 				.color = uph_state.colors.ui_text,
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});

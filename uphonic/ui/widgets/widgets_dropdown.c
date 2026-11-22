@@ -39,7 +39,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     const bool open = uph__ui_menu_is_open(data, menu);
     const uint32_t shown_index = (*current_index < item_count) ? *current_index : 0;
-    const char *shown_text = item_count > 0 ? items[shown_index] : "";
+    const char *shown_text = item_count > 0 ? NAUI_TR(items[shown_index]) : "";
 
     const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
     const float rounding = UPH_UI_FRAME_ROUNDING;
@@ -85,7 +85,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
     for (uint32_t i = 0; i < item_count; i++)
     {
-        if (uph_ui_menu_item((Uph_UIMenuID)menu, items[i], (Leaf_ID){ .value = id.value + i + 1 }) && i != shown_index)
+        if (uph_ui_menu_item((Uph_UIMenuID)menu, NAUI_TR(items[i]), (Leaf_ID){ .value = id.value + i + 1 }) && i != shown_index)
         {
             *current_index = i;
             result = true;
@@ -97,7 +97,7 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
 bool uph_ui_snap_dropdown(Uph_SnapResolution *snap, const Leaf_ID id)
 {
-    static const char *const labels[] = { "Line", "Beat", "1/2", "1/4", "1/8", "1/16" };
+    static const char *const labels[] = { "grid.snap.line", "grid.snap.beat", "1/2", "1/4", "1/8", "1/16" };
     static const Uph_SnapResolution values[] = { UPH_SNAP_LINE, UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_QUARTER, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
     const uint32_t count = sizeof(values) / sizeof(values[0]);
 

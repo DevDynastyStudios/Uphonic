@@ -65,6 +65,10 @@
 	"file_dialog.size": "Size",
 	"file_dialog.up": "Up",
 
+	"grid.snap": "Snap:",
+	"grid.snap.beat": "Beat",
+	"grid.snap.line": "Line",
+
 	"layout.default": "Default",
 	"layout.composition": "Composition",
 	"layout.midi": "MIDI",
@@ -149,6 +153,9 @@
 	"mixer.no_effects": "No Effects",
 	"mixer.selected": "${0} Effects",
 	"mixer.title": "Mixer",
+
+	"midi.toolbox.voice": "Voice:",
+	"midi.toolbox.voice.none": "None",
 
 	"pattern.default.name": "Untitled Pattern",
 

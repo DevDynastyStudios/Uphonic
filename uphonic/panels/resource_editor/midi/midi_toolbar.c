@@ -26,7 +26,7 @@ static void uph__midi_toolbar_collect_voices(Naui_List(Uph_Track) tracks, Uph_Mi
 
 static void uph__midi_toolbar_render_voice(void)
 {
-	Uph_MidiToolbarVoices voices = { .names = { "None" } };
+	Uph_MidiToolbarVoices voices = { .names = { NAUI_TR("midi.toolbox.voice.none") } };
 	uph__midi_toolbar_collect_voices(uph_state.project.tracks, &voices);
 
 	const Uph_Track *current = uph_midi_preview_voice();
@@ -44,7 +44,7 @@ static void uph__midi_toolbar_render_voice(void)
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
-		leaf_text("Voice:", {
+		leaf_text(NAUI_TR("midi.toolbox.voice"), {
 			.color = uph_state.colors.ui_text,
 			.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 		});
@@ -164,7 +164,7 @@ void uph_midi_toolbar_render(Uph_MidiEditorState *editor)
 			.direction = LEAF_DIRECTION_HORIZONTAL
 		})
 		{
-			leaf_text("Snap:", {
+			leaf_text(NAUI_TR("grid.snap"), {
 				.color = uph_state.colors.ui_text,
 				.font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_TOOLBOX_FONT_SIZE))
 			});
