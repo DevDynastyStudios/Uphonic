@@ -84,6 +84,7 @@
 #include "ui/widgets/widgets_dropdown.c"
 #include "ui/widgets/widgets_knob.c"
 #include "ui/widgets/widgets_transport.c"
+#include "ui/widgets/widgets_list.c"
 #include "ui/widgets.c"
 #include "ui/cursors.c"
 #include "ui/drag.c"
