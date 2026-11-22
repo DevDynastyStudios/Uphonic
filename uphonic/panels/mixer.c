@@ -97,6 +97,8 @@ static Uph_MixerState uph__mixer_state = { 0 };
 #define UPH_MIXER_METER_SCROLL_HEIGHT 100
 #define UPH_MIXER_EFFECT_LED_HIT	18
 #define UPH_MIXER_EFFECT_LED_DOT	8
+#define UPH_MIXER_STRIP_INSET		3
+#define UPH_MIXER_CARD_ROUNDING		6
 
 static const float uph_mixer_db_ticks[] = { 6.0f, 0.0f, -6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f };
 #define UPH_MIXER_DB_TICK_COUNT ((int)(sizeof(uph_mixer_db_ticks) / sizeof(uph_mixer_db_ticks[0])))
@@ -457,12 +459,13 @@ static void uph_mixer_render_effect_list(void)
 	const Naui_Color text_disabled_color = uph_state.colors.ui_text_disabled;
 	const Naui_Color border_color = uph_state.colors.ui_frame_border;
 	const int32_t font_size = NAUI_DPI(UPH_UI_FONT_SIZE);
-	const int32_t rounding = NAUI_DPI(UPH_UI_FRAME_ROUNDING);
+	const int32_t rounding = NAUI_DPI(UPH_MIXER_CARD_ROUNDING);
 
 	if (!strip)
 	{
 		leaf({
 			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+			.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.mixer_track_border },
 			.color = uph_state.colors.mixer_effect_list_bg,
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
 			.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
@@ -484,6 +487,7 @@ static void uph_mixer_render_effect_list(void)
 
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.border = { .width = 1, .sides = LEAF_SIDE_ALL, .color = uph_state.colors.mixer_track_border },
 		.color = uph_state.colors.mixer_effect_list_bg,
 		.rounding = LEAF_ROUNDING_FIXED(rounding, LEAF_CORNER_ALL),
 		.clip_children = true
@@ -812,6 +816,12 @@ static bool uph_mixer_press_keeps_selection(const Uph_Track *strip, const Leaf_I
 	return leaf_hovered(handle_id);
 }
 
+static float uph_mixer_strip_width(void)
+{
+    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
+    return (float)(int32_t)NAUI_DPI(100 + padding.x * 2 + UPH_MIXER_STRIP_INSET * 2);
+}
+
 static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_menu)
 {
 	Uph_MixerState *state = &uph__mixer_state;
@@ -846,22 +856,26 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 	else
 		bg_color = selected ? uph_state.colors.mixer_track_selected_bg : uph_state.colors.mixer_track_bg;
 
+	const int32_t inset = NAUI_DPI(UPH_MIXER_STRIP_INSET);
 	leaf({
 		.id = id,
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(100 + padding.x * 2)), .height = LEAF_SIZE_FULL },
-		.color = bg_color
+		.size = { .width = LEAF_SIZE_FIXED((int32_t)uph_mixer_strip_width() - inset * 2), .height = LEAF_SIZE_FULL },
+		.padding = LEAF_PADDING_ALL(inset)
 	})
 	{
 		leaf({
-			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
+			.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
 			.padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 2)),
 			.border = {
 				.width = 1,
-				.sides = LEAF_SIDE_LEFT,
+				.sides = LEAF_SIDE_ALL,
 				.color = uph_state.colors.mixer_track_border
 			},
+			.color = bg_color,
 			.child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_TOP },
-			.child_gap = NAUI_DPI(8)
+			.rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_MIXER_CARD_ROUNDING), LEAF_CORNER_ALL),
+			.child_gap = NAUI_DPI(8),
+			.clip_children = true
 		})
 		{
 			const Naui_Color text_color = uph_state.colors.ui_text;
@@ -1036,12 +1050,6 @@ static void uph_mixer_render_strip_body(Uph_Track *strip, Uph_UIMenuID context_m
 
 }
 
-static float uph_mixer_strip_width(void)
-{
-    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    return (float)(int32_t)NAUI_DPI(100 + padding.x * 2);
-}
-
 static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, float parent_offset)
 {
 	Uph_MixerState *state = &uph__mixer_state;
@@ -1106,23 +1114,41 @@ static void uph_mixer_render_strip(Uph_Track *strip, Uph_UIMenuID context_menu, 
 		}
 	}
 
-    const int32_t group_gap = (int32_t)NAUI_DPI(4);
+    const int32_t inset = NAUI_DPI(UPH_MIXER_STRIP_INSET);
+    const int32_t group_gap = inset + 1;
     state->visual.settled_x += (float)group_gap;
     leaf({
         .id = group_id,
         .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
-        .padding = { .left = group_gap, .right = group_gap, .top = group_gap, .bottom = 0 },
+        .padding = LEAF_PADDING_ALL(inset),
         .child_offset = { .x = -local_offset, .y = (1.0f - appear) * NAUI_DPI(-12) },
         .transparency = 1.0f - appear
     })
+    leaf({
+        .size = { .width = LEAF_SIZE_FIT, .height = LEAF_SIZE_FULL },
+        .padding = LEAF_PADDING_ALL(1),
+        .border = {
+            .width = 1,
+            .sides = LEAF_SIDE_ALL,
+            .color = uph_color_mix(uph_state.colors.mixer_track_border, accent_color, 0.35f)
+        },
+        .color = uph_color_mix(uph_state.colors.panel_body_bg, accent_color, 0.06f),
+        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_MIXER_CARD_ROUNDING), LEAF_CORNER_ALL),
+        .direction = LEAF_DIRECTION_VERTICAL,
+        .clip_children = true
+    })
     {
+        leaf({
+            .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
+            .padding = { .left = inset, .right = inset, .top = inset }
+        })
         leaf({
             .id = header_id,
             .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
             .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y)),
             .color = uph_color_mix(uph_state.colors.mixer_track_bg, accent_color, 0.45f),
             .child_alignment = { .x = LEAF_ALIGN_X_LEFT, .y = LEAF_ALIGN_Y_CENTER },
-            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(4), LEAF_CORNER_TL | LEAF_CORNER_TR),
+            .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_MIXER_CARD_ROUNDING - 2), LEAF_CORNER_ALL),
             .child_gap = NAUI_DPI(4),
             .direction = LEAF_DIRECTION_HORIZONTAL
         })
@@ -1483,6 +1509,8 @@ static void uph_mixer_on_update(void)
 	Uph_MixerState *state = &uph__mixer_state;
 	leaf({
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FULL },
+		.padding = LEAF_PADDING_ALL(NAUI_DPI(UPH_MIXER_STRIP_INSET)),
+		.color = uph_state.colors.panel_body_bg,
 		.direction = LEAF_DIRECTION_HORIZONTAL
 	})
 	{
@@ -1504,10 +1532,7 @@ static void uph_mixer_on_update(void)
         if (master)
         {
             uph_mixer_render_strip_body(master, context_menu);
-            leaf({
-                .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(3)), .height = LEAF_SIZE_FULL },
-                .color = uph_state.colors.mixer_track_border
-            });
+            leaf({ .size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_MIXER_STRIP_INSET)), .height = LEAF_SIZE_FULL } });
         }
 
         uph_mixer_reveal_selected_strip(leaf_id("uph_mixer_scrollbar"));
