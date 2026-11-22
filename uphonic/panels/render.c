@@ -328,7 +328,7 @@ static void uph_render_on_update(void)
 		})
 		{
 			cancel = uph_ui_text_button(NAUI_TR("dialog.cancel"), leaf_id("uph_render_cancel"));
-			start = uph_ui_text_button_ex(NAUI_TR("render.button"), leaf_id("uph_render_start"), uph_state.colors.widget_accent, NAUI_CORNER_ALL);
+			start = uph_ui_primary_button(NAUI_TR("render.button"), leaf_id("uph_render_start"));
 		}
 	}
 

@@ -140,8 +140,11 @@ static int32_t uph__dialog_render_buttons(void)
 	{
 		for (int32_t i = 0; i < state->button_count; i++)
 		{
-			const Naui_Color color = i == state->default_button ? uph_state.colors.widget_accent : uph_state.colors.ui_frame_bg;
-			if (uph_ui_text_button_ex(state->buttons[i], leaf_id_indexed("uph_dialog_button", (uint32_t)i), color, NAUI_CORNER_ALL))
+			const Leaf_ID id = leaf_id_indexed("uph_dialog_button", (uint32_t)i);
+			const bool clicked = i == state->default_button ?
+				uph_ui_primary_button(state->buttons[i], id) :
+				uph_ui_text_button(state->buttons[i], id);
+			if (clicked)
 				pressed = i;
 		}
 	}

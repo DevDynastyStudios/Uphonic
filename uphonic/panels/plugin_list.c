@@ -486,38 +486,6 @@ static void uph_plugin_list_property(const char *label, const char *value)
     }
 }
 
-static bool uph_plugin_list_load_button(const char *label, const Leaf_ID id)
-{
-    const Naui_Vec2 padding = UPH_UI_FRAME_PADDING;
-    const bool hovered = uph_ui_widget_hovered(id);
-
-    Naui_Color color = uph_state.colors.ui_selection;
-    if (hovered)
-    {
-        naui_set_cursor(NAUI_CURSOR_HAND);
-        color = naui_mouse_down(NAUI_MOUSE_LEFT) ?
-            uph_color_mix(color, uph_state.colors.ui_frame_bg, 0.25f) :
-            uph_state.colors.ui_slider_fill;
-    }
-
-    leaf({
-        .id = id,
-        .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_FIT },
-        .padding = LEAF_PADDING_AXES(NAUI_DPI(padding.x), NAUI_DPI(padding.y * 1.5f)),
-        .color = color,
-        .child_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
-        .rounding = LEAF_ROUNDING_FIXED(NAUI_DPI(UPH_UI_FRAME_ROUNDING), NAUI_CORNER_ALL)
-    })
-    {
-        leaf_text(label, {
-            .color = uph_state.colors.plugin_list_text,
-            .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE))
-        });
-    }
-
-    return hovered && naui_mouse_pressed(NAUI_MOUSE_LEFT);
-}
-
 static const char *uph_plugin_list_file_name(const Naui_Path *path)
 {
     const char *name = path->data;
@@ -606,7 +574,7 @@ static void uph_plugin_list_current_menu(void)
             uph_plugin_list_property(NAUI_TR("plugin.menu.file"), uph_plugin_list_file_name(&info->path));
         }
         leaf({ .size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW } });
-        if (uph_plugin_list_load_button(NAUI_TR("plugin.menu.load"), leaf_id("uph_plugin_list_load")))
+        if (uph_ui_large_primary_button_full(NAUI_TR("plugin.menu.load"), leaf_id("uph_plugin_list_load")))
             uph_plugin_list_load();
     }
 }

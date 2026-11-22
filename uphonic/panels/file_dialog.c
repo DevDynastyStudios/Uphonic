@@ -143,7 +143,7 @@ static void uph__file_dialog_place(Uph_FileDialogData *data, Uph_FileDialogActio
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
 	if (current)
-		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.widget_accent, 0.35f);
+		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.ui_selection, 0.35f);
 	else if (hovered)
 		background = uph_state.colors.ui_frame_hovered_bg;
 
@@ -230,7 +230,7 @@ static void uph__file_dialog_row(Uph_FileDialogData *data, Uph_FileDialogActions
 
 	Leaf_Color background = LEAF_COLOR_TRANSPARENT;
 	if (selected)
-		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.widget_accent, 0.5f);
+		background = uph_color_mix(uph_state.colors.ui_well_bg, uph_state.colors.ui_selection, 0.5f);
 	else if (hovered)
 		background = uph_state.colors.ui_frame_hovered_bg;
 
@@ -413,7 +413,7 @@ static void uph__file_dialog_footer(Uph_FileDialogData *data, Uph_FileDialogActi
 		if (filters[0])
 			leaf_text(filters, { .color = uph_state.colors.ui_text_disabled, .font_size = LEAF_SIZE_FIXED(font_size) });
 
-		if (uph_ui_text_button_ex(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance), uph_state.colors.widget_accent, NAUI_CORNER_ALL))
+		if (uph_ui_primary_button(dialog->confirm_label, leaf_id_indexed("uph_file_dialog_confirm", data->instance)))
 			actions->confirm = true;
 
 		if (uph_ui_text_button(NAUI_TR("dialog.cancel"), leaf_id_indexed("uph_file_dialog_cancel", data->instance)))
