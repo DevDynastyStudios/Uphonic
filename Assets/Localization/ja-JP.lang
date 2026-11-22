@@ -115,6 +115,8 @@
 	"layout.composition": "作曲",
 	"layout.midi": "MIDI編集",
 
+	"master.track.title": "マスター",
+
 	"menu.edit": "編集",
 	"menu.edit.copy": "コピー",
 	"menu.edit.cut": "切り取り",
@@ -460,12 +462,17 @@
 	"song_timeline.menu.instrument.load": "音源を読み込む",
 	"song_timeline.menu.instrument.remove": "音源を削除",
 	"song_timeline.menu.instrument.show": "音源を表示",
+	"song_timeline.menu.timesig.denominator": "音符の単位",
 
 	"song_timeline.title": "曲のタイムライン",
 	"song_timeline.track.color": "トラックの色",
 	"song_timeline.track.title": "無題のトラック",
 
-	"master.track.title": "マスター",
+	"timer.bar": "小節",
+	"timer.beat": "拍",
+	"timer.tick": "ティック",
+	"timer.minutes": "分",
+	"timer.seconds": "秒",
 
 	"uphonic.title": "Uphonic"
 }

@@ -115,6 +115,8 @@
 	"layout.composition": "Composition",
 	"layout.midi": "MIDI",
 
+	"master.track.title": "Master",
+
 	"menu.edit": "Edit",
 	"menu.edit.copy": "Copy",
 	"menu.edit.cut": "Cut",
@@ -460,12 +462,17 @@
 	"song_timeline.menu.instrument.load": "Load Instrument",
 	"song_timeline.menu.instrument.remove": "Remove Instrument",
 	"song_timeline.menu.instrument.show": "Show Instrument",
+	"song_timeline.menu.timesig.denominator": "Note Value",
 
 	"song_timeline.title": "Song Timeline",
 	"song_timeline.track.color": "Track Color",
 	"song_timeline.track.title": "Untitled Track",
 
-	"master.track.title": "Master",
+	"timer.bar": "BAR",
+	"timer.beat": "BEAT",
+	"timer.tick": "TICK",
+	"timer.minutes": "MIN",
+	"timer.seconds": "SEC",
 
 	"uphonic.title": "Uphonic"
 }

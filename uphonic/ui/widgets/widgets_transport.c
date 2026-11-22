@@ -184,6 +184,7 @@ bool uph_ui_bpm(float *value, const char *id, float min, float max)
 
 const char *uph_ui_format_time(double beat, bool seconds_format, char *out, size_t out_size)
 {
+	static char label[96];
     if (seconds_format)
     {
         const double seconds = NAUI_MAX(uph_tempo_beat_to_seconds(NAUI_MAX(beat, 0.0)), 0.0);
@@ -192,7 +193,9 @@ const char *uph_ui_format_time(double beat, bool seconds_format, char *out, size
             (int)(total_ms / 60000),
             (int)((total_ms / 1000) % 60),
             (int)(total_ms % 1000));
-        return "MIN:SEC";
+
+        snprintf(label, sizeof(label), "%s:%s", NAUI_TR("timer.minutes"), NAUI_TR("timer.seconds"));
+        return label;
     }
 
     const double beat_length = uph_time_signature_beat_length();
@@ -204,7 +207,9 @@ const char *uph_ui_format_time(double beat, bool seconds_format, char *out, size
         (int)(whole_beats / beats_per_bar),
         (int)(whole_beats % beats_per_bar) + 1,
         ticks);
-    return "BAR:BEAT:TICK";
+
+    snprintf(label, sizeof(label), "%s:%s:%s", NAUI_TR("timer.bar"), NAUI_TR("timer.beat"), NAUI_TR("timer.tick"));
+    return label;
 }
 
 bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
@@ -325,7 +330,7 @@ bool uph_ui_time_signature(Uph_TimeSignature *signature, const char *id)
         }
     }
 
-    Uph_UIMenuID note_menu = uph_ui_submenu((Uph_UIMenuID)menu, "Note Value", leaf_id_indexed(id, 8));
+    Uph_UIMenuID note_menu = uph_ui_submenu((Uph_UIMenuID)menu, NAUI_TR("song_timeline.menu.timesig.denominator"), leaf_id_indexed(id, 8));
     for (uint32_t i = 0; i < 4; i++)
     {
         if (uph_ui_menu_item(note_menu, denominator_labels[i], leaf_id_indexed(id, 32 + i)))
