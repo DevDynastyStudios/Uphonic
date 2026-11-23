@@ -6,6 +6,8 @@ void uph_resources_clear_tracks_recursive(
 	Naui_List(Uph_Track) list
 );
 
+int32_t uph_resources_random_track_color_index(void);
+
 void uph_resources_add_track(
 	Naui_String name,
 	int32_t color_index

@@ -1,0 +1,238 @@
+
+{
+    "naui_panel_border_color": "#5A4637",
+    "naui_panel_body_bg_color": "#2A211D",
+    "naui_panel_tab_bg_color": "#302621",
+    "naui_panel_title_bg_color": "#2A211C",
+    "naui_panel_title_text_color": "#F3E6D5",
+    "naui_panel_text_color": "#E8D9C3",
+    "naui_panel_tab_inactive_text_color": "#A18C77",
+    "naui_panel_tab_accent_color": "#D3A15B",
+    "naui_panel_text_disabled_color": "#857462",
+    "naui_panel_shadow_color": "#00000040",
+    "naui_panel_inner_shadow_color": "#FFFFFF08",
+
+    "naui_dock_guide_color": "#D3A15B40",
+    "naui_dock_guide_hovered_color": "#D3A15B60",
+    "naui_dock_guide_outline_color": "#D3A15BAA",
+
+    "naui_viewport_bg_color": "#181311",
+
+    "uph_logo_color": "#D3A15B",
+
+    "uph_ui_dropdown_shadow_color": "#00000025",
+    "uph_ui_dropdown_bg_color": "#2D241F",
+
+    "uph_ui_scrollbar_bg_color": "#1B1614",
+    "uph_ui_scrollbar_handle_color": "#6C5746",
+
+    "uph_ui_text_color": "#E8D9C3",
+    "uph_ui_text_disabled_color": "#8D7A68",
+
+    "uph_ui_selection_color": "#D3A15B",
+
+    "uph_ui_slider_fill_color": "#D3A15B",
+    "uph_ui_progress_bar_color": "#D3A15B",
+
+    "uph_ui_frame_bg_color": "#4C3B2F",
+    "uph_ui_frame_secondary_bg_color": "#352A24",
+    "uph_ui_frame_hovered_bg_color": "#42342C",
+    "uph_ui_frame_pressed_bg_color": "#624C3D",
+    "uph_ui_frame_toggled_bg_color": "#5D4B3F",
+
+    "uph_ui_knob_ring_color": "#D3A15B",
+    "uph_ui_knob_track_color": "#54453A",
+
+    "uph_ui_tinted_frame_bg_color": "#D3A15B10",
+    "uph_ui_tinted_frame_hovered_bg_color": "#D3A15B20",
+    "uph_ui_tinted_frame_pressed_bg_color": "#D3A15B35",
+
+    "uph_ui_tinted_knob_track_color": "#FFFFFF08",
+
+    "uph_ui_tinted_frame_border": "#705A48",
+    "uph_ui_frame_border": "#5A4637",
+
+    "uph_ui_well_bg_color": "#0F0B09",
+
+    "uph_track_palette": [
+        "#D17D61",
+        "#D3A15B",
+        "#86A277",
+        "#7FA4C1",
+        "#C98D6B",
+        "#A184B5",
+        "#C95F4E",
+        "#D5B088"
+    ],
+
+    "uph_song_timeline_border_color": "#2E2521",
+    "uph_song_timeline_header_border_color": "#4D3D31",
+    "uph_song_timeline_header_color": "#352A24",
+    "uph_song_timeline_header_selected_color": "#3A2D25",
+
+    "uph_song_timeline_toolbox_bg_color": "#2A211D",
+    "uph_song_timeline_toolbox_border_color": "#5A4637",
+
+    "uph_song_timeline_tool_icon_color": "#F3E6D5",
+
+    "uph_song_timeline_play_icon_color": "#7EA072",
+    "uph_song_timeline_pause_icon_color": "#D3A15B",
+    "uph_song_timeline_stop_icon_color": "#C95F4E",
+
+    "uph_song_timeline_playhead_color": "#D9B788",
+
+    "uph_song_timeline_selection_outline_color": "#D3A15B",
+
+    "uph_song_timeline_grid_bar_color": "#805A3355",
+    "uph_song_timeline_grid_beat_color": "#66534238",
+    "uph_song_timeline_grid_subbeat_color": "#4B3D3320",
+
+    "uph_song_timeline_ruler_bg_color": "#352A24",
+    "uph_song_timeline_ruler_border_color": "#5A4637",
+
+    "uph_song_timeline_ruler_grid_bar_color": "#D3A15B",
+    "uph_song_timeline_ruler_grid_beat_color": "#A7835C90",
+    "uph_song_timeline_ruler_grid_subbeat_color": "#7A624950",
+
+    "uph_song_timeline_ruler_grid_text_color": "#E8D9C3",
+
+    "uph_song_timeline_row_bg1_color": "#120E0C",
+    "uph_song_timeline_row_bg2_color": "#251D19",
+    "uph_song_timeline_row_border_color": "#352A24",
+
+    "uph_song_timeline_draw_ghost_color": "#D3A15B15",
+    "uph_song_timeline_draw_ghost_border_color": "#D3A15B40",
+
+    "uph_song_timeline_marquee_color": "#D3A15B18",
+    "uph_song_timeline_marquee_border_color": "#D3A15BA0",
+
+    "uph_song_timeline_block_text_color": "#FFFFFF",
+
+    "uph_song_timeline_meter_low_color": "#8AA979",
+    "uph_song_timeline_meter_medium_color": "#D3A15B",
+    "uph_song_timeline_meter_high_color": "#D17D61",
+
+    "uph_song_timeline_header_card_border_color": "#5A4637",
+    "uph_song_timeline_last_track_border_color": "#D3A15B",
+
+    "uph_midi_editor_scale_lane_color": "#251D19",
+    "uph_midi_editor_off_scale_lane_color": "#171311",
+    "uph_midi_editor_lane_border_color": "#382D2670",
+
+    "uph_midi_editor_loop_end_overlay_color": "#D3A15B18",
+
+    "uph_midi_editor_default_note_color": "#D17D61",
+
+    "uph_piano_natural_color": "#F6E9D6",
+    "uph_piano_natural_gradient": "#E8D5BC",
+
+    "uph_piano_natural_pressed_color": "#E2C499",
+    "uph_piano_natural_pressed_gradient": "#C89E66",
+
+    "uph_piano_sharp_color": "#493A31",
+    "uph_piano_sharp_gradient": "#302620",
+
+    "uph_piano_natural_border_color": "#C8AE89",
+    "uph_piano_sharp_border_color": "#201917",
+
+    "uph_piano_sharp_shine_color": "#6E5948",
+
+    "uph_piano_label_color": "#8A7258",
+    "uph_piano_sharp_label_color": "#E6D5C2",
+
+    "uph_piano_sharp_pressed_color": "#9A7860",
+    "uph_piano_sharp_pressed_gradient": "#725847",
+
+    "uph_midi_editor_toolbox_bg_color": "#352A24",
+    "uph_midi_editor_toolbox_border_color": "#5A4637",
+    "uph_midi_editor_tool_icon_color": "#F3E6D5",
+    "uph_midi_editor_play_icon_color": "#8AA979",
+    "uph_midi_editor_pause_icon_color": "#D3A15B",
+    "uph_midi_editor_stop_icon_color": "#C95F4E",
+    "uph_midi_editor_playhead_color": "#D9B788",
+    "uph_midi_editor_selection_outline_color": "#D3A15B",
+    "uph_midi_editor_marquee_color": "#D3A15B18",
+    "uph_midi_editor_marquee_border_color": "#D3A15BA0",
+    "uph_midi_editor_grid_bar_color": "#805A3355",
+    "uph_midi_editor_grid_beat_color": "#66534238",
+    "uph_midi_editor_grid_subbeat_color": "#4B3D3320",
+    "uph_midi_editor_ruler_bg_color": "#352A24",
+    "uph_midi_editor_ruler_border_color": "#5A4637",
+    "uph_midi_editor_ruler_grid_bar_color": "#D3A15B",
+    "uph_midi_editor_ruler_grid_beat_color": "#A7835C90",
+    "uph_midi_editor_ruler_grid_subbeat_color": "#7A624950",
+    "uph_midi_editor_ruler_grid_text_color": "#E8D9C3",
+
+    "uph_sample_editor_toolbox_bg_color": "#352A24",
+    "uph_sample_editor_toolbox_border_color": "#5A4637",
+    "uph_sample_editor_toolbox_separator_color": "#705A48",
+    "uph_sample_editor_tool_icon_color": "#F3E6D5",
+    "uph_sample_editor_play_icon_color": "#8AA979",
+    "uph_sample_editor_pause_icon_color": "#D3A15B",
+    "uph_sample_editor_stop_icon_color": "#C95F4E",
+    "uph_sample_editor_playhead_color": "#D9B788",
+    "uph_sample_editor_selection_outline_color": "#D3A15B",
+    "uph_sample_editor_grid_bar_color": "#805A3355",
+    "uph_sample_editor_grid_beat_color": "#66534238",
+    "uph_sample_editor_grid_subbeat_color": "#4B3D3320",
+    "uph_sample_editor_ruler_bg_color": "#352A24",
+    "uph_sample_editor_ruler_border_color": "#5A4637",
+    "uph_sample_editor_ruler_grid_bar_color": "#D3A15B",
+    "uph_sample_editor_ruler_grid_beat_color": "#A7835C90",
+    "uph_sample_editor_ruler_grid_subbeat_color": "#7A624950",
+    "uph_sample_editor_ruler_grid_text_color": "#E8D9C3",
+    "uph_sample_editor_row_bg1_color": "#120E0C",
+    "uph_sample_editor_row_bg2_color": "#251D19",
+    "uph_sample_editor_accent_color": "#D3A15B",
+
+    "uph_automation_editor_toolbox_bg_color": "#352A24",
+    "uph_automation_editor_toolbox_border_color": "#5A4637",
+    "uph_automation_editor_toolbox_separator_color": "#705A48",
+    "uph_automation_editor_tool_icon_color": "#F3E6D5",
+    "uph_automation_editor_grid_beat_color": "#66534220",
+    "uph_automation_editor_grid_subbeat_color": "#4B3D3310",
+    "uph_automation_editor_ruler_bg_color": "#352A24",
+    "uph_automation_editor_ruler_border_color": "#5A4637",
+    "uph_automation_editor_row_bg1_color": "#120E0C",
+    "uph_automation_editor_row_bg2_color": "#251D19",
+    "uph_automation_editor_accent_color": "#D3A15B",
+
+    "uph_record_armed_color": "#C95F4E",
+
+    "uph_mixer_track_bg_color": "#2A211D",
+    "uph_mixer_track_selected_bg_color": "#3A2D25",
+    "uph_mixer_track_border_color": "#5A4637",
+
+    "uph_mixer_arrow_color": "#D3A15B",
+    "uph_mixer_ruler_color": "#7A6249",
+
+    "uph_mixer_meter_low_color": "#8AA979",
+    "uph_mixer_meter_medium_color": "#D3A15B",
+    "uph_mixer_meter_high_color": "#D17D61",
+
+    "uph_mixer_effect_list_bg_color": "#352A24",
+
+    "uph_resource_list_section_bg_color": "#2A211C",
+    "uph_resource_list_section_text_color": "#F3E6D5",
+
+    "uph_resource_list_item_bg_color": "#2A211D",
+    "uph_resource_list_item_selected_border_color": "#D3A15B",
+    "uph_resource_list_item_fg_color": "#A88360",
+    "uph_resource_list_item_text_color": "#FFFFFF",
+
+    "uph_resource_list_header_color": "#352A24",
+    "uph_resource_list_card_bg_color": "#40322A",
+    "uph_resource_list_card_border_color": "#5A4637",
+
+    "uph_sample_browser_item_bg_color": "#2A211D",
+    "uph_sample_browser_item_fg_color": "#A88360",
+
+    "uph_plugin_list_clap_color": "#D17D61",
+    "uph_plugin_list_vst3_color": "#7FA4C1",
+    "uph_plugin_list_vst2_color": "#86A277",
+    "uph_plugin_list_text_color": "#E8D9C3",
+    "uph_plugin_list_bg_color": "#2A211D",
+
+    "uph_automation_list_section_bg_color": "#352A24",
+    "uph_automation_list_section_text_color": "#F3E6D5"
+}

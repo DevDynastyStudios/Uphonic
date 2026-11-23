@@ -144,7 +144,7 @@ void uph_settings_set_defaults(void)
 
 	uph_keybinds_set_defaults();
 
-	settings->general.theme = naui_string_from_cstr("Fish");
+	settings->general.theme = naui_string_from_cstr(UPH_DEFAULT_THEME);
 	settings->general.language_code = naui_string_from_cstr("en");
 	settings->general.region_code = naui_string_from_cstr("US");
 	settings->general.layout = naui_string_from_cstr("");
@@ -217,7 +217,7 @@ void uph_settings_sanitize(void)
 	settings->browser.preview_volume = NAUI_CLAMP(settings->browser.preview_volume, 0.0f, 1.0f);
 
 	if (settings->general.theme.length == 0)
-		settings->general.theme = naui_string_from_cstr("Fish");
+		settings->general.theme = naui_string_from_cstr(UPH_DEFAULT_THEME);
 
 	if (settings->general.language_code.length == 0 || settings->general.region_code.length == 0)
 	{
@@ -1126,7 +1126,7 @@ static void uph_settings_theme_card(Uph_SettingsState *data, const uint32_t inde
 
 			leaf({ .size = { .width = LEAF_SIZE_GROW, .height = LEAF_SIZE_FIT }, .clip_children = true })
 			{
-				leaf_text(name->data, { .color = uph_state.colors.ui_text, .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)) });
+				leaf_text(NAUI_TR(name->data), { .color = uph_state.colors.ui_text, .font_size = LEAF_SIZE_FIXED(NAUI_DPI(UPH_UI_FONT_SIZE)) });
 			}
 		}
 	}

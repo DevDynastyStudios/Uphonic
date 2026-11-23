@@ -1,3 +1,5 @@
+#define UPH_DEFAULT_THEME "themes.fish"
+
 #define UPH_ICONS(X) \
 	X(arrow_down,      "uph_icon_arrow_down") \
 	X(arrow_right,     "uph_icon_arrow_right") \
