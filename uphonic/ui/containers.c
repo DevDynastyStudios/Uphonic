@@ -422,3 +422,49 @@ void uph_ui_end_scroll_area(Uph_UIScrollArea *area)
 
     leaf_end_element();
 }
+
+typedef struct
+{
+    float start_mouse_x;
+    float start_width;
+    bool hovered;
+    bool resizing;
+}
+Uph_UISplitter;
+
+bool uph_ui_splitter_update(Uph_UISplitter *splitter, Leaf_BoundingBox left, float gap, float *width, float min_width, float max_width, bool enabled)
+{
+    if (!enabled)
+    {
+        splitter->hovered = false;
+        splitter->resizing = false;
+        return false;
+    }
+
+    const float edge = left.x + left.width;
+    const float mouse_x = (float)naui_mouse_x();
+    const float mouse_y = (float)naui_mouse_y();
+    splitter->hovered = naui_panel_is_hovered(naui_panel_current()) && mouse_y >= left.y && mouse_y < left.y + left.height && mouse_x >= edge - 1.0f && mouse_x <= edge + gap;
+
+    if (splitter->hovered && !splitter->resizing && naui_mouse_pressed(NAUI_MOUSE_LEFT))
+    {
+        splitter->resizing = true;
+        splitter->start_mouse_x = mouse_x;
+        splitter->start_width = *width;
+    }
+
+    if (splitter->resizing)
+    {
+        *width = splitter->start_width + (mouse_x - splitter->start_mouse_x) / naui_app_dpi_scale();
+        if (!naui_mouse_down(NAUI_MOUSE_LEFT))
+            splitter->resizing = false;
+    }
+
+    *width = NAUI_CLAMP(*width, min_width, NAUI_MAX(min_width, max_width));
+
+    const bool active = splitter->hovered || splitter->resizing;
+    if (active)
+        naui_set_cursor(NAUI_CURSOR_RESIZE_EW);
+
+    return active;
+}

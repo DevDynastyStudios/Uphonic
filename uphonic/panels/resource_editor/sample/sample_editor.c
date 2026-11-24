@@ -14,6 +14,8 @@
 
 #define UPH_SAMPLE_EDITOR_GUTTER_WIDTH			48
 #define UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH			240
+#define UPH_SAMPLE_EDITOR_SIDEBAR_MIN_WIDTH		180
+#define UPH_SAMPLE_EDITOR_SIDEBAR_MAX_RATIO		0.6f
 #define UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING	6
 #define UPH_SAMPLE_EDITOR_SIDEBAR_CONTROL_WIDTH	112
 #define UPH_SAMPLE_EDITOR_STATUS_HEIGHT			26
@@ -82,6 +84,8 @@ typedef struct
 	bool sidebar_hidden;
 	float sidebar_collapse;
 	float sidebar_scroll;
+	float sidebar_width;
+	Uph_UISplitter sidebar_splitter;
 }
 Uph_SampleEditorState;
 
@@ -1279,7 +1283,7 @@ static void uph__sample_editor_render_sidebar_panel(Uph_SampleEditorState *edito
 	const int32_t section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
 	const int32_t card_rounding = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_ROUNDING);
 	leaf({
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH) + section_padding * 2 - 2), .height = LEAF_SIZE_FULL },
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(editor->sidebar_width) + section_padding * 2 - 2), .height = LEAF_SIZE_FULL },
 		.padding = { .left = 1, .right = 1, .top = card_rounding, .bottom = card_rounding },
 		.clip_children = true
 	})
@@ -1334,14 +1338,20 @@ static void uph__sample_editor_render_sidebar(Uph_SampleEditorState *editor, Uph
 
 	const float section_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SECTION_PADDING);
 	const float strip_padding = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_STRIP_PADDING);
-	const float full_width = NAUI_DPI(UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH) + section_padding * 2.0f;
+	const float full_width = NAUI_DPI(editor->sidebar_width) + section_padding * 2.0f;
 	const float strip_width = strip_padding * 2.0f + uph__sample_editor_sidebar_toggle_width();
 	const float width = full_width + (strip_width - full_width) * collapse;
 	const float toggle_margin = section_padding + (strip_padding - section_padding) * collapse;
+	const bool splitter_active = editor->sidebar_splitter.hovered || editor->sidebar_splitter.resizing;
 
 	leaf({
+		.id = leaf_id("uph_sample_editor_sidebar"),
 		.size = { .width = LEAF_SIZE_FIXED((int32_t)width), .height = LEAF_SIZE_FULL },
-		.border = border,
+		.border = {
+			.width = 1,
+			.sides = LEAF_SIDE_ALL,
+			.color = splitter_active ? uph_state.colors.ui_frame_hovered_bg : uph_state.colors.sample_editor_toolbox_border
+		},
 		.color = uph_state.colors.sample_editor_toolbox_bg,
 		.rounding = rounding,
 		.clip_children = true
@@ -1448,6 +1458,7 @@ void uph_sample_editor_init(void)
 {
 	Uph_SampleEditorState *state = &uph__sample_editor_state;
 	memset(state, 0, sizeof(*state));
+	state->sidebar_width = UPH_SAMPLE_EDITOR_SIDEBAR_WIDTH;
 	state->fit = true;
 }
 
@@ -1459,6 +1470,7 @@ void uph_sample_editor_reset_interaction(void)
 	state->wave_hovered = false;
 	state->has_last_sample = false;
 	state->playhead_dragging = false;
+	state->sidebar_splitter.resizing = false;
 	state->loop_drag.mode = UPH_LOOP_DRAG_NONE;
 	uph_sample_preview_pause();
 }
@@ -1518,15 +1530,23 @@ void uph_sample_editor_update(void)
 
 
 	const Leaf_ID wave_id = leaf_id("uph_sample_editor_wave");
+	const Leaf_ID area_id = leaf_id("uph_sample_editor_area");
+	const int32_t card_gap = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_GAP);
 	state->wave_box = leaf_get_bounding_box(wave_id);
 	state->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	state->wave_hovered = source->valid && leaf_hovered(wave_id) && state->panel_hovered;
+
+	const float max_sidebar_width = leaf_get_bounding_box(area_id).width * UPH_SAMPLE_EDITOR_SIDEBAR_MAX_RATIO / naui_app_dpi_scale() - UPH_SAMPLE_EDITOR_SECTION_PADDING * 2.0f;
+	const bool splitter_enabled = !state->sidebar_hidden && state->sidebar_collapse <= 0.0f && !state->panning && !state->playhead_dragging && state->loop_drag.mode == UPH_LOOP_DRAG_NONE;
+	if (uph_ui_splitter_update(&state->sidebar_splitter, leaf_get_bounding_box(leaf_id("uph_sample_editor_sidebar")), (float)card_gap, &state->sidebar_width, UPH_SAMPLE_EDITOR_SIDEBAR_MIN_WIDTH, max_sidebar_width, splitter_enabled))
+		state->wave_hovered = false;
+
 	uph__sample_editor_update_input(state, state->wave_box);
 
 	uph__sample_editor_render_toolbar(state);
 
-	const int32_t card_gap = NAUI_DPI(UPH_SAMPLE_EDITOR_CARD_GAP);
 	leaf({
+		.id = area_id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
 		.padding = LEAF_PADDING_ALL(card_gap),
 		.color = uph_state.colors.panel_body_bg,

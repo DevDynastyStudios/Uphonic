@@ -3,6 +3,8 @@
 #define UPH_AUTOMATION_EDITOR_LANE_PADDING		16
 
 #define UPH_AUTOMATION_EDITOR_SIDEBAR_WIDTH			220
+#define UPH_AUTOMATION_EDITOR_SIDEBAR_MIN_WIDTH		180
+#define UPH_AUTOMATION_EDITOR_SIDEBAR_MAX_RATIO		0.6f
 #define UPH_AUTOMATION_EDITOR_SIDEBAR_CONTROL_WIDTH	104
 #define UPH_AUTOMATION_EDITOR_SECTION_PADDING		12
 #define UPH_AUTOMATION_EDITOR_BUTTON_ZOOM_FACTOR	1.5f
@@ -67,6 +69,8 @@ typedef struct
 	bool field_editing;
 
 	float sidebar_scroll;
+	float sidebar_width;
+	Uph_UISplitter sidebar_splitter;
 
 	Naui_Vec2 pan_last_mouse;
 	bool panning;
@@ -1225,13 +1229,15 @@ static void uph__automation_editor_render_sidebar_content(Uph_AutomationEditorSt
 static void uph__automation_editor_render_sidebar(Uph_AutomationEditorState *editor, Uph_Automation *automation)
 {
 	const int32_t card_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING);
+	const bool splitter_active = editor->sidebar_splitter.hovered || editor->sidebar_splitter.resizing;
 	leaf({
-		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(UPH_AUTOMATION_EDITOR_SIDEBAR_WIDTH)), .height = LEAF_SIZE_FULL },
+		.id = leaf_id("uph_automation_editor_sidebar"),
+		.size = { .width = LEAF_SIZE_FIXED(NAUI_DPI(editor->sidebar_width)), .height = LEAF_SIZE_FULL },
 		.padding = { .left = 1, .right = 1, .top = card_rounding, .bottom = card_rounding },
 		.border = {
 			.width = 1,
 			.sides = LEAF_SIDE_ALL,
-			.color = uph_state.colors.automation_editor_toolbox_border
+			.color = splitter_active ? uph_state.colors.ui_frame_hovered_bg : uph_state.colors.automation_editor_toolbox_border
 		},
 		.color = uph_state.colors.automation_editor_toolbox_bg,
 		.rounding = LEAF_ROUNDING_FIXED(card_rounding, LEAF_CORNER_ALL),
@@ -1328,6 +1334,7 @@ void uph_automation_editor_init(void)
 	state->entry_index = -1;
 	state->drag_index = -1;
 	state->field_index = -1;
+	state->sidebar_width = UPH_AUTOMATION_EDITOR_SIDEBAR_WIDTH;
 	state->fit = true;
 }
 
@@ -1339,6 +1346,7 @@ void uph_automation_editor_reset_interaction(void)
 	uph__automation_editor_close_entry(state);
 	state->panning = false;
 	state->lane_hovered = false;
+	state->sidebar_splitter.resizing = false;
 	state->hovered_point = -1;
 	state->hovered_handle = -1;
 	state->has_automation = false;
@@ -1372,9 +1380,16 @@ void uph_automation_editor_update(void)
 		state->selected_point = -1;
 
 	const Leaf_ID lane_id = leaf_id("uph_automation_editor_lane");
+	const Leaf_ID area_id = leaf_id("uph_automation_editor_area");
+	const int32_t card_gap = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_GAP);
 	state->panel_hovered = naui_panel_is_hovered(naui_panel_current());
 	state->lane_box = leaf_get_bounding_box(lane_id);
 	state->lane_hovered = state->panel_hovered && leaf_hovered(lane_id);
+
+	const float max_sidebar_width = leaf_get_bounding_box(area_id).width * UPH_AUTOMATION_EDITOR_SIDEBAR_MAX_RATIO / naui_app_dpi_scale();
+	const bool splitter_enabled = state->drag_mode == UPH_AUTOMATION_DRAG_NONE && !state->panning;
+	if (uph_ui_splitter_update(&state->sidebar_splitter, leaf_get_bounding_box(leaf_id("uph_automation_editor_sidebar")), (float)card_gap, &state->sidebar_width, UPH_AUTOMATION_EDITOR_SIDEBAR_MIN_WIDTH, max_sidebar_width, splitter_enabled))
+		state->lane_hovered = false;
 
 	const Uph_UIMenuID point_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_point_menu"));
 	const Uph_UIMenuID segment_menu = uph_ui_context_menu(leaf_id("uph_automation_editor_segment_menu"));
@@ -1389,10 +1404,10 @@ void uph_automation_editor_update(void)
 
 	const int32_t gutter_width = NAUI_DPI(UPH_AUTOMATION_EDITOR_GUTTER_WIDTH);
 	const int32_t ruler_height = (int32_t)NAUI_DPI(UPH_AUTOMATION_EDITOR_RULER_HEIGHT);
-	const int32_t card_gap = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_GAP);
 	const int32_t inner_rounding = NAUI_DPI(UPH_AUTOMATION_EDITOR_CARD_ROUNDING - 1);
 	const Leaf_Color separator_color = uph_state.colors.automation_editor_ruler_border;
 	leaf({
+		.id = area_id,
 		.size = { .width = LEAF_SIZE_FULL, .height = LEAF_SIZE_GROW },
 		.padding = LEAF_PADDING_ALL(card_gap),
 		.color = uph_state.colors.panel_body_bg,
