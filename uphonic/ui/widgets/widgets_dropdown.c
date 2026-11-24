@@ -97,8 +97,8 @@ bool uph_ui_dropdown(const char *const *items, const uint32_t item_count, uint32
 
 bool uph_ui_snap_dropdown(Uph_SnapResolution *snap, const Leaf_ID id)
 {
-    static const char *const labels[] = { "grid.snap.line", "grid.snap.beat", "1/2", "1/4", "1/8", "1/16" };
-    static const Uph_SnapResolution values[] = { UPH_SNAP_LINE, UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_QUARTER, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
+    static const char *const labels[] = { "grid.snap.line", "grid.snap.beat", "1/2", "1/3", "1/4", "1/6", "1/8", "1/16" };
+    static const Uph_SnapResolution values[] = { UPH_SNAP_LINE, UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_THIRD, UPH_SNAP_QUARTER, UPH_SNAP_SIXTH, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
     const uint32_t count = sizeof(values) / sizeof(values[0]);
 
     uint32_t index = 0;

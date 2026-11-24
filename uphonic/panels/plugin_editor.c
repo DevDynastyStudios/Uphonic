@@ -102,10 +102,6 @@ static void uph__plugin_editor_forward_keys(Uph_PluginEditorData *data)
         if (naui_key_released((Naui_Key)key))
             uph_plugin_gui_key(data->handle, (Naui_Key)key, false);
     }
-
-    const uint32_t codepoint = naui_app_codepoint();
-    if (codepoint)
-        uph_plugin_gui_text(data->handle, codepoint);
 }
 
 static void uph__plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_PanelID panel, Leaf_BoundingBox body)
@@ -120,7 +116,10 @@ static void uph__plugin_editor_forward_input(Uph_PluginEditorData *data, Naui_Pa
         uph__plugin_editor_forward_keys(data);
 #else
     if (naui_panel_focused() == panel)
+    {
+        uph_plugin_gui_keep_focus(data->handle);
         uph__plugin_editor_forward_keys(data);
+    }
 #endif
 
 #if NAUI_WINDOWS

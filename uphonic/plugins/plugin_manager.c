@@ -247,6 +247,7 @@ typedef struct
 Uph_Vst3Message;
 
 #define UPH_MAX_PLUGIN_TIMERS 8
+#define UPH_PLUGIN_GUI_KEEP_FOCUS_SECONDS 0.25f
 
 typedef struct
 {
@@ -435,6 +436,7 @@ struct Uph_PluginInternalHandle_
     Window input_target;
     Window key_target;
     Window foreign_focus;
+    _Atomic float keep_focus_until;
     int32_t mouse_x, mouse_y;
     Display *display;
     uint8_t buttons_down;
@@ -4782,6 +4784,11 @@ static void uph__plugin_host_mouse_scroll(void *data)
     uph__plugin_gui_x11_mouse_scroll(command->ih, command->value, command->x, command->y);
 }
 
+void uph_plugin_gui_keep_focus(Uph_PluginInternalHandle *handle)
+{
+    atomic_store(&handle->keep_focus_until, naui_time() + UPH_PLUGIN_GUI_KEEP_FOCUS_SECONDS);
+}
+
 void uph_plugin_gui_mouse_move(Uph_PluginInternalHandle *handle, int32_t x, int32_t y)
 {
     uph__plugin_gui_post(uph__plugin_host_mouse_move, handle, x, y, 0, false);
@@ -4834,6 +4841,10 @@ void uph_plugin_gui_native_input(Uph_PluginInternalHandle *handle, bool enabled)
 
 static HWND uph__plugin_gui_win32_key_target(Uph_PluginInternalHandle *ih)
 {
+    HWND focus = GetFocus();
+    if (focus && (focus == ih->window || IsChild(ih->window, focus)))
+        return focus;
+
     POINT point;
     GetCursorPos(&point);
     ScreenToClient(ih->window, &point);
@@ -4852,19 +4863,74 @@ static HWND uph__plugin_gui_win32_key_target(Uph_PluginInternalHandle *ih)
     return target == ih->window && first_child ? first_child : target;
 }
 
-static void uph__plugin_gui_win32_key(Uph_PluginInternalHandle *ih, Naui_Key key, bool down)
+static const int uph__plugin_gui_win32_modifier_keys[] = { VK_LSHIFT, VK_RSHIFT, VK_LCONTROL, VK_RCONTROL, VK_LMENU, VK_RMENU, VK_LWIN, VK_RWIN };
+
+static int32_t uph__plugin_gui_win32_modifiers(void)
 {
-    const UINT scan = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
-    LPARAM lparam = 1 | ((LPARAM)scan << 16);
-    if (!down)
-        lparam |= (LPARAM)3 << 30;
-    SendMessageW(uph__plugin_gui_win32_key_target(ih), down ? WM_KEYDOWN : WM_KEYUP, key, lparam);
+    int32_t modifiers = 0;
+    for (uint32_t i = 0; i < sizeof(uph__plugin_gui_win32_modifier_keys) / sizeof(uph__plugin_gui_win32_modifier_keys[0]); i++)
+    {
+        if (GetKeyState(uph__plugin_gui_win32_modifier_keys[i]) & 0x8000)
+            modifiers |= 1 << i;
+    }
+
+    if (GetKeyState(VK_CAPITAL) & 1)
+        modifiers |= 1 << 8;
+    return modifiers;
 }
 
-static void uph__plugin_gui_win32_text(Uph_PluginInternalHandle *ih, uint32_t codepoint)
+static void uph__plugin_gui_win32_sync_keyboard(Naui_Key key, bool down, int32_t modifiers)
 {
-    if (codepoint <= 0xFFFF)
-        SendMessageW(uph__plugin_gui_win32_key_target(ih), WM_CHAR, codepoint, 1);
+    BYTE state[256];
+    if (!GetKeyboardState(state))
+        memset(state, 0, sizeof(state));
+
+    for (uint32_t i = 0; i < sizeof(uph__plugin_gui_win32_modifier_keys) / sizeof(uph__plugin_gui_win32_modifier_keys[0]); i++)
+        state[uph__plugin_gui_win32_modifier_keys[i]] = (modifiers & (1 << i)) ? 0x80 : 0;
+
+    state[VK_SHIFT] = (state[VK_LSHIFT] | state[VK_RSHIFT]) & 0x80;
+    state[VK_CONTROL] = (state[VK_LCONTROL] | state[VK_RCONTROL]) & 0x80;
+    state[VK_MENU] = (state[VK_LMENU] | state[VK_RMENU]) & 0x80;
+    state[VK_CAPITAL] = (modifiers & (1 << 8)) ? 1 : 0;
+    state[key] = (BYTE)((state[key] & 1) | (down ? 0x80 : 0));
+    SetKeyboardState(state);
+
+    const HKL layout = GetKeyboardLayout(GetWindowThreadProcessId((HWND)mgapp_primary_handle(), NULL));
+    if (layout != GetKeyboardLayout(0))
+        ActivateKeyboardLayout(layout, 0);
+}
+
+static bool uph__plugin_gui_win32_extended_key(Naui_Key key)
+{
+    switch (key)
+    {
+        case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN:
+        case VK_INSERT: case VK_DELETE: case VK_HOME: case VK_END:
+        case VK_PRIOR: case VK_NEXT: case VK_DIVIDE: case VK_NUMLOCK:
+        case VK_RCONTROL: case VK_RMENU: case VK_LWIN: case VK_RWIN: case VK_APPS:
+            return true;
+        default:
+            return false;
+    }
+}
+
+static void uph__plugin_gui_win32_key(Uph_PluginInternalHandle *ih, Naui_Key key, bool down, int32_t modifiers)
+{
+    uph__plugin_gui_win32_sync_keyboard(key, down, modifiers);
+
+    const UINT scan = MapVirtualKeyA(key, MAPVK_VK_TO_VSC);
+    const bool ctrl = (modifiers & ((1 << 2) | (1 << 3))) != 0;
+    const bool alt = (modifiers & ((1 << 4) | (1 << 5))) != 0 && !ctrl;
+    LPARAM lparam = 1 | ((LPARAM)scan << 16);
+    if (uph__plugin_gui_win32_extended_key(key))
+        lparam |= (LPARAM)1 << 24;
+    if (alt)
+        lparam |= (LPARAM)1 << 29;
+    if (!down)
+        lparam |= (LPARAM)3 << 30;
+
+    const UINT message = alt ? (down ? WM_SYSKEYDOWN : WM_SYSKEYUP) : (down ? WM_KEYDOWN : WM_KEYUP);
+    PostMessageW(uph__plugin_gui_win32_key_target(ih), message, key, lparam);
 }
 #endif
 
@@ -4874,31 +4940,18 @@ static void uph__plugin_host_key(void *data)
 #if NAUI_LINUX
     uph__plugin_gui_x11_key(command->ih, (Naui_Key)command->value, command->flag);
 #elif NAUI_WINDOWS
-    uph__plugin_gui_win32_key(command->ih, (Naui_Key)command->value, command->flag);
+    uph__plugin_gui_win32_key(command->ih, (Naui_Key)command->value, command->flag, command->x);
 #endif
 }
 
 void uph_plugin_gui_key(Uph_PluginInternalHandle *handle, Naui_Key key, bool down)
 {
-    uph__plugin_gui_post(uph__plugin_host_key, handle, 0, 0, (int32_t)key, down);
-}
-
 #if NAUI_WINDOWS
-static void uph__plugin_host_text(void *data)
-{
-    const Uph_PluginGuiCommand *command = (const Uph_PluginGuiCommand*)data;
-    uph__plugin_gui_win32_text(command->ih, (uint32_t)command->value);
-}
-#endif
-
-void uph_plugin_gui_text(Uph_PluginInternalHandle *handle, uint32_t codepoint)
-{
-#if NAUI_WINDOWS
-    uph__plugin_gui_post(uph__plugin_host_text, handle, 0, 0, (int32_t)codepoint, false);
+    const int32_t modifiers = uph__plugin_gui_win32_modifiers();
 #else
-    (void)handle;
-    (void)codepoint;
+    const int32_t modifiers = 0;
 #endif
+    uph__plugin_gui_post(uph__plugin_host_key, handle, modifiers, 0, (int32_t)key, down);
 }
 
 static void uph__plugin_host_set_visible(void *data)
@@ -5023,6 +5076,9 @@ static void uph__plugin_gui_x11_reclaim_focus(Uph_PluginInternalHandle *ih)
     }
 
     ih->foreign_focus = None;
+    if (naui_time() < atomic_load(&ih->keep_focus_until))
+        return;
+
     XSetInputFocus(ih->display, main_window, RevertToParent, CurrentTime);
     XFlush(ih->display);
 }

@@ -9,7 +9,9 @@ typedef enum
 	UPH_SNAP_QUARTER,
 	UPH_SNAP_EIGHTH,
 	UPH_SNAP_SIXTEENTH,
-	UPH_SNAP_LINE
+	UPH_SNAP_LINE,
+	UPH_SNAP_THIRD,
+	UPH_SNAP_SIXTH
 }
 Uph_SnapResolution;
 
@@ -91,6 +93,8 @@ static inline double uph_snap_division(Uph_SnapResolution res, float zoom_x)
 		case UPH_SNAP_EIGHTH:    return 0.125;
 		case UPH_SNAP_SIXTEENTH: return 0.0625;
 		case UPH_SNAP_LINE:      return uph_snap_line_division(zoom_x);
+		case UPH_SNAP_THIRD:     return 1.0 / 3.0;
+		case UPH_SNAP_SIXTH:     return 1.0 / 6.0;
 	}
 
 	return 1.0;
@@ -121,7 +125,15 @@ static void uph__grid_lines(float origin_x, float width, float zoom_x, float scr
     const int32_t min_beat_spacing = NAUI_DPI(UPH_GRID_MIN_BEAT_SPACING);
 
     while (division > 0.0 && division < beat_length && division * zoom_x < min_sub_spacing)
+    {
+        const double parts = beat_length / (division * 2.0);
+        if (fabs(parts - round(parts)) > 1e-6)
+        {
+            division = beat_length;
+            break;
+        }
         division *= 2.0;
+    }
 
     const float division_px = (float)(division * zoom_x);
     if (division > 0.0 && division < beat_length && division_px >= min_sub_spacing)

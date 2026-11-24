@@ -135,8 +135,8 @@ static const char *const uph_settings_channel_labels[] = { "1 (Mono)", "2 (Stere
 static const uint32_t uph_settings_input_channels[] = { 0, 1 };
 static const char *const uph_settings_input_channel_labels[] = { "1", "2" };
 
-static const uint32_t uph_settings_snap_values[] = { UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_QUARTER, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
-static const char *const uph_settings_snap_labels[] = { "Beat", "1/2", "1/4", "1/8", "1/16" };
+static const uint32_t uph_settings_snap_values[] = { UPH_SNAP_BEAT, UPH_SNAP_HALF, UPH_SNAP_THIRD, UPH_SNAP_QUARTER, UPH_SNAP_SIXTH, UPH_SNAP_EIGHTH, UPH_SNAP_SIXTEENTH };
+static const char *const uph_settings_snap_labels[] = { "Beat", "1/2", "1/3", "1/4", "1/6", "1/8", "1/16" };
 
 void uph_settings_set_defaults(void)
 {
