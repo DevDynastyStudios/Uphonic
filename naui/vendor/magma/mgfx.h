@@ -604,6 +604,7 @@ mgfx_vk_descriptor_binding;
 typedef struct
 {
     mgfx_vk_descriptor_binding bound_resources[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+    uint32_t bound_resource_mask;
     bool bound_resources_active[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
     bool dirty;
 }
@@ -928,7 +929,9 @@ typedef int  GLint;
 #define GL_WRITE_ONLY                     0x88B9
 #define GL_READ_WRITE                     0x88BA
 #define GL_SHADER_STORAGE_BUFFER          0x90D2
-
+#define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT  0x00000020
+#define GL_SHADER_STORAGE_BARRIER_BIT       0x00002000
+#define GL_TEXTURE_FETCH_BARRIER_BIT        0x00000008
 #endif
 
 typedef struct
@@ -1061,6 +1064,12 @@ typedef struct
     }
     current_pass;
 
+    struct
+    {
+        uint32_t bound_resource_mask;
+    }
+    compute_state;
+
     GLuint resolve_framebuffer;
     mgfx_msaa msaa_requested;
 
@@ -1169,6 +1178,8 @@ typedef struct
         bool to_default_msaa;
     }
     current_pass;
+
+    uint32_t compute_bound_resource_mask;
 
     uint32_t width, height;
     bool vsync, pending_resize;
@@ -1993,6 +2004,47 @@ static void mgfx_vk_push_resource_descriptors(void)
     state->dirty = false;
 }
 
+static void mgfx_vk_compute_barrier(void)
+{
+    const uint32_t mask = mgfx_ctx.vk.descriptor_state.bound_resource_mask;
+    if (!mask)
+        return;
+
+    VkMemoryBarrier barrier = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
+        .srcAccessMask = 0,
+        .dstAccessMask = 0
+    };
+
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE))
+    {
+        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    }
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER))
+    {
+        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+    }
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE))
+    {
+        barrier.srcAccessMask |= VK_ACCESS_SHADER_WRITE_BIT;
+        barrier.dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+    }
+
+    vkCmdPipelineBarrier(
+        mgfx_ctx.vk.command_buffer,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+            VK_PIPELINE_STAGE_VERTEX_SHADER_BIT |
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        1, &barrier,
+        0, NULL,
+        0, NULL
+    );
+}
+
 static uint32_t mgfx_vk_find_memory_type(uint32_t type_filter, VkMemoryPropertyFlags properties)
 {
     VkPhysicalDeviceMemoryProperties mem_properties;
@@ -2467,6 +2519,7 @@ static void mgfx_vk_bind_storage_buffer(mgfx_vk_buffer *buffer, uint32_t binding
         .binding = binding_index,
         .type = MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER
     };
+    state->bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER);
     state->bound_resources_active[binding_index] = true;
     state->dirty = true;
 }
@@ -2820,6 +2873,7 @@ static void mgfx_vk_bind_sampled_image(mgfx_vk_image *image, VkSampler sampler, 
         .binding = binding,
         .type = MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE
     };
+    state->bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE);
     state->bound_resources_active[binding] = true;
     state->dirty = true;
 }
@@ -2834,6 +2888,7 @@ static void mgfx_vk_bind_storage_image(mgfx_vk_image *image, mgfx_access access,
         .binding = binding,
         .type = MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE
     };
+    state->bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE);
     state->bound_resources_active[binding] = true;
     state->dirty = true;
 }
@@ -3186,6 +3241,7 @@ void mgfx_vk_bind_pipeline(mgfx_vk_pipeline *pipeline)
     vkCmdBindPipeline(mgfx_ctx.vk.command_buffer, pipeline->bind_point, pipeline->pipeline);
     mgfx_ctx.vk.current_pipeline = pipeline;
     memset(mgfx_ctx.vk.descriptor_state.bound_resources_active, 0, sizeof(mgfx_ctx.vk.descriptor_state.bound_resources_active));
+    mgfx_ctx.vk.descriptor_state.bound_resource_mask = 0;
     mgfx_ctx.vk.descriptor_state.dirty = false;
 }
 
@@ -3984,6 +4040,7 @@ static void mgfx_vk_dispatch(uint32_t x, uint32_t y, uint32_t z)
 {
     mgfx_vk_push_resource_descriptors();
     vkCmdDispatch(mgfx_ctx.vk.command_buffer, x, y, z);
+    mgfx_vk_compute_barrier();
 }
 
 static void mgfx_vk_bind_uniforms(uint32_t binding, size_t size, void *data)
@@ -4119,7 +4176,8 @@ _MGFX_XMACRO(glFramebufferRenderbuffer,      void, (GLenum target, GLenum attach
 _MGFX_XMACRO(glBlitFramebuffer,              void, (GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)) \
 _MGFX_XMACRO(glReadBuffer,                   void, (GLenum src)) \
 _MGFX_XMACRO(glGetIntegerv,                  void, (GLenum pname, GLint* data)) \
-_MGFX_XMACRO(glTexStorage2DMultisample,      void, (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations))
+_MGFX_XMACRO(glTexStorage2DMultisample,      void, (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)) \
+_MGFX_XMACRO(glMemoryBarrier,                void, (GLbitfield barriers))
 
 #define _MGFX_XMACRO(name, ret, args) typedef ret (GL_APIENTRY* PFN_ ## name) args;
 _MGFX_GL_FUNCS
@@ -4388,6 +4446,7 @@ static void mgfx_gl_bind_storage_buffer(mgfx_gl_buffer *buffer, uint32_t binding
     MGFX_ASSERT(false, "Storage buffers are not supported in OpenGL ES 3.0.");
 #else
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, buffer->id);
+    mgfx_ctx.gl.compute_state.bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER);
 #endif
 }
 
@@ -4744,6 +4803,7 @@ static void mgfx_gl_bind_sampled_image(mgfx_gl_image *image, mgfx_gl_sampler *sa
     glActiveTexture(GL_TEXTURE0 + binding);
     glBindTexture(image->texture_target, image->texture_id);
     glBindSampler(binding, sampler->id);
+    mgfx_ctx.gl.compute_state.bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE);
 }
 
 #if !defined(__EMSCRIPTEN__)
@@ -4774,6 +4834,7 @@ static void mgfx_gl_bind_storage_image(mgfx_gl_image *image, mgfx_access access,
         mgfx_gl_get_access(access),
         image->internal_format
     );
+    mgfx_ctx.gl.compute_state.bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE);
 #endif
 }
 
@@ -4995,7 +5056,10 @@ static void mgfx_gl_bind_pipeline(mgfx_gl_pipeline *pipeline)
     glUseProgram(pipeline->program_id);
     
     if (pipeline->type == MGFX_OPENGL_PIPELINE_TYPE_COMPUTE)
+    {
+        mgfx_ctx.gl.compute_state.bound_resource_mask = 0;
         return;
+    }
     
     mgfx_ctx.gl.primitive_topology = pipeline->primitive_topology;
     mgfx_ctx.gl.current_pipeline = pipeline;
@@ -5003,12 +5067,16 @@ static void mgfx_gl_bind_pipeline(mgfx_gl_pipeline *pipeline)
     if (pipeline->color_blend.blend_enabled)
     {
         glEnable(GL_BLEND);
-        glBlendFuncSeparate(mgfx_gl_get_blend_factor(pipeline->color_blend.src_color_blend_factor),
-                            mgfx_gl_get_blend_factor(pipeline->color_blend.dst_color_blend_factor),
-                            mgfx_gl_get_blend_factor(pipeline->color_blend.src_alpha_blend_factor),
-                            mgfx_gl_get_blend_factor(pipeline->color_blend.dst_alpha_blend_factor));
-        glBlendEquationSeparate(mgfx_gl_get_blend_op(pipeline->color_blend.color_blend_op),
-                                mgfx_gl_get_blend_op(pipeline->color_blend.alpha_blend_op));
+        glBlendFuncSeparate(
+            mgfx_gl_get_blend_factor(pipeline->color_blend.src_color_blend_factor),
+            mgfx_gl_get_blend_factor(pipeline->color_blend.dst_color_blend_factor),
+            mgfx_gl_get_blend_factor(pipeline->color_blend.src_alpha_blend_factor),
+            mgfx_gl_get_blend_factor(pipeline->color_blend.dst_alpha_blend_factor)
+        );
+        glBlendEquationSeparate(
+            mgfx_gl_get_blend_op(pipeline->color_blend.color_blend_op),
+            mgfx_gl_get_blend_op(pipeline->color_blend.alpha_blend_op)
+        );
     }
     else
         glDisable(GL_BLEND);
@@ -5240,9 +5308,30 @@ static void mgfx_gl_draw_indexed_instanced(uint32_t index_count, uint32_t first_
 #endif
 }
 
+static void mgfx_gl_compute_barrier(void)
+{
+#if !defined(__EMSCRIPTEN__)
+    const uint32_t mask = mgfx_ctx.gl.compute_state.bound_resource_mask;
+    if (!mask)
+        return;
+
+    GLbitfield gl_mask = 0;
+
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE))
+        gl_mask |= GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER))
+        gl_mask |= GL_SHADER_STORAGE_BARRIER_BIT;
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE))
+        gl_mask |= GL_TEXTURE_FETCH_BARRIER_BIT;
+
+    glMemoryBarrier(gl_mask);
+#endif
+}
+
 static void mgfx_gl_dispatch(uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z)
 {
     glDispatchCompute(group_count_x, group_count_y, group_count_z);
+    mgfx_gl_compute_barrier();
 }
 
 static void mgfx_gl_bind_uniforms(uint32_t binding, size_t size, void *data)
@@ -5701,9 +5790,28 @@ static void mgfx_d3d11_draw_indexed_instanced(uint32_t index_count, uint32_t fir
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, DrawIndexedInstanced, index_count, instance_count, first_index, first_vertex, first_instance);
 }
 
+static void mgfx_d3d11_compute_barrier(void)
+{
+    const uint32_t mask = mgfx_ctx.d3d11.compute_bound_resource_mask;
+    if (!mask)
+        return;
+
+    if (mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE) ||
+        mask & (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER))
+    {
+        ID3D11UnorderedAccessView *null_uavs[MGFX_MAX_BINDABLE_SHADER_RESOURCES] = { NULL };
+        UINT initial_counts[MGFX_MAX_BINDABLE_SHADER_RESOURCES];
+        memset(initial_counts, 0xff, sizeof(initial_counts));
+
+        MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, CSSetUnorderedAccessViews,
+            0, MGFX_MAX_BINDABLE_SHADER_RESOURCES, null_uavs, initial_counts);
+    }
+}
+
 static void mgfx_d3d11_dispatch(uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z)
 {
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, Dispatch, group_count_x, group_count_y, group_count_z);
+    mgfx_d3d11_compute_barrier();
 }
 
 static void mgfx_d3d11_bind_uniforms(uint32_t binding, size_t size, void *data)
@@ -5804,6 +5912,7 @@ static void mgfx_d3d11_bind_storage_buffer(mgfx_d3d11_buffer *buffer, uint32_t b
     {
         UINT initial_count = (UINT)-1;
         MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, CSSetUnorderedAccessViews, binding, 1, &buffer->uav, &initial_count);
+        mgfx_ctx.d3d11.compute_bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_BUFFER);
     }
     else
     {
@@ -6085,6 +6194,8 @@ static void mgfx_d3d11_bind_sampled_image(mgfx_d3d11_image *image, ID3D11Sampler
 {
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, PSSetShaderResources, binding, 1, &image->view);
     MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, PSSetSamplers, binding, 1, &sampler);
+    if (mgfx_ctx.d3d11.current_pipeline->type == MGFX_D3D11_PIPELINE_TYPE_COMPUTE)
+        mgfx_ctx.d3d11.compute_bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_SAMPLED_IMAGE);
 }
 
 static void mgfx_d3d11_bind_storage_image(mgfx_d3d11_image *image, mgfx_access access, uint32_t binding)
@@ -6093,6 +6204,7 @@ static void mgfx_d3d11_bind_storage_image(mgfx_d3d11_image *image, mgfx_access a
     {
         UINT initial_count = (UINT)-1;
         MGFX_D3D11_CALL(mgfx_ctx.d3d11.immediate_context, CSSetUnorderedAccessViews, binding, 1, &image->uav, &initial_count);
+        mgfx_ctx.d3d11.compute_bound_resource_mask |= (1u << MGFX_SHADER_RESOURCE_TYPE_STORAGE_IMAGE);
     }
     else
     {
@@ -6422,6 +6534,7 @@ static void mgfx_d3d11_bind_pipeline(mgfx_d3d11_pipeline *pipeline)
     {
         MGFX_D3D11_CALL(context, CSSetShader, pipeline->compute_shader, NULL, 0);
         MGFX_D3D11_CALL(context, CSSetConstantBuffers, 0, MGFX_MAX_BINDABLE_UNIFORMS, pipeline->constant_buffers);
+        context->compute_bound_resource_mask = 0;
         return;
     }
     
