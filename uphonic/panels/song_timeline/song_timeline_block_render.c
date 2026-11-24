@@ -62,7 +62,8 @@ static void uph_song_timeline_render_automation(
 	if (point_count == 0)
 		return;
 
-	const int32_t hovered_point = edit->hovered_automation_index == automation_index ? edit->hovered_point_index : -1;
+	const bool lane_hovered = edit->hovered_automation_index == automation_index;
+	const int32_t hovered_point = lane_hovered ? edit->hovered_point_index : -1;
 	const Naui_Color fill_color = {
 		color.r, color.g, color.b, (uint8_t)(color.a * 0.25f)
 	};
@@ -77,6 +78,21 @@ static void uph_song_timeline_render_automation(
 		fill_color,
 		1.0f
 	);
+
+	if (lane_hovered)
+	{
+		const float handle_size = NAUI_DPI(UPH_SONG_TIMELINE_AUTOMATION_HANDLE_SIZE);
+		for (uint32_t i = 0; i + 1 < point_count; i++)
+		{
+			Naui_Vec2 handle;
+			if (!uph__song_timeline_automation_handle_position(automation, i, position, size, start_offset, &handle))
+				continue;
+
+			const Naui_Vec2 handle_position = { handle.x - handle_size * 0.5f, handle.y - handle_size * 0.5f };
+			naui_fill_rect(handle_position, (Naui_Vec2) { handle_size, handle_size }, edit->hovered_handle_index == (int32_t)i ? color : fill_color, FLT_MAX, NAUI_CORNER_ALL);
+			naui_draw_rect(handle_position, (Naui_Vec2) { handle_size, handle_size }, color, NAUI_DPI(1.5f), FLT_MAX, NAUI_CORNER_ALL, NAUI_SIDE_ALL);
+		}
+	}
 
 	for (uint32_t i = 0; i < point_count; i++)
 	{

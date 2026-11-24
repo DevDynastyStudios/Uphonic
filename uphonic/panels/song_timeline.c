@@ -15,6 +15,9 @@ void uph_song_timeline_invalidate_tracks(void)
 	state->automation_edit.creating = false;
 	state->automation_edit.track = NULL;
 	state->automation_edit.hovered_point_index = -1;
+	state->automation_edit.hovered_handle_index = -1;
+	state->automation_edit.hovered_automation_index = UINT32_MAX;
+	state->automation_edit.dragging_tension = false;
 
 	state->hovered_block.active = false;
 	state->hovered_block.track = NULL;
@@ -129,6 +132,8 @@ static void uph_song_timeline_on_update(void)
 	
 	state->automation_edit.active = false;
 	state->automation_edit.hovered_point_index = -1;
+	state->automation_edit.hovered_handle_index = -1;
+	state->automation_edit.hovered_automation_index = UINT32_MAX;
 	state->hovered_block.active = false;
 	const Leaf_BoundingBox title_probe = leaf_get_bounding_box(leaf_id("uph_song_timeline_block_menu_title"));
 	if (title_probe.height > 0.0f)

@@ -76,6 +76,10 @@ typedef struct
 	Naui_Vec2 grab_offset;
 	Uph_ResourceIndex hovered_automation_index;
 	int32_t hovered_point_index;
+	int32_t hovered_handle_index;
+	float tension_drag_offset;
+	float tension_last_mouse_y;
+	bool dragging_tension;
 	bool creating;
 	bool active;
 }
