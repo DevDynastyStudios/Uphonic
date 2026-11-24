@@ -349,7 +349,7 @@ static void uph__velocity_render_note(const Uph_MidiEditorState *editor, Leaf_Bo
 		return;
 
 	const float y = uph__velocity_to_y(box, (float)note->velocity);
-	const Leaf_Color color = note->selected ? LEAF_COLOR_WHITE : uph_midi_view_velocity_color(base_color, note->velocity);
+	const Leaf_Color color = note->selected ? uph_state.colors.midi_editor_velocity_highlight : uph_midi_view_velocity_color(base_color, note->velocity);
 	Leaf_Color bar_color = color;
 	bar_color.a = 70;
 	Leaf_Color column_color = color;
@@ -365,7 +365,7 @@ static void uph__velocity_render_note(const Uph_MidiEditorState *editor, Leaf_Bo
 		naui_draw_rect(
 			(Naui_Vec2) { x - radius - NAUI_DPI(2), y - radius - NAUI_DPI(2) },
 			(Naui_Vec2) { radius * 2.0f + NAUI_DPI(4), radius * 2.0f + NAUI_DPI(4) },
-			LEAF_COLOR_WHITE,
+			uph_state.colors.midi_editor_velocity_highlight,
 			NAUI_DPI(1),
 			radius + NAUI_DPI(2),
 			LEAF_CORNER_ALL,
@@ -426,7 +426,9 @@ void uph_midi_velocity_render(const Uph_MidiEditorState *editor, Leaf_BoundingBo
 	if (lane->drag.mode == UPH_VELOCITY_DRAG_PAINT)
 	{
 		const int32_t velocity = uph__velocity_from_y(box, (float)naui_mouse_y());
-		naui_draw_line((Naui_Vec2) { box.x, uph__velocity_to_y(box, (float)velocity) }, (Naui_Vec2) { box.x + box.width, uph__velocity_to_y(box, (float)velocity) }, leaf_rgba(255, 255, 255, 60), 1.0f);
+		Leaf_Color paint_guide_color = uph_state.colors.midi_editor_velocity_highlight;
+		paint_guide_color.a = 60;
+		naui_draw_line((Naui_Vec2) { box.x, uph__velocity_to_y(box, (float)velocity) }, (Naui_Vec2) { box.x + box.width, uph__velocity_to_y(box, (float)velocity) }, paint_guide_color, 1.0f);
 		uph__velocity_render_label(box, (float)naui_mouse_x(), (float)naui_mouse_y(), velocity);
 	}
 	else if (lane->hovered_note >= 0 && lane->hovered_note < (int32_t)naui_list_len(pattern->notes))

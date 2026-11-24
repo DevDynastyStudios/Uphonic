@@ -132,6 +132,7 @@ Uph_Icons;
 	X(midi_editor_stop_icon,              "uph_midi_editor_stop_icon_color") \
 	X(midi_editor_playhead,               "uph_midi_editor_playhead_color") \
 	X(midi_editor_selection_outline,      "uph_midi_editor_selection_outline_color") \
+	X(midi_editor_velocity_highlight,     "uph_midi_editor_velocity_highlight_color") \
 	X(midi_editor_marquee,                "uph_midi_editor_marquee_color") \
 	X(midi_editor_marquee_border,         "uph_midi_editor_marquee_border_color") \
 	X(midi_editor_grid_bar,               "uph_midi_editor_grid_bar_color") \

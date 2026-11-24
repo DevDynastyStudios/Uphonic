@@ -112,6 +112,7 @@
     "uph_midi_editor_stop_icon_color": "#FF4F6E",
     "uph_midi_editor_playhead_color": "#3DE6F2",
     "uph_midi_editor_selection_outline_color": "#E0359A",
+    "uph_midi_editor_velocity_highlight_color": "#FFFFFF",
     "uph_midi_editor_marquee_color": "#E0359A1E",
     "uph_midi_editor_marquee_border_color": "#E0359AA0",
     "uph_midi_editor_grid_bar_color": "#6A4FB07A",
