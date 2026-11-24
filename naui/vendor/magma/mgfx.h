@@ -6534,7 +6534,7 @@ static void mgfx_d3d11_bind_pipeline(mgfx_d3d11_pipeline *pipeline)
     {
         MGFX_D3D11_CALL(context, CSSetShader, pipeline->compute_shader, NULL, 0);
         MGFX_D3D11_CALL(context, CSSetConstantBuffers, 0, MGFX_MAX_BINDABLE_UNIFORMS, pipeline->constant_buffers);
-        context->compute_bound_resource_mask = 0;
+        mgfx_ctx.d3d11.compute_bound_resource_mask = 0;
         return;
     }
     
