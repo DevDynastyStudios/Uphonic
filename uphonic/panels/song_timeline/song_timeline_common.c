@@ -73,6 +73,9 @@ typedef struct
 	int32_t dragging_point_index;
 	Uph_ResourceIndex automation_index;
 	Uph_AutomationPoint initial_point;
+	Naui_Vec2 grab_offset;
+	Uph_ResourceIndex hovered_automation_index;
+	int32_t hovered_point_index;
 	bool creating;
 	bool active;
 }

@@ -51,17 +51,18 @@ static void uph_song_timeline_render_automation(
 	Naui_Color color,
 	double start_offset,
 	Leaf_BoundingBox visible_bbox,
-	Uph_Automation* automation
+	Uph_ResourceIndex automation_index
 )
 {
 	Uph_SongTimelineState *state = &uph__song_timeline_state;
+	const Uph_AutomationEditState *edit = &state->automation_edit;
+	const Uph_Automation *automation = &uph_state.project.automations[automation_index];
 	const uint32_t point_count = (uint32_t)naui_list_len(automation->points);
 	const float zoom_x = state->zoom.x;
 	if (point_count == 0)
 		return;
 
-	const int32_t point_size = NAUI_DPI(6);
-	const int32_t half_point_size = point_size / 2;
+	const int32_t hovered_point = edit->hovered_automation_index == automation_index ? edit->hovered_point_index : -1;
 	const Naui_Color fill_color = {
 		color.r, color.g, color.b, (uint8_t)(color.a * 0.25f)
 	};
@@ -81,6 +82,8 @@ static void uph_song_timeline_render_automation(
 	{
 		const Uph_AutomationPoint *point = &automation->points[i];
 		const Naui_Vec2 point_position = { position.x + (float)(point->beat - start_offset) * zoom_x, position.y + size.y - point->value * size.y };
+		const float point_size = NAUI_DPI((int32_t)i == hovered_point ? 10 : 6);
+		const float half_point_size = point_size * 0.5f;
 
 		naui_fill_rect(
 			(Naui_Vec2) { point_position.x - half_point_size, point_position.y - half_point_size },
@@ -139,7 +142,7 @@ static void uph__song_timeline_render_block_content(Leaf_BoundingBox box, Uph_Bl
 			data->color,
 			block->start_offset_beats,
 			visible_bbox,
-			&uph_state.project.automations[block->resource_index]
+			block->resource_index
 		);
 	}
 }
