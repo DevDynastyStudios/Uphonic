@@ -314,10 +314,11 @@ void uph_song_timeline_update_empty_space_marquee(void)
 {
 	Uph_SongTimelineState *state = &uph__song_timeline_state;
 
-	if (!state->tracks_hovered || state->marquee.active || state->drag.active || state->automation_edit.active)
+	if (!state->tracks_hovered || state->marquee.active || state->drag.active || state->automation_edit.active || state->erase.active)
 		return;
 
-	if (!naui_mouse_pressed(NAUI_MOUSE_LEFT) || uph_ui_any_widget_hovered())
+	const bool left_pressed = naui_mouse_pressed(NAUI_MOUSE_LEFT);
+	if ((!left_pressed && !naui_mouse_pressed(NAUI_MOUSE_RIGHT)) || uph_ui_any_widget_hovered())
 		return;
 
 	const float origin_x = uph__song_timeline_content_origin_x();
@@ -329,7 +330,7 @@ void uph_song_timeline_update_empty_space_marquee(void)
 	if (!below_rows && !on_group_lane)
 		return;
 
-	if (uph_song_timeline_tool() != UPH_ACTION_SELECT)
+	if (!left_pressed || uph_song_timeline_tool() != UPH_ACTION_SELECT)
 	{
 		uph_block_select_all(false);
 		return;

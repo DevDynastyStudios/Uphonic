@@ -18,6 +18,7 @@ typedef struct
 	Uph_ActionTrackRef track;
 	uint32_t block_index;
 	Uph_TimelineBlock block;
+	bool applied_live;
 } Uph_ActionBlockDelete;
 
 typedef struct
@@ -276,6 +277,12 @@ bool uph__action_block_delete_execute(void* userdata)
 {
 	Uph_ActionBlockDelete* data = userdata;
 	Uph_Track* track = uph_action_track_resolve(data->track);
+	if (data->applied_live)
+	{
+		data->applied_live = false;
+		return track != NULL;
+	}
+
 	if (!track || data->block_index >= (uint32_t)naui_list_len(track->blocks) || uph__block_is_recording(track, data->block_index))
 		return false;
 
@@ -379,6 +386,32 @@ static void uph_block_delete_selected(void)
 
 	naui_action_group_end();
 	naui_list_free(selected);
+}
+
+static bool uph_block_take_live(Uph_Track *track, Uph_ActionTrackRef ref, uint32_t index, Naui_List(Uph_ActionBlockSnapshot) *erased)
+{
+	if (index >= (uint32_t)naui_list_len(track->blocks) || uph__block_is_recording(track, index))
+		return false;
+
+	Uph_ActionBlockSnapshot snapshot = { .track = ref, .index = index };
+	if (!uph_block_list_take(track, index, &snapshot.block))
+		return false;
+
+	uph_song_timeline_emit_block_shockwave(track, &snapshot.block);
+	naui_list_push(*erased, snapshot);
+	return true;
+}
+
+static void uph_block_commit_erased(const Naui_List(Uph_ActionBlockSnapshot) erased)
+{
+	naui_action_group_start(UPH_ACTION_BLOCKS_DELETE_GROUP);
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(erased); i++)
+	{
+		Uph_ActionBlockDelete data = { .track = erased[i].track, .block_index = erased[i].index, .block = erased[i].block, .applied_live = true };
+		naui_action_execute_stack(UPH_ACTION_BLOCK_DELETE, data);
+	}
+
+	naui_action_group_end();
 }
 
 static void uph_block_duplicate_selected(void)

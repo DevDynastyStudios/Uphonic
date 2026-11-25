@@ -229,17 +229,6 @@ static void uph__song_timeline_update_track_timeline_drag(Leaf_BoundingBox bbox,
 	}
 }
 
-static void uph__song_timeline_delete_hovered_block(Uph_Track *track)
-{
-	Uph_SongTimelineState *state = &uph__song_timeline_state;
-	const uint32_t block_index = state->hovered_block.block_index;
-	if (block_index >= (uint32_t)naui_list_len(track->blocks))
-		return;
-
-	Uph_ActionBlockDelete data = { .track = uph_action_track_ref(track), .block_index = block_index };
-	naui_action_execute_stack(UPH_ACTION_BLOCK_DELETE, data);
-}
-
 static bool uph__song_timeline_drop_compatible(const Uph_Track *track, Uph_ResourceType type)
 {
 	if (type == UPH_RESOURCE_AUTOMATION)
@@ -291,11 +280,94 @@ static bool uph__song_timeline_draw_resource_ready(void)
 	return true;
 }
 
+void uph_song_timeline_cancel_erase(void)
+{
+	Uph_BlockEraseState *erase = &uph__song_timeline_state.erase;
+	naui_list_free(erase->erased);
+	erase->erased = NULL;
+	erase->active = false;
+}
+
+void uph_song_timeline_update_erase(void)
+{
+	Uph_BlockEraseState *erase = &uph__song_timeline_state.erase;
+	if (!erase->active)
+		return;
+
+	if (naui_mouse_down(NAUI_MOUSE_RIGHT))
+	{
+		erase->last_mouse = erase->mouse;
+		erase->mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
+		return;
+	}
+
+	if (naui_list_len(erase->erased) > 0 && naui_action_get_revision() == erase->revision)
+		uph_block_commit_erased(erase->erased);
+
+	uph_song_timeline_cancel_erase();
+}
+
+static void uph__song_timeline_begin_erase(Uph_Track *track)
+{
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
+	Uph_BlockEraseState *erase = &state->erase;
+	erase->active = true;
+	erase->revision = naui_action_get_revision();
+	erase->mouse = (Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() };
+	erase->last_mouse = erase->mouse;
+
+	if (state->hovered_block.active && state->hovered_block.track == track)
+		uph_block_take_live(track, uph_action_track_ref(track), state->hovered_block.block_index, &erase->erased);
+	else
+		uph_block_select_all(false);
+}
+
+static void uph__song_timeline_clear_block_hover(void)
+{
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
+	state->hovered_block.active = false;
+	state->block_menu.next_hover = (Uph_BlockMenuHover){ 0 };
+}
+
+static void uph__song_timeline_erase_along(Leaf_BoundingBox bbox, Uph_Track *track)
+{
+	Uph_SongTimelineState *state = &uph__song_timeline_state;
+	Uph_BlockEraseState *erase = &state->erase;
+	if (erase->mouse.x == erase->last_mouse.x && erase->mouse.y == erase->last_mouse.y)
+		return;
+
+	const Leaf_BoundingBox view = state->panel_bounding_box;
+	const float title_height = NAUI_DPI(13) + NAUI_DPI(2) * 2.0f;
+	const Uph_ActionTrackRef ref = uph_action_track_ref(track);
+
+	for (uint32_t i = (uint32_t)naui_list_len(track->blocks); i > 0; i--)
+	{
+		Naui_Vec4 box;
+		if (!uph__song_timeline_block_hover_box(bbox, &track->blocks[i - 1], title_height, &box))
+			continue;
+
+		const float top = fmaxf(box.y, view.y);
+		const float bottom = fminf(box.y + box.w, view.y + view.height);
+		if (top >= bottom)
+			continue;
+
+		if (uph_song_timeline_segment_hits_box(erase->last_mouse, erase->mouse, box.x, top, box.x + box.z, bottom))
+			uph_block_take_live(track, ref, i - 1, &erase->erased);
+	}
+}
+
 static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, Uph_Track *track)
 {
 	Uph_SongTimelineState *state = &uph__song_timeline_state;
 	if (!state->tracks_hovered)
 		return;
+
+	if (state->erase.active)
+	{
+		uph__song_timeline_erase_along(bbox, track);
+		uph__song_timeline_clear_block_hover();
+		return;
+	}
 
 	if (state->automation_edit.active)
 		return;
@@ -304,13 +376,17 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 	if (menu_hover->button_hovered && menu_hover->track == track)
 		return;
 
-	if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && state->hovered_block.active && state->hovered_block.track == track)
-		uph__song_timeline_delete_hovered_block(track);
-
 	const bool mouse_over_track = uph_song_timeline_vec4_contains_vec2(
 		(Naui_Vec4){ bbox.x, bbox.y, bbox.width, bbox.height },
 		(Naui_Vec2){ (float)naui_mouse_x(), (float)naui_mouse_y() }
 	);
+
+	if (naui_mouse_pressed(NAUI_MOUSE_RIGHT) && mouse_over_track && !state->drag.active && !state->marquee.active)
+	{
+		uph__song_timeline_begin_erase(track);
+		uph__song_timeline_clear_block_hover();
+		return;
+	}
 
 	const Uph_ActionMode tool = uph_song_timeline_tool();
 	if (tool != UPH_ACTION_SELECT && naui_mouse_pressed(NAUI_MOUSE_LEFT) && mouse_over_track && !state->hovered_block.active && !state->drag.active)

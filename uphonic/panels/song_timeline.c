@@ -30,6 +30,7 @@ void uph_song_timeline_invalidate_tracks(void)
 	state->bottom_hovered = false;
 	state->pending_automation.active = false;
 	state->marquee.active = false;
+	uph_song_timeline_cancel_erase();
 	state->track_drag = (Uph_TrackDragState){ 0 };
 	naui_list_clear(state->selected_tracks);
 	state->selection_anchor = NULL;
@@ -158,6 +159,8 @@ static void uph_song_timeline_on_update(void)
 
 	if (state->drag.active && !naui_mouse_down(NAUI_MOUSE_LEFT))
 		uph_song_timeline_finish_block_drag();
+
+	uph_song_timeline_update_erase();
 
 	if (naui_panel_focused() == uph_state.panels.song_timeline && naui_keybind_pressed(uph_state.settings.keybinds.play_pause) && !state->disable_space_to_play)
 		uph_state.shared.song_timeline_playing = !uph_state.shared.song_timeline_playing;

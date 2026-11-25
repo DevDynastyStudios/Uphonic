@@ -103,6 +103,16 @@ Uph_MarqueeState;
 
 typedef struct
 {
+	Naui_List(Uph_ActionBlockSnapshot) erased;
+	Naui_Vec2 last_mouse;
+	Naui_Vec2 mouse;
+	uint64_t revision;
+	bool active;
+}
+Uph_BlockEraseState;
+
+typedef struct
+{
 	const Uph_Track *track;
 	uint32_t block_index;
 	bool button_hovered;
@@ -167,6 +177,7 @@ typedef struct
 	Uph_HoveredBlockState hovered_block;
 	Uph_AutomationEditState automation_edit;
 	Uph_MarqueeState marquee;
+	Uph_BlockEraseState erase;
 	Uph_BlockMenuState block_menu;
 	Uph_LoopRegionDrag loop_drag;
 	Uph_PlayheadDragState playhead_drag;
@@ -250,6 +261,38 @@ static inline Naui_Cursor uph_action_mode_cursor(Uph_ActionMode mode)
 static inline bool uph_song_timeline_vec4_contains_vec2(const Naui_Vec4 rect, const Naui_Vec2 point)
 {
 	return point.x >= rect.x && point.x < rect.x + rect.z && point.y >= rect.y && point.y < rect.y + rect.w;
+}
+
+static bool uph_song_timeline_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float left, float top, float right, float bottom)
+{
+	const float dx = b.x - a.x;
+	const float dy = b.y - a.y;
+	const float p[4] = { -dx, dx, -dy, dy };
+	const float q[4] = { a.x - left, right - a.x, a.y - top, bottom - a.y };
+
+	float t_enter = 0.0f;
+	float t_exit = 1.0f;
+	for (int32_t i = 0; i < 4; i++)
+	{
+		if (p[i] == 0.0f)
+		{
+			if (q[i] < 0.0f)
+				return false;
+
+			continue;
+		}
+
+		const float t = q[i] / p[i];
+		if (p[i] < 0.0f)
+			t_enter = fmaxf(t_enter, t);
+		else
+			t_exit = fminf(t_exit, t);
+
+		if (t_enter > t_exit)
+			return false;
+	}
+
+	return true;
 }
 
 static inline bool uph_song_timeline_block_is_visible(double start_beat, double length_beats, float zoom_x, float scroll_x, float viewport_width)

@@ -189,38 +189,6 @@ static Uph_NoteInteractionMode uph__note_input_classify_hover(Naui_Vec4 hover_bo
 	return UPH_NOTE_INTERACTION_MOVE;
 }
 
-static bool uph__note_input_segment_hits_box(Naui_Vec2 a, Naui_Vec2 b, float left, float top, float right, float bottom)
-{
-	const float dx = b.x - a.x;
-	const float dy = b.y - a.y;
-	const float p[4] = { -dx, dx, -dy, dy };
-	const float q[4] = { a.x - left, right - a.x, a.y - top, bottom - a.y };
-
-	float t_enter = 0.0f;
-	float t_exit = 1.0f;
-	for (int32_t i = 0; i < 4; i++)
-	{
-		if (p[i] == 0.0f)
-		{
-			if (q[i] < 0.0f)
-				return false;
-
-			continue;
-		}
-
-		const float t = q[i] / p[i];
-		if (p[i] < 0.0f)
-			t_enter = fmaxf(t_enter, t);
-		else
-			t_exit = fminf(t_exit, t);
-
-		if (t_enter > t_exit)
-			return false;
-	}
-
-	return true;
-}
-
 #pragma region Note Drag Actions
 
 static void uph__note_input_discard_clones(Uph_DraggingNoteState *drag)
@@ -809,7 +777,7 @@ static void uph__note_input_erase_along(Uph_MidiEditorState *editor, Leaf_Boundi
 		if (left >= right || top >= bottom)
 			continue;
 
-		if (uph__note_input_segment_hits_box(from, to, left, top, right, bottom))
+		if (uph_song_timeline_segment_hits_box(from, to, left, top, right, bottom))
 			uph__note_input_erase_note(erase, i - 1);
 	}
 }
