@@ -1,0 +1,403 @@
+C CODING STYLE GUIDE
+====================
+
+PHILOSOPHY
+----------
+
+The primary goal is readability and maintainability.
+
+Code should be optimized for the person reading it months later, not for
+minimizing line count.
+
+Prefer clear code over clever code.
+
+Prefer explicit code over compact code.
+
+Keep the important logic visually left-aligned.
+
+
+NEVER NESTER
+------------
+
+Avoid nesting whenever possible.
+
+Use early exits.
+
+Bad:
+
+	if(plugin)
+	{
+		if(plugin->synth)
+		{
+			synth_reset(plugin->synth);
+		}
+	}
+
+Good:
+
+	if(plugin == NULL)
+		return;
+
+	if(plugin->synth == NULL)
+		return;
+
+	synth_reset(plugin->synth);
+
+The actual work should remain at the left edge of the function.
+
+
+FORMATTING
+----------
+
+Use tabs for indentation.
+
+Single statement if blocks do not require braces.
+
+Example:
+
+	if(value == 0)
+		return;
+
+Use braces for multi-line blocks.
+
+Example:
+
+	if(value == 0)
+	{
+		reset();
+		return;
+	}
+
+Loops always have a braced body, even when it is a single statement.
+
+Example:
+
+	for(size_t i = 0; i < count; i++)
+	{
+		process_item(i);
+	}
+
+Add a blank line after blocks to improve visual scanning.
+
+Example:
+
+	if(found)
+	{
+		process_item();
+	}
+
+	update_ui();
+
+
+FUNCTION SIGNATURES
+-------------------
+
+Function declarations and definitions should remain on one line.
+
+Good:
+
+	static void _up_handle_event(Plugin* plugin, const clap_event_header_t* header)
+
+Bad:
+
+	static void _up_handle_event(
+		Plugin* plugin,
+		const clap_event_header_t* header)
+
+
+FUNCTION CALLS
+--------------
+
+Short calls should remain on a single line.
+
+Example:
+
+	synth_reset(plugin->synth);
+
+Example:
+
+	params_sync_to_synth(plugin);
+
+Only expand calls across multiple lines when readability significantly improves.
+
+
+NAMING
+------
+
+C projects use snake_case.
+
+Functions:
+
+	plugin_create()
+	params_set()
+	audio_ports_extension()
+
+Variables:
+
+	sample_rate
+	frame_count
+	event_index
+
+Macros:
+
+	LOG_BUFFER_SIZE
+	MIDI_NOTE_ON
+
+Types use PascalCase.
+
+Examples:
+
+	Plugin
+	PluginExtension
+	ParamId
+
+
+PRIVATE FUNCTIONS
+-----------------
+
+Private functions should:
+
+	- Be marked static
+	- Begin with _up_
+
+Example:
+
+	static void _up_handle_event(...)
+
+	static const void* _up_get_extension(...)
+
+The _up_ prefix identifies implementation details that should not be used
+outside the source file.
+
+
+SOURCE FILE ORGANIZATION
+------------------------
+
+Preferred order:
+
+	1. Includes
+	2. Defines
+	3. Structs / Types
+	4. Variables
+	5. Private Functions
+	6. Public Functions
+
+Example:
+
+	#include ...
+
+	#define ...
+
+	typedef struct
+	{
+		...
+	} TypeName;
+
+	static ...
+
+	#pragma region Private API
+
+	static void _up_helper(...)
+	{
+	}
+
+	#pragma endregion
+
+	#pragma region Public API
+
+	void public_function(...)
+	{
+	}
+
+	#pragma endregion
+
+Regions should only be used for larger files.
+
+Small files generally do not need regions.
+
+
+HEADER FILE ORGANIZATION
+------------------------
+
+Headers should remain compact.
+
+Headers exist to expose an interface, not document implementation.
+
+Avoid unnecessary comments.
+
+Avoid regions in small headers.
+
+Example:
+
+	#pragma once
+
+	#include ...
+
+	typedef struct
+	{
+		...
+	} Plugin;
+
+	Plugin* plugin_create(...);
+	void plugin_destroy(...);
+
+Headers should be easy to scan quickly.
+
+
+STRUCTS
+-------
+
+Struct names appear on the same line as the closing brace.
+
+Good:
+
+	typedef struct
+	{
+		int value;
+	} Example;
+
+Bad:
+
+	typedef struct
+	{
+		int value;
+	}
+	Example;
+
+
+CONSTANTS AND MACROS
+--------------------
+
+Avoid magic numbers.
+
+Frequently used hard-coded values should become macros.
+
+Bad:
+
+	char buffer[512];
+
+Good:
+
+	#define LOG_BUFFER_SIZE 512
+
+	char buffer[LOG_BUFFER_SIZE];
+
+Bad:
+
+	if(status == 0x90)
+
+Good:
+
+	#define MIDI_NOTE_ON 0x90
+
+	if(status == MIDI_NOTE_ON)
+
+Protocol values, buffer sizes, limits, masks, and repeated constants should
+generally become macros.
+
+
+ARRAY HELPERS
+-------------
+
+Prefer reusable helper macros.
+
+Example:
+
+	#define ARRAY_COUNT(x) (sizeof(x) / sizeof((x)[0]))
+
+Usage:
+
+	for(size_t i = 0; i < ARRAY_COUNT(items); i++)
+
+
+DO NOT MACRO EVERYTHING
+-----------------------
+
+Not every numeric value is a magic number.
+
+Values that directly communicate intent may remain inline.
+
+Examples:
+
+	if(process->audio_outputs_count < 1)
+
+	if(process->audio_outputs[0].channel_count < 2)
+
+These values are self-explanatory and do not benefit from additional macros.
+
+
+COMMENTS
+--------
+
+Comments should explain WHY.
+
+Comments should not explain WHAT.
+
+Bad:
+
+	// Plugin structure
+	typedef struct Plugin
+	{
+		...
+	} Plugin;
+
+Bad:
+
+	// params.c
+	const clap_plugin_params_t* params_extension(void);
+
+Good:
+
+	// Audio thread must never allocate memory.
+
+If the code already explains itself, remove the comment.
+
+
+WHITESPACE
+----------
+
+Whitespace is used to separate concepts.
+
+Do not compress unrelated logic together.
+
+Good:
+
+	if(plugin == NULL)
+		return;
+
+	plugin->host = host;
+	plugin->synth = synth_create();
+
+	if(plugin->synth == NULL)
+	{
+		free(plugin);
+		return NULL;
+	}
+
+	return plugin;
+
+Code should visually read like paragraphs.
+
+
+GENERAL RULES
+-------------
+
+- Use tabs.
+- Use snake_case for C code.
+- Use PascalCase for types.
+- Prefer early exits.
+- Avoid nesting.
+- Keep logic left-aligned.
+- Keep function signatures on one line.
+- Use static for private functions.
+- Prefix private helpers with _up_.
+- Convert common hard-coded values into macros.
+- Keep headers compact.
+- Use regions only in larger files.
+- Comments explain intent, not syntax.
+- Optimize for readability over line count.
+
+Final Rule:
+
+If there is a choice between shorter code and clearer code,
+choose clearer code.
