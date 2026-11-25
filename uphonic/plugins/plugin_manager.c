@@ -5480,6 +5480,46 @@ bool uph_plugin_load_state(Uph_Plugin *plug, const Naui_Path path)
     return call.ok;
 }
 
+static void uph__plugin_host_reset(void *data)
+{
+    Uph_Plugin *plug = (Uph_Plugin*)data;
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+
+    if (plug->format == UPH_PLUGIN_VST3 && ih->vst3.ready)
+    {
+        ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 0);
+        ih->vst3.component->lpVtbl->setActive(ih->vst3.component, 0);
+        ih->vst3.component->lpVtbl->setActive(ih->vst3.component, 1);
+        ih->vst3.processor->lpVtbl->setProcessing(ih->vst3.processor, 1);
+        ih->vst3.sample_position = 0;
+    }
+    else if (plug->format == UPH_PLUGIN_VST2 && ih->vst2.ready)
+    {
+        AEffect *effect = ih->vst2.effect;
+        uph__vst2_dispatch(effect, effStopProcess, 0, 0, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effMainsChanged, 0, 0, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effMainsChanged, 0, 1, NULL, 0.0f);
+        uph__vst2_dispatch(effect, effStartProcess, 0, 0, NULL, 0.0f);
+        ih->vst2.sample_position = 0;
+    }
+}
+
+void uph_plugin_reset(Uph_Plugin *plug)
+{
+    Uph_PluginInternalHandle *ih = (Uph_PluginInternalHandle*)plug->internal_handle;
+    if (!plug->loaded || !ih)
+        return;
+
+    if (plug->format == UPH_PLUGIN_CLAP)
+    {
+        if (ih->clap.ready && ih->clap.plugin->reset)
+            ih->clap.plugin->reset(ih->clap.plugin);
+        return;
+    }
+
+    uph__plugin_host_call(uph__plugin_host_reset, plug);
+}
+
 static bool uph_clap_features_have(const char *const *features, const char *needle)
 {
     if (!features)

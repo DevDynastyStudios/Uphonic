@@ -3194,6 +3194,20 @@ static void uph_render_job_release(bool delete_file)
     *state = (Uph_RenderJobState){0};
 }
 
+static void uph__audio_engine_reset_plugins(Naui_List(Uph_Track) tracks)
+{
+    for (uint64_t t = 0; t < naui_list_len(tracks); t++)
+    {
+        Uph_Track *track = &tracks[t];
+        uph_plugin_reset(&track->instrument);
+
+        for (uint64_t e = 0; e < naui_list_len(track->effects); e++)
+            uph_plugin_reset(&track->effects[e].plugin);
+
+        uph__audio_engine_reset_plugins(track->subtracks);
+    }
+}
+
 bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSettings *settings)
 {
     Uph_RenderJobState *state = &uph__render_job_state;
@@ -3255,6 +3269,7 @@ bool uph_audio_engine_render_begin(const char *filepath, const Uph_RenderSetting
     uph_audio_engine_lock();
     state->locked = true;
     uph_audio_engine_stop_all_notes();
+    uph__audio_engine_reset_plugins(uph_state.project.tracks);
 
     state->phase = UPH_RENDER_JOB_RENDERING;
     return true;

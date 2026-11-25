@@ -48,3 +48,7 @@ bool uph_plugin_load_state(
 	Uph_Plugin *plug,
 	const Naui_Path path
 );
+
+void uph_plugin_reset(
+	Uph_Plugin *plug
+);
