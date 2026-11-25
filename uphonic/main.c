@@ -353,12 +353,13 @@ void naui_app_update(void)
     for (uint32_t i = 0; i < (uint32_t)naui_list_len(uph_state.project.tracks); i++)
         uph_update_track(&uph_state.project.tracks[i]);
  
-	const bool midi_editor_focused = naui_panel_focused() == uph_state.panels.resource_editor
-		&& uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN
+	const bool midi_editor_open = uph_state.shared.selected_resource.type == UPH_RESOURCE_PATTERN
 		&& uph_note_pattern(uph_state.shared.selected_resource.index);
-	uph_midi_preview_set_voice_monitoring(midi_editor_focused);
+	const bool midi_editor_focused = midi_editor_open && naui_panel_focused() == uph_state.panels.resource_editor;
+	const bool tracks_monitoring = uph__any_track_monitors_instrument(uph_state.project.tracks);
+	uph_midi_preview_set_voice_monitoring(midi_editor_focused || (midi_editor_open && !tracks_monitoring));
 	const bool voice_monitoring = uph_midi_preview_voice_monitoring();
-	atomic_store_explicit(&uph__midi_instrument_monitoring, voice_monitoring || uph__any_track_monitors_instrument(uph_state.project.tracks), memory_order_relaxed);
+	atomic_store_explicit(&uph__midi_instrument_monitoring, voice_monitoring || tracks_monitoring, memory_order_relaxed);
 	uph_autosave_update();
 }
  
