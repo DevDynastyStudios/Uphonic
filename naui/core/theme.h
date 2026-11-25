@@ -1,6 +1,5 @@
-NAUI_API bool       naui_load_theme     (const char *file_name);
+NAUI_API void       naui_load_theme     (const char *file_name);
 
-NAUI_API void       naui_theme_set_color(const char *name, Naui_Color color);
 NAUI_API Naui_Color naui_theme_color    (const char *name);
 NAUI_API bool       naui_theme_has      (const char *name);
 

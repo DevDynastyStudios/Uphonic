@@ -7,14 +7,7 @@ int32_t uph_resources_random_track_color_index(void)
 static inline Naui_Color uph_resources_track_color(const int32_t color_index)
 {
 	const Naui_List(Naui_Color) list = uph_state.colors.track_palette;
-	const ptrdiff_t count = naui_list_len(list);
-	if (count <= 0)
-		return uph_state.colors.ui_text;
-
-	ptrdiff_t index = color_index % count;
-	if (index < 0)
-		index += count;
-	return list[index];
+	return list[color_index % naui_list_len(list)];
 }
 
 static inline bool uph_track_is_folder(const Uph_Track *track)

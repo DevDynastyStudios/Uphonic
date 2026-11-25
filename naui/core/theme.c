@@ -42,31 +42,8 @@ void naui_panel_refresh_colors(void);
 void naui_themes_initialize(void) { naui_arena_init(&naui__theme_state.key_arena, NAUI_THEME_KEY_SCRATCH_SIZE); }
 void naui_themes_shutdown(void) { naui_arena_free(&naui__theme_state.key_arena); }
 
-bool naui_load_theme(const char *file_name)
+void naui_load_theme(const char *file_name)
 {
-    const char *display_name = file_name ? file_name : "";
-    const Naui_Path theme_path = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Themes", file_name));
-    Naui_Path json_path;
-    snprintf(json_path.data, NAUI_PATH_MAX, "%s.json", theme_path.data);
-
-    if (!naui_path_exists(json_path))
-    {
-        naui_log(NAUI_LOG_WARNING, "Failed to load theme '%s': file not found (%s)", display_name, json_path.data);
-        return false;
-    }
-
-    Naui_Json json = naui_json_parse_file(json_path);
-    if (!json.root || json.root->type != NAUI_JSON_OBJECT)
-    {
-        if (json.error_line > 0)
-            naui_log(NAUI_LOG_WARNING, "Failed to load theme '%s': %s (line %d, col %d)", display_name, json.error ? json.error : "not a JSON object", json.error_line, json.error_col);
-        else
-            naui_log(NAUI_LOG_WARNING, "Failed to load theme '%s': %s", display_name, json.error ? json.error : "not a JSON object");
-
-        naui_json_free(&json);
-        return false;
-    }
-
     for (ptrdiff_t i = 0; i < naui_strmap_len(naui__theme_state.color_list_map); i++)
         naui_list_free(naui__theme_state.color_list_map[i].value);
 
@@ -74,6 +51,11 @@ bool naui_load_theme(const char *file_name)
     naui_strmap_free(naui__theme_state.color_map);
 
     naui_arena_reset(&naui__theme_state.key_arena);
+
+    char final_file_name[64];
+    snprintf(final_file_name, sizeof(final_file_name), "%s.json", file_name);
+	Naui_Path json_path = naui_path_join(naui_directory_get(NAUI_DIR_ASSETS), NAUI_PATH("Themes", final_file_name));
+    Naui_Json json = naui_json_parse_file(json_path);
 
     NAUI_JSON_FOREACH(json.root, key, val)
     {
@@ -103,25 +85,9 @@ bool naui_load_theme(const char *file_name)
             naui_strmap_put(naui__theme_state.color_list_map, key_str, list);
         }
     }
-    
+	
     naui_json_free(&json);
     naui_panel_refresh_colors();
-    return true;
-}
-
-void naui_theme_set_color(const char *name, Naui_Color color)
-{
-    ptrdiff_t index = naui_strmap_get_index(naui__theme_state.color_map, name);
-    if (index >= 0)
-    {
-        naui__theme_state.color_map[index].value = color;
-        return;
-    }
-
-    char *key = naui_arena_alloc(&naui__theme_state.key_arena, strlen(name) + 1);
-    strcpy(key, name);
-    naui_strmap_put(naui__theme_state.color_map, key, color);
-	naui_panel_refresh_colors();
 }
 
 Naui_Color naui_theme_color(const char *name)
