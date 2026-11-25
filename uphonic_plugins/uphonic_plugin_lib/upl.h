@@ -109,6 +109,16 @@ extern const Upl_Descriptor upl_descriptor;
 
 typedef struct
 {
+	const char *title;
+	const char *filter_name;
+	const char *const *extensions;
+}
+Upl_FileDialog;
+
+typedef void (*Upl_FileDialogCallback)(Upl_Plugin *plugin, const char *path, void *user_data);
+
+typedef struct
+{
 	Leaf_Color background;
 	Leaf_Color panel;
 	Leaf_Color track;
@@ -145,6 +155,8 @@ bool upl_mouse_released(Upl_MouseButton button);
 bool upl_mouse_double_clicked(Upl_MouseButton button);
 float upl_mouse_wheel(void);
 bool upl_shift_down(void);
+
+bool upl_open_file_dialog(Upl_Plugin *plugin, const Upl_FileDialog *dialog, Upl_FileDialogCallback callback, void *user_data);
 
 uint32_t upl_font_load(const void *ttf_data, size_t size);
 

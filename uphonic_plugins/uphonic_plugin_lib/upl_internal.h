@@ -51,6 +51,15 @@ typedef struct
 }
 Upl_Gui;
 
+typedef struct
+{
+	Upl_FileDialogCallback callback;
+	void *user_data;
+	void *platform;
+	bool pending;
+}
+Upl_FileDialogState;
+
 struct Upl_Plugin
 {
 	clap_plugin_t clap;
@@ -65,6 +74,7 @@ struct Upl_Plugin
 	double sample_rate;
 	bool active;
 	Upl_Gui gui;
+	Upl_FileDialogState file_dialog;
 };
 
 static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent);
@@ -74,6 +84,11 @@ static void upl__window_set_visible(Upl_Plugin *plugin, bool visible);
 static void upl__window_present(Upl_Plugin *plugin);
 static void upl__window_poll(Upl_Plugin *plugin);
 static double upl__time(void);
+
+static bool upl__file_dialog_begin(Upl_Plugin *plugin, const Upl_FileDialog *dialog);
+static void upl__file_dialog_poll(Upl_Plugin *plugin);
+static void upl__file_dialog_cancel(Upl_Plugin *plugin);
+static void upl__file_dialog_finish(Upl_Plugin *plugin, const char *path);
 
 static void upl__gui_tick(Upl_Plugin *plugin);
 static void upl__gui_mark_dirty(Upl_Plugin *plugin);

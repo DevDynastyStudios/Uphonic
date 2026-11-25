@@ -23,6 +23,13 @@ typedef struct
 }
 Upl_CocoaState;
 
+typedef struct
+{
+	Upl_Plugin *plugin;
+	NSOpenPanel *panel;
+}
+Upl_CocoaFileDialog;
+
 static Upl_CocoaState upl__cocoa_state;
 
 static double upl__time(void)
@@ -292,4 +299,79 @@ static void upl__window_present(Upl_Plugin *plugin)
 static void upl__window_poll(Upl_Plugin *plugin)
 {
 	upl__cocoa_apply_scale(plugin);
+}
+
+static void upl__cocoa_file_dialog_done(Upl_CocoaFileDialog *state, NSModalResponse response)
+{
+	Upl_Plugin *plugin = state->plugin;
+	NSURL *url = response == NSModalResponseOK ? [[state->panel URLs] firstObject] : nil;
+	const char *path = url ? [url fileSystemRepresentation] : NULL;
+
+	if (plugin)
+	{
+		plugin->file_dialog.platform = NULL;
+		upl__file_dialog_finish(plugin, path);
+	}
+
+	[state->panel release];
+	free(state);
+}
+
+static bool upl__file_dialog_begin(Upl_Plugin *plugin, const Upl_FileDialog *dialog)
+{
+	Upl_CocoaFileDialog *state = (Upl_CocoaFileDialog *)calloc(1, sizeof(Upl_CocoaFileDialog));
+	if (!state)
+		return false;
+
+	NSOpenPanel *panel = [[NSOpenPanel openPanel] retain];
+	[panel setCanChooseFiles:YES];
+	[panel setCanChooseDirectories:NO];
+	[panel setAllowsMultipleSelection:NO];
+
+	if (dialog->title)
+	{
+		NSString *title = [NSString stringWithUTF8String:dialog->title];
+		[panel setTitle:title];
+		[panel setMessage:title];
+	}
+
+	if (dialog->extensions && dialog->extensions[0])
+	{
+		NSMutableArray *types = [NSMutableArray array];
+		for (const char *const *extension = dialog->extensions; *extension; extension++)
+			[types addObject:[NSString stringWithUTF8String:*extension]];
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+		[panel setAllowedFileTypes:types];
+#pragma clang diagnostic pop
+	}
+
+	state->plugin = plugin;
+	state->panel = panel;
+	plugin->file_dialog.platform = state;
+
+	[panel beginWithCompletionHandler:^(NSModalResponse response) {
+		upl__cocoa_file_dialog_done(state, response);
+	}];
+
+	return true;
+}
+
+static void upl__file_dialog_poll(Upl_Plugin *plugin)
+{
+	(void)plugin;
+}
+
+static void upl__file_dialog_cancel(Upl_Plugin *plugin)
+{
+	Upl_CocoaFileDialog *state = (Upl_CocoaFileDialog *)plugin->file_dialog.platform;
+	plugin->file_dialog.platform = NULL;
+	upl__file_dialog_finish(plugin, NULL);
+
+	if (!state)
+		return;
+
+	state->plugin = NULL;
+	[state->panel cancel:nil];
 }

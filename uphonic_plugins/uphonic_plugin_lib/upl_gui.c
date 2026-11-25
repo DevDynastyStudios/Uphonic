@@ -224,6 +224,9 @@ static void upl__gui_create(Upl_Plugin *plugin)
 static void upl__gui_destroy(Upl_Plugin *plugin)
 {
 	Upl_Gui *gui = &plugin->gui;
+	if (plugin->file_dialog.pending)
+		upl__file_dialog_cancel(plugin);
+
 	if (gui->window)
 		upl__window_destroy(plugin);
 
@@ -270,6 +273,9 @@ static void upl__gui_tick(Upl_Plugin *plugin)
 		return;
 
 	upl__window_poll(plugin);
+	upl__file_dialog_poll(plugin);
+	if (!gui->window)
+		return;
 
 	if (atomic_exchange(&plugin->ui_dirty, false))
 		upl__gui_mark_dirty(plugin);
@@ -280,6 +286,44 @@ static void upl__gui_tick(Upl_Plugin *plugin)
 	gui->dirty_frames--;
 	upl__gui_frame(plugin);
 	upl__window_present(plugin);
+}
+
+#pragma endregion
+
+#pragma region File Dialog
+
+static void upl__file_dialog_finish(Upl_Plugin *plugin, const char *path)
+{
+	Upl_FileDialogState *state = &plugin->file_dialog;
+	if (!state->pending)
+		return;
+
+	const Upl_FileDialogCallback callback = state->callback;
+	void *user_data = state->user_data;
+	*state = (Upl_FileDialogState) { 0 };
+
+	callback(plugin, path && path[0] ? path : NULL, user_data);
+	upl__gui_mark_dirty(plugin);
+}
+
+bool upl_open_file_dialog(Upl_Plugin *plugin, const Upl_FileDialog *dialog, Upl_FileDialogCallback callback, void *user_data)
+{
+	static const Upl_FileDialog empty = { 0 };
+
+	if (!plugin || !callback || plugin->file_dialog.pending || !plugin->gui.window)
+		return false;
+
+	plugin->file_dialog = (Upl_FileDialogState) {
+		.callback = callback,
+		.user_data = user_data,
+		.pending = true
+	};
+
+	if (upl__file_dialog_begin(plugin, dialog ? dialog : &empty))
+		return true;
+
+	plugin->file_dialog = (Upl_FileDialogState) { 0 };
+	return false;
 }
 
 #pragma endregion

@@ -6,12 +6,16 @@
 #endif
 #include <windows.h>
 #include <windowsx.h>
+#include <commdlg.h>
 
 #define UPL_WINDOW_API CLAP_WINDOW_API_WIN32
 #define UPL_USE_HOST_TIMER 0
 #define UPL_WINDOW_LOGICAL_SIZE 0
 
 #define UPL_WIN32_TIMER_ID 1
+#define UPL_WIN32_DIALOG_TITLE_SIZE 256
+#define UPL_WIN32_DIALOG_FILTER_SIZE 1024
+#define UPL_WIN32_DIALOG_PATH_SIZE 4096
 
 typedef struct
 {
@@ -27,6 +31,16 @@ typedef struct
 	HMODULE module;
 }
 Upl_Win32State;
+
+typedef struct
+{
+	wchar_t title[UPL_WIN32_DIALOG_TITLE_SIZE];
+	wchar_t filter[UPL_WIN32_DIALOG_FILTER_SIZE];
+	wchar_t path[UPL_WIN32_DIALOG_PATH_SIZE];
+	bool running;
+	bool abandoned;
+}
+Upl_Win32FileDialog;
 
 static Upl_Win32State upl__win32_state;
 
@@ -249,4 +263,96 @@ static void upl__window_present(Upl_Plugin *plugin)
 static void upl__window_poll(Upl_Plugin *plugin)
 {
 	(void)plugin;
+}
+
+static void upl__win32_widen(const char *text, wchar_t *out, int size)
+{
+	if (MultiByteToWideChar(CP_UTF8, 0, text, -1, out, size) == 0)
+		out[0] = L'\0';
+}
+
+static void upl__win32_dialog_filter(const Upl_FileDialog *dialog, wchar_t *out, int size)
+{
+	char filter[UPL_WIN32_DIALOG_FILTER_SIZE];
+	size_t length = 0;
+
+	if (dialog->extensions && dialog->extensions[0])
+	{
+		length += (size_t)snprintf(filter, sizeof(filter), "%s\n", dialog->filter_name ? dialog->filter_name : "Supported files");
+		for (const char *const *extension = dialog->extensions; *extension && length < sizeof(filter); extension++)
+			length += (size_t)snprintf(filter + length, sizeof(filter) - length, "%s*.%s", extension == dialog->extensions ? "" : ";", *extension);
+
+		if (length < sizeof(filter))
+			length += (size_t)snprintf(filter + length, sizeof(filter) - length, "\n");
+	}
+
+	if (length < sizeof(filter))
+		snprintf(filter + length, sizeof(filter) - length, "All files\n*.*\n");
+
+	upl__win32_widen(filter, out, size - 1);
+	for (wchar_t *cursor = out; *cursor; cursor++)
+	{
+		if (*cursor == L'\n')
+			*cursor = L'\0';
+	}
+}
+
+static bool upl__file_dialog_begin(Upl_Plugin *plugin, const Upl_FileDialog *dialog)
+{
+	Upl_Win32FileDialog *state = (Upl_Win32FileDialog *)calloc(1, sizeof(Upl_Win32FileDialog));
+	if (!state)
+		return false;
+
+	upl__win32_widen(dialog->title ? dialog->title : "Open File", state->title, UPL_WIN32_DIALOG_TITLE_SIZE);
+	upl__win32_dialog_filter(dialog, state->filter, UPL_WIN32_DIALOG_FILTER_SIZE);
+	plugin->file_dialog.platform = state;
+	return true;
+}
+
+static void upl__file_dialog_poll(Upl_Plugin *plugin)
+{
+	Upl_Win32FileDialog *state = (Upl_Win32FileDialog *)plugin->file_dialog.platform;
+	if (!state || state->running)
+		return;
+
+	Upl_Win32Window *window = (Upl_Win32Window *)plugin->gui.window;
+	OPENFILENAMEW open = {
+		.lStructSize = sizeof(open),
+		.hwndOwner = window ? GetAncestor(window->hwnd, GA_ROOT) : NULL,
+		.lpstrFilter = state->filter,
+		.lpstrFile = state->path,
+		.nMaxFile = UPL_WIN32_DIALOG_PATH_SIZE,
+		.lpstrTitle = state->title,
+		.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR
+	};
+
+	state->running = true;
+	const bool accepted = GetOpenFileNameW(&open) != 0;
+	state->running = false;
+
+	if (state->abandoned)
+	{
+		free(state);
+		return;
+	}
+
+	char path[UPL_WIN32_DIALOG_PATH_SIZE * 3];
+	if (!accepted || WideCharToMultiByte(CP_UTF8, 0, state->path, -1, path, (int)sizeof(path), NULL, NULL) == 0)
+		path[0] = '\0';
+
+	free(state);
+	plugin->file_dialog.platform = NULL;
+	upl__file_dialog_finish(plugin, path);
+}
+
+static void upl__file_dialog_cancel(Upl_Plugin *plugin)
+{
+	Upl_Win32FileDialog *state = (Upl_Win32FileDialog *)plugin->file_dialog.platform;
+	if (state && state->running)
+		state->abandoned = true;
+	else
+		free(state);
+
+	plugin->file_dialog.platform = NULL;
+	upl__file_dialog_finish(plugin, NULL);
 }
