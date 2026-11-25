@@ -129,6 +129,16 @@ Uph_PedalLane;
 
 typedef struct
 {
+	Uph_ActionTrackRef track;
+	uint32_t block_index;
+	double origin_beat;
+	Uph_ResourceIndex pattern_index;
+	bool active;
+}
+Uph_GhostAnchor;
+
+typedef struct
+{
 	Uph_MidiView view;
 	Uph_NoteMap note_map;
 	Uph_Piano piano;
@@ -143,6 +153,7 @@ typedef struct
 	Naui_Vec2 pan_last_mouse;
 	Uph_ResourceIndex playing_pattern;
 	Uph_LoopRegionDrag loop_drag;
+	Uph_GhostAnchor ghost_anchor;
 	double playhead_drag_beat;
 	int16_t audition_key;
 	uint32_t scale_index;

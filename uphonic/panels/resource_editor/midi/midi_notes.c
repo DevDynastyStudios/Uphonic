@@ -5,6 +5,7 @@
 #define UPH_MIDI_NOTE_VELOCITY_TRACK_DARKEN_MIX 0.45f
 #define UPH_MIDI_NOTE_VELOCITY_FILL_LIGHTEN_MIX 0.60f
 #define UPH_MIDI_EDITOR_VELOCITY_MAX 127
+#define UPH_MIDI_NOTE_GHOST_ALPHA 22
 
 typedef struct
 {
@@ -14,6 +15,34 @@ typedef struct
 	bool active;
 }
 Uph_NoteMarqueeState;
+
+void uph_midi_notes_render_ghost_block(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_TimelineBlock *block, double anchor_origin, Leaf_Color color)
+{
+	const float lane_height = uph_midi_view_lane_height(view);
+	const int32_t note_rounding = NAUI_DPI(3);
+	const Uph_MidiPattern *pattern = &uph_state.project.midi_patterns[block->resource_index];
+	const double block_start = block->start_beat - anchor_origin;
+	const double block_end = block_start + block->length_beats;
+	const double note_shift = block->start_beat - block->start_offset_beats - anchor_origin;
+	color.a = UPH_MIDI_NOTE_GHOST_ALPHA;
+
+	for (uint32_t i = 0; i < naui_list_len(pattern->notes); i++)
+	{
+		const Uph_MidiNote *note = &pattern->notes[i];
+		const double start = fmax(note->start_beat + note_shift, block_start);
+		const double end = fmin(note->start_beat + note_shift + note->length_beats, block_end);
+		if (end <= start)
+			continue;
+
+		const float y_position = uph_midi_view_row_to_y(view, box, uph_note_map_row(map, note->key_number));
+		if (y_position > box.y + box.height || y_position < box.y - lane_height)
+			continue;
+
+		const Naui_Vec2 position = { uph_midi_view_beat_to_x(view, box, start), y_position };
+		const Naui_Vec2 size = { (float)((end - start) * view->zoom.x), lane_height };
+		naui_fill_rect(position, size, color, note_rounding, LEAF_CORNER_ALL);
+	}
+}
 
 void uph_midi_notes_render(Leaf_BoundingBox box, const Uph_MidiView *view, const Uph_NoteMap *map, const Uph_MidiPattern *pattern)
 {

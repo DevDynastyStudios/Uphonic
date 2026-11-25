@@ -184,6 +184,8 @@
 	"midi.menu.view": "View",
 	"midi.menu.view.velocity_lane": "Velocity Lane",
 	"midi.menu.view.reset_scroll": "Reset Scroll",
+	"midi.menu.view.ghost_notes": "Ghost Notes",
+	"midi.menu.view.ghost_notes.all_tracks": "All Tracks",
 
 	"midi.event.velocity": "Velocity",
 	"midi.event.pedal": "Pedal",

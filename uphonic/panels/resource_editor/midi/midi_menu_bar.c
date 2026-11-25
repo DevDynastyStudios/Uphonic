@@ -105,6 +105,53 @@ static void uph__midi_menu_bar_scale(Uph_MidiEditorState *editor)
 	}
 }
 
+static bool uph__midi_menu_bar_all_ghosted(Naui_List(Uph_Track) tracks, bool *any_track)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
+	{
+		const Uph_Track *track = &tracks[i];
+		if (track->type == UPH_RESOURCE_PATTERN)
+		{
+			*any_track = true;
+			if (!track->ghosted)
+				return false;
+		}
+
+		if (!uph__midi_menu_bar_all_ghosted(track->subtracks, any_track))
+			return false;
+	}
+
+	return true;
+}
+
+static void uph__midi_menu_bar_set_all_ghosted(Naui_List(Uph_Track) tracks, bool ghosted)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
+	{
+		Uph_Track *track = &tracks[i];
+		if (track->type == UPH_RESOURCE_PATTERN)
+			track->ghosted = ghosted;
+
+		uph__midi_menu_bar_set_all_ghosted(track->subtracks, ghosted);
+	}
+}
+
+static void uph__midi_menu_bar_ghost_tracks(Uph_UIMenuID menu, Naui_List(Uph_Track) tracks, uint32_t *item_index)
+{
+	for (uint32_t i = 0; i < (uint32_t)naui_list_len(tracks); i++)
+	{
+		Uph_Track *track = &tracks[i];
+		if (track->type == UPH_RESOURCE_PATTERN)
+		{
+			const Leaf_ID id = leaf_id_indexed("uph_midi_menu_ghost_item", (*item_index)++);
+			if (uph_ui_menu_color_check_item(menu, track->name.data, id, track->ghosted, uph_resources_track_color(track->color_index)))
+				track->ghosted = !track->ghosted;
+		}
+
+		uph__midi_menu_bar_ghost_tracks(menu, track->subtracks, item_index);
+	}
+}
+
 static void uph__midi_menu_bar_view(Uph_MidiEditorState *editor)
 {
 	Uph_UIMenuID menu = uph_ui_menu(NAUI_TR("midi.menu.view"), leaf_id("uph_midi_menu_view"));
@@ -114,6 +161,15 @@ static void uph__midi_menu_bar_view(Uph_MidiEditorState *editor)
 
 	if (uph_ui_menu_item(menu, NAUI_TR("midi.menu.view.reset_scroll"), leaf_id("uph_midi_menu_reset_scroll")))
 		uph_midi_editor_reset_scroll();
+
+	Uph_UIMenuID ghost_menu = uph_ui_submenu(menu, NAUI_TR("midi.menu.view.ghost_notes"), leaf_id("uph_midi_menu_ghost_notes"));
+	bool any_track = false;
+	const bool all_ghosted = uph__midi_menu_bar_all_ghosted(uph_state.project.tracks, &any_track) && any_track;
+	if (uph_ui_menu_check_item(ghost_menu, NAUI_TR("midi.menu.view.ghost_notes.all_tracks"), leaf_id("uph_midi_menu_ghost_all"), all_ghosted))
+		uph__midi_menu_bar_set_all_ghosted(uph_state.project.tracks, !all_ghosted);
+
+	uint32_t item_index = 0;
+	uph__midi_menu_bar_ghost_tracks(ghost_menu, uph_state.project.tracks, &item_index);
 }
 
 static void uph__midi_menu_bar_render_scale_label(const Uph_MidiEditorState *editor)

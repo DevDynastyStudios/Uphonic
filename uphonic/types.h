@@ -407,6 +407,7 @@ struct Uph_Track
 
 	Uph_ResourceType type;
 	Uph_TrackState state;
+	bool ghosted;
 };
 
 typedef Uph_Track *Uph_TrackPtr;

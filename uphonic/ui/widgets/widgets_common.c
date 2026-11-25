@@ -79,6 +79,7 @@ struct Uph_UIMenuNode
     Uph_UIMenuNode *last_child;
     void (*deferred_render)(Uph_UIMenuID menu_id);
     Uph_UIMenuCheck check;
+    Leaf_Color check_color;
 };
 
 typedef struct

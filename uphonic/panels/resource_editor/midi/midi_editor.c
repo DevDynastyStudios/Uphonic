@@ -76,6 +76,117 @@ void uph_midi_editor_emit_note_shockwave(Uph_ResourceIndex pattern_index, const 
 		);
 }
 
+#pragma region Ghost notes
+
+static double uph__midi_editor_block_origin(const Uph_TimelineBlock *block)
+{
+	return block->start_beat - block->start_offset_beats;
+}
+
+void uph_midi_editor_set_ghost_anchor(const Uph_Track *track, uint32_t block_index)
+{
+	const Uph_TimelineBlock *block = &track->blocks[block_index];
+	if (block->type != UPH_RESOURCE_PATTERN)
+		return;
+
+	Uph_MidiEditorState *state = &uph__midi_editor_state;
+	state->ghost_anchor = (Uph_GhostAnchor) {
+		.track = uph_action_track_ref(track),
+		.block_index = block_index,
+		.origin_beat = uph__midi_editor_block_origin(block),
+		.pattern_index = block->resource_index,
+		.active = true
+	};
+}
+
+static bool uph__midi_editor_anchor_matches(const Uph_TimelineBlock *block, Uph_ResourceIndex pattern_index)
+{
+	return block->type == UPH_RESOURCE_PATTERN && block->resource_index == pattern_index;
+}
+
+static void uph__midi_editor_find_nearest_block(Naui_List(Uph_Track) tracks, Uph_ResourceIndex pattern_index, double target_beat, Uph_GhostAnchor *best, double *best_distance)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
+	{
+		const Uph_Track *track = &tracks[t];
+		for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
+		{
+			const Uph_TimelineBlock *block = &track->blocks[b];
+			if (!uph__midi_editor_anchor_matches(block, pattern_index))
+				continue;
+
+			const double distance = fabs(uph__midi_editor_block_origin(block) - target_beat);
+			if (distance >= *best_distance)
+				continue;
+
+			*best_distance = distance;
+			*best = (Uph_GhostAnchor) {
+				.track = uph_action_track_ref(track),
+				.block_index = b,
+				.origin_beat = uph__midi_editor_block_origin(block),
+				.pattern_index = pattern_index,
+				.active = true
+			};
+		}
+
+		uph__midi_editor_find_nearest_block(track->subtracks, pattern_index, target_beat, best, best_distance);
+	}
+}
+
+static const Uph_TimelineBlock *uph__midi_editor_resolve_ghost_anchor(Uph_MidiEditorState *editor, Uph_ResourceIndex pattern_index)
+{
+	Uph_GhostAnchor *anchor = &editor->ghost_anchor;
+	if (anchor->active && anchor->pattern_index == pattern_index)
+	{
+		const Uph_Track *track = uph_action_track_resolve(anchor->track);
+		if (track && anchor->block_index < (uint32_t)naui_list_len(track->blocks) && uph__midi_editor_anchor_matches(&track->blocks[anchor->block_index], pattern_index))
+		{
+			anchor->origin_beat = uph__midi_editor_block_origin(&track->blocks[anchor->block_index]);
+			return &track->blocks[anchor->block_index];
+		}
+	}
+
+	const double target_beat = anchor->active && anchor->pattern_index == pattern_index ? anchor->origin_beat : 0.0;
+	Uph_GhostAnchor found = { 0 };
+	double best_distance = DBL_MAX;
+	uph__midi_editor_find_nearest_block(uph_state.project.tracks, pattern_index, target_beat, &found, &best_distance);
+	if (!found.active)
+		return NULL;
+
+	*anchor = found;
+	return &uph_action_track_resolve(found.track)->blocks[found.block_index];
+}
+
+static void uph__midi_editor_render_ghost_tracks(Leaf_BoundingBox box, const Uph_MidiEditorState *editor, Naui_List(Uph_Track) tracks, double anchor_origin, const Uph_TimelineBlock *anchor_block)
+{
+	for (uint32_t t = 0; t < (uint32_t)naui_list_len(tracks); t++)
+	{
+		const Uph_Track *track = &tracks[t];
+		if (track->ghosted && track->type == UPH_RESOURCE_PATTERN)
+		{
+			for (uint32_t b = 0; b < (uint32_t)naui_list_len(track->blocks); b++)
+			{
+				const Uph_TimelineBlock *block = &track->blocks[b];
+				if (block == anchor_block || block->type != UPH_RESOURCE_PATTERN || block->resource_index >= (uint32_t)naui_list_len(uph_state.project.midi_patterns))
+					continue;
+
+				uph_midi_notes_render_ghost_block(box, &editor->view, &editor->note_map, block, anchor_origin, uph_resources_track_color(track->color_index));
+			}
+		}
+
+		uph__midi_editor_render_ghost_tracks(box, editor, track->subtracks, anchor_origin, anchor_block);
+	}
+}
+
+static void uph__midi_editor_render_ghosts(Uph_MidiEditorState *editor, Leaf_BoundingBox box, Uph_ResourceIndex pattern_index)
+{
+	const Uph_TimelineBlock *anchor_block = uph__midi_editor_resolve_ghost_anchor(editor, pattern_index);
+	const double anchor_origin = anchor_block ? uph__midi_editor_block_origin(anchor_block) : 0.0;
+	uph__midi_editor_render_ghost_tracks(box, editor, uph_state.project.tracks, anchor_origin, anchor_block);
+}
+
+#pragma endregion
+
 #pragma region Piano preview
 
 static void uph__midi_editor_send_preview(Uph_PianoEvents events)
@@ -372,6 +483,7 @@ static void uph__midi_editor_lanes_draw(Leaf_BoundingBox box, void *user_data)
 	uph__midi_editor_update_audition(state, pattern);
 	uph__midi_editor_render_loop_end(state, box, pattern);
 	uph_loop_region_render_bounds(&pattern->loop_region, (float)box.x, (float)box.y, (float)(box.y + box.height), state->view.zoom.x, state->view.scroll.x, uph_midi_preview_looping(), uph_state.colors.midi_editor_selection_outline);
+	uph__midi_editor_render_ghosts(state, box, uph_state.shared.selected_resource.index);
 	uph_midi_notes_render(box, &state->view, &state->note_map, pattern);
 	uph_midi_notes_render_marquee(&state->view, box, &state->note_input.marquee);
 	naui_pop_clip_rect();

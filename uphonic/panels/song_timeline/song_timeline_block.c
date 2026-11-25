@@ -652,6 +652,7 @@ void uph_song_timeline_begin_block_drag(Uph_Track *track, uint32_t block_index, 
 	drag->initial_length_beats = block->length_beats;
 	drag->initial_start_offset_beats = block->start_offset_beats;
 	drag->initial_drag_beat_offset = block->start_beat - mouse_beat;
+	uph_midi_editor_set_ghost_anchor(track, block_index);
 
 	drag->select_tool = uph_song_timeline_tool() == UPH_ACTION_SELECT;
 	drag->additive = drag->select_tool && (uph_ui_ctrl_down() || uph_ui_shift_down());

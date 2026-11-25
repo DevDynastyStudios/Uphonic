@@ -357,6 +357,7 @@ static void uph_song_timeline_update_track_action_input(Leaf_BoundingBox bbox, U
 		state->drag.mode = UPH_BLOCK_INTERACTION_MOVE;
 		state->drag.initial_drag_beat_offset = 0.0;
 		naui_list_push(track->blocks, uph_song_timeline_block_create(uph_snap_beat_floor(beat, state->snap_resolution, state->zoom.x), uph_state.shared.selected_resource.index, uph_state.shared.selected_resource.type));
+		uph_midi_editor_set_ghost_anchor(track, state->drag.block_index);
 
 		if (track->type == UPH_RESOURCE_NONE)
 			track->type = uph_state.shared.selected_resource.type;

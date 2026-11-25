@@ -187,6 +187,8 @@
 	"midi.menu.view": "表示",
 	"midi.menu.view.velocity_lane": "ベロシティレーン",
 	"midi.menu.view.reset_scroll": "スクロール位置をリセット",
+	"midi.menu.view.ghost_notes": "ゴーストノート",
+	"midi.menu.view.ghost_notes.all_tracks": "すべてのトラック",
 
 	"midi.event.velocity": "ベロシティ",
 	"midi.event.pedal": "ペダル",

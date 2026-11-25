@@ -31,7 +31,7 @@ static void uph__ui_render_menu_dropdown_child(Uph_UIMenuNode *node)
                 {
                     leaf({
                         .size = { .width = LEAF_SIZE_PERCENT(0.6f), .height = LEAF_SIZE_PERCENT(0.6f) },
-                        .color = uph_state.colors.ui_slider_fill,
+                        .color = node->check_color.a ? node->check_color : uph_state.colors.ui_slider_fill,
                         .floating = {
                             .parent_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER },
                             .self_alignment = { .x = LEAF_ALIGN_X_CENTER, .y = LEAF_ALIGN_Y_CENTER }
@@ -402,4 +402,11 @@ bool uph_ui_menu_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_I
 
     const bool right_clicked = leaf_hovered(element_id) && naui_mouse_pressed(NAUI_MOUSE_RIGHT);
     return result || right_clicked;
+}
+
+bool uph_ui_menu_color_check_item(Uph_UIMenuID menu_id, const char *name, const Leaf_ID element_id, bool checked, Leaf_Color color)
+{
+    const bool result = uph_ui_menu_check_item(menu_id, name, element_id, checked);
+    ((Uph_UIMenuNode*)menu_id)->last_child->check_color = color;
+    return result;
 }
