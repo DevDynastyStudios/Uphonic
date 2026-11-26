@@ -4,9 +4,6 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
-#ifndef D2D_USE_C_DEFINITIONS
-#define D2D_USE_C_DEFINITIONS
-#endif
 #include <windows.h>
 #include <commdlg.h>
 #include <d2d1.h>
@@ -15,22 +12,151 @@
 #define UPL_D2D_FULL_TURN		6.28318530718f
 #define UPL_D2D_RECREATE_TARGET	((HRESULT)0x8899000CL)
 
+typedef struct Upl_D2DUnknown Upl_D2DUnknown;
+typedef struct Upl_D2DFactory Upl_D2DFactory;
+typedef struct Upl_D2DTarget Upl_D2DTarget;
+typedef struct Upl_D2DBrush Upl_D2DBrush;
+typedef struct Upl_D2DSolidBrush Upl_D2DSolidBrush;
+typedef struct Upl_D2DBitmap Upl_D2DBitmap;
+typedef struct Upl_D2DPath Upl_D2DPath;
+typedef struct Upl_D2DSink Upl_D2DSink;
+typedef struct Upl_D2DStrokeStyle Upl_D2DStrokeStyle;
+
+struct Upl_D2DUnknown
+{
+	const struct
+	{
+		void *query_interface;
+		void *add_ref;
+		ULONG (STDMETHODCALLTYPE *Release)(Upl_D2DUnknown *self);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DFactory
+{
+	const struct
+	{
+		void *unused_0_9[10];
+		HRESULT (STDMETHODCALLTYPE *CreatePathGeometry)(Upl_D2DFactory *self, Upl_D2DPath **path);
+		HRESULT (STDMETHODCALLTYPE *CreateStrokeStyle)(Upl_D2DFactory *self, const D2D1_STROKE_STYLE_PROPERTIES *properties, const FLOAT *dashes, UINT32 dash_count, Upl_D2DStrokeStyle **style);
+		void *unused_12_13[2];
+		HRESULT (STDMETHODCALLTYPE *CreateHwndRenderTarget)(Upl_D2DFactory *self, const D2D1_RENDER_TARGET_PROPERTIES *properties, const D2D1_HWND_RENDER_TARGET_PROPERTIES *hwnd_properties, Upl_D2DTarget **target);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DTarget
+{
+	const struct
+	{
+		void *unused_0_3[4];
+		HRESULT (STDMETHODCALLTYPE *CreateBitmap)(Upl_D2DTarget *self, D2D1_SIZE_U size, const void *data, UINT32 pitch, const D2D1_BITMAP_PROPERTIES *properties, Upl_D2DBitmap **bitmap);
+		void *unused_5_6[2];
+		HRESULT (STDMETHODCALLTYPE *CreateBitmapBrush)(Upl_D2DTarget *self, Upl_D2DBitmap *bitmap, const D2D1_BITMAP_BRUSH_PROPERTIES *properties, const D2D1_BRUSH_PROPERTIES *brush_properties, Upl_D2DBrush **brush);
+		HRESULT (STDMETHODCALLTYPE *CreateSolidColorBrush)(Upl_D2DTarget *self, const D2D1_COLOR_F *color, const D2D1_BRUSH_PROPERTIES *properties, Upl_D2DSolidBrush **brush);
+		void *unused_9_14[6];
+		void (STDMETHODCALLTYPE *DrawLine)(Upl_D2DTarget *self, D2D1_POINT_2F p0, D2D1_POINT_2F p1, Upl_D2DBrush *brush, FLOAT width, Upl_D2DStrokeStyle *style);
+		void (STDMETHODCALLTYPE *DrawRectangle)(Upl_D2DTarget *self, const D2D1_RECT_F *rect, Upl_D2DBrush *brush, FLOAT width, Upl_D2DStrokeStyle *style);
+		void (STDMETHODCALLTYPE *FillRectangle)(Upl_D2DTarget *self, const D2D1_RECT_F *rect, Upl_D2DBrush *brush);
+		void (STDMETHODCALLTYPE *DrawRoundedRectangle)(Upl_D2DTarget *self, const D2D1_ROUNDED_RECT *rect, Upl_D2DBrush *brush, FLOAT width, Upl_D2DStrokeStyle *style);
+		void (STDMETHODCALLTYPE *FillRoundedRectangle)(Upl_D2DTarget *self, const D2D1_ROUNDED_RECT *rect, Upl_D2DBrush *brush);
+		void (STDMETHODCALLTYPE *DrawEllipse)(Upl_D2DTarget *self, const D2D1_ELLIPSE *ellipse, Upl_D2DBrush *brush, FLOAT width, Upl_D2DStrokeStyle *style);
+		void (STDMETHODCALLTYPE *FillEllipse)(Upl_D2DTarget *self, const D2D1_ELLIPSE *ellipse, Upl_D2DBrush *brush);
+		void (STDMETHODCALLTYPE *DrawGeometry)(Upl_D2DTarget *self, Upl_D2DPath *geometry, Upl_D2DBrush *brush, FLOAT width, Upl_D2DStrokeStyle *style);
+		void (STDMETHODCALLTYPE *FillGeometry)(Upl_D2DTarget *self, Upl_D2DPath *geometry, Upl_D2DBrush *brush, Upl_D2DBrush *opacity_brush);
+		void *unused_24;
+		void (STDMETHODCALLTYPE *FillOpacityMask)(Upl_D2DTarget *self, Upl_D2DBitmap *mask, Upl_D2DBrush *brush, D2D1_OPACITY_MASK_CONTENT content, const D2D1_RECT_F *destination, const D2D1_RECT_F *source);
+		void *unused_26_31[6];
+		void (STDMETHODCALLTYPE *SetAntialiasMode)(Upl_D2DTarget *self, D2D1_ANTIALIAS_MODE mode);
+		void *unused_33_41[9];
+		HRESULT (STDMETHODCALLTYPE *Flush)(Upl_D2DTarget *self, UINT64 *tag1, UINT64 *tag2);
+		void *unused_43_44[2];
+		void (STDMETHODCALLTYPE *PushAxisAlignedClip)(Upl_D2DTarget *self, const D2D1_RECT_F *rect, D2D1_ANTIALIAS_MODE mode);
+		void (STDMETHODCALLTYPE *PopAxisAlignedClip)(Upl_D2DTarget *self);
+		void (STDMETHODCALLTYPE *Clear)(Upl_D2DTarget *self, const D2D1_COLOR_F *color);
+		void (STDMETHODCALLTYPE *BeginDraw)(Upl_D2DTarget *self);
+		HRESULT (STDMETHODCALLTYPE *EndDraw)(Upl_D2DTarget *self, UINT64 *tag1, UINT64 *tag2);
+		void *unused_50_56[7];
+		D2D1_WINDOW_STATE (STDMETHODCALLTYPE *CheckWindowState)(Upl_D2DTarget *self);
+		HRESULT (STDMETHODCALLTYPE *Resize)(Upl_D2DTarget *self, const D2D1_SIZE_U *size);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DBrush
+{
+	const struct
+	{
+		void *unused_0_3[4];
+		void (STDMETHODCALLTYPE *SetOpacity)(Upl_D2DBrush *self, FLOAT opacity);
+		void (STDMETHODCALLTYPE *SetTransform)(Upl_D2DBrush *self, const float *matrix);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DSolidBrush
+{
+	const struct
+	{
+		void *unused_0_7[8];
+		void (STDMETHODCALLTYPE *SetColor)(Upl_D2DSolidBrush *self, const D2D1_COLOR_F *color);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DBitmap
+{
+	const struct
+	{
+		void *unused_0_9[10];
+		HRESULT (STDMETHODCALLTYPE *CopyFromMemory)(Upl_D2DBitmap *self, const void *rect, const void *data, UINT32 pitch);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DPath
+{
+	const struct
+	{
+		void *unused_0_16[17];
+		HRESULT (STDMETHODCALLTYPE *Open)(Upl_D2DPath *self, Upl_D2DSink **sink);
+	}
+	*lpVtbl;
+};
+
+struct Upl_D2DSink
+{
+	const struct
+	{
+		void *unused_0_4[5];
+		void (STDMETHODCALLTYPE *BeginFigure)(Upl_D2DSink *self, D2D1_POINT_2F start, D2D1_FIGURE_BEGIN begin);
+		void *unused_6_7[2];
+		void (STDMETHODCALLTYPE *EndFigure)(Upl_D2DSink *self, D2D1_FIGURE_END end);
+		HRESULT (STDMETHODCALLTYPE *Close)(Upl_D2DSink *self);
+		void (STDMETHODCALLTYPE *AddLine)(Upl_D2DSink *self, D2D1_POINT_2F point);
+		void *unused_11_13[3];
+		void (STDMETHODCALLTYPE *AddArc)(Upl_D2DSink *self, const D2D1_ARC_SEGMENT *arc);
+	}
+	*lpVtbl;
+};
+
 typedef struct
 {
 	uint64_t serial;
 	uint64_t last_used;
 	uint32_t tint;
-	ID2D1Bitmap *bitmap;
-	ID2D1BitmapBrush *brush;
+	Upl_D2DBitmap *bitmap;
+	Upl_D2DBrush *brush;
 }
 Upl_D2DImageSlot;
 
 typedef struct
 {
 	HWND hwnd;
-	ID2D1HwndRenderTarget *hwnd_target;
-	ID2D1SolidColorBrush *brush;
-	ID2D1Bitmap *atlas;
+	Upl_D2DTarget *hwnd_target;
+	Upl_D2DSolidBrush *brush;
+	Upl_D2DBitmap *atlas;
 	uint32_t atlas_generation;
 	uint32_t width;
 	uint32_t height;
@@ -41,11 +167,11 @@ Upl_D2DSurface;
 
 typedef struct
 {
-	ID2D1Factory *factory;
-	ID2D1StrokeStyle *round_stroke;
+	Upl_D2DFactory *factory;
+	Upl_D2DStrokeStyle *round_stroke;
 	uint32_t surface_count;
 	Upl_D2DSurface *current;
-	ID2D1RenderTarget *target;
+	Upl_D2DTarget *target;
 	D2D1_ANTIALIAS_MODE antialias;
 	bool clipped;
 	bool drawn;
@@ -61,7 +187,7 @@ static const GUID upl__d2d_iid_factory = { 0x06152247, 0x6f50, 0x465a, { 0x92, 0
 static void upl__d2d_release(void *object)
 {
 	if (object)
-		((IUnknown *)object)->lpVtbl->Release((IUnknown *)object);
+		((Upl_D2DUnknown *)object)->lpVtbl->Release((Upl_D2DUnknown *)object);
 }
 
 static D2D1_COLOR_F upl__d2d_color(Leaf_Color color)
@@ -69,12 +195,12 @@ static D2D1_COLOR_F upl__d2d_color(Leaf_Color color)
 	return (D2D1_COLOR_F) { (float)color.r / 255.0f, (float)color.g / 255.0f, (float)color.b / 255.0f, (float)color.a / 255.0f };
 }
 
-static ID2D1Brush *upl__d2d_solid(Leaf_Color color)
+static Upl_D2DBrush *upl__d2d_solid(Leaf_Color color)
 {
-	ID2D1SolidColorBrush *brush = upl__d2d_state.current->brush;
+	Upl_D2DSolidBrush *brush = upl__d2d_state.current->brush;
 	const D2D1_COLOR_F value = upl__d2d_color(color);
 	brush->lpVtbl->SetColor(brush, &value);
-	return (ID2D1Brush *)brush;
+	return (Upl_D2DBrush *)brush;
 }
 
 static void upl__d2d_antialias(D2D1_ANTIALIAS_MODE mode)
@@ -103,11 +229,11 @@ static bool upl__d2d_uniform(const float radii[4])
 	return radii[0] == radii[1] && radii[1] == radii[2] && radii[2] == radii[3];
 }
 
-static ID2D1PathGeometry *upl__d2d_round_rect_path(float x, float y, float width, float height, const float radii[4])
+static Upl_D2DPath *upl__d2d_round_rect_path(float x, float y, float width, float height, const float radii[4])
 {
-	ID2D1Factory *factory = upl__d2d_state.factory;
-	ID2D1PathGeometry *path = NULL;
-	ID2D1GeometrySink *sink = NULL;
+	Upl_D2DFactory *factory = upl__d2d_state.factory;
+	Upl_D2DPath *path = NULL;
+	Upl_D2DSink *sink = NULL;
 	if (FAILED(factory->lpVtbl->CreatePathGeometry(factory, &path)))
 		return NULL;
 
@@ -125,8 +251,7 @@ static ID2D1PathGeometry *upl__d2d_round_rect_path(float x, float y, float width
 	};
 	const float corner_radii[4] = { radii[1], radii[2], radii[3], radii[0] };
 
-	ID2D1SimplifiedGeometrySink *simple = (ID2D1SimplifiedGeometrySink *)sink;
-	simple->lpVtbl->BeginFigure(simple, (D2D1_POINT_2F) { x + radii[0], y }, D2D1_FIGURE_BEGIN_FILLED);
+		sink->lpVtbl->BeginFigure(sink, (D2D1_POINT_2F) { x + radii[0], y }, D2D1_FIGURE_BEGIN_FILLED);
 	for (uint32_t i = 0; i < 4; i++)
 	{
 		sink->lpVtbl->AddLine(sink, corners[i][0]);
@@ -137,21 +262,21 @@ static ID2D1PathGeometry *upl__d2d_round_rect_path(float x, float y, float width
 		sink->lpVtbl->AddArc(sink, &arc);
 	}
 
-	simple->lpVtbl->EndFigure(simple, D2D1_FIGURE_END_CLOSED);
-	simple->lpVtbl->Close(simple);
+	sink->lpVtbl->EndFigure(sink, D2D1_FIGURE_END_CLOSED);
+	sink->lpVtbl->Close(sink);
 	upl__d2d_release(sink);
 	return path;
 }
 
-static void upl__d2d_fill_shape(float x, float y, float width, float height, const float radii[4], ID2D1Brush *brush)
+static void upl__d2d_fill_shape(float x, float y, float width, float height, const float radii[4], Upl_D2DBrush *brush)
 {
-	ID2D1RenderTarget *target = upl__d2d_state.target;
+	Upl_D2DTarget *target = upl__d2d_state.target;
 	const D2D1_RECT_F rect = { x, y, x + width, y + height };
 	if (!upl__d2d_uniform(radii))
 	{
-		ID2D1PathGeometry *path = upl__d2d_round_rect_path(x, y, width, height, radii);
+		Upl_D2DPath *path = upl__d2d_round_rect_path(x, y, width, height, radii);
 		if (path)
-			target->lpVtbl->FillGeometry(target, (ID2D1Geometry *)path, brush, NULL);
+			target->lpVtbl->FillGeometry(target, path, brush, NULL);
 		upl__d2d_release(path);
 	}
 	else if (radii[0] > 0.0f)
@@ -188,7 +313,7 @@ static void upl__d2d_release_target(Upl_D2DSurface *surface)
 
 static bool upl__d2d_create_target(Upl_D2DSurface *surface)
 {
-	ID2D1Factory *factory = upl__d2d_state.factory;
+	Upl_D2DFactory *factory = upl__d2d_state.factory;
 	const D2D1_RENDER_TARGET_PROPERTIES properties = {
 		.type = D2D1_RENDER_TARGET_TYPE_DEFAULT,
 		.pixelFormat = { DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE },
@@ -206,7 +331,7 @@ static bool upl__d2d_create_target(Upl_D2DSurface *surface)
 	if (FAILED(factory->lpVtbl->CreateHwndRenderTarget(factory, &properties, &hwnd_properties, &surface->hwnd_target)))
 		return false;
 
-	ID2D1RenderTarget *target = (ID2D1RenderTarget *)surface->hwnd_target;
+	Upl_D2DTarget *target = surface->hwnd_target;
 	const D2D1_COLOR_F white = { 1.0f, 1.0f, 1.0f, 1.0f };
 	const D2D1_BITMAP_PROPERTIES atlas_properties = { { DXGI_FORMAT_A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED }, 96.0f, 96.0f };
 	const D2D1_SIZE_U atlas_size = { UPL_ATLAS_SIZE, UPL_ATLAS_SIZE };
@@ -281,7 +406,7 @@ static bool upl__d2d_begin(Upl_D2DSurface *surface)
 		return false;
 
 	state->current = surface;
-	state->target = (ID2D1RenderTarget *)surface->hwnd_target;
+	state->target = surface->hwnd_target;
 	state->antialias = D2D1_ANTIALIAS_MODE_PER_PRIMITIVE;
 	state->clipped = false;
 	state->drawn = false;
@@ -332,7 +457,7 @@ static Upl_D2DImageSlot *upl__d2d_image_slot(Upl_D2DSurface *surface, Upl_Image 
 	if (!pixels)
 		return NULL;
 
-	ID2D1RenderTarget *target = upl__d2d_state.target;
+	Upl_D2DTarget *target = upl__d2d_state.target;
 	const D2D1_BITMAP_PROPERTIES properties = { { DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_PREMULTIPLIED }, 96.0f, 96.0f };
 	const D2D1_SIZE_U size = { (UINT32)image->width, (UINT32)image->height };
 	const D2D1_BITMAP_BRUSH_PROPERTIES brush_properties = { D2D1_EXTEND_MODE_CLAMP, D2D1_EXTEND_MODE_CLAMP, D2D1_BITMAP_INTERPOLATION_MODE_LINEAR };
@@ -377,8 +502,8 @@ static void upl__gfx_stroke_rect(float x, float y, float width, float height, co
 	if (!upl__d2d_ready())
 		return;
 
-	ID2D1RenderTarget *target = upl__d2d_state.target;
-	ID2D1Brush *brush = upl__d2d_solid(color);
+	Upl_D2DTarget *target = upl__d2d_state.target;
+	Upl_D2DBrush *brush = upl__d2d_solid(color);
 	const float half = line_width * 0.5f;
 	const D2D1_RECT_F rect = { x + half, y + half, x + width - half, y + height - half };
 	float inner[4];
@@ -387,9 +512,9 @@ static void upl__gfx_stroke_rect(float x, float y, float width, float height, co
 
 	if (!upl__d2d_uniform(inner))
 	{
-		ID2D1PathGeometry *path = upl__d2d_round_rect_path(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, inner);
+		Upl_D2DPath *path = upl__d2d_round_rect_path(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, inner);
 		if (path)
-			target->lpVtbl->DrawGeometry(target, (ID2D1Geometry *)path, brush, line_width, NULL);
+			target->lpVtbl->DrawGeometry(target, path, brush, line_width, NULL);
 		upl__d2d_release(path);
 	}
 	else if (inner[0] > 0.0f)
@@ -413,7 +538,7 @@ static void upl__gfx_line(float x0, float y0, float x1, float y1, float width, L
 	if (!upl__d2d_ready())
 		return;
 
-	ID2D1RenderTarget *target = upl__d2d_state.target;
+	Upl_D2DTarget *target = upl__d2d_state.target;
 	target->lpVtbl->DrawLine(target, (D2D1_POINT_2F) { x0, y0 }, (D2D1_POINT_2F) { x1, y1 }, upl__d2d_solid(color), width, upl__d2d_state.round_stroke);
 }
 
@@ -422,7 +547,7 @@ static void upl__gfx_fill_circle(float cx, float cy, float radius, Leaf_Color co
 	if (!upl__d2d_ready())
 		return;
 
-	ID2D1RenderTarget *target = upl__d2d_state.target;
+	Upl_D2DTarget *target = upl__d2d_state.target;
 	const D2D1_ELLIPSE ellipse = { { cx, cy }, radius, radius };
 	target->lpVtbl->FillEllipse(target, &ellipse, upl__d2d_solid(color));
 }
@@ -433,8 +558,8 @@ static void upl__gfx_stroke_arc(float cx, float cy, float radius, float start_an
 		return;
 
 	Upl_D2DState *state = &upl__d2d_state;
-	ID2D1RenderTarget *target = state->target;
-	ID2D1Brush *brush = upl__d2d_solid(color);
+	Upl_D2DTarget *target = state->target;
+	Upl_D2DBrush *brush = upl__d2d_solid(color);
 	if (sweep >= UPL_D2D_FULL_TURN - 1e-4f)
 	{
 		const D2D1_ELLIPSE ellipse = { { cx, cy }, radius, radius };
@@ -442,8 +567,8 @@ static void upl__gfx_stroke_arc(float cx, float cy, float radius, float start_an
 		return;
 	}
 
-	ID2D1PathGeometry *path = NULL;
-	ID2D1GeometrySink *sink = NULL;
+	Upl_D2DPath *path = NULL;
+	Upl_D2DSink *sink = NULL;
 	if (FAILED(state->factory->lpVtbl->CreatePathGeometry(state->factory, &path)))
 		return;
 
@@ -458,13 +583,12 @@ static void upl__gfx_stroke_arc(float cx, float cy, float radius, float start_an
 			sweep > UPL_D2D_FULL_TURN * 0.5f ? D2D1_ARC_SIZE_LARGE : D2D1_ARC_SIZE_SMALL
 		};
 
-		ID2D1SimplifiedGeometrySink *simple = (ID2D1SimplifiedGeometrySink *)sink;
-		simple->lpVtbl->BeginFigure(simple, (D2D1_POINT_2F) { cx + cosf(start_angle) * radius, cy + sinf(start_angle) * radius }, D2D1_FIGURE_BEGIN_HOLLOW);
+				sink->lpVtbl->BeginFigure(sink, (D2D1_POINT_2F) { cx + cosf(start_angle) * radius, cy + sinf(start_angle) * radius }, D2D1_FIGURE_BEGIN_HOLLOW);
 		sink->lpVtbl->AddArc(sink, &arc);
-		simple->lpVtbl->EndFigure(simple, D2D1_FIGURE_END_OPEN);
-		simple->lpVtbl->Close(simple);
+		sink->lpVtbl->EndFigure(sink, D2D1_FIGURE_END_OPEN);
+		sink->lpVtbl->Close(sink);
 		upl__d2d_release(sink);
-		target->lpVtbl->DrawGeometry(target, (ID2D1Geometry *)path, brush, width, state->round_stroke);
+		target->lpVtbl->DrawGeometry(target, path, brush, width, state->round_stroke);
 	}
 
 	upl__d2d_release(path);
@@ -477,7 +601,7 @@ static void upl__gfx_glyph(const Upl_Atlas *atlas, Upl_Glyph *glyph, float x, fl
 	if (!surface)
 		return;
 
-	ID2D1RenderTarget *target = state->target;
+	Upl_D2DTarget *target = state->target;
 	if (surface->atlas_generation != atlas->generation)
 	{
 		if (state->drawn)
@@ -507,16 +631,10 @@ static void upl__gfx_image(Upl_Image *image, float x, float y, float width, floa
 	if (!slot)
 		return;
 
-	D2D1_MATRIX_3X2_F transform;
-	transform._11 = width / (float)image->width;
-	transform._12 = 0.0f;
-	transform._21 = 0.0f;
-	transform._22 = height / (float)image->height;
-	transform._31 = x;
-	transform._32 = y;
+	const float transform[6] = { width / (float)image->width, 0.0f, 0.0f, height / (float)image->height, x, y };
 
-	ID2D1Brush *brush = (ID2D1Brush *)slot->brush;
-	brush->lpVtbl->SetTransform(brush, &transform);
+	Upl_D2DBrush *brush = slot->brush;
+	brush->lpVtbl->SetTransform(brush, transform);
 	brush->lpVtbl->SetOpacity(brush, (float)tint.a / 255.0f);
 	upl__d2d_fill_shape(x, y, width, height, radii, brush);
 }
