@@ -670,7 +670,7 @@ static bool upl__clap_gui_set_scale(const clap_plugin_t *clap, double scale)
 	plugin->gui.scale = (float)scale;
 	if (plugin->gui.created)
 	{
-		upl__gui_resize_buffer(plugin);
+		upl__gui_update_size(plugin);
 		if (plugin->gui.window)
 			upl__window_resize(plugin);
 	}

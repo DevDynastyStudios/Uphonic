@@ -1,6 +1,8 @@
 #define UPL_MAX_FONTS			8
 #define UPL_MAX_CLIPS			32
 #define UPL_GLYPH_CACHE_SIZE	4096
+#define UPL_GLYPH_PADDING		1
+#define UPL_SHADOW_LAYERS		8
 
 typedef struct
 {
@@ -14,40 +16,6 @@ Upl_Font;
 
 typedef struct
 {
-	uint8_t *bitmap;
-	uint32_t font_id;
-	int32_t size;
-	int32_t codepoint;
-	int32_t width;
-	int32_t height;
-	int32_t x_offset;
-	int32_t y_offset;
-	float advance;
-	bool used;
-}
-Upl_Glyph;
-
-typedef struct
-{
-	int32_t x0;
-	int32_t y0;
-	int32_t x1;
-	int32_t y1;
-}
-Upl_Clip;
-
-struct Upl_Image
-{
-	uint8_t *pixels;
-	int32_t width;
-	int32_t height;
-};
-
-typedef struct
-{
-	uint32_t *pixels;
-	int32_t width;
-	int32_t height;
 	float opacity;
 	Upl_Clip clip;
 	Upl_Clip clips[UPL_MAX_CLIPS];
@@ -56,63 +24,26 @@ typedef struct
 	uint32_t font_count;
 	Upl_Glyph glyphs[UPL_GLYPH_CACHE_SIZE];
 	uint32_t glyph_count;
+	Upl_Atlas atlas;
+	uint64_t image_serial;
 }
 Upl_RendererState;
 
 static Upl_RendererState upl__renderer_state;
 
-#pragma region Pixels
+#pragma region Helpers
 
-static inline float upl__clamp01(float v)
+static inline Leaf_Color upl__fade(Leaf_Color color)
 {
-	return v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+	color.a = (uint8_t)((float)color.a * upl__renderer_state.opacity + 0.5f);
+	return color;
 }
 
-static inline void upl__blend(uint32_t *dst, uint8_t r, uint8_t g, uint8_t b, float alpha)
+static bool upl__visible(float x0, float y0, float x1, float y1)
 {
-	if (alpha <= 0.0f)
-		return;
-
-	if (alpha >= 1.0f)
-	{
-		*dst = ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
-		return;
-	}
-
-	const uint32_t d = *dst;
-	const int32_t a = (int32_t)(alpha * 256.0f);
-	const int32_t dr = (int32_t)((d >> 16) & 0xFF);
-	const int32_t dg = (int32_t)((d >> 8) & 0xFF);
-	const int32_t db = (int32_t)(d & 0xFF);
-	const uint32_t nr = (uint32_t)(dr + ((((int32_t)r - dr) * a) >> 8));
-	const uint32_t ng = (uint32_t)(dg + ((((int32_t)g - dg) * a) >> 8));
-	const uint32_t nb = (uint32_t)(db + ((((int32_t)b - db) * a) >> 8));
-	*dst = (nr << 16) | (ng << 8) | nb;
+	const Upl_Clip *clip = &upl__renderer_state.clip;
+	return x1 > (float)clip->x0 && y1 > (float)clip->y0 && x0 < (float)clip->x1 && y0 < (float)clip->y1 && clip->x0 < clip->x1 && clip->y0 < clip->y1;
 }
-
-static inline void upl__plot(int32_t x, int32_t y, Leaf_Color color, float coverage)
-{
-	Upl_RendererState *state = &upl__renderer_state;
-	upl__blend(&state->pixels[y * state->width + x], color.r, color.g, color.b, coverage * (float)color.a * (1.0f / 255.0f) * state->opacity);
-}
-
-static bool upl__bounds(float x0, float y0, float x1, float y1, Upl_Clip *out)
-{
-	Upl_RendererState *state = &upl__renderer_state;
-	out->x0 = (int32_t)floorf(x0);
-	out->y0 = (int32_t)floorf(y0);
-	out->x1 = (int32_t)ceilf(x1);
-	out->y1 = (int32_t)ceilf(y1);
-	out->x0 = out->x0 > state->clip.x0 ? out->x0 : state->clip.x0;
-	out->y0 = out->y0 > state->clip.y0 ? out->y0 : state->clip.y0;
-	out->x1 = out->x1 < state->clip.x1 ? out->x1 : state->clip.x1;
-	out->y1 = out->y1 < state->clip.y1 ? out->y1 : state->clip.y1;
-	return out->x0 < out->x1 && out->y0 < out->y1;
-}
-
-#pragma endregion
-
-#pragma region Shapes
 
 static void upl__corner_radii(float width, float height, float rounding, Leaf_Corners corners, float out[4])
 {
@@ -124,53 +55,81 @@ static void upl__corner_radii(float width, float height, float rounding, Leaf_Co
 	out[3] = (corners & LEAF_CORNER_BL) ? radius : 0.0f;
 }
 
-static inline float upl__sd_round_box(float px, float py, float cx, float cy, float hx, float hy, const float radii[4])
+static uint32_t upl__color_key(Leaf_Color color)
 {
-	px -= cx;
-	py -= cy;
-	const float radius = px < 0.0f ? (py < 0.0f ? radii[0] : radii[3]) : (py < 0.0f ? radii[1] : radii[2]);
-	const float qx = fabsf(px) - hx + radius;
-	const float qy = fabsf(py) - hy + radius;
-	const float ox = fmaxf(qx, 0.0f);
-	const float oy = fmaxf(qy, 0.0f);
-	return fminf(fmaxf(qx, qy), 0.0f) + sqrtf(ox * ox + oy * oy) - radius;
+	return ((uint32_t)color.r << 16) | ((uint32_t)color.g << 8) | (uint32_t)color.b;
 }
+
+static void upl__shadow_layers(float x, float y, float width, float height, const float radii[4], float blur, Leaf_Color color)
+{
+	const float spread = fmaxf(blur, 0.5f);
+	int32_t layers = (int32_t)ceilf(spread);
+	layers = layers < 1 ? 1 : (layers > UPL_SHADOW_LAYERS ? UPL_SHADOW_LAYERS : layers);
+
+	const float alpha = 1.0f - powf(1.0f - (float)color.a * (1.0f / 255.0f), 1.0f / (float)layers);
+	Leaf_Color layer = color;
+	layer.a = (uint8_t)(alpha * 255.0f + 0.5f);
+	if (layer.a == 0)
+		return;
+
+	for (int32_t i = 0; i < layers; i++)
+	{
+		const float expand = spread * (1.0f - 2.0f * ((float)i + 0.5f) / (float)layers);
+		const float layer_width = width + expand * 2.0f;
+		const float layer_height = height + expand * 2.0f;
+		if (layer_width <= 0.0f || layer_height <= 0.0f)
+			continue;
+
+		float layer_radii[4];
+		for (int32_t c = 0; c < 4; c++)
+			layer_radii[c] = fminf(fmaxf(radii[c] + expand, 0.0f), fminf(layer_width, layer_height) * 0.5f);
+
+		upl__gfx_fill_rect(x - expand, y - expand, layer_width, layer_height, layer_radii, layer);
+	}
+}
+
+static uint8_t *upl__image_premultiply(const Upl_Image *image, Leaf_Color tint, bool bgra)
+{
+	const size_t count = (size_t)image->width * (size_t)image->height;
+	uint8_t *out = (uint8_t *)malloc(count * 4);
+	if (!out)
+		return NULL;
+
+	const uint32_t tr = tint.r, tg = tint.g, tb = tint.b;
+	for (size_t i = 0; i < count; i++)
+	{
+		const uint8_t *src = image->pixels + i * 4;
+		const uint32_t a = src[3];
+		const uint8_t r = (uint8_t)((uint32_t)src[0] * tr * a / (255u * 255u));
+		const uint8_t g = (uint8_t)((uint32_t)src[1] * tg * a / (255u * 255u));
+		const uint8_t b = (uint8_t)((uint32_t)src[2] * tb * a / (255u * 255u));
+		uint8_t *dst = out + i * 4;
+		dst[0] = bgra ? b : r;
+		dst[1] = g;
+		dst[2] = bgra ? r : b;
+		dst[3] = (uint8_t)a;
+	}
+
+	return out;
+}
+
+#pragma endregion
+
+#pragma region Shapes
 
 static void upl__fill_round_rect(float x, float y, float width, float height, Leaf_Color color, float rounding, Leaf_Corners corners)
 {
-	Upl_Clip b;
-	if (color.a == 0 || width <= 0.0f || height <= 0.0f || !upl__bounds(x, y, x + width, y + height, &b))
+	if (color.a == 0 || width <= 0.0f || height <= 0.0f || !upl__visible(x, y, x + width, y + height))
 		return;
 
 	float radii[4];
 	upl__corner_radii(width, height, rounding, corners, radii);
-	const float max_radius = fmaxf(fmaxf(radii[0], radii[1]), fmaxf(radii[2], radii[3]));
-	const float hx = width * 0.5f;
-	const float hy = height * 0.5f;
-	const float cx = x + hx;
-	const float cy = y + hy;
-
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float fy = (float)py + 0.5f;
-		const bool row_interior = fy >= y + max_radius && fy <= y + height - max_radius;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float fx = (float)px + 0.5f;
-			if (row_interior || (fx >= x + max_radius && fx <= x + width - max_radius))
-			{
-				upl__plot(px, py, color, 1.0f);
-				continue;
-			}
-
-			upl__plot(px, py, color, upl__clamp01(0.5f - upl__sd_round_box(fx, fy, cx, cy, hx, hy, radii)));
-		}
-	}
+	upl__gfx_fill_rect(x, y, width, height, radii, upl__fade(color));
 }
 
 static void upl__stroke_round_rect(float x, float y, float width, float height, Leaf_Color color, float line_width, float rounding, Leaf_Corners corners, Leaf_Sides sides)
 {
-	if (color.a == 0 || line_width <= 0.0f || width <= 0.0f || height <= 0.0f)
+	if (color.a == 0 || line_width <= 0.0f || width <= 0.0f || height <= 0.0f || !upl__visible(x, y, x + width, y + height))
 		return;
 
 	if (sides != LEAF_SIDE_ALL)
@@ -190,60 +149,19 @@ static void upl__stroke_round_rect(float x, float y, float width, float height, 
 		return;
 	}
 
-	const bool square = rounding <= 0.0f || corners == LEAF_CORNER_NONE;
-	const bool whole = x == floorf(x) && y == floorf(y) && width == floorf(width) && height == floorf(height) && line_width == floorf(line_width);
-	if (square && whole && line_width * 2.0f < fminf(width, height))
-	{
-		const float side_height = height - line_width * 2.0f;
-		upl__fill_round_rect(x, y, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
-		upl__fill_round_rect(x, y + height - line_width, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
-		upl__fill_round_rect(x, y + line_width, line_width, side_height, color, 0.0f, LEAF_CORNER_NONE);
-		upl__fill_round_rect(x + width - line_width, y + line_width, line_width, side_height, color, 0.0f, LEAF_CORNER_NONE);
-		return;
-	}
-
-	Upl_Clip b;
-	if (!upl__bounds(x, y, x + width, y + height, &b))
-		return;
+	float radii[4];
+	upl__corner_radii(width, height, rounding, corners, radii);
+	upl__gfx_stroke_rect(x, y, width, height, radii, fminf(line_width, fminf(width, height) * 0.5f), upl__fade(color));
 }
 
 static void upl__fill_shadow(float x, float y, float width, float height, Leaf_Color color, float blur, float rounding, Leaf_Corners corners)
 {
-	Upl_Clip b;
-	if (color.a == 0 || !upl__bounds(x - blur, y - blur, x + width + blur, y + height + blur, &b))
+	if (color.a == 0 || width <= 0.0f || height <= 0.0f || !upl__visible(x - blur, y - blur, x + width + blur, y + height + blur))
 		return;
 
 	float radii[4];
 	upl__corner_radii(width, height, rounding, corners, radii);
-	const float hx = width * 0.5f;
-	const float hy = height * 0.5f;
-	const float cx = x + hx;
-	const float cy = y + hy;
-	const float spread = fmaxf(blur, 0.5f);
-
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float fy = (float)py + 0.5f;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float fx = (float)px + 0.5f;
-			const float t = upl__clamp01((upl__sd_round_box(fx, fy, cx, cy, hx, hy, radii) + spread) / (2.0f * spread));
-			upl__plot(px, py, color, 1.0f - t * t * (3.0f - 2.0f * t));
-		}
-	}
-}
-
-static inline float upl__sd_segment(float px, float py, float x0, float y0, float x1, float y1)
-{
-	const float pax = px - x0;
-	const float pay = py - y0;
-	const float bax = x1 - x0;
-	const float bay = y1 - y0;
-	const float length_sq = bax * bax + bay * bay;
-	const float h = length_sq > 0.0f ? upl__clamp01((pax * bax + pay * bay) / length_sq) : 0.0f;
-	const float dx = pax - bax * h;
-	const float dy = pay - bay * h;
-	return sqrtf(dx * dx + dy * dy);
+	upl__gfx_shadow(x, y, width, height, radii, blur, upl__fade(color));
 }
 
 #pragma endregion
@@ -283,17 +201,48 @@ static Upl_Font *upl__font_get(uint32_t font_id)
 static void upl__glyph_cache_clear(void)
 {
 	Upl_RendererState *state = &upl__renderer_state;
+	upl__gfx_atlas_reset();
+
 	for (uint32_t i = 0; i < UPL_GLYPH_CACHE_SIZE; i++)
 	{
-		if (state->glyphs[i].bitmap)
-			stbtt_FreeBitmap(state->glyphs[i].bitmap, NULL);
+		if (state->glyphs[i].native)
+			upl__gfx_glyph_release(&state->glyphs[i]);
 	}
 
 	memset(state->glyphs, 0, sizeof(state->glyphs));
+	memset(state->atlas.pixels, 0, sizeof(state->atlas.pixels));
 	state->glyph_count = 0;
+	state->atlas.cursor_x = 0;
+	state->atlas.cursor_y = 0;
+	state->atlas.row_height = 0;
+	state->atlas.generation++;
 }
 
-static const Upl_Glyph *upl__glyph_get(uint32_t font_id, Upl_Font *font, int32_t size, int32_t codepoint)
+static bool upl__atlas_alloc(Upl_Atlas *atlas, int32_t width, int32_t height, int32_t *x, int32_t *y)
+{
+	const int32_t padded_width = width + UPL_GLYPH_PADDING;
+	const int32_t padded_height = height + UPL_GLYPH_PADDING;
+	if (padded_width > UPL_ATLAS_SIZE || padded_height > UPL_ATLAS_SIZE)
+		return false;
+
+	if (atlas->cursor_x + padded_width > UPL_ATLAS_SIZE)
+	{
+		atlas->cursor_x = 0;
+		atlas->cursor_y += atlas->row_height;
+		atlas->row_height = 0;
+	}
+
+	if (atlas->cursor_y + padded_height > UPL_ATLAS_SIZE)
+		return false;
+
+	*x = atlas->cursor_x;
+	*y = atlas->cursor_y;
+	atlas->cursor_x += padded_width;
+	atlas->row_height = padded_height > atlas->row_height ? padded_height : atlas->row_height;
+	return true;
+}
+
+static Upl_Glyph *upl__glyph_get(uint32_t font_id, Upl_Font *font, int32_t size, int32_t codepoint)
 {
 	Upl_RendererState *state = &upl__renderer_state;
 	const uint32_t hash = ((uint32_t)codepoint * 2654435761u) ^ ((uint32_t)size * 40503u) ^ (font_id * 97u);
@@ -301,7 +250,7 @@ static const Upl_Glyph *upl__glyph_get(uint32_t font_id, Upl_Font *font, int32_t
 
 	while (state->glyphs[index].used)
 	{
-		const Upl_Glyph *glyph = &state->glyphs[index];
+		Upl_Glyph *glyph = &state->glyphs[index];
 		if (glyph->codepoint == codepoint && glyph->size == size && glyph->font_id == font_id)
 			return glyph;
 
@@ -314,17 +263,44 @@ static const Upl_Glyph *upl__glyph_get(uint32_t font_id, Upl_Font *font, int32_t
 		index = hash % UPL_GLYPH_CACHE_SIZE;
 	}
 
-	Upl_Glyph *glyph = &state->glyphs[index];
 	const float scale = stbtt_ScaleForPixelHeight(&font->info, (float)size);
-	int advance, left_bearing;
+	int advance, left_bearing, x0, y0, x1, y1;
 	stbtt_GetCodepointHMetrics(&font->info, codepoint, &advance, &left_bearing);
+	stbtt_GetCodepointBitmapBox(&font->info, codepoint, scale, scale, &x0, &y0, &x1, &y1);
 
-	glyph->bitmap = stbtt_GetCodepointBitmap(&font->info, 0.0f, scale, codepoint, &glyph->width, &glyph->height, &glyph->x_offset, &glyph->y_offset);
-	glyph->font_id = font_id;
-	glyph->size = size;
-	glyph->codepoint = codepoint;
-	glyph->advance = (float)advance * scale;
-	glyph->used = true;
+	int32_t width = x1 - x0;
+	int32_t height = y1 - y0;
+	int32_t atlas_x = 0;
+	int32_t atlas_y = 0;
+	if (width > 0 && height > 0 && !upl__atlas_alloc(&state->atlas, width, height, &atlas_x, &atlas_y))
+	{
+		upl__glyph_cache_clear();
+		index = hash % UPL_GLYPH_CACHE_SIZE;
+		if (!upl__atlas_alloc(&state->atlas, width, height, &atlas_x, &atlas_y))
+			width = height = 0;
+	}
+
+	if (width > 0 && height > 0)
+	{
+		stbtt_MakeCodepointBitmap(&font->info, state->atlas.pixels + atlas_y * UPL_ATLAS_SIZE + atlas_x, width, height, UPL_ATLAS_SIZE, scale, scale, codepoint);
+		state->atlas.generation++;
+	}
+
+	Upl_Glyph *glyph = &state->glyphs[index];
+	*glyph = (Upl_Glyph) {
+		.font_id = font_id,
+		.size = size,
+		.codepoint = codepoint,
+		.atlas_x = atlas_x,
+		.atlas_y = atlas_y,
+		.width = width > 0 && height > 0 ? width : 0,
+		.height = width > 0 && height > 0 ? height : 0,
+		.x_offset = x0,
+		.y_offset = y0,
+		.advance = (float)advance * scale,
+		.used = true
+	};
+
 	state->glyph_count++;
 	return glyph;
 }
@@ -374,6 +350,7 @@ static void upl__draw_text_n(float x, float y, const char *text, uint32_t length
 	if (font_id >= state->font_count)
 		font_id = UPL_DEFAULT_FONT;
 
+	const Leaf_Color faded = upl__fade(color);
 	const float scale = stbtt_ScaleForPixelHeight(&font->info, (float)font_size);
 	const int32_t baseline = (int32_t)floorf(y + font->ascent * (float)font_size + 0.5f);
 	float pen_x = x;
@@ -387,23 +364,11 @@ static void upl__draw_text_n(float x, float y, const char *text, uint32_t length
 		if (previous)
 			pen_x += (float)stbtt_GetCodepointKernAdvance(&font->info, previous, codepoint) * scale;
 
-		const Upl_Glyph *glyph = upl__glyph_get(font_id, font, font_size, codepoint);
-		const int32_t gx = (int32_t)floorf(pen_x + 0.5f) + glyph->x_offset;
-		const int32_t gy = baseline + glyph->y_offset;
-		Upl_Clip b;
-		if (glyph->bitmap && upl__bounds((float)gx, (float)gy, (float)(gx + glyph->width), (float)(gy + glyph->height), &b))
-		{
-			for (int32_t py = b.y0; py < b.y1; py++)
-			{
-				const uint8_t *row = glyph->bitmap + (py - gy) * glyph->width;
-				for (int32_t px = b.x0; px < b.x1; px++)
-				{
-					const uint8_t coverage = row[px - gx];
-					if (coverage)
-						upl__plot(px, py, color, (float)coverage * (1.0f / 255.0f));
-				}
-			}
-		}
+		Upl_Glyph *glyph = upl__glyph_get(font_id, font, font_size, codepoint);
+		const float gx = floorf(pen_x + 0.5f) + (float)glyph->x_offset;
+		const float gy = (float)(baseline + glyph->y_offset);
+		if (glyph->width > 0 && upl__visible(gx, gy, gx + (float)glyph->width, gy + (float)glyph->height))
+			upl__gfx_glyph(&state->atlas, glyph, gx, gy, faded);
 
 		pen_x += glyph->advance;
 		previous = codepoint;
@@ -414,83 +379,27 @@ static void upl__draw_text_n(float x, float y, const char *text, uint32_t length
 
 #pragma region Images
 
-static inline void upl__image_sample(const Upl_Image *image, float u, float v, float out[4])
+static void upl__draw_image(Upl_Image *image, float x, float y, float width, float height, Leaf_Color tint, float rounding, Leaf_Corners corners)
 {
-	const float fx = fminf(fmaxf(u * (float)image->width - 0.5f, 0.0f), (float)(image->width - 1));
-	const float fy = fminf(fmaxf(v * (float)image->height - 0.5f, 0.0f), (float)(image->height - 1));
-	const int32_t x0 = (int32_t)fx;
-	const int32_t y0 = (int32_t)fy;
-	const int32_t x1 = x0 + 1 < image->width ? x0 + 1 : x0;
-	const int32_t y1 = y0 + 1 < image->height ? y0 + 1 : y0;
-	const float tx = fx - (float)x0;
-	const float ty = fy - (float)y0;
-	const uint8_t *p00 = image->pixels + (y0 * image->width + x0) * 4;
-	const uint8_t *p10 = image->pixels + (y0 * image->width + x1) * 4;
-	const uint8_t *p01 = image->pixels + (y1 * image->width + x0) * 4;
-	const uint8_t *p11 = image->pixels + (y1 * image->width + x1) * 4;
-
-	for (int32_t c = 0; c < 4; c++)
-	{
-		const float top = (float)p00[c] + ((float)p10[c] - (float)p00[c]) * tx;
-		const float bottom = (float)p01[c] + ((float)p11[c] - (float)p01[c]) * tx;
-		out[c] = top + (bottom - top) * ty;
-	}
-}
-
-static void upl__draw_image(const Upl_Image *image, float x, float y, float width, float height, Leaf_Color tint, float rounding, Leaf_Corners corners)
-{
-	Upl_RendererState *state = &upl__renderer_state;
-	Upl_Clip b;
-	if (!image || tint.a == 0 || width <= 0.0f || height <= 0.0f || !upl__bounds(x, y, x + width, y + height, &b))
+	if (!image || tint.a == 0 || width <= 0.0f || height <= 0.0f || !upl__visible(x, y, x + width, y + height))
 		return;
 
 	float radii[4];
 	upl__corner_radii(width, height, rounding, corners, radii);
-	const bool rounded = radii[0] > 0.0f || radii[1] > 0.0f || radii[2] > 0.0f || radii[3] > 0.0f;
-	const float hx = width * 0.5f;
-	const float hy = height * 0.5f;
-
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float fy = (float)py + 0.5f;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float fx = (float)px + 0.5f;
-			float sample[4];
-			upl__image_sample(image, (fx - x) / width, (fy - y) / height, sample);
-
-			float alpha = sample[3] * (1.0f / 255.0f) * (float)tint.a * (1.0f / 255.0f) * state->opacity;
-			if (rounded)
-				alpha *= upl__clamp01(0.5f - upl__sd_round_box(fx, fy, x + hx, y + hy, hx, hy, radii));
-
-			upl__blend(
-				&state->pixels[py * state->width + px],
-				(uint8_t)(sample[0] * (float)tint.r * (1.0f / 255.0f)),
-				(uint8_t)(sample[1] * (float)tint.g * (1.0f / 255.0f)),
-				(uint8_t)(sample[2] * (float)tint.b * (1.0f / 255.0f)),
-				alpha
-			);
-		}
-	}
+	upl__gfx_image(image, x, y, width, height, radii, upl__fade(tint));
 }
 
 #pragma endregion
 
 #pragma region Frame
 
-static void upl__renderer_begin(uint32_t *pixels, int32_t width, int32_t height, Leaf_Color clear)
+static void upl__renderer_begin(int32_t width, int32_t height, Leaf_Color clear)
 {
 	Upl_RendererState *state = &upl__renderer_state;
-	state->pixels = pixels;
-	state->width = width;
-	state->height = height;
 	state->opacity = 1.0f;
 	state->clip = (Upl_Clip) { 0, 0, width, height };
 	state->clip_count = 0;
-
-	const uint32_t value = ((uint32_t)clear.r << 16) | ((uint32_t)clear.g << 8) | (uint32_t)clear.b;
-	for (int32_t i = 0; i < width * height; i++)
-		pixels[i] = value;
+	upl__gfx_clear(clear);
 }
 
 static void upl__clip_push(int32_t x, int32_t y, int32_t width, int32_t height)
@@ -505,13 +414,17 @@ static void upl__clip_push(int32_t x, int32_t y, int32_t width, int32_t height)
 	clip.x1 = x + width < clip.x1 ? x + width : clip.x1;
 	clip.y1 = y + height < clip.y1 ? y + height : clip.y1;
 	state->clip = clip;
+	upl__gfx_set_clip(&state->clip);
 }
 
 static void upl__clip_pop(void)
 {
 	Upl_RendererState *state = &upl__renderer_state;
-	if (state->clip_count > 0)
-		state->clip = state->clips[--state->clip_count];
+	if (state->clip_count == 0)
+		return;
+
+	state->clip = state->clips[--state->clip_count];
+	upl__gfx_set_clip(state->clip_count > 0 ? &state->clip : NULL);
 }
 
 static void upl__render_commands(const Leaf_RenderCmdList *list)
@@ -535,7 +448,7 @@ static void upl__render_commands(const Leaf_RenderCmdList *list)
 				upl__draw_text_n((float)box.x, (float)box.y, cmd->text.text, (uint32_t)strlen(cmd->text.text), cmd->text.font_size, cmd->text.font_id, cmd->color);
 				break;
 			case LEAF_RENDER_CMD_IMAGE:
-				upl__draw_image((const Upl_Image *)cmd->image.handle, (float)box.x, (float)box.y, (float)box.width, (float)box.height, cmd->color, (float)cmd->image.rounding, cmd->image.rounding_corners);
+				upl__draw_image((Upl_Image *)cmd->image.handle, (float)box.x, (float)box.y, (float)box.width, (float)box.height, cmd->color, (float)cmd->image.rounding, cmd->image.rounding_corners);
 				break;
 			case LEAF_RENDER_CMD_SCISSOR_PUSH:
 				upl__clip_push(box.x, box.y, box.width, box.height);
@@ -558,6 +471,8 @@ static void upl__render_commands(const Leaf_RenderCmdList *list)
 	}
 
 	state->opacity = 1.0f;
+	while (state->clip_count > 0)
+		upl__clip_pop();
 }
 
 #pragma endregion
@@ -575,10 +490,11 @@ Upl_Image *upl_image_create(const uint8_t *rgba, int32_t width, int32_t height)
 	if (!rgba || width <= 0 || height <= 0)
 		return NULL;
 
-	Upl_Image *image = (Upl_Image *)malloc(sizeof(Upl_Image));
+	Upl_Image *image = (Upl_Image *)calloc(1, sizeof(Upl_Image));
 	image->pixels = (uint8_t *)malloc((size_t)width * (size_t)height * 4);
 	image->width = width;
 	image->height = height;
+	image->serial = ++upl__renderer_state.image_serial;
 	memcpy(image->pixels, rgba, (size_t)width * (size_t)height * 4);
 	return image;
 }
@@ -588,6 +504,7 @@ void upl_image_destroy(Upl_Image *image)
 	if (!image)
 		return;
 
+	upl__gfx_image_release(image);
 	free(image->pixels);
 	free(image);
 }
@@ -604,82 +521,28 @@ void upl_stroke_rect(float x, float y, float width, float height, Leaf_Color col
 
 void upl_draw_line(float x0, float y0, float x1, float y1, Leaf_Color color, float width)
 {
-	const float half = width * 0.5f;
-	Upl_Clip b;
-	if (color.a == 0 || !upl__bounds(fminf(x0, x1) - half - 1.0f, fminf(y0, y1) - half - 1.0f, fmaxf(x0, x1) + half + 1.0f, fmaxf(y0, y1) + half + 1.0f, &b))
+	const float half = width * 0.5f + 1.0f;
+	if (color.a == 0 || width <= 0.0f || !upl__visible(fminf(x0, x1) - half, fminf(y0, y1) - half, fmaxf(x0, x1) + half, fmaxf(y0, y1) + half))
 		return;
 
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		for (int32_t px = b.x0; px < b.x1; px++)
-			upl__plot(px, py, color, upl__clamp01(half + 0.5f - upl__sd_segment((float)px + 0.5f, (float)py + 0.5f, x0, y0, x1, y1)));
-	}
+	upl__gfx_line(x0, y0, x1, y1, width, upl__fade(color));
 }
 
 void upl_fill_circle(float cx, float cy, float radius, Leaf_Color color)
 {
-	Upl_Clip b;
-	if (color.a == 0 || !upl__bounds(cx - radius - 1.0f, cy - radius - 1.0f, cx + radius + 1.0f, cy + radius + 1.0f, &b))
+	if (color.a == 0 || radius <= 0.0f || !upl__visible(cx - radius - 1.0f, cy - radius - 1.0f, cx + radius + 1.0f, cy + radius + 1.0f))
 		return;
 
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float dy = (float)py + 0.5f - cy;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float dx = (float)px + 0.5f - cx;
-			upl__plot(px, py, color, upl__clamp01(radius + 0.5f - sqrtf(dx * dx + dy * dy)));
-		}
-	}
+	upl__gfx_fill_circle(cx, cy, radius, upl__fade(color));
 }
 
 void upl_stroke_arc(float cx, float cy, float radius, float start_angle, float end_angle, Leaf_Color color, float width)
 {
-	const float half = width * 0.5f;
-	const float extent = radius + half + 1.0f;
-	Upl_Clip b;
-	if (color.a == 0 || end_angle <= start_angle || !upl__bounds(cx - extent, cy - extent, cx + extent, cy + extent, &b))
+	const float extent = radius + width * 0.5f + 1.0f;
+	if (color.a == 0 || width <= 0.0f || end_angle <= start_angle || !upl__visible(cx - extent, cy - extent, cx + extent, cy + extent))
 		return;
 
-	const float two_pi = 6.28318530718f;
-	const float sweep = fminf(end_angle - start_angle, two_pi);
-	const float sx = cx + cosf(start_angle) * radius;
-	const float sy = cy + sinf(start_angle) * radius;
-	const float ex = cx + cosf(start_angle + sweep) * radius;
-	const float ey = cy + sinf(start_angle + sweep) * radius;
-
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float fy = (float)py + 0.5f;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float fx = (float)px + 0.5f;
-			const float dx = fx - cx;
-			const float dy = fy - cy;
-			const float radial = fabsf(sqrtf(dx * dx + dy * dy) - radius);
-
-			if (radial > half + 0.5f)
-				continue;
-
-			float angle = atan2f(dy, dx) - start_angle;
-			angle = fmodf(angle, two_pi);
-
-			if (angle < 0.0f)
-				angle += two_pi;
-
-			float distance;
-			if (angle <= sweep)
-				distance = radial;
-			else
-			{
-				const float ds = sqrtf((fx - sx) * (fx - sx) + (fy - sy) * (fy - sy));
-				const float de = sqrtf((fx - ex) * (fx - ex) + (fy - ey) * (fy - ey));
-				distance = fminf(ds, de);
-			}
-
-			upl__plot(px, py, color, upl__clamp01(half + 0.5f - distance));
-		}
-	}
+	upl__gfx_stroke_arc(cx, cy, radius, start_angle, fminf(end_angle - start_angle, 6.28318530718f), width, upl__fade(color));
 }
 
 void upl_draw_text(float x, float y, const char *text, int32_t font_size, uint32_t font_id, Leaf_Color color)

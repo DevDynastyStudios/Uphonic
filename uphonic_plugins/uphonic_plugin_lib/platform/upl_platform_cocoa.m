@@ -19,7 +19,6 @@ typedef struct
 {
 	Class view_class;
 	Ivar plugin_ivar;
-	CGColorSpaceRef color_space;
 }
 Upl_CocoaState;
 
@@ -71,7 +70,7 @@ static void upl__cocoa_button(id view, NSEvent *event, Upl_MouseButton button, b
 		upl__input_mouse_button(plugin, button, down);
 }
 
-static BOOL upl__cocoa_is_flipped(id self, SEL cmd)
+static BOOL upl__cocoa_yes(id self, SEL cmd)
 {
 	(void)self;
 	(void)cmd;
@@ -91,30 +90,13 @@ static void upl__cocoa_draw_rect(id self, SEL cmd, NSRect rect)
 	(void)cmd;
 	(void)rect;
 	Upl_Plugin *plugin = upl__cocoa_plugin(self);
-	if (!plugin || !plugin->gui.pixels)
+	if (!plugin || !plugin->gui.created)
 		return;
 
 	const Upl_Gui *gui = &plugin->gui;
-	CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, gui->pixels, (size_t)gui->width * (size_t)gui->height * 4, NULL);
-	CGImageRef image = CGImageCreate(
-		(size_t)gui->width, (size_t)gui->height,
-		8, 32, (size_t)gui->width * 4,
-		upl__cocoa_state.color_space,
-		kCGBitmapByteOrder32Little | (CGBitmapInfo)kCGImageAlphaNoneSkipFirst,
-		provider, NULL, false, kCGRenderingIntentDefault
-	);
-
-	const NSRect bounds = [(NSView *)self bounds];
-	CGContextSaveGState(context);
-	CGContextTranslateCTM(context, 0.0, bounds.size.height);
-	CGContextScaleCTM(context, 1.0, -1.0);
-	CGContextSetInterpolationQuality(context, kCGInterpolationNone);
-	CGContextDrawImage(context, CGRectMake(0.0, 0.0, bounds.size.width, bounds.size.height), image);
-	CGContextRestoreGState(context);
-
-	CGImageRelease(image);
-	CGDataProviderRelease(provider);
+	upl__cg_begin([[NSGraphicsContext currentContext] CGContext], gui->scale, gui->width, gui->height);
+	upl__gui_draw(plugin);
+	upl__cg_end();
 }
 
 static void upl__cocoa_mouse_moved(id self, SEL cmd, NSEvent *event)
@@ -185,7 +167,8 @@ static bool upl__cocoa_register_class(void)
 		return false;
 
 	class_addIvar(view_class, "upl_plugin", sizeof(void *), (uint8_t)__builtin_ctz(sizeof(void *)), "^v");
-	class_addMethod(view_class, @selector(isFlipped), (IMP)upl__cocoa_is_flipped, "c@:");
+	class_addMethod(view_class, @selector(isFlipped), (IMP)upl__cocoa_yes, "c@:");
+	class_addMethod(view_class, @selector(isOpaque), (IMP)upl__cocoa_yes, "c@:");
 	class_addMethod(view_class, @selector(acceptsFirstMouse:), (IMP)upl__cocoa_accepts_first_mouse, "c@:@");
 	class_addMethod(view_class, @selector(drawRect:), (IMP)upl__cocoa_draw_rect, "v@:{CGRect={CGPoint=dd}{CGSize=dd}}");
 	class_addMethod(view_class, @selector(mouseMoved:), (IMP)upl__cocoa_mouse_moved, "v@:@");
@@ -206,7 +189,6 @@ static bool upl__cocoa_register_class(void)
 
 	state->view_class = view_class;
 	state->plugin_ivar = class_getInstanceVariable(view_class, "upl_plugin");
-	state->color_space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
 	return true;
 }
 
@@ -221,11 +203,11 @@ static void upl__cocoa_apply_scale(Upl_Plugin *plugin)
 	Upl_CocoaWindow *window = (Upl_CocoaWindow *)plugin->gui.window;
 	NSWindow *host_window = [window->view window];
 	const float scale = host_window ? (float)[host_window backingScaleFactor] : 1.0f;
-	if (scale == plugin->gui.scale && plugin->gui.pixels)
+	if (scale == plugin->gui.scale && plugin->gui.width > 0)
 		return;
 
 	plugin->gui.scale = scale;
-	upl__gui_resize_buffer(plugin);
+	upl__gui_update_size(plugin);
 }
 
 static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
@@ -290,7 +272,7 @@ static void upl__window_set_visible(Upl_Plugin *plugin, bool visible)
 	[window->view setHidden:!visible];
 }
 
-static void upl__window_present(Upl_Plugin *plugin)
+static void upl__window_redraw(Upl_Plugin *plugin)
 {
 	Upl_CocoaWindow *window = (Upl_CocoaWindow *)plugin->gui.window;
 	[window->view setNeedsDisplay:YES];

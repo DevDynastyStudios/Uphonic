@@ -19,10 +19,13 @@
 #include "upl_default_font.h"
 
 #if defined(_WIN32)
+	#include "renderer/upl_renderer_d2d.c"
 	#include "platform/upl_platform_win32.c"
 #elif defined(__APPLE__)
+	#include "renderer/upl_renderer_cg.c"
 	#include "platform/upl_platform_cocoa.m"
 #else
+	#include "renderer/upl_renderer_gl.c"
 	#include "platform/upl_platform_x11.c"
 #endif
 

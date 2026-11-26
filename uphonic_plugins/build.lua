@@ -18,9 +18,9 @@ local GEN_DIR = "bin" .. SEP .. "gen"
 local DEFAULT_FONT = LIB_DIR .. SEP .. "fonts" .. SEP .. "MYRIADPRO-REGULAR.ttf"
 
 local LINKS = {
-    windows = { "-luser32", "-lgdi32", "-lcomdlg32" },
-    linux = { "-lX11", "-lm" },
-    macos = { "-framework Cocoa", "-framework CoreFoundation" }
+    windows = { "-luser32", "-lgdi32", "-lcomdlg32", "-ld2d1" },
+    linux = { "-lX11", "-lGL", "-lm" },
+    macos = { "-framework Cocoa", "-framework CoreFoundation", "-framework CoreGraphics" }
 }
 
 local COLOR = {

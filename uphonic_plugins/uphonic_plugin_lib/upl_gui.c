@@ -193,13 +193,11 @@ static Leaf_Dimensions upl__leaf_measure_text(const char *text, uint32_t length,
 	return upl_measure_text(text, length, font_size, config->font_id);
 }
 
-static void upl__gui_resize_buffer(Upl_Plugin *plugin)
+static void upl__gui_update_size(Upl_Plugin *plugin)
 {
 	Upl_Gui *gui = &plugin->gui;
 	gui->width = (int32_t)ceilf((float)upl_descriptor.gui_width * gui->scale);
 	gui->height = (int32_t)ceilf((float)upl_descriptor.gui_height * gui->scale);
-	free(gui->pixels);
-	gui->pixels = (uint32_t *)calloc((size_t)gui->width * (size_t)gui->height, sizeof(uint32_t));
 	upl__gui_mark_dirty(plugin);
 }
 
@@ -218,7 +216,7 @@ static void upl__gui_create(Upl_Plugin *plugin)
 	gui->drag.param = -1;
 	gui->input = (Upl_Input) { 0 };
 	gui->created = true;
-	upl__gui_resize_buffer(plugin);
+	upl__gui_update_size(plugin);
 }
 
 static void upl__gui_destroy(Upl_Plugin *plugin)
@@ -238,11 +236,10 @@ static void upl__gui_destroy(Upl_Plugin *plugin)
 		leaf_ctx = previous == gui->leaf ? NULL : previous;
 	}
 
-	free(gui->pixels);
 	*gui = (Upl_Gui) { .scale = gui->scale };
 }
 
-static void upl__gui_frame(Upl_Plugin *plugin)
+static void upl__gui_draw(Upl_Plugin *plugin)
 {
 	Upl_GuiState *state = &upl__gui_state;
 	Upl_Gui *gui = &plugin->gui;
@@ -258,7 +255,7 @@ static void upl__gui_frame(Upl_Plugin *plugin)
 		upl_descriptor.ui(plugin);
 	const Leaf_RenderCmdList commands = leaf_end_frame();
 
-	upl__renderer_begin(gui->pixels, gui->width, gui->height, state->theme.background);
+	upl__renderer_begin(gui->width, gui->height, state->theme.background);
 	upl__render_commands(&commands);
 
 	state->current = NULL;
@@ -280,12 +277,11 @@ static void upl__gui_tick(Upl_Plugin *plugin)
 	if (atomic_exchange(&plugin->ui_dirty, false))
 		upl__gui_mark_dirty(plugin);
 
-	if (gui->dirty_frames == 0 || !gui->pixels)
+	if (gui->dirty_frames == 0)
 		return;
 
 	gui->dirty_frames--;
-	upl__gui_frame(plugin);
-	upl__window_present(plugin);
+	upl__window_redraw(plugin);
 }
 
 #pragma endregion

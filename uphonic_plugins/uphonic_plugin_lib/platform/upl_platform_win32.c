@@ -20,6 +20,7 @@
 typedef struct
 {
 	HWND hwnd;
+	Upl_D2DSurface *surface;
 	bool tracking_leave;
 }
 Upl_Win32Window;
@@ -52,20 +53,14 @@ static double upl__time(void)
 	return (double)counter.QuadPart / (double)frequency.QuadPart;
 }
 
-static void upl__win32_blit(Upl_Plugin *plugin, HDC dc)
+static void upl__win32_render(Upl_Plugin *plugin)
 {
-	const Upl_Gui *gui = &plugin->gui;
-	if (!gui->pixels)
+	Upl_Win32Window *window = (Upl_Win32Window *)plugin->gui.window;
+	if (!window->surface || !upl__d2d_begin(window->surface))
 		return;
 
-	BITMAPINFO info = { 0 };
-	info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	info.bmiHeader.biWidth = gui->width;
-	info.bmiHeader.biHeight = -gui->height;
-	info.bmiHeader.biPlanes = 1;
-	info.bmiHeader.biBitCount = 32;
-	info.bmiHeader.biCompression = BI_RGB;
-	SetDIBitsToDevice(dc, 0, 0, (DWORD)gui->width, (DWORD)gui->height, 0, 0, 0, (UINT)gui->height, gui->pixels, &info, DIB_RGB_COLORS);
+	upl__gui_draw(plugin);
+	upl__d2d_end(window->surface);
 }
 
 static void upl__win32_button(Upl_Plugin *plugin, HWND hwnd, LPARAM lparam, WPARAM wparam, Upl_MouseButton button, bool down)
@@ -102,8 +97,8 @@ static LRESULT CALLBACK upl__win32_proc(HWND hwnd, UINT message, WPARAM wparam, 
 		case WM_PAINT:
 		{
 			PAINTSTRUCT paint;
-			HDC dc = BeginPaint(hwnd, &paint);
-			upl__win32_blit(plugin, dc);
+			BeginPaint(hwnd, &paint);
+			upl__win32_render(plugin);
 			EndPaint(hwnd, &paint);
 			return 0;
 		}
@@ -214,8 +209,15 @@ static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
 		plugin
 	);
 
-	if (!window->hwnd)
+	window->surface = window->hwnd ? upl__d2d_surface_create(window->hwnd, (uint32_t)plugin->gui.width, (uint32_t)plugin->gui.height) : NULL;
+	if (!window->surface)
 	{
+		if (window->hwnd)
+		{
+			SetWindowLongPtrW(window->hwnd, GWLP_USERDATA, 0);
+			DestroyWindow(window->hwnd);
+		}
+
 		free(window);
 		plugin->gui.window = NULL;
 		upl__win32_unregister_class();
@@ -233,6 +235,7 @@ static void upl__window_destroy(Upl_Plugin *plugin)
 		return;
 
 	KillTimer(window->hwnd, UPL_WIN32_TIMER_ID);
+	upl__d2d_surface_destroy(window->surface);
 	SetWindowLongPtrW(window->hwnd, GWLP_USERDATA, 0);
 	DestroyWindow(window->hwnd);
 	free(window);
@@ -244,6 +247,7 @@ static void upl__window_resize(Upl_Plugin *plugin)
 {
 	Upl_Win32Window *window = (Upl_Win32Window *)plugin->gui.window;
 	SetWindowPos(window->hwnd, NULL, 0, 0, plugin->gui.width, plugin->gui.height, SWP_NOZORDER | SWP_NOMOVE | SWP_NOACTIVATE);
+	upl__d2d_surface_resize(window->surface, (uint32_t)plugin->gui.width, (uint32_t)plugin->gui.height);
 }
 
 static void upl__window_set_visible(Upl_Plugin *plugin, bool visible)
@@ -252,12 +256,9 @@ static void upl__window_set_visible(Upl_Plugin *plugin, bool visible)
 	ShowWindow(window->hwnd, visible ? SW_SHOWNA : SW_HIDE);
 }
 
-static void upl__window_present(Upl_Plugin *plugin)
+static void upl__window_redraw(Upl_Plugin *plugin)
 {
-	Upl_Win32Window *window = (Upl_Win32Window *)plugin->gui.window;
-	HDC dc = GetDC(window->hwnd);
-	upl__win32_blit(plugin, dc);
-	ReleaseDC(window->hwnd, dc);
+	upl__win32_render(plugin);
 }
 
 static void upl__window_poll(Upl_Plugin *plugin)

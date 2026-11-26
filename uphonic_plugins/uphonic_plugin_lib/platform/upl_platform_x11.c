@@ -21,10 +21,8 @@ typedef struct
 {
 	Display *display;
 	Window window;
-	XImage *image;
-	GC gc;
-	int32_t image_width;
-	int32_t image_height;
+	Colormap colormap;
+	Upl_GlSurface *surface;
 }
 Upl_X11Window;
 
@@ -45,16 +43,6 @@ static double upl__time(void)
 	return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
-static void upl__x11_release_image(Upl_X11Window *window)
-{
-	if (!window->image)
-		return;
-
-	window->image->data = NULL;
-	XDestroyImage(window->image);
-	window->image = NULL;
-}
-
 static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
 {
 	if (strcmp(parent->api, CLAP_WINDOW_API_X11) != 0)
@@ -65,10 +53,19 @@ static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
 		return false;
 
 	const int screen = DefaultScreen(display);
+	GLXFBConfig config;
+	XVisualInfo *visual = NULL;
+	if (!upl__gl_choose_config(display, screen, &config, &visual))
+	{
+		XCloseDisplay(display);
+		return false;
+	}
+
+	const Colormap colormap = XCreateColormap(display, RootWindow(display, screen), visual->visual, AllocNone);
 	XSetWindowAttributes attributes = {
 		.background_pixel = 0,
 		.border_pixel = 0,
-		.colormap = DefaultColormap(display, screen),
+		.colormap = colormap,
 		.event_mask = ExposureMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask | EnterWindowMask | LeaveWindowMask | StructureNotifyMask
 	};
 
@@ -78,15 +75,20 @@ static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
 		0, 0,
 		(unsigned int)plugin->gui.width, (unsigned int)plugin->gui.height,
 		0,
-		DefaultDepth(display, screen),
+		visual->depth,
 		InputOutput,
-		DefaultVisual(display, screen),
+		visual->visual,
 		CWBackPixel | CWBorderPixel | CWColormap | CWEventMask,
 		&attributes
 	);
+	XFree(visual);
 
-	if (!handle)
+	Upl_GlSurface *surface = handle ? upl__gl_surface_create(display, screen, handle, config) : NULL;
+	if (!surface)
 	{
+		if (handle)
+			XDestroyWindow(display, handle);
+		XFreeColormap(display, colormap);
 		XCloseDisplay(display);
 		return false;
 	}
@@ -94,7 +96,8 @@ static bool upl__window_create(Upl_Plugin *plugin, const clap_window_t *parent)
 	Upl_X11Window *window = (Upl_X11Window *)calloc(1, sizeof(Upl_X11Window));
 	window->display = display;
 	window->window = handle;
-	window->gc = XCreateGC(display, handle, 0, NULL);
+	window->colormap = colormap;
+	window->surface = surface;
 	plugin->gui.window = window;
 
 	if (plugin->gui.visible)
@@ -110,9 +113,9 @@ static void upl__window_destroy(Upl_Plugin *plugin)
 	if (!window)
 		return;
 
-	upl__x11_release_image(window);
-	XFreeGC(window->display, window->gc);
+	upl__gl_surface_destroy(window->surface);
 	XDestroyWindow(window->display, window->window);
+	XFreeColormap(window->display, window->colormap);
 	XCloseDisplay(window->display);
 	free(window);
 	plugin->gui.window = NULL;
@@ -121,7 +124,6 @@ static void upl__window_destroy(Upl_Plugin *plugin)
 static void upl__window_resize(Upl_Plugin *plugin)
 {
 	Upl_X11Window *window = (Upl_X11Window *)plugin->gui.window;
-	upl__x11_release_image(window);
 	XResizeWindow(window->display, window->window, (unsigned int)plugin->gui.width, (unsigned int)plugin->gui.height);
 	XFlush(window->display);
 }
@@ -137,28 +139,14 @@ static void upl__window_set_visible(Upl_Plugin *plugin, bool visible)
 	XFlush(window->display);
 }
 
-static void upl__window_present(Upl_Plugin *plugin)
+static void upl__window_redraw(Upl_Plugin *plugin)
 {
 	Upl_X11Window *window = (Upl_X11Window *)plugin->gui.window;
-	Upl_Gui *gui = &plugin->gui;
+	if (!upl__gl_begin(window->surface, plugin->gui.width, plugin->gui.height))
+		return;
 
-	if (window->image && (window->image_width != gui->width || window->image_height != gui->height))
-		upl__x11_release_image(window);
-
-	if (!window->image)
-	{
-		const int screen = DefaultScreen(window->display);
-		window->image = XCreateImage(window->display, DefaultVisual(window->display, screen), (unsigned int)DefaultDepth(window->display, screen), ZPixmap, 0, NULL, (unsigned int)gui->width, (unsigned int)gui->height, 32, 0);
-		if (!window->image)
-			return;
-
-		window->image_width = gui->width;
-		window->image_height = gui->height;
-	}
-
-	window->image->data = (char *)gui->pixels;
-	XPutImage(window->display, window->window, window->gc, window->image, 0, 0, 0, 0, (unsigned int)gui->width, (unsigned int)gui->height);
-	XFlush(window->display);
+	upl__gui_draw(plugin);
+	upl__gl_end(window->surface);
 }
 
 static Upl_MouseButton upl__x11_button(unsigned int button)
@@ -217,8 +205,8 @@ static void upl__window_poll(Upl_Plugin *plugin)
 		}
 	}
 
-	if (expose && plugin->gui.dirty_frames == 0)
-		upl__window_present(plugin);
+	if (expose)
+		upl__gui_mark_dirty(plugin);
 }
 
 static void upl__x11_dialog_patterns(const Upl_FileDialog *dialog, char *out, size_t size)
