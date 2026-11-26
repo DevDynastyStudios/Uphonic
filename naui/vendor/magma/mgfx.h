@@ -684,6 +684,7 @@ typedef struct
 
         uint32_t image_count;
         uint32_t image_index;
+        bool image_acquired;
     }
     swapchain;
     
@@ -2131,7 +2132,7 @@ static void mgfx_vk_create_or_recreate_swapchain(void)
 
     VkExtent2D extent = mgfx_vk_choose_swap_extent(&capabilities, mgfx_ctx.vk.width, mgfx_ctx.vk.height);
 
-    uint32_t image_count = capabilities.minImageCount + 1;
+    uint32_t image_count = capabilities.minImageCount < 2 ? 2 : capabilities.minImageCount;
     if (capabilities.maxImageCount > 0 && image_count > capabilities.maxImageCount)
         image_count = capabilities.maxImageCount;
 
@@ -3878,8 +3879,33 @@ static void mgfx_vk_init(const mgfx_init_info *init_info)
     mgfx_create_queue(&mgfx_ctx.vk.release_queue, sizeof(mgfx_vk_release_queue_entry), MGFX_MAX_DEVICE_ALLOCATIONS);
 }
 
+static void mgfx_vk_acquire_next_image(void)
+{
+    VkResult result = vkAcquireNextImageKHR(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.handle, UINT64_MAX, mgfx_ctx.vk.sync_objects.image_available_semaphore, VK_NULL_HANDLE, &mgfx_ctx.vk.swapchain.image_index);
+    mgfx_ctx.vk.swapchain.image_acquired = result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR;
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        mgfx_ctx.vk.rebuild_swapchain = true;
+}
+
+static void mgfx_vk_release_acquired_image(void)
+{
+    if (!mgfx_ctx.vk.swapchain.image_acquired)
+        return;
+
+    VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    VkSubmitInfo submit_info = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &mgfx_ctx.vk.sync_objects.image_available_semaphore,
+        .pWaitDstStageMask = &wait_stage
+    };
+    vkQueueSubmit(mgfx_ctx.vk.device.graphics_compute_queue, 1, &submit_info, VK_NULL_HANDLE);
+    mgfx_ctx.vk.swapchain.image_acquired = false;
+}
+
 static void mgfx_vk_shutdown(void)
 {
+    mgfx_vk_release_acquired_image();
     vkDeviceWaitIdle(mgfx_ctx.vk.device.handle);
     
     mgfx_vk_recycle();
@@ -3923,21 +3949,23 @@ static mgfx_result mgfx_vk_begin(void)
 {
     if (mgfx_ctx.vk.rebuild_swapchain)
     {
+        mgfx_vk_release_acquired_image();
         vkDeviceWaitIdle(mgfx_ctx.vk.device.handle);
         mgfx_vk_create_or_recreate_swapchain();
         mgfx_ctx.vk.rebuild_swapchain = false;
     }
-    
+
     vkWaitForFences(mgfx_ctx.vk.device.handle, 1, &mgfx_ctx.vk.sync_objects.fence, VK_TRUE, UINT64_MAX);
     mgfx_vk_recycle();
-    
-    VkResult result = vkAcquireNextImageKHR(mgfx_ctx.vk.device.handle, mgfx_ctx.vk.swapchain.handle, UINT64_MAX, mgfx_ctx.vk.sync_objects.image_available_semaphore, VK_NULL_HANDLE, &mgfx_ctx.vk.swapchain.image_index);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
-    {
-        mgfx_ctx.vk.rebuild_swapchain = true;
+
+    if (!mgfx_ctx.vk.swapchain.image_acquired)
+        mgfx_vk_acquire_next_image();
+
+    if (!mgfx_ctx.vk.swapchain.image_acquired || mgfx_ctx.vk.rebuild_swapchain)
         return MGFX_RESULT_FAILURE;
-    }
-    
+
+    mgfx_ctx.vk.swapchain.image_acquired = false;
+
     vkResetFences(mgfx_ctx.vk.device.handle, 1, &mgfx_ctx.vk.sync_objects.fence);
     vkResetCommandBuffer(mgfx_ctx.vk.command_buffer, 0);
     
@@ -4002,6 +4030,11 @@ static void mgfx_vk_end(void)
     VkResult result = vkQueuePresentKHR(mgfx_ctx.vk.device.graphics_compute_queue, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         mgfx_ctx.vk.rebuild_swapchain = true;
+
+    if (mgfx_ctx.vk.rebuild_swapchain)
+        return;
+
+    mgfx_vk_acquire_next_image();
 }
 
 static void mgfx_vk_viewport(int32_t x, int32_t y, uint32_t width, uint32_t height)
