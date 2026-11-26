@@ -1,10 +1,6 @@
 return {
     app_name = "Uphonic",
-    src = {
-        windows = "uphonic/build.c",
-        linux = "uphonic/build.c",
-        macos = "uphonic/build.m"
-    },
+    src = "uphonic/build.c",
 
     include_dirs = {
         ".",
@@ -24,7 +20,7 @@ return {
 
     defines = {
         windows = { "MGFX_D3D11" },
-        linux = { "MGFX_VULKAN" },
+        linux = { "MGFX_VULKAN", "_GNU_SOURCE" },
         macos = { "MGFX_METAL" }
     }
 }

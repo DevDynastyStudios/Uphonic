@@ -200,7 +200,7 @@ void uph_action_refresh_block_defaults(void)
 
 void uph_action_resource_removed(Uph_ResourceType type, Uph_ResourceIndex index)
 {
-	typeof(uph_state.shared.selected_resource)* selected = &uph_state.shared.selected_resource;
+	Uph_SelectedResourceState *selected = &uph_state.shared.selected_resource;
 	selected->renaming = false;
 	uph_block_clipboard_clear();
 	if (selected->type != type)
