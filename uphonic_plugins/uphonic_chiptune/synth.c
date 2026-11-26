@@ -1,8 +1,8 @@
 #define ENV_MIN_LEVEL 0.001
-#define ENV_MIN_SECONDS 0.001 // Even a "0 ms" attack or release gets a few samples so it cannot click.
-#define GAIN_SMOOTH_SECS 0.005 // De-zippers gain automation.
-#define VOICE_LEVEL 0.4f // Headroom so a handful of voices don't clip.
-#define NOISE_LEVEL 0.7f // LFSR noise is full scale all the time, so it sounds louder than the rest.
+#define ENV_MIN_SECONDS 0.001
+#define GAIN_SMOOTH_SECS 0.005
+#define VOICE_LEVEL 0.4f
+#define NOISE_LEVEL 0.7f
 #define INITIAL_GAIN 0.25f
 #define ENDED_CAPACITY (SYNTH_MAX_VOICES * 4)
 
@@ -14,22 +14,20 @@
 #define NOTE_SEMITONES_PER_OCTAVE 12.0
 #define CENTS_PER_SEMITONE 100.0
 
-// Pitch modulation is evaluated once per block instead of once per sample.
-// 32 frames is under a millisecond, far below what vibrato can reveal.
 #define CONTROL_BLOCK_FRAMES 32
 
 #define VIBRATO_FADE_SECONDS 0.15
 #define MOD_WHEEL_VIBRATO_CENTS 100.0
-#define GLIDE_TIME_CONSTANTS 3.0 // Glide time is when the pitch is ~95% of the way there.
+#define GLIDE_TIME_CONSTANTS 3.0
 #define GLIDE_SNAP_SEMITONES 0.001
 
 #define SHAPE_MIN 0.02
 #define SHAPE_MAX 0.98
 #define SHAPE_NEUTRAL 0.5
-#define MAX_FREQUENCY_RATIO 0.45 // Keeps phase_increment < 0.5 so a phase wraps at most once per sample.
+#define MAX_FREQUENCY_RATIO 0.45
 #define MIN_FREQUENCY 1.0
 
-#define TRIANGLE_STEPS 32 // The NES triangle: 32 steps per cycle, 16 distinct levels.
+#define TRIANGLE_STEPS 32
 #define TRIANGLE_LEVELS 16
 
 #define NOISE_CLOCK_MULTIPLIER 16.0
@@ -37,7 +35,7 @@
 #define LFSR_SEED 1
 #define LFSR_BITS 15
 #define LFSR_TAP_LONG 1
-#define LFSR_TAP_SHORT 6 // The short tap gives the metallic 93-step loop.
+#define LFSR_TAP_SHORT 6
 
 #define SOFT_CLIP_LIMIT 1.5f
 #define SOFT_CLIP_COEFFICIENT (4.0f / 27.0f)
@@ -49,7 +47,7 @@
 #define ARP_MAX_STEPS 4
 
 #define TEST_TONE_SECONDS 0.5
-#define TEST_TONE_FADE_SECONDS 0.01 // Avoids clicks at both ends.
+#define TEST_TONE_FADE_SECONDS 0.01
 #define TEST_TONE_LEVEL 0.2f
 #define SYNTH_TWO_PI 6.283185307179586
 
@@ -81,9 +79,9 @@ typedef struct Voice
 	int16_t port;
 	int16_t channel;
 	int16_t key;
-	uint64_t age; // For voice stealing: lowest = oldest.
+	uint64_t age;
 
-	const PcmSample* pcm; // The sample picked when the note began, so changing the choice never cuts a playing one.
+	const PcmSample* pcm;
 	double pcm_position;
 	double pcm_step;
 	bool pcm_done;
@@ -102,7 +100,6 @@ typedef struct Voice
 	float noise_value;
 } Voice;
 
-// Mono mode plays the newest held key; this remembers the ones underneath it.
 typedef struct HeldNote
 {
 	int32_t note_id;
@@ -123,7 +120,7 @@ struct Synth
 	SynthParams params;
 	double sample_rate;
 	uint32_t max_frames;
-	float* scratch; // Mono mix, max_frames long. Allocated in activate so the audio thread never allocates.
+	float* scratch;
 
 	float gain_target;
 	float gain_current;
@@ -135,7 +132,7 @@ struct Synth
 	double bend_semitones;
 	double mod_wheel;
 
-	double last_semitones; // Where the previous note started, for glide between poly notes.
+	double last_semitones;
 	bool has_last_note;
 	_Atomic(const PcmBank*) pcm_bank;
 
@@ -169,7 +166,7 @@ static const ArpPattern k_arp_patterns[SYNTH_ARP_COUNT] =
 
 #pragma region Private API
 
-static float _up_clamp_velocity(double velocity)
+static float uct__clamp_velocity(double velocity)
 {
 	if(velocity < 0.0)
 		return 0.0f;
@@ -180,7 +177,7 @@ static float _up_clamp_velocity(double velocity)
 	return (float)velocity;
 }
 
-static double _up_clamp(double value, double low, double high)
+static double uct__clamp(double value, double low, double high)
 {
 	if(value < low)
 		return low;
@@ -191,19 +188,18 @@ static double _up_clamp(double value, double low, double high)
 	return value;
 }
 
-static double _up_wrap_phase(double phase)
+static double uct__wrap_phase(double phase)
 {
 	return phase - floor(phase);
 }
 
-static bool _up_is_held_stage(EnvStage stage)
+static bool uct__is_held_stage(EnvStage stage)
 {
 	return stage == ENV_ATTACK || stage == ENV_DECAY || stage == ENV_SUSTAIN;
 }
 
-static void _up_push_ended_note(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key)
+static void uct__push_ended_note(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key)
 {
-	// Only notes the host gave an id need a note-end event.
 	if(note_id < 0)
 		return;
 
@@ -219,17 +215,17 @@ static void _up_push_ended_note(Synth* synth, int32_t note_id, int16_t port, int
 	synth->ended_count++;
 }
 
-static void _up_push_ended(Synth* synth, const Voice* voice)
+static void uct__push_ended(Synth* synth, const Voice* voice)
 {
-	_up_push_ended_note(synth, voice->note_id, voice->port, voice->channel, voice->key);
+	uct__push_ended_note(synth, voice->note_id, voice->port, voice->channel, voice->key);
 }
 
-static void _up_push_ended_held(Synth* synth, const HeldNote* note)
+static void uct__push_ended_held(Synth* synth, const HeldNote* note)
 {
-	_up_push_ended_note(synth, note->note_id, note->port, note->channel, note->key);
+	uct__push_ended_note(synth, note->note_id, note->port, note->channel, note->key);
 }
 
-static void _up_update_rates(Synth* synth)
+static void uct__update_rates(Synth* synth)
 {
 	double sample_rate = synth->sample_rate;
 	if(sample_rate <= 0.0)
@@ -246,20 +242,20 @@ static void _up_update_rates(Synth* synth)
 	synth->gain_coefficient = (float)(1.0 - exp(-1.0 / (GAIN_SMOOTH_SECS * sample_rate)));
 }
 
-static void _up_sanitize_params(SynthParams* params)
+static void uct__sanitize_params(SynthParams* params)
 {
-	params->waveform = (int)_up_clamp(params->waveform, 0, SYNTH_WAVE_COUNT - 1);
-	params->pcm_sample = (int)_up_clamp(params->pcm_sample, 0, PCM_MAX_SAMPLES - 1);
-	params->pcm_loop = (int)_up_clamp(params->pcm_loop, 0, 1);
-	params->pcm_keys = (int)_up_clamp(params->pcm_keys, 0, 1);
-	params->pcm_tune = _up_clamp(params->pcm_tune, -PCM_TUNE_LIMIT, PCM_TUNE_LIMIT);
-	params->arp_mode = (int)_up_clamp(params->arp_mode, 0, SYNTH_ARP_COUNT - 1);
-	params->noise_mode = (int)_up_clamp(params->noise_mode, 0, SYNTH_NOISE_COUNT - 1);
-	params->voice_mode = (int)_up_clamp(params->voice_mode, 0, SYNTH_VOICE_COUNT - 1);
-	params->bits = (int)_up_clamp(params->bits, SYNTH_BITS_MIN, SYNTH_BITS_MAX);
-	params->downsample = (int)_up_clamp(params->downsample, 1, SYNTH_DOWNSAMPLE_MAX);
-	params->sustain = _up_clamp(params->sustain, 0.0, 1.0);
-	params->shape = _up_clamp(params->shape, SHAPE_MIN, SHAPE_MAX);
+	params->waveform = (int)uct__clamp(params->waveform, 0, SYNTH_WAVE_COUNT - 1);
+	params->pcm_sample = (int)uct__clamp(params->pcm_sample, 0, PCM_MAX_SAMPLES - 1);
+	params->pcm_loop = (int)uct__clamp(params->pcm_loop, 0, 1);
+	params->pcm_keys = (int)uct__clamp(params->pcm_keys, 0, 1);
+	params->pcm_tune = uct__clamp(params->pcm_tune, -PCM_TUNE_LIMIT, PCM_TUNE_LIMIT);
+	params->arp_mode = (int)uct__clamp(params->arp_mode, 0, SYNTH_ARP_COUNT - 1);
+	params->noise_mode = (int)uct__clamp(params->noise_mode, 0, SYNTH_NOISE_COUNT - 1);
+	params->voice_mode = (int)uct__clamp(params->voice_mode, 0, SYNTH_VOICE_COUNT - 1);
+	params->bits = (int)uct__clamp(params->bits, SYNTH_BITS_MIN, SYNTH_BITS_MAX);
+	params->downsample = (int)uct__clamp(params->downsample, 1, SYNTH_DOWNSAMPLE_MAX);
+	params->sustain = uct__clamp(params->sustain, 0.0, 1.0);
+	params->shape = uct__clamp(params->shape, SHAPE_MIN, SHAPE_MAX);
 	params->shape_mod_depth = fmax(params->shape_mod_depth, 0.0);
 	params->attack_ms = fmax(params->attack_ms, 0.0);
 	params->decay_ms = fmax(params->decay_ms, 0.0);
@@ -270,7 +266,7 @@ static void _up_sanitize_params(SynthParams* params)
 	params->sweep_ms = fmax(params->sweep_ms, 0.0);
 }
 
-static Voice* _up_find_voice_for_note_on(Synth* synth)
+static Voice* uct__find_voice_for_note_on(Synth* synth)
 {
 	Voice* oldest = NULL;
 	Voice* oldest_releasing = NULL;
@@ -292,15 +288,12 @@ static Voice* _up_find_voice_for_note_on(Synth* synth)
 			oldest_releasing = voice;
 	}
 
-	// A voice that is already fading out is the least noticeable one to steal.
 	Voice* stolen = oldest_releasing != NULL ? oldest_releasing : oldest;
-
-	// Stolen: tell the host that note is over.
-	_up_push_ended(synth, stolen);
+	uct__push_ended(synth, stolen);
 	return stolen;
 }
 
-static bool _up_note_matches(int32_t note_id, int16_t port, int16_t channel, int16_t key, int32_t want_id, int16_t want_port, int16_t want_channel, int16_t want_key)
+static bool uct__note_matches(int32_t note_id, int16_t port, int16_t channel, int16_t key, int32_t want_id, int16_t want_port, int16_t want_channel, int16_t want_key)
 {
 	if(want_id != SYNTH_UNSPECIFIED && note_id != want_id)
 		return false;
@@ -317,14 +310,13 @@ static bool _up_note_matches(int32_t note_id, int16_t port, int16_t channel, int
 	return true;
 }
 
-static bool _up_voice_matches(const Voice* voice, int32_t note_id, int16_t port, int16_t channel, int16_t key)
+static bool uct__voice_matches(const Voice* voice, int32_t note_id, int16_t port, int16_t channel, int16_t key)
 {
-	return _up_note_matches(voice->note_id, voice->port, voice->channel, voice->key, note_id, port, channel, key);
+	return uct__note_matches(voice->note_id, voice->port, voice->channel, voice->key, note_id, port, channel, key);
 }
 
-static void _up_start_voice(Synth* synth, Voice* voice, int32_t note_id, int16_t port, int16_t channel, int16_t key, float velocity, bool keep_pitch)
+static void uct__start_voice(Synth* synth, Voice* voice, int32_t note_id, int16_t port, int16_t channel, int16_t key, float velocity, bool keep_pitch)
 {
-	// A stolen voice keeps its level and ramps from there.
 	if(voice->stage == ENV_OFF)
 		voice->envelope = 0.0f;
 
@@ -341,7 +333,6 @@ static void _up_start_voice(Synth* synth, Voice* voice, int32_t note_id, int16_t
 	voice->pcm_position = 0.0;
 	voice->pcm_done = false;
 
-	// Same seed every note, so a noise drum hits the same way each time.
 	voice->lfsr = LFSR_SEED;
 	voice->noise_phase = 0.0;
 	voice->noise_value = 1.0f;
@@ -355,24 +346,21 @@ static void _up_start_voice(Synth* synth, Voice* voice, int32_t note_id, int16_t
 	voice->age = ++synth->age_counter;
 }
 
-static void _up_release_voice(Synth* synth, Voice* voice)
+static void uct__release_voice(Synth* synth, Voice* voice)
 {
-	if(!_up_is_held_stage(voice->stage))
+	if(!uct__is_held_stage(voice->stage))
 		return;
 
-	// The release time is how long the fade takes from wherever the note is
-	// now, not from full level, so a quiet sustain doesn't cut off early.
 	double frames = synth->release_seconds * synth->sample_rate;
-
 	voice->release_decrement = (float)(fmax(voice->envelope, ENV_MIN_LEVEL) / frames);
 	voice->stage = ENV_RELEASE;
 }
 
-static void _up_mono_note_on(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key, float velocity)
+static void uct__mono_note_on(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key, float velocity)
 {
 	if(synth->held_count >= SYNTH_MAX_VOICES)
 	{
-		_up_push_ended_held(synth, &synth->held[0]);
+		uct__push_ended_held(synth, &synth->held[0]);
 		memmove(&synth->held[0], &synth->held[1], sizeof(HeldNote) * (SYNTH_MAX_VOICES - 1));
 		synth->held_count--;
 	}
@@ -387,8 +375,7 @@ static void _up_mono_note_on(Synth* synth, int32_t note_id, int16_t port, int16_
 
 	Voice* voice = &synth->voices[MONO_VOICE_INDEX];
 
-	// Overlapping notes slide to the new pitch without restarting the envelope.
-	if(_up_is_held_stage(voice->stage))
+	if(uct__is_held_stage(voice->stage))
 	{
 		voice->target_semitones = key;
 		voice->velocity = velocity;
@@ -399,15 +386,14 @@ static void _up_mono_note_on(Synth* synth, int32_t note_id, int16_t port, int16_
 		return;
 	}
 
-	// Restarting a fading voice: its old note never reaches ENV_OFF to report itself.
 	if(voice->stage == ENV_RELEASE)
-		_up_push_ended(synth, voice);
+		uct__push_ended(synth, voice);
 
 	bool keep_pitch = voice->stage == ENV_RELEASE && synth->params.glide_ms > 0.0;
-	_up_start_voice(synth, voice, note_id, port, channel, key, velocity, keep_pitch);
+	uct__start_voice(synth, voice, note_id, port, channel, key, velocity, keep_pitch);
 }
 
-static void _up_mono_remove(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key, bool immediate)
+static void uct__mono_remove(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key, bool immediate)
 {
 	Voice* voice = &synth->voices[MONO_VOICE_INDEX];
 	bool top_removed = false;
@@ -417,7 +403,7 @@ static void _up_mono_remove(Synth* synth, int32_t note_id, int16_t port, int16_t
 	{
 		HeldNote* note = &synth->held[read];
 
-		if(!_up_note_matches(note->note_id, note->port, note->channel, note->key, note_id, port, channel, key))
+		if(!uct__note_matches(note->note_id, note->port, note->channel, note->key, note_id, port, channel, key))
 		{
 			synth->held[write] = *note;
 			write++;
@@ -427,10 +413,9 @@ static void _up_mono_remove(Synth* synth, int32_t note_id, int16_t port, int16_t
 		if(read == synth->held_count - 1)
 			top_removed = true;
 
-		// The sounding note reports itself when the voice goes silent instead.
 		bool reports_later = top_removed && write == 0;
 		if(!reports_later)
-			_up_push_ended_held(synth, note);
+			uct__push_ended_held(synth, note);
 	}
 
 	synth->held_count = write;
@@ -452,35 +437,33 @@ static void _up_mono_remove(Synth* synth, int32_t note_id, int16_t port, int16_t
 
 	if(!immediate)
 	{
-		_up_release_voice(synth, voice);
+		uct__release_voice(synth, voice);
 		return;
 	}
 
 	if(voice->stage != ENV_OFF)
-		_up_push_ended(synth, voice);
+		uct__push_ended(synth, voice);
 
 	voice->stage = ENV_OFF;
 	voice->envelope = 0.0f;
 }
 
-static void _up_release_all(Synth* synth)
+static void uct__release_all(Synth* synth)
 {
 	for(int i = 0; i < SYNTH_MAX_VOICES; i++)
 	{
-		_up_release_voice(synth, &synth->voices[i]);
+		uct__release_voice(synth, &synth->voices[i]);
 	}
 
-	// The sounding voice keeps its own id; every other held note is over now.
 	for(int i = 0; i < synth->held_count - 1; i++)
 	{
-		_up_push_ended_held(synth, &synth->held[i]);
+		uct__push_ended_held(synth, &synth->held[i]);
 	}
 
 	synth->held_count = 0;
 }
 
-// Returns false once the release has finished and the voice has gone silent.
-static bool _up_advance_envelope(Synth* synth, Voice* voice)
+static bool uct__advance_envelope(Synth* synth, Voice* voice)
 {
 	switch(voice->stage)
 	{
@@ -497,7 +480,6 @@ static bool _up_advance_envelope(Synth* synth, Voice* voice)
 
 		case ENV_DECAY:
 			voice->envelope -= synth->decay_decrement;
-
 			if(voice->envelope <= (float)synth->params.sustain)
 			{
 				voice->envelope = (float)synth->params.sustain;
@@ -507,7 +489,6 @@ static bool _up_advance_envelope(Synth* synth, Voice* voice)
 			return true;
 
 		case ENV_SUSTAIN:
-			// Follows the knob smoothly instead of jumping when it is turned.
 			voice->envelope += ((float)synth->params.sustain - voice->envelope) * synth->gain_coefficient;
 			return true;
 
@@ -525,11 +506,11 @@ static bool _up_advance_envelope(Synth* synth, Voice* voice)
 
 	voice->envelope = 0.0f;
 	voice->stage = ENV_OFF;
-	_up_push_ended(synth, voice);
+	uct__push_ended(synth, voice);
 	return false;
 }
 
-static double _up_poly_blep(double phase, double increment)
+static double uct__poly_blep(double phase, double increment)
 {
 	if(phase < increment)
 	{
@@ -546,7 +527,7 @@ static double _up_poly_blep(double phase, double increment)
 	return 0.0;
 }
 
-static double _up_pulse(double phase, double increment, double duty)
+static double uct__pulse(double phase, double increment, double duty)
 {
 	double value = phase < duty ? 1.0 : -1.0;
 
@@ -554,19 +535,14 @@ static double _up_pulse(double phase, double increment, double duty)
 	if(falling_phase < 0.0)
 		falling_phase += 1.0;
 
-	value += _up_poly_blep(phase, increment);
-	value -= _up_poly_blep(falling_phase, increment);
-
-	// Thin pulses carry a lot of DC. Centering them (like a chip's output
-	// high-pass does) keeps the speaker and the envelope clicks happy; the
-	// scale keeps the tallest peak at 1.
+	value += uct__poly_blep(phase, increment);
+	value -= uct__poly_blep(falling_phase, increment);
 	double offset = 2.0 * duty - 1.0;
 	double scale = 1.0 / (1.0 + fabs(offset));
 	return (value - offset) * scale;
 }
 
-// Bends the phase so the first half of the picture takes `shape` of the cycle. At 0.5 it changes nothing.
-static double _up_warp_phase(double phase, double shape)
+static double uct__warp_phase(double phase, double shape)
 {
 	if(phase < shape)
 		return 0.5 * phase / shape;
@@ -574,15 +550,14 @@ static double _up_warp_phase(double phase, double shape)
 	return 0.5 + 0.5 * (phase - shape) / (1.0 - shape);
 }
 
-static double _up_saw(double phase, double increment, double shape)
+static double uct__saw(double phase, double increment, double shape)
 {
-	return 2.0 * _up_warp_phase(phase, shape) - 1.0 - _up_poly_blep(phase, increment);
+	return 2.0 * uct__warp_phase(phase, shape) - 1.0 - uct__poly_blep(phase, increment);
 }
 
-static double _up_triangle(double phase, double shape)
+static double uct__triangle(double phase, double shape)
 {
-	phase = _up_warp_phase(phase, shape);
-
+	phase = uct__warp_phase(phase, shape);
 	int step = (int)(phase * TRIANGLE_STEPS);
 	if(step >= TRIANGLE_STEPS)
 		step = TRIANGLE_STEPS - 1;
@@ -591,11 +566,10 @@ static double _up_triangle(double phase, double shape)
 	return level / ((TRIANGLE_LEVELS - 1) * 0.5) - 1.0;
 }
 
-static float _up_noise(const SynthParams* params, Voice* voice)
+static float uct__noise(const SynthParams* params, Voice* voice)
 {
 	const int tap = params->noise_mode == SYNTH_NOISE_SHORT ? LFSR_TAP_SHORT : LFSR_TAP_LONG;
 	int steps = 0;
-
 	voice->noise_phase += voice->noise_increment;
 
 	while(voice->noise_phase >= 1.0 && steps < NOISE_MAX_STEPS_PER_FRAME)
@@ -606,11 +580,9 @@ static float _up_noise(const SynthParams* params, Voice* voice)
 		steps++;
 	}
 
-	// A clock far above the sample rate would otherwise leave a backlog.
 	if(steps == NOISE_MAX_STEPS_PER_FRAME)
 		voice->noise_phase = 0.0;
 
-	// The shape is how often the noise is high: the low bits of the register are as random as any, and 0.5 is plain noise.
 	const double threshold = voice->duty * (1 << NOISE_DENSITY_BITS);
 	const double high = (double)(voice->lfsr & ((1u << NOISE_DENSITY_BITS) - 1u)) < threshold ? 1.0 : -1.0;
 	const double offset = 2.0 * voice->duty - 1.0;
@@ -619,15 +591,13 @@ static float _up_noise(const SynthParams* params, Voice* voice)
 	return voice->noise_value;
 }
 
-static float _up_pcm(const SynthParams* params, Voice* voice)
+static float uct__pcm(const SynthParams* params, Voice* voice)
 {
 	const PcmSample* sample = voice->pcm;
-
 	if(sample == NULL || voice->pcm_done)
 		return 0.0f;
 
 	double position = voice->pcm_position;
-
 	if(position >= sample->length)
 	{
 		if(!params->pcm_loop)
@@ -639,13 +609,12 @@ static float _up_pcm(const SynthParams* params, Voice* voice)
 		position = fmod(position, (double)sample->length);
 	}
 
-	// No interpolation on purpose: hearing the steps is the sound of those consoles.
 	const float value = sample->data[(uint32_t)position];
 	voice->pcm_position = position + voice->pcm_step;
 	return value;
 }
 
-static float _up_oscillator(const SynthParams* params, Voice* voice)
+static float uct__oscillator(const SynthParams* params, Voice* voice)
 {
 	const double phase = voice->phase;
 	const double increment = voice->phase_increment;
@@ -654,22 +623,22 @@ static float _up_oscillator(const SynthParams* params, Voice* voice)
 	switch(params->waveform)
 	{
 		case SYNTH_WAVE_PULSE:
-			value = _up_pulse(phase, increment, voice->duty);
+			value = uct__pulse(phase, increment, voice->duty);
 			break;
 
 		case SYNTH_WAVE_TRIANGLE:
-			value = _up_triangle(phase, voice->duty);
+			value = uct__triangle(phase, voice->duty);
 			break;
 
 		case SYNTH_WAVE_SAW:
-			value = _up_saw(phase, increment, voice->duty);
+			value = uct__saw(phase, increment, voice->duty);
 			break;
 
 		case SYNTH_WAVE_NOISE:
-			return _up_noise(params, voice);
+			return uct__noise(params, voice);
 
 		case SYNTH_WAVE_PCM:
-			return _up_pcm(params, voice);
+			return uct__pcm(params, voice);
 	}
 
 	voice->phase += increment;
@@ -679,20 +648,16 @@ static float _up_oscillator(const SynthParams* params, Voice* voice)
 	return (float)value;
 }
 
-static void _up_update_control(Synth* synth, Voice* voice, uint32_t step_frames)
+static void uct__update_control(Synth* synth, Voice* voice, uint32_t step_frames)
 {
 	const SynthParams* params = &synth->params;
 	const double step_seconds = step_frames / synth->sample_rate;
-
 	if(voice->pitch_semitones != voice->target_semitones)
 	{
 		double difference = voice->target_semitones - voice->pitch_semitones;
 		double glide_seconds = params->glide_ms * 0.001;
-
 		if(glide_seconds <= 0.0 || fabs(difference) < GLIDE_SNAP_SEMITONES)
-		{
 			voice->pitch_semitones = voice->target_semitones;
-		}
 		else
 		{
 			double time_constant = glide_seconds / GLIDE_TIME_CONSTANTS;
@@ -702,11 +667,10 @@ static void _up_update_control(Synth* synth, Voice* voice, uint32_t step_frames)
 
 	double vibrato_semitones = 0.0;
 	double vibrato_cents = params->vibrato_cents + synth->mod_wheel * MOD_WHEEL_VIBRATO_CENTS;
-
 	if(vibrato_cents > 0.0)
 	{
 		double since_delay = voice->elapsed_seconds - params->vibrato_delay_ms * 0.001;
-		double fade = _up_clamp(since_delay / VIBRATO_FADE_SECONDS, 0.0, 1.0);
+		double fade = uct__clamp(since_delay / VIBRATO_FADE_SECONDS, 0.0, 1.0);
 		vibrato_semitones = sin(SYNTH_TWO_PI * voice->vibrato_phase) * vibrato_cents / CENTS_PER_SEMITONE * fade;
 	}
 
@@ -718,7 +682,6 @@ static void _up_update_control(Synth* synth, Voice* voice, uint32_t step_frames)
 
 	double arp_semitones = 0.0;
 	const ArpPattern* pattern = &k_arp_patterns[params->arp_mode];
-
 	if(pattern->count > 1)
 	{
 		uint64_t arp_step = (uint64_t)(voice->elapsed_seconds * params->arp_rate);
@@ -727,51 +690,46 @@ static void _up_update_control(Synth* synth, Voice* voice, uint32_t step_frames)
 
 	double semitones = voice->pitch_semitones + vibrato_semitones + sweep_semitones + arp_semitones + synth->bend_semitones;
 	double frequency = NOTE_A4_FREQUENCY * pow(2.0, (semitones - NOTE_A4_KEY) / NOTE_SEMITONES_PER_OCTAVE);
-	frequency = _up_clamp(frequency, MIN_FREQUENCY, synth->sample_rate * MAX_FREQUENCY_RATIO);
+	frequency = uct__clamp(frequency, MIN_FREQUENCY, synth->sample_rate * MAX_FREQUENCY_RATIO);
 
 	voice->phase_increment = frequency / synth->sample_rate;
 	voice->noise_increment = frequency * NOISE_CLOCK_MULTIPLIER / synth->sample_rate;
 
 	if(voice->pcm != NULL)
 	{
-		// Following the keys: relative to the key the sample was recorded at. Fixed: only the modulation
-		// (vibrato, sweep, arpeggio, bend) moves it, so every key gives the same pitch.
 		const double modulation = vibrato_semitones + sweep_semitones + arp_semitones + synth->bend_semitones;
 		const double semitones_from_root = params->pcm_keys ? semitones - voice->pcm->root_key : modulation;
 		const double speed = pow(2.0, (semitones_from_root + params->pcm_tune) / NOTE_SEMITONES_PER_OCTAVE);
-
 		voice->pcm_step = voice->pcm->rate / synth->sample_rate * speed;
 	}
 
 	double pwm = sin(SYNTH_TWO_PI * voice->shape_mod_phase) * params->shape_mod_depth;
-	voice->duty = _up_clamp(params->shape + pwm, SHAPE_MIN, SHAPE_MAX);
+	voice->duty = uct__clamp(params->shape + pwm, SHAPE_MIN, SHAPE_MAX);
 
-	voice->vibrato_phase = _up_wrap_phase(voice->vibrato_phase + params->vibrato_rate * step_seconds);
-	voice->shape_mod_phase = _up_wrap_phase(voice->shape_mod_phase + params->shape_mod_rate * step_seconds);
+	voice->vibrato_phase = uct__wrap_phase(voice->vibrato_phase + params->vibrato_rate * step_seconds);
+	voice->shape_mod_phase = uct__wrap_phase(voice->shape_mod_phase + params->shape_mod_rate * step_seconds);
 	voice->elapsed_seconds += step_seconds;
 }
 
-// Returns false when the voice went silent during this step.
-static bool _up_render_voice_step(Synth* synth, Voice* voice, float* mix, uint32_t frame_count)
+// Returns false if the voice goes silent.
+static bool uct__render_voice_step(Synth* synth, Voice* voice, float* mix, uint32_t frame_count)
 {
 	const float level = voice->velocity * VOICE_LEVEL;
 
 	for(uint32_t i = 0; i < frame_count; i++)
 	{
-		if(!_up_advance_envelope(synth, voice))
+		if(!uct__advance_envelope(synth, voice))
 			return false;
 
-		mix[i] += _up_oscillator(&synth->params, voice) * voice->envelope * level;
-
-		// A one-shot that has played to its end is over, whatever the key is doing.
-		if(voice->pcm_done && _up_is_held_stage(voice->stage))
-			_up_release_voice(synth, voice);
+		mix[i] += uct__oscillator(&synth->params, voice) * voice->envelope * level;
+		if(voice->pcm_done && uct__is_held_stage(voice->stage))
+			uct__release_voice(synth, voice);
 	}
 
 	return true;
 }
 
-static void _up_render_voice(Synth* synth, Voice* voice, float* mix, uint32_t frame_count)
+static void uct__render_voice(Synth* synth, Voice* voice, float* mix, uint32_t frame_count)
 {
 	uint32_t done = 0;
 
@@ -781,17 +739,15 @@ static void _up_render_voice(Synth* synth, Voice* voice, float* mix, uint32_t fr
 		if(step > CONTROL_BLOCK_FRAMES)
 			step = CONTROL_BLOCK_FRAMES;
 
-		_up_update_control(synth, voice, step);
-
-		// The rest of this chunk is silent for this voice.
-		if(!_up_render_voice_step(synth, voice, mix + done, step))
+		uct__update_control(synth, voice, step);
+		if(!uct__render_voice_step(synth, voice, mix + done, step))
 			return;
 
 		done += step;
 	}
 }
 
-static float _up_lofi(Synth* synth, float sample)
+static float uct__lofi(Synth* synth, float sample)
 {
 	const SynthParams* params = &synth->params;
 
@@ -807,12 +763,11 @@ static float _up_lofi(Synth* synth, float sample)
 	if(params->bits >= BITS_FULL)
 		return sample;
 
-	// Measured against one full-velocity voice, so 4 bits means 4 bits of THAT.
 	const float levels = (float)(1u << (params->bits - 1));
 	return roundf(sample / VOICE_LEVEL * levels) / levels * VOICE_LEVEL;
 }
 
-static float _up_soft_clip(float sample)
+static float uct__soft_clip(float sample)
 {
 	if(sample > SOFT_CLIP_LIMIT)
 		sample = SOFT_CLIP_LIMIT;
@@ -823,7 +778,7 @@ static float _up_soft_clip(float sample)
 	return sample - sample * sample * sample * SOFT_CLIP_COEFFICIENT;
 }
 
-static void _up_render_test_tone(Synth* synth, float* left, float* right, uint32_t frame_count)
+static void uct__render_test_tone(Synth* synth, float* left, float* right, uint32_t frame_count)
 {
 	const double phase_step = SYNTH_TWO_PI * NOTE_A4_FREQUENCY / synth->sample_rate;
 	uint32_t fade_frames = (uint32_t)(TEST_TONE_FADE_SECONDS * synth->sample_rate);
@@ -856,7 +811,7 @@ static void _up_render_test_tone(Synth* synth, float* left, float* right, uint32
 	}
 }
 
-static void _up_publish_activity(Synth* synth)
+static void uct__publish_activity(Synth* synth)
 {
 	uint32_t voice_count = 0;
 	uint64_t keys[2] = { 0, 0 };
@@ -881,7 +836,7 @@ static void _up_publish_activity(Synth* synth)
 	atomic_store_explicit(&synth->active_keys[1], keys[1], memory_order_relaxed);
 }
 
-static void _up_render_chunk(Synth* synth, float* left, float* right, uint32_t frame_count)
+static void uct__render_chunk(Synth* synth, float* left, float* right, uint32_t frame_count)
 {
 	float* mix = synth->scratch;
 	memset(mix, 0, sizeof(float) * frame_count);
@@ -893,7 +848,7 @@ static void _up_render_chunk(Synth* synth, float* left, float* right, uint32_t f
 		if(voice->stage == ENV_OFF)
 			continue;
 
-		_up_render_voice(synth, voice, mix, frame_count);
+		uct__render_voice(synth, voice, mix, frame_count);
 	}
 
 	uint32_t scope_position = atomic_load_explicit(&synth->scope_position, memory_order_relaxed);
@@ -901,13 +856,12 @@ static void _up_render_chunk(Synth* synth, float* left, float* right, uint32_t f
 	for(uint32_t i = 0; i < frame_count; i++)
 	{
 		synth->gain_current += (synth->gain_target - synth->gain_current) * synth->gain_coefficient;
-
-		float sample = _up_soft_clip(_up_lofi(synth, mix[i]) * synth->gain_current);
+		float sample = uct__soft_clip(uct__lofi(synth, mix[i]) * synth->gain_current);
 		left[i] = sample;
 		right[i] = sample;
 	}
 
-	_up_render_test_tone(synth, left, right, frame_count);
+	uct__render_test_tone(synth, left, right, frame_count);
 
 	for(uint32_t i = 0; i < frame_count; i++)
 	{
@@ -916,7 +870,7 @@ static void _up_render_chunk(Synth* synth, float* left, float* right, uint32_t f
 	}
 
 	atomic_store_explicit(&synth->scope_position, scope_position, memory_order_release);
-	_up_publish_activity(synth);
+	uct__publish_activity(synth);
 }
 
 #pragma endregion
@@ -943,8 +897,7 @@ Synth* synth_create(void)
 	synth->params.vibrato_rate = 6.0;
 	synth->params.arp_rate = 20.0;
 	synth->params.shape_mod_rate = 3.0;
-
-	_up_update_rates(synth);
+	uct__update_rates(synth);
 	return synth;
 }
 
@@ -971,11 +924,8 @@ bool synth_activate(Synth* synth, double sample_rate, uint32_t max_frames)
 	synth->max_frames = max_frames;
 	synth->sample_rate = sample_rate;
 
-	_up_update_rates(synth);
-
-	// No fade-in from silence on the first block.
+	uct__update_rates(synth);
 	synth->gain_current = synth->gain_target;
-
 	synth_reset(synth);
 	return true;
 }
@@ -1005,8 +955,7 @@ void synth_reset(Synth* synth)
 	synth->hold_counter = 0;
 	synth->ended_count = 0;
 	synth->test_tone_frames_left = 0;
-
-	_up_publish_activity(synth);
+	uct__publish_activity(synth);
 }
 
 void synth_set_params(Synth* synth, const SynthParams* params)
@@ -1014,13 +963,13 @@ void synth_set_params(Synth* synth, const SynthParams* params)
 	const int previous_voice_mode = synth->params.voice_mode;
 
 	synth->params = *params;
-	_up_sanitize_params(&synth->params);
+	uct__sanitize_params(&synth->params);
 
 	synth->gain_target = synth->params.gain_db <= SYNTH_GAIN_MIN_DB ? 0.0f : (float)pow(10.0, synth->params.gain_db / 20.0);
-	_up_update_rates(synth);
+	uct__update_rates(synth);
 
 	if(previous_voice_mode != synth->params.voice_mode)
-		_up_release_all(synth);
+		uct__release_all(synth);
 }
 
 void synth_set_pcm_bank(Synth* synth, const PcmBank* bank)
@@ -1035,27 +984,24 @@ void synth_set_pitch_bend(Synth* synth, double semitones)
 
 void synth_set_mod_wheel(Synth* synth, double amount)
 {
-	synth->mod_wheel = _up_clamp(amount, 0.0, 1.0);
+	synth->mod_wheel = uct__clamp(amount, 0.0, 1.0);
 }
 
 void synth_note_on(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key, double velocity)
 {
-	// Not activated, so there is no scratch buffer to render into.
 	if(synth->scratch == NULL)
 		return;
 
-	const float clamped_velocity = _up_clamp_velocity(velocity);
+	const float clamped_velocity = uct__clamp_velocity(velocity);
 
 	if(synth->params.voice_mode == SYNTH_VOICE_MONO)
 	{
-		_up_mono_note_on(synth, note_id, port, channel, key, clamped_velocity);
+		uct__mono_note_on(synth, note_id, port, channel, key, clamped_velocity);
 		return;
 	}
 
-	Voice* voice = _up_find_voice_for_note_on(synth);
-	_up_start_voice(synth, voice, note_id, port, channel, key, clamped_velocity, false);
-
-	// Glide between poly notes: each new note starts where the last one began and slides to its own pitch.
+	Voice* voice = uct__find_voice_for_note_on(synth);
+	uct__start_voice(synth, voice, note_id, port, channel, key, clamped_velocity, false);
 	if(synth->params.glide_ms > 0.0 && synth->has_last_note)
 		voice->pitch_semitones = synth->last_semitones;
 
@@ -1067,7 +1013,7 @@ void synth_note_off(Synth* synth, int32_t note_id, int16_t port, int16_t channel
 {
 	if(synth->params.voice_mode == SYNTH_VOICE_MONO)
 	{
-		_up_mono_remove(synth, note_id, port, channel, key, false);
+		uct__mono_remove(synth, note_id, port, channel, key, false);
 		return;
 	}
 
@@ -1075,13 +1021,13 @@ void synth_note_off(Synth* synth, int32_t note_id, int16_t port, int16_t channel
 	{
 		Voice* voice = &synth->voices[i];
 
-		if(!_up_is_held_stage(voice->stage))
+		if(!uct__is_held_stage(voice->stage))
 			continue;
 
-		if(!_up_voice_matches(voice, note_id, port, channel, key))
+		if(!uct__voice_matches(voice, note_id, port, channel, key))
 			continue;
 
-		_up_release_voice(synth, voice);
+		uct__release_voice(synth, voice);
 	}
 }
 
@@ -1089,7 +1035,7 @@ void synth_note_choke(Synth* synth, int32_t note_id, int16_t port, int16_t chann
 {
 	if(synth->params.voice_mode == SYNTH_VOICE_MONO)
 	{
-		_up_mono_remove(synth, note_id, port, channel, key, true);
+		uct__mono_remove(synth, note_id, port, channel, key, true);
 		return;
 	}
 
@@ -1100,12 +1046,12 @@ void synth_note_choke(Synth* synth, int32_t note_id, int16_t port, int16_t chann
 		if(voice->stage == ENV_OFF)
 			continue;
 
-		if(!_up_voice_matches(voice, note_id, port, channel, key))
+		if(!uct__voice_matches(voice, note_id, port, channel, key))
 			continue;
 
 		voice->stage = ENV_OFF;
 		voice->envelope = 0.0f;
-		_up_push_ended(synth, voice);
+		uct__push_ended(synth, voice);
 	}
 }
 
@@ -1129,16 +1075,14 @@ void synth_render(Synth* synth, float* left, float* right, uint32_t frame_count)
 	if(synth->scratch == NULL)
 		return;
 
-	// The host promised frame_count <= max_frames, but don't trust it with our buffer.
 	uint32_t done = 0;
-
 	while(done < frame_count)
 	{
 		uint32_t chunk = frame_count - done;
 		if(chunk > synth->max_frames)
 			chunk = synth->max_frames;
 
-		_up_render_chunk(synth, left + done, right + done, chunk);
+		uct__render_chunk(synth, left + done, right + done, chunk);
 		done += chunk;
 	}
 }
@@ -1162,7 +1106,6 @@ uint32_t synth_scope_copy(const Synth* synth, float* out, uint32_t count)
 
 	for(uint32_t i = 0; i < count; i++)
 	{
-		// Unsigned wrap-around keeps this right even after the counter overflows.
 		uint32_t index = (end - count + i) % SYNTH_SCOPE_SIZE;
 		out[i] = atomic_load_explicit((_Atomic float*)&synth->scope[index], memory_order_relaxed);
 	}

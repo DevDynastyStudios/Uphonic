@@ -109,7 +109,6 @@ double params_clamp(ParamId id, double value)
 	return value;
 }
 
-// Compact on purpose: the on-screen knobs only have room for about seven characters.
 void params_format(const Plugin* plugin, ParamId id, double value, char* out, size_t capacity)
 {
 	const ParamStyle* style = &k_param_styles[id];
@@ -240,7 +239,6 @@ void params_edit_begin(Plugin* plugin, ParamId id)
 	upl_param_begin_gesture(plugin->upl, id);
 }
 
-// The value lands right away, so the sound follows the mouse even before the host gets around to its flush.
 void params_edit_set(Plugin* plugin, ParamId id, double value)
 {
 	upl_param_set(plugin->upl, id, value);

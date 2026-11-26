@@ -41,16 +41,15 @@ typedef enum ParamKind
 	PARAM_KIND_BITS,
 	PARAM_KIND_FACTOR,
 	PARAM_KIND_ENUM,
-	PARAM_KIND_SAMPLE, // A whole number shown as the name of that sample.
+	PARAM_KIND_SAMPLE,
 } ParamKind;
 
-// How the editor shows a parameter. The range, default and flags the host sees live in the Upl_ParamInfo table.
 typedef struct ParamStyle
 {
 	ParamKind kind;
-	double curve; // Knob feel only: above 1 spends more of the travel on small values. The host still sees a plain linear range.
+	double curve;
 	bool bipolar;
-	const char* const* names; // ParamKind enum only.
+	const char* const* names;
 } ParamStyle;
 
 typedef struct GuiView GuiView;
@@ -63,7 +62,7 @@ typedef struct Plugin
 	PcmBank* pcm_bank;
 	PresetList* presets;
 	GuiView* gui_view;
-	NoteQueue gui_notes; // UI thread -> audio thread: the on-screen keyboard.
+	NoteQueue gui_notes;
 } Plugin;
 
 void plugin_gui_note(Plugin* plugin, bool is_on, int key);

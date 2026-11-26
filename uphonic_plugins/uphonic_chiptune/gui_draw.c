@@ -106,21 +106,31 @@ static const uint8_t k_font[(FONT_LAST_CHAR - FONT_FIRST_CHAR + 1) * FONT_COLUMN
 
 #pragma region Private API
 
-static void _up_draw_glyph(GuiCanvas* canvas, int x, int y, char character, uint32_t color, int scale)
+static void uct__draw_glyph(const GuiPen* pen, int x, int y, char character, uint32_t color, int scale)
 {
 	if(character < FONT_FIRST_CHAR || character > FONT_LAST_CHAR)
 		character = '?';
 
 	const uint8_t* columns = &k_font[(character - FONT_FIRST_CHAR) * FONT_COLUMNS];
-
 	for(int column = 0; column < FONT_COLUMNS; column++)
 	{
-		for(int row = 0; row < FONT_ROWS; row++)
+		int row = 0;
+		while(row < FONT_ROWS)
 		{
 			if(!((columns[column] >> row) & 1))
+			{
+				row++;
 				continue;
+			}
 
-			gui_draw_fill_rect(canvas, x + column * scale, y + row * scale, scale, scale, color);
+			int end = row + 1;
+			while(end < FONT_ROWS && ((columns[column] >> end) & 1))
+			{
+				end++;
+			}
+
+			gui_draw_fill_rect(pen, x + column * scale, y + row * scale, scale, (end - row) * scale, color);
+			row = end;
 		}
 	}
 }
@@ -129,102 +139,66 @@ static void _up_draw_glyph(GuiCanvas* canvas, int x, int y, char character, uint
 
 #pragma region Public API
 
-void gui_draw_pixel(GuiCanvas* canvas, int x, int y, uint32_t color)
+Leaf_Color gui_color(uint32_t color)
 {
-	if(x < 0 || y < 0 || x >= canvas->width || y >= canvas->height)
+	if(color == GUI_NO_COLOR)
+		return (Leaf_Color){ 0, 0, 0, 0 };
+
+	return leaf_hex(color);
+}
+
+void gui_draw_fill_rect(const GuiPen* pen, int x, int y, int width, int height, uint32_t color)
+{
+	if(color == GUI_NO_COLOR || width <= 0 || height <= 0)
 		return;
 
-	canvas->pixels[y * canvas->width + x] = color;
+	upl_fill_rect(pen->x + x * pen->scale, pen->y + y * pen->scale, width * pen->scale, height * pen->scale, leaf_hex(color), 0.0f);
 }
 
-void gui_draw_fill_rect(GuiCanvas* canvas, int x, int y, int width, int height, uint32_t color)
+void gui_draw_pixel(const GuiPen* pen, int x, int y, uint32_t color)
 {
-	int left = x < 0 ? 0 : x;
-	int top = y < 0 ? 0 : y;
-	int right = x + width > canvas->width ? canvas->width : x + width;
-	int bottom = y + height > canvas->height ? canvas->height : y + height;
-
-	for(int row = top; row < bottom; row++)
-	{
-		for(int column = left; column < right; column++)
-		{
-			canvas->pixels[row * canvas->width + column] = color;
-		}
-	}
+	gui_draw_fill_rect(pen, x, y, 1, 1, color);
 }
 
-void gui_draw_hline(GuiCanvas* canvas, int x, int y, int length, uint32_t color)
+void gui_draw_rect(const GuiPen* pen, int x, int y, int width, int height, uint32_t color)
 {
-	gui_draw_fill_rect(canvas, x, y, length, 1, color);
+	gui_draw_hline(pen, x, y, width, color);
+	gui_draw_hline(pen, x, y + height - 1, width, color);
+	gui_draw_vline(pen, x, y, height, color);
+	gui_draw_vline(pen, x + width - 1, y, height, color);
 }
 
-void gui_draw_vline(GuiCanvas* canvas, int x, int y, int length, uint32_t color)
+void gui_draw_hline(const GuiPen* pen, int x, int y, int length, uint32_t color)
 {
-	gui_draw_fill_rect(canvas, x, y, 1, length, color);
+	gui_draw_fill_rect(pen, x, y, length, 1, color);
 }
 
-void gui_draw_rect(GuiCanvas* canvas, int x, int y, int width, int height, uint32_t color)
+void gui_draw_vline(const GuiPen* pen, int x, int y, int length, uint32_t color)
 {
-	gui_draw_hline(canvas, x, y, width, color);
-	gui_draw_hline(canvas, x, y + height - 1, width, color);
-	gui_draw_vline(canvas, x, y, height, color);
-	gui_draw_vline(canvas, x + width - 1, y, height, color);
-}
-
-void gui_draw_line(GuiCanvas* canvas, int x0, int y0, int x1, int y1, uint32_t color)
-{
-	const int delta_x = abs(x1 - x0);
-	const int delta_y = -abs(y1 - y0);
-	const int step_x = x0 < x1 ? 1 : -1;
-	const int step_y = y0 < y1 ? 1 : -1;
-	int error = delta_x + delta_y;
-
-	while(true)
-	{
-		gui_draw_pixel(canvas, x0, y0, color);
-
-		if(x0 == x1 && y0 == y1)
-			return;
-
-		const int doubled = error * 2;
-
-		if(doubled >= delta_y)
-		{
-			error += delta_y;
-			x0 += step_x;
-		}
-
-		if(doubled <= delta_x)
-		{
-			error += delta_x;
-			y0 += step_y;
-		}
-	}
+	gui_draw_fill_rect(pen, x, y, 1, length, color);
 }
 
 int gui_draw_text_width(const char* text, int scale)
 {
 	const int length = (int)strlen(text);
-
 	if(length == 0)
 		return 0;
 
-	// The last glyph has no trailing gap.
 	return (length * FONT_ADVANCE - 1) * scale;
 }
 
-void gui_draw_text(GuiCanvas* canvas, int x, int y, const char* text, uint32_t color, int scale)
+void gui_draw_text(const GuiPen* pen, int x, int y, const char* text, uint32_t color, int scale)
 {
 	for(; *text != '\0'; text++)
 	{
-		_up_draw_glyph(canvas, x, y, *text, color, scale);
+		uct__draw_glyph(pen, x, y, *text, color, scale);
 		x += FONT_ADVANCE * scale;
 	}
 }
 
-void gui_draw_text_centered(GuiCanvas* canvas, int center_x, int y, const char* text, uint32_t color, int scale)
+void gui_draw_text_centered(const GuiPen* pen, int center_x, int y, const char* text, uint32_t color, int scale)
 {
-	gui_draw_text(canvas, center_x - gui_draw_text_width(text, scale) / 2, y, text, color, scale);
+	gui_draw_text(pen, center_x - gui_draw_text_width(text, scale) / 2, y, text, color, scale);
 }
 
 #pragma endregion

@@ -7,8 +7,8 @@ typedef struct PresetValue
 typedef struct FactoryPreset
 {
 	const char* name;
-	const char* sample; // NULL unless the patch plays a PCM sample.
-	const PresetValue* values; // Only what differs from the defaults; ends with PARAM_COUNT.
+	const char* sample;
+	const PresetValue* values;
 } FactoryPreset;
 
 #define PRESET_END { PARAM_COUNT, 0.0 }
@@ -155,7 +155,7 @@ static const PresetValue k_preset_wave_organ[] =
 static const FactoryPreset k_factory_presets[] =
 {
 	{ "INIT", NULL, k_preset_init },
-	{ "NES LEAD", NULL, k_preset_nes_lead },
+	{ "Whine", NULL, k_preset_nes_lead },
 	{ "PWM PAD", NULL, k_preset_pwm_pad },
 	{ "TRI BASS", NULL, k_preset_tri_bass },
 	{ "SAW BASS", NULL, k_preset_saw_bass },
@@ -176,7 +176,7 @@ static const FactoryPreset k_factory_presets[] =
 
 #pragma region Private API
 
-static void _up_preset_defaults(PresetEntry* entry)
+static void uct__preset_defaults(PresetEntry* entry)
 {
 	for(int i = 0; i < PARAM_COUNT; i++)
 	{
@@ -186,13 +186,13 @@ static void _up_preset_defaults(PresetEntry* entry)
 	entry->sample_name[0] = '\0';
 }
 
-static void _up_add_factory(PresetList* list, const FactoryPreset* factory)
+static void uct__add_factory(PresetList* list, const FactoryPreset* factory)
 {
 	PresetEntry* entry = &list->entries[list->count];
 	memset(entry, 0, sizeof(*entry));
 
 	snprintf(entry->name, sizeof(entry->name), "%s", factory->name);
-	_up_preset_defaults(entry);
+	uct__preset_defaults(entry);
 
 	for(const PresetValue* value = factory->values; value->id != PARAM_COUNT; value++)
 	{
@@ -217,7 +217,7 @@ PresetList* presets_create(void)
 
 	for(size_t i = 0; i < ARRAY_COUNT(k_factory_presets); i++)
 	{
-		_up_add_factory(list, &k_factory_presets[i]);
+		uct__add_factory(list, &k_factory_presets[i]);
 	}
 
 	return list;

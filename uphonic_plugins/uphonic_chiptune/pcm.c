@@ -1,8 +1,8 @@
 #define PCM_BUILTIN_RATE 11025
 #define PCM_BUILTIN_BITS 8
-#define PCM_WAVE_CYCLE_LENGTH 32 // The classic wave-channel size: 32 steps, 4 bits each.
+#define PCM_WAVE_CYCLE_LENGTH 32
 #define PCM_WAVE_BITS 4
-#define PCM_WAVE_RATE 8372 // 32 steps * 261.625 Hz, so the root key (C4) plays at its own pitch.
+#define PCM_WAVE_RATE 8372 // 32 steps * 261.625 Hz (C4)
 #define PCM_PI 3.14159265358979323846
 
 typedef struct PcmBuilder
@@ -16,9 +16,8 @@ typedef struct PcmBuilder
 
 #pragma region Private API
 
-static float _up_builder_noise(PcmBuilder* builder)
+static float uct__builder_noise(PcmBuilder* builder)
 {
-	// xorshift: the same noise every run, so the built-in sounds never change between sessions.
 	uint32_t x = builder->noise_state;
 	x ^= x << 13;
 	x ^= x >> 17;
@@ -28,10 +27,9 @@ static float _up_builder_noise(PcmBuilder* builder)
 	return (float)(x & 0xFFFF) / 32768.0f - 1.0f;
 }
 
-static float _up_quantize(float value, int bits)
+static float uct__quantize(float value, int bits)
 {
 	const float levels = (float)((1 << (bits - 1)) - 1);
-
 	if(value > 1.0f)
 		value = 1.0f;
 
@@ -41,18 +39,17 @@ static float _up_quantize(float value, int bits)
 	return roundf(value * levels) / levels;
 }
 
-static bool _up_builder_begin(PcmBuilder* builder, double seconds, uint32_t rate)
+static bool uct__builder_begin(PcmBuilder* builder, double seconds, uint32_t rate)
 {
 	builder->rate = rate;
 	builder->length = (uint32_t)(seconds * rate);
 	builder->noise_state = 0x1234ABCDu;
 	builder->previous_noise = 0.0f;
 	builder->data = (float*)calloc(builder->length, sizeof(float));
-
 	return builder->data != NULL;
 }
 
-static void _up_add_sample(PcmBank* bank, const char* name, PcmBuilder* builder, int bits, int root_key)
+static void uct__add_sample(PcmBank* bank, const char* name, PcmBuilder* builder, int bits, int root_key)
 {
 	if(builder->data == NULL || bank->count >= PCM_MAX_SAMPLES)
 	{
@@ -62,7 +59,7 @@ static void _up_add_sample(PcmBank* bank, const char* name, PcmBuilder* builder,
 
 	for(uint32_t i = 0; i < builder->length; i++)
 	{
-		builder->data[i] = _up_quantize(builder->data[i], bits);
+		builder->data[i] = uct__quantize(builder->data[i], bits);
 	}
 
 	PcmSample* sample = &bank->samples[bank->count];
@@ -74,10 +71,10 @@ static void _up_add_sample(PcmBank* bank, const char* name, PcmBuilder* builder,
 	bank->count++;
 }
 
-static void _up_build_kick(PcmBank* bank)
+static void uct__build_kick(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
 		return;
 
 	double phase = 0.0;
@@ -89,67 +86,63 @@ static void _up_build_kick(PcmBank* bank)
 		b.data[i] = (float)(sin(phase) * exp(-t * 9.0));
 	}
 
-	_up_add_sample(bank, "KICK", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "KICK", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_snare(PcmBank* bank)
+static void uct__build_snare(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.22, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.22, PCM_BUILTIN_RATE))
 		return;
 
 	for(uint32_t i = 0; i < b.length; i++)
 	{
 		const double t = (double)i / b.rate;
 		const double tone = sin(2.0 * PCM_PI * 185.0 * t) * exp(-t * 30.0) * 0.6;
-		b.data[i] = (float)(_up_builder_noise(&b) * exp(-t * 22.0) * 0.7 + tone);
+		b.data[i] = (float)(uct__builder_noise(&b) * exp(-t * 22.0) * 0.7 + tone);
 	}
 
-	_up_add_sample(bank, "SNARE", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "SNARE", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_hat(PcmBank* bank)
+static void uct__build_hat(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.08, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.08, PCM_BUILTIN_RATE))
 		return;
 
 	for(uint32_t i = 0; i < b.length; i++)
 	{
 		const double t = (double)i / b.rate;
-		const float noise = _up_builder_noise(&b);
-
-		// Subtracting the previous sample keeps only the fast changes: a cheap high-pass.
+		const float noise = uct__builder_noise(&b);
 		b.data[i] = (float)((noise - b.previous_noise) * 0.5 * exp(-t * 60.0));
 		b.previous_noise = noise;
 	}
 
-	_up_add_sample(bank, "HAT", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "HAT", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_clap(PcmBank* bank)
+static void uct__build_clap(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.25, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.25, PCM_BUILTIN_RATE))
 		return;
 
 	for(uint32_t i = 0; i < b.length; i++)
 	{
 		const double t = (double)i / b.rate;
-
-		// Three quick bursts and then the tail.
 		const double burst = fmod(t, 0.012) < 0.008 && t < 0.036 ? exp(-fmod(t, 0.012) * 90.0) : 0.0;
 		const double tail = t >= 0.036 ? exp(-(t - 0.036) * 22.0) * 0.8 : 0.0;
-		b.data[i] = (float)(_up_builder_noise(&b) * (burst + tail) * 0.8);
+		b.data[i] = (float)(uct__builder_noise(&b) * (burst + tail) * 0.8);
 	}
 
-	_up_add_sample(bank, "CLAP", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "CLAP", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_tom(PcmBank* bank)
+static void uct__build_tom(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
 		return;
 
 	double phase = 0.0;
@@ -161,13 +154,13 @@ static void _up_build_tom(PcmBank* bank)
 		b.data[i] = (float)(sin(phase) * exp(-t * 7.0));
 	}
 
-	_up_add_sample(bank, "TOM", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "TOM", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_zap(PcmBank* bank)
+static void uct__build_zap(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.25, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.25, PCM_BUILTIN_RATE))
 		return;
 
 	double phase = 0.0;
@@ -179,13 +172,13 @@ static void _up_build_zap(PcmBank* bank)
 		b.data[i] = (float)(sin(phase) * (1.0 - t / 0.25));
 	}
 
-	_up_add_sample(bank, "ZAP", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "ZAP", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_coin(PcmBank* bank)
+static void uct__build_coin(PcmBank* bank)
 {
 	PcmBuilder b;
-	if(!_up_builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
+	if(!uct__builder_begin(&b, 0.30, PCM_BUILTIN_RATE))
 		return;
 
 	for(uint32_t i = 0; i < b.length; i++)
@@ -196,11 +189,10 @@ static void _up_build_coin(PcmBank* bank)
 		b.data[i] = (float)((fmod(t * frequency, 1.0) < 0.5 ? 0.8 : -0.8) * envelope);
 	}
 
-	_up_add_sample(bank, "COIN", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, "COIN", &b, PCM_BUILTIN_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-// A single cycle meant to be looped, like the wave channel on the handheld consoles.
-static void _up_build_wave(PcmBank* bank, const char* name, const double* harmonics, int harmonic_count)
+static void uct__build_wave(PcmBank* bank, const char* name, const double* harmonics, int harmonic_count)
 {
 	PcmBuilder b;
 	b.rate = PCM_WAVE_RATE;
@@ -214,7 +206,6 @@ static void _up_build_wave(PcmBank* bank, const char* name, const double* harmon
 	{
 		double value = 0.0;
 		double total = 0.0;
-
 		for(int h = 0; h < harmonic_count; h++)
 		{
 			value += harmonics[h] * sin(2.0 * PCM_PI * (h + 1) * i / b.length);
@@ -224,23 +215,22 @@ static void _up_build_wave(PcmBank* bank, const char* name, const double* harmon
 		b.data[i] = (float)(value / total);
 	}
 
-	_up_add_sample(bank, name, &b, PCM_WAVE_BITS, PCM_DEFAULT_ROOT_KEY);
+	uct__add_sample(bank, name, &b, PCM_WAVE_BITS, PCM_DEFAULT_ROOT_KEY);
 }
 
-static void _up_build_builtins(PcmBank* bank)
+static void uct__build_builtins(PcmBank* bank)
 {
 	static const double k_sine[] = { 1.0 };
 	static const double k_organ[] = { 1.0, 0.5, 0.35, 0.2 };
-
-	_up_build_kick(bank);
-	_up_build_snare(bank);
-	_up_build_hat(bank);
-	_up_build_clap(bank);
-	_up_build_tom(bank);
-	_up_build_zap(bank);
-	_up_build_coin(bank);
-	_up_build_wave(bank, "SINE4", k_sine, 1);
-	_up_build_wave(bank, "ORGAN4", k_organ, 4);
+	uct__build_kick(bank);
+	uct__build_snare(bank);
+	uct__build_hat(bank);
+	uct__build_clap(bank);
+	uct__build_tom(bank);
+	uct__build_zap(bank);
+	uct__build_coin(bank);
+	uct__build_wave(bank, "SINE4", k_sine, 1);
+	uct__build_wave(bank, "ORGAN4", k_organ, 4);
 }
 
 #pragma endregion
@@ -253,7 +243,7 @@ PcmBank* pcm_bank_create(void)
 	if(bank == NULL)
 		return NULL;
 
-	_up_build_builtins(bank);
+	uct__build_builtins(bank);
 	return bank;
 }
 

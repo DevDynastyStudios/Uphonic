@@ -29,8 +29,6 @@
 #include "gui_draw.c"
 #include "gui_view.c"
 
-// The on-screen keyboard plays on its own port so it can never collide with
-// notes that arrive from the host.
 #define GUI_NOTE_PORT 100
 #define GUI_NOTE_CHANNEL 0
 #define GUI_NOTE_VELOCITY 0.8
@@ -41,7 +39,7 @@ static const char* const k_features[] = { "instrument", "synthesizer", "stereo",
 
 #pragma region Private API
 
-static void _up_drain_gui_notes(Plugin* plugin)
+static void uct__drain_gui_notes(Plugin* plugin)
 {
 	QueuedNote note;
 
@@ -54,7 +52,7 @@ static void _up_drain_gui_notes(Plugin* plugin)
 	}
 }
 
-static void* _up_create(Upl_Plugin* upl)
+static void* uct__create(Upl_Plugin* upl)
 {
 	Plugin* plugin = (Plugin*)calloc(1, sizeof(Plugin));
 	if(plugin == NULL)
@@ -80,7 +78,7 @@ static void* _up_create(Upl_Plugin* upl)
 	return plugin;
 }
 
-static void _up_destroy(Upl_Plugin* upl)
+static void uct__destroy(Upl_Plugin* upl)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 	if(plugin == NULL)
@@ -93,7 +91,7 @@ static void _up_destroy(Upl_Plugin* upl)
 	free(plugin);
 }
 
-static void _up_activate(Upl_Plugin* upl, double sample_rate, uint32_t max_frame_count)
+static void uct__activate(Upl_Plugin* upl, double sample_rate, uint32_t max_frame_count)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 	if(plugin == NULL)
@@ -102,7 +100,7 @@ static void _up_activate(Upl_Plugin* upl, double sample_rate, uint32_t max_frame
 	synth_activate(plugin->synth, sample_rate, max_frame_count);
 }
 
-static void _up_deactivate(Upl_Plugin* upl)
+static void uct__deactivate(Upl_Plugin* upl)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 	if(plugin == NULL)
@@ -111,7 +109,7 @@ static void _up_deactivate(Upl_Plugin* upl)
 	synth_deactivate(plugin->synth);
 }
 
-static void _up_process(Upl_Plugin* upl, const Upl_AudioBlock* block)
+static void uct__process(Upl_Plugin* upl, const Upl_AudioBlock* block)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 
@@ -129,12 +127,12 @@ static void _up_process(Upl_Plugin* upl, const Upl_AudioBlock* block)
 	params_read_synth(plugin, &params);
 	synth_set_params(plugin->synth, &params);
 
-	_up_drain_gui_notes(plugin);
+	uct__drain_gui_notes(plugin);
 
 	synth_render(plugin->synth, block->outputs[0], block->outputs[1], block->frame_count);
 }
 
-static void _up_note(Upl_Plugin* upl, const Upl_NoteEvent* event)
+static void uct__note(Upl_Plugin* upl, const Upl_NoteEvent* event)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 	if(plugin == NULL)
@@ -156,7 +154,7 @@ static void _up_note(Upl_Plugin* upl, const Upl_NoteEvent* event)
 	}
 }
 
-static void _up_ui(Upl_Plugin* upl)
+static void uct__ui(Upl_Plugin* upl)
 {
 	Plugin* plugin = (Plugin*)upl_user_data(upl);
 	if(plugin == NULL)
@@ -190,13 +188,13 @@ const Upl_Descriptor upl_descriptor =
 	.note_input = true,
 	.gui_width = GUI_LOGICAL_WIDTH * GUI_BASE_PIXEL_SCALE,
 	.gui_height = GUI_LOGICAL_HEIGHT * GUI_BASE_PIXEL_SCALE,
-	.create = _up_create,
-	.destroy = _up_destroy,
-	.activate = _up_activate,
-	.deactivate = _up_deactivate,
-	.process = _up_process,
-	.note = _up_note,
-	.ui = _up_ui,
+	.create = uct__create,
+	.destroy = uct__destroy,
+	.activate = uct__activate,
+	.deactivate = uct__deactivate,
+	.process = uct__process,
+	.note = uct__note,
+	.ui = uct__ui,
 };
 
 #pragma endregion

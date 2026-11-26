@@ -177,43 +177,34 @@ static void upl__stroke_round_rect(float x, float y, float width, float height, 
 	{
 		if (sides & LEAF_SIDE_TOP)
 			upl__fill_round_rect(x, y, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
+
 		if (sides & LEAF_SIDE_BOTTOM)
 			upl__fill_round_rect(x, y + height - line_width, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
+
 		if (sides & LEAF_SIDE_LEFT)
 			upl__fill_round_rect(x, y, line_width, height, color, 0.0f, LEAF_CORNER_NONE);
+
 		if (sides & LEAF_SIDE_RIGHT)
 			upl__fill_round_rect(x + width - line_width, y, line_width, height, color, 0.0f, LEAF_CORNER_NONE);
+
+		return;
+	}
+
+	const bool square = rounding <= 0.0f || corners == LEAF_CORNER_NONE;
+	const bool whole = x == floorf(x) && y == floorf(y) && width == floorf(width) && height == floorf(height) && line_width == floorf(line_width);
+	if (square && whole && line_width * 2.0f < fminf(width, height))
+	{
+		const float side_height = height - line_width * 2.0f;
+		upl__fill_round_rect(x, y, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
+		upl__fill_round_rect(x, y + height - line_width, width, line_width, color, 0.0f, LEAF_CORNER_NONE);
+		upl__fill_round_rect(x, y + line_width, line_width, side_height, color, 0.0f, LEAF_CORNER_NONE);
+		upl__fill_round_rect(x + width - line_width, y + line_width, line_width, side_height, color, 0.0f, LEAF_CORNER_NONE);
 		return;
 	}
 
 	Upl_Clip b;
 	if (!upl__bounds(x, y, x + width, y + height, &b))
 		return;
-
-	float outer[4];
-	float inner[4];
-	upl__corner_radii(width, height, rounding, corners, outer);
-	for (int32_t i = 0; i < 4; i++)
-		inner[i] = fmaxf(outer[i] - line_width, 0.0f);
-
-	const float hx = width * 0.5f;
-	const float hy = height * 0.5f;
-	const float cx = x + hx;
-	const float cy = y + hy;
-	const float inner_hx = fmaxf(hx - line_width, 0.0f);
-	const float inner_hy = fmaxf(hy - line_width, 0.0f);
-
-	for (int32_t py = b.y0; py < b.y1; py++)
-	{
-		const float fy = (float)py + 0.5f;
-		for (int32_t px = b.x0; px < b.x1; px++)
-		{
-			const float fx = (float)px + 0.5f;
-			const float outside = upl__clamp01(0.5f - upl__sd_round_box(fx, fy, cx, cy, hx, hy, outer));
-			const float hole = (inner_hx > 0.0f && inner_hy > 0.0f) ? upl__clamp01(0.5f - upl__sd_round_box(fx, fy, cx, cy, inner_hx, inner_hy, inner)) : 0.0f;
-			upl__plot(px, py, color, outside * (1.0f - hole));
-		}
-	}
 }
 
 static void upl__fill_shadow(float x, float y, float width, float height, Leaf_Color color, float blur, float rounding, Leaf_Corners corners)
@@ -665,16 +656,20 @@ void upl_stroke_arc(float cx, float cy, float radius, float start_angle, float e
 			const float fx = (float)px + 0.5f;
 			const float dx = fx - cx;
 			const float dy = fy - cy;
+			const float radial = fabsf(sqrtf(dx * dx + dy * dy) - radius);
+
+			if (radial > half + 0.5f)
+				continue;
+
 			float angle = atan2f(dy, dx) - start_angle;
 			angle = fmodf(angle, two_pi);
+
 			if (angle < 0.0f)
 				angle += two_pi;
 
 			float distance;
 			if (angle <= sweep)
-			{
-				distance = fabsf(sqrtf(dx * dx + dy * dy) - radius);
-			}
+				distance = radial;
 			else
 			{
 				const float ds = sqrtf((fx - sx) * (fx - sx) + (fy - sy) * (fy - sy));

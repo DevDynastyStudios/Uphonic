@@ -1,10 +1,6 @@
 #pragma once
 
-// One producer thread and one consumer thread, no locks. The UI thread is the
-// producer and the audio thread the consumer: the audio thread must never wait
-// on the UI. A full queue drops the new note instead of blocking.
-
-#define NOTE_QUEUE_CAPACITY 256 // Power of two, so the index math is a mask.
+#define NOTE_QUEUE_CAPACITY 256
 
 typedef struct QueuedNote
 {

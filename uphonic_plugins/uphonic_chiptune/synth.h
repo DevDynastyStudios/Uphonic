@@ -1,18 +1,7 @@
 #pragma once
 
-// Knows nothing about CLAP, so it can be unit tested or reused. Every sound is
-// generated here by hand (pulse, stepped triangle, saw, LFSR noise); there is
-// no ma_device and no miniaudio generator involved. The HOST owns the audio
-// device and calls us when it wants samples.
-//
-// Threading: everything runs on the audio thread, except synth_create,
-// synth_destroy, synth_activate and synth_deactivate (main thread, not while
-// processing) and the three UI readers at the bottom (any thread). Nothing
-// after activation allocates, locks, or touches files.
-
 #define SYNTH_GAIN_MIN_DB (-60.0)
 
-// CLAP's -1: no id on note-on, wildcard on note-off and choke.
 #define SYNTH_UNSPECIFIED (-1)
 
 #define SYNTH_SCOPE_SIZE 2048
@@ -72,7 +61,7 @@ typedef struct SynthParams
 {
 	double gain_db;
 	int waveform;
-	double shape; // Pulse width, triangle skew, saw bend or noise density: 0.5 is the plain wave in every case.
+	double shape;
 	double shape_mod_depth;
 	double shape_mod_rate;
 	double attack_ms;
@@ -93,20 +82,17 @@ typedef struct SynthParams
 	double glide_ms;
 	int pcm_sample;
 	int pcm_loop;
-	int pcm_keys; // 1: the sample follows the keys, 0: every key plays it at the same pitch.
+	int pcm_keys;
 	double pcm_tune;
 } SynthParams;
 
 Synth* synth_create(void);
 void synth_destroy(Synth* synth);
 
-// max_frames is the host's per-call maximum; it sizes the scratch buffer.
 bool synth_activate(Synth* synth, double sample_rate, uint32_t max_frames);
 void synth_deactivate(Synth* synth);
 void synth_reset(Synth* synth);
 
-// Cheap enough to call every block. Playing notes pick up envelope, vibrato,
-// arpeggio and lo-fi changes live; the waveform applies to NEW notes.
 void synth_set_params(Synth* synth, const SynthParams* params);
 
 // The sample channel's data. Safe to call while playing as long as the old bank stays alive until the audio stops.
@@ -120,15 +106,14 @@ void synth_note_off(Synth* synth, int32_t note_id, int16_t port, int16_t channel
 void synth_note_choke(Synth* synth, int32_t note_id, int16_t port, int16_t channel, int16_t key);
 void synth_all_notes_off(Synth* synth);
 
-// A short fixed tone mixed in after the gain, so it is audible whatever the parameters are.
 void synth_start_test_tone(Synth* synth);
 
-// Overwrites left and right, it does not mix into them.
+// Overwrites left and right, does not mix them.
 void synth_render(Synth* synth, float* left, float* right, uint32_t frame_count);
 
 bool synth_pop_ended(Synth* synth, SynthEndedNote* out);
 
-// Copies the newest samples of the output, oldest first. Returns how many were written.
+// Copies the newest samples of the output, oldest -> newest. Returns how many were written.
 uint32_t synth_scope_copy(const Synth* synth, float* out, uint32_t count);
 uint32_t synth_active_voice_count(const Synth* synth);
 void synth_active_keys(const Synth* synth, uint64_t* low, uint64_t* high);
