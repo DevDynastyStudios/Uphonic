@@ -1357,10 +1357,6 @@ static void uph_render_track(const Uph_RenderContext *ctx, Uph_Track *track, flo
     const ma_uint32 frame_count = ctx->frame_count;
     const uint32_t max_frame_count = ctx->max_frame_count;
 
-    track->peak_left = 0.0f;
-    track->peak_right = 0.0f;
-
-
     const bool audible = uph_track_is_audible(project, track);
     if (!audible && track->type != UPH_RESOURCE_PATTERN && track->type != UPH_RESOURCE_GROUP)
     {
